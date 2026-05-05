@@ -1,24 +1,51 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/yamadashy/pdfvision/main/logo.png" alt="pdfvision" width="160" />
+  <img src="https://raw.githubusercontent.com/yamadashy/pdfvision/main/logo.png" alt="pdfvision" width="180" />
   <h1>pdfvision</h1>
   <p>
-    <b>Extract text, metadata, and page images from PDF files. Designed for AI agents.</b>
+    <b>See PDFs the way AI agents need them — text, metadata, and page images, in one command.</b>
   </p>
 </div>
 
-## Features
+<hr />
 
-- **Text extraction** with line breaks preserved
-- **Metadata extraction** (title, author, subject, creator)
-- **Page range selection** (`1-5`, `3`, `1,3,5`)
-- **Page rendering** to PNG (`--render`) for multimodal LLMs
-- **Output formats**: human-readable `text` and structured `json`
-- **Cache-first**: same PDF is parsed once, then served instantly from a `pdfvision/<hash>/` directory under the OS temp dir
+[![npm](https://img.shields.io/npm/v/pdfvision.svg?maxAge=1000)](https://www.npmjs.com/package/pdfvision)
+[![npm downloads](https://img.shields.io/npm/dm/pdfvision)](https://www.npmjs.com/package/pdfvision)
+[![CI](https://github.com/yamadashy/pdfvision/actions/workflows/ci.yml/badge.svg)](https://github.com/yamadashy/pdfvision/actions/workflows/ci.yml)
+[![License](https://img.shields.io/npm/l/pdfvision)](LICENSE)
 
-## Quick Start
+🔍 **pdfvision** is a CLI and library that turns PDFs into AI-friendly output.
+It extracts text with original line breaks, pulls out metadata, and — when you need it — renders each page to a PNG so multimodal LLMs (Claude, GPT-4o, Gemini, ...) can _see_ the document, not just read it.
+
+It's the missing piece between "I have a PDF" and "my AI agent can use it."
+
+## 🌟 Features
+
+- 📄 **Text extraction** with line breaks preserved (via [pdfjs-dist](https://github.com/mozilla/pdf.js))
+- 🏷️ **Metadata extraction** (title, author, subject, creator)
+- 🎯 **Page range selection** (`1-5`, `3`, `1,3,5`)
+- 🖼️ **Page rendering** to PNG (`--render`) for multimodal LLMs
+- 📦 **Output formats**: human-readable `text` and structured `json`
+- ⚡ **Cache-first**: same PDF is parsed once, then served instantly from a `pdfvision/<hash>/` directory under the OS temp dir
+- 🛡️ **Hardened cache**: content-addressed, POSIX `0700/0600` permissions, symlink/TOCTOU defences
+- 🪶 **Small & fast**: ~8 KB tarball, ~30 ms warm startup for `--help`/`--version`
+- 🔧 **Library API too**: structured `processDocument()` returns a typed `DocumentResult` directly
+
+## 🚀 Quick Start
+
+Run instantly without installing anything:
 
 ```bash
 npx pdfvision document.pdf
+```
+
+Or install globally:
+
+```bash
+# Install
+npm install -g pdfvision
+
+# Then run anywhere
+pdfvision document.pdf
 ```
 
 ## Usage
@@ -65,7 +92,7 @@ or images. Windows doesn't honour those mode bits — if multi-user
 isolation matters there, restrict NTFS ACLs on the cache root yourself,
 or pass `--no-cache`. `--no-cache` bypasses the cache entirely.
 
-## Why pdfvision
+## 💡 Why pdfvision
 
 Most PDF CLIs are built for humans. pdfvision is built for AI agents:
 
@@ -73,7 +100,7 @@ Most PDF CLIs are built for humans. pdfvision is built for AI agents:
 - **Multimodal-ready**: `--render` produces PNGs so visual information (charts, layouts, scanned pages) can be passed to vision-capable models
 - **Re-read friendly**: agents often inspect the same PDF many times — the cache keeps the second read instant
 
-## Library API
+## 📚 Library API
 
 The recommended entry point for library consumers is **`processDocument()`**,
 which returns a typed `DocumentResult` directly. Use it when you want to
@@ -112,11 +139,11 @@ Exports: `processDocument`, `processFile`, `parsePageRange`, `renderPage`,
 `DocumentResult` / `PageResult` / `DocumentMetadata` / `ProcessDocumentOptions` /
 `ProcessOptions` / `OutputFormat` types.
 
-## Requirements
+## 🛠️ Requirements
 
 - Node.js >= 22.13.0 (matches the floor required by `pdfjs-dist@5.7+`)
 - Native dependency: `@napi-rs/canvas` (installed automatically; ships prebuilt binaries for common platforms)
 
-## License
+## 📜 License
 
 MIT © yamadashy
