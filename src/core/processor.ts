@@ -28,7 +28,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v2',
+    format: 'structured-v3',
     render: !!input.render,
   });
   const hash = createHash('sha256').update(payload).digest('hex').slice(0, 16);
