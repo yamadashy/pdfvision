@@ -60,8 +60,12 @@ async function extractPageData(doc: PDFDocumentProxy, pageNum: number, imageOps:
     parts.push(item.str);
     if (item.hasEOL) parts.push('\n');
     const w = typeof item.width === 'number' ? item.width : 0;
-    const h = typeof item.height === 'number' ? item.height : 0;
-    textArea += w * h;
+    // pdfjs reports item.height as 0 for many PDFs (e.g. those produced by
+    // certain Office exporters); fall back to the vertical scale from the
+    // text matrix, which is effectively the glyph height in user units.
+    const reportedH = typeof item.height === 'number' ? item.height : 0;
+    const h = reportedH > 0 ? reportedH : Math.abs(item.transform?.[3] ?? 0);
+    textArea += Math.abs(w * h);
   }
   const text = parts.join('').trimEnd();
 
@@ -72,8 +76,12 @@ async function extractPageData(doc: PDFDocumentProxy, pageNum: number, imageOps:
   }
 
   const view = page.view;
-  const pageArea = (view[2] - view[0]) * (view[3] - view[1]);
-  const textCoverage = pageArea > 0 ? Math.min(1, textArea / pageArea) : 0;
+  // MediaBox is normally [minX, minY, maxX, maxY] but the spec allows the
+  // pairs in either order; use abs so a flipped box still yields a sensible
+  // area instead of falling through to 0 coverage.
+  const pageArea = Math.abs((view[2] - view[0]) * (view[3] - view[1]));
+  const rawCoverage = pageArea > 0 ? textArea / pageArea : 0;
+  const textCoverage = Math.max(0, Math.min(1, rawCoverage));
 
   return {
     text,
