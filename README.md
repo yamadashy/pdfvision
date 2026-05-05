@@ -31,7 +31,7 @@ It's the missing piece between "I have a PDF" and "my AI agent can use it."
 - 📦 **Output formats**: human-readable `text` and structured `json`
 - ⚡ **Cache-first**: same PDF is parsed once, then served instantly from a `pdfvision/<hash>/` directory under the OS temp dir
 - 🛡️ **Hardened cache**: content-addressed, POSIX `0700/0600` permissions, symlink/TOCTOU defences
-- 🪶 **Small & fast**: ~8 KB tarball, ~30 ms warm startup for `--help`/`--version`
+- 🪶 **Small & fast**: ~11 KB tarball, ~30 ms warm startup for `--help`/`--version`
 - 🔧 **Library API too**: structured `processDocument()` returns a typed `DocumentResult` directly
 
 ## 🚀 Quick Start

@@ -168,8 +168,20 @@ export async function processDocument(filePath: string, options: ProcessDocument
   const { getDocument, OPS } = await import('pdfjs-dist/legacy/build/pdf.mjs');
   // Opcodes that draw raster images. paintImageXObject covers ordinary
   // embedded images; the mask/inline variants catch the cases pdf.js
-  // splits out for transparency or inline streams.
-  const imageOps = new Set<number>([OPS.paintImageXObject, OPS.paintImageMaskXObject, OPS.paintInlineImageXObject]);
+  // splits out for transparency or inline streams. The Repeat/Group
+  // variants are emitted when pdf.js collapses several draws of the
+  // same image into one optimised op — without them, slides that tile
+  // a hero image (very common in Google Slides exports) read as
+  // imageCount = 0.
+  const imageOps = new Set<number>([
+    OPS.paintImageXObject,
+    OPS.paintImageXObjectRepeat,
+    OPS.paintImageMaskXObject,
+    OPS.paintImageMaskXObjectGroup,
+    OPS.paintImageMaskXObjectRepeat,
+    OPS.paintInlineImageXObject,
+    OPS.paintInlineImageXObjectGroup,
+  ]);
   const doc = await getDocument(filePath).promise;
   try {
     const totalPages = doc.numPages;
