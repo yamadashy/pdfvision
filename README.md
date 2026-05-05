@@ -11,6 +11,7 @@
 [![npm](https://img.shields.io/npm/v/pdfvision.svg?maxAge=1000)](https://www.npmjs.com/package/pdfvision)
 [![npm downloads](https://img.shields.io/npm/dm/pdfvision)](https://www.npmjs.com/package/pdfvision)
 [![CI](https://github.com/yamadashy/pdfvision/actions/workflows/ci.yml/badge.svg)](https://github.com/yamadashy/pdfvision/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/yamadashy/pdfvision/branch/main/graph/badge.svg)](https://codecov.io/gh/yamadashy/pdfvision)
 [![License](https://img.shields.io/npm/l/pdfvision)](LICENSE)
 
 🔍 **pdfvision** is a CLI and library that turns PDFs into AI-friendly output.

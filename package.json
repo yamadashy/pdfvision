@@ -33,7 +33,8 @@
     "lint-oxlint": "oxlint --fix",
     "lint-ts": "tsgo --noEmit",
     "lint-secretlint": "secretlint \"**/*\" --secretlintignore .gitignore",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test-coverage": "vitest run --coverage"
   },
   "keywords": [
     "pdf",
@@ -72,6 +73,7 @@
     "@types/node": "^25.5.0",
     "@types/pdfkit": "^0.17.6",
     "@typescript/native-preview": "^7.0.0-dev.20260503.1",
+    "@vitest/coverage-v8": "^4.1.5",
     "oxlint": "^1.62.0",
     "pdfkit": "^0.18.0",
     "secretlint": "^12.3.1",

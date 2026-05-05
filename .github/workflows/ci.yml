@@ -96,6 +96,31 @@ jobs:
       - run: npm ci
       - run: ./node_modules/.bin/vitest run --reporter=verbose
 
+  test-coverage:
+    name: Test coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .tool-versions
+          cache: npm
+      - run: npm ci
+      - run: npm run test-coverage
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+      - uses: codecov/codecov-action@v4
+        with:
+          fail_ci_if_error: true
+          directory: ./coverage
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
   build-and-run:
     name: Build and run (${{ matrix.os }}, Node ${{ matrix.node-version }})
     strategy:
