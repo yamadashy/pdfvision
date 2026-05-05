@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/yamadashy/pdfvision/main/logo.png" alt="pdfvision" width="180" />
+  <img src="https://raw.githubusercontent.com/yamadashy/pdfvision/main/docs/logo.png" alt="pdfvision" width="180" />
   <h1>pdfvision</h1>
   <p>
     <b>See PDFs the way AI agents need them — text, metadata, and page images, in one command.</b>
