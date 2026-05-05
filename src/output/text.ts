@@ -8,7 +8,10 @@ export function formatText(result: DocumentResult): string {
   if (result.metadata.author) lines.push(`Author: ${result.metadata.author}`);
   lines.push('---');
   for (const page of result.pages) {
-    lines.push(`\n[Page ${page.page}]\n`);
+    const coveragePct = Math.round(page.textCoverage * 100);
+    lines.push(
+      `\n[Page ${page.page}] (chars: ${page.charCount}, images: ${page.imageCount}, coverage: ${coveragePct}%)\n`,
+    );
     lines.push(page.text);
     if (page.image) lines.push(`\nImage: ${page.image}`);
   }

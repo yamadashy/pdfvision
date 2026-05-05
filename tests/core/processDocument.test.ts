@@ -28,6 +28,16 @@ describe('processDocument', () => {
     expect(result.totalPages).toBe(1);
   });
 
+  it('reports per-page density metadata so agents can spot image-only pages', async () => {
+    const result = await processDocument(SAMPLE_PDF, { noCache: true });
+    const page = result.pages[0];
+    expect(page.charCount).toBe(page.text.length);
+    expect(page.charCount).toBeGreaterThan(0);
+    expect(page.imageCount).toBeGreaterThanOrEqual(0);
+    expect(page.textCoverage).toBeGreaterThanOrEqual(0);
+    expect(page.textCoverage).toBeLessThanOrEqual(1);
+  });
+
   it('honours pages selector', async () => {
     const result = await processDocument(SAMPLE_JA_PDF, { pages: '2-3', noCache: true });
     expect(result.pages.map((p) => p.page)).toEqual([2, 3]);
