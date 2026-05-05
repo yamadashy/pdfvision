@@ -5,16 +5,21 @@ import { join } from 'node:path';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { formatJson } from '../output/json.js';
 import { formatText } from '../output/text.js';
-import type { DocumentResult, PageResult, ProcessOptions } from '../types/index.js';
+import type { DocumentResult, PageResult, ProcessDocumentOptions, ProcessOptions } from '../types/index.js';
 import { dropCached, ensurePrivateDir, getCacheDir, getCached, setCache } from './cache.js';
 import { parsePageRange } from './pageRange.js';
 
-function buildCacheKey(options: ProcessOptions): string {
+interface CacheKeyInput {
+  pages?: string;
+  render?: boolean;
+}
+
+function buildCacheKey(input: CacheKeyInput): string {
   // hashed so user-controlled `pages` cannot be used to traverse outside the cache dir
   const payload = JSON.stringify({
-    pages: options.pages ?? 'all',
+    pages: input.pages ?? 'all',
     format: 'structured',
-    render: !!options.render,
+    render: !!input.render,
   });
   const hash = createHash('sha256').update(payload).digest('hex').slice(0, 16);
   return `result_${hash}.json`;
@@ -47,7 +52,16 @@ function isUsableImage(path: string | undefined): boolean {
   }
 }
 
-export async function processFile(filePath: string, options: ProcessOptions): Promise<string> {
+/**
+ * Extract a structured representation of a PDF.
+ *
+ * Returns a `DocumentResult` so library callers can consume metadata /
+ * pages / image paths directly with full type information, without
+ * formatting + re-parsing through JSON.
+ *
+ * For the formatted (string) variant used by the CLI, see {@link processFile}.
+ */
+export async function processDocument(filePath: string, options: ProcessDocumentOptions = {}): Promise<DocumentResult> {
   const cacheDir = options.noCache ? null : getCacheDir(filePath);
 
   const cacheKey = buildCacheKey(options);
@@ -55,18 +69,16 @@ export async function processFile(filePath: string, options: ProcessOptions): Pr
     const cached = getCached(cacheDir, cacheKey);
     if (cached) {
       try {
-        // The cached payload is keyed by content hash, so the same bytes at a
-        // different path would otherwise return the original `file` value.
-        // Patch in the current invocation's path before formatting.
         const result = JSON.parse(cached) as DocumentResult;
         // For --render, ensure each referenced PNG is a regular non-empty
         // file (not a symlink, not a partial write left from a crash).
-        // If anything looks wrong, drop the entry and re-render rather
-        // than handing the caller stale or attacker-controlled paths.
         const imagesUsable = !options.render || result.pages.every((p) => isUsableImage(p.image));
         if (imagesUsable) {
+          // The cached payload is keyed by content hash, so the same bytes
+          // at a different path would otherwise return the original `file`
+          // value. Patch in the current invocation's path before returning.
           result.file = filePath;
-          return render(result, options.format);
+          return result;
         }
         dropCached(cacheDir, cacheKey);
       } catch {
@@ -134,8 +146,23 @@ export async function processFile(filePath: string, options: ProcessOptions): Pr
       setCache(cacheDir, cacheKey, JSON.stringify(result));
     }
 
-    return render(result, options.format);
+    return result;
   } finally {
     await doc.destroy();
   }
+}
+
+/**
+ * Format-applied variant of {@link processDocument}. Used by the CLI.
+ *
+ * Returns the formatted string ("text" or "json"). Library callers
+ * usually want `processDocument()` instead.
+ */
+export async function processFile(filePath: string, options: ProcessOptions): Promise<string> {
+  const result = await processDocument(filePath, {
+    pages: options.pages,
+    render: options.render,
+    noCache: options.noCache,
+  });
+  return render(result, options.format);
 }
