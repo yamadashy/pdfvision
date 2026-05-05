@@ -65,4 +65,35 @@ describe('processDocument', () => {
     const result = await pkg.processDocument(SAMPLE_PDF, { noCache: true });
     expect(result.totalPages).toBe(1);
   });
+
+  it('survives an unwriteable cache file when recovering from corruption', async () => {
+    // Cache eviction during recovery must be best-effort: even if dropping
+    // the corrupted entry fails (read-only mount, permission race, ...)
+    // the call should still extract from source and return a valid result.
+    const { writeFileSync, chmodSync, readdirSync } = await import('node:fs');
+    const { getCacheDir } = await import('../../src/core/cache.js');
+
+    // Populate cache, then corrupt it and lock the parent dir read-only
+    // so dropCached's rmSync would normally throw.
+    await processDocument(SAMPLE_PDF, { noCache: false });
+    const cacheDir = getCacheDir(SAMPLE_PDF);
+    const entries = readdirSync(cacheDir).filter((e) => e.startsWith('result_'));
+    expect(entries.length).toBeGreaterThan(0);
+    const target = resolve(cacheDir, entries[0]);
+    writeFileSync(target, '{not valid json');
+
+    if (process.platform !== 'win32') {
+      // Make the cache dir read-only so unlink fails. Restore in finally.
+      chmodSync(cacheDir, 0o500);
+    }
+    try {
+      const result = await processDocument(SAMPLE_PDF, { noCache: false });
+      expect(result.totalPages).toBe(1);
+      expect(result.pages[0].text).toContain('Hello pdfvision');
+    } finally {
+      if (process.platform !== 'win32') {
+        chmodSync(cacheDir, 0o700);
+      }
+    }
+  });
 });

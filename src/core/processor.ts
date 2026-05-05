@@ -9,13 +9,21 @@ import type { DocumentResult, PageResult, ProcessDocumentOptions, ProcessOptions
 import { dropCached, ensurePrivateDir, getCacheDir, getCached, setCache } from './cache.js';
 import { parsePageRange } from './pageRange.js';
 
+/** Inputs that determine which cached entry a request maps to. */
 interface CacheKeyInput {
   pages?: string;
   render?: boolean;
 }
 
+/**
+ * Build a deterministic, hashed cache key for the given options.
+ *
+ * The hash hides the raw `pages` string so user-controlled input cannot
+ * traverse outside the cache directory when the key is used as a file
+ * name. Format is intentionally a constant ("structured") so text-only
+ * vs json-only callers reuse the same cached payload.
+ */
 function buildCacheKey(input: CacheKeyInput): string {
-  // hashed so user-controlled `pages` cannot be used to traverse outside the cache dir
   const payload = JSON.stringify({
     pages: input.pages ?? 'all',
     format: 'structured',
@@ -25,6 +33,10 @@ function buildCacheKey(input: CacheKeyInput): string {
   return `result_${hash}.json`;
 }
 
+/**
+ * Extract the text of a single page, joining glyph runs and inserting
+ * line breaks where pdfjs reports an end-of-line marker.
+ */
 async function extractText(doc: PDFDocumentProxy, pageNum: number): Promise<string> {
   const page = await doc.getPage(pageNum);
   const content = await page.getTextContent();
@@ -37,10 +49,17 @@ async function extractText(doc: PDFDocumentProxy, pageNum: number): Promise<stri
   return parts.join('').trimEnd();
 }
 
+/** Render a structured DocumentResult into the caller-requested string format. */
 function render(result: DocumentResult, format: ProcessOptions['format']): string {
   return format === 'json' ? formatJson(result) : formatText(result);
 }
 
+/**
+ * Check whether a cached image path still points at a regular,
+ * non-empty file. Symlinks, missing files, and zero-byte placeholders
+ * (e.g. crashed mid-write) are treated as unusable so the caller can
+ * decide to re-render instead of handing out stale paths.
+ */
 function isUsableImage(path: string | undefined): boolean {
   if (!path) return false;
   try {
@@ -49,6 +68,19 @@ function isUsableImage(path: string | undefined): boolean {
     return statSync(path).size > 0;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Drop a cache entry without ever throwing. Cache eviction failures
+ * (permissions, race with another process, etc.) must not abort the
+ * surrounding extraction — we can always re-extract from source.
+ */
+function dropCachedSafe(cacheDir: string, cacheKey: string): void {
+  try {
+    dropCached(cacheDir, cacheKey);
+  } catch {
+    // Best-effort: leave the entry in place and fall through to fresh extraction.
   }
 }
 
@@ -80,11 +112,11 @@ export async function processDocument(filePath: string, options: ProcessDocument
           result.file = filePath;
           return result;
         }
-        dropCached(cacheDir, cacheKey);
+        dropCachedSafe(cacheDir, cacheKey);
       } catch {
         // Cache file is corrupted (e.g. partial write, format change between
         // versions). Drop it and fall through to a fresh extraction.
-        dropCached(cacheDir, cacheKey);
+        dropCachedSafe(cacheDir, cacheKey);
       }
     }
   }
