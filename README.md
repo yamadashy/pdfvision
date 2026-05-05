@@ -1,10 +1,10 @@
-<p align="center">
+<div align="center">
   <img src="https://raw.githubusercontent.com/yamadashy/pdfvision/main/logo.png" alt="pdfvision" width="160" />
-</p>
-
-# pdfvision
-
-A CLI tool to extract text, metadata, and page images from PDF files — designed for AI agents.
+  <h1>pdfvision</h1>
+  <p>
+    <b>Extract text, metadata, and page images from PDF files. Designed for AI agents.</b>
+  </p>
+</div>
 
 ## Features
 
