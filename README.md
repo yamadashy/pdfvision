@@ -18,6 +18,9 @@ It extracts text with original line breaks, pulls out metadata, and — when you
 
 It's the missing piece between "I have a PDF" and "my AI agent can use it."
 
+> **Mission: any PDF, read accurately by an AI agent.**
+> Native text PDFs, slide decks with rasterised content, scanned reports, multi-column papers — pdfvision aims to deliver every piece of information a PDF carries to the agent, in a form the agent can actually use. No silent gaps, no "looks fine but the body was an image" failures.
+
 ## 🌟 Features
 
 - 📄 **Text extraction** with line breaks preserved (via [pdfjs-dist](https://github.com/mozilla/pdf.js))
@@ -94,10 +97,11 @@ or pass `--no-cache`. `--no-cache` bypasses the cache entirely.
 
 ## 💡 Why pdfvision
 
-Most PDF CLIs are built for humans. pdfvision is built for AI agents:
+Most PDF CLIs are built for humans. pdfvision is built for AI agents, with one simple goal: **any PDF, read accurately**.
 
 - **Structured output** that LLMs can consume directly (JSON or annotated text)
 - **Multimodal-ready**: `--render` produces PNGs so visual information (charts, layouts, scanned pages) can be passed to vision-capable models
+- **Per-page density signal**: every page reports `chars`, `images`, and `coverage` so agents can detect "looks fine but the real content was rasterised" pages and re-extract with `--render`
 - **Re-read friendly**: agents often inspect the same PDF many times — the cache keeps the second read instant
 
 ## 📚 Library API
