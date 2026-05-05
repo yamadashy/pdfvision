@@ -49,4 +49,10 @@ describe('parsePageRange', () => {
   it('throws on empty segment', () => {
     expect(() => parsePageRange('1,,3', 10)).toThrow(/empty segment/);
   });
+
+  it('throws on a range with too many hyphens', () => {
+    // segments.length !== 2 branch — three numbers separated by hyphens
+    // is not a valid pdfvision range syntax.
+    expect(() => parsePageRange('1-2-3', 10)).toThrow(/malformed range/);
+  });
 });
