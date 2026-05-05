@@ -17,7 +17,7 @@ export interface ProcessDocumentOptions {
    * If unset, pdfvision picks a path under the cache (or OS tmp) directory.
    * The directory is created if it doesn't already exist.
    */
-  output?: string;
+  renderOutput?: string;
 }
 
 export interface ProcessOptions {
@@ -25,7 +25,7 @@ export interface ProcessOptions {
   format: OutputFormat;
   noCache: boolean;
   render?: boolean;
-  output?: string;
+  renderOutput?: string;
 }
 
 export interface PageResult {

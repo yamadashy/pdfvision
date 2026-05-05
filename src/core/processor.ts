@@ -13,7 +13,7 @@ import { parsePageRange } from './pageRange.js';
 interface CacheKeyInput {
   pages?: string;
   render?: boolean;
-  output?: string;
+  renderOutput?: string;
 }
 
 /**
@@ -31,9 +31,9 @@ function buildCacheKey(input: CacheKeyInput): string {
     // (missing newly-added page fields) are not handed out as fresh results.
     format: 'structured-v3',
     render: !!input.render,
-    // Including the resolved output dir keeps two invocations with
-    // different `--output` targets from sharing image paths.
-    output: input.output ? resolve(input.output) : null,
+    // Including the resolved render-output dir keeps two invocations with
+    // different `--render-output` targets from sharing image paths.
+    renderOutput: input.renderOutput ? resolve(input.renderOutput) : null,
   });
   const hash = createHash('sha256').update(payload).digest('hex').slice(0, 16);
   return `result_${hash}.json`;
@@ -199,11 +199,11 @@ export async function processDocument(filePath: string, options: ProcessDocument
     let imagePaths: string[] | null = null;
     if (options.render) {
       let imagesDir: string;
-      if (options.output) {
+      if (options.renderOutput) {
         // User-supplied path: don't enforce 0o700 here — the caller owns
         // their output directory and may need it readable for downstream
         // consumers. We do create it if missing.
-        imagesDir = resolve(options.output);
+        imagesDir = resolve(options.renderOutput);
         mkdirSync(imagesDir, { recursive: true });
       } else if (cacheDir) {
         imagesDir = join(cacheDir, 'images');
@@ -266,7 +266,7 @@ export async function processFile(filePath: string, options: ProcessOptions): Pr
     pages: options.pages,
     render: options.render,
     noCache: options.noCache,
-    output: options.output,
+    renderOutput: options.renderOutput,
   });
   return render(result, options.format);
 }
