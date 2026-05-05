@@ -1,0 +1,64 @@
+name: npm-publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Run in dry-run mode (no actual publish)'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .tool-versions
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check if version already published
+        shell: bash
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          if npm view "pdfvision@${PACKAGE_VERSION}" version 2>/dev/null; then
+            echo "::error::Version ${PACKAGE_VERSION} is already published to npm"
+            exit 1
+          fi
+          echo "Version ${PACKAGE_VERSION} is not yet published"
+
+      - name: Lint
+        run: |
+          npm run lint
+          # The lint scripts auto-fix; bail if that produced any
+          # uncommitted change so we never publish a build whose source
+          # diverges from main.
+          git diff --exit-code
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish (dry-run)
+        if: ${{ inputs.dry-run }}
+        run: npm publish --provenance --access public --dry-run
+
+      - name: Publish
+        if: ${{ !inputs.dry-run }}
+        run: npm publish --provenance --access public

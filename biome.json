@@ -1,0 +1,48 @@
+{
+  "$schema": "https://biomejs.dev/schemas/latest/schema.json",
+  "files": {
+    "includes": [
+      "src/**",
+      "tests/**",
+      ".github/**",
+      "**/package.json",
+      "**/biome.json",
+      "**/tsconfig.json",
+      "**/tsdown.config.ts",
+      "**/vitest.config.ts",
+      "**/.secretlintrc.json",
+      "!**/dist",
+      "!**/node_modules"
+    ]
+  },
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true
+    }
+  },
+  "formatter": {
+    "enabled": true,
+    "formatWithErrors": false,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 120
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "trailingCommas": "all",
+      "semicolons": "always"
+    }
+  },
+  "json": {
+    "parser": {
+      "allowComments": true,
+      "allowTrailingCommas": true
+    },
+    "formatter": {
+      "enabled": false
+    }
+  }
+}

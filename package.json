@@ -1,0 +1,82 @@
+{
+  "name": "pdfvision",
+  "version": "0.1.0",
+  "description": "Extract text, metadata, and page images from PDF files. Designed for AI agents.",
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "default": "./dist/index.mjs"
+    }
+  },
+  "bin": {
+    "pdfvision": "dist/bin/pdfvision.mjs"
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "prepare": "node --run build",
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "pdfvision": "node --run build && node dist/bin/pdfvision.mjs",
+    "build-fixtures": "node scripts/build-test-fixtures.mjs",
+    "lint": "node --run lint-biome && node --run lint-oxlint && node --run lint-ts && node --run lint-secretlint",
+    "lint-biome": "biome check --write",
+    "lint-oxlint": "oxlint --fix",
+    "lint-ts": "tsgo --noEmit",
+    "lint-secretlint": "secretlint \"**/*\" --secretlintignore .gitignore",
+    "test": "vitest run"
+  },
+  "keywords": [
+    "pdf",
+    "cli",
+    "text-extraction",
+    "ai",
+    "ai-agent",
+    "llm",
+    "multimodal",
+    "pdfjs"
+  ],
+  "author": "Kazuki Yamada <koukun0120@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yamadashy/pdfvision.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yamadashy/pdfvision/issues"
+  },
+  "homepage": "https://github.com/yamadashy/pdfvision",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "^0.1.97",
+    "pdfjs-dist": "^5.7.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.14",
+    "@expo-google-fonts/noto-sans-jp": "^0.4.3",
+    "@secretlint/secretlint-rule-preset-recommend": "^12.3.1",
+    "@types/node": "^25.5.0",
+    "@types/pdfkit": "^0.17.6",
+    "@typescript/native-preview": "^7.0.0-dev.20260503.1",
+    "oxlint": "^1.62.0",
+    "pdfkit": "^0.18.0",
+    "secretlint": "^12.3.1",
+    "tsdown": "^0.21.10",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.5"
+  }
+}
