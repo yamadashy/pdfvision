@@ -81,7 +81,7 @@ describe('processDocument', () => {
     // it. The next call must detect the missing image, drop the stale
     // payload, and re-render instead of returning a path the caller can't
     // use. This exercises isUsableImage + the cache-eviction branch.
-    const { unlinkSync, existsSync } = await import('node:fs');
+    const { unlinkSync } = await import('node:fs');
     const populated = await processDocument(SAMPLE_PDF, { render: true, noCache: false });
     const imagePath = populated.pages[0].image as string;
     expect(existsSync(imagePath)).toBe(true);

@@ -33,8 +33,9 @@ describe('renderer.isReusableImage (via renderPage cache-hit path)', () => {
     expect(out).toBe(path);
   });
 
-  it('refuses to reuse a symlink at the rendered-image path', async () => {
-    if (process.platform === 'win32') return; // symlink perms differ on Windows
+  // symlink perms differ on Windows — skip there so the runner reports it as
+  // skipped rather than misleadingly green.
+  it.skipIf(process.platform === 'win32')('refuses to reuse a symlink at the rendered-image path', async () => {
     const target = join(dir, 'real.png');
     writeFileSync(target, 'data');
     const link = join(dir, 'page-1.png');
