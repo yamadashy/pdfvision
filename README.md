@@ -71,16 +71,42 @@ Most PDF CLIs are built for humans. pdfvision is built for AI agents:
 
 ## Library API
 
+The recommended entry point for library consumers is **`processDocument()`**,
+which returns a typed `DocumentResult` directly. Use it when you want to
+walk pages, inspect metadata, or feed data into your own pipeline:
+
+```ts
+import { processDocument } from 'pdfvision';
+
+const result = await processDocument('./document.pdf', { pages: '1-3', render: true });
+
+console.log(result.totalPages);          // number
+console.log(result.metadata.title);      // string | null
+for (const page of result.pages) {
+  console.log(page.page, page.text);     // typed access, no JSON.parse
+  if (page.image) {
+    // PNG path on disk, only set when `render: true`
+    console.log(page.image);
+  }
+}
+```
+
+If you want the same string output the CLI prints (e.g. to pipe into another
+process or a log), use **`processFile()`**:
+
 ```ts
 import { processFile } from 'pdfvision';
 
 const text = await processFile('./document.pdf', {
-  format: 'text',
+  format: 'text',           // or 'json'
   noCache: false,
 });
 ```
 
-Exports: `processFile`, `parsePageRange`, `renderPage`, `renderPages`, `getCacheDir`, `getCached`, `setCache`, plus the `DocumentResult` / `PageResult` / `ProcessOptions` types.
+Exports: `processDocument`, `processFile`, `parsePageRange`, `renderPage`,
+`renderPages`, `getCacheDir`, `getCached`, `setCache`, plus the
+`DocumentResult` / `PageResult` / `DocumentMetadata` / `ProcessDocumentOptions` /
+`ProcessOptions` / `OutputFormat` types.
 
 ## Requirements
 
