@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
-import { lstatSync, mkdtempSync, statSync } from 'node:fs';
+import { lstatSync, mkdirSync, mkdtempSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { formatJson } from '../output/json.js';
 import { formatText } from '../output/text.js';
@@ -13,6 +13,7 @@ import { parsePageRange } from './pageRange.js';
 interface CacheKeyInput {
   pages?: string;
   render?: boolean;
+  output?: string;
 }
 
 /**
@@ -30,6 +31,9 @@ function buildCacheKey(input: CacheKeyInput): string {
     // (missing newly-added page fields) are not handed out as fresh results.
     format: 'structured-v3',
     render: !!input.render,
+    // Including the resolved output dir keeps two invocations with
+    // different `--output` targets from sharing image paths.
+    output: input.output ? resolve(input.output) : null,
   });
   const hash = createHash('sha256').update(payload).digest('hex').slice(0, 16);
   return `result_${hash}.json`;
@@ -195,7 +199,13 @@ export async function processDocument(filePath: string, options: ProcessDocument
     let imagePaths: string[] | null = null;
     if (options.render) {
       let imagesDir: string;
-      if (cacheDir) {
+      if (options.output) {
+        // User-supplied path: don't enforce 0o700 here — the caller owns
+        // their output directory and may need it readable for downstream
+        // consumers. We do create it if missing.
+        imagesDir = resolve(options.output);
+        mkdirSync(imagesDir, { recursive: true });
+      } else if (cacheDir) {
         imagesDir = join(cacheDir, 'images');
         ensurePrivateDir(imagesDir);
       } else {
@@ -256,6 +266,7 @@ export async function processFile(filePath: string, options: ProcessOptions): Pr
     pages: options.pages,
     render: options.render,
     noCache: options.noCache,
+    output: options.output,
   });
   return render(result, options.format);
 }

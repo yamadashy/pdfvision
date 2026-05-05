@@ -102,6 +102,14 @@ describe('cli', () => {
     expect(out).toMatch(/\[Page 1\] \(chars: \d+, images: \d+, coverage: \d+%\)/);
   });
 
+  it('rejects --output without --render', async () => {
+    // -o only meaningfully writes when --render is requested. Silent no-op
+    // would leave the user's empty directory looking like a tooling bug.
+    const r = await captureRun([SAMPLE_PDF, '--output', '/tmp/whatever']);
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr.join('\n')).toMatch(/--output requires --render/);
+  });
+
   it('surfaces processor errors as a clean CLI error', async () => {
     // Invalid pages selector — processor throws, CLI should turn that into
     // exit(1) + stderr message instead of an unhandled rejection.

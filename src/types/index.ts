@@ -12,6 +12,12 @@ export interface ProcessDocumentOptions {
   render?: boolean;
   /** Skip the on-disk cache, always re-extract. Defaults to `false`. */
   noCache?: boolean;
+  /**
+   * Directory to write rendered PNGs into. Only used when `render` is true.
+   * If unset, pdfvision picks a path under the cache (or OS tmp) directory.
+   * The directory is created if it doesn't already exist.
+   */
+  output?: string;
 }
 
 export interface ProcessOptions {
@@ -19,6 +25,7 @@ export interface ProcessOptions {
   format: OutputFormat;
   noCache: boolean;
   render?: boolean;
+  output?: string;
 }
 
 export interface PageResult {
