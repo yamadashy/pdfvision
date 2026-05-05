@@ -28,6 +28,15 @@ const require = createRequire(import.meta.url);
 const FONT_PATH = require.resolve('@expo-google-fonts/noto-sans-jp/400Regular/NotoSansJP_400Regular.ttf');
 
 const FIXTURE_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-ja.pdf');
+const FIXTURE_IMAGES_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-with-image.pdf');
+
+// Smallest standard valid PNG (1×1 red pixel). Embedded into the fixture
+// so pdfjs emits a paintImageXObject opcode and density tests can verify
+// imageCount > 0.
+const TINY_RED_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64',
+);
 
 // Pinning timestamps + a deterministic trailer /ID makes the generated
 // PDF byte-identical across runs. Without this, every
@@ -79,7 +88,40 @@ async function buildJapanesePdf() {
   console.log(`Wrote ${FIXTURE_OUT} (${out.byteLength} bytes)`);
 }
 
-buildJapanesePdf().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+async function buildImagePdf() {
+  const doc = new PDFDocument({
+    info: {
+      Title: 'pdfvision image fixture',
+      Author: 'pdfvision build-fixtures',
+      Subject: 'Embedded image for density-metadata tests',
+      Creator: 'pdfvision',
+      CreationDate: FIXED_DATE,
+      ModDate: FIXED_DATE,
+    },
+    autoFirstPage: false,
+  });
+  doc._id = FIXED_FILE_ID;
+
+  const chunks = [];
+  doc.on('data', (c) => chunks.push(c));
+  const done = new Promise((resolveDone, rejectDone) => {
+    doc.on('end', resolveDone);
+    doc.on('error', rejectDone);
+  });
+
+  doc.addPage().fontSize(20).text('Image fixture');
+  // Embed the same tiny PNG twice so paintImageXObject is present and we
+  // can exercise the imageCount > 1 path as well.
+  doc.image(TINY_RED_PNG, 50, 100, { width: 50, height: 50 });
+  doc.image(TINY_RED_PNG, 150, 100, { width: 50, height: 50 });
+
+  doc.end();
+  await done;
+
+  const out = Buffer.concat(chunks);
+  writeFileSync(FIXTURE_IMAGES_OUT, out);
+  console.log(`Wrote ${FIXTURE_IMAGES_OUT} (${out.byteLength} bytes)`);
+}
+
+await buildJapanesePdf();
+await buildImagePdf();

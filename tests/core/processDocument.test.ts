@@ -5,6 +5,7 @@ import { processDocument, processFile } from '../../src/core/processor.js';
 
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
 const SAMPLE_JA_PDF = resolve(__dirname, '../fixtures/sample-ja.pdf');
+const SAMPLE_WITH_IMAGE_PDF = resolve(__dirname, '../fixtures/sample-with-image.pdf');
 
 describe('processDocument', () => {
   it('returns a structured DocumentResult, no JSON parsing required', async () => {
@@ -36,6 +37,14 @@ describe('processDocument', () => {
     expect(page.imageCount).toBeGreaterThanOrEqual(0);
     expect(page.textCoverage).toBeGreaterThanOrEqual(0);
     expect(page.textCoverage).toBeLessThanOrEqual(1);
+  });
+
+  it('counts embedded raster images in imageCount', async () => {
+    // The fixture embeds the same tiny PNG twice. Without this assertion
+    // the density signal could regress to "always 0" and the silent-failure
+    // detection that motivates F1 would be useless on real-world PDFs.
+    const result = await processDocument(SAMPLE_WITH_IMAGE_PDF, { noCache: true });
+    expect(result.pages[0].imageCount).toBeGreaterThanOrEqual(2);
   });
 
   it('honours pages selector', async () => {
