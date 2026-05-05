@@ -14,6 +14,8 @@ describe('processFile', () => {
     });
     expect(result).toContain('Pages: 1');
     expect(result).toContain('Hello pdfvision');
+    // Page header carries density signal so agents can detect image-only slides.
+    expect(result).toMatch(/\[Page 1\] \(chars: \d+, images: \d+, coverage: \d+%\)/);
   });
 
   it('extracts text as JSON', async () => {

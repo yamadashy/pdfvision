@@ -25,6 +25,16 @@ export interface PageResult {
   page: number;
   text: string;
   image?: string;
+  /** Length (in code units) of `text`. Useful for detecting image-only slides. */
+  charCount: number;
+  /** Number of raster image objects drawn on the page (XObject + inline + mask). */
+  imageCount: number;
+  /**
+   * Approximate fraction of page area covered by text glyph boxes (0–1).
+   * A heuristic — items can overlap, so this is clamped to ≤ 1. Low values
+   * (e.g. < 0.05) suggest the page is dominated by images rather than text.
+   */
+  textCoverage: number;
 }
 
 export interface DocumentMetadata {

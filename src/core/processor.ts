@@ -26,27 +26,61 @@ interface CacheKeyInput {
 function buildCacheKey(input: CacheKeyInput): string {
   const payload = JSON.stringify({
     pages: input.pages ?? 'all',
-    format: 'structured',
+    // Bump when the on-disk DocumentResult shape changes so older entries
+    // (missing newly-added page fields) are not handed out as fresh results.
+    format: 'structured-v2',
     render: !!input.render,
   });
   const hash = createHash('sha256').update(payload).digest('hex').slice(0, 16);
   return `result_${hash}.json`;
 }
 
+interface PageData {
+  text: string;
+  charCount: number;
+  imageCount: number;
+  textCoverage: number;
+}
+
 /**
- * Extract the text of a single page, joining glyph runs and inserting
- * line breaks where pdfjs reports an end-of-line marker.
+ * Extract a page's text plus rough density metadata.
+ *
+ * `imageCount` and `textCoverage` let agents detect "looks fine but the
+ * real content is rasterised" pages (common in Google Slides exports)
+ * and decide whether to re-run with `--render`.
  */
-async function extractText(doc: PDFDocumentProxy, pageNum: number): Promise<string> {
+async function extractPageData(doc: PDFDocumentProxy, pageNum: number, imageOps: Set<number>): Promise<PageData> {
   const page = await doc.getPage(pageNum);
   const content = await page.getTextContent();
+
   const parts: string[] = [];
+  let textArea = 0;
   for (const item of content.items) {
     if (!('str' in item)) continue;
     parts.push(item.str);
     if (item.hasEOL) parts.push('\n');
+    const w = typeof item.width === 'number' ? item.width : 0;
+    const h = typeof item.height === 'number' ? item.height : 0;
+    textArea += w * h;
   }
-  return parts.join('').trimEnd();
+  const text = parts.join('').trimEnd();
+
+  const opList = await page.getOperatorList();
+  let imageCount = 0;
+  for (const fn of opList.fnArray) {
+    if (imageOps.has(fn)) imageCount++;
+  }
+
+  const view = page.view;
+  const pageArea = (view[2] - view[0]) * (view[3] - view[1]);
+  const textCoverage = pageArea > 0 ? Math.min(1, textArea / pageArea) : 0;
+
+  return {
+    text,
+    charCount: text.length,
+    imageCount,
+    textCoverage: Math.round(textCoverage * 1000) / 1000,
+  };
 }
 
 /** Render a structured DocumentResult into the caller-requested string format. */
@@ -123,7 +157,11 @@ export async function processDocument(filePath: string, options: ProcessDocument
 
   // pdfjs-dist is multiple MB and dominates startup time; only pull it in
   // once we've confirmed there's no cache hit and we actually need to parse.
-  const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const { getDocument, OPS } = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  // Opcodes that draw raster images. paintImageXObject covers ordinary
+  // embedded images; the mask/inline variants catch the cases pdf.js
+  // splits out for transparency or inline streams.
+  const imageOps = new Set<number>([OPS.paintImageXObject, OPS.paintImageMaskXObject, OPS.paintInlineImageXObject]);
   const doc = await getDocument(filePath).promise;
   try {
     const totalPages = doc.numPages;
@@ -154,11 +192,14 @@ export async function processDocument(filePath: string, options: ProcessDocument
 
     const pages: PageResult[] = [];
     for (let i = 0; i < pageNumbers.length; i++) {
-      const text = await extractText(doc, pageNumbers[i]);
+      const data = await extractPageData(doc, pageNumbers[i], imageOps);
       pages.push({
         page: pageNumbers[i],
-        text,
+        text: data.text,
         image: imagePaths?.[i],
+        charCount: data.charCount,
+        imageCount: data.imageCount,
+        textCoverage: data.textCoverage,
       });
     }
 
