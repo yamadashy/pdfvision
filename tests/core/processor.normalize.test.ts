@@ -20,6 +20,31 @@ describe('processDocument NFKC normalization', () => {
     expect(result.pages[0].charCount).toBe(result.pages[0].text.length);
   });
 
+  it('exposes rawText alongside text when normalization changed the string', async () => {
+    // Agents that need to diff (or audit) what the normalizer touched
+    // shouldn't have to re-run with --no-normalize. rawText is only
+    // surfaced when it actually differs from text, so already-canonical
+    // PDFs don't pay the JSON-size cost.
+    const result = await processDocument(SAMPLE_COMPAT_PDF, { noCache: true });
+    expect(result.pages[0].rawText).toBe('ＡＢＣ１２３ ｶﾅ');
+    expect(result.pages[0].text).toBe('ABC123 カナ');
+  });
+
+  it('omits rawText when text is already in canonical form', async () => {
+    // sample.pdf is plain ASCII so NFKC is a no-op and rawText would
+    // duplicate text. It must not appear on the result.
+    const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
+    const result = await processDocument(SAMPLE_PDF, { noCache: true });
+    expect(result.pages[0].rawText).toBeUndefined();
+  });
+
+  it('omits rawText when normalize: false is passed', async () => {
+    // With normalize: false, text is already the raw form; a separate
+    // rawText would be redundant.
+    const result = await processDocument(SAMPLE_COMPAT_PDF, { noCache: true, normalize: false });
+    expect(result.pages[0].rawText).toBeUndefined();
+  });
+
   it('preserves raw codepoints when normalize: false is passed', async () => {
     // Forensic / glyph-level callers can opt out and get exactly what
     // pdf.js emitted, including the compatibility codepoints.

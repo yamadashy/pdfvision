@@ -41,6 +41,13 @@ export interface ProcessOptions {
 export interface PageResult {
   page: number;
   text: string;
+  /**
+   * Pre-normalization form of `text`. Only present when NFKC normalization
+   * was applied (the default) AND it actually changed the string — i.e.
+   * the source PDF embedded compatibility codepoints. Lets agents diff
+   * the two forms without re-running with `--no-normalize`.
+   */
+  rawText?: string;
   image?: string;
   /** Length (in code units) of `text`. Useful for detecting image-only slides. */
   charCount: number;

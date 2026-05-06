@@ -56,6 +56,7 @@ function normalizeText(s: string): string {
 
 interface PageData {
   text: string;
+  rawText?: string;
   charCount: number;
   imageCount: number;
   textCoverage: number;
@@ -95,6 +96,10 @@ async function extractPageData(
   // charCount must reflect the string the caller actually receives, so
   // measure after normalization.
   const text = normalize ? normalizeText(rawText) : rawText;
+  // Only surface rawText when normalization actually changed the string —
+  // exposing it unconditionally would double JSON size for the common
+  // case of already-canonical PDFs.
+  const preservedRaw = normalize && rawText !== text ? rawText : undefined;
 
   const opList = await page.getOperatorList();
   let imageCount = 0;
@@ -112,6 +117,7 @@ async function extractPageData(
 
   return {
     text,
+    rawText: preservedRaw,
     charCount: text.length,
     imageCount,
     textCoverage: Math.round(textCoverage * 1000) / 1000,
@@ -252,6 +258,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       pages.push({
         page: pageNumbers[i],
         text: data.text,
+        ...(data.rawText !== undefined && { rawText: data.rawText }),
         image: imagePaths?.[i],
         charCount: data.charCount,
         imageCount: data.imageCount,
