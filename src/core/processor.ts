@@ -113,7 +113,12 @@ async function extractPageData(
     const h = reportedH > 0 ? reportedH : Math.abs(transform?.[3] ?? 0);
     textArea += Math.abs(w * h);
 
-    if (geometry && item.str.length > 0 && transform) {
+    // Skip whitespace-only items in spans output — pdf.js emits a span
+    // for every positioned space, which can double the array length and
+    // sometimes carries a synthetic width that exceeds the page width.
+    // The aggregate `text` already preserves the spaces, so layout
+    // analysis loses nothing; downstream agents get a cleaner signal.
+    if (geometry && item.str.trim().length > 0 && transform) {
       // pdfjs transform = [a, b, c, d, e, f]; (e, f) is the baseline origin
       // of the glyph run in PDF user-space (origin: bottom-left). Convert
       // to a top-down bbox so callers can overlay spans on the rendered

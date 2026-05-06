@@ -48,6 +48,18 @@ describe('processDocument geometry: true', () => {
     expect((normalized.pages[0].spans ?? []).length).toBe((raw.pages[0].spans ?? []).length);
   });
 
+  it('omits whitespace-only spans so downstream layout analysis sees only real text', async () => {
+    // pdf.js emits a positioned span for every literal space in the text
+    // stream. Carrying them through bloats spans 2× and can include
+    // synthetic widths that exceed the page width — filtered out here.
+    const result = await processDocument(SAMPLE_JA_PDF, { noCache: true, geometry: true });
+    for (const page of result.pages) {
+      for (const span of page.spans ?? []) {
+        expect(span.text.trim().length).toBeGreaterThan(0);
+      }
+    }
+  });
+
   it('keeps cache entries with vs without geometry separate', async () => {
     // Without the cache key bumping, the second call could return the
     // first call's payload and the spans field would be missing.
