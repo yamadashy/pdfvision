@@ -27,6 +27,14 @@ export interface ProcessDocumentOptions {
    * code points emitted by pdf.js.
    */
   normalize?: boolean;
+  /**
+   * Emit per-text-item geometry in `pages[].spans`. Off by default because
+   * spans can outnumber the textual length by 5–10× and bloat JSON output.
+   * Turn on when a downstream consumer needs to reconstruct headings,
+   * tables, multi-column reading order, or to overlay bboxes on the
+   * rendered PNG.
+   */
+  geometry?: boolean;
 }
 
 export interface ProcessOptions {
@@ -36,6 +44,30 @@ export interface ProcessOptions {
   render?: boolean;
   renderOutput?: string;
   normalize?: boolean;
+  geometry?: boolean;
+}
+
+/**
+ * One text-positioned glyph run as emitted by pdf.js. Coordinates are in
+ * PDF points and use a top-down origin (0, 0) at the top-left of the page,
+ * y increases downward — matching the rendered PNG convention so callers
+ * can overlay spans on `image` directly without flipping.
+ */
+export interface TextSpan {
+  /** Glyph run text. Already NFKC-normalized when `normalize` is on. */
+  text: string;
+  /** Top-left x in PDF points (origin: page top-left). */
+  x: number;
+  /** Top-left y in PDF points (origin: page top-left, y grows downward). */
+  y: number;
+  /** Glyph run width in PDF points. */
+  width: number;
+  /** Glyph run height in PDF points. Approximated from the text matrix when pdf.js reports 0. */
+  height: number;
+  /** Approximate font size in PDF points (max of horizontal and vertical text-matrix scales). */
+  fontSize: number;
+  /** pdf.js internal font name (e.g. `g_d0_f1`). Useful for grouping items by font. */
+  fontName?: string;
 }
 
 export interface PageResult {
@@ -66,6 +98,12 @@ export interface PageResult {
   width: number;
   /** Page height in PDF user-space units. See {@link width}. */
   height: number;
+  /**
+   * Per-text-item geometry, only present when `geometry: true` was passed.
+   * Each entry is a single pdf.js text run with its bbox + font size, in
+   * top-down coordinates so callers can overlay them on the rendered PNG.
+   */
+  spans?: TextSpan[];
 }
 
 export interface DocumentMetadata {

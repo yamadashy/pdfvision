@@ -9,4 +9,5 @@ export type {
   PageResult,
   ProcessDocumentOptions,
   ProcessOptions,
+  TextSpan,
 } from './types/index.js';

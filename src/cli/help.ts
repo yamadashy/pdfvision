@@ -12,6 +12,7 @@ Options:
                           Created if missing.
       --no-cache          Skip cache
       --no-normalize      Disable Unicode NFKC normalization (default: on)
+      --geometry          Emit per-text-item bbox + font size in pages[].spans
   -v, --version           Show version
   -h, --help              Show this help
 

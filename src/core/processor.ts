@@ -6,7 +6,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { formatJson } from '../output/json.js';
 import { formatMarkdown } from '../output/markdown.js';
 import { formatText } from '../output/text.js';
-import type { DocumentResult, PageResult, ProcessDocumentOptions, ProcessOptions } from '../types/index.js';
+import type { DocumentResult, PageResult, ProcessDocumentOptions, ProcessOptions, TextSpan } from '../types/index.js';
 import { dropCached, ensurePrivateDir, getCacheDir, getCached, setCache } from './cache.js';
 import { parsePageRange } from './pageRange.js';
 
@@ -16,6 +16,7 @@ interface CacheKeyInput {
   render?: boolean;
   renderOutput?: string;
   normalize?: boolean;
+  geometry?: boolean;
 }
 
 /**
@@ -39,6 +40,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     // Normalized vs raw text are different payloads; key them separately so
     // toggling the flag doesn't return stale text.
     normalize: input.normalize !== false,
+    geometry: !!input.geometry,
   });
   const hash = createHash('sha256').update(payload).digest('hex').slice(0, 16);
   return `result_${hash}.json`;
@@ -54,6 +56,11 @@ function normalizeText(s: string): string {
   return s.normalize('NFKC');
 }
 
+/** Round to 2 decimal places — keeps span coordinates compact in JSON. */
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
 interface PageData {
   text: string;
   rawText?: string;
@@ -62,6 +69,7 @@ interface PageData {
   textCoverage: number;
   width: number;
   height: number;
+  spans?: TextSpan[];
 }
 
 /**
@@ -76,12 +84,22 @@ async function extractPageData(
   pageNum: number,
   imageOps: Set<number>,
   normalize: boolean,
+  geometry: boolean,
 ): Promise<PageData> {
   const page = await doc.getPage(pageNum);
   const content = await page.getTextContent();
 
+  const view = page.view;
+  // MediaBox is normally [minX, minY, maxX, maxY] but the spec allows the
+  // pairs in either order; use abs so a flipped box still yields a sensible
+  // area instead of falling through to 0 coverage.
+  const width = Math.abs(view[2] - view[0]);
+  const height = Math.abs(view[3] - view[1]);
+  const yMin = Math.min(view[1], view[3]);
+
   const parts: string[] = [];
   let textArea = 0;
+  const spans: TextSpan[] = [];
   for (const item of content.items) {
     if (!('str' in item)) continue;
     parts.push(item.str);
@@ -91,8 +109,31 @@ async function extractPageData(
     // certain Office exporters); fall back to the vertical scale from the
     // text matrix, which is effectively the glyph height in user units.
     const reportedH = typeof item.height === 'number' ? item.height : 0;
-    const h = reportedH > 0 ? reportedH : Math.abs(item.transform?.[3] ?? 0);
+    const transform = item.transform;
+    const h = reportedH > 0 ? reportedH : Math.abs(transform?.[3] ?? 0);
     textArea += Math.abs(w * h);
+
+    if (geometry && item.str.length > 0 && transform) {
+      // pdfjs transform = [a, b, c, d, e, f]; (e, f) is the baseline origin
+      // of the glyph run in PDF user-space (origin: bottom-left). Convert
+      // to a top-down bbox so callers can overlay spans on the rendered
+      // PNG without flipping y.
+      const xPdf = transform[4];
+      const yBaselinePdf = transform[5];
+      // Top-edge in PDF coords sits one glyph-height above the baseline,
+      // and the page's bottom-left can sit at a non-zero MediaBox minY.
+      const yTopDown = height - (yBaselinePdf + h - yMin);
+      const fontSize = Math.max(Math.abs(transform[0]), Math.abs(transform[3]));
+      spans.push({
+        text: normalize ? normalizeText(item.str) : item.str,
+        x: round2(xPdf - view[0]),
+        y: round2(yTopDown),
+        width: round2(w),
+        height: round2(h),
+        fontSize: round2(fontSize),
+        ...(typeof item.fontName === 'string' && { fontName: item.fontName }),
+      });
+    }
   }
   const rawText = parts.join('').trimEnd();
   // charCount must reflect the string the caller actually receives, so
@@ -109,12 +150,6 @@ async function extractPageData(
     if (imageOps.has(fn)) imageCount++;
   }
 
-  const view = page.view;
-  // MediaBox is normally [minX, minY, maxX, maxY] but the spec allows the
-  // pairs in either order; use abs so a flipped box still yields a sensible
-  // area instead of falling through to 0 coverage.
-  const width = Math.abs(view[2] - view[0]);
-  const height = Math.abs(view[3] - view[1]);
   const pageArea = width * height;
   const rawCoverage = pageArea > 0 ? textArea / pageArea : 0;
   const textCoverage = Math.max(0, Math.min(1, rawCoverage));
@@ -127,8 +162,9 @@ async function extractPageData(
     textCoverage: Math.round(textCoverage * 1000) / 1000,
     // Round to 2dp; PDF dimensions are nominally integers (Letter 612×792,
     // A4 595×842) but encrypted/cropped PDFs can carry sub-point fractions.
-    width: Math.round(width * 100) / 100,
-    height: Math.round(height * 100) / 100,
+    width: round2(width),
+    height: round2(height),
+    ...(geometry && { spans }),
   };
 }
 
@@ -260,9 +296,10 @@ export async function processDocument(filePath: string, options: ProcessDocument
     }
 
     const normalize = options.normalize !== false;
+    const geometry = !!options.geometry;
     const pages: PageResult[] = [];
     for (let i = 0; i < pageNumbers.length; i++) {
-      const data = await extractPageData(doc, pageNumbers[i], imageOps, normalize);
+      const data = await extractPageData(doc, pageNumbers[i], imageOps, normalize, geometry);
       pages.push({
         page: pageNumbers[i],
         text: data.text,
@@ -273,6 +310,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
         textCoverage: data.textCoverage,
         width: data.width,
         height: data.height,
+        ...(data.spans !== undefined && { spans: data.spans }),
       });
     }
 
@@ -316,6 +354,7 @@ export async function processFile(filePath: string, options: ProcessOptions): Pr
     noCache: options.noCache,
     renderOutput: options.renderOutput,
     normalize: options.normalize,
+    geometry: options.geometry,
   });
   return render(result, options.format);
 }
