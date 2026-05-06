@@ -18,6 +18,15 @@ export interface ProcessDocumentOptions {
    * The directory is created if it doesn't already exist.
    */
   renderOutput?: string;
+  /**
+   * Apply Unicode NFKC normalization to extracted text and metadata strings.
+   * Defaults to `true`. PDFs (especially Japanese ones produced by Office /
+   * iWork) frequently embed compatibility codepoints like `⽬` (U+2F6C) in
+   * place of `目` (U+76EE), which silently break grep / diff / structured
+   * extraction downstream. Pass `false` if you specifically need the raw
+   * code points emitted by pdf.js.
+   */
+  normalize?: boolean;
 }
 
 export interface ProcessOptions {
@@ -26,6 +35,7 @@ export interface ProcessOptions {
   noCache: boolean;
   render?: boolean;
   renderOutput?: string;
+  normalize?: boolean;
 }
 
 export interface PageResult {

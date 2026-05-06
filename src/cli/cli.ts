@@ -35,6 +35,7 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
         render: { type: 'boolean', short: 'r' },
         'render-output': { type: 'string' },
         'no-cache': { type: 'boolean' },
+        'no-normalize': { type: 'boolean' },
       },
     });
     values = parsed.values as Record<string, string | boolean | undefined>;
@@ -89,6 +90,11 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
       render,
       renderOutput,
       noCache: (values['no-cache'] as boolean | undefined) ?? false,
+      // NFKC normalization is on by default — agents almost always want
+      // canonical Unicode. --no-normalize lets callers opt out for cases
+      // where the raw pdf.js code points matter (forensics, glyph-level
+      // diffing, ...).
+      normalize: !((values['no-normalize'] as boolean | undefined) ?? false),
     });
     console.log(result);
   } catch (error) {

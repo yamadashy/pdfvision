@@ -29,6 +29,7 @@ const FONT_PATH = require.resolve('@expo-google-fonts/noto-sans-jp/400Regular/No
 
 const FIXTURE_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-ja.pdf');
 const FIXTURE_IMAGES_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-with-image.pdf');
+const FIXTURE_COMPAT_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-compat.pdf');
 
 // Smallest standard valid PNG (1×1 red pixel). Embedded into the fixture
 // so pdfjs emits a paintImageXObject opcode and density tests can verify
@@ -123,5 +124,46 @@ async function buildImagePdf() {
   console.log(`Wrote ${FIXTURE_IMAGES_OUT} (${out.byteLength} bytes)`);
 }
 
+// Builds a fixture exercising Unicode NFKC normalization: title + body
+// contain compatibility codepoints (fullwidth ASCII, fullwidth digits,
+// halfwidth katakana) that must collapse to canonical forms when
+// `normalize: true` is the default.
+async function buildCompatPdf() {
+  const doc = new PDFDocument({
+    info: {
+      // Fullwidth Latin "Compat" + fullwidth digits "２０２６".
+      Title: 'Ｃｏｍｐａｔ ２０２６',
+      Author: 'pdfvision build-fixtures',
+      Subject: 'NFKC normalization fixture',
+      Creator: 'pdfvision',
+      CreationDate: FIXED_DATE,
+      ModDate: FIXED_DATE,
+    },
+    autoFirstPage: false,
+  });
+  doc._id = FIXED_FILE_ID;
+
+  const chunks = [];
+  doc.on('data', (c) => chunks.push(c));
+  const done = new Promise((resolveDone, rejectDone) => {
+    doc.on('end', resolveDone);
+    doc.on('error', rejectDone);
+  });
+
+  doc.registerFont('NotoJP', FONT_PATH);
+  // Body mixes fullwidth ASCII letters/digits and halfwidth katakana so
+  // the test can assert NFKC produced 'ABC123 カナ' (canonical) and the
+  // raw form contained the compatibility codepoints.
+  doc.addPage().font('NotoJP').fontSize(20).text('ＡＢＣ１２３ ｶﾅ');
+
+  doc.end();
+  await done;
+
+  const out = Buffer.concat(chunks);
+  writeFileSync(FIXTURE_COMPAT_OUT, out);
+  console.log(`Wrote ${FIXTURE_COMPAT_OUT} (${out.byteLength} bytes)`);
+}
+
 await buildJapanesePdf();
 await buildImagePdf();
+await buildCompatPdf();

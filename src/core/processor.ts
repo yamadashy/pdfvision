@@ -15,6 +15,7 @@ interface CacheKeyInput {
   pages?: string;
   render?: boolean;
   renderOutput?: string;
+  normalize?: boolean;
 }
 
 /**
@@ -35,9 +36,22 @@ function buildCacheKey(input: CacheKeyInput): string {
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
     renderOutput: input.renderOutput ? resolve(input.renderOutput) : null,
+    // Normalized vs raw text are different payloads; key them separately so
+    // toggling the flag doesn't return stale text.
+    normalize: input.normalize !== false,
   });
   const hash = createHash('sha256').update(payload).digest('hex').slice(0, 16);
   return `result_${hash}.json`;
+}
+
+/**
+ * Apply Unicode NFKC normalization. PDFs commonly embed compatibility
+ * codepoints (e.g. CJK Compatibility Forms `⽬` U+2F6C, halfwidth/fullwidth
+ * variants, ligatures `ﬁ`) that break grep / diff / structured extraction
+ * for downstream agents. NFKC folds them to the canonical form.
+ */
+function normalizeText(s: string): string {
+  return s.normalize('NFKC');
 }
 
 interface PageData {
@@ -54,7 +68,12 @@ interface PageData {
  * real content is rasterised" pages (common in Google Slides exports)
  * and decide whether to re-run with `--render`.
  */
-async function extractPageData(doc: PDFDocumentProxy, pageNum: number, imageOps: Set<number>): Promise<PageData> {
+async function extractPageData(
+  doc: PDFDocumentProxy,
+  pageNum: number,
+  imageOps: Set<number>,
+  normalize: boolean,
+): Promise<PageData> {
   const page = await doc.getPage(pageNum);
   const content = await page.getTextContent();
 
@@ -72,7 +91,10 @@ async function extractPageData(doc: PDFDocumentProxy, pageNum: number, imageOps:
     const h = reportedH > 0 ? reportedH : Math.abs(item.transform?.[3] ?? 0);
     textArea += Math.abs(w * h);
   }
-  const text = parts.join('').trimEnd();
+  const rawText = parts.join('').trimEnd();
+  // charCount must reflect the string the caller actually receives, so
+  // measure after normalization.
+  const text = normalize ? normalizeText(rawText) : rawText;
 
   const opList = await page.getOperatorList();
   let imageCount = 0;
@@ -223,9 +245,10 @@ export async function processDocument(filePath: string, options: ProcessDocument
       imagePaths = await renderPages(doc, pageNumbers, imagesDir);
     }
 
+    const normalize = options.normalize !== false;
     const pages: PageResult[] = [];
     for (let i = 0; i < pageNumbers.length; i++) {
-      const data = await extractPageData(doc, pageNumbers[i], imageOps);
+      const data = await extractPageData(doc, pageNumbers[i], imageOps, normalize);
       pages.push({
         page: pageNumbers[i],
         text: data.text,
@@ -236,14 +259,19 @@ export async function processDocument(filePath: string, options: ProcessDocument
       });
     }
 
+    const metaString = (raw: unknown): string | null => {
+      if (typeof raw !== 'string') return null;
+      return normalize ? normalizeText(raw) : raw;
+    };
+
     const result: DocumentResult = {
       file: filePath,
       totalPages,
       metadata: {
-        title: (info?.Title as string) ?? null,
-        author: (info?.Author as string) ?? null,
-        subject: (info?.Subject as string) ?? null,
-        creator: (info?.Creator as string) ?? null,
+        title: metaString(info?.Title),
+        author: metaString(info?.Author),
+        subject: metaString(info?.Subject),
+        creator: metaString(info?.Creator),
       },
       pages,
     };
@@ -270,6 +298,7 @@ export async function processFile(filePath: string, options: ProcessOptions): Pr
     render: options.render,
     noCache: options.noCache,
     renderOutput: options.renderOutput,
+    normalize: options.normalize,
   });
   return render(result, options.format);
 }

@@ -11,6 +11,7 @@ Options:
                           Directory for rendered PNGs (requires --render).
                           Created if missing.
       --no-cache          Skip cache
+      --no-normalize      Disable Unicode NFKC normalization (default: on)
   -v, --version           Show version
   -h, --help              Show this help
 
