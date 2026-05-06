@@ -17,6 +17,22 @@ export function formatMarkdown(result: DocumentResult): string {
   if (result.metadata.subject) lines.push(`- **Subject:** ${result.metadata.subject}`);
   if (result.metadata.creator) lines.push(`- **Creator:** ${result.metadata.creator}`);
 
+  // Overview table: density signal aggregation across the selected pages.
+  // Lets an agent eyeball outliers (image-flattened slides, blank pages,
+  // unusually dense pages) before scrolling through the body. Skipped for
+  // single-page outputs where a one-row table is just noise.
+  if (result.pages.length > 1) {
+    lines.push('');
+    lines.push('## Overview');
+    lines.push('');
+    lines.push('| Page | Chars | Images | Coverage |');
+    lines.push('| ---: | ---: | ---: | ---: |');
+    for (const page of result.pages) {
+      const coveragePct = Math.round(page.textCoverage * 100);
+      lines.push(`| ${page.page} | ${page.charCount} | ${page.imageCount} | ${coveragePct}% |`);
+    }
+  }
+
   for (const page of result.pages) {
     const coveragePct = Math.round(page.textCoverage * 100);
     lines.push('');

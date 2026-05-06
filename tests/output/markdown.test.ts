@@ -93,6 +93,36 @@ describe('formatMarkdown', () => {
     expect(out.indexOf('## Page 1')).toBeLessThan(out.indexOf('## Page 2'));
   });
 
+  it('emits an Overview density table for multi-page docs so agents can spot outliers', () => {
+    // The overview is just an aggregation of the per-page density signals
+    // already on every page section — no judgment ("needsVision",
+    // "riskLevel", ...). The agent reads it and decides themselves.
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 3,
+        pages: [
+          { page: 1, text: 'aa', charCount: 2, imageCount: 0, textCoverage: 0.4 },
+          { page: 2, text: '', charCount: 0, imageCount: 5, textCoverage: 0.02 },
+          { page: 3, text: 'b'.repeat(100), charCount: 100, imageCount: 1, textCoverage: 0.7 },
+        ],
+      }),
+    );
+    expect(out).toMatch(/## Overview/);
+    expect(out).toMatch(/\| Page \| Chars \| Images \| Coverage \|/);
+    // Row for the image-flattened page surfaces zero chars, 5 images,
+    // 2% coverage so the reader can recognise a likely-rasterised page.
+    expect(out).toMatch(/\| 2 \| 0 \| 5 \| 2% \|/);
+    // Overview comes before the per-page sections.
+    expect(out.indexOf('## Overview')).toBeLessThan(out.indexOf('## Page 1'));
+  });
+
+  it('omits the Overview table when only one page was selected', () => {
+    // A one-row table is just noise. With --pages 3 the section header
+    // already names the page so the table adds no information.
+    const out = formatMarkdown(makeResult());
+    expect(out).not.toMatch(/## Overview/);
+  });
+
   it('skips the text body for pages that had no extractable text', () => {
     // Image-only pages should still render the heading + density line so the
     // agent can see "this page had 0 chars and 3 images" instead of a silent gap.
