@@ -25,14 +25,18 @@ describe('formatMarkdown', () => {
     expect(out).not.toMatch(/\*\*Author:\*\*/);
   });
 
-  it('includes Title and Author bullets when both are present', () => {
+  it('includes every metadata bullet that is present', () => {
+    // Markdown is targeted at agent context where more metadata = more
+    // grounding, so all four DocumentMetadata fields surface as bullets.
     const out = formatMarkdown(
       makeResult({
-        metadata: { title: 'My Doc', author: 'Alice', subject: null, creator: null },
+        metadata: { title: 'My Doc', author: 'Alice', subject: 'Quarterly review', creator: 'LaTeX' },
       }),
     );
     expect(out).toMatch(/- \*\*Title:\*\* My Doc/);
     expect(out).toMatch(/- \*\*Author:\*\* Alice/);
+    expect(out).toMatch(/- \*\*Subject:\*\* Quarterly review/);
+    expect(out).toMatch(/- \*\*Creator:\*\* LaTeX/);
   });
 
   it('renders each page as ## Page N with a density signal line and the text body', () => {

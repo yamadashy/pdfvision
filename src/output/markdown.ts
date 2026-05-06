@@ -14,6 +14,8 @@ export function formatMarkdown(result: DocumentResult): string {
   lines.push(`- **Pages:** ${result.totalPages}`);
   if (result.metadata.title) lines.push(`- **Title:** ${result.metadata.title}`);
   if (result.metadata.author) lines.push(`- **Author:** ${result.metadata.author}`);
+  if (result.metadata.subject) lines.push(`- **Subject:** ${result.metadata.subject}`);
+  if (result.metadata.creator) lines.push(`- **Creator:** ${result.metadata.creator}`);
 
   for (const page of result.pages) {
     const coveragePct = Math.round(page.textCoverage * 100);
