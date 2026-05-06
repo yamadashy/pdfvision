@@ -5,7 +5,7 @@ Usage:
 
 Options:
   -p, --pages <range>     Page range (e.g. "1-5", "3", "1,3,5")
-  -f, --format <type>     Output format: text (default), json
+  -f, --format <type>     Output format: text (default), json, markdown
   -r, --render            Render pages as PNG images
       --render-output <dir>
                           Directory for rendered PNGs (requires --render).
@@ -19,4 +19,5 @@ Examples:
   pdfvision document.pdf -p 1-3
   pdfvision document.pdf -r -p 1-5
   pdfvision document.pdf -r --render-output ./images
-  pdfvision document.pdf -f json`;
+  pdfvision document.pdf -f json
+  pdfvision document.pdf -f markdown`;

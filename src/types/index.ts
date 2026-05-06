@@ -1,4 +1,4 @@
-export type OutputFormat = 'text' | 'json';
+export type OutputFormat = 'text' | 'json' | 'markdown';
 
 /**
  * Options for the structured `processDocument()` API.
