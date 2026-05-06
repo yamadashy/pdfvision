@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { formatJson } from '../output/json.js';
+import { formatMarkdown } from '../output/markdown.js';
 import { formatText } from '../output/text.js';
 import type { DocumentResult, PageResult, ProcessDocumentOptions, ProcessOptions } from '../types/index.js';
 import { dropCached, ensurePrivateDir, getCacheDir, getCached, setCache } from './cache.js';
@@ -97,7 +98,9 @@ async function extractPageData(doc: PDFDocumentProxy, pageNum: number, imageOps:
 
 /** Render a structured DocumentResult into the caller-requested string format. */
 function render(result: DocumentResult, format: ProcessOptions['format']): string {
-  return format === 'json' ? formatJson(result) : formatText(result);
+  if (format === 'json') return formatJson(result);
+  if (format === 'markdown') return formatMarkdown(result);
+  return formatText(result);
 }
 
 /**

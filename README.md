@@ -28,7 +28,7 @@ It's the missing piece between "I have a PDF" and "my AI agent can use it."
 - 🏷️ **Metadata extraction** (title, author, subject, creator)
 - 🎯 **Page range selection** (`1-5`, `3`, `1,3,5`)
 - 🖼️ **Page rendering** to PNG (`--render`) for multimodal LLMs
-- 📦 **Output formats**: human-readable `text` and structured `json`
+- 📦 **Output formats**: human-readable `text`, agent-friendly `markdown`, and structured `json`
 - ⚡ **Cache-first**: same PDF is parsed once, then served instantly from a `pdfvision/<hash>/` directory under the OS temp dir
 - 🛡️ **Hardened cache**: content-addressed, POSIX `0700/0600` permissions, symlink/TOCTOU defences
 - 🪶 **Small & fast**: ~11 KB tarball, ~30 ms warm startup for `--help`/`--version`
@@ -59,7 +59,7 @@ pdfvision <file.pdf> [options]
 
 Options:
   -p, --pages <range>   Page range (e.g. "1-5", "3", "1,3,5")
-  -f, --format <type>   Output format: text (default), json
+  -f, --format <type>   Output format: text (default), json, markdown
   -r, --render          Render pages as PNG images
       --no-cache        Skip cache
   -v, --version         Show version
@@ -81,6 +81,9 @@ pdfvision document.pdf -r -p 1-5
 
 # Get JSON output
 pdfvision document.pdf -f json
+
+# Get Markdown output (each page as ## Page N, with density signals and image links)
+pdfvision document.pdf -f markdown
 ```
 
 ### Caching
@@ -134,7 +137,7 @@ process or a log), use **`processFile()`**:
 import { processFile } from 'pdfvision';
 
 const text = await processFile('./document.pdf', {
-  format: 'text',           // or 'json'
+  format: 'text',           // or 'json' / 'markdown'
   noCache: false,
 });
 ```

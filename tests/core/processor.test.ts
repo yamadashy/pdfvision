@@ -29,6 +29,18 @@ describe('processFile', () => {
     expect(parsed.pages[0].text).toContain('Hello pdfvision');
   });
 
+  it('extracts text as markdown', async () => {
+    // Guard the format='markdown' wiring through processFile so the CLI
+    // path can't silently fall through to text on a typo in the switch.
+    const result = await processFile(SAMPLE_PDF, {
+      format: 'markdown',
+      noCache: true,
+    });
+    expect(result).toMatch(/^# .*sample\.pdf/);
+    expect(result).toMatch(/## Page 1/);
+    expect(result).toContain('Hello pdfvision');
+  });
+
   it('respects page range', async () => {
     const result = await processFile(SAMPLE_PDF, {
       pages: '1',

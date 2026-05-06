@@ -102,6 +102,17 @@ describe('cli', () => {
     expect(out).toMatch(/\[Page 1\] \(chars: \d+, images: \d+, coverage: \d+%\)/);
   });
 
+  it('prints markdown when --format markdown is requested', async () => {
+    // Guards the CLI -> processFile -> formatMarkdown wiring against
+    // accidental fallbacks to text.
+    const r = await captureRun([SAMPLE_PDF, '--format', 'markdown', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    const out = r.stdout.join('\n');
+    expect(out).toMatch(/^# .*sample\.pdf/);
+    expect(out).toMatch(/## Page 1/);
+    expect(out).toContain('Hello pdfvision');
+  });
+
   it('rejects --render-output without --render', async () => {
     // --render-output only meaningfully writes when --render is requested.
     // Silent no-op would leave the user's empty directory looking like a
