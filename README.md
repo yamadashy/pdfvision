@@ -25,9 +25,11 @@ It's the missing piece between "I have a PDF" and "my AI agent can use it."
 ## 🌟 Features
 
 - 📄 **Text extraction** with line breaks preserved (via [pdfjs-dist](https://github.com/mozilla/pdf.js))
+- 🌏 **Unicode NFKC normalization** by default, so compatibility codepoints (`⽬`, `Ａ`, `ｶﾅ`, `ﬁ`) collapse to canonical forms. Pre-normalization text surfaces in `rawText` when it differs.
 - 🏷️ **Metadata extraction** (title, author, subject, creator)
 - 🎯 **Page range selection** (`1-5`, `3`, `1,3,5`)
 - 🖼️ **Page rendering** to PNG (`--render`) for multimodal LLMs
+- 📐 **Per-text-item geometry** (`--geometry`) emits `spans[]` with bbox + font size in top-down coords, so agents can reconstruct headings, tables, and reading order
 - 📦 **Output formats**: human-readable `text`, agent-friendly `markdown`, and structured `json`
 - ⚡ **Cache-first**: same PDF is parsed once, then served instantly from a `pdfvision/<hash>/` directory under the OS temp dir
 - 🛡️ **Hardened cache**: content-addressed, POSIX `0700/0600` permissions, symlink/TOCTOU defences
@@ -58,12 +60,16 @@ pdfvision document.pdf
 pdfvision <file.pdf> [options]
 
 Options:
-  -p, --pages <range>   Page range (e.g. "1-5", "3", "1,3,5")
-  -f, --format <type>   Output format: text (default), json, markdown
-  -r, --render          Render pages as PNG images
-      --no-cache        Skip cache
-  -v, --version         Show version
-  -h, --help            Show this help
+  -p, --pages <range>     Page range (e.g. "1-5", "3", "1,3,5")
+  -f, --format <type>     Output format: text (default), json, markdown
+  -r, --render            Render pages as PNG images
+      --render-output <dir>
+                          Directory for rendered PNGs (requires --render).
+      --no-cache          Skip cache
+      --no-normalize      Disable Unicode NFKC normalization (default: on)
+      --geometry          Emit per-text-item bbox + font size in pages[].spans
+  -v, --version           Show version
+  -h, --help              Show this help
 ```
 
 ### Examples
@@ -84,7 +90,32 @@ pdfvision document.pdf -f json
 
 # Get Markdown output (each page as ## Page N, with density signals and image links)
 pdfvision document.pdf -f markdown
+
+# Emit per-text-item geometry (bbox + font size) for layout analysis
+pdfvision document.pdf -f json --geometry
 ```
+
+### Geometry / coordinates
+
+`--geometry` adds `pages[].spans` to the JSON output. Each entry is one
+`pdfjs` text run:
+
+```json
+{
+  "text": "Hello pdfvision",
+  "x": 100, "y": 68, "width": 156.05, "height": 24,
+  "fontSize": 24,
+  "fontName": "g_d0_f1"
+}
+```
+
+Coordinates use a **top-down origin** (0,0 at the top-left, y grows
+downward) in PDF user-space points. This matches the rendered PNG
+orientation, so callers can overlay spans directly. Note that the
+rendered PNG is produced at a higher pixel density than the PDF page —
+multiply span coordinates by `image.width / page.width` (and the same
+for height) to map onto pixels. Whitespace-only items are filtered out;
+the aggregate `text` field still contains all spaces.
 
 ### Caching
 
