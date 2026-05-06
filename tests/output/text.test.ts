@@ -1,13 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { formatText } from '../../src/output/text.js';
-import type { DocumentResult } from '../../src/types/index.js';
+import type { DocumentResult, PageResult } from '../../src/types/index.js';
+
+function makePage(overrides: Partial<PageResult> & Pick<PageResult, 'page'>): PageResult {
+  return {
+    text: '',
+    charCount: 0,
+    imageCount: 0,
+    textCoverage: 0,
+    width: 612,
+    height: 792,
+    ...overrides,
+  };
+}
 
 function makeResult(overrides: Partial<DocumentResult> = {}): DocumentResult {
   return {
     file: '/tmp/x.pdf',
     totalPages: 1,
     metadata: { title: null, author: null, subject: null, creator: null },
-    pages: [{ page: 1, text: 'hi', charCount: 2, imageCount: 0, textCoverage: 0.1 }],
+    pages: [makePage({ page: 1, text: 'hi', charCount: 2, textCoverage: 0.1 })],
     ...overrides,
   };
 }
@@ -32,7 +44,7 @@ describe('formatText', () => {
   it('appends Image: line when render output is present', () => {
     const out = formatText(
       makeResult({
-        pages: [{ page: 1, text: 't', charCount: 1, imageCount: 0, textCoverage: 0, image: '/tmp/p.png' }],
+        pages: [makePage({ page: 1, text: 't', charCount: 1, image: '/tmp/p.png' })],
       }),
     );
     expect(out).toMatch(/Image: \/tmp\/p\.png/);

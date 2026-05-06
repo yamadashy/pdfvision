@@ -59,6 +59,13 @@ export interface PageResult {
    * (e.g. < 0.05) suggest the page is dominated by images rather than text.
    */
   textCoverage: number;
+  /**
+   * Page width in PDF user-space units (typically PostScript points = 1/72 in).
+   * Derived from the page MediaBox via pdf.js `page.view`.
+   */
+  width: number;
+  /** Page height in PDF user-space units. See {@link width}. */
+  height: number;
 }
 
 export interface DocumentMetadata {

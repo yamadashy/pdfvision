@@ -1,13 +1,27 @@
 import { describe, expect, it } from 'vitest';
 import { formatMarkdown } from '../../src/output/markdown.js';
-import type { DocumentResult } from '../../src/types/index.js';
+import type { DocumentResult, PageResult } from '../../src/types/index.js';
+
+// US Letter dimensions in PDF points; the formatter doesn't read width/height
+// but the type now requires them, so the helper supplies a realistic default.
+function makePage(overrides: Partial<PageResult> & Pick<PageResult, 'page'>): PageResult {
+  return {
+    text: '',
+    charCount: 0,
+    imageCount: 0,
+    textCoverage: 0,
+    width: 612,
+    height: 792,
+    ...overrides,
+  };
+}
 
 function makeResult(overrides: Partial<DocumentResult> = {}): DocumentResult {
   return {
     file: '/tmp/x.pdf',
     totalPages: 1,
     metadata: { title: null, author: null, subject: null, creator: null },
-    pages: [{ page: 1, text: 'hello world', charCount: 11, imageCount: 0, textCoverage: 0.123 }],
+    pages: [makePage({ page: 1, text: 'hello world', charCount: 11, textCoverage: 0.123 })],
     ...overrides,
   };
 }
@@ -51,7 +65,7 @@ describe('formatMarkdown', () => {
   it('emits a Markdown image link when the page has a rendered PNG path', () => {
     const out = formatMarkdown(
       makeResult({
-        pages: [{ page: 1, text: 't', charCount: 1, imageCount: 0, textCoverage: 0, image: '/tmp/p.png' }],
+        pages: [makePage({ page: 1, text: 't', charCount: 1, image: '/tmp/p.png' })],
       }),
     );
     expect(out).toMatch(/!\[Page 1\]\(<\/tmp\/p\.png>\)/);
@@ -64,14 +78,12 @@ describe('formatMarkdown', () => {
     const out = formatMarkdown(
       makeResult({
         pages: [
-          {
+          makePage({
             page: 1,
             text: 't',
             charCount: 1,
-            imageCount: 0,
-            textCoverage: 0,
             image: '/tmp/my (drafts)/page 1.png',
-          },
+          }),
         ],
       }),
     );
@@ -82,10 +94,7 @@ describe('formatMarkdown', () => {
     const out = formatMarkdown(
       makeResult({
         totalPages: 2,
-        pages: [
-          { page: 1, text: 'one', charCount: 3, imageCount: 0, textCoverage: 0 },
-          { page: 2, text: 'two', charCount: 3, imageCount: 0, textCoverage: 0 },
-        ],
+        pages: [makePage({ page: 1, text: 'one', charCount: 3 }), makePage({ page: 2, text: 'two', charCount: 3 })],
       }),
     );
     // Two page sections separated by a horizontal rule.
@@ -101,9 +110,9 @@ describe('formatMarkdown', () => {
       makeResult({
         totalPages: 3,
         pages: [
-          { page: 1, text: 'aa', charCount: 2, imageCount: 0, textCoverage: 0.4 },
-          { page: 2, text: '', charCount: 0, imageCount: 5, textCoverage: 0.02 },
-          { page: 3, text: 'b'.repeat(100), charCount: 100, imageCount: 1, textCoverage: 0.7 },
+          makePage({ page: 1, text: 'aa', charCount: 2, textCoverage: 0.4 }),
+          makePage({ page: 2, text: '', charCount: 0, imageCount: 5, textCoverage: 0.02 }),
+          makePage({ page: 3, text: 'b'.repeat(100), charCount: 100, imageCount: 1, textCoverage: 0.7 }),
         ],
       }),
     );
@@ -128,7 +137,7 @@ describe('formatMarkdown', () => {
     // agent can see "this page had 0 chars and 3 images" instead of a silent gap.
     const out = formatMarkdown(
       makeResult({
-        pages: [{ page: 1, text: '', charCount: 0, imageCount: 3, textCoverage: 0 }],
+        pages: [makePage({ page: 1, imageCount: 3 })],
       }),
     );
     expect(out).toMatch(/## Page 1/);

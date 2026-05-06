@@ -31,7 +31,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v3',
+    format: 'structured-v4',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -60,6 +60,8 @@ interface PageData {
   charCount: number;
   imageCount: number;
   textCoverage: number;
+  width: number;
+  height: number;
 }
 
 /**
@@ -111,7 +113,9 @@ async function extractPageData(
   // MediaBox is normally [minX, minY, maxX, maxY] but the spec allows the
   // pairs in either order; use abs so a flipped box still yields a sensible
   // area instead of falling through to 0 coverage.
-  const pageArea = Math.abs((view[2] - view[0]) * (view[3] - view[1]));
+  const width = Math.abs(view[2] - view[0]);
+  const height = Math.abs(view[3] - view[1]);
+  const pageArea = width * height;
   const rawCoverage = pageArea > 0 ? textArea / pageArea : 0;
   const textCoverage = Math.max(0, Math.min(1, rawCoverage));
 
@@ -121,6 +125,10 @@ async function extractPageData(
     charCount: text.length,
     imageCount,
     textCoverage: Math.round(textCoverage * 1000) / 1000,
+    // Round to 2dp; PDF dimensions are nominally integers (Letter 612×792,
+    // A4 595×842) but encrypted/cropped PDFs can carry sub-point fractions.
+    width: Math.round(width * 100) / 100,
+    height: Math.round(height * 100) / 100,
   };
 }
 
@@ -263,6 +271,8 @@ export async function processDocument(filePath: string, options: ProcessDocument
         charCount: data.charCount,
         imageCount: data.imageCount,
         textCoverage: data.textCoverage,
+        width: data.width,
+        height: data.height,
       });
     }
 

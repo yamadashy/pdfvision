@@ -39,6 +39,14 @@ describe('processDocument', () => {
     expect(page.textCoverage).toBeLessThanOrEqual(1);
   });
 
+  it('reports page dimensions in points so agents can reason about layout', async () => {
+    // sample.pdf is US Letter (612 × 792 pt). Width / height let downstream
+    // consumers map render coords / future bbox data back onto the page.
+    const result = await processDocument(SAMPLE_PDF, { noCache: true });
+    expect(result.pages[0].width).toBe(612);
+    expect(result.pages[0].height).toBe(792);
+  });
+
   it('counts embedded raster images in imageCount', async () => {
     // The fixture embeds the same tiny PNG twice. Without this assertion
     // the density signal could regress to "always 0" and the silent-failure
