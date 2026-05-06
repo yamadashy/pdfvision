@@ -61,6 +61,30 @@ describe('processDocument', () => {
     expect(existsSync(result.pages[0].image as string)).toBe(true);
   });
 
+  it('writes rendered PNGs into a caller-supplied renderOutput directory', async () => {
+    // Agent ergonomics: with renderOutput the PNGs should land directly in
+    // the caller's chosen directory (created if missing) rather than tmp.
+    const { mkdtempSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join, dirname } = await import('node:path');
+    const baseTmp = mkdtempSync(join(tmpdir(), 'pdfvision-render-output-test-'));
+    const outDir = join(baseTmp, 'nested', 'images'); // not yet created
+    try {
+      const result = await processDocument(SAMPLE_PDF, {
+        render: true,
+        renderOutput: outDir,
+        noCache: true,
+      });
+      const imagePath = result.pages[0].image as string;
+      expect(imagePath).toBeTypeOf('string');
+      expect(existsSync(imagePath)).toBe(true);
+      // The PNG must be inside the requested directory, not anywhere else.
+      expect(dirname(imagePath)).toBe(outDir);
+    } finally {
+      rmSync(baseTmp, { recursive: true, force: true });
+    }
+  });
+
   it('produces the same DocumentResult that processFile then JSON.parse would', async () => {
     // Same content under both APIs is the contract.
     const direct = await processDocument(SAMPLE_PDF, { noCache: true });

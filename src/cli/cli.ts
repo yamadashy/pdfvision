@@ -33,6 +33,7 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
         pages: { type: 'string', short: 'p' },
         format: { type: 'string', short: 'f', default: 'text' },
         render: { type: 'boolean', short: 'r' },
+        'render-output': { type: 'string' },
         'no-cache': { type: 'boolean' },
       },
     });
@@ -61,6 +62,14 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
     exitWithError(`Invalid --format "${format}". Expected one of: ${VALID_FORMATS.join(', ')}`);
   }
 
+  const renderOutput = values['render-output'] as string | undefined;
+  const render = (values.render as boolean | undefined) ?? false;
+  if (renderOutput && !render) {
+    // --render-output only does something if pages are actually rendered.
+    // Failing fast is friendlier than silently writing nothing to the dir.
+    exitWithError('--render-output requires --render');
+  }
+
   const filePath = resolve(positionals[0]);
 
   try {
@@ -77,7 +86,8 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
     const result = await processFile(filePath, {
       pages: values.pages as string | undefined,
       format,
-      render: (values.render as boolean | undefined) ?? false,
+      render,
+      renderOutput,
       noCache: (values['no-cache'] as boolean | undefined) ?? false,
     });
     console.log(result);
