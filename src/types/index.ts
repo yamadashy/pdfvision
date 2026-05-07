@@ -1,4 +1,4 @@
-export type OutputFormat = 'text' | 'json' | 'markdown';
+export type OutputFormat = 'markdown' | 'json' | 'xml';
 
 /**
  * Options for the structured `processDocument()` API.
@@ -18,6 +18,23 @@ export interface ProcessDocumentOptions {
    * The directory is created if it doesn't already exist.
    */
   renderOutput?: string;
+  /**
+   * Apply Unicode NFKC normalization to extracted text and metadata strings.
+   * Defaults to `true`. PDFs (especially Japanese ones produced by Office /
+   * iWork) frequently embed compatibility codepoints like `⽬` (U+2F6C) in
+   * place of `目` (U+76EE), which silently break grep / diff / structured
+   * extraction downstream. Pass `false` if you specifically need the raw
+   * code points emitted by pdf.js.
+   */
+  normalize?: boolean;
+  /**
+   * Emit per-text-item geometry in `pages[].spans`. Off by default because
+   * spans can outnumber the textual length by 5–10× and bloat JSON output.
+   * Turn on when a downstream consumer needs to reconstruct headings,
+   * tables, multi-column reading order, or to overlay bboxes on the
+   * rendered PNG.
+   */
+  geometry?: boolean;
 }
 
 export interface ProcessOptions {
@@ -26,11 +43,43 @@ export interface ProcessOptions {
   noCache: boolean;
   render?: boolean;
   renderOutput?: string;
+  normalize?: boolean;
+  geometry?: boolean;
+}
+
+/**
+ * One text-positioned glyph run as emitted by pdf.js. Coordinates are in
+ * PDF points and use a top-down origin (0, 0) at the top-left of the page,
+ * y increases downward — matching the rendered PNG convention so callers
+ * can overlay spans on `image` directly without flipping.
+ */
+export interface TextSpan {
+  /** Glyph run text. Already NFKC-normalized when `normalize` is on. */
+  text: string;
+  /** Top-left x in PDF points (origin: page top-left). */
+  x: number;
+  /** Top-left y in PDF points (origin: page top-left, y grows downward). */
+  y: number;
+  /** Glyph run width in PDF points. */
+  width: number;
+  /** Glyph run height in PDF points. Approximated from the text matrix when pdf.js reports 0. */
+  height: number;
+  /** Approximate font size in PDF points (max of horizontal and vertical text-matrix scales). */
+  fontSize: number;
+  /** pdf.js internal font name (e.g. `g_d0_f1`). Useful for grouping items by font. */
+  fontName?: string;
 }
 
 export interface PageResult {
   page: number;
   text: string;
+  /**
+   * Pre-normalization form of `text`. Only present when NFKC normalization
+   * was applied (the default) AND it actually changed the string — i.e.
+   * the source PDF embedded compatibility codepoints. Lets agents diff
+   * the two forms without re-running with `--no-normalize`.
+   */
+  rawText?: string;
   image?: string;
   /** Length (in code units) of `text`. Useful for detecting image-only slides. */
   charCount: number;
@@ -42,6 +91,19 @@ export interface PageResult {
    * (e.g. < 0.05) suggest the page is dominated by images rather than text.
    */
   textCoverage: number;
+  /**
+   * Page width in PDF user-space units (typically PostScript points = 1/72 in).
+   * Derived from the page MediaBox via pdf.js `page.view`.
+   */
+  width: number;
+  /** Page height in PDF user-space units. See {@link width}. */
+  height: number;
+  /**
+   * Per-text-item geometry, only present when `geometry: true` was passed.
+   * Each entry is a single pdf.js text run with its bbox + font size, in
+   * top-down coordinates so callers can overlay them on the rendered PNG.
+   */
+  spans?: TextSpan[];
 }
 
 export interface DocumentMetadata {
@@ -51,9 +113,31 @@ export interface DocumentMetadata {
   creator: string | null;
 }
 
+/**
+ * Compact per-page density summary surfaced at the top of the
+ * `DocumentResult` so JSON and Markdown consumers can scan outliers
+ * (image-flattened slides, blank pages, unusually dense pages) before
+ * walking `pages[]` or scrolling the rendered body. Pure aggregation —
+ * every field also appears on the corresponding `PageResult`.
+ */
+export interface PageOverview {
+  page: number;
+  charCount: number;
+  imageCount: number;
+  textCoverage: number;
+  width: number;
+  height: number;
+}
+
 export interface DocumentResult {
   file: string;
   totalPages: number;
   metadata: DocumentMetadata;
+  /**
+   * Top-level density summary across the selected pages. Present when
+   * more than one page was extracted; omitted for single-page outputs
+   * where a one-row summary is just noise.
+   */
+  overview?: PageOverview[];
   pages: PageResult[];
 }

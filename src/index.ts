@@ -6,7 +6,9 @@ export type {
   DocumentMetadata,
   DocumentResult,
   OutputFormat,
+  PageOverview,
   PageResult,
   ProcessDocumentOptions,
   ProcessOptions,
+  TextSpan,
 } from './types/index.js';

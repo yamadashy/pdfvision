@@ -39,6 +39,33 @@ describe('processDocument', () => {
     expect(page.textCoverage).toBeLessThanOrEqual(1);
   });
 
+  it('reports page dimensions in points so agents can reason about layout', async () => {
+    // sample.pdf is US Letter (612 × 792 pt). Width / height let downstream
+    // consumers map render coords / future bbox data back onto the page.
+    const result = await processDocument(SAMPLE_PDF, { noCache: true });
+    expect(result.pages[0].width).toBe(612);
+    expect(result.pages[0].height).toBe(792);
+  });
+
+  it('omits the top-level overview field on single-page docs', async () => {
+    // A 1-row overview is just noise — agents already see the per-page
+    // signal on `pages[0]`. Skip it so the JSON / Markdown stay clean.
+    const result = await processDocument(SAMPLE_PDF, { noCache: true });
+    expect(result.overview).toBeUndefined();
+  });
+
+  it('emits a top-level overview summary on multi-page docs', async () => {
+    // Mirrors the per-page density signals so agents reading top-down (LLM
+    // chat / IDE preview) can spot outliers before walking pages[].
+    const result = await processDocument(SAMPLE_JA_PDF, { noCache: true });
+    expect(result.overview).toBeDefined();
+    expect(result.overview).toHaveLength(result.pages.length);
+    const first = (result.overview ?? [])[0];
+    expect(first.page).toBe(result.pages[0].page);
+    expect(first.charCount).toBe(result.pages[0].charCount);
+    expect(first.width).toBe(result.pages[0].width);
+  });
+
   it('counts embedded raster images in imageCount', async () => {
     // The fixture embeds the same tiny PNG twice. Without this assertion
     // the density signal could regress to "always 0" and the silent-failure

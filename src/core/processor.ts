@@ -5,8 +5,8 @@ import { join, resolve } from 'node:path';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { formatJson } from '../output/json.js';
 import { formatMarkdown } from '../output/markdown.js';
-import { formatText } from '../output/text.js';
-import type { DocumentResult, PageResult, ProcessDocumentOptions, ProcessOptions } from '../types/index.js';
+import { formatXml } from '../output/xml.js';
+import type { DocumentResult, PageResult, ProcessDocumentOptions, ProcessOptions, TextSpan } from '../types/index.js';
 import { dropCached, ensurePrivateDir, getCacheDir, getCached, setCache } from './cache.js';
 import { parsePageRange } from './pageRange.js';
 
@@ -15,6 +15,8 @@ interface CacheKeyInput {
   pages?: string;
   render?: boolean;
   renderOutput?: string;
+  normalize?: boolean;
+  geometry?: boolean;
 }
 
 /**
@@ -30,21 +32,44 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v3',
+    format: 'structured-v5',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
     renderOutput: input.renderOutput ? resolve(input.renderOutput) : null,
+    // Normalized vs raw text are different payloads; key them separately so
+    // toggling the flag doesn't return stale text.
+    normalize: input.normalize !== false,
+    geometry: !!input.geometry,
   });
   const hash = createHash('sha256').update(payload).digest('hex').slice(0, 16);
   return `result_${hash}.json`;
 }
 
+/**
+ * Apply Unicode NFKC normalization. PDFs commonly embed compatibility
+ * codepoints (e.g. CJK Compatibility Forms `⽬` U+2F6C, halfwidth/fullwidth
+ * variants, ligatures `ﬁ`) that break grep / diff / structured extraction
+ * for downstream agents. NFKC folds them to the canonical form.
+ */
+function normalizeText(s: string): string {
+  return s.normalize('NFKC');
+}
+
+/** Round to 2 decimal places — keeps span coordinates compact in JSON. */
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
 interface PageData {
   text: string;
+  rawText?: string;
   charCount: number;
   imageCount: number;
   textCoverage: number;
+  width: number;
+  height: number;
+  spans?: TextSpan[];
 }
 
 /**
@@ -54,12 +79,27 @@ interface PageData {
  * real content is rasterised" pages (common in Google Slides exports)
  * and decide whether to re-run with `--render`.
  */
-async function extractPageData(doc: PDFDocumentProxy, pageNum: number, imageOps: Set<number>): Promise<PageData> {
+async function extractPageData(
+  doc: PDFDocumentProxy,
+  pageNum: number,
+  imageOps: Set<number>,
+  normalize: boolean,
+  geometry: boolean,
+): Promise<PageData> {
   const page = await doc.getPage(pageNum);
   const content = await page.getTextContent();
 
+  const view = page.view;
+  // MediaBox is normally [minX, minY, maxX, maxY] but the spec allows the
+  // pairs in either order; use abs so a flipped box still yields a sensible
+  // area instead of falling through to 0 coverage.
+  const width = Math.abs(view[2] - view[0]);
+  const height = Math.abs(view[3] - view[1]);
+  const yMin = Math.min(view[1], view[3]);
+
   const parts: string[] = [];
   let textArea = 0;
+  const spans: TextSpan[] = [];
   for (const item of content.items) {
     if (!('str' in item)) continue;
     parts.push(item.str);
@@ -69,10 +109,45 @@ async function extractPageData(doc: PDFDocumentProxy, pageNum: number, imageOps:
     // certain Office exporters); fall back to the vertical scale from the
     // text matrix, which is effectively the glyph height in user units.
     const reportedH = typeof item.height === 'number' ? item.height : 0;
-    const h = reportedH > 0 ? reportedH : Math.abs(item.transform?.[3] ?? 0);
+    const transform = item.transform;
+    const h = reportedH > 0 ? reportedH : Math.abs(transform?.[3] ?? 0);
     textArea += Math.abs(w * h);
+
+    // Skip whitespace-only items in spans output — pdf.js emits a span
+    // for every positioned space, which can double the array length and
+    // sometimes carries a synthetic width that exceeds the page width.
+    // The aggregate `text` already preserves the spaces, so layout
+    // analysis loses nothing; downstream agents get a cleaner signal.
+    if (geometry && item.str.trim().length > 0 && transform) {
+      // pdfjs transform = [a, b, c, d, e, f]; (e, f) is the baseline origin
+      // of the glyph run in PDF user-space (origin: bottom-left). Convert
+      // to a top-down bbox so callers can overlay spans on the rendered
+      // PNG without flipping y.
+      const xPdf = transform[4];
+      const yBaselinePdf = transform[5];
+      // Top-edge in PDF coords sits one glyph-height above the baseline,
+      // and the page's bottom-left can sit at a non-zero MediaBox minY.
+      const yTopDown = height - (yBaselinePdf + h - yMin);
+      const fontSize = Math.max(Math.abs(transform[0]), Math.abs(transform[3]));
+      spans.push({
+        text: normalize ? normalizeText(item.str) : item.str,
+        x: round2(xPdf - view[0]),
+        y: round2(yTopDown),
+        width: round2(w),
+        height: round2(h),
+        fontSize: round2(fontSize),
+        ...(typeof item.fontName === 'string' && { fontName: item.fontName }),
+      });
+    }
   }
-  const text = parts.join('').trimEnd();
+  const rawText = parts.join('').trimEnd();
+  // charCount must reflect the string the caller actually receives, so
+  // measure after normalization.
+  const text = normalize ? normalizeText(rawText) : rawText;
+  // Only surface rawText when normalization actually changed the string —
+  // exposing it unconditionally would double JSON size for the common
+  // case of already-canonical PDFs.
+  const preservedRaw = normalize && rawText !== text ? rawText : undefined;
 
   const opList = await page.getOperatorList();
   let imageCount = 0;
@@ -80,27 +155,29 @@ async function extractPageData(doc: PDFDocumentProxy, pageNum: number, imageOps:
     if (imageOps.has(fn)) imageCount++;
   }
 
-  const view = page.view;
-  // MediaBox is normally [minX, minY, maxX, maxY] but the spec allows the
-  // pairs in either order; use abs so a flipped box still yields a sensible
-  // area instead of falling through to 0 coverage.
-  const pageArea = Math.abs((view[2] - view[0]) * (view[3] - view[1]));
+  const pageArea = width * height;
   const rawCoverage = pageArea > 0 ? textArea / pageArea : 0;
   const textCoverage = Math.max(0, Math.min(1, rawCoverage));
 
   return {
     text,
+    rawText: preservedRaw,
     charCount: text.length,
     imageCount,
     textCoverage: Math.round(textCoverage * 1000) / 1000,
+    // Round to 2dp; PDF dimensions are nominally integers (Letter 612×792,
+    // A4 595×842) but encrypted/cropped PDFs can carry sub-point fractions.
+    width: round2(width),
+    height: round2(height),
+    ...(geometry && { spans }),
   };
 }
 
 /** Render a structured DocumentResult into the caller-requested string format. */
 function render(result: DocumentResult, format: ProcessOptions['format']): string {
   if (format === 'json') return formatJson(result);
-  if (format === 'markdown') return formatMarkdown(result);
-  return formatText(result);
+  if (format === 'xml') return formatXml(result);
+  return formatMarkdown(result);
 }
 
 /**
@@ -223,28 +300,56 @@ export async function processDocument(filePath: string, options: ProcessDocument
       imagePaths = await renderPages(doc, pageNumbers, imagesDir);
     }
 
+    const normalize = options.normalize !== false;
+    const geometry = !!options.geometry;
     const pages: PageResult[] = [];
     for (let i = 0; i < pageNumbers.length; i++) {
-      const data = await extractPageData(doc, pageNumbers[i], imageOps);
+      const data = await extractPageData(doc, pageNumbers[i], imageOps, normalize, geometry);
       pages.push({
         page: pageNumbers[i],
         text: data.text,
+        ...(data.rawText !== undefined && { rawText: data.rawText }),
         image: imagePaths?.[i],
         charCount: data.charCount,
         imageCount: data.imageCount,
         textCoverage: data.textCoverage,
+        width: data.width,
+        height: data.height,
+        ...(data.spans !== undefined && { spans: data.spans }),
       });
     }
+
+    const metaString = (raw: unknown): string | null => {
+      if (typeof raw !== 'string') return null;
+      return normalize ? normalizeText(raw) : raw;
+    };
+
+    // Surface a top-level density summary when the result spans more than
+    // one page. Same fields the Markdown formatter renders as a table, so
+    // JSON consumers and Markdown readers can both scan outliers from the
+    // top of the output without re-deriving anything from `pages[]`.
+    const overview =
+      pages.length > 1
+        ? pages.map((p) => ({
+            page: p.page,
+            charCount: p.charCount,
+            imageCount: p.imageCount,
+            textCoverage: p.textCoverage,
+            width: p.width,
+            height: p.height,
+          }))
+        : undefined;
 
     const result: DocumentResult = {
       file: filePath,
       totalPages,
       metadata: {
-        title: (info?.Title as string) ?? null,
-        author: (info?.Author as string) ?? null,
-        subject: (info?.Subject as string) ?? null,
-        creator: (info?.Creator as string) ?? null,
+        title: metaString(info?.Title),
+        author: metaString(info?.Author),
+        subject: metaString(info?.Subject),
+        creator: metaString(info?.Creator),
       },
+      ...(overview && { overview }),
       pages,
     };
 
@@ -270,6 +375,8 @@ export async function processFile(filePath: string, options: ProcessOptions): Pr
     render: options.render,
     noCache: options.noCache,
     renderOutput: options.renderOutput,
+    normalize: options.normalize,
+    geometry: options.geometry,
   });
   return render(result, options.format);
 }
