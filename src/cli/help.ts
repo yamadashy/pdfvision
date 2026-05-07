@@ -1,3 +1,12 @@
+// The text below is the contract between pdfvision and any AI agent that
+// invokes the CLI. The design goal is that an agent reading `pdfvision --help`
+// once should be able to use every flag correctly — including the non-obvious
+// interactions (--render-output requires --render, --geometry only surfaces
+// in json/xml, --no-normalize hides rawText, etc.) — without having to fall
+// back to the README, the source, or a follow-up search. When you change a
+// flag's behaviour or a format's contents, update the matching paragraph
+// here in the same commit, and prefer concrete examples over abstract
+// descriptions wherever the trade-off comes up.
 export const HELP_TEXT = `pdfvision - Extract text, images, metadata, and layout from PDF files for AI agents
 
 Usage:
