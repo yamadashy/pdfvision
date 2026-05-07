@@ -5,14 +5,15 @@ Usage:
 
 Options:
   -p, --pages <range>     Page range (e.g. "1-5", "3", "1,3,5")
-  -f, --format <type>     Output format: markdown (default), json
+  -f, --format <type>     Output format: markdown (default), json, xml
   -r, --render            Render pages as PNG images
       --render-output <dir>
                           Directory for rendered PNGs (requires --render).
                           Created if missing.
       --no-cache          Skip cache
       --no-normalize      Disable Unicode NFKC normalization (default: on)
-      --geometry          Emit per-text-item bbox + font size in pages[].spans
+      --geometry          Emit per-text-item bbox + font size in pages[].spans.
+                          Surfaced in json / xml output; ignored by markdown.
   -v, --version           Show version
   -h, --help              Show this help
 
@@ -23,8 +24,11 @@ Output formats:
                       a chat / IDE / notebook context.
   json                Programmatic. Full DocumentResult schema, including
                       width/height, rawText (when normalization changed text),
-                      and spans[] (when --geometry is on). Best when another
-                      tool will parse the output.
+                      overview (multi-page), and spans[] (when --geometry).
+                      Best when another tool will parse the output.
+  xml                 LLM-friendly tag-shaped variant of json. Same fields
+                      as json, but as <document>/<page>/<text>/<spans> tags
+                      that LLMs locate more reliably than nested object keys.
 
 Examples:
   pdfvision document.pdf
@@ -32,4 +36,5 @@ Examples:
   pdfvision document.pdf -r -p 1-5
   pdfvision document.pdf -r --render-output ./images
   pdfvision document.pdf -f json
+  pdfvision document.pdf -f xml
   pdfvision document.pdf -f json --geometry`;

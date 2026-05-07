@@ -5,7 +5,7 @@ import type { OutputFormat } from '../types/index.js';
 import { HELP_TEXT } from './help.js';
 import { getVersion } from './version.js';
 
-const VALID_FORMATS: readonly OutputFormat[] = ['markdown', 'json'];
+const VALID_FORMATS: readonly OutputFormat[] = ['markdown', 'json', 'xml'];
 
 function isValidFormat(value: string): value is OutputFormat {
   return (VALID_FORMATS as readonly string[]).includes(value);

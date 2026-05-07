@@ -30,7 +30,7 @@ It's the missing piece between "I have a PDF" and "my AI agent can use it."
 - 🎯 **Page range selection** (`1-5`, `3`, `1,3,5`)
 - 🖼️ **Page rendering** to PNG (`--render`) for multimodal LLMs
 - 📐 **Per-text-item geometry** (`--geometry`) emits `spans[]` with bbox + font size in top-down coords, so agents can reconstruct headings, tables, and reading order
-- 📦 **Output formats**: agent-friendly `markdown` (default) and structured `json`, both with a top-level density Overview for multi-page docs
+- 📦 **Output formats**: agent-friendly `markdown` (default), structured `json`, and tag-shaped `xml`, each with a top-level density Overview for multi-page docs
 - ⚡ **Cache-first**: same PDF is parsed once, then served instantly from a `pdfvision/<hash>/` directory under the OS temp dir
 - 🛡️ **Hardened cache**: content-addressed, POSIX `0700/0600` permissions, symlink/TOCTOU defences
 - 🪶 **Small & fast**: ~11 KB tarball, ~30 ms warm startup for `--help`/`--version`
@@ -61,13 +61,14 @@ pdfvision <file.pdf> [options]
 
 Options:
   -p, --pages <range>     Page range (e.g. "1-5", "3", "1,3,5")
-  -f, --format <type>     Output format: markdown (default), json
+  -f, --format <type>     Output format: markdown (default), json, xml
   -r, --render            Render pages as PNG images
       --render-output <dir>
                           Directory for rendered PNGs (requires --render).
       --no-cache          Skip cache
       --no-normalize      Disable Unicode NFKC normalization (default: on)
-      --geometry          Emit per-text-item bbox + font size in pages[].spans
+      --geometry          Emit per-text-item bbox + font size in pages[].spans.
+                          Surfaced in json / xml output; ignored by markdown.
   -v, --version           Show version
   -h, --help              Show this help
 ```
@@ -76,6 +77,7 @@ Options:
 
 - **`markdown` (default)** — agent-friendly. Each page becomes a `## Page N` section with a density Overview table at the top and rendered image links inline. Best for handing PDFs to an LLM in a chat / IDE / notebook context.
 - **`json`** — programmatic. Full `DocumentResult` schema, including `width`/`height`, `rawText` (when normalization changed text), `overview` (multi-page docs), and `spans[]` (when `--geometry` is on). Best when another tool will parse the output.
+- **`xml`** — LLM-friendly tag variant of `json`. Same fields, but as `<document>`/`<page>`/`<text>`/`<spans>` tags that LLMs locate more reliably than nested object keys. Useful when feeding output into a vision/chat model that doesn't always parse JSON faithfully.
 
 ### Examples
 
@@ -95,6 +97,9 @@ pdfvision document.pdf
 
 # Switch to JSON for programmatic consumers
 pdfvision document.pdf -f json
+
+# XML-flavoured output for LLMs that parse tags more reliably than JSON
+pdfvision document.pdf -f xml
 
 # Emit per-text-item geometry (bbox + font size) for layout analysis
 pdfvision document.pdf -f json --geometry
@@ -173,7 +178,7 @@ process or a log), use **`processFile()`**:
 import { processFile } from 'pdfvision';
 
 const md = await processFile('./document.pdf', {
-  format: 'markdown',       // or 'json'
+  format: 'markdown',       // or 'json' / 'xml'
   noCache: false,
 });
 ```

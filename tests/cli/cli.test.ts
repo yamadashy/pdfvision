@@ -71,7 +71,7 @@ describe('cli', () => {
   });
 
   it('exits with error on invalid --format', async () => {
-    const r = await captureRun([SAMPLE_PDF, '--format', 'xml']);
+    const r = await captureRun([SAMPLE_PDF, '--format', 'yaml']);
     expect(r.exitCode).toBe(1);
     expect(r.stderr.join('\n')).toMatch(/Invalid --format/);
   });
