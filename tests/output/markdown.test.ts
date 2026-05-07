@@ -58,7 +58,7 @@ describe('formatMarkdown', () => {
     expect(out).toMatch(/## Page 1/);
     // Coverage 0.123 → 12% (rounded). Density line uses italic + middle dot
     // so agents can pattern-match without colliding with normal page text.
-    expect(out).toMatch(/_chars: 11 · images: 0 · coverage: 12%_/);
+    expect(out).toMatch(/_chars: 11 · images: 0 · coverage: 12% · size: 612×792pt_/);
     expect(out).toMatch(/\nhello world$/);
   });
 

@@ -30,7 +30,7 @@ It's the missing piece between "I have a PDF" and "my AI agent can use it."
 - 🎯 **Page range selection** (`1-5`, `3`, `1,3,5`)
 - 🖼️ **Page rendering** to PNG (`--render`) for multimodal LLMs
 - 📐 **Per-text-item geometry** (`--geometry`) emits `spans[]` with bbox + font size in top-down coords, so agents can reconstruct headings, tables, and reading order
-- 📦 **Output formats**: human-readable `text`, agent-friendly `markdown`, and structured `json`
+- 📦 **Output formats**: agent-friendly `markdown` (default) and structured `json`, both with a top-level density Overview for multi-page docs
 - ⚡ **Cache-first**: same PDF is parsed once, then served instantly from a `pdfvision/<hash>/` directory under the OS temp dir
 - 🛡️ **Hardened cache**: content-addressed, POSIX `0700/0600` permissions, symlink/TOCTOU defences
 - 🪶 **Small & fast**: ~11 KB tarball, ~30 ms warm startup for `--help`/`--version`
@@ -61,7 +61,7 @@ pdfvision <file.pdf> [options]
 
 Options:
   -p, --pages <range>     Page range (e.g. "1-5", "3", "1,3,5")
-  -f, --format <type>     Output format: text (default), json, markdown
+  -f, --format <type>     Output format: markdown (default), json
   -r, --render            Render pages as PNG images
       --render-output <dir>
                           Directory for rendered PNGs (requires --render).
@@ -71,6 +71,11 @@ Options:
   -v, --version           Show version
   -h, --help              Show this help
 ```
+
+### Output formats
+
+- **`markdown` (default)** — agent-friendly. Each page becomes a `## Page N` section with a density Overview table at the top and rendered image links inline. Best for handing PDFs to an LLM in a chat / IDE / notebook context.
+- **`json`** — programmatic. Full `DocumentResult` schema, including `width`/`height`, `rawText` (when normalization changed text), `overview` (multi-page docs), and `spans[]` (when `--geometry` is on). Best when another tool will parse the output.
 
 ### Examples
 
@@ -85,11 +90,11 @@ pdfvision document.pdf -p 1,3,5
 # Render pages as PNG (paths are returned in the output)
 pdfvision document.pdf -r -p 1-5
 
-# Get JSON output
-pdfvision document.pdf -f json
+# Markdown is the default — each page becomes ## Page N with a density Overview and image links
+pdfvision document.pdf
 
-# Get Markdown output (each page as ## Page N, with density signals and image links)
-pdfvision document.pdf -f markdown
+# Switch to JSON for programmatic consumers
+pdfvision document.pdf -f json
 
 # Emit per-text-item geometry (bbox + font size) for layout analysis
 pdfvision document.pdf -f json --geometry
@@ -167,16 +172,16 @@ process or a log), use **`processFile()`**:
 ```ts
 import { processFile } from 'pdfvision';
 
-const text = await processFile('./document.pdf', {
-  format: 'text',           // or 'json' / 'markdown'
+const md = await processFile('./document.pdf', {
+  format: 'markdown',       // or 'json'
   noCache: false,
 });
 ```
 
 Exports: `processDocument`, `processFile`, `parsePageRange`, `renderPage`,
 `renderPages`, `getCacheDir`, `getCached`, `setCache`, plus the
-`DocumentResult` / `PageResult` / `DocumentMetadata` / `ProcessDocumentOptions` /
-`ProcessOptions` / `OutputFormat` types.
+`DocumentResult` / `PageResult` / `PageOverview` / `DocumentMetadata` /
+`ProcessDocumentOptions` / `ProcessOptions` / `OutputFormat` / `TextSpan` types.
 
 ## 🛠️ Requirements
 
