@@ -7,17 +7,6 @@ import { processFile } from '../../src/core/processor.js';
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
 
 describe('processFile', () => {
-  it('extracts text in text format', async () => {
-    const result = await processFile(SAMPLE_PDF, {
-      format: 'text',
-      noCache: true,
-    });
-    expect(result).toContain('Pages: 1');
-    expect(result).toContain('Hello pdfvision');
-    // Page header carries density signal so agents can detect image-only slides.
-    expect(result).toMatch(/\[Page 1\] \(chars: \d+, images: \d+, coverage: \d+%\)/);
-  });
-
   it('extracts text as JSON', async () => {
     const result = await processFile(SAMPLE_PDF, {
       format: 'json',
@@ -68,7 +57,7 @@ describe('processFile', () => {
     await expect(
       processFile(SAMPLE_PDF, {
         pages: '/../../../escape-attempt',
-        format: 'text',
+        format: 'json',
         noCache: false,
       }),
     ).rejects.toThrow();

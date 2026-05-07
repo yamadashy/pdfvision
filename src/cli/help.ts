@@ -5,7 +5,7 @@ Usage:
 
 Options:
   -p, --pages <range>     Page range (e.g. "1-5", "3", "1,3,5")
-  -f, --format <type>     Output format: text (default), json, markdown
+  -f, --format <type>     Output format: markdown (default), json
   -r, --render            Render pages as PNG images
       --render-output <dir>
                           Directory for rendered PNGs (requires --render).
@@ -16,10 +16,20 @@ Options:
   -v, --version           Show version
   -h, --help              Show this help
 
+Output formats:
+  markdown (default)  Agent-friendly. Each page becomes a "## Page N" section
+                      with a density Overview table at the top and rendered
+                      image links inline. Best for handing PDFs to an LLM in
+                      a chat / IDE / notebook context.
+  json                Programmatic. Full DocumentResult schema, including
+                      width/height, rawText (when normalization changed text),
+                      and spans[] (when --geometry is on). Best when another
+                      tool will parse the output.
+
 Examples:
   pdfvision document.pdf
   pdfvision document.pdf -p 1-3
   pdfvision document.pdf -r -p 1-5
   pdfvision document.pdf -r --render-output ./images
   pdfvision document.pdf -f json
-  pdfvision document.pdf -f markdown`;
+  pdfvision document.pdf -f json --geometry`;

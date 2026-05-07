@@ -1,4 +1,4 @@
-export type OutputFormat = 'text' | 'json' | 'markdown';
+export type OutputFormat = 'markdown' | 'json';
 
 /**
  * Options for the structured `processDocument()` API.
@@ -113,9 +113,31 @@ export interface DocumentMetadata {
   creator: string | null;
 }
 
+/**
+ * Compact per-page density summary surfaced at the top of the
+ * `DocumentResult` so JSON and Markdown consumers can scan outliers
+ * (image-flattened slides, blank pages, unusually dense pages) before
+ * walking `pages[]` or scrolling the rendered body. Pure aggregation —
+ * every field also appears on the corresponding `PageResult`.
+ */
+export interface PageOverview {
+  page: number;
+  charCount: number;
+  imageCount: number;
+  textCoverage: number;
+  width: number;
+  height: number;
+}
+
 export interface DocumentResult {
   file: string;
   totalPages: number;
   metadata: DocumentMetadata;
+  /**
+   * Top-level density summary across the selected pages. Present when
+   * more than one page was extracted; omitted for single-page outputs
+   * where a one-row summary is just noise.
+   */
+  overview?: PageOverview[];
   pages: PageResult[];
 }

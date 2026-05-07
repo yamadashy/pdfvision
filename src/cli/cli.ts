@@ -5,7 +5,7 @@ import type { OutputFormat } from '../types/index.js';
 import { HELP_TEXT } from './help.js';
 import { getVersion } from './version.js';
 
-const VALID_FORMATS: readonly OutputFormat[] = ['text', 'json', 'markdown'];
+const VALID_FORMATS: readonly OutputFormat[] = ['markdown', 'json'];
 
 function isValidFormat(value: string): value is OutputFormat {
   return (VALID_FORMATS as readonly string[]).includes(value);
@@ -31,7 +31,7 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
         help: { type: 'boolean', short: 'h' },
         version: { type: 'boolean', short: 'v' },
         pages: { type: 'string', short: 'p' },
-        format: { type: 'string', short: 'f', default: 'text' },
+        format: { type: 'string', short: 'f', default: 'markdown' },
         render: { type: 'boolean', short: 'r' },
         'render-output': { type: 'string' },
         'no-cache': { type: 'boolean' },
@@ -59,7 +59,7 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
     exitWithError(`Unexpected extra arguments: ${positionals.slice(1).join(' ')}`);
   }
 
-  const format = (values.format as string) ?? 'text';
+  const format = (values.format as string) ?? 'markdown';
   if (!isValidFormat(format)) {
     exitWithError(`Invalid --format "${format}". Expected one of: ${VALID_FORMATS.join(', ')}`);
   }

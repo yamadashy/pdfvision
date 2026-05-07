@@ -5,7 +5,6 @@ import { join, resolve } from 'node:path';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { formatJson } from '../output/json.js';
 import { formatMarkdown } from '../output/markdown.js';
-import { formatText } from '../output/text.js';
 import type { DocumentResult, PageResult, ProcessDocumentOptions, ProcessOptions, TextSpan } from '../types/index.js';
 import { dropCached, ensurePrivateDir, getCacheDir, getCached, setCache } from './cache.js';
 import { parsePageRange } from './pageRange.js';
@@ -32,7 +31,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v4',
+    format: 'structured-v5',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -175,9 +174,7 @@ async function extractPageData(
 
 /** Render a structured DocumentResult into the caller-requested string format. */
 function render(result: DocumentResult, format: ProcessOptions['format']): string {
-  if (format === 'json') return formatJson(result);
-  if (format === 'markdown') return formatMarkdown(result);
-  return formatText(result);
+  return format === 'json' ? formatJson(result) : formatMarkdown(result);
 }
 
 /**
@@ -324,6 +321,22 @@ export async function processDocument(filePath: string, options: ProcessDocument
       return normalize ? normalizeText(raw) : raw;
     };
 
+    // Surface a top-level density summary when the result spans more than
+    // one page. Same fields the Markdown formatter renders as a table, so
+    // JSON consumers and Markdown readers can both scan outliers from the
+    // top of the output without re-deriving anything from `pages[]`.
+    const overview =
+      pages.length > 1
+        ? pages.map((p) => ({
+            page: p.page,
+            charCount: p.charCount,
+            imageCount: p.imageCount,
+            textCoverage: p.textCoverage,
+            width: p.width,
+            height: p.height,
+          }))
+        : undefined;
+
     const result: DocumentResult = {
       file: filePath,
       totalPages,
@@ -333,6 +346,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
         subject: metaString(info?.Subject),
         creator: metaString(info?.Creator),
       },
+      ...(overview && { overview }),
       pages,
     };
 

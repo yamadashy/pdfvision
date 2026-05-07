@@ -94,23 +94,22 @@ describe('cli', () => {
     expect(r.stderr.join('\n')).toMatch(/extra arguments/i);
   });
 
-  it('runs a successful extraction and prints the result', async () => {
+  it('runs a successful extraction and prints markdown by default', async () => {
     const r = await captureRun([SAMPLE_PDF, '--no-cache']);
-    expect(r.exitCode).toBeNull();
-    const out = r.stdout.join('\n');
-    expect(out).toContain('Hello pdfvision');
-    expect(out).toMatch(/\[Page 1\] \(chars: \d+, images: \d+, coverage: \d+%\)/);
-  });
-
-  it('prints markdown when --format markdown is requested', async () => {
-    // Guards the CLI -> processFile -> formatMarkdown wiring against
-    // accidental fallbacks to text.
-    const r = await captureRun([SAMPLE_PDF, '--format', 'markdown', '--no-cache']);
     expect(r.exitCode).toBeNull();
     const out = r.stdout.join('\n');
     expect(out).toMatch(/^# .*sample\.pdf/);
     expect(out).toMatch(/## Page 1/);
     expect(out).toContain('Hello pdfvision');
+  });
+
+  it('emits JSON when --format json is requested', async () => {
+    // Programmatic consumers opt out of markdown by passing --format json.
+    const r = await captureRun([SAMPLE_PDF, '--format', 'json', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    const parsed = JSON.parse(r.stdout.join('\n'));
+    expect(parsed.totalPages).toBe(1);
+    expect(parsed.pages[0].text).toContain('Hello pdfvision');
   });
 
   it('rejects --render-output without --render', async () => {
