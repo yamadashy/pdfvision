@@ -132,6 +132,85 @@ describe('formatMarkdown', () => {
     expect(out).not.toMatch(/## Overview/);
   });
 
+  it('omits the Blocks column when no page carries a layout payload', () => {
+    // Default extraction (no --layout) should not pollute the overview
+    // table with an empty Blocks column.
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 2,
+        pages: [makePage({ page: 1, text: 'a', charCount: 1 }), makePage({ page: 2, text: 'b', charCount: 1 })],
+      }),
+    );
+    expect(out).not.toMatch(/Blocks/);
+  });
+
+  it('adds a Blocks column to the Overview table when --layout populated pages[].layout', () => {
+    // With layout on, agents can scan the Blocks count alongside the
+    // density signals to spot pages that decompose differently — a
+    // 1-block page is usually a single image / quote / heading, while
+    // many small blocks suggest a list or a dense slide.
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 2,
+        pages: [
+          makePage({
+            page: 1,
+            text: 'a',
+            charCount: 1,
+            layout: {
+              blocks: [
+                {
+                  text: 'a',
+                  x: 0,
+                  y: 0,
+                  width: 10,
+                  height: 10,
+                  lines: [{ text: 'a', x: 0, y: 0, width: 10, height: 10, fontSize: 10 }],
+                },
+              ],
+            },
+          }),
+          makePage({
+            page: 2,
+            text: 'b\nc\nd',
+            charCount: 5,
+            layout: {
+              blocks: [
+                {
+                  text: 'b',
+                  x: 0,
+                  y: 0,
+                  width: 10,
+                  height: 10,
+                  lines: [{ text: 'b', x: 0, y: 0, width: 10, height: 10, fontSize: 10 }],
+                },
+                {
+                  text: 'c',
+                  x: 0,
+                  y: 30,
+                  width: 10,
+                  height: 10,
+                  lines: [{ text: 'c', x: 0, y: 30, width: 10, height: 10, fontSize: 10 }],
+                },
+                {
+                  text: 'd',
+                  x: 0,
+                  y: 60,
+                  width: 10,
+                  height: 10,
+                  lines: [{ text: 'd', x: 0, y: 60, width: 10, height: 10, fontSize: 10 }],
+                },
+              ],
+            },
+          }),
+        ],
+      }),
+    );
+    expect(out).toMatch(/Blocks \|/);
+    expect(out).toMatch(/\| 1 \| 1 \| 0 \| 0% \| 612×792 \| 1 \|/);
+    expect(out).toMatch(/\| 2 \| 5 \| 0 \| 0% \| 612×792 \| 3 \|/);
+  });
+
   it('skips the text body for pages that had no extractable text', () => {
     // Image-only pages should still render the heading + density line so the
     // agent can see "this page had 0 chars and 3 images" instead of a silent gap.
