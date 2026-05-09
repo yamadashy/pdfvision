@@ -83,14 +83,28 @@ describe('cache', () => {
 
   it('refuses to use the cache root if it has been replaced by a symlink', () => {
     if (process.platform === 'win32') return; // symlink semantics differ
-    const cacheRoot = join(tmpdir(), 'pdfvision');
-    rmSync(cacheRoot, { recursive: true, force: true });
+    // Override the cache root to an isolated path so we don't rmSync
+    // the shared `/tmp/pdfvision/` while parallel vitest workers are
+    // mid-write. PDFVISION_CACHE_DIR is read on every cache call, so
+    // setting it before getCacheDir() takes effect immediately.
+    const isolatedRoot = join(
+      tmpdir(),
+      `pdfvision-symlink-test-${process.pid}-${Math.random().toString(36).slice(2, 10)}`,
+    );
+    rmSync(isolatedRoot, { recursive: true, force: true });
     const sneaky = mkdtempSync(join(tmpdir(), 'pdfvision-sneaky-'));
-    symlinkSync(sneaky, cacheRoot);
+    symlinkSync(sneaky, isolatedRoot);
+    const previousEnv = process.env.PDFVISION_CACHE_DIR;
+    process.env.PDFVISION_CACHE_DIR = isolatedRoot;
     try {
       expect(() => getCacheDir(tmpFile)).toThrow(/symlink/);
     } finally {
-      rmSync(cacheRoot, { force: true });
+      if (previousEnv === undefined) {
+        delete process.env.PDFVISION_CACHE_DIR;
+      } else {
+        process.env.PDFVISION_CACHE_DIR = previousEnv;
+      }
+      rmSync(isolatedRoot, { force: true });
       rmSync(sneaky, { recursive: true, force: true });
     }
   });

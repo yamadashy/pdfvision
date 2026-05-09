@@ -17,7 +17,16 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const CACHE_DIR = join(tmpdir(), 'pdfvision');
+/**
+ * Resolve the cache root afresh on every call so a test that sets
+ * `PDFVISION_CACHE_DIR` can isolate its writes from concurrent vitest
+ * workers without statically-baked-in module state. Production callers
+ * leave the env var unset and get the same `<tmpdir>/pdfvision/` they
+ * always have.
+ */
+function getCacheRoot(): string {
+  return process.env.PDFVISION_CACHE_DIR ?? join(tmpdir(), 'pdfvision');
+}
 
 // Cache files may contain extracted PDF text and rendered page images.
 // Restrict to the current user so other accounts on the same machine
@@ -98,8 +107,9 @@ function hashFileContent(filePath: string): string {
 
 export function getCacheDir(filePath: string): string {
   const key = hashFileContent(filePath);
-  ensurePrivateDir(CACHE_DIR);
-  const dir = join(CACHE_DIR, key);
+  const root = getCacheRoot();
+  ensurePrivateDir(root);
+  const dir = join(root, key);
   ensurePrivateDir(dir);
   return dir;
 }
@@ -221,7 +231,7 @@ export interface ClearCacheResult {
  * use it to clean an isolated temp directory without racing other
  * vitest workers that are concurrently writing to the shared root.
  */
-export function clearAllCache(path: string = CACHE_DIR): ClearCacheResult {
+export function clearAllCache(path: string = getCacheRoot()): ClearCacheResult {
   if (!existsSync(path)) return { path, removed: false };
   // Refuse to traverse a symlink at the cache root — would let an
   // attacker who plants /tmp/pdfvision -> /home/user redirect the

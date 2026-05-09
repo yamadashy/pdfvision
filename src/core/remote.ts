@@ -7,9 +7,16 @@ import { atomicWrite, ensurePrivateDir } from './cache.js';
 /**
  * Root directory for downloaded remote PDFs. Sibling of the result-cache
  * directory so a single `--clear-cache` clears both — `<tmpdir>/pdfvision/`
- * is the one place we keep PDF-derived state on disk.
+ * is the one place we keep PDF-derived state on disk. Honours the same
+ * `PDFVISION_CACHE_DIR` override the rest of cache.ts uses, so tests can
+ * isolate the entire cache hierarchy in a temp directory.
  */
-const REMOTE_CACHE_ROOT = join(tmpdir(), 'pdfvision', 'remote');
+function cacheRoot(): string {
+  return process.env.PDFVISION_CACHE_DIR ?? join(tmpdir(), 'pdfvision');
+}
+function remoteCacheRoot(): string {
+  return join(cacheRoot(), 'remote');
+}
 
 /** Default 100 MB. PDFs at this size are almost always intentionally pathological. */
 const DEFAULT_MAX_BYTES = 100 * 1024 * 1024;
@@ -91,7 +98,7 @@ export async function downloadRemote(rawUrl: string, options: DownloadRemoteOpti
   // (signed-URL CDNs, version pins). 16 hex chars = 64 bits of
   // collision resistance; plenty for a per-user cache.
   const urlHash = createHash('sha256').update(rawUrl).digest('hex').slice(0, 16);
-  const cacheDir = join(REMOTE_CACHE_ROOT, urlHash);
+  const cacheDir = join(remoteCacheRoot(), urlHash);
   const cachePath = join(cacheDir, safeBasenameFromUrl(url));
 
   if (!noCache && existsSync(cachePath)) {
@@ -104,8 +111,8 @@ export async function downloadRemote(rawUrl: string, options: DownloadRemoteOpti
 
   // Lay down the directory structure with the same hardening the result
   // cache uses (0o700, owner-checked, no symlink-redirect).
-  ensurePrivateDir(join(tmpdir(), 'pdfvision'));
-  ensurePrivateDir(REMOTE_CACHE_ROOT);
+  ensurePrivateDir(cacheRoot());
+  ensurePrivateDir(remoteCacheRoot());
   ensurePrivateDir(cacheDir);
 
   const controller = new AbortController();
@@ -168,8 +175,8 @@ export async function downloadRemote(rawUrl: string, options: DownloadRemoteOpti
     atomicWrite(cachePath, data);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-    ensurePrivateDir(join(tmpdir(), 'pdfvision'));
-    ensurePrivateDir(REMOTE_CACHE_ROOT);
+    ensurePrivateDir(cacheRoot());
+    ensurePrivateDir(remoteCacheRoot());
     ensurePrivateDir(cacheDir);
     atomicWrite(cachePath, data);
   }
