@@ -2,7 +2,7 @@
   <img src="https://raw.githubusercontent.com/yamadashy/pdfvision/main/docs/logo.svg" alt="pdfvision" width="180" />
   <h1>pdfvision</h1>
   <p>
-    <b>See PDFs the way AI agents need them — text, layout, metadata, and page images, in one command.</b>
+    <b>Turn any PDF into AI-friendly output</b>
   </p>
 </div>
 
