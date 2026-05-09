@@ -124,6 +124,39 @@ describe('buildLayout — multi-column reading order', () => {
     expect(texts).toEqual(['Left heading', 'Left body line.', 'Right heading', 'Right body line.']);
   });
 
+  it('still reorders columns when a standalone heading is centered between them', () => {
+    // A centered heading at x=230 sits between the left column at x=50
+    // and the right column at x=320. If the heading were left in the
+    // narrow set as its own one-block x-cluster, the < 2-blocks gate
+    // would disable column reorder for the whole page and the body
+    // columns would stay interleaved. Promoting standalone headings
+    // *before* validating column counts keeps reorder enabled.
+    const spans: TextSpan[] = [
+      span('Left top A', 50, 100, 12),
+      span('Right top A', 320, 100, 12),
+      span('Left top B', 50, 130, 12),
+      span('Right top B', 320, 130, 12),
+      span('Section', 230, 200, 24),
+      span('Left bottom A', 50, 250, 12),
+      span('Right bottom A', 320, 250, 12),
+      span('Left bottom B', 50, 280, 12),
+      span('Right bottom B', 320, 280, 12),
+    ];
+    const layout = buildLayout(spans, 595);
+    const texts = layout.blocks.map((b) => b.text);
+    expect(texts).toEqual([
+      'Left top A',
+      'Left top B',
+      'Right top A',
+      'Right top B',
+      'Section',
+      'Left bottom A',
+      'Left bottom B',
+      'Right bottom A',
+      'Right bottom B',
+    ]);
+  });
+
   it('treats a mid-page heading as a column separator instead of pulling it into the left column', () => {
     // A heading sitting between two column rows must split the flow:
     // both columns above the heading reorder, then the heading, then

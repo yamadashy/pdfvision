@@ -134,19 +134,22 @@ function classifyHeadings(blocks: LayoutBlock[]): void {
  *   2. Cluster the remaining `narrow` blocks (including headings) by
  *      their left-edge x. Two blocks share a column when their x's are
  *      within 5% of the page width of each other.
- *   3. Reject if there's only one column, or if any column has < 2
- *      blocks (a lone block sitting at a different x is just an indent,
- *      not a column).
- *   4. Promote a heading to a separator only when no other column has a
- *      block at a similar y. A two-column page often has parallel
- *      headings (one per column at the same y) — those must stay in
- *      their columns, otherwise the output flushes both headings before
- *      either column's body. A standalone mid-page heading whose y is
- *      empty in every other column is treated as a separator that
- *      splits the column flow above and below it.
- *   5. When columns are detected, walk the y-ordered blocks; whenever a
- *      run of narrow blocks sits between two spanning blocks (or at the
- *      page edge), reorder that run by (column index, y).
+ *   3. Promote standalone headings (a heading block with no parallel
+ *      block in another column at a similar y) to spanning separators.
+ *      This catches both shapes that would otherwise misorder a real
+ *      page: a left-aligned section heading that joined the left
+ *      column, and a centered heading that opened its own one-block
+ *      cluster between the two real columns. Parallel-heading layouts
+ *      (one heading per column at the same y) keep their column
+ *      membership so the body underneath each heading reads with that
+ *      column, not as a single "all headings then all bodies" flush.
+ *   4. Reject if (after pruning promoted headings) there's only one
+ *      surviving column, or any surviving column has < 2 blocks — a
+ *      lone block sitting at a different x is just an indent, not a
+ *      column.
+ *   5. Walk the y-ordered blocks; whenever a run of narrow column
+ *      blocks sits between two spanning blocks (or the page edge),
+ *      reorder that run by (column index, y).
  */
 function reorderForColumns(blocks: LayoutBlock[], pageWidth: number): LayoutBlock[] {
   if (blocks.length < 4 || pageWidth <= 0) return blocks;
@@ -161,38 +164,39 @@ function reorderForColumns(blocks: LayoutBlock[], pageWidth: number): LayoutBloc
   // block joins the most recent column whose representative x is within
   // xEpsilon, otherwise opens a new column.
   const sortedByX = [...narrow].sort((a, b) => a.x - b.x);
-  const columns: LayoutBlock[][] = [[sortedByX[0]]];
+  const initialColumns: LayoutBlock[][] = [[sortedByX[0]]];
   for (let i = 1; i < sortedByX.length; i++) {
-    const last = columns[columns.length - 1];
+    const last = initialColumns[initialColumns.length - 1];
     const colX = last[0].x;
     if (sortedByX[i].x - colX <= xEpsilon) {
       last.push(sortedByX[i]);
     } else {
-      columns.push([sortedByX[i]]);
+      initialColumns.push([sortedByX[i]]);
     }
   }
 
-  // Need ≥ 2 columns and each column with ≥ 2 blocks.
-  if (columns.length < 2 || columns.some((c) => c.length < 2)) return blocks;
-
-  const columnOf = new Map<LayoutBlock, number>();
-  for (let ci = 0; ci < columns.length; ci++) {
-    for (const b of columns[ci]) columnOf.set(b, ci);
+  // Initial column-of-block map used by the standalone-heading test
+  // below — even a singleton-x heading cluster gets a column index here,
+  // so the parallelism check can compare its y against blocks in *other*
+  // columns regardless of where the heading sat in x.
+  const initialColumnOf = new Map<LayoutBlock, number>();
+  for (let ci = 0; ci < initialColumns.length; ci++) {
+    for (const b of initialColumns[ci]) initialColumnOf.set(b, ci);
   }
 
-  // Standalone headings (heading blocks with no parallel content in
-  // another column) are promoted to spanning separators. Parallel-
-  // heading layouts (one heading per column at the same y) keep their
-  // column membership so the body underneath each heading flushes in
-  // the right order.
+  // Promote standalone headings (heading blocks with no parallel block
+  // in another column at a similar y) to separators *before* validating
+  // column counts. Otherwise a centered standalone heading at a unique
+  // x would form its own one-block cluster and trip the < 2 guard,
+  // disabling reorder for the whole page.
   const hasParallelInOtherColumn = (heading: LayoutBlock): boolean => {
-    const ownCol = columnOf.get(heading);
+    const ownCol = initialColumnOf.get(heading);
     if (ownCol === undefined) return false;
     const yTop = heading.y;
     const yBot = heading.y + heading.height;
     for (const b of narrow) {
       if (b === heading) continue;
-      const otherCol = columnOf.get(b);
+      const otherCol = initialColumnOf.get(b);
       if (otherCol === undefined || otherCol === ownCol) continue;
       const bTop = b.y;
       const bBot = b.y + b.height;
@@ -205,6 +209,17 @@ function reorderForColumns(blocks: LayoutBlock[], pageWidth: number): LayoutBloc
     if (b.role === 'heading' && !hasParallelInOtherColumn(b)) {
       promoted.add(b);
     }
+  }
+
+  // Surviving columns are the initial clusters minus promoted blocks.
+  // Each surviving column needs ≥ 2 members and we need ≥ 2 surviving
+  // columns; otherwise this isn't a real multi-column layout.
+  const survivingColumns = initialColumns.map((c) => c.filter((b) => !promoted.has(b))).filter((c) => c.length >= 2);
+  if (survivingColumns.length < 2) return blocks;
+
+  const columnOf = new Map<LayoutBlock, number>();
+  for (let ci = 0; ci < survivingColumns.length; ci++) {
+    for (const b of survivingColumns[ci]) columnOf.set(b, ci);
   }
 
   // Walk in current (y-ordered) order. Buffer column-member blocks;
