@@ -119,8 +119,14 @@ describe('processDocument layout: true', () => {
   });
 
   it('keeps cache entries with vs without layout separate', async () => {
-    const noLayout = await processDocument(SAMPLE_PDF, { noCache: false });
-    const withLayout = await processDocument(SAMPLE_PDF, { noCache: false, layout: true });
+    // Use SAMPLE_HEADERS_PDF rather than SAMPLE_PDF: the headers fixture is
+    // only consumed by --layout tests with `noCache: true`, so its cache
+    // directory is otherwise idle. SAMPLE_PDF's cache dir is contended by
+    // the corruption / chmod tests in processor.test.ts when those workers
+    // run in parallel under vitest, which can race the atomicWrite path
+    // and produce flaky ENOENT failures on slower CI runners.
+    const noLayout = await processDocument(SAMPLE_HEADERS_PDF, { noCache: false });
+    const withLayout = await processDocument(SAMPLE_HEADERS_PDF, { noCache: false, layout: true });
     expect(noLayout.pages[0].layout).toBeUndefined();
     expect(withLayout.pages[0].layout).toBeDefined();
   });

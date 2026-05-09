@@ -134,9 +134,17 @@ export interface PageLayout {
 }
 
 /**
- * Bounding box of one raster image draw on the page. Multiple draws of
- * the same image XObject (e.g. a tiled hero) each get their own entry.
- * Coordinates use the same top-down origin as `TextSpan`.
+ * Bounding box of one raster image draw operator on the page. Coordinates
+ * use the same top-down origin as `TextSpan`.
+ *
+ * Caveat: pdf.js's `paintImage*Repeat` / `paintImage*Group` operators
+ * collapse multiple draws of the same XObject into a single op carrying
+ * a `positions` array. Today we emit one entry per operator regardless,
+ * so a tiled hero rendered through one Repeat op surfaces as one bbox
+ * spanning the operator's transform, not N per-instance bboxes. Probed
+ * fixtures (slide decks, requirement docs, the standard test corpus)
+ * do not exercise these collapsed ops, so this is a known gap rather
+ * than an observed regression. See processor.ts: buildImageBoxes.
  */
 export interface ImageBox {
   x: number;

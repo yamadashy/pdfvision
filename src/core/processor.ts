@@ -321,6 +321,11 @@ function buildImageBoxes(
       const f = ctm[1] * m[4] + ctm[3] * m[5] + ctm[5];
       ctm = [a, b, c, d, e, f];
     } else if (ops.imageOps.has(fn)) {
+      // KNOWN GAP: pdf.js's QueueOptimizer can collapse N draws of the same
+      // XObject into one `paintImage*Repeat` / `paintImage*Group` op carrying
+      // a `positions` array, in which case a faithful expansion would emit
+      // one bbox per instance. We currently emit one bbox per operator and
+      // accept the under-count for tiled-hero PDFs. See ImageBox docstring.
       const [a, b, c, d, e, f] = ctm;
       // Four corners of the unit square under CTM.
       const xs = [e, a + e, c + e, a + c + e];
