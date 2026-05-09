@@ -1,8 +1,8 @@
-import { existsSync, mkdtempSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { getCacheDir, getCached, setCache } from '../../src/core/cache.js';
+import { clearAllCache, getCacheDir, getCached, setCache } from '../../src/core/cache.js';
 
 describe('cache', () => {
   let tmpFile: string;
@@ -83,14 +83,28 @@ describe('cache', () => {
 
   it('refuses to use the cache root if it has been replaced by a symlink', () => {
     if (process.platform === 'win32') return; // symlink semantics differ
-    const cacheRoot = join(tmpdir(), 'pdfvision');
-    rmSync(cacheRoot, { recursive: true, force: true });
+    // Override the cache root to an isolated path so we don't rmSync
+    // the shared `/tmp/pdfvision/` while parallel vitest workers are
+    // mid-write. PDFVISION_CACHE_DIR is read on every cache call, so
+    // setting it before getCacheDir() takes effect immediately.
+    const isolatedRoot = join(
+      tmpdir(),
+      `pdfvision-symlink-test-${process.pid}-${Math.random().toString(36).slice(2, 10)}`,
+    );
+    rmSync(isolatedRoot, { recursive: true, force: true });
     const sneaky = mkdtempSync(join(tmpdir(), 'pdfvision-sneaky-'));
-    symlinkSync(sneaky, cacheRoot);
+    symlinkSync(sneaky, isolatedRoot);
+    const previousEnv = process.env.PDFVISION_CACHE_DIR;
+    process.env.PDFVISION_CACHE_DIR = isolatedRoot;
     try {
       expect(() => getCacheDir(tmpFile)).toThrow(/symlink/);
     } finally {
-      rmSync(cacheRoot, { force: true });
+      if (previousEnv === undefined) {
+        delete process.env.PDFVISION_CACHE_DIR;
+      } else {
+        process.env.PDFVISION_CACHE_DIR = previousEnv;
+      }
+      rmSync(isolatedRoot, { force: true });
       rmSync(sneaky, { recursive: true, force: true });
     }
   });
@@ -107,6 +121,52 @@ describe('cache', () => {
     for (const entry of readdirSync(dir)) {
       const mode = statSync(join(dir, entry)).mode & 0o777;
       expect(mode & 0o077).toBe(0); // no group/other access
+    }
+  });
+});
+
+describe('clearAllCache', () => {
+  // Use a fresh isolated directory each test rather than the real
+  // shared cache root — multiple vitest workers run in parallel and
+  // would race a real `rmSync(/tmp/pdfvision)` against another worker
+  // mid-write. The path-override on clearAllCache exists for this.
+  let isolatedRoot: string;
+  beforeEach(() => {
+    isolatedRoot = mkdtempSync(join(tmpdir(), 'pdfvision-clear-test-'));
+  });
+  afterEach(() => {
+    rmSync(isolatedRoot, { recursive: true, force: true });
+  });
+
+  it('removes the cache directory and reports removed=true', () => {
+    mkdirSync(join(isolatedRoot, 'sub'), { recursive: true });
+    writeFileSync(join(isolatedRoot, 'sub', 'marker'), 'stale');
+    const result = clearAllCache(isolatedRoot);
+    expect(result.path).toBe(isolatedRoot);
+    expect(result.removed).toBe(true);
+    expect(existsSync(isolatedRoot)).toBe(false);
+  });
+
+  it('reports removed=false without throwing when the directory is already absent', () => {
+    rmSync(isolatedRoot, { recursive: true, force: true });
+    const result = clearAllCache(isolatedRoot);
+    expect(result.removed).toBe(false);
+    expect(result.path).toBe(isolatedRoot);
+  });
+
+  it('refuses to traverse a symlink at the cache root', () => {
+    if (process.platform === 'win32') return; // symlink semantics differ
+    rmSync(isolatedRoot, { recursive: true, force: true });
+    const target = mkdtempSync(join(tmpdir(), 'pdfvision-clear-target-'));
+    writeFileSync(join(target, 'should-not-be-deleted'), 'keep');
+    symlinkSync(target, isolatedRoot);
+    try {
+      expect(() => clearAllCache(isolatedRoot)).toThrow(/symlink/);
+      // sanity: the symlink target's contents must survive the failed clear
+      expect(existsSync(join(target, 'should-not-be-deleted'))).toBe(true);
+    } finally {
+      rmSync(isolatedRoot, { force: true });
+      rmSync(target, { recursive: true, force: true });
     }
   });
 });

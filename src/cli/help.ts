@@ -10,6 +10,8 @@ export const HELP_TEXT = `pdfvision - Extract text, images, metadata, and layout
 
 Usage:
   pdfvision <file.pdf> [options]
+  pdfvision --remote <url> [options]
+  pdfvision --clear-cache
 
 Options
   -p, --pages <range>     Pages to extract: "1", "1-5", "1,3,5", "2-4,7". Default: all pages.
@@ -26,7 +28,12 @@ Options
                           reading order) from the same span data. Only -f json / -f xml.
       --image-boxes       Emit \`pages[].imageBoxes\` — bounding box of every raster image
                           draw on the page. Only -f json / -f xml.
-      --no-cache          Skip the on-disk cache.
+      --remote <url>      Download an http(s) URL to the on-disk cache and run extraction
+                          on it. Same URL → same cache slot; combine with --no-cache (or
+                          --clear-cache) to refresh.
+      --no-cache          Skip the on-disk cache (re-download / re-extract every run).
+      --clear-cache       Remove every cached extraction, rendered PNG, and downloaded
+                          remote PDF, then exit. No file argument required.
   -v, --version           Show version
   -h, --help              Show this help
 
@@ -41,7 +48,9 @@ Examples
   pdfvision document.pdf -r --render-output ./images                           # render PNGs to ./images
   pdfvision report.pdf -p 3-5 -r --render-output ./images --geometry -f json   # PNGs + spans for 3-5
   pdfvision slides.pdf -f xml --geometry                                       # layout / geometry as XML
+  pdfvision --remote https://example.com/paper.pdf -f json                     # fetch + extract JSON
+  pdfvision --clear-cache                                                      # wipe the on-disk cache
 
 Exit codes
   0  Success
-  1  Argument error, file not found, or extraction failure (error message on stderr)`;
+  1  Argument error, file not found, network error, or extraction failure (error message on stderr)`;

@@ -1,3 +1,5 @@
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { run } from '../../src/cli/cli.js';
@@ -128,4 +130,42 @@ describe('cli', () => {
     expect(r.exitCode).toBe(1);
     expect(r.stderr.join('\n')).toMatch(/positive integer|invalid|Error/i);
   });
+
+  it('rejects --remote and a positional file at the same time', async () => {
+    // Two input sources is almost always a typo; refuse rather than
+    // silently picking one.
+    const r = await captureRun(['--remote', 'http://127.0.0.1:0/x.pdf', SAMPLE_PDF]);
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr.join('\n')).toMatch(/--remote and a file path are mutually exclusive/);
+  });
+
+  it('downloads a remote PDF and runs extraction against it', async () => {
+    // Spin up a one-off http server that serves the existing sample
+    // fixture, point --remote at it, and assert the markdown body
+    // matches what we'd get from running locally on the same bytes.
+    const fixtureBytes = await import('node:fs').then(({ readFileSync }) => readFileSync(SAMPLE_PDF));
+    const server = createServer((_req, res) => {
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/pdf');
+      res.end(fixtureBytes);
+    });
+    await new Promise<void>((resolveListen) => server.listen(0, '127.0.0.1', resolveListen));
+    const port = (server.address() as AddressInfo).port;
+    try {
+      const r = await captureRun(['--remote', `http://127.0.0.1:${port}/doc.pdf`, '--no-cache']);
+      expect(r.exitCode).toBeNull();
+      expect(r.stdout.join('\n')).toContain('Hello pdfvision');
+    } finally {
+      await new Promise<void>((resolveClose, reject) => server.close((err) => (err ? reject(err) : resolveClose())));
+    }
+  });
 });
+
+// --clear-cache is intentionally NOT exercised from the CLI surface
+// here: the side effect (nuking /tmp/pdfvision/) cannot be safely
+// invoked from a parallel vitest worker because other workers are
+// concurrently writing to the same root. The CLI wiring is a 4-line
+// shim around `clearAllCache()`; the meaningful assertions — actually
+// removing a directory tree, handling an already-absent path, and
+// refusing symlinks at the root — live in tests/core/cache.test.ts
+// against an isolated temp directory.
