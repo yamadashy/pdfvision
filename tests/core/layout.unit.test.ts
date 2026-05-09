@@ -106,6 +106,25 @@ describe('buildLayout — multi-column reading order', () => {
     expect(layout.blocks[4].text).toContain('Right line B');
   });
 
+  it('treats a mid-page heading as a column separator instead of pulling it into the left column', () => {
+    // A heading sitting between two column rows must split the flow:
+    // both columns above the heading reorder, then the heading, then
+    // both columns below the heading. The previous implementation kept
+    // narrow headings (glyph-advance < 60% of page width) in `narrow`
+    // and they joined the left column at x=50, so the right column
+    // above the heading slipped to *after* the heading in the output.
+    const spans: TextSpan[] = [
+      span('Left top', 50, 100, 12),
+      span('Right top', 320, 100, 12),
+      span('Section heading', 50, 200, 24),
+      span('Left bottom', 50, 250, 12),
+      span('Right bottom', 320, 250, 12),
+    ];
+    const layout = buildLayout(spans, 595);
+    const texts = layout.blocks.map((b) => b.text);
+    expect(texts).toEqual(['Left top', 'Right top', 'Section heading', 'Left bottom', 'Right bottom']);
+  });
+
   it('leaves a single-column page in plain top-down order', () => {
     const spans: TextSpan[] = [
       span(`Paragraph one. ${'Long enough text. '.repeat(10)}`, 50, 50, 12, 500),

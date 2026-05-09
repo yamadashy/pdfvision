@@ -130,7 +130,11 @@ function classifyHeadings(blocks: LayoutBlock[]): void {
  *
  *   1. Treat blocks wider than 60% of the page as `spanning` (likely
  *      page-spanning headings, footers). They keep their position in the
- *      y-ordered output and act as group separators.
+ *      y-ordered output and act as group separators. Blocks already
+ *      classified as `role: 'heading'` are also treated as spanning even
+ *      when their glyph advance is narrow — a left-aligned section
+ *      heading like "Methods" should split the column flow above and
+ *      below it, not get pulled into the left column.
  *   2. Cluster the remaining `narrow` blocks by their left-edge x. Two
  *      blocks share a column when their x's are within 5% of the page
  *      width of each other.
@@ -147,7 +151,11 @@ function reorderForColumns(blocks: LayoutBlock[], pageWidth: number): LayoutBloc
   const spanThreshold = pageWidth * 0.6;
   const xEpsilon = pageWidth * 0.05;
 
-  const narrow = blocks.filter((b) => b.width < spanThreshold);
+  // Heading blocks act as natural separators between column runs even
+  // when their glyph-advance width is narrow; otherwise a short mid-page
+  // heading would either join the left column (left-aligned) or open a
+  // singleton-x cluster that disables column reorder (centered).
+  const narrow = blocks.filter((b) => b.width < spanThreshold && b.role !== 'heading');
   if (narrow.length < 4) return blocks;
 
   // Cluster narrow blocks by left edge x. Sorted ascending so each new
