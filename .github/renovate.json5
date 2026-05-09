@@ -1,0 +1,36 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+  ],
+  "schedule": ["before 9am on saturday"],
+  "rangeStrategy": "bump",
+  "dependencyDashboard": false,
+  "labels": ["dependencies", "renovate"],
+  "packageRules": [
+    {
+      matchDepTypes: ["peerDependencies"],
+      enabled: false,
+    },
+    // Single root package.json — group non-major and major separately so
+    // patch / minor bumps land in one PR per week and majors are easy to
+    // review one at a time.
+    {
+      matchFileNames: ["package.json"],
+      matchUpdateTypes: ["minor", "patch"],
+      groupName: "non-major dependencies",
+    },
+    {
+      matchFileNames: ["package.json"],
+      matchUpdateTypes: ["major"],
+      groupName: "major dependencies",
+    },
+  ],
+  "ignoreDeps": [
+    // Node engines are bumped intentionally alongside CI matrix changes.
+    "node",
+  ],
+  // Wait a week before opening a PR to dodge buggy initial releases that
+  // get yanked or hot-patched.
+  "minimumReleaseAge": "7 days",
+}
