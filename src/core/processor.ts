@@ -242,6 +242,52 @@ interface PageFlags {
  * square onto the page. Multiplication convention follows pdf.js: each
  * `transform` op right-multiplies its argument into the running CTM.
  */
+/**
+ * Cross-page pass: flag blocks that look like running headers / footers /
+ * page numbers / watermarks. Two blocks across different pages are
+ * considered the "same" when their normalized text matches and their top y
+ * sits in the same 5-pt bin (page chrome rarely shifts more than that
+ * between pages, while body text reflows).
+ *
+ * A block is marked `repeated: true` when it occurs on at least 2 pages
+ * AND on at least half of the pages that have a layout. With the default
+ * threshold a 3-page run with the same footer marks all three; a one-off
+ * line that happens to coincide with one other page does not.
+ *
+ * Mutates the layout in place.
+ */
+function markRepeatedBlocks(pages: PageResult[]): void {
+  const pagesWithLayout = pages.filter((p) => p.layout && p.layout.blocks.length > 0);
+  if (pagesWithLayout.length < 2) return;
+
+  type BlockRef = { pageIndex: number; blockIndex: number };
+  const groups = new Map<string, BlockRef[]>();
+  for (let pi = 0; pi < pagesWithLayout.length; pi++) {
+    const page = pagesWithLayout[pi];
+    const blocks = page.layout?.blocks ?? [];
+    for (let bi = 0; bi < blocks.length; bi++) {
+      const b = blocks[bi];
+      const text = b.text.replace(/\s+/g, ' ').trim();
+      if (text.length === 0) continue;
+      const key = `${Math.round(b.y / 5) * 5}\t${text}`;
+      const list = groups.get(key);
+      if (list) list.push({ pageIndex: pi, blockIndex: bi });
+      else groups.set(key, [{ pageIndex: pi, blockIndex: bi }]);
+    }
+  }
+
+  const minOccurrences = Math.max(2, Math.ceil(pagesWithLayout.length / 2));
+  for (const refs of groups.values()) {
+    if (refs.length < minOccurrences) continue;
+    const seenPages = new Set(refs.map((r) => r.pageIndex));
+    if (seenPages.size < minOccurrences) continue;
+    for (const ref of refs) {
+      const block = pagesWithLayout[ref.pageIndex].layout?.blocks[ref.blockIndex];
+      if (block) block.repeated = true;
+    }
+  }
+}
+
 function buildImageBoxes(
   fnArray: number[],
   argsArray: unknown[][],
@@ -567,6 +613,11 @@ export async function processDocument(filePath: string, options: ProcessDocument
         ...(data.imageBoxes !== undefined && { imageBoxes: data.imageBoxes }),
       });
     }
+
+    // Repeated-chrome detection has to wait until every selected page is
+    // populated, since a single page can't tell its own chrome from its
+    // body. Skipped when --layout was off (nothing to flag).
+    if (flags.layout) markRepeatedBlocks(pages);
 
     const metaString = (raw: unknown): string | null => {
       if (typeof raw !== 'string') return null;

@@ -4,6 +4,7 @@ import { processDocument } from '../../src/core/processor.js';
 
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
 const SAMPLE_JA_PDF = resolve(__dirname, '../fixtures/sample-ja.pdf');
+const SAMPLE_HEADERS_PDF = resolve(__dirname, '../fixtures/sample-headers.pdf');
 
 describe('processDocument layout: true', () => {
   it('omits layout by default', async () => {
@@ -74,6 +75,47 @@ describe('processDocument layout: true', () => {
     expect(allLineText).toContain('です');
     // Defensive: no run of CJK characters should be split by a space.
     expect(allLineText).not.toMatch(/[぀-ヿ一-鿿] [぀-ヿ一-鿿]/);
+  });
+
+  it('flags running header blocks as repeated across pages', async () => {
+    // sample-headers.pdf places the same `pdfvision headers fixture`
+    // text at the same y on every one of its three pages. The cross-page
+    // post-processing must mark each occurrence as `repeated: true`
+    // while leaving the per-page bodies (`Body of page 1`, etc.) alone.
+    const result = await processDocument(SAMPLE_HEADERS_PDF, { noCache: true, layout: true });
+    expect(result.pages.length).toBe(3);
+    for (const page of result.pages) {
+      const header = page.layout?.blocks.find((b) => b.text.includes('headers fixture'));
+      expect(header?.repeated).toBe(true);
+      const body = page.layout?.blocks.find((b) => b.text.startsWith('Body of page'));
+      expect(body?.repeated).toBeUndefined();
+    }
+  });
+
+  it('does not flag any block as repeated when no chrome is shared', async () => {
+    // sample-ja.pdf has no running header / footer; every block's text
+    // and y differ between pages, so the detector must leave all blocks
+    // alone. Guards against an over-eager threshold.
+    const result = await processDocument(SAMPLE_JA_PDF, { noCache: true, layout: true });
+    for (const page of result.pages) {
+      for (const block of page.layout?.blocks ?? []) {
+        expect(block.repeated).toBeUndefined();
+      }
+    }
+  });
+
+  it('does not run repeated detection on a single-page extraction', async () => {
+    // With one page selected the cross-page comparison has nothing to
+    // compare against and would either always-flag or never-flag — both
+    // of which are wrong. Skip the pass entirely.
+    const result = await processDocument(SAMPLE_HEADERS_PDF, {
+      noCache: true,
+      layout: true,
+      pages: '1',
+    });
+    for (const block of result.pages[0].layout?.blocks ?? []) {
+      expect(block.repeated).toBeUndefined();
+    }
   });
 
   it('keeps cache entries with vs without layout separate', async () => {

@@ -94,7 +94,9 @@ export function formatXml(result: DocumentResult): string {
     if (page.layout) {
       out.push('<layout>');
       for (const block of page.layout.blocks) {
-        out.push(`<block x="${block.x}" y="${block.y}" width="${block.width}" height="${block.height}">`);
+        const blockAttrs = [`x="${block.x}"`, `y="${block.y}"`, `width="${block.width}"`, `height="${block.height}"`];
+        if (block.repeated) blockAttrs.push('repeated="true"');
+        out.push(`<block ${blockAttrs.join(' ')}>`);
         for (const line of block.lines) {
           out.push(
             `<line x="${line.x}" y="${line.y}" width="${line.width}" height="${line.height}" fontSize="${line.fontSize}">${escapeText(line.text)}</line>`,

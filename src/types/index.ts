@@ -115,6 +115,13 @@ export interface LayoutBlock {
   width: number;
   height: number;
   lines: LayoutLine[];
+  /**
+   * `true` when this block appears at the same vertical position with the
+   * same text on enough other pages to look like a running header, footer,
+   * page number, or watermark. Lets agents skip the chrome and focus on
+   * the body. Detected post-clustering across the selected page set.
+   */
+  repeated?: boolean;
 }
 
 /**
