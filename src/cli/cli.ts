@@ -37,6 +37,8 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
         'no-cache': { type: 'boolean' },
         'no-normalize': { type: 'boolean' },
         geometry: { type: 'boolean' },
+        layout: { type: 'boolean' },
+        'image-boxes': { type: 'boolean' },
       },
     });
     values = parsed.values as Record<string, string | boolean | undefined>;
@@ -97,6 +99,8 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
       // diffing, ...).
       normalize: !((values['no-normalize'] as boolean | undefined) ?? false),
       geometry: (values.geometry as boolean | undefined) ?? false,
+      layout: (values.layout as boolean | undefined) ?? false,
+      imageBoxes: (values['image-boxes'] as boolean | undefined) ?? false,
     });
     console.log(result);
   } catch (error) {

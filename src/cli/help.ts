@@ -22,6 +22,10 @@ Options
                           surfaced in \`rawText\` (json/xml) when normalization changed the string.
       --geometry          Emit per-text-item bbox + font size in \`pages[].spans\`.
                           Only takes effect with -f json or -f xml.
+      --layout            Reconstruct \`pages[].layout\` (lines + blocks in approximate
+                          reading order) from the same span data. Only -f json / -f xml.
+      --image-boxes       Emit \`pages[].imageBoxes\` — bounding box of every raster image
+                          draw on the page. Only -f json / -f xml.
       --no-cache          Skip the on-disk cache.
   -v, --version           Show version
   -h, --help              Show this help
