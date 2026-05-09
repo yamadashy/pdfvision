@@ -35,6 +35,22 @@ export interface ProcessDocumentOptions {
    * rendered PNG.
    */
   geometry?: boolean;
+  /**
+   * Emit a per-page semantic layout in `pages[].layout` — text spans
+   * grouped into lines (by y proximity) and lines grouped into blocks
+   * (by vertical-gap and font-size similarity). The block array is in
+   * approximate reading order (top-down, left-right). Layout is computed
+   * from the same span data that powers `--geometry`, so enabling
+   * `layout` alone keeps the spans internal and only exposes the
+   * higher-level structure.
+   */
+  layout?: boolean;
+  /**
+   * Emit per-image bounding boxes in `pages[].imageBoxes`. Lets agents
+   * tell apart the page's logo / hero / inline figure / background from
+   * each other. Off by default because not every consumer needs them.
+   */
+  imageBoxes?: boolean;
 }
 
 export interface ProcessOptions {
@@ -45,6 +61,8 @@ export interface ProcessOptions {
   renderOutput?: string;
   normalize?: boolean;
   geometry?: boolean;
+  layout?: boolean;
+  imageBoxes?: boolean;
 }
 
 /**
@@ -68,6 +86,71 @@ export interface TextSpan {
   fontSize: number;
   /** pdf.js internal font name (e.g. `g_d0_f1`). Useful for grouping items by font. */
   fontName?: string;
+}
+
+/**
+ * One visual line of text — a group of spans that share a baseline,
+ * sorted left-to-right. Built from spans by clustering on the y axis;
+ * the bbox is the union of its spans' bboxes.
+ */
+export interface LayoutLine {
+  text: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** Most common fontSize across the spans in this line. */
+  fontSize: number;
+}
+
+/**
+ * One semantic block — a group of consecutive lines that look like they
+ * belong together (small vertical gap, similar font size). Block bbox is
+ * the union of its lines' bboxes; `text` joins the line texts with `\n`.
+ */
+export interface LayoutBlock {
+  text: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  lines: LayoutLine[];
+  /**
+   * `true` when this block appears at the same vertical position with the
+   * same text on enough other pages to look like a running header, footer,
+   * page number, or watermark. Lets agents skip the chrome and focus on
+   * the body. Detected post-clustering across the selected page set.
+   */
+  repeated?: boolean;
+}
+
+/**
+ * Page-level layout reconstructed from spans. `blocks` is ordered top-to-bottom
+ * (approximate reading order; multi-column detection is on the v0.4+ roadmap,
+ * not implemented here).
+ */
+export interface PageLayout {
+  blocks: LayoutBlock[];
+}
+
+/**
+ * Bounding box of one raster image draw operator on the page. Coordinates
+ * use the same top-down origin as `TextSpan`.
+ *
+ * Caveat: pdf.js's `paintImage*Repeat` / `paintImage*Group` operators
+ * collapse multiple draws of the same XObject into a single op carrying
+ * a `positions` array. Today we emit one entry per operator regardless,
+ * so a tiled hero rendered through one Repeat op surfaces as one bbox
+ * spanning the operator's transform, not N per-instance bboxes. Probed
+ * fixtures (slide decks, requirement docs, the standard test corpus)
+ * do not exercise these collapsed ops, so this is a known gap rather
+ * than an observed regression. See processor.ts: buildImageBoxes.
+ */
+export interface ImageBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 export interface PageResult {
@@ -104,6 +187,17 @@ export interface PageResult {
    * top-down coordinates so callers can overlay them on the rendered PNG.
    */
   spans?: TextSpan[];
+  /**
+   * Reconstructed semantic layout, only present when `layout: true` was
+   * passed. Blocks are in approximate reading order.
+   */
+  layout?: PageLayout;
+  /**
+   * Bounding boxes of raster image draws on the page, only present when
+   * `imageBoxes: true` was passed. One entry per draw operation (a tiled
+   * hero image yields multiple entries).
+   */
+  imageBoxes?: ImageBox[];
 }
 
 export interface DocumentMetadata {

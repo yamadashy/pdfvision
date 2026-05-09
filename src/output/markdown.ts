@@ -30,14 +30,21 @@ export function formatMarkdown(result: DocumentResult): string {
   // column carries width×height in PDF points so portrait-vs-landscape and
   // slide-vs-document layouts are obvious from the same glance.
   if (result.pages.length > 1) {
+    // The Blocks column appears only when --layout was on (any page carries
+    // a `layout` payload). Lets agents see at a glance how the doc breaks
+    // down into structural pieces without scrolling into the body.
+    const showBlocks = result.pages.some((p) => p.layout !== undefined);
     lines.push('');
     lines.push('## Overview');
     lines.push('');
-    lines.push('| Page | Chars | Images | Coverage | Size (pt) |');
-    lines.push('| ---: | ---: | ---: | ---: | ---: |');
+    lines.push(`| Page | Chars | Images | Coverage | Size (pt) |${showBlocks ? ' Blocks |' : ''}`);
+    lines.push(`| ---: | ---: | ---: | ---: | ---: |${showBlocks ? ' ---: |' : ''}`);
     for (const page of result.pages) {
       const coveragePct = Math.round(page.textCoverage * 100);
-      lines.push(`| ${page.page} | ${page.charCount} | ${page.imageCount} | ${coveragePct}% | ${formatSize(page)} |`);
+      const blocksCell = showBlocks ? ` ${page.layout?.blocks.length ?? 0} |` : '';
+      lines.push(
+        `| ${page.page} | ${page.charCount} | ${page.imageCount} | ${coveragePct}% | ${formatSize(page)} |${blocksCell}`,
+      );
     }
   }
 

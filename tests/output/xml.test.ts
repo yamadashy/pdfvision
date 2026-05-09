@@ -125,6 +125,63 @@ describe('formatXml', () => {
     expect(out).toContain('&lt;script&gt;alert("x")&lt;/script&gt;');
   });
 
+  it('emits a <layout> block with nested <block>/<line> elements when layout is present', () => {
+    const out = formatXml(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 'Hi',
+            charCount: 2,
+            layout: {
+              blocks: [
+                {
+                  text: 'Hi',
+                  x: 10,
+                  y: 20,
+                  width: 30,
+                  height: 12,
+                  lines: [{ text: 'Hi', x: 10, y: 20, width: 30, height: 12, fontSize: 12 }],
+                },
+              ],
+            },
+          }),
+        ],
+      }),
+    );
+    expect(out).toContain('<layout>');
+    expect(out).toMatch(/<block x="10" y="20" width="30" height="12">/);
+    expect(out).toMatch(/<line x="10" y="20" width="30" height="12" fontSize="12">Hi<\/line>/);
+  });
+
+  it('emits an <imageBoxes> block with one <imageBox/> per box', () => {
+    const out = formatXml(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 't',
+            charCount: 1,
+            imageBoxes: [
+              { x: 50, y: 100, width: 50, height: 50 },
+              { x: 150, y: 100, width: 50, height: 50 },
+            ],
+          }),
+        ],
+      }),
+    );
+    expect(out).toContain('<imageBoxes>');
+    expect(out).toMatch(/<imageBox x="50" y="100" width="50" height="50"\/>/);
+    expect(out).toMatch(/<imageBox x="150" y="100" width="50" height="50"\/>/);
+  });
+
+  it('emits self-closing <imageBoxes/> on a text-only page so the absence is visible', () => {
+    // An empty array still surfaces — distinguishes "we looked, found none"
+    // from "we did not look" the same way the JSON output does.
+    const out = formatXml(makeResult({ pages: [makePage({ page: 1, text: 't', charCount: 1, imageBoxes: [] })] }));
+    expect(out).toContain('<imageBoxes/>');
+  });
+
   it('escapes newlines inside attribute values so they cannot terminate the attribute early', () => {
     const out = formatXml(
       makeResult({

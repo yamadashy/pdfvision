@@ -30,6 +30,7 @@ const FONT_PATH = require.resolve('@expo-google-fonts/noto-sans-jp/400Regular/No
 const FIXTURE_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-ja.pdf');
 const FIXTURE_IMAGES_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-with-image.pdf');
 const FIXTURE_COMPAT_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-compat.pdf');
+const FIXTURE_HEADERS_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-headers.pdf');
 
 // Smallest standard valid PNG (1×1 red pixel). Embedded into the fixture
 // so pdfjs emits a paintImageXObject opcode and density tests can verify
@@ -164,6 +165,44 @@ async function buildCompatPdf() {
   console.log(`Wrote ${FIXTURE_COMPAT_OUT} (${out.byteLength} bytes)`);
 }
 
+// Builds a fixture for the running-header / footer detection in --layout.
+// Three pages, each with the same header line at the same y position so
+// the cross-page detection can flag it as `repeated: true`. Bodies differ.
+async function buildHeadersPdf() {
+  const doc = new PDFDocument({
+    info: {
+      Title: 'pdfvision headers fixture',
+      Author: 'pdfvision build-fixtures',
+      Subject: 'Repeated-block detection fixture',
+      Creator: 'pdfvision',
+      CreationDate: FIXED_DATE,
+      ModDate: FIXED_DATE,
+    },
+    autoFirstPage: false,
+  });
+  doc._id = FIXED_FILE_ID;
+
+  const chunks = [];
+  doc.on('data', (c) => chunks.push(c));
+  const done = new Promise((resolveDone, rejectDone) => {
+    doc.on('end', resolveDone);
+    doc.on('error', rejectDone);
+  });
+
+  for (let i = 1; i <= 3; i++) {
+    doc.addPage().fontSize(10).text('pdfvision headers fixture', 50, 30);
+    doc.fontSize(20).text(`Body of page ${i}`, 50, 200);
+  }
+
+  doc.end();
+  await done;
+
+  const out = Buffer.concat(chunks);
+  writeFileSync(FIXTURE_HEADERS_OUT, out);
+  console.log(`Wrote ${FIXTURE_HEADERS_OUT} (${out.byteLength} bytes)`);
+}
+
 await buildJapanesePdf();
 await buildImagePdf();
 await buildCompatPdf();
+await buildHeadersPdf();

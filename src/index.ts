@@ -5,7 +5,11 @@ export { renderPage, renderPages } from './core/renderer.js';
 export type {
   DocumentMetadata,
   DocumentResult,
+  ImageBox,
+  LayoutBlock,
+  LayoutLine,
   OutputFormat,
+  PageLayout,
   PageOverview,
   PageResult,
   ProcessDocumentOptions,
