@@ -55,6 +55,27 @@ describe('processDocument layout: true', () => {
     }
   });
 
+  it('joins adjacent CJK glyph spans without inserting spurious spaces', async () => {
+    // pdfjs splits a CJK run into per-character spans with no whitespace
+    // span between them. A naive ' ' join produces e.g. `背景・ 目 的`
+    // instead of `背景・目的`, which then breaks downstream search /
+    // diff. The line-text join uses the visual gap between consecutive
+    // spans to decide; this test guards that decision against the real
+    // sample-ja fixture.
+    const result = await processDocument(SAMPLE_JA_PDF, { noCache: true, layout: true, pages: '1' });
+    const blocks = result.pages[0].layout?.blocks ?? [];
+    const allLineText = blocks.flatMap((b) => b.lines.map((l) => l.text)).join('\n');
+    // The fixture has `これは pdfvision のテスト用 PDF です。`; the
+    // CJK runs (`これは`, `のテスト用`, `です`) must come through as
+    // contiguous strings, with single spaces only at the
+    // CJK ↔ Latin boundaries.
+    expect(allLineText).toContain('これは');
+    expect(allLineText).toContain('のテスト用');
+    expect(allLineText).toContain('です');
+    // Defensive: no run of CJK characters should be split by a space.
+    expect(allLineText).not.toMatch(/[぀-ヿ一-鿿] [぀-ヿ一-鿿]/);
+  });
+
   it('keeps cache entries with vs without layout separate', async () => {
     const noLayout = await processDocument(SAMPLE_PDF, { noCache: false });
     const withLayout = await processDocument(SAMPLE_PDF, { noCache: false, layout: true });

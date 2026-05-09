@@ -91,6 +91,32 @@ export function formatXml(result: DocumentResult): string {
       out.push('</spans>');
     }
 
+    if (page.layout) {
+      out.push('<layout>');
+      for (const block of page.layout.blocks) {
+        out.push(`<block x="${block.x}" y="${block.y}" width="${block.width}" height="${block.height}">`);
+        for (const line of block.lines) {
+          out.push(
+            `<line x="${line.x}" y="${line.y}" width="${line.width}" height="${line.height}" fontSize="${line.fontSize}">${escapeText(line.text)}</line>`,
+          );
+        }
+        out.push('</block>');
+      }
+      out.push('</layout>');
+    }
+
+    if (page.imageBoxes) {
+      if (page.imageBoxes.length === 0) {
+        out.push('<imageBoxes/>');
+      } else {
+        out.push('<imageBoxes>');
+        for (const box of page.imageBoxes) {
+          out.push(`<imageBox x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}"/>`);
+        }
+        out.push('</imageBoxes>');
+      }
+    }
+
     if (page.text) {
       // Newlines top and bottom keep the text body visually distinct from
       // the surrounding tags — matters for LLM comprehension. The leading

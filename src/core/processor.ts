@@ -75,6 +75,28 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+/**
+ * Join the spans of a single layout line into a readable string. pdfjs
+ * emits whitespace as separate items (already filtered) but for CJK it
+ * also splits adjacent characters into per-glyph spans. A naive ' '
+ * join produces `背景・ 目 的` for what is really `背景・目的`. Use the
+ * visual gap between consecutive spans as a proxy: if it's at least a
+ * quarter of the font size we treat them as different words and insert
+ * a single space, otherwise we concatenate.
+ */
+function joinLineSpans(xSorted: TextSpan[]): string {
+  if (xSorted.length === 0) return '';
+  let out = xSorted[0].text;
+  for (let i = 1; i < xSorted.length; i++) {
+    const prev = xSorted[i - 1];
+    const cur = xSorted[i];
+    const gap = cur.x - (prev.x + prev.width);
+    const threshold = cur.fontSize * 0.25;
+    out += gap > threshold ? ` ${cur.text}` : cur.text;
+  }
+  return out;
+}
+
 /** Most common value in `nums` — used for the dominant font size of a line. */
 function mode(nums: number[]): number {
   const counts = new Map<number, number>();
@@ -134,11 +156,7 @@ function buildLayout(spans: TextSpan[]): PageLayout {
       if (s.y + s.height > maxY) maxY = s.y + s.height;
     }
     return {
-      // Whitespace-only spans are filtered upstream, so a plain ' ' join
-      // recovers a readable line in the common case. The aggregate page
-      // text on PageResult still has the exact pdfjs-emitted spacing for
-      // callers that need byte-perfect output.
-      text: xSorted.map((s) => s.text).join(' '),
+      text: joinLineSpans(xSorted),
       x: round2(minX),
       y: round2(minY),
       width: round2(maxX - minX),
