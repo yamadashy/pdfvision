@@ -4,6 +4,7 @@ import { processDocument } from '../../src/core/processor.js';
 
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
 const SAMPLE_WITH_IMAGE_PDF = resolve(__dirname, '../fixtures/sample-with-image.pdf');
+const SAMPLE_TILED_PDF = resolve(__dirname, '../fixtures/sample-tiled.pdf');
 
 describe('processDocument imageBoxes: true', () => {
   it('omits imageBoxes by default', async () => {
@@ -39,6 +40,21 @@ describe('processDocument imageBoxes: true', () => {
   it('matches imageCount with the number of imageBoxes', async () => {
     const result = await processDocument(SAMPLE_WITH_IMAGE_PDF, { noCache: true, imageBoxes: true });
     expect(result.pages[0].imageBoxes?.length).toBe(result.pages[0].imageCount);
+  });
+
+  it('emits one bbox per image even when the page contains multiple draws', async () => {
+    // sample-tiled.pdf places four 50×50pt copies of the same PNG in a
+    // 2×2 grid at (50, 50), (150, 50), (50, 150), (150, 150). The
+    // optimizer-collapse path in pdf.js 5.x doesn't trigger on this
+    // input (alpha PNGs gain an SMask wrapper that breaks the 4-op
+    // pattern), so the fixture exercises four distinct paintImageXObject
+    // ops; we still expect imageCount and imageBoxes.length to agree.
+    const result = await processDocument(SAMPLE_TILED_PDF, { noCache: true, imageBoxes: true });
+    const boxes = result.pages[0].imageBoxes ?? [];
+    expect(boxes.length).toBe(4);
+    expect(result.pages[0].imageCount).toBe(4);
+    const corners = boxes.map((b) => `${b.x},${b.y}`).sort();
+    expect(corners).toEqual(['150,150', '150,50', '50,150', '50,50']);
   });
 
   it('keeps cache entries with vs without imageBoxes separate', async () => {

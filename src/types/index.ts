@@ -116,6 +116,16 @@ export interface LayoutBlock {
   height: number;
   lines: LayoutLine[];
   /**
+   * Coarse semantic role. `'heading'` when the block's dominant fontSize
+   * is meaningfully larger than the page's body text (currently ≥ 1.25×
+   * the char-weighted median fontSize). Omitted otherwise — the absence
+   * of `role` means body / regular text. Lets agents pick out section
+   * anchors without re-deriving fontSize statistics. Caption / list /
+   * other roles are not detected today; this field will gain values as
+   * heuristics are added rather than be retroactively renamed.
+   */
+  role?: 'heading';
+  /**
    * `true` when this block appears at the same vertical position with the
    * same text on enough other pages to look like a running header, footer,
    * page number, or watermark. Lets agents skip the chrome and focus on
