@@ -42,7 +42,7 @@ describe('processDocument imageBoxes: true', () => {
     expect(result.pages[0].imageBoxes?.length).toBe(result.pages[0].imageCount);
   });
 
-  it('emits one bbox per image even when the page contains multiple draws', async () => {
+  it('emits one bbox per draw when the same image is drawn multiple times', async () => {
     // sample-tiled.pdf places four 50×50pt copies of the same PNG in a
     // 2×2 grid at (50, 50), (150, 50), (50, 150), (150, 150). The
     // optimizer-collapse path in pdf.js 5.x doesn't trigger on this

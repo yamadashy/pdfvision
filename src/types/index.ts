@@ -135,26 +135,33 @@ export interface LayoutBlock {
 }
 
 /**
- * Page-level layout reconstructed from spans. `blocks` is ordered top-to-bottom
- * (approximate reading order; multi-column detection is on the v0.4+ roadmap,
- * not implemented here).
+ * Page-level layout reconstructed from spans. `blocks` is ordered in
+ * approximate reading order:
+ *   - single-column pages come back top-to-bottom;
+ *   - multi-column pages are detected when ≥ 2 narrow x-clusters of blocks
+ *     each carry ≥ 2 entries, and reordered so each column reads top-down
+ *     before the next column starts (left-to-right);
+ *   - blocks wider than ~60% of the page are treated as spanning (e.g.
+ *     headings, footers) and stay in their y position, acting as group
+ *     separators between column runs.
+ * See {@link buildLayout} / `reorderForColumns` in `core/layout.ts` for tuning.
  */
 export interface PageLayout {
   blocks: LayoutBlock[];
 }
 
 /**
- * Bounding box of one raster image draw operator on the page. Coordinates
- * use the same top-down origin as `TextSpan`.
+ * Bounding box of one rendered raster image instance on the page.
+ * Coordinates use the same top-down origin as `TextSpan`.
  *
- * Caveat: pdf.js's `paintImage*Repeat` / `paintImage*Group` operators
- * collapse multiple draws of the same XObject into a single op carrying
- * a `positions` array. Today we emit one entry per operator regardless,
- * so a tiled hero rendered through one Repeat op surfaces as one bbox
- * spanning the operator's transform, not N per-instance bboxes. Probed
- * fixtures (slide decks, requirement docs, the standard test corpus)
- * do not exercise these collapsed ops, so this is a known gap rather
- * than an observed regression. See processor.ts: buildImageBoxes.
+ * pdf.js's `paintImage*Repeat` / `paintImage*Group` operators collapse
+ * multiple draws of the same XObject into a single op carrying a
+ * `positions` array (or per-instance transforms). `buildImageBoxes` in
+ * `core/imageBoxes.ts` walks those ops and emits one entry per drawn
+ * instance, so a tiled hero surfaces as N per-instance bboxes — and
+ * `imageCount === imageBoxes.length` holds for every page. Form XObject
+ * (`paintFormXObjectBegin/End`) CTM-stack tracking ensures images drawn
+ * inside a Form XObject map to the correct page-space position.
  */
 export interface ImageBox {
   x: number;
