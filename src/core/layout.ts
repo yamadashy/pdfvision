@@ -130,18 +130,21 @@ function classifyHeadings(blocks: LayoutBlock[]): void {
  *
  *   1. Treat blocks wider than 60% of the page as `spanning` (likely
  *      page-spanning headings, footers). They keep their position in the
- *      y-ordered output and act as group separators. Blocks already
- *      classified as `role: 'heading'` are also treated as spanning even
- *      when their glyph advance is narrow — a left-aligned section
- *      heading like "Methods" should split the column flow above and
- *      below it, not get pulled into the left column.
- *   2. Cluster the remaining `narrow` blocks by their left-edge x. Two
- *      blocks share a column when their x's are within 5% of the page
- *      width of each other.
+ *      y-ordered output and act as group separators.
+ *   2. Cluster the remaining `narrow` blocks (including headings) by
+ *      their left-edge x. Two blocks share a column when their x's are
+ *      within 5% of the page width of each other.
  *   3. Reject if there's only one column, or if any column has < 2
  *      blocks (a lone block sitting at a different x is just an indent,
  *      not a column).
- *   4. When columns are detected, walk the y-ordered blocks; whenever a
+ *   4. Promote a heading to a separator only when no other column has a
+ *      block at a similar y. A two-column page often has parallel
+ *      headings (one per column at the same y) — those must stay in
+ *      their columns, otherwise the output flushes both headings before
+ *      either column's body. A standalone mid-page heading whose y is
+ *      empty in every other column is treated as a separator that
+ *      splits the column flow above and below it.
+ *   5. When columns are detected, walk the y-ordered blocks; whenever a
  *      run of narrow blocks sits between two spanning blocks (or at the
  *      page edge), reorder that run by (column index, y).
  */
@@ -151,11 +154,7 @@ function reorderForColumns(blocks: LayoutBlock[], pageWidth: number): LayoutBloc
   const spanThreshold = pageWidth * 0.6;
   const xEpsilon = pageWidth * 0.05;
 
-  // Heading blocks act as natural separators between column runs even
-  // when their glyph-advance width is narrow; otherwise a short mid-page
-  // heading would either join the left column (left-aligned) or open a
-  // singleton-x cluster that disables column reorder (centered).
-  const narrow = blocks.filter((b) => b.width < spanThreshold && b.role !== 'heading');
+  const narrow = blocks.filter((b) => b.width < spanThreshold);
   if (narrow.length < 4) return blocks;
 
   // Cluster narrow blocks by left edge x. Sorted ascending so each new
@@ -176,14 +175,41 @@ function reorderForColumns(blocks: LayoutBlock[], pageWidth: number): LayoutBloc
   // Need ≥ 2 columns and each column with ≥ 2 blocks.
   if (columns.length < 2 || columns.some((c) => c.length < 2)) return blocks;
 
-  // Map each block to its column index (or -1 if spanning).
   const columnOf = new Map<LayoutBlock, number>();
   for (let ci = 0; ci < columns.length; ci++) {
     for (const b of columns[ci]) columnOf.set(b, ci);
   }
 
-  // Walk in current (y-ordered) order. Buffer narrow blocks; flush
-  // sorted by (column, y) whenever we hit a spanning block or end.
+  // Standalone headings (heading blocks with no parallel content in
+  // another column) are promoted to spanning separators. Parallel-
+  // heading layouts (one heading per column at the same y) keep their
+  // column membership so the body underneath each heading flushes in
+  // the right order.
+  const hasParallelInOtherColumn = (heading: LayoutBlock): boolean => {
+    const ownCol = columnOf.get(heading);
+    if (ownCol === undefined) return false;
+    const yTop = heading.y;
+    const yBot = heading.y + heading.height;
+    for (const b of narrow) {
+      if (b === heading) continue;
+      const otherCol = columnOf.get(b);
+      if (otherCol === undefined || otherCol === ownCol) continue;
+      const bTop = b.y;
+      const bBot = b.y + b.height;
+      if (bBot >= yTop && bTop <= yBot) return true;
+    }
+    return false;
+  };
+  const promoted = new Set<LayoutBlock>();
+  for (const b of narrow) {
+    if (b.role === 'heading' && !hasParallelInOtherColumn(b)) {
+      promoted.add(b);
+    }
+  }
+
+  // Walk in current (y-ordered) order. Buffer column-member blocks;
+  // flush sorted by (column, y) whenever we hit a clearly-spanning
+  // block or a promoted standalone heading.
   const out: LayoutBlock[] = [];
   let pending: LayoutBlock[] = [];
   const flush = () => {
@@ -197,11 +223,12 @@ function reorderForColumns(blocks: LayoutBlock[], pageWidth: number): LayoutBloc
     pending = [];
   };
   for (const b of blocks) {
-    if (columnOf.has(b)) {
-      pending.push(b);
-    } else {
+    const isSeparator = !columnOf.has(b) || promoted.has(b);
+    if (isSeparator) {
       flush();
       out.push(b);
+    } else {
+      pending.push(b);
     }
   }
   flush();

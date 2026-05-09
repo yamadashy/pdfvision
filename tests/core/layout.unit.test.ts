@@ -106,6 +106,24 @@ describe('buildLayout — multi-column reading order', () => {
     expect(layout.blocks[4].text).toContain('Right line B');
   });
 
+  it('keeps per-column headings inside their columns when each column has its own heading at the same y', () => {
+    // Classic two-column paper: every column gets its own heading at the
+    // same y, followed by that column's body underneath. The expected
+    // output keeps each heading attached to its column rather than
+    // surfacing both headings up front and the bodies after — the
+    // promote-heading-to-separator path must NOT fire when there's a
+    // parallel heading in another column at the same y.
+    const spans: TextSpan[] = [
+      span('Left heading', 50, 100, 24),
+      span('Right heading', 320, 100, 24),
+      span('Left body line.', 50, 140, 12),
+      span('Right body line.', 320, 140, 12),
+    ];
+    const layout = buildLayout(spans, 595);
+    const texts = layout.blocks.map((b) => b.text);
+    expect(texts).toEqual(['Left heading', 'Left body line.', 'Right heading', 'Right body line.']);
+  });
+
   it('treats a mid-page heading as a column separator instead of pulling it into the left column', () => {
     // A heading sitting between two column rows must split the flow:
     // both columns above the heading reorder, then the heading, then
