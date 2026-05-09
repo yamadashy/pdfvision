@@ -20,19 +20,19 @@
 
 ## 💡 Why pdfvision
 
-Most PDF tools were built for humans pasting into a Word doc. pdfvision is built for **agents that need every signal a PDF carries — and need to know when a PDF is hiding something.**
+PDF tooling has historically been built for humans copying text into a document. Agents need different things: to know whether the extraction actually captured the content, to hand visual pages to a vision model in the same step, and to receive raw structural signals rather than one pre-formatted answer they can't second-guess.
 
-| You want | `pdftotext` / `pdf-parse` | Pre-cooked tools (`marker`, `pymupdf4llm`) | **pdfvision** |
-| --- | :---: | :---: | :---: |
-| Know whether extraction *actually worked* | Empty output silently | Hidden behind opinionated Markdown | ✅ Per-page `charCount` / `imageCount` / `textCoverage` |
-| Hand pages to a vision LLM | Need a separate tool | Sometimes | ✅ `--render` writes PNG paths |
-| Multi-column reading order, headings, repeated chrome | ❌ | Baked into one answer | ✅ Raw blocks + `role` / `repeated` flags — agent picks |
-| Japanese / scientific compat codepoints (`⽬`, `Ａ`, `ﬁ`) | Pass through silently | Varies | ✅ NFKC normalised by default; raw form kept in `rawText` |
-| Re-read the same PDF many times | Re-parse every time | Re-parse every time | ✅ Cache-first: second read is ~30 ms |
-| Pull a PDF from a URL | `curl` + tempfile dance | `curl` + tempfile dance | ✅ `--remote https://…` |
-| Output an LLM can parse | Plain text | Markdown only | ✅ `markdown` / `json` / `xml` (tag-shaped, LLMs locate tags > nested keys) |
+pdfvision is built around that gap. The goal is to **deliver every signal a PDF carries, in a form the agent can act on, and never silently hide that the extraction came up short.**
 
-The design principle: **agent decides; pdfvision delivers raw signals.** No auto-detect heuristics that hide what the PDF actually contained.
+- **Silent-failure visibility.** Every page reports `charCount`, `imageCount`, and `textCoverage`, so an agent can tell at a glance that "this slide is an image, not text" — and decide to re-run with `--render` or fall back to OCR instead of trusting an empty string.
+- **Multimodal handoff in one step.** `--render` writes PNG paths the agent can pass straight to a vision model — no second tool, no temp-file plumbing.
+- **Raw structural signals.** `--layout` returns blocks with `role: 'heading'`, `repeated: true` for running headers and footers, and multi-column reading order. `--image-boxes` reports where each raster draw lands. The agent picks which signals matter; pdfvision doesn't bake one answer.
+- **Compatibility codepoints handled.** Japanese and scientific PDFs full of `⽬` / `Ａ` / `ﬁ` collapse to canonical forms by default. The pre-normalisation text stays available in `rawText` when a diff matters.
+- **Cache-first.** Same PDF, second read takes ~30 ms. Agents that revisit a PDF dozens of times across a session pay the parsing cost once.
+- **URLs are first-class.** `--remote https://…` downloads, caches, and extracts in one flag.
+- **Tag-shaped output too.** The `xml` format carries the same data as `json` but as `<page>` / `<text>` tags, which some LLMs locate more reliably than nested object keys.
+
+The design principle is **agent decides; pdfvision delivers raw signals.** No auto-detect heuristics that decide for the agent and hide what the PDF actually contained.
 
 ## 🚀 Quick Start
 
