@@ -6,6 +6,7 @@ import { processDocument, processFile } from '../../src/core/processor.js';
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
 const SAMPLE_JA_PDF = resolve(__dirname, '../fixtures/sample-ja.pdf');
 const SAMPLE_WITH_IMAGE_PDF = resolve(__dirname, '../fixtures/sample-with-image.pdf');
+const SAMPLE_TILED_PDF = resolve(__dirname, '../fixtures/sample-tiled.pdf');
 
 describe('processDocument', () => {
   it('returns a structured DocumentResult, no JSON parsing required', async () => {
@@ -141,13 +142,20 @@ describe('processDocument', () => {
     // it. The next call must detect the missing image, drop the stale
     // payload, and re-render instead of returning a path the caller can't
     // use. This exercises isUsableImage + the cache-eviction branch.
+    //
+    // Use SAMPLE_TILED_PDF rather than SAMPLE_PDF: SAMPLE_PDF's cache dir
+    // is contended by the corruption / chmod tests in processor.test.ts
+    // when those workers run in parallel under vitest, which can race
+    // this test's renderPage atomicWrite and produce flaky ENOENT
+    // failures on slower CI runners. SAMPLE_TILED_PDF's cache dir is
+    // otherwise idle (every other reference uses noCache: true).
     const { unlinkSync } = await import('node:fs');
-    const populated = await processDocument(SAMPLE_PDF, { render: true, noCache: false });
+    const populated = await processDocument(SAMPLE_TILED_PDF, { render: true, noCache: false });
     const imagePath = populated.pages[0].image as string;
     expect(existsSync(imagePath)).toBe(true);
     unlinkSync(imagePath);
 
-    const recovered = await processDocument(SAMPLE_PDF, { render: true, noCache: false });
+    const recovered = await processDocument(SAMPLE_TILED_PDF, { render: true, noCache: false });
     expect(recovered.pages[0].image).toBeTypeOf('string');
     expect(existsSync(recovered.pages[0].image as string)).toBe(true);
   });
