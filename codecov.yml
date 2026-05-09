@@ -1,0 +1,19 @@
+# Match the vitest coverage thresholds (lines/statements/functions: 85,
+# branches: 80) so codecov's PR checks line up with what the test suite
+# already enforces locally and in CI. Without this file codecov defaults
+# to "auto" patch coverage, which can flag PRs whose overall coverage is
+# already well above target — most pdfvision changes touch a fixed set of
+# small files and a single uncovered branch in defensive `?? fallback`
+# code is enough to trip the default patch check.
+coverage:
+  status:
+    project:
+      default:
+        target: 85%
+        # Allow up to a 2% dip vs base; defensive branches and
+        # OS-conditional paths can otherwise tip the project check below
+        # the previous high-water mark for cosmetic reasons.
+        threshold: 2%
+    patch:
+      default:
+        target: 80%
