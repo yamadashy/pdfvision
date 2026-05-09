@@ -92,19 +92,26 @@ export function formatXml(result: DocumentResult): string {
     }
 
     if (page.layout) {
-      out.push('<layout>');
-      for (const block of page.layout.blocks) {
-        const blockAttrs = [`x="${block.x}"`, `y="${block.y}"`, `width="${block.width}"`, `height="${block.height}"`];
-        if (block.repeated) blockAttrs.push('repeated="true"');
-        out.push(`<block ${blockAttrs.join(' ')}>`);
-        for (const line of block.lines) {
-          out.push(
-            `<line x="${line.x}" y="${line.y}" width="${line.width}" height="${line.height}" fontSize="${line.fontSize}">${escapeText(line.text)}</line>`,
-          );
+      if (page.layout.blocks.length === 0) {
+        // Mirror the <imageBoxes/> pattern: a self-closing tag tells
+        // downstream agents "we ran the layout pass and found nothing"
+        // rather than "layout was not requested".
+        out.push('<layout/>');
+      } else {
+        out.push('<layout>');
+        for (const block of page.layout.blocks) {
+          const blockAttrs = [`x="${block.x}"`, `y="${block.y}"`, `width="${block.width}"`, `height="${block.height}"`];
+          if (block.repeated) blockAttrs.push('repeated="true"');
+          out.push(`<block ${blockAttrs.join(' ')}>`);
+          for (const line of block.lines) {
+            out.push(
+              `<line x="${line.x}" y="${line.y}" width="${line.width}" height="${line.height}" fontSize="${line.fontSize}">${escapeText(line.text)}</line>`,
+            );
+          }
+          out.push('</block>');
         }
-        out.push('</block>');
+        out.push('</layout>');
       }
-      out.push('</layout>');
     }
 
     if (page.imageBoxes) {

@@ -125,18 +125,53 @@ function mode(nums: number[]): number {
  * naive top-down order, which matches single-column documents but mis-
  * orders multi-column papers. That is left to a future `--layout=v2`.
  */
+interface BBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Bounding box that encloses every item in `items`. Each item just needs
+ * x / y / width / height — works for spans (line clustering) and lines
+ * (block clustering) alike. Returns rounded coords ready for the public
+ * shape.
+ */
+function unionBox(items: readonly BBox[]): BBox {
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const item of items) {
+    if (item.x < minX) minX = item.x;
+    if (item.y < minY) minY = item.y;
+    if (item.x + item.width > maxX) maxX = item.x + item.width;
+    if (item.y + item.height > maxY) maxY = item.y + item.height;
+  }
+  return {
+    x: round2(minX),
+    y: round2(minY),
+    width: round2(maxX - minX),
+    height: round2(maxY - minY),
+  };
+}
+
 function buildLayout(spans: TextSpan[]): PageLayout {
   if (spans.length === 0) return { blocks: [] };
 
   // Stable sort: primarily by y (top to bottom), then by x within a row.
   const sorted = [...spans].sort((a, b) => a.y - b.y || a.x - b.x);
 
-  // Cluster spans into lines.
+  // Cluster spans into lines. The y comparison anchors on the first span
+  // of the current group rather than the most recent one — chaining off
+  // the latest span lets a slow vertical drift accumulate and merge spans
+  // whose y is significantly above the line's actual baseline.
   const lineGroups: TextSpan[][] = [];
   for (const s of sorted) {
     const last = lineGroups[lineGroups.length - 1];
     const tolerance = Math.max(s.height, 1) * 0.5;
-    if (last && Math.abs(s.y - last[last.length - 1].y) < tolerance) {
+    if (last && Math.abs(s.y - last[0].y) < tolerance) {
       last.push(s);
     } else {
       lineGroups.push([s]);
@@ -145,22 +180,9 @@ function buildLayout(spans: TextSpan[]): PageLayout {
 
   const lines: LayoutLine[] = lineGroups.map((group) => {
     const xSorted = [...group].sort((a, b) => a.x - b.x);
-    let minX = Number.POSITIVE_INFINITY;
-    let minY = Number.POSITIVE_INFINITY;
-    let maxX = Number.NEGATIVE_INFINITY;
-    let maxY = Number.NEGATIVE_INFINITY;
-    for (const s of xSorted) {
-      if (s.x < minX) minX = s.x;
-      if (s.y < minY) minY = s.y;
-      if (s.x + s.width > maxX) maxX = s.x + s.width;
-      if (s.y + s.height > maxY) maxY = s.y + s.height;
-    }
     return {
       text: joinLineSpans(xSorted),
-      x: round2(minX),
-      y: round2(minY),
-      width: round2(maxX - minX),
-      height: round2(maxY - minY),
+      ...unionBox(xSorted),
       fontSize: round2(mode(xSorted.map((s) => s.fontSize))),
     };
   });
@@ -185,22 +207,9 @@ function buildLayout(spans: TextSpan[]): PageLayout {
   }
 
   const blocks: LayoutBlock[] = blockGroups.map((group) => {
-    let minX = Number.POSITIVE_INFINITY;
-    let minY = Number.POSITIVE_INFINITY;
-    let maxX = Number.NEGATIVE_INFINITY;
-    let maxY = Number.NEGATIVE_INFINITY;
-    for (const l of group) {
-      if (l.x < minX) minX = l.x;
-      if (l.y < minY) minY = l.y;
-      if (l.x + l.width > maxX) maxX = l.x + l.width;
-      if (l.y + l.height > maxY) maxY = l.y + l.height;
-    }
     return {
       text: group.map((l) => l.text).join('\n'),
-      x: round2(minX),
-      y: round2(minY),
-      width: round2(maxX - minX),
-      height: round2(maxY - minY),
+      ...unionBox(group),
       lines: group,
     };
   });
