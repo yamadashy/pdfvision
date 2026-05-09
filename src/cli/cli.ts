@@ -39,6 +39,8 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
         geometry: { type: 'boolean' },
         layout: { type: 'boolean' },
         'image-boxes': { type: 'boolean' },
+        remote: { type: 'string' },
+        'clear-cache': { type: 'boolean' },
       },
     });
     values = parsed.values as Record<string, string | boolean | undefined>;
@@ -52,13 +54,36 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
     return;
   }
 
-  if (values.help || positionals.length === 0) {
+  if (values['clear-cache']) {
+    // --clear-cache is a side-effect operation that ignores everything
+    // else: no extraction runs, no positional needed, just nuke the
+    // shared pdfvision cache and exit. Lazy-import to keep the heavy
+    // node:fs surface out of --help / --version paths.
+    try {
+      const { clearAllCache } = await import('../core/cache.js');
+      const { path, removed } = clearAllCache();
+      console.log(removed ? `Cleared pdfvision cache: ${path}` : `Nothing to clear: ${path} does not exist`);
+      return;
+    } catch (error) {
+      exitWithError(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  const remoteUrl = values.remote as string | undefined;
+  // --help is requested explicitly OR there's no input source at all
+  // (no positional and no --remote URL). Print help and bail.
+  if (values.help || (positionals.length === 0 && !remoteUrl)) {
     console.log(HELP_TEXT);
     return;
   }
 
   if (positionals.length > 1) {
     exitWithError(`Unexpected extra arguments: ${positionals.slice(1).join(' ')}`);
+  }
+  if (remoteUrl && positionals.length > 0) {
+    // Two input sources at once is almost certainly a mistake — bail
+    // rather than silently picking one over the other.
+    exitWithError('--remote and a file path are mutually exclusive');
   }
 
   const format = (values.format as string) ?? 'markdown';
@@ -74,12 +99,23 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
     exitWithError('--render-output requires --render');
   }
 
-  const filePath = resolve(positionals[0]);
+  const noCache = (values['no-cache'] as boolean | undefined) ?? false;
 
-  try {
-    accessSync(filePath);
-  } catch {
-    exitWithError(`File not found: ${filePath}`);
+  let filePath: string;
+  if (remoteUrl) {
+    try {
+      const { downloadRemote } = await import('../core/remote.js');
+      filePath = await downloadRemote(remoteUrl, { noCache });
+    } catch (error) {
+      exitWithError(error instanceof Error ? error.message : String(error));
+    }
+  } else {
+    filePath = resolve(positionals[0]);
+    try {
+      accessSync(filePath);
+    } catch {
+      exitWithError(`File not found: ${filePath}`);
+    }
   }
 
   try {
@@ -92,7 +128,7 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
       format,
       render,
       renderOutput,
-      noCache: (values['no-cache'] as boolean | undefined) ?? false,
+      noCache,
       // NFKC normalization is on by default — agents almost always want
       // canonical Unicode. --no-normalize lets callers opt out for cases
       // where the raw pdf.js code points matter (forensics, glyph-level

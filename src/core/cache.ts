@@ -195,3 +195,41 @@ export function dropCached(cacheDir: string, key: string): void {
 // Exposed for renderer + processor so they apply the same hardened
 // directory creation policy as the cache helpers.
 export { ensurePrivateDir };
+
+/**
+ * Result of a `--clear-cache` pass. Both fields are present even when
+ * the cache directory was already absent, so the CLI can print a
+ * uniform "Cleared <path>" message regardless of whether the run did
+ * any actual work.
+ */
+export interface ClearCacheResult {
+  /** Absolute path that was (or would have been) cleared. */
+  path: string;
+  /** True when the directory existed and was removed; false on a no-op clear. */
+  removed: boolean;
+}
+
+/**
+ * Wipe the entire pdfvision cache root. Removes every result-cache
+ * subdirectory, every `--render` PNG, and every remote-download cache.
+ * Refuses to follow symlinks at the root path; if the path is a symlink
+ * the call throws so the user can investigate manually rather than
+ * having pdfvision delete arbitrary files.
+ *
+ * The optional `path` argument overrides the default cache root. The
+ * CLI never passes one (it always operates on the shared root); tests
+ * use it to clean an isolated temp directory without racing other
+ * vitest workers that are concurrently writing to the shared root.
+ */
+export function clearAllCache(path: string = CACHE_DIR): ClearCacheResult {
+  if (!existsSync(path)) return { path, removed: false };
+  // Refuse to traverse a symlink at the cache root — would let an
+  // attacker who plants /tmp/pdfvision -> /home/user redirect the
+  // cleanup outside the cache hierarchy.
+  const stat = lstatSync(path);
+  if (stat.isSymbolicLink()) {
+    throw new Error(`Refusing to clear cache at ${path}: path is a symlink`);
+  }
+  rmSync(path, { recursive: true, force: true });
+  return { path, removed: true };
+}
