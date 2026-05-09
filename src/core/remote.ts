@@ -165,7 +165,7 @@ export async function downloadRemote(rawUrl: string, options: DownloadRemoteOpti
     reader.releaseLock();
   }
 
-  const data = Buffer.concat(chunks.map((c) => Buffer.from(c)));
+  const data = Buffer.concat(chunks);
   // Defensive retry: another process running `--clear-cache` (or a
   // concurrent test worker rmSync-ing the cache root) can race the
   // ensurePrivateDir calls above and nuke the parent dir before we
