@@ -9,21 +9,22 @@
   "labels": ["dependencies", "renovate"],
   "packageRules": [
     {
-      matchDepTypes: ["peerDependencies"],
-      enabled: false,
+      "matchDepTypes": ["peerDependencies"],
+      "enabled": false,
     },
-    // Single root package.json — group non-major and major separately so
-    // patch / minor bumps land in one PR per week and majors are easy to
-    // review one at a time.
+    // Single root package.json — group non-major bumps into one weekly
+    // PR and major bumps into a separate weekly PR so review can keep
+    // riskier changes (majors) cleanly isolated from routine minor /
+    // patch updates.
     {
-      matchFileNames: ["package.json"],
-      matchUpdateTypes: ["minor", "patch"],
-      groupName: "non-major dependencies",
+      "matchFileNames": ["package.json"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "non-major dependencies",
     },
     {
-      matchFileNames: ["package.json"],
-      matchUpdateTypes: ["major"],
-      groupName: "major dependencies",
+      "matchFileNames": ["package.json"],
+      "matchUpdateTypes": ["major"],
+      "groupName": "major dependencies",
     },
   ],
   "ignoreDeps": [
