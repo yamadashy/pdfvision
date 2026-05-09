@@ -30,6 +30,7 @@ It's the missing piece between "I have a PDF" and "my AI agent can use it."
 - 🎯 **Page range selection** (`1-5`, `3`, `1,3,5`)
 - 🖼️ **Page rendering** to PNG (`--render`) for multimodal LLMs
 - 📐 **Per-text-item geometry** (`--geometry`) emits `spans[]` with bbox + font size in top-down coords, so agents can reconstruct headings, tables, and reading order
+- 🧱 **Layout reconstruction** (`--layout`) groups spans into lines and blocks (approximate reading order), and **image bboxes** (`--image-boxes`) report where each raster draw lands on the page
 - 📦 **Output formats**: agent-friendly `markdown` (default), structured `json`, and tag-shaped `xml`, each with a top-level density Overview for multi-page docs
 - ⚡ **Cache-first**: same PDF is parsed once, then served instantly from a `pdfvision/<hash>/` directory under the OS temp dir
 - 🛡️ **Hardened cache**: content-addressed, POSIX `0700/0600` permissions, symlink/TOCTOU defences
@@ -67,6 +68,8 @@ Options:
                           Directory for rendered PNGs (requires --render).
       --no-cache          Skip cache
       --no-normalize      Disable Unicode NFKC normalization (default: on)
+      --layout            Reconstruct lines + blocks in pages[].layout
+      --image-boxes       Emit per-image bbox in pages[].imageBoxes
       --geometry          Emit per-text-item bbox + font size in pages[].spans.
                           Surfaced in json / xml output; ignored by markdown.
   -v, --version           Show version
@@ -78,6 +81,10 @@ Options:
 - **`markdown` (default)** — agent-friendly. Each page becomes a `## Page N` section with a density Overview table at the top and rendered image links inline. Best for handing PDFs to an LLM in a chat / IDE / notebook context.
 - **`json`** — programmatic. Full `DocumentResult` schema, including `width`/`height`, `rawText` (when normalization changed text), `overview` (multi-page docs), and `spans[]` (when `--geometry` is on). Best when another tool will parse the output.
 - **`xml`** — LLM-friendly tag variant of `json`. Same fields, but as `<document>`/`<page>`/`<text>`/`<spans>` tags that LLMs locate more reliably than nested object keys. Useful when feeding output into a vision/chat model that doesn't always parse JSON faithfully.
+
+### Layout / image bboxes
+
+`--layout` and `--image-boxes` are independent opt-ins that surface in `json` and `xml` output. Layout reconstructs `pages[].layout = { blocks: [{ text, x, y, width, height, lines: [...] }] }` from spans (line clustering by y, block clustering by gap and font size); the block array is in approximate top-down reading order. Image bboxes emit `pages[].imageBoxes` — one entry per raster draw, in the same top-down coordinate system as spans, so an agent can ask "what got rasterised on this page" without having to render the whole page.
 
 ### Examples
 
