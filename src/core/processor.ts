@@ -9,8 +9,6 @@ import { formatXml } from '../output/xml.js';
 import type {
   DocumentResult,
   ImageBox,
-  LayoutBlock,
-  LayoutLine,
   PageLayout,
   PageResult,
   ProcessDocumentOptions,
@@ -18,6 +16,8 @@ import type {
   TextSpan,
 } from '../types/index.js';
 import { dropCached, ensurePrivateDir, getCacheDir, getCached, setCache } from './cache.js';
+import { buildImageBoxes, type ImageOps } from './imageBoxes.js';
+import { buildLayout, markRepeatedBlocks } from './layout.js';
 import { parsePageRange } from './pageRange.js';
 
 /** Inputs that determine which cached entry a request maps to. */
@@ -44,7 +44,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v6',
+    format: 'structured-v7',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -75,148 +75,6 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-/**
- * Join the spans of a single layout line into a readable string. pdfjs
- * emits whitespace as separate items (already filtered) but for CJK it
- * also splits adjacent characters into per-glyph spans. A naive ' '
- * join produces `背景・ 目 的` for what is really `背景・目的`. Use the
- * visual gap between consecutive spans as a proxy: if it's at least a
- * quarter of the font size we treat them as different words and insert
- * a single space, otherwise we concatenate.
- */
-function joinLineSpans(xSorted: TextSpan[]): string {
-  if (xSorted.length === 0) return '';
-  let out = xSorted[0].text;
-  for (let i = 1; i < xSorted.length; i++) {
-    const prev = xSorted[i - 1];
-    const cur = xSorted[i];
-    const gap = cur.x - (prev.x + prev.width);
-    const threshold = cur.fontSize * 0.25;
-    out += gap > threshold ? ` ${cur.text}` : cur.text;
-  }
-  return out;
-}
-
-/** Most common value in `nums` — used for the dominant font size of a line. */
-function mode(nums: number[]): number {
-  const counts = new Map<number, number>();
-  let best = nums[0];
-  let bestCount = 0;
-  for (const n of nums) {
-    const c = (counts.get(n) ?? 0) + 1;
-    counts.set(n, c);
-    if (c > bestCount) {
-      best = n;
-      bestCount = c;
-    }
-  }
-  return best;
-}
-
-/**
- * Group `spans` into lines (by y proximity) and lines into blocks (by
- * vertical-gap and font-size similarity). Pure function — produces no
- * side effects beyond the returned structure.
- *
- * Heuristics, tuned against the colopl / golf / repomix-OSS fixtures:
- *   - Same line: |y_a - y_b| < 0.5 × span height
- *   - New block: gap > 1.0 × prev line height OR fontSize ratio > 1.3
- * Multi-column reading order is NOT detected here; the block array is in
- * naive top-down order, which matches single-column documents but mis-
- * orders multi-column papers. That is left to a future `--layout=v2`.
- */
-interface BBox {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-/**
- * Bounding box that encloses every item in `items`. Each item just needs
- * x / y / width / height — works for spans (line clustering) and lines
- * (block clustering) alike. Returns rounded coords ready for the public
- * shape.
- */
-function unionBox(items: readonly BBox[]): BBox {
-  let minX = Number.POSITIVE_INFINITY;
-  let minY = Number.POSITIVE_INFINITY;
-  let maxX = Number.NEGATIVE_INFINITY;
-  let maxY = Number.NEGATIVE_INFINITY;
-  for (const item of items) {
-    if (item.x < minX) minX = item.x;
-    if (item.y < minY) minY = item.y;
-    if (item.x + item.width > maxX) maxX = item.x + item.width;
-    if (item.y + item.height > maxY) maxY = item.y + item.height;
-  }
-  return {
-    x: round2(minX),
-    y: round2(minY),
-    width: round2(maxX - minX),
-    height: round2(maxY - minY),
-  };
-}
-
-function buildLayout(spans: TextSpan[]): PageLayout {
-  if (spans.length === 0) return { blocks: [] };
-
-  // Stable sort: primarily by y (top to bottom), then by x within a row.
-  const sorted = [...spans].sort((a, b) => a.y - b.y || a.x - b.x);
-
-  // Cluster spans into lines. The y comparison anchors on the first span
-  // of the current group rather than the most recent one — chaining off
-  // the latest span lets a slow vertical drift accumulate and merge spans
-  // whose y is significantly above the line's actual baseline.
-  const lineGroups: TextSpan[][] = [];
-  for (const s of sorted) {
-    const last = lineGroups[lineGroups.length - 1];
-    const tolerance = Math.max(s.height, 1) * 0.5;
-    if (last && Math.abs(s.y - last[0].y) < tolerance) {
-      last.push(s);
-    } else {
-      lineGroups.push([s]);
-    }
-  }
-
-  const lines: LayoutLine[] = lineGroups.map((group) => {
-    const xSorted = [...group].sort((a, b) => a.x - b.x);
-    return {
-      text: joinLineSpans(xSorted),
-      ...unionBox(xSorted),
-      fontSize: round2(mode(xSorted.map((s) => s.fontSize))),
-    };
-  });
-
-  // Cluster lines into blocks.
-  const blockGroups: LayoutLine[][] = [];
-  for (const line of lines) {
-    const last = blockGroups[blockGroups.length - 1];
-    if (last) {
-      const prev = last[last.length - 1];
-      const gap = line.y - (prev.y + prev.height);
-      const sizeRatio =
-        Math.max(line.fontSize, prev.fontSize) / Math.max(Math.min(line.fontSize, prev.fontSize), 0.001);
-      if (gap > prev.height * 1.0 || sizeRatio > 1.3) {
-        blockGroups.push([line]);
-      } else {
-        last.push(line);
-      }
-    } else {
-      blockGroups.push([line]);
-    }
-  }
-
-  const blocks: LayoutBlock[] = blockGroups.map((group) => {
-    return {
-      text: group.map((l) => l.text).join('\n'),
-      ...unionBox(group),
-      lines: group,
-    };
-  });
-
-  return { blocks };
-}
-
 interface PageData {
   text: string;
   rawText?: string;
@@ -230,129 +88,11 @@ interface PageData {
   imageBoxes?: ImageBox[];
 }
 
-interface PageOps {
-  save: number;
-  restore: number;
-  transform: number;
-  imageOps: Set<number>;
-}
-
 interface PageFlags {
   normalize: boolean;
   geometry: boolean;
   layout: boolean;
   imageBoxes: boolean;
-}
-
-/**
- * Walk the page's operator list with a graphics-state stack, capturing the
- * bbox of every image draw. PDF unit square (0,0)-(1,1) is what each image
- * XObject is drawn into; the current transformation matrix (CTM) maps that
- * square onto the page. Multiplication convention follows pdf.js: each
- * `transform` op right-multiplies its argument into the running CTM.
- */
-/**
- * Cross-page pass: flag blocks that look like running headers / footers /
- * page numbers / watermarks. Two blocks across different pages are
- * considered the "same" when their normalized text matches and their top y
- * sits in the same 5-pt bin (page chrome rarely shifts more than that
- * between pages, while body text reflows).
- *
- * A block is marked `repeated: true` when it occurs on at least 2 pages
- * AND on at least half of the pages that have a layout. With the default
- * threshold a 3-page run with the same footer marks all three; a one-off
- * line that happens to coincide with one other page does not.
- *
- * Mutates the layout in place.
- */
-function markRepeatedBlocks(pages: PageResult[]): void {
-  const pagesWithLayout = pages.filter((p) => p.layout && p.layout.blocks.length > 0);
-  if (pagesWithLayout.length < 2) return;
-
-  type BlockRef = { pageIndex: number; blockIndex: number };
-  const groups = new Map<string, BlockRef[]>();
-  for (let pi = 0; pi < pagesWithLayout.length; pi++) {
-    const page = pagesWithLayout[pi];
-    const blocks = page.layout?.blocks ?? [];
-    for (let bi = 0; bi < blocks.length; bi++) {
-      const b = blocks[bi];
-      const text = b.text.replace(/\s+/g, ' ').trim();
-      if (text.length === 0) continue;
-      const key = `${Math.round(b.y / 5) * 5}\t${text}`;
-      const list = groups.get(key);
-      if (list) list.push({ pageIndex: pi, blockIndex: bi });
-      else groups.set(key, [{ pageIndex: pi, blockIndex: bi }]);
-    }
-  }
-
-  const minOccurrences = Math.max(2, Math.ceil(pagesWithLayout.length / 2));
-  for (const refs of groups.values()) {
-    if (refs.length < minOccurrences) continue;
-    const seenPages = new Set(refs.map((r) => r.pageIndex));
-    if (seenPages.size < minOccurrences) continue;
-    for (const ref of refs) {
-      const block = pagesWithLayout[ref.pageIndex].layout?.blocks[ref.blockIndex];
-      if (block) block.repeated = true;
-    }
-  }
-}
-
-function buildImageBoxes(
-  fnArray: number[],
-  argsArray: unknown[][],
-  ops: PageOps,
-  pageHeight: number,
-  viewMinX: number,
-  viewMinY: number,
-): ImageBox[] {
-  const boxes: ImageBox[] = [];
-  let ctm: [number, number, number, number, number, number] = [1, 0, 0, 1, 0, 0];
-  const stack: (typeof ctm)[] = [];
-
-  for (let i = 0; i < fnArray.length; i++) {
-    const fn = fnArray[i];
-    if (fn === ops.save) {
-      stack.push([...ctm] as typeof ctm);
-    } else if (fn === ops.restore) {
-      const popped = stack.pop();
-      if (popped) ctm = popped;
-    } else if (fn === ops.transform) {
-      const m = argsArray[i] as number[];
-      // CTM_new = CTM_old × m. The 6-element form encodes
-      //   [ a b 0 ]
-      //   [ c d 0 ]   (columns: x', y', 1)
-      //   [ e f 1 ]
-      const a = ctm[0] * m[0] + ctm[2] * m[1];
-      const b = ctm[1] * m[0] + ctm[3] * m[1];
-      const c = ctm[0] * m[2] + ctm[2] * m[3];
-      const d = ctm[1] * m[2] + ctm[3] * m[3];
-      const e = ctm[0] * m[4] + ctm[2] * m[5] + ctm[4];
-      const f = ctm[1] * m[4] + ctm[3] * m[5] + ctm[5];
-      ctm = [a, b, c, d, e, f];
-    } else if (ops.imageOps.has(fn)) {
-      // KNOWN GAP: pdf.js's QueueOptimizer can collapse N draws of the same
-      // XObject into one `paintImage*Repeat` / `paintImage*Group` op carrying
-      // a `positions` array, in which case a faithful expansion would emit
-      // one bbox per instance. We currently emit one bbox per operator and
-      // accept the under-count for tiled-hero PDFs. See ImageBox docstring.
-      const [a, b, c, d, e, f] = ctm;
-      // Four corners of the unit square under CTM.
-      const xs = [e, a + e, c + e, a + c + e];
-      const ys = [f, b + f, d + f, b + d + f];
-      const xMinPdf = Math.min(...xs);
-      const xMaxPdf = Math.max(...xs);
-      const yMinPdf = Math.min(...ys);
-      const yMaxPdf = Math.max(...ys);
-      // Convert PDF (origin bottom-left) → top-down (origin top-left).
-      boxes.push({
-        x: round2(xMinPdf - viewMinX),
-        y: round2(pageHeight - (yMaxPdf - viewMinY)),
-        width: round2(xMaxPdf - xMinPdf),
-        height: round2(yMaxPdf - yMinPdf),
-      });
-    }
-  }
-  return boxes;
 }
 
 /**
@@ -365,7 +105,7 @@ function buildImageBoxes(
 async function extractPageData(
   doc: PDFDocumentProxy,
   pageNum: number,
-  ops: PageOps,
+  ops: ImageOps,
   flags: PageFlags,
 ): Promise<PageData> {
   const page = await doc.getPage(pageNum);
@@ -436,21 +176,22 @@ async function extractPageData(
   // case of already-canonical PDFs.
   const preservedRaw = flags.normalize && rawText !== text ? rawText : undefined;
 
+  // Always expand image-bbox per instance — counting ops would under-
+  // report when pdf.js's QueueOptimizer collapses N draws of the same
+  // XObject into a single Repeat / Group op. Expanded boxes serve as
+  // both the public `imageBoxes` payload (when requested) and the source
+  // of `imageCount`, which keeps the two trivially consistent.
   const opList = await page.getOperatorList();
-  let imageCount = 0;
-  for (const fn of opList.fnArray) {
-    if (ops.imageOps.has(fn)) imageCount++;
-  }
-  const imageBoxes = flags.imageBoxes
-    ? buildImageBoxes(opList.fnArray, opList.argsArray as unknown[][], ops, height, view[0], yMin)
-    : undefined;
+  const allBoxes = buildImageBoxes(opList.fnArray, opList.argsArray as unknown[][], ops, height, view[0], yMin);
+  const imageCount = allBoxes.length;
+  const imageBoxes = flags.imageBoxes ? allBoxes : undefined;
 
   const pageArea = width * height;
   const rawCoverage = pageArea > 0 ? textArea / pageArea : 0;
   const textCoverage = Math.max(0, Math.min(1, rawCoverage));
 
   // Build layout last so it always sees the final span list (post normalize).
-  const layout = flags.layout ? buildLayout(spans) : undefined;
+  const layout = flags.layout ? buildLayout(spans, round2(width)) : undefined;
 
   return {
     text,
@@ -547,21 +288,13 @@ export async function processDocument(filePath: string, options: ProcessDocument
   // pdfjs-dist is multiple MB and dominates startup time; only pull it in
   // once we've confirmed there's no cache hit and we actually need to parse.
   const { getDocument, OPS } = await import('pdfjs-dist/legacy/build/pdf.mjs');
-  // Opcodes that draw raster images. paintImageXObject covers ordinary
-  // embedded images; the mask/inline variants catch the cases pdf.js
-  // splits out for transparency or inline streams. The Repeat/Group
-  // variants are emitted when pdf.js collapses several draws of the
-  // same image into one optimised op — without them, slides that tile
-  // a hero image (very common in Google Slides exports) read as
-  // imageCount = 0.
-  const imageOps = new Set<number>([
+  // Single-instance image draw opcodes — one image per occurrence.
+  // Repeat / Group / inline-Group variants are dispatched separately
+  // because their args carry per-instance positions or transforms.
+  const singleImageOps = new Set<number>([
     OPS.paintImageXObject,
-    OPS.paintImageXObjectRepeat,
     OPS.paintImageMaskXObject,
-    OPS.paintImageMaskXObjectGroup,
-    OPS.paintImageMaskXObjectRepeat,
     OPS.paintInlineImageXObject,
-    OPS.paintInlineImageXObjectGroup,
   ]);
   const doc = await getDocument(filePath).promise;
   try {
@@ -603,15 +336,21 @@ export async function processDocument(filePath: string, options: ProcessDocument
       layout: !!options.layout,
       imageBoxes: !!options.imageBoxes,
     };
-    const pageOps: PageOps = {
+    const imageOps: ImageOps = {
       save: OPS.save,
       restore: OPS.restore,
       transform: OPS.transform,
-      imageOps,
+      formBegin: OPS.paintFormXObjectBegin,
+      formEnd: OPS.paintFormXObjectEnd,
+      singleImageOps,
+      paintImageXObjectRepeat: OPS.paintImageXObjectRepeat,
+      paintImageMaskXObjectRepeat: OPS.paintImageMaskXObjectRepeat,
+      paintImageMaskXObjectGroup: OPS.paintImageMaskXObjectGroup,
+      paintInlineImageXObjectGroup: OPS.paintInlineImageXObjectGroup,
     };
     const pages: PageResult[] = [];
     for (let i = 0; i < pageNumbers.length; i++) {
-      const data = await extractPageData(doc, pageNumbers[i], pageOps, flags);
+      const data = await extractPageData(doc, pageNumbers[i], imageOps, flags);
       pages.push({
         page: pageNumbers[i],
         text: data.text,

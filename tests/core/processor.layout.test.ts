@@ -5,6 +5,7 @@ import { processDocument } from '../../src/core/processor.js';
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
 const SAMPLE_JA_PDF = resolve(__dirname, '../fixtures/sample-ja.pdf');
 const SAMPLE_HEADERS_PDF = resolve(__dirname, '../fixtures/sample-headers.pdf');
+const SAMPLE_COLUMNS_PDF = resolve(__dirname, '../fixtures/sample-columns.pdf');
 
 describe('processDocument layout: true', () => {
   it('omits layout by default', async () => {
@@ -116,6 +117,41 @@ describe('processDocument layout: true', () => {
     for (const block of result.pages[0].layout?.blocks ?? []) {
       expect(block.repeated).toBeUndefined();
     }
+  });
+
+  it('classifies the larger-fontSize block as a heading on the columns fixture', async () => {
+    // sample-columns.pdf has a 24pt heading line above two 12pt body
+    // columns. The heading block must come back with role:'heading' and
+    // the body blocks must not — otherwise downstream agents can't pick
+    // section anchors out of the layout.
+    const result = await processDocument(SAMPLE_COLUMNS_PDF, { noCache: true, layout: true });
+    const blocks = result.pages[0].layout?.blocks ?? [];
+    const headings = blocks.filter((b) => b.role === 'heading');
+    expect(headings.length).toBeGreaterThanOrEqual(1);
+    expect(headings[0].text).toContain('Two-column heading');
+    const bodyBlocks = blocks.filter((b) => b.text.startsWith('Left column') || b.text.startsWith('Right column'));
+    for (const body of bodyBlocks) {
+      expect(body.role).toBeUndefined();
+    }
+  });
+
+  it('reorders multi-column blocks into reading order on the columns fixture', async () => {
+    // sample-columns.pdf interleaves left and right columns in the
+    // content stream, so a naive top-down sort would surface the
+    // right-column line first. The column-aware reorder must emit the
+    // heading, then both left-column lines, then both right-column lines.
+    const result = await processDocument(SAMPLE_COLUMNS_PDF, { noCache: true, layout: true });
+    const texts = (result.pages[0].layout?.blocks ?? []).map((b) => b.text);
+    const headingIdx = texts.findIndex((t) => t.includes('Two-column heading'));
+    const leftOneIdx = texts.findIndex((t) => t.includes('Left column line one'));
+    const leftTwoIdx = texts.findIndex((t) => t.includes('Left column line two'));
+    const rightOneIdx = texts.findIndex((t) => t.includes('Right column line one'));
+    const rightTwoIdx = texts.findIndex((t) => t.includes('Right column line two'));
+    expect(headingIdx).toBeGreaterThanOrEqual(0);
+    expect(leftOneIdx).toBeGreaterThan(headingIdx);
+    expect(leftTwoIdx).toBeGreaterThan(leftOneIdx);
+    expect(rightOneIdx).toBeGreaterThan(leftTwoIdx);
+    expect(rightTwoIdx).toBeGreaterThan(rightOneIdx);
   });
 
   it('keeps cache entries with vs without layout separate', async () => {

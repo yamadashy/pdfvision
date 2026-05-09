@@ -101,6 +101,7 @@ export function formatXml(result: DocumentResult): string {
         out.push('<layout>');
         for (const block of page.layout.blocks) {
           const blockAttrs = [`x="${block.x}"`, `y="${block.y}"`, `width="${block.width}"`, `height="${block.height}"`];
+          if (block.role) blockAttrs.push(`role="${block.role}"`);
           if (block.repeated) blockAttrs.push('repeated="true"');
           out.push(`<block ${blockAttrs.join(' ')}>`);
           for (const line of block.lines) {
