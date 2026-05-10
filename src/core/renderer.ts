@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { createCanvas } from '@napi-rs/canvas';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { atomicWrite } from './cache.js';
+import { runParallel } from './parallel.js';
 
 const DEFAULT_SCALE = 2;
 
@@ -65,10 +66,9 @@ export async function renderPages(
   outputDir: string,
   scale?: number,
 ): Promise<string[]> {
-  const paths: string[] = [];
-  for (const pageNum of pageNumbers) {
-    const path = await renderPage(doc, pageNum, outputDir, scale);
-    paths.push(path);
-  }
-  return paths;
+  // Parallelise rasterisation — each page builds its own canvas, so
+  // the only shared state is `doc` (pdfjs concurrency-safe) and the
+  // output dir (atomic-rename in `atomicWrite` handles the writeback).
+  // Output order matches `pageNumbers` so callers can index by pos.
+  return runParallel(pageNumbers, (pageNum) => renderPage(doc, pageNum, outputDir, scale));
 }
