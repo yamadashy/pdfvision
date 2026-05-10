@@ -42,7 +42,7 @@ The design principle is **agent decides; pdfvision delivers raw signals.** No au
 npx pdfvision document.pdf
 
 # Pull from a URL
-npx pdfvision --remote https://example.com/paper.pdf -f json
+npx pdfvision --remote https://raw.githubusercontent.com/mozilla/pdf.js-sample-files/master/tracemonkey.pdf -f json
 
 # Or install globally
 npm install -g pdfvision
