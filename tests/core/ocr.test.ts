@@ -6,6 +6,10 @@ import { parseOcrLang } from '../../src/core/ocr.js';
 import { processDocument } from '../../src/core/processor.js';
 
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
+// 3-page Japanese fixture — used here only to exercise the multi-page
+// session-reuse path; OCR runs in `eng` mode so we don't need to ship
+// jpn traineddata in the test environment.
+const SAMPLE_JA_PDF = resolve(__dirname, '../fixtures/sample-ja.pdf');
 
 describe('parseOcrLang', () => {
   it('accepts a single language code', () => {
@@ -91,5 +95,52 @@ describe('processDocument with --ocr', () => {
     // round-trip caching keys remain stable.
     const result = await processDocument(SAMPLE_PDF, { ocr: true, ocrLang: 'eng', noCache: true });
     expect(result.pages[0].ocr?.lang).toBe('eng');
+  });
+
+  it('serves --ocr results from cache on second call (no re-recognition)', { timeout: 120_000 }, async () => {
+    // First call populates the cache with the OCR payload; second call
+    // should be a cache hit and finish in milliseconds instead of the
+    // multi-second OCR boot. Asserting the second call is dramatically
+    // faster guards against accidentally excluding `ocr` from the cache
+    // key (which would re-run OCR every time).
+    const t0 = Date.now();
+    const first = await processDocument(SAMPLE_PDF, { ocr: true, noCache: false });
+    const firstMs = Date.now() - t0;
+    expect(first.pages[0].ocr?.text).toBeDefined();
+
+    const t1 = Date.now();
+    const second = await processDocument(SAMPLE_PDF, { ocr: true, noCache: false });
+    const secondMs = Date.now() - t1;
+    expect(second.pages[0].ocr?.text).toEqual(first.pages[0].ocr?.text);
+    // OCR boot dominates first run (multiple seconds); a cache hit is
+    // dominated by JSON.parse and should land well under 1s. Generous
+    // bound to keep the test stable on slow CI.
+    expect(secondMs).toBeLessThan(firstMs / 2);
+  });
+
+  it('keys --ocr-lang separately so eng and eng+jpn do not share a cache slot', { timeout: 120_000 }, async () => {
+    // Run with `eng`, then with `eng+jpn`. The second call must NOT
+    // reuse the `eng` cache entry — its `ocr.lang` echoes the caller's
+    // string verbatim, so a cache-key collision would surface as
+    // `lang === 'eng'` despite the caller asking for `eng+jpn`.
+    const eng = await processDocument(SAMPLE_PDF, { ocr: true, ocrLang: 'eng', noCache: false });
+    expect(eng.pages[0].ocr?.lang).toBe('eng');
+    const both = await processDocument(SAMPLE_PDF, { ocr: true, ocrLang: 'eng+jpn', noCache: false });
+    expect(both.pages[0].ocr?.lang).toBe('eng+jpn');
+  });
+
+  it('attaches one ocr entry per page when extracting multi-page docs', { timeout: 180_000 }, async () => {
+    // Drives the session-reuse path: a single OCR worker recognises
+    // every page in turn and the result must land on the matching
+    // PageResult. A bug that off-by-ones the index would mis-attach the
+    // last page's OCR to page 1.
+    const result = await processDocument(SAMPLE_JA_PDF, { ocr: true, ocrLang: 'eng', noCache: true });
+    expect(result.pages).toHaveLength(3);
+    for (const page of result.pages) {
+      expect(page.ocr).toBeDefined();
+      expect(page.ocr?.lang).toBe('eng');
+      expect(page.ocr?.confidence).toBeGreaterThanOrEqual(0);
+      expect(page.ocr?.confidence).toBeLessThanOrEqual(1);
+    }
   });
 });

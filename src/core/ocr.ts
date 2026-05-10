@@ -1,4 +1,3 @@
-import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { ensurePrivateDir, getCacheRoot } from './cache.js';
@@ -69,17 +68,27 @@ export async function createOcrSession(lang: string): Promise<OcrSession> {
   let tesseract: any;
   try {
     tesseract = await import('tesseract.js');
-  } catch {
-    throw new Error(
-      '--ocr requires the optional dependency "tesseract.js" (not installed). Install it with: npm install tesseract.js',
-    );
+  } catch (error) {
+    // Only ERR_MODULE_NOT_FOUND means the package is genuinely missing.
+    // Anything else (broken native binding, syntax error in a transitive
+    // dep, ...) should surface the real cause instead of being mis-
+    // attributed to an install miss — otherwise the user wastes time
+    // re-running `npm install tesseract.js` against a different problem.
+    const code = (error as NodeJS.ErrnoException | undefined)?.code;
+    if (code === 'ERR_MODULE_NOT_FOUND' || code === 'MODULE_NOT_FOUND') {
+      throw new Error(
+        '--ocr requires the optional dependency "tesseract.js" (not installed). Install it with: npm install tesseract.js',
+      );
+    }
+    throw error;
   }
 
+  // Harden the cache root before touching ocr-data so a planted
+  // `<tmp>/pdfvision -> /elsewhere` symlink can't redirect traineddata
+  // writes outside the cache hierarchy. Mirrors the posture getCacheDir
+  // already enforces for result caches.
+  ensurePrivateDir(getCacheRoot());
   const ocrDataDir = join(getCacheRoot(), 'ocr-data');
-  // ensurePrivateDir keeps the traineddata under 0700 (matches the rest
-  // of the cache hierarchy). mkdirSync first so the parent root exists
-  // before ensurePrivateDir does its lstat / chmod dance.
-  mkdirSync(ocrDataDir, { recursive: true });
   ensurePrivateDir(ocrDataDir);
 
   const worker = await tesseract.createWorker(langs, undefined, {
