@@ -66,6 +66,9 @@
     "@napi-rs/canvas": "^0.1.97",
     "pdfjs-dist": "^5.7.0"
   },
+  "optionalDependencies": {
+    "tesseract.js": "^7.0.0"
+  },
   "devDependencies": {
     "@biomejs/biome": "^2.4.14",
     "@expo-google-fonts/noto-sans-jp": "^0.4.3",

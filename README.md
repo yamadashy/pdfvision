@@ -24,9 +24,10 @@ PDF tooling has historically been built for humans copying text into a document.
 
 pdfvision is built around that gap. The goal is to **deliver every signal a PDF carries, in a form the agent can act on, and never silently hide that the extraction came up short.**
 
-- **Silent-failure visibility.** Every page reports `charCount`, `imageCount`, and `textCoverage`, so an agent can tell at a glance that "this slide is an image, not text" — and decide to re-run with `--render` or fall back to OCR instead of trusting an empty string.
+- **Silent-failure visibility.** Every page reports `charCount`, `imageCount`, and `textCoverage`, so an agent can tell at a glance that "this slide is an image, not text" — and decide to re-run with `--render` or `--ocr` instead of trusting an empty string.
 - **Multimodal handoff in one step.** `--render` writes PNG paths the agent can pass straight to a vision model — no second tool, no temp-file plumbing.
 - **Raw structural signals.** `--layout` returns blocks with `role: 'heading'`, `repeated: true` for running headers and footers, and multi-column reading order. `--image-boxes` reports where each raster draw lands. The agent picks which signals matter; pdfvision doesn't bake one answer.
+- **OCR when text alone isn't enough.** `--ocr` runs tesseract.js on each page and attaches `pages[].ocr` (text + confidence + lang) alongside the native pdfjs text — agents diff the two to detect scanned / image-flattened pages without losing the primary signal.
 - **Compatibility codepoints handled.** Japanese and scientific PDFs full of `⽬` / `Ａ` / `ﬁ` collapse to canonical forms by default. The pre-normalisation text stays available in `rawText` when a diff matters.
 - **Cache-first.** Same PDF, second read takes ~30 ms. Agents that revisit a PDF dozens of times across a session pay the parsing cost once.
 - **URLs are first-class.** `--remote https://…` downloads, caches, and extracts in one flag.
@@ -64,6 +65,8 @@ Options:
       --geometry          Emit per-text-item bbox + font size in pages[].spans (json/xml)
       --layout            Reconstruct lines + blocks (with role / repeated flags) in pages[].layout
       --image-boxes       Emit per-image bbox in pages[].imageBoxes
+      --ocr               Run tesseract.js OCR; attach pages[].ocr (text/confidence/lang)
+      --ocr-lang <lang>   Tesseract lang(s), plus-separated (e.g. eng+jpn). Default: eng
       --remote <url>      Download an http(s) PDF into the cache, then extract
       --no-cache          Skip the on-disk cache
       --no-normalize      Disable Unicode NFKC normalization (default: on)
@@ -92,6 +95,9 @@ pdfvision document.pdf --layout --image-boxes -f json
 
 # Per-text-item geometry (bbox + fontSize per glyph run)
 pdfvision document.pdf -f json --geometry
+
+# OCR a scanned PDF (multi-language)
+pdfvision scan.pdf --ocr --ocr-lang eng+jpn -f json
 ```
 
 Coordinates use a **top-down origin** (0,0 at the top-left, y grows downward) in PDF user-space points so callers can overlay spans / image bboxes directly on the rendered PNG. Multiply by `image.width / page.width` to map onto pixels.
@@ -113,7 +119,7 @@ for (const page of result.pages) {
 
 `processFile()` returns the same string output the CLI prints (`markdown` / `json` / `xml`).
 
-Exports: `processDocument`, `processFile`, `parsePageRange`, `renderPage`, `renderPages`, `getCacheDir`, `getCached`, `setCache`, plus full type definitions for `DocumentResult` / `PageResult` / `PageOverview` / `DocumentMetadata` / `ProcessDocumentOptions` / `ProcessOptions` / `OutputFormat` / `TextSpan` / `LayoutBlock` / `LayoutLine` / `PageLayout` / `ImageBox`.
+Exports: `processDocument`, `processFile`, `parsePageRange`, `renderPage`, `renderPages`, `getCacheDir`, `getCached`, `setCache`, plus full type definitions for `DocumentResult` / `PageResult` / `PageOverview` / `DocumentMetadata` / `ProcessDocumentOptions` / `ProcessOptions` / `OutputFormat` / `TextSpan` / `LayoutBlock` / `LayoutLine` / `PageLayout` / `ImageBox` / `PageOcr`.
 
 ## Caching
 
@@ -123,6 +129,7 @@ Results land under `<os-tmp>/pdfvision/<sha256-prefix>/` keyed by file content. 
 
 - Node.js >= 22.13.0
 - `@napi-rs/canvas` (installed automatically; ships prebuilt binaries for common platforms)
+- `tesseract.js` is installed as an optional dependency and only loaded when `--ocr` is requested. Skip it with `npm install --omit=optional` if you don't need OCR.
 
 ## 📜 License
 

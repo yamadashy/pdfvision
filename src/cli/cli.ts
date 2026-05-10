@@ -41,6 +41,8 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
         'image-boxes': { type: 'boolean' },
         remote: { type: 'string' },
         'clear-cache': { type: 'boolean' },
+        ocr: { type: 'boolean' },
+        'ocr-lang': { type: 'string', default: 'eng' },
       },
     });
     values = parsed.values as Record<string, string | boolean | undefined>;
@@ -137,6 +139,8 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
       geometry: (values.geometry as boolean | undefined) ?? false,
       layout: (values.layout as boolean | undefined) ?? false,
       imageBoxes: (values['image-boxes'] as boolean | undefined) ?? false,
+      ocr: (values.ocr as boolean | undefined) ?? false,
+      ocrLang: (values['ocr-lang'] as string | undefined) ?? 'eng',
     });
     console.log(result);
   } catch (error) {

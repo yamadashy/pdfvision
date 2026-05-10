@@ -211,6 +211,27 @@ describe('formatMarkdown', () => {
     expect(out).toMatch(/\| 2 \| 5 \| 0 \| 0% \| 612×792 \| 3 \|/);
   });
 
+  it('renders an OCR section with lang and confidence percent below the native text', () => {
+    // Native text comes first; OCR sits underneath as a separate ### block
+    // so an agent reads pdfjs first and only consults OCR when needed.
+    const out = formatMarkdown(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 'Hello',
+            charCount: 5,
+            ocr: { text: 'Hello world', confidence: 0.91, lang: 'eng' },
+          }),
+        ],
+      }),
+    );
+    expect(out).toMatch(/### OCR \(eng, confidence 91%\)/);
+    expect(out).toMatch(/Hello world/);
+    // Native text appears before OCR section.
+    expect(out.indexOf('\nHello\n')).toBeLessThan(out.indexOf('### OCR'));
+  });
+
   it('skips the text body for pages that had no extractable text', () => {
     // Image-only pages should still render the heading + density line so the
     // agent can see "this page had 0 chars and 3 images" instead of a silent gap.

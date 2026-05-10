@@ -137,6 +137,16 @@ export function formatXml(result: DocumentResult): string {
     if (page.rawText) {
       out.push(`<rawText>\n${escapeText(page.rawText)}\n</rawText>`);
     }
+    if (page.ocr) {
+      const ocrAttrs = `lang="${escapeAttr(page.ocr.lang)}" confidence="${page.ocr.confidence}"`;
+      if (page.ocr.text) {
+        out.push(`<ocr ${ocrAttrs}>\n${escapeText(page.ocr.text)}\n</ocr>`);
+      } else {
+        // Self-closing keeps "OCR ran but found nothing" distinct from
+        // "OCR was not requested" (the latter omits the tag entirely).
+        out.push(`<ocr ${ocrAttrs}/>`);
+      }
+    }
     out.push('</page>');
   }
   out.push('</pages>');

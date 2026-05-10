@@ -139,6 +139,15 @@ describe('cli', () => {
     expect(r.stderr.join('\n')).toMatch(/--remote and a file path are mutually exclusive/);
   });
 
+  it('rejects malformed --ocr-lang before booting tesseract', async () => {
+    // Argument validation runs ahead of the heavy worker boot, so a typo
+    // surfaces in milliseconds with a clear pointer at the bad token
+    // instead of an opaque tesseract error.
+    const r = await captureRun([SAMPLE_PDF, '--ocr', '--ocr-lang', 'eng2', '--no-cache']);
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr.join('\n')).toMatch(/expected letters\/underscore only/);
+  });
+
   it('downloads a remote PDF and runs extraction against it', async () => {
     // Spin up a one-off http server that serves the existing sample
     // fixture, point --remote at it, and assert the markdown body

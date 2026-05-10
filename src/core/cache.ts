@@ -24,7 +24,7 @@ import { join } from 'node:path';
  * leave the env var unset and get the same `<tmpdir>/pdfvision/` they
  * always have.
  */
-function getCacheRoot(): string {
+export function getCacheRoot(): string {
   return process.env.PDFVISION_CACHE_DIR ?? join(tmpdir(), 'pdfvision');
 }
 

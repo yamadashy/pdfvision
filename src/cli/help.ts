@@ -28,6 +28,12 @@ Options
                           reading order) from the same span data. Only -f json / -f xml.
       --image-boxes       Emit \`pages[].imageBoxes\` — bounding box of every raster image
                           draw on the page. Only -f json / -f xml.
+      --ocr               Run OCR on each selected page and attach \`pages[].ocr\`
+                          (text + confidence + lang). Slow; opt-in. Requires the
+                          optional \`tesseract.js\` dependency. \`pages[].text\` is
+                          preserved alongside so callers can compare native vs OCR.
+      --ocr-lang <lang>   Tesseract language code(s), plus-separated for multi-lang
+                          (e.g. \`eng+jpn\`). Default: eng. Only used with --ocr.
       --remote <url>      Download an http(s) URL to the on-disk cache and run extraction
                           on it. Same URL → same cache slot; combine with --no-cache (or
                           --clear-cache) to refresh.
@@ -48,6 +54,8 @@ Examples
   pdfvision document.pdf -r --render-output ./images                           # render PNGs to ./images
   pdfvision report.pdf -p 3-5 -r --render-output ./images --geometry -f json   # PNGs + spans for 3-5
   pdfvision slides.pdf -f xml --geometry                                       # layout / geometry as XML
+  pdfvision scan.pdf --ocr -f json                                             # OCR a scanned PDF
+  pdfvision scan-ja.pdf --ocr --ocr-lang eng+jpn -f json                       # multi-lang OCR
   pdfvision --remote https://example.com/paper.pdf -f json                     # fetch + extract JSON
   pdfvision --clear-cache                                                      # wipe the on-disk cache
 
