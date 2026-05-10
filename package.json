@@ -1,6 +1,6 @@
 {
   "name": "pdfvision",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Extract text, metadata, and page images from PDF files. Designed for AI agents.",
   "type": "module",
   "main": "./dist/index.mjs",
