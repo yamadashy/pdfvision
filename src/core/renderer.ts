@@ -20,15 +20,16 @@ function isReusableImage(path: string): boolean {
   return statSync(path).size > 0;
 }
 
-export async function renderPage(
+/**
+ * Render a single page to a PNG buffer in memory. Used by `renderPage`
+ * (which then atomic-writes the buffer to disk) and by the OCR pipeline,
+ * which needs the raster bytes but no filesystem side effect.
+ */
+export async function renderPageToBuffer(
   doc: PDFDocumentProxy,
   pageNum: number,
-  outputDir: string,
   scale = DEFAULT_SCALE,
-): Promise<string> {
-  const outputPath = join(outputDir, `page-${pageNum}.png`);
-  if (isReusableImage(outputPath)) return outputPath;
-
+): Promise<Buffer> {
   const page = await doc.getPage(pageNum);
   const viewport = page.getViewport({ scale });
 
@@ -41,7 +42,20 @@ export async function renderPage(
     viewport,
   }).promise;
 
-  atomicWrite(outputPath, canvas.toBuffer('image/png'));
+  return canvas.toBuffer('image/png');
+}
+
+export async function renderPage(
+  doc: PDFDocumentProxy,
+  pageNum: number,
+  outputDir: string,
+  scale = DEFAULT_SCALE,
+): Promise<string> {
+  const outputPath = join(outputDir, `page-${pageNum}.png`);
+  if (isReusableImage(outputPath)) return outputPath;
+
+  const buffer = await renderPageToBuffer(doc, pageNum, scale);
+  atomicWrite(outputPath, buffer);
   return outputPath;
 }
 

@@ -10,6 +10,7 @@ export type {
   LayoutLine,
   OutputFormat,
   PageLayout,
+  PageOcr,
   PageOverview,
   PageResult,
   ProcessDocumentOptions,

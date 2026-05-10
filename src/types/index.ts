@@ -51,6 +51,20 @@ export interface ProcessDocumentOptions {
    * each other. Off by default because not every consumer needs them.
    */
   imageBoxes?: boolean;
+  /**
+   * Run OCR on each selected page and attach the result as `pages[].ocr`.
+   * Off by default — OCR pulls in the optional `tesseract.js` dependency
+   * (~30MB worker bundle) and is slow even on small documents. The
+   * pdfjs-derived `pages[].text` is left unchanged so callers can diff
+   * native text vs OCR (scanned PDFs typically have empty `text` and
+   * usable `ocr.text`).
+   */
+  ocr?: boolean;
+  /**
+   * Tesseract language code(s), plus-separated (e.g. `eng`, `eng+jpn`).
+   * Defaults to `eng`. Only consulted when `ocr` is true.
+   */
+  ocrLang?: string;
 }
 
 export interface ProcessOptions {
@@ -63,6 +77,27 @@ export interface ProcessOptions {
   geometry?: boolean;
   layout?: boolean;
   imageBoxes?: boolean;
+  ocr?: boolean;
+  ocrLang?: string;
+}
+
+/**
+ * Per-page OCR result. Surfaced only when `--ocr` was requested.
+ * `pages[].text` (pdf.js native extraction) is preserved alongside this
+ * so callers can compare the two — scanned PDFs typically have empty
+ * `text` and a populated `ocr.text`.
+ */
+export interface PageOcr {
+  /** OCR-derived text. Trimmed of trailing whitespace; line breaks preserved. */
+  text: string;
+  /**
+   * Mean tesseract.js confidence over the page, normalised to 0..1
+   * (rounded to 3dp). Tesseract reports it as 0..100 internally; we
+   * scale down to match the existing `textCoverage` convention.
+   */
+  confidence: number;
+  /** Language string passed in (e.g. `eng`, `eng+jpn`), echoed verbatim. */
+  lang: string;
 }
 
 /**
@@ -215,6 +250,13 @@ export interface PageResult {
    * hero image yields multiple entries).
    */
   imageBoxes?: ImageBox[];
+  /**
+   * OCR-derived text + confidence + language, only present when
+   * `ocr: true` was passed. The pdfjs-derived `text` field is preserved
+   * alongside, so an agent can pick whichever signal it trusts more for
+   * the page in question.
+   */
+  ocr?: PageOcr;
 }
 
 export interface DocumentMetadata {

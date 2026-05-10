@@ -62,6 +62,19 @@ export function formatMarkdown(result: DocumentResult): string {
       lines.push('');
       lines.push(page.text);
     }
+    if (page.ocr) {
+      // OCR sits below the native text so the agent reads pdfjs first
+      // and only consults OCR when text is empty/garbled. The label
+      // surfaces lang + confidence so a low-confidence page is obvious
+      // without inspecting the JSON form.
+      const confPct = Math.round(page.ocr.confidence * 100);
+      lines.push('');
+      lines.push(`### OCR (${page.ocr.lang}, confidence ${confPct}%)`);
+      if (page.ocr.text) {
+        lines.push('');
+        lines.push(page.ocr.text);
+      }
+    }
     if (page.image) {
       lines.push('');
       // Use the <...> link destination form so paths with spaces or

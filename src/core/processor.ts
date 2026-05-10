@@ -29,6 +29,8 @@ interface CacheKeyInput {
   geometry?: boolean;
   layout?: boolean;
   imageBoxes?: boolean;
+  ocr?: boolean;
+  ocrLang?: string;
 }
 
 /**
@@ -44,7 +46,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v7',
+    format: 'structured-v8',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -55,6 +57,11 @@ function buildCacheKey(input: CacheKeyInput): string {
     geometry: !!input.geometry,
     layout: !!input.layout,
     imageBoxes: !!input.imageBoxes,
+    // OCR is expensive (tens of seconds for a multi-page scan); always cache
+    // it. The lang string is part of the key so `eng` and `eng+jpn` don't
+    // share a slot.
+    ocr: !!input.ocr,
+    ocrLang: input.ocr ? (input.ocrLang ?? 'eng') : null,
   });
   const hash = createHash('sha256').update(payload).digest('hex').slice(0, 16);
   return `result_${hash}.json`;
@@ -336,6 +343,8 @@ export async function processDocument(filePath: string, options: ProcessDocument
       layout: !!options.layout,
       imageBoxes: !!options.imageBoxes,
     };
+    const ocrEnabled = !!options.ocr;
+    const ocrLang = options.ocrLang ?? 'eng';
     const imageOps: ImageOps = {
       save: OPS.save,
       restore: OPS.restore,
@@ -371,6 +380,14 @@ export async function processDocument(filePath: string, options: ProcessDocument
     // populated, since a single page can't tell its own chrome from its
     // body. Skipped when --layout was off (nothing to flag).
     if (flags.layout) markRepeatedBlocks(pages);
+
+    // OCR runs after the main pass so it can attach to already-built
+    // PageResults. The pdfjs-derived `text` stays untouched — agents that
+    // care about the difference can compare `text` vs `ocr.text` directly.
+    if (ocrEnabled) {
+      const { attachOcr } = await import('./ocr.js');
+      await attachOcr(doc, pageNumbers, pages, ocrLang);
+    }
 
     const metaString = (raw: unknown): string | null => {
       if (typeof raw !== 'string') return null;
@@ -432,6 +449,8 @@ export async function processFile(filePath: string, options: ProcessOptions): Pr
     geometry: options.geometry,
     layout: options.layout,
     imageBoxes: options.imageBoxes,
+    ocr: options.ocr,
+    ocrLang: options.ocrLang,
   });
   return render(result, options.format);
 }

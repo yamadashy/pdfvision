@@ -182,6 +182,33 @@ describe('formatXml', () => {
     expect(out).toContain('<imageBoxes/>');
   });
 
+  it('emits an <ocr> element with lang + confidence attributes when ocr is present', () => {
+    const out = formatXml(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 'Hello',
+            charCount: 5,
+            ocr: { text: 'Hello world', confidence: 0.91, lang: 'eng+jpn' },
+          }),
+        ],
+      }),
+    );
+    expect(out).toMatch(/<ocr lang="eng\+jpn" confidence="0\.91">\nHello world\n<\/ocr>/);
+  });
+
+  it('emits a self-closing <ocr/> when OCR ran but found no text', () => {
+    // Mirrors the <imageBoxes/> empty-tag pattern: distinguishes "OCR ran
+    // and produced nothing" from "OCR was not requested" (omits tag).
+    const out = formatXml(
+      makeResult({
+        pages: [makePage({ page: 1, text: 't', charCount: 1, ocr: { text: '', confidence: 0, lang: 'eng' } })],
+      }),
+    );
+    expect(out).toMatch(/<ocr lang="eng" confidence="0"\/>/);
+  });
+
   it('escapes newlines inside attribute values so they cannot terminate the attribute early', () => {
     const out = formatXml(
       makeResult({
