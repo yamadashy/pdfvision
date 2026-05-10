@@ -16,10 +16,12 @@ Usage:
 Options
   -p, --pages <range>     Pages to extract: "1", "1-5", "1,3,5", "2-4,7". Default: all pages.
   -f, --format <type>     Output format: markdown (default), json, xml.
-  -r, --render            Render each selected page to a PNG and include the path on every page result.
+  -r, --render            Render each selected page to a PNG and include the path on every
+                          page result.
       --render-output <dir>
-                          Directory to write rendered PNGs into, created if missing. Requires --render.
-                          Without this, PNGs land under the cache (or OS tmp with --no-cache).
+                          Directory to write rendered PNGs into, created if missing. Requires
+                          --render. Without this, PNGs land under the cache (or OS tmp with
+                          --no-cache).
       --no-normalize      Disable Unicode NFKC normalization. Default ON; pre-normalization text is
                           surfaced in \`rawText\` (json/xml) when normalization changed the string.
       --geometry          Emit per-text-item bbox + font size in \`pages[].spans\`.
@@ -44,21 +46,23 @@ Options
   -h, --help              Show this help
 
 Output formats
-  markdown (default)  Per-page sections, density Overview table, image links inline. For LLM context.
+  markdown (default)  Per-page sections, density Overview table, image links inline.
+                      For LLM context.
   json                Full DocumentResult schema. For programmatic parsing.
   xml                 Tag-shaped variant of json. For LLMs that parse tags more reliably than JSON.
 
 Examples
   pdfvision document.pdf                                                       # markdown to stdout
   pdfvision document.pdf -p 1-3 -f json                                        # specific pages, JSON
-  pdfvision document.pdf -r --render-output ./images                           # render PNGs to ./images
+  pdfvision document.pdf -r --render-output ./images                           # PNGs to ./images
   pdfvision report.pdf -p 3-5 -r --render-output ./images --geometry -f json   # PNGs + spans for 3-5
-  pdfvision slides.pdf -f xml --geometry                                       # layout / geometry as XML
+  pdfvision slides.pdf -f xml --geometry                                       # geometry as XML
   pdfvision scan.pdf --ocr -f json                                             # OCR a scanned PDF
   pdfvision scan-ja.pdf --ocr --ocr-lang eng+jpn -f json                       # multi-lang OCR
   pdfvision --remote https://example.com/paper.pdf -f json                     # fetch + extract JSON
-  pdfvision --clear-cache                                                      # wipe the on-disk cache
+  pdfvision --clear-cache                                                      # clear cache
 
 Exit codes
   0  Success
-  1  Argument error, file not found, network error, or extraction failure (error message on stderr)`;
+  1  Argument error, file not found, network error, or extraction failure
+     (error message on stderr)`;
