@@ -49,7 +49,7 @@ npm install -g pdfvision
 pdfvision document.pdf
 ```
 
-## Usage
+## 📖 Usage
 
 ```
 pdfvision <file.pdf> [options]
@@ -121,7 +121,7 @@ for (const page of result.pages) {
 
 Exports: `processDocument`, `processFile`, `parsePageRange`, `renderPage`, `renderPages`, `getCacheDir`, `getCached`, `setCache`, plus full type definitions for `DocumentResult` / `PageResult` / `PageOverview` / `DocumentMetadata` / `ProcessDocumentOptions` / `ProcessOptions` / `OutputFormat` / `TextSpan` / `LayoutBlock` / `LayoutLine` / `PageLayout` / `ImageBox` / `PageOcr`.
 
-## Caching
+## 💾 Caching
 
 Results land under `<os-tmp>/pdfvision/<sha256-prefix>/` keyed by file content. POSIX `0700` / `0600` permissions, symlink/TOCTOU defences. Override the location with `PDFVISION_CACHE_DIR=/path` or wipe everything with `pdfvision --clear-cache`.
 
