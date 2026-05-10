@@ -78,4 +78,63 @@ describe('runParallel', () => {
     // task; the failure-flag short-circuit keeps that count well below 20.
     expect(started).toBeLessThan(20);
   });
+
+  it('still rejects when a worker throws a falsy value (e.g. `undefined`)', async () => {
+    // The earlier implementation tracked failure with `failure !== undefined`;
+    // a worker that genuinely threw `undefined` would bypass the
+    // short-circuit. Asserting an explicit `throw undefined` surfaces
+    // this regression directly.
+    let started = 0;
+    await expect(
+      runParallel(
+        Array.from({ length: 10 }, (_, i) => i),
+        async (idx) => {
+          started++;
+          if (idx === 0) throw undefined;
+          await new Promise((resolve) => setTimeout(resolve, 20));
+          return idx;
+        },
+        2,
+      ),
+    ).rejects.toBeUndefined();
+    expect(started).toBeLessThan(10);
+  });
+
+  it('does not surface late sibling rejections as UnhandledPromiseRejection', async () => {
+    // Two workers throw at different times. The runner should rethrow
+    // only the first error and absorb the second so it cannot escape
+    // after Promise.all has already settled. A regression here would
+    // print an UnhandledPromiseRejectionWarning on the test output (and
+    // crash newer Node versions).
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => unhandled.push(reason);
+    process.on('unhandledRejection', onUnhandled);
+    try {
+      await expect(
+        runParallel(
+          [0, 1],
+          async (idx) => {
+            // idx=0 throws first, idx=1 throws ~10ms later.
+            await new Promise((resolve) => setTimeout(resolve, idx === 0 ? 5 : 15));
+            throw new Error(`boom-${idx}`);
+          },
+          2,
+        ),
+      ).rejects.toThrow(/boom-0/);
+      // Give the second rejection a tick to surface if mishandled.
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off('unhandledRejection', onUnhandled);
+    }
+  });
+
+  it('coerces non-integer concurrency without falling through to an empty queue', async () => {
+    // Concurrency of 1.5 used to land on `Array.from({ length: 1.5 })`
+    // which produced a zero-runner array — the function then returned
+    // an array of `undefined` instead of running anything. Math.floor
+    // pins it to 1 so the work still happens.
+    const results = await runParallel([10, 20, 30], async (n) => n * 2, 1.5);
+    expect(results).toEqual([20, 40, 60]);
+  });
 });
