@@ -1,19 +1,8 @@
 import { join } from 'node:path';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import type { PageOcr } from '../types/index.js';
 import { ensurePrivateDir, getCacheRoot } from './cache.js';
 import { renderPageToBuffer } from './renderer.js';
-
-/**
- * Result of running OCR on a single page. `confidence` is normalised to
- * 0..1 (rounded to 3dp) so it lines up with `textCoverage`; `lang` echoes
- * the caller's `--ocr-lang` string verbatim so `eng+jpn` round-trips even
- * after caching.
- */
-export interface PageOcr {
-  text: string;
-  confidence: number;
-  lang: string;
-}
 
 /**
  * One OCR worker, reusable across many pages. Created once per
@@ -128,12 +117,18 @@ export async function attachOcr(
   pages: { ocr?: PageOcr }[],
   lang: string,
 ): Promise<void> {
+  // Canonicalise whitespace / stray separators so ` eng + jpn ` and
+  // `eng+jpn` end up with the same echoed `ocr.lang`. Order is preserved
+  // — tesseract treats the first language as primary, so `eng+jpn` and
+  // `jpn+eng` are intentionally different recognisers and must not share
+  // a normalised key.
+  const normalisedLang = parseOcrLang(lang).join('+');
   const session = await createOcrSession(lang);
   try {
     for (let i = 0; i < pageNumbers.length; i++) {
       const png = await renderPageToBuffer(doc, pageNumbers[i]);
       const result = await session.recognize(png);
-      pages[i].ocr = { text: result.text, confidence: result.confidence, lang };
+      pages[i].ocr = { text: result.text, confidence: result.confidence, lang: normalisedLang };
     }
   } finally {
     await session.terminate();

@@ -58,10 +58,12 @@ function buildCacheKey(input: CacheKeyInput): string {
     layout: !!input.layout,
     imageBoxes: !!input.imageBoxes,
     // OCR is expensive (tens of seconds for a multi-page scan); always cache
-    // it. The lang string is part of the key so `eng` and `eng+jpn` don't
-    // share a slot.
+    // it. The lang string is part of the key (whitespace-normalised, order
+    // preserved — tesseract treats the first language as primary) so that
+    // `eng` and `eng+jpn` don't share a slot, but ` eng + jpn ` and
+    // `eng+jpn` do.
     ocr: !!input.ocr,
-    ocrLang: input.ocr ? (input.ocrLang ?? 'eng') : null,
+    ocrLang: input.ocr ? canonicalOcrLang(input.ocrLang) : null,
   });
   const hash = createHash('sha256').update(payload).digest('hex').slice(0, 16);
   return `result_${hash}.json`;
@@ -80,6 +82,27 @@ function normalizeText(s: string): string {
 /** Round to 2 decimal places — keeps span coordinates compact in JSON. */
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+/**
+ * Whitespace-normalise (and drop empty separators from) the OCR language
+ * string used for cache keying. Order is preserved on purpose —
+ * tesseract treats the first language as primary, so `eng+jpn` and
+ * `jpn+eng` are intentionally different recognisers. Falls back to
+ * `'eng'` when the input is missing or trims to nothing, matching the
+ * `--ocr-lang` default in the CLI.
+ *
+ * Inlined here (instead of importing `parseOcrLang` from `core/ocr.ts`)
+ * so building the cache key doesn't load the renderer / @napi-rs/canvas
+ * graph that `ocr.ts` indirectly pulls in.
+ */
+function canonicalOcrLang(lang: string | undefined): string {
+  if (!lang) return 'eng';
+  const tokens = lang
+    .split('+')
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0);
+  return tokens.length > 0 ? tokens.join('+') : 'eng';
 }
 
 interface PageData {
