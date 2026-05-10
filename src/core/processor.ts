@@ -19,6 +19,7 @@ import { dropCached, ensurePrivateDir, getCacheDir, getCached, setCache } from '
 import { buildImageBoxes, type ImageOps } from './imageBoxes.js';
 import { buildLayout, markRepeatedBlocks } from './layout.js';
 import { parsePageRange } from './pageRange.js';
+import { runParallel } from './parallel.js';
 
 /** Inputs that determine which cached entry a request maps to. */
 interface CacheKeyInput {
@@ -380,11 +381,16 @@ export async function processDocument(filePath: string, options: ProcessDocument
       paintImageMaskXObjectGroup: OPS.paintImageMaskXObjectGroup,
       paintInlineImageXObjectGroup: OPS.paintInlineImageXObjectGroup,
     };
-    const pages: PageResult[] = [];
-    for (let i = 0; i < pageNumbers.length; i++) {
-      const data = await extractPageData(doc, pageNumbers[i], imageOps, flags);
-      pages.push({
-        page: pageNumbers[i],
+    // Parallelise per-page extraction. pdfjs's PDFDocumentProxy is safe
+    // to call concurrently — each `getPage` resolves through its own
+    // worker queue — and runParallel preserves input order so the output
+    // pages[] still reads top-to-bottom of the selected range. The cap
+    // (defaultConcurrency) keeps memory bounded on large multi-page
+    // docs where every concurrent page builds its own canvas / op list.
+    const pages: PageResult[] = await runParallel(pageNumbers, async (pageNum, i) => {
+      const data = await extractPageData(doc, pageNum, imageOps, flags);
+      return {
+        page: pageNum,
         text: data.text,
         ...(data.rawText !== undefined && { rawText: data.rawText }),
         image: imagePaths?.[i],
@@ -396,8 +402,8 @@ export async function processDocument(filePath: string, options: ProcessDocument
         ...(data.spans !== undefined && { spans: data.spans }),
         ...(data.layout !== undefined && { layout: data.layout }),
         ...(data.imageBoxes !== undefined && { imageBoxes: data.imageBoxes }),
-      });
-    }
+      };
+    });
 
     // Repeated-chrome detection has to wait until every selected page is
     // populated, since a single page can't tell its own chrome from its
