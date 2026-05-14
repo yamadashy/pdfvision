@@ -53,19 +53,20 @@ The default extraction is enough for most native-text PDFs (papers, exports from
 | Reconstruct reading order, find headings | `--layout` | Multi-column papers, slides where the agent must process blocks in order |
 | Know where images sit on the page | `--image-boxes` | Bbox overlay on rendered PNG, figure detection |
 | Per-glyph bbox + fontSize | `--geometry` | Heading detection by font-size, custom layout heuristics |
-| Page is an image — get text from raster | `--ocr` + `--ocr-lang` | `coverage: 0%` in the Overview (see below). **For non-English text, language order matters** — primary language goes first (`jpn+eng` for Japanese-dominant, `eng+jpn` for English-dominant). Full lang combinations and confidence semantics in `references/ocr.md`. |
+| Page is an image — get text from raster | `--ocr` + `--ocr-lang` | `coverage: 0%` in the Overview, or `nonPrintableRatio >= 0.05` (text exists but is glyph-index garbage; see below). **For non-English text, language order matters** — primary language goes first (`jpn+eng` for Japanese-dominant, `eng+jpn` for English-dominant). Full lang combinations and confidence semantics in `references/ocr.md`. |
 | Hand the page to a vision model | `--render` + `--render-output <dir>` | Multimodal flows. Density Overview already flagged the page as low-text |
 | Skip the on-disk cache | `--no-cache` | Forced re-extraction. Default behaviour is cache-on |
 
 ## Detecting silent failures with the density Overview
 
-When `result.pages.length > 1`, the markdown output starts with an Overview table that reports `Chars / Images / Coverage / Size` per page. The JSON / XML output carries the same data in `overview[]` with field names `charCount` / `imageCount` / `textCoverage` / `width` / `height` — use the field names directly when grepping or filtering in code. Use the Overview before scrolling the body:
+When `result.pages.length > 1`, the markdown output starts with an Overview table that reports `Chars / Images / Coverage / Size` per page (plus `NonPrint` when any page has non-zero non-printable ratio, and `Blocks` when `--layout` was on). The JSON / XML output carries the same data in `overview[]` with field names `charCount` / `imageCount` / `textCoverage` / `nonPrintableRatio` / `width` / `height` — use the field names directly when grepping or filtering in code. Use the Overview before scrolling the body:
 
 - `textCoverage: 0` (rendered as `coverage: 0%` in markdown) + `imageCount > 0` → the page body is a rasterised image. The text stream is empty. Re-run with `--ocr` or `--render`.
+- `nonPrintableRatio >= 0.05` → pdf.js fell back to raw glyph indices because the PDF's fonts lack a ToUnicode CMap (common with Hebrew, older CJK, custom symbol fonts). `text` reads as full coverage but is binary garbage. Do **not** trust native text on these pages — re-run with `--render` to look at the page visually, or `--ocr` to extract via raster. Values `>= 0.3` are pathological; `< 0.01` is normal.
 - `charCount: 0` but `imageCount: 0` → genuinely blank page (separator, end matter).
 - Sudden drop in `textCoverage` on a single page in an otherwise text-dense doc → that page is likely a figure / scan / chart. Inspect with `--render`.
 
-The density signal is the reason to prefer pdfvision over reading a PDF directly — silent failures (empty `text` that looks fine to a downstream consumer) become visible up front.
+The density signal is the reason to prefer pdfvision over reading a PDF directly — silent failures (empty `text` that looks fine to a downstream consumer, or full `text` that is actually NUL bytes) become visible up front.
 
 ## Caching
 

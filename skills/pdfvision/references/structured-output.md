@@ -24,14 +24,17 @@ interface DocumentResult {
 interface PageOverview {
   page: number;
   charCount: number;
-  imageCount: number;     // raster image draws (XObject + inline + mask), per drawn instance
-  textCoverage: number;   // 0..1, fraction of page area covered by text glyph bboxes
-  width: number;          // PDF user-space points
+  imageCount: number;          // raster image draws (XObject + inline + mask), per drawn instance
+  textCoverage: number;        // 0..1, fraction of page area covered by text glyph bboxes
+  nonPrintableRatio: number;   // 0..1, fraction of `text` that is NUL / control / noncharacter
+  width: number;               // PDF user-space points
   height: number;
 }
 ```
 
-`overview[]` is the first thing to inspect for silent-failure detection. `imageCount > 0 && textCoverage ≈ 0` is the signature of an image-flattened page.
+`overview[]` is the first thing to inspect for silent-failure detection. Two signatures matter:
+- `imageCount > 0 && textCoverage ≈ 0` → image-flattened page; the text stream is empty.
+- `nonPrintableRatio >= 0.05` → ToUnicode CMap missing; the text stream is full of raw glyph indices (NUL + control chars) even though `textCoverage` looks fine. Native text is unusable; fall back to `--render` or `--ocr`.
 
 ## PageResult (per page)
 
@@ -43,6 +46,7 @@ interface PageResult {
   charCount: number;
   imageCount: number;
   textCoverage: number;
+  nonPrintableRatio: number;     // NUL / control / noncharacter ratio in `text`
   width: number;
   height: number;
   image?: string;                // absolute PNG path — present iff --render
@@ -138,11 +142,11 @@ const pixelBox = { x: box.x * sx, y: box.y * sy, width: box.width * sx, height: 
     <author>...</author>
   </metadata>
   <overview>
-    <page no="1" charCount="..." imageCount="..." textCoverage="..." width="..." height="..."/>
+    <page no="1" charCount="..." imageCount="..." textCoverage="..." nonPrintableRatio="..." width="..." height="..."/>
     ...
   </overview>
   <pages>
-    <page no="1" charCount="..." imageCount="..." textCoverage="..." width="..." height="..." image="...">
+    <page no="1" charCount="..." imageCount="..." textCoverage="..." nonPrintableRatio="..." width="..." height="..." image="...">
       <spans>
         <span text="..." x="..." y="..." width="..." height="..." fontSize="..." fontName="..."/>
         ...

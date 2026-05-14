@@ -10,6 +10,7 @@ function makePage(overrides: Partial<PageResult> & Pick<PageResult, 'page'>): Pa
     charCount: 0,
     imageCount: 0,
     textCoverage: 0,
+    nonPrintableRatio: 0,
     width: 612,
     height: 792,
     ...overrides,

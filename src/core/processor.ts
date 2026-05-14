@@ -18,6 +18,7 @@ import type {
 import { dropCached, ensurePrivateDir, getCacheDir, getCached, setCache } from './cache.js';
 import { buildImageBoxes, type ImageOps } from './imageBoxes.js';
 import { buildLayout, markRepeatedBlocks } from './layout.js';
+import { nonPrintableRatio } from './nonPrintable.js';
 import { parsePageRange } from './pageRange.js';
 import { runParallel } from './parallel.js';
 
@@ -47,7 +48,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v8',
+    format: 'structured-v9',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -112,6 +113,7 @@ interface PageData {
   charCount: number;
   imageCount: number;
   textCoverage: number;
+  nonPrintableRatio: number;
   width: number;
   height: number;
   spans?: TextSpan[];
@@ -230,6 +232,12 @@ async function extractPageData(
     charCount: text.length,
     imageCount,
     textCoverage: Math.round(textCoverage * 1000) / 1000,
+    // Measured on the text we actually return (post-normalize) so the
+    // ratio matches what an agent sees in `text`. Cheap (one string
+    // walk), so always on — this is the primary signal for catching
+    // ToUnicode-CMap-less PDFs that look 100% covered but emit raw
+    // glyph indices.
+    nonPrintableRatio: nonPrintableRatio(text),
     // Round to 2dp; PDF dimensions are nominally integers (Letter 612×792,
     // A4 595×842) but encrypted/cropped PDFs can carry sub-point fractions.
     width: round2(width),
@@ -424,6 +432,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
         charCount: data.charCount,
         imageCount: data.imageCount,
         textCoverage: data.textCoverage,
+        nonPrintableRatio: data.nonPrintableRatio,
         width: data.width,
         height: data.height,
         ...(data.spans !== undefined && { spans: data.spans }),
@@ -461,6 +470,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
             charCount: p.charCount,
             imageCount: p.imageCount,
             textCoverage: p.textCoverage,
+            nonPrintableRatio: p.nonPrintableRatio,
             width: p.width,
             height: p.height,
           }))
