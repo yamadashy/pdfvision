@@ -53,17 +53,17 @@ The default extraction is enough for most native-text PDFs (papers, exports from
 | Reconstruct reading order, find headings | `--layout` | Multi-column papers, slides where the agent must process blocks in order |
 | Know where images sit on the page | `--image-boxes` | Bbox overlay on rendered PNG, figure detection |
 | Per-glyph bbox + fontSize | `--geometry` | Heading detection by font-size, custom layout heuristics |
-| Page is an image — get text from raster | `--ocr` + `--ocr-lang` | `coverage: 0%` in the Overview (see below). Details in `references/ocr.md` |
+| Page is an image — get text from raster | `--ocr` + `--ocr-lang` | `coverage: 0%` in the Overview (see below). **For non-English text, language order matters** — primary language goes first (`jpn+eng` for Japanese-dominant, `eng+jpn` for English-dominant). Full lang combinations and confidence semantics in `references/ocr.md`. |
 | Hand the page to a vision model | `--render` + `--render-output <dir>` | Multimodal flows. Density Overview already flagged the page as low-text |
 | Skip the on-disk cache | `--no-cache` | Forced re-extraction. Default behaviour is cache-on |
 
 ## Detecting silent failures with the density Overview
 
-When `result.pages.length > 1`, the markdown output starts with an Overview table that reports `Chars / Images / Coverage / Size` per page. The JSON / XML output carries the same data in `overview[]`. Use it before scrolling the body:
+When `result.pages.length > 1`, the markdown output starts with an Overview table that reports `Chars / Images / Coverage / Size` per page. The JSON / XML output carries the same data in `overview[]` with field names `charCount` / `imageCount` / `textCoverage` / `width` / `height` — use the field names directly when grepping or filtering in code. Use the Overview before scrolling the body:
 
-- `coverage: 0%` + `imageCount > 0` → the page body is a rasterised image. The text stream is empty. Re-run with `--ocr` or `--render`.
+- `textCoverage: 0` (rendered as `coverage: 0%` in markdown) + `imageCount > 0` → the page body is a rasterised image. The text stream is empty. Re-run with `--ocr` or `--render`.
 - `charCount: 0` but `imageCount: 0` → genuinely blank page (separator, end matter).
-- Sudden drop in coverage on a single page in an otherwise text-dense doc → that page is likely a figure / scan / chart. Inspect with `--render`.
+- Sudden drop in `textCoverage` on a single page in an otherwise text-dense doc → that page is likely a figure / scan / chart. Inspect with `--render`.
 
 The density signal is the reason to prefer pdfvision over reading a PDF directly — silent failures (empty `text` that looks fine to a downstream consumer) become visible up front.
 
@@ -75,8 +75,12 @@ The density signal is the reason to prefer pdfvision over reading a PDF directly
 
 ## Typical agent flow
 
-1. Run `npx pdfvision doc.pdf -f json` — gets text + density Overview.
-2. Read the `overview[]` to find low-coverage pages.
+**Inherit the user's scope first.** If the user already named a specific page or range ("page 2", "chapter 3", "the last few pages"), pass `-p` from step 1 — the density Overview works per page, so there's no need to scan a 100-page doc when the user pointed at page 2. Only run unscoped when the user genuinely asked about the whole document. Sections with conventional locations also help: "abstract" → `-p 1`, "conclusion" → `-p <last-few>`, "TOC" → `-p 1-3`.
+
+**Pick a format that matches the consumer.** If the consumer is the LLM itself reading text inline (the typical "user asks me to read this PDF" case), the markdown default is already optimal — no flag needed. Switch to `-f json` only when a downstream programmatic step needs structured field access (`overview[]`, `pages[].layout`, `pages[].ocr`, etc.). XML when the LLM downstream parses tags more reliably than nested JSON.
+
+1. Run `npx pdfvision doc.pdf` (add `-p <range>` per the scope note, and `-f json` only when you'll consume structured fields) — gets text + density Overview for the selected pages.
+2. Read the density signals (the markdown Overview table, or `overview[]` / `pages[].textCoverage` / `imageCount` / `charCount` in JSON) to find low-coverage pages.
 3. For low-coverage pages: re-run with `--ocr` if text is needed, or `--render` if a vision model will look at the rasterised page.
 4. For structured / multi-column docs: re-run with `--layout` (and `--image-boxes` when figure positions matter).
 5. Cache means steps 3–4 only re-pay the cost of the new flag combination on the affected page subset, not the whole extract.
@@ -85,7 +89,9 @@ The density signal is the reason to prefer pdfvision over reading a PDF directly
 
 The base of this file already covers daily extraction. Open a reference file **only** in one of these specific cases — they are not always-on context, do not load speculatively.
 
-| Read this file | When |
-|---|---|
-| `references/structured-output.md` | You are about to programmatically consume `-f json` / `-f xml` output and need the full `DocumentResult` / `PageResult` / `LayoutBlock` / `ImageBox` / `TextSpan` field reference, including coordinate-system semantics. |
-| `references/ocr.md` | You are about to run `--ocr` and the user's text is non-English, or OCR confidence is unexpectedly low, or the optional `tesseract.js` install needs to be diagnosed. Covers lang code combinations, traineddata cache location, and primary-language ordering. |
+Each entry is tagged as **mandatory** (read before producing the deliverable; this file doesn't carry enough on its own for the case) or **escalation** (read only if the basic guidance above isn't enough for the situation).
+
+| Read this file | Gate | When |
+|---|---|---|
+| `references/structured-output.md` | **mandatory** when you're consuming `--layout`, `--image-boxes`, `--geometry`, `--ocr`, or any other structured JSON / XML field whose schema isn't fully described in this file. SKILL.md only names the flags — the field-by-field shape lives in the reference. | Programmatic consumers of `-f json` / `-f xml`. Covers `DocumentResult` / `PageResult` / `LayoutBlock` / `ImageBox` / `TextSpan` / `PageOcr` schemas and coordinate-system semantics. |
+| `references/ocr.md` | **escalation** for the easy cases (English-only, expected confidence). **Mandatory** when the user's text is non-English (lang ordering affects results), confidence is unexpectedly low, or the `tesseract.js` install / stderr is misbehaving. | Lang code combinations, primary-language ordering, traineddata cache, install diagnostics, troubleshooting (low confidence, blank PNG, stderr noise). |

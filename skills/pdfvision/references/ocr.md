@@ -92,6 +92,17 @@ First `--ocr` invocation against a new language takes a few extra seconds for th
 
 ## Troubleshooting
 
+### Benign stderr noise on the first --ocr run
+
+When `--ocr` boots tesseract.js for the first time in a session, you may see stderr lines like:
+
+```
+Error opening data file ./.traineddata
+Failed loading language ''
+```
+
+These are **harmless pre-load probes** from tesseract.js's internal boot sequence, not fatal errors. The recogniser then honors the `--ocr-lang` you actually passed. Confirm by checking `pages[].ocr.confidence` in the JSON output — if it's `> 0` and `pages[].ocr.text` is populated, OCR succeeded. Do not interpret these stderr lines as a reason to abort.
+
 ### "OCR ran but `text` is empty and `confidence: 0`"
 
 Most likely the rasterise step produced a blank page, not an actual OCR failure. Common cause: the PDF uses an image format pdfjs + `@napi-rs/canvas` can't decode (notably JPEG2000 / JPX, common in Internet Archive scans). Verify by:
