@@ -123,7 +123,7 @@ Exports: `processDocument`, `processFile`, `parsePageRange`, `renderPage`, `rend
 
 ## 🤖 Agent Skill
 
-pdfvision ships a bundled agent skill at [`skills/pdfvision/`](skills/pdfvision/) (a `SKILL.md` plus a small `references/` set) so a Claude Code, Codex, or Cursor session knows when to reach for the CLI and how to pick flags. Install it with [`npx skills`](https://github.com/vercel-labs/skills):
+pdfvision ships a bundled agent skill at [`skills/pdfvision/`](https://github.com/yamadashy/pdfvision/tree/main/skills/pdfvision/) (a `SKILL.md` plus a small `references/` set) so a Claude Code, Codex, or Cursor session knows when to reach for the CLI and how to pick flags. Install it with [`npx skills`](https://github.com/vercel-labs/skills):
 
 ```bash
 # Project install (default) — drops the skill into <cwd>/.claude/skills/pdfvision/

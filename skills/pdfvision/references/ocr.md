@@ -67,7 +67,7 @@ In XML output, OCR surfaces as `<ocr lang="..." confidence="...">...</ocr>`. Sel
 
 When `--ocr` is requested without `tesseract.js` installed, pdfvision throws:
 
-```
+```text
 --ocr requires the optional dependency "tesseract.js" (not installed).
 Install it with: npm install tesseract.js
 ```
@@ -96,7 +96,7 @@ First `--ocr` invocation against a new language takes a few extra seconds for th
 
 When `--ocr` boots tesseract.js for the first time in a session, you may see stderr lines like:
 
-```
+```text
 Error opening data file ./.traineddata
 Failed loading language ''
 ```

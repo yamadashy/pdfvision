@@ -31,7 +31,7 @@ interface PageOverview {
 }
 ```
 
-`overview[]` is the first thing to inspect for silent-failure detection. `imageCount > 0 && coverage ≈ 0` is the signature of an image-flattened page.
+`overview[]` is the first thing to inspect for silent-failure detection. `imageCount > 0 && textCoverage ≈ 0` is the signature of an image-flattened page.
 
 ## PageResult (per page)
 
@@ -93,7 +93,7 @@ One entry per drawn instance — a tiled hero image yields multiple entries. `im
 
 ```ts
 interface TextSpan {
-  text: string;              // normalized when --normalize is on (default)
+  text: string;              // normalized by default (disable with --no-normalize)
   x: number; y: number;      // top-left in PDF points
   width: number; height: number;
   fontSize: number;          // max of horizontal / vertical text-matrix scales
