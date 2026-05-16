@@ -557,7 +557,22 @@ export function markRepeatedBlocks(pages: PageResult[]): void {
     if (seenPages.size < minOccurrences) continue;
     for (const ref of refs) {
       const block = pagesWithLayout[ref.pageIndex].layout?.blocks[ref.blockIndex];
-      if (block) block.repeated = true;
+      if (!block) continue;
+      block.repeated = true;
+      // Demote chrome from heading. A running header / page-number /
+      // language-marker line that happens to be short and slightly
+      // larger than the body fontSize sails through the heading
+      // classifier (eu-ai-act surfaces "EN" as a level-1 heading on
+      // every page). Once we know the block is repeated chrome, the
+      // heading role is almost always wrong — and agents iterating
+      // `headings` then see "EN" once per page. Drop the role here.
+      // Consumers that genuinely want repeated headings (a doc title
+      // that only appears in the running header) can still recover it
+      // from `text` + `repeated: true` + size; the common case wins.
+      if (block.role === 'heading') {
+        block.role = undefined;
+        block.level = undefined;
+      }
     }
   }
 }

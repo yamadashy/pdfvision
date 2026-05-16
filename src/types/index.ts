@@ -189,9 +189,12 @@ export interface LayoutBlock {
    * same text on enough other pages to look like a running header, footer,
    * page number, or watermark. Lets agents skip the chrome and focus on
    * the body. Detected post-clustering across the selected page set.
-   * Repeated blocks can still carry `role: 'heading'` (a doc title in a
-   * running header is still a heading); consumers that want body-only
-   * chunking should filter `repeated: true` before reading `role`.
+   *
+   * When a block is flagged `repeated`, any heading classification is
+   * dropped — a 2-character language marker that happens to sit at the
+   * page-header fontSize was being classified as `level: 1` on every
+   * page (eu-ai-act `EN` × 5 pages). The chrome marker wins; agents
+   * after `headings` no longer see those duplicates.
    */
   repeated?: boolean;
 }

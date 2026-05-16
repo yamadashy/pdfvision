@@ -18,6 +18,7 @@ import type {
   TextSpan,
 } from '../types/index.js';
 import { dropCached, ensurePrivateDir, getCacheDir, getCached, setCache } from './cache.js';
+import { type JoinItem, joinPageText } from './cjkJoin.js';
 import { buildImageBoxes, type ImageOps } from './imageBoxes.js';
 import { buildLayout, markRepeatedBlocks } from './layout.js';
 import { nonPrintableStats } from './nonPrintable.js';
@@ -193,13 +194,15 @@ async function extractPageData(
   // PageResult when `geometry` is on.
   const wantSpans = flags.geometry || flags.layout;
 
-  const parts: string[] = [];
+  // Collect typed items for the CJK-aware page-text joiner. We can't
+  // build the final string in this loop because the join decision for
+  // a whitespace item depends on its neighbours' positions, which we
+  // only know after the walk.
+  const joinItems: JoinItem[] = [];
   let textArea = 0;
   const spans: TextSpan[] = [];
   for (const item of content.items) {
     if (!('str' in item)) continue;
-    parts.push(item.str);
-    if (item.hasEOL) parts.push('\n');
     const w = typeof item.width === 'number' ? item.width : 0;
     // pdfjs reports item.height as 0 for many PDFs (e.g. those produced by
     // certain Office exporters); fall back to the vertical scale from the
@@ -208,6 +211,20 @@ async function extractPageData(
     const transform = item.transform;
     const h = reportedH > 0 ? reportedH : Math.abs(transform?.[3] ?? 0);
     textArea += Math.abs(w * h);
+
+    // Feed the page-text joiner. x/fontSize default to 0 when the
+    // item lacks a transform (pdf.js does this for synthetic-EOL
+    // items); the joiner already handles zero fontSize by falling back
+    // to a neighbour.
+    const itemX = transform ? transform[4] : 0;
+    const itemFontSize = transform ? Math.max(Math.abs(transform[0]), Math.abs(transform[3])) : h;
+    joinItems.push({
+      str: item.str,
+      x: itemX,
+      width: w,
+      fontSize: itemFontSize,
+      hasEOL: !!item.hasEOL,
+    });
 
     // Skip whitespace-only items in spans output — pdf.js emits a span
     // for every positioned space, which can double the array length and
@@ -236,7 +253,7 @@ async function extractPageData(
       });
     }
   }
-  const rawText = parts.join('').trimEnd();
+  const rawText = joinPageText(joinItems).trimEnd();
   // charCount must reflect the string the caller actually receives, so
   // measure after normalization.
   const text = flags.normalize ? normalizeText(rawText) : rawText;

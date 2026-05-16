@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildLayout } from '../../src/core/layout.js';
-import type { TextSpan } from '../../src/types/index.js';
+import { buildLayout, markRepeatedBlocks } from '../../src/core/layout.js';
+import type { LayoutBlock, PageResult, TextSpan } from '../../src/types/index.js';
 
 /**
  * Produce a span shaped like the ones pdf.js emits, but with explicit
@@ -256,6 +256,65 @@ describe('buildLayout — multi-column reading order', () => {
     // Same as input order — each block already y-sorted.
     expect(ys).toEqual([...ys].sort((a, b) => a - b));
     expect(layout.blocks[0].text.startsWith('Paragraph one')).toBe(true);
+  });
+
+  it('demotes a repeated-chrome block from heading role (the EN running-header case)', () => {
+    // Three pages, each carrying a tiny "EN" marker at y=40 plus a
+    // body paragraph below. The heading classifier slips because the
+    // marker is short and slightly larger than the body fontSize; the
+    // cross-page repeated detector flags it, and markRepeatedBlocks
+    // must drop the heading role so agents iterating `headings` no
+    // longer see "EN" once per page.
+    function makePage(pageNum: number, bodyText: string): PageResult {
+      const enBlock: LayoutBlock = {
+        text: 'EN',
+        x: 50,
+        y: 40,
+        width: 20,
+        height: 14,
+        lines: [{ text: 'EN', x: 50, y: 40, width: 20, height: 14, fontSize: 14 }],
+        role: 'heading',
+        level: 1,
+      };
+      const bodyBlock: LayoutBlock = {
+        text: bodyText,
+        x: 50,
+        y: 100,
+        width: 400,
+        height: 12,
+        lines: [{ text: bodyText, x: 50, y: 100, width: 400, height: 12, fontSize: 10 }],
+      };
+      return {
+        page: pageNum,
+        text: `EN\n${bodyText}`,
+        charCount: bodyText.length + 3,
+        imageCount: 0,
+        textCoverage: 0.5,
+        nonPrintableRatio: 0,
+        nonPrintableCount: 0,
+        width: 612,
+        height: 792,
+        quality: { nativeTextStatus: 'ok' },
+        layout: { blocks: [enBlock, bodyBlock] },
+      };
+    }
+
+    const pages: PageResult[] = [
+      makePage(1, 'Body of page 1'),
+      makePage(2, 'Body of page 2'),
+      makePage(3, 'Body of page 3'),
+    ];
+    markRepeatedBlocks(pages);
+    for (const page of pages) {
+      const en = page.layout?.blocks[0];
+      const body = page.layout?.blocks[1];
+      expect(en?.repeated).toBe(true);
+      expect(en?.role).toBeUndefined();
+      expect(en?.level).toBeUndefined();
+      // Body blocks (different text per page) stay non-repeated and
+      // keep whatever role they had.
+      expect(body?.repeated).toBeUndefined();
+    }
   });
 
   it('does not falsely detect columns when only one block sits at a different x', () => {
