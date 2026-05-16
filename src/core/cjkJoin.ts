@@ -91,8 +91,11 @@ export function joinPageText(items: readonly JoinItem[]): string {
   // non-empty / non-whitespace neighbour. Walking the index once is
   // cheaper than the nested lookup the per-item decision would
   // otherwise need on long pages.
-  const prevNon: number[] = Array.from({ length: items.length }, () => -1);
-  const nextNon: number[] = Array.from({ length: items.length }, () => -1);
+  // Typed-array form: one contiguous 32-bit-signed buffer per side,
+  // initialised to -1 (the "no neighbour" sentinel). For long pages
+  // this avoids the per-cell heap allocation a `number[]` would do.
+  const prevNon = new Int32Array(items.length).fill(-1);
+  const nextNon = new Int32Array(items.length).fill(-1);
   let lastNon = -1;
   for (let i = 0; i < items.length; i++) {
     prevNon[i] = lastNon;
