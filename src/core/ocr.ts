@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { PageOcr } from '../types/index.js';
@@ -110,12 +111,20 @@ export async function createOcrSession(lang: string): Promise<OcrSession> {
  * `pages` to attach the resulting `ocr` field. We don't touch
  * `pages[].text` — the pdfjs-derived text stays as the primary signal so
  * an agent can compare native text vs OCR for scanned/flattened pages.
+ *
+ * Also attaches `renderContentRatio` on each page from the same raster
+ * the OCR ingested. This lets the agent distinguish "OCR ran on a real
+ * page and found nothing" from "OCR ran on a blank raster" — the latter
+ * is a render-pipeline failure (e.g. pdf.js can't decode the page's JPX
+ * image stream), not an OCR failure. Doesn't overwrite a pre-existing
+ * `renderContentRatio` set by the `--render` pipeline.
  */
 export async function attachOcr(
   doc: PDFDocumentProxy,
   pageNumbers: number[],
-  pages: { ocr?: PageOcr }[],
+  pages: { ocr?: PageOcr; renderContentRatio?: number }[],
   lang: string,
+  imagePaths?: (string | undefined)[],
 ): Promise<void> {
   // Canonicalise whitespace / stray separators so ` eng + jpn ` and
   // `eng+jpn` end up with the same echoed `ocr.lang`. Order is preserved
@@ -126,9 +135,32 @@ export async function attachOcr(
   const session = await createOcrSession(lang);
   try {
     for (let i = 0; i < pageNumbers.length; i++) {
-      const png = await renderPageToBuffer(doc, pageNumbers[i]);
+      // When `--render` already wrote a PNG for this page, read it back
+      // instead of re-rasterising through pdf.js. pdf.js rasterisation
+      // dominates the per-page cost (full glyph + image decode), while
+      // reading + decoding a cached PNG is comparatively cheap — so
+      // `--render --ocr` together no longer pays the raster cost twice.
+      // contentRatio is already set on the page from the render pass in
+      // that case, so we skip recomputing it.
+      const cachedImage = imagePaths?.[i];
+      let png: Buffer;
+      let contentRatio: number | undefined;
+      if (cachedImage) {
+        png = await readFile(cachedImage);
+      } else {
+        const rasterised = await renderPageToBuffer(doc, pageNumbers[i]);
+        png = rasterised.buffer;
+        contentRatio = rasterised.contentRatio;
+      }
       const result = await session.recognize(png);
       pages[i].ocr = { text: result.text, confidence: result.confidence, lang: normalisedLang };
+      // `--render` may have already populated this from its own raster;
+      // don't clobber that. When both flags are on the values match
+      // anyway (same scale, same pdfjs raster), but skipping the
+      // assignment keeps cache invalidation simpler.
+      if (pages[i].renderContentRatio === undefined && contentRatio !== undefined) {
+        pages[i].renderContentRatio = contentRatio;
+      }
     }
   } finally {
     await session.terminate();

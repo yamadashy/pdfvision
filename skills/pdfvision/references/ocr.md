@@ -45,7 +45,7 @@ Rough interpretation, treat as heuristic:
 - `0.5–0.8` — usable but verify on important entities (numbers, names, code identifiers)
 - `< 0.5` — partial recognition. Either wrong `--ocr-lang`, low-resolution scan, or stylised typography. Compare with the rendered PNG via `--render` before trusting the text.
 
-A `confidence: 0` with an empty `ocr.text` usually means the rasterise step produced a blank page (see "Troubleshooting" below) rather than OCR genuinely finding nothing.
+A `confidence: 0` with an empty `ocr.text` usually means the rasterise step produced a blank page (see "Troubleshooting" below) rather than OCR genuinely finding nothing. **Check `pages[].renderContentRatio` first**: when it's `<= 0.001` the render came out blank and OCR had nothing to work with — distinguish that from a real OCR miss before reporting "no text".
 
 ## Output shape
 

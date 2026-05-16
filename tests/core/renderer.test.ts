@@ -1,8 +1,20 @@
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createCanvas } from '@napi-rs/canvas';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { renderPage } from '../../src/core/renderer.js';
+
+// A real (tiny) PNG buffer — the cache-hit path now decodes the file to
+// recompute `renderContentRatio` from the cached pixels, so the fixture
+// must be a valid PNG rather than a stub header.
+const TINY_PNG: Buffer = (() => {
+  const canvas = createCanvas(1, 1);
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'white';
+  ctx.fillRect(0, 0, 1, 1);
+  return canvas.toBuffer('image/png');
+})();
 
 // Stand in for a real PDFDocumentProxy: renderPage only reaches the doc
 // object on the cache-miss path, so for the cache-hit / symlink defence
@@ -27,7 +39,7 @@ describe('renderer.isReusableImage (via renderPage cache-hit path)', () => {
 
   it('reuses a regular non-empty PNG without touching the document', async () => {
     const path = join(dir, 'page-1.png');
-    writeFileSync(path, Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+    writeFileSync(path, TINY_PNG);
     // biome-ignore lint/suspicious/noExplicitAny: NEVER_CALLED_DOC stands in for PDFDocumentProxy
     const out = await renderPage(NEVER_CALLED_DOC as any, 1, dir);
     expect(out).toBe(path);

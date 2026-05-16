@@ -1,11 +1,24 @@
 import { existsSync, lstatSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { createCanvas } from '@napi-rs/canvas';
+import { createCanvas, loadImage } from '@napi-rs/canvas';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { atomicWrite } from './cache.js';
 import { runParallel } from './parallel.js';
 
 const DEFAULT_SCALE = 2;
+
+/**
+ * RGB threshold above which a pixel counts as "near-white" (canvas
+ * background or pure paper). Picked at 250 rather than 255 so faint
+ * anti-aliasing on otherwise-blank pages doesn't flip the bucket.
+ */
+const NEAR_WHITE_THRESHOLD = 250;
+/**
+ * Alpha threshold below which a pixel counts as transparent. Some PDFs
+ * render with translucent overlays whose alpha is very small but nonzero;
+ * < 16 is a safe "effectively invisible" cutoff.
+ */
+const ALPHA_THRESHOLD = 16;
 
 function isReusableImage(path: string): boolean {
   if (!existsSync(path)) return false;
@@ -22,15 +35,53 @@ function isReusableImage(path: string): boolean {
 }
 
 /**
- * Render a single page to a PNG buffer in memory. Used by `renderPage`
- * (which then atomic-writes the buffer to disk) and by the OCR pipeline,
- * which needs the raster bytes but no filesystem side effect.
+ * Fraction of pixels in `rgba` that look like real content — alpha at
+ * least {@link ALPHA_THRESHOLD} AND at least one of R/G/B below
+ * {@link NEAR_WHITE_THRESHOLD}. Returns 0..1 rounded to 6dp; values
+ * close to zero are the signal we care about, so coarser rounding would
+ * lose discrimination between "0.0001 blank" and "0.005 sparse marks".
+ *
+ * 0.001 has been a useful "effectively blank" cutoff against JPEG2000
+ * scans (renders to pure white) and CMap-less PDFs (renders to pure
+ * white because no glyphs can be drawn). Threshold guidance lives in
+ * the skill doc rather than this signal — pdfvision exposes the ratio
+ * and the agent decides what to do.
+ */
+export function computeContentRatio(rgba: Uint8ClampedArray): number {
+  const total = rgba.length / 4;
+  if (total === 0) return 0;
+  let content = 0;
+  // Hot inner loop — keep destructured-pixel access pattern but avoid
+  // creating throwaway objects so a 5M-pixel page stays under ~20ms.
+  for (let i = 0; i < rgba.length; i += 4) {
+    const a = rgba[i + 3];
+    if (a < ALPHA_THRESHOLD) continue;
+    const r = rgba[i];
+    const g = rgba[i + 1];
+    const b = rgba[i + 2];
+    if (r < NEAR_WHITE_THRESHOLD || g < NEAR_WHITE_THRESHOLD || b < NEAR_WHITE_THRESHOLD) {
+      content++;
+    }
+  }
+  return Math.round((content / total) * 1_000_000) / 1_000_000;
+}
+
+/**
+ * Internal raster primitive. Returns the encoded PNG buffer AND the
+ * content-ratio computed from the pre-encode RGBA pixels — measuring
+ * after PNG encode would require decoding back, which is wasteful.
+ *
+ * Shared by `renderPageWithStats` (writes the buffer to disk) and the
+ * OCR pipeline (feeds the buffer to tesseract.js without filesystem
+ * side effect). Both need the same stats, so co-locating the
+ * canvas-RGBA scan with the PNG encode keeps the raster work paid for
+ * exactly once per page.
  */
 export async function renderPageToBuffer(
   doc: PDFDocumentProxy,
   pageNum: number,
   scale = DEFAULT_SCALE,
-): Promise<Buffer> {
+): Promise<{ buffer: Buffer; contentRatio: number }> {
   const page = await doc.getPage(pageNum);
   const viewport = page.getViewport({ scale });
 
@@ -43,21 +94,85 @@ export async function renderPageToBuffer(
     viewport,
   }).promise;
 
-  return canvas.toBuffer('image/png');
+  // Read the RGBA buffer BEFORE PNG encode — the post-encode round trip
+  // would otherwise re-decode the PNG just to count pixels.
+  const imageData = context.getImageData(0, 0, viewport.width, viewport.height);
+  const contentRatio = computeContentRatio(imageData.data);
+  const buffer = canvas.toBuffer('image/png');
+  return { buffer, contentRatio };
 }
 
+/**
+ * Decode a previously-rendered PNG and run the same content-ratio scan
+ * the rasteriser does. Used on the PNG-cache-hit path so the higher
+ * level JSON result still gets a populated `renderContentRatio` after
+ * an invalidation that wiped the result cache but left the PNG dir
+ * intact (e.g. a cache-key bump like v10 → v11). Costs one PNG decode
+ * per page, which is much cheaper than re-rastering through pdf.js.
+ */
+async function computeContentRatioFromPng(path: string): Promise<number> {
+  const img = await loadImage(path);
+  const canvas = createCanvas(img.width, img.height);
+  const context = canvas.getContext('2d');
+  context.drawImage(img, 0, 0);
+  const rgba = context.getImageData(0, 0, img.width, img.height).data;
+  return computeContentRatio(rgba);
+}
+
+/**
+ * Render a page to disk and report the content ratio. On a PNG cache
+ * hit we decode the cached PNG instead of re-rastering through pdf.js,
+ * so the ratio is still populated after a result-cache invalidation
+ * that left the on-disk PNGs intact. The decode is ~10× cheaper than
+ * the pdf.js raster path so the cache speedup is preserved.
+ *
+ * The simpler {@link renderPage} wrapper exists for callers that don't
+ * need the ratio (preserves the legacy `Promise<string>` signature).
+ */
+export async function renderPageWithStats(
+  doc: PDFDocumentProxy,
+  pageNum: number,
+  outputDir: string,
+  scale = DEFAULT_SCALE,
+): Promise<{ path: string; contentRatio: number }> {
+  const outputPath = join(outputDir, `page-${pageNum}.png`);
+  if (isReusableImage(outputPath)) {
+    try {
+      const contentRatio = await computeContentRatioFromPng(outputPath);
+      return { path: outputPath, contentRatio };
+    } catch {
+      // Corrupt or partially-written cached PNG (e.g. disk error mid-write
+      // that still produced a non-zero file). Fall through to a fresh
+      // raster instead of failing the whole extraction over an unusable
+      // cache entry; atomicWrite below replaces the bad file.
+    }
+  }
+  const { buffer, contentRatio } = await renderPageToBuffer(doc, pageNum, scale);
+  atomicWrite(outputPath, buffer);
+  return { path: outputPath, contentRatio };
+}
+
+/**
+ * Backward-compatible wrapper that drops the stats — preserved so the
+ * public `Promise<string>` return type doesn't churn on every caller.
+ */
 export async function renderPage(
   doc: PDFDocumentProxy,
   pageNum: number,
   outputDir: string,
   scale = DEFAULT_SCALE,
 ): Promise<string> {
-  const outputPath = join(outputDir, `page-${pageNum}.png`);
-  if (isReusableImage(outputPath)) return outputPath;
+  const { path } = await renderPageWithStats(doc, pageNum, outputDir, scale);
+  return path;
+}
 
-  const buffer = await renderPageToBuffer(doc, pageNum, scale);
-  atomicWrite(outputPath, buffer);
-  return outputPath;
+export async function renderPagesWithStats(
+  doc: PDFDocumentProxy,
+  pageNumbers: number[],
+  outputDir: string,
+  scale?: number,
+): Promise<{ path: string; contentRatio: number }[]> {
+  return runParallel(pageNumbers, (pageNum) => renderPageWithStats(doc, pageNum, outputDir, scale));
 }
 
 export async function renderPages(
@@ -66,9 +181,6 @@ export async function renderPages(
   outputDir: string,
   scale?: number,
 ): Promise<string[]> {
-  // Parallelise rasterisation — each page builds its own canvas, so
-  // the only shared state is `doc` (pdfjs concurrency-safe) and the
-  // output dir (atomic-rename in `atomicWrite` handles the writeback).
-  // Output order matches `pageNumbers` so callers can index by pos.
-  return runParallel(pageNumbers, (pageNum) => renderPage(doc, pageNum, outputDir, scale));
+  const results = await renderPagesWithStats(doc, pageNumbers, outputDir, scale);
+  return results.map((r) => r.path);
 }
