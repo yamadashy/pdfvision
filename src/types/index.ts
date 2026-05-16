@@ -227,6 +227,18 @@ export interface PageResult {
    */
   textCoverage: number;
   /**
+   * Ratio of non-printable code points to total code points in `text`
+   * (0–1, rounded to 3dp). pdf.js falls back to raw glyph indices
+   * (U+0000, U+0001, ...) when a font has no ToUnicode CMap, which makes
+   * the page look fully covered by `textCoverage` while the actual text
+   * is binary garbage. `>= 0.05` is a strong signal that native text
+   * is unusable; fall back to `--render` or `--ocr`. Counts NUL, C0
+   * (except `\t\n\r`), DEL, C1, unpaired surrogates, and Unicode
+   * noncharacters. Private Use Area, format controls, and combining
+   * marks are intentionally excluded.
+   */
+  nonPrintableRatio: number;
+  /**
    * Page width in PDF user-space units (typically PostScript points = 1/72 in).
    * Derived from the page MediaBox via pdf.js `page.view`.
    */
@@ -278,6 +290,13 @@ export interface PageOverview {
   charCount: number;
   imageCount: number;
   textCoverage: number;
+  /**
+   * Same field as on {@link PageResult.nonPrintableRatio}. Mirrored on
+   * the overview so agents can spot CMap-garbage pages (text looks
+   * full but is binary) from the top-level summary without scanning
+   * `pages[]`.
+   */
+  nonPrintableRatio: number;
   width: number;
   height: number;
 }

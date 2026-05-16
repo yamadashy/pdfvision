@@ -55,7 +55,7 @@ export function formatXml(result: DocumentResult): string {
     out.push('<overview>');
     for (const p of result.overview) {
       out.push(
-        `<page no="${p.page}" charCount="${p.charCount}" imageCount="${p.imageCount}" textCoverage="${p.textCoverage}" width="${p.width}" height="${p.height}"/>`,
+        `<page no="${p.page}" charCount="${p.charCount}" imageCount="${p.imageCount}" textCoverage="${p.textCoverage}" nonPrintableRatio="${p.nonPrintableRatio}" width="${p.width}" height="${p.height}"/>`,
       );
     }
     out.push('</overview>');
@@ -68,6 +68,7 @@ export function formatXml(result: DocumentResult): string {
       `charCount="${page.charCount}"`,
       `imageCount="${page.imageCount}"`,
       `textCoverage="${page.textCoverage}"`,
+      `nonPrintableRatio="${page.nonPrintableRatio}"`,
       `width="${page.width}"`,
       `height="${page.height}"`,
     ];

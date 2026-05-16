@@ -8,6 +8,7 @@ function makePage(overrides: Partial<PageResult> & Pick<PageResult, 'page'>): Pa
     charCount: 0,
     imageCount: 0,
     textCoverage: 0,
+    nonPrintableRatio: 0,
     width: 612,
     height: 792,
     ...overrides,
@@ -53,8 +54,8 @@ describe('formatXml', () => {
       makeResult({
         totalPages: 2,
         overview: [
-          { page: 1, charCount: 10, imageCount: 0, textCoverage: 0.1, width: 612, height: 792 },
-          { page: 2, charCount: 0, imageCount: 5, textCoverage: 0.02, width: 612, height: 792 },
+          { page: 1, charCount: 10, imageCount: 0, textCoverage: 0.1, nonPrintableRatio: 0, width: 612, height: 792 },
+          { page: 2, charCount: 0, imageCount: 5, textCoverage: 0.02, nonPrintableRatio: 0, width: 612, height: 792 },
         ],
         pages: [
           makePage({ page: 1, text: 'aa', charCount: 10, textCoverage: 0.1 }),
@@ -63,8 +64,12 @@ describe('formatXml', () => {
       }),
     );
     expect(out).toMatch(/<overview>/);
-    expect(out).toMatch(/<page no="1" charCount="10" imageCount="0" textCoverage="0\.1" width="612" height="792"\/>/);
-    expect(out).toMatch(/<page no="2" charCount="0" imageCount="5" textCoverage="0\.02" width="612" height="792"\/>/);
+    expect(out).toMatch(
+      /<page no="1" charCount="10" imageCount="0" textCoverage="0\.1" nonPrintableRatio="0" width="612" height="792"\/>/,
+    );
+    expect(out).toMatch(
+      /<page no="2" charCount="0" imageCount="5" textCoverage="0\.02" nonPrintableRatio="0" width="612" height="792"\/>/,
+    );
   });
 
   it('puts the page text inside a <text> element with newline padding for LLM readability', () => {

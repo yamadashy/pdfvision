@@ -34,16 +34,23 @@ export function formatMarkdown(result: DocumentResult): string {
     // a `layout` payload). Lets agents see at a glance how the doc breaks
     // down into structural pieces without scrolling into the body.
     const showBlocks = result.pages.some((p) => p.layout !== undefined);
+    // The NonPrint column appears only when at least one page has a
+    // non-zero ratio. Most PDFs are clean, so showing 0% on every row
+    // would clutter the table without helping any agent decision.
+    const showNonPrint = result.pages.some((p) => p.nonPrintableRatio > 0);
     lines.push('');
     lines.push('## Overview');
     lines.push('');
-    lines.push(`| Page | Chars | Images | Coverage | Size (pt) |${showBlocks ? ' Blocks |' : ''}`);
-    lines.push(`| ---: | ---: | ---: | ---: | ---: |${showBlocks ? ' ---: |' : ''}`);
+    lines.push(
+      `| Page | Chars | Images | Coverage |${showNonPrint ? ' NonPrint |' : ''} Size (pt) |${showBlocks ? ' Blocks |' : ''}`,
+    );
+    lines.push(`| ---: | ---: | ---: | ---: |${showNonPrint ? ' ---: |' : ''} ---: |${showBlocks ? ' ---: |' : ''}`);
     for (const page of result.pages) {
       const coveragePct = Math.round(page.textCoverage * 100);
+      const nonPrintCell = showNonPrint ? ` ${Math.round(page.nonPrintableRatio * 100)}% |` : '';
       const blocksCell = showBlocks ? ` ${page.layout?.blocks.length ?? 0} |` : '';
       lines.push(
-        `| ${page.page} | ${page.charCount} | ${page.imageCount} | ${coveragePct}% | ${formatSize(page)} |${blocksCell}`,
+        `| ${page.page} | ${page.charCount} | ${page.imageCount} | ${coveragePct}% |${nonPrintCell} ${formatSize(page)} |${blocksCell}`,
       );
     }
   }
@@ -55,8 +62,13 @@ export function formatMarkdown(result: DocumentResult): string {
     lines.push('');
     lines.push(`## Page ${page.page}`);
     lines.push('');
+    // Inline the nonPrint signal only when it's non-zero so clean PDFs
+    // don't pay a noisy "nonPrint: 0%" suffix on every page header. The
+    // ratio renders as a percent for parity with `coverage`.
+    const nonPrintFragment =
+      page.nonPrintableRatio > 0 ? ` · nonPrint: ${Math.round(page.nonPrintableRatio * 100)}%` : '';
     lines.push(
-      `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}% · size: ${formatSize(page)}pt_`,
+      `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${nonPrintFragment} · size: ${formatSize(page)}pt_`,
     );
     if (page.text) {
       lines.push('');

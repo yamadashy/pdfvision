@@ -10,6 +10,7 @@ function makePage(overrides: Partial<PageResult> & Pick<PageResult, 'page'>): Pa
     charCount: 0,
     imageCount: 0,
     textCoverage: 0,
+    nonPrintableRatio: 0,
     width: 612,
     height: 792,
     ...overrides,
@@ -209,6 +210,51 @@ describe('formatMarkdown', () => {
     expect(out).toMatch(/Blocks \|/);
     expect(out).toMatch(/\| 1 \| 1 \| 0 \| 0% \| 612×792 \| 1 \|/);
     expect(out).toMatch(/\| 2 \| 5 \| 0 \| 0% \| 612×792 \| 3 \|/);
+  });
+
+  it('adds a NonPrint column to the Overview table when at least one page has nonPrintableRatio > 0', () => {
+    // The column exists to call out CMap-garbage pages alongside the
+    // density signals. Showing it on a doc where no page is affected is
+    // pure noise, so the formatter gates it on "any page > 0".
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 2,
+        pages: [
+          makePage({ page: 1, text: 'clean', charCount: 5, nonPrintableRatio: 0 }),
+          makePage({ page: 2, text: '\x00\x01bad', charCount: 3, nonPrintableRatio: 0.667 }),
+        ],
+      }),
+    );
+    expect(out).toMatch(/\| Page \| Chars \| Images \| Coverage \| NonPrint \| Size \(pt\) \|/);
+    expect(out).toMatch(/\| 1 \| 5 \| 0 \| 0% \| 0% \| 612×792 \|/);
+    expect(out).toMatch(/\| 2 \| 3 \| 0 \| 0% \| 67% \| 612×792 \|/);
+  });
+
+  it('omits the NonPrint column when every page has nonPrintableRatio = 0', () => {
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 2,
+        pages: [
+          makePage({ page: 1, text: 'clean', charCount: 5, nonPrintableRatio: 0 }),
+          makePage({ page: 2, text: 'also clean', charCount: 10, nonPrintableRatio: 0 }),
+        ],
+      }),
+    );
+    expect(out).not.toMatch(/NonPrint/);
+  });
+
+  it('appends a nonPrint fragment to the page density line when nonPrintableRatio > 0', () => {
+    const out = formatMarkdown(
+      makeResult({
+        pages: [makePage({ page: 1, text: '\x00', charCount: 1, nonPrintableRatio: 1 })],
+      }),
+    );
+    expect(out).toMatch(/_chars: 1 · images: 0 · coverage: 0% · nonPrint: 100% · size: 612×792pt_/);
+  });
+
+  it('omits the nonPrint fragment from the page density line when nonPrintableRatio = 0', () => {
+    const out = formatMarkdown(makeResult());
+    expect(out).not.toMatch(/nonPrint/);
   });
 
   it('renders an OCR section with lang and confidence percent below the native text', () => {
