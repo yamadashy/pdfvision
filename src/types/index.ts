@@ -255,6 +255,27 @@ export interface PageResult {
    */
   nonPrintableRatio: number;
   /**
+   * Fraction of pixels in the rasterised page (0–1, rounded to 6dp) that
+   * carry visible content — alpha > 0 and not near-white. Present only
+   * when `--render` or `--ocr` actually rasterised the page; absent when
+   * neither caused a raster.
+   *
+   * Catches a class of silent failure the text-side signals miss: the
+   * raster came out blank (or near-blank) even though pdfvision didn't
+   * error. Real-world causes include pdf.js + @napi-rs/canvas being
+   * unable to decode JPEG2000 / JPX image streams (common in Internet
+   * Archive scans) and PDFs whose fonts have no usable ToUnicode CMap
+   * (pdf.js can't resolve glyphs and draws nothing). Without this signal
+   * the OCR pipeline returns `confidence: 0` and an agent can't tell
+   * "OCR saw a blank page" from "OCR genuinely found no text".
+   *
+   * Rough thresholds (skill doc):
+   *   - ≤ 0.001 → effectively blank, likely a render failure
+   *   - 0.001 – 0.005 → ambiguous, sparse marks only
+   *   - > 0.005 → renderer produced visible content
+   */
+  renderContentRatio?: number;
+  /**
    * Page width in PDF user-space units (typically PostScript points = 1/72 in).
    * Derived from the page MediaBox via pdf.js `page.view`.
    */
@@ -313,6 +334,13 @@ export interface PageOverview {
    * `pages[]`.
    */
   nonPrintableRatio: number;
+  /**
+   * Same field as {@link PageResult.renderContentRatio} — mirrored on the
+   * overview so an agent can spot blank-rendered pages from the top-level
+   * summary without scanning `pages[]`. Present only when `--render` or
+   * `--ocr` triggered a raster on at least the corresponding page.
+   */
+  renderContentRatio?: number;
   width: number;
   height: number;
 }

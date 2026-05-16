@@ -110,11 +110,18 @@ export async function createOcrSession(lang: string): Promise<OcrSession> {
  * `pages` to attach the resulting `ocr` field. We don't touch
  * `pages[].text` — the pdfjs-derived text stays as the primary signal so
  * an agent can compare native text vs OCR for scanned/flattened pages.
+ *
+ * Also attaches `renderContentRatio` on each page from the same raster
+ * the OCR ingested. This lets the agent distinguish "OCR ran on a real
+ * page and found nothing" from "OCR ran on a blank raster" — the latter
+ * is a render-pipeline failure (e.g. pdf.js can't decode the page's JPX
+ * image stream), not an OCR failure. Doesn't overwrite a pre-existing
+ * `renderContentRatio` set by the `--render` pipeline.
  */
 export async function attachOcr(
   doc: PDFDocumentProxy,
   pageNumbers: number[],
-  pages: { ocr?: PageOcr }[],
+  pages: { ocr?: PageOcr; renderContentRatio?: number }[],
   lang: string,
 ): Promise<void> {
   // Canonicalise whitespace / stray separators so ` eng + jpn ` and
@@ -126,9 +133,16 @@ export async function attachOcr(
   const session = await createOcrSession(lang);
   try {
     for (let i = 0; i < pageNumbers.length; i++) {
-      const png = await renderPageToBuffer(doc, pageNumbers[i]);
+      const { buffer: png, contentRatio } = await renderPageToBuffer(doc, pageNumbers[i]);
       const result = await session.recognize(png);
       pages[i].ocr = { text: result.text, confidence: result.confidence, lang: normalisedLang };
+      // `--render` may have already populated this from its own raster;
+      // don't clobber that. When both flags are on the values match
+      // anyway (same scale, same pdfjs raster), but skipping the
+      // assignment keeps cache invalidation simpler.
+      if (pages[i].renderContentRatio === undefined) {
+        pages[i].renderContentRatio = contentRatio;
+      }
     }
   } finally {
     await session.terminate();

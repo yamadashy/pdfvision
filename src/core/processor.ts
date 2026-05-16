@@ -48,7 +48,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v10',
+    format: 'structured-v11',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -373,6 +373,11 @@ export async function processDocument(filePath: string, options: ProcessDocument
     const info = metadata.info as Record<string, unknown> | null;
 
     let imagePaths: string[] | null = null;
+    // Parallel array to imagePaths: renderContentRatio for each rendered
+    // page (or undefined slots when --render is off). Surfaced on the
+    // PageResult so an agent can spot blank-rendered pages directly from
+    // the structured output instead of inferring from "OCR confidence 0".
+    let renderRatios: (number | undefined)[] = [];
     if (options.render) {
       let imagesDir: string;
       if (options.renderOutput) {
@@ -392,8 +397,10 @@ export async function processDocument(filePath: string, options: ProcessDocument
       }
       // renderer pulls in @napi-rs/canvas (native binding); only load it
       // when --render is requested.
-      const { renderPages } = await import('./renderer.js');
-      imagePaths = await renderPages(doc, pageNumbers, imagesDir);
+      const { renderPagesWithStats } = await import('./renderer.js');
+      const rendered = await renderPagesWithStats(doc, pageNumbers, imagesDir);
+      imagePaths = rendered.map((r) => r.path);
+      renderRatios = rendered.map((r) => r.contentRatio);
     }
 
     const flags: PageFlags = {
@@ -424,6 +431,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     // docs where every concurrent page builds its own canvas / op list.
     const pages: PageResult[] = await runParallel(pageNumbers, async (pageNum, i) => {
       const data = await extractPageData(doc, pageNum, imageOps, flags);
+      const renderRatio = renderRatios[i];
       return {
         page: pageNum,
         text: data.text,
@@ -433,6 +441,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
         imageCount: data.imageCount,
         textCoverage: data.textCoverage,
         nonPrintableRatio: data.nonPrintableRatio,
+        ...(renderRatio !== undefined && { renderContentRatio: renderRatio }),
         width: data.width,
         height: data.height,
         ...(data.spans !== undefined && { spans: data.spans }),
@@ -471,6 +480,11 @@ export async function processDocument(filePath: string, options: ProcessDocument
             imageCount: p.imageCount,
             textCoverage: p.textCoverage,
             nonPrintableRatio: p.nonPrintableRatio,
+            // Mirror the per-page renderContentRatio onto the overview row
+            // so an agent can spot blank-rendered pages from the top-level
+            // summary alone. Stays optional when neither --render nor --ocr
+            // produced a raster.
+            ...(p.renderContentRatio !== undefined && { renderContentRatio: p.renderContentRatio }),
             width: p.width,
             height: p.height,
           }))

@@ -65,6 +65,7 @@ When `result.pages.length > 1`, the markdown output starts with an Overview tabl
 - `nonPrintableRatio >= 0.05` → pdf.js fell back to raw glyph indices because the PDF's fonts lack a ToUnicode CMap (common with Hebrew, older CJK, custom symbol fonts). `text` reads as full coverage but is binary garbage. Do **not** trust native text on these pages — re-run with `--render` to look at the page visually, or `--ocr` to extract via raster. Values `>= 0.3` are pathological; `< 0.01` is normal.
 - `charCount: 0` but `imageCount: 0` → genuinely blank page (separator, end matter).
 - Sudden drop in `textCoverage` on a single page in an otherwise text-dense doc → that page is likely a figure / scan / chart. Inspect with `--render`.
+- `renderContentRatio <= 0.001` (when `--render` or `--ocr` was on) → the rasterised page came out blank. Likely a render-pipeline failure (pdf.js + @napi-rs/canvas can't decode JPEG2000 image streams, or the font has no resolvable glyphs). OCR on this page returns `confidence: 0` not because OCR failed but because the input was a white image — distinguish this from a real OCR miss before trusting "no text".
 
 The density signal is the reason to prefer pdfvision over reading a PDF directly — silent failures (empty `text` that looks fine to a downstream consumer, or full `text` that is actually NUL bytes) become visible up front.
 

@@ -38,19 +38,31 @@ export function formatMarkdown(result: DocumentResult): string {
     // non-zero ratio. Most PDFs are clean, so showing 0% on every row
     // would clutter the table without helping any agent decision.
     const showNonPrint = result.pages.some((p) => p.nonPrintableRatio > 0);
+    // The Render column appears only when at least one page was rasterised
+    // (--render or --ocr). Showing it on every doc would clutter the
+    // overview with empty cells for the default text-only flow.
+    const showRender = result.pages.some((p) => p.renderContentRatio !== undefined);
     lines.push('');
     lines.push('## Overview');
     lines.push('');
     lines.push(
-      `| Page | Chars | Images | Coverage |${showNonPrint ? ' NonPrint |' : ''} Size (pt) |${showBlocks ? ' Blocks |' : ''}`,
+      `| Page | Chars | Images | Coverage |${showNonPrint ? ' NonPrint |' : ''}${showRender ? ' Render |' : ''} Size (pt) |${showBlocks ? ' Blocks |' : ''}`,
     );
-    lines.push(`| ---: | ---: | ---: | ---: |${showNonPrint ? ' ---: |' : ''} ---: |${showBlocks ? ' ---: |' : ''}`);
+    lines.push(
+      `| ---: | ---: | ---: | ---: |${showNonPrint ? ' ---: |' : ''}${showRender ? ' ---: |' : ''} ---: |${showBlocks ? ' ---: |' : ''}`,
+    );
     for (const page of result.pages) {
       const coveragePct = Math.round(page.textCoverage * 100);
       const nonPrintCell = showNonPrint ? ` ${Math.round(page.nonPrintableRatio * 100)}% |` : '';
+      const renderCell = showRender
+        ? // Two decimals as a percent so the agent sees the difference
+          // between blank (0.00%) and sparse-marks (0.10%) — three or more
+          // would clutter and reading <0.01% as "blank" is the heuristic.
+          ` ${page.renderContentRatio !== undefined ? `${(page.renderContentRatio * 100).toFixed(2)}%` : '—'} |`
+        : '';
       const blocksCell = showBlocks ? ` ${page.layout?.blocks.length ?? 0} |` : '';
       lines.push(
-        `| ${page.page} | ${page.charCount} | ${page.imageCount} | ${coveragePct}% |${nonPrintCell} ${formatSize(page)} |${blocksCell}`,
+        `| ${page.page} | ${page.charCount} | ${page.imageCount} | ${coveragePct}% |${nonPrintCell}${renderCell} ${formatSize(page)} |${blocksCell}`,
       );
     }
   }
@@ -67,8 +79,13 @@ export function formatMarkdown(result: DocumentResult): string {
     // ratio renders as a percent for parity with `coverage`.
     const nonPrintFragment =
       page.nonPrintableRatio > 0 ? ` · nonPrint: ${Math.round(page.nonPrintableRatio * 100)}%` : '';
+    // Inline the render-content ratio (when rasterised) so a single-page
+    // run still surfaces it without the overview table. Two decimal
+    // places match the column format above.
+    const renderFragment =
+      page.renderContentRatio !== undefined ? ` · render: ${(page.renderContentRatio * 100).toFixed(2)}%` : '';
     lines.push(
-      `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${nonPrintFragment} · size: ${formatSize(page)}pt_`,
+      `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${nonPrintFragment}${renderFragment} · size: ${formatSize(page)}pt_`,
     );
     if (page.text) {
       lines.push('');

@@ -54,9 +54,16 @@ export function formatXml(result: DocumentResult): string {
   if (result.overview) {
     out.push('<overview>');
     for (const p of result.overview) {
-      out.push(
-        `<page no="${p.page}" charCount="${p.charCount}" imageCount="${p.imageCount}" textCoverage="${p.textCoverage}" nonPrintableRatio="${p.nonPrintableRatio}" width="${p.width}" height="${p.height}"/>`,
-      );
+      const ovAttrs = [
+        `no="${p.page}"`,
+        `charCount="${p.charCount}"`,
+        `imageCount="${p.imageCount}"`,
+        `textCoverage="${p.textCoverage}"`,
+        `nonPrintableRatio="${p.nonPrintableRatio}"`,
+      ];
+      if (p.renderContentRatio !== undefined) ovAttrs.push(`renderContentRatio="${p.renderContentRatio}"`);
+      ovAttrs.push(`width="${p.width}"`, `height="${p.height}"`);
+      out.push(`<page ${ovAttrs.join(' ')}/>`);
     }
     out.push('</overview>');
   }
@@ -69,9 +76,9 @@ export function formatXml(result: DocumentResult): string {
       `imageCount="${page.imageCount}"`,
       `textCoverage="${page.textCoverage}"`,
       `nonPrintableRatio="${page.nonPrintableRatio}"`,
-      `width="${page.width}"`,
-      `height="${page.height}"`,
     ];
+    if (page.renderContentRatio !== undefined) attrs.push(`renderContentRatio="${page.renderContentRatio}"`);
+    attrs.push(`width="${page.width}"`, `height="${page.height}"`);
     if (page.image) attrs.push(`image="${escapeAttr(page.image)}"`);
     out.push(`<page ${attrs.join(' ')}>`);
 

@@ -24,17 +24,19 @@ interface DocumentResult {
 interface PageOverview {
   page: number;
   charCount: number;
-  imageCount: number;          // raster image draws (XObject + inline + mask), per drawn instance
-  textCoverage: number;        // 0..1, fraction of page area covered by text glyph bboxes
-  nonPrintableRatio: number;   // 0..1, fraction of `text` that is NUL / control / noncharacter
-  width: number;               // PDF user-space points
+  imageCount: number;             // raster image draws (XObject + inline + mask), per drawn instance
+  textCoverage: number;           // 0..1, fraction of page area covered by text glyph bboxes
+  nonPrintableRatio: number;      // 0..1, fraction of `text` that is NUL / control / noncharacter
+  renderContentRatio?: number;    // 0..1, fraction of non-blank pixels in the raster (present iff --render or --ocr)
+  width: number;                  // PDF user-space points
   height: number;
 }
 ```
 
-`overview[]` is the first thing to inspect for silent-failure detection. Two signatures matter:
+`overview[]` is the first thing to inspect for silent-failure detection. Signatures:
 - `imageCount > 0 && textCoverage ≈ 0` → image-flattened page; the text stream is empty.
 - `nonPrintableRatio >= 0.05` → ToUnicode CMap missing; the text stream is full of raw glyph indices (NUL + control chars) even though `textCoverage` looks fine. Native text is unusable; fall back to `--render` or `--ocr`.
+- `renderContentRatio <= 0.001` → rasterised page is effectively blank (only meaningful when `--render` or `--ocr` was on). Catches render-pipeline failures pdfvision can't otherwise surface: pdf.js + @napi-rs/canvas can't decode JPEG2000 image streams (common in Internet Archive scans), and PDFs whose fonts have no resolvable glyphs draw nothing. When OCR runs against this, `confidence: 0` is *not* an OCR miss — the input was a white image.
 
 ## PageResult (per page)
 
@@ -47,6 +49,7 @@ interface PageResult {
   imageCount: number;
   textCoverage: number;
   nonPrintableRatio: number;     // NUL / control / noncharacter ratio in `text`
+  renderContentRatio?: number;   // non-blank pixel fraction in the raster (present iff --render or --ocr)
   width: number;
   height: number;
   image?: string;                // absolute PNG path — present iff --render
