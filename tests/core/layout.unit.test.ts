@@ -101,13 +101,16 @@ describe('buildLayout — heading classification', () => {
   });
 
   it('does NOT flag a 1.10× line at level 3 when surrounded by same-fontSize body', () => {
-    // Same ratio as above but no fontSize drop on either side — this is a
-    // regular body block with one slightly-larger emphasised line, not a
-    // subheading. The strict locally-larger gate rejects it.
+    // The candidate sits at 1.10× the body median (11 vs 10) — the borderline
+    // ratio level 3 is supposed to handle. We pin the y-neighbours at the
+    // same body fontSize as the rest of the page so the "locally larger"
+    // structural gate has no fontSize-drop on either side to anchor on,
+    // and the candidate falls back to looking like a body emphasis run
+    // rather than a subheading. The strict gate must reject it.
     const spans: TextSpan[] = [
-      span('Body line one above the candidate.', 50, 100, 11),
+      span('Body line one above the candidate.', 50, 100, 10),
       span('Candidate line.', 50, 120, 11, 80),
-      span('Body line two below the candidate.', 50, 140, 11),
+      span('Body line two below the candidate.', 50, 140, 10),
     ];
     const layout = buildLayout(spans);
     for (const block of layout.blocks) {

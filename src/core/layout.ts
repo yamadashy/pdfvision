@@ -143,9 +143,16 @@ function classifyHeadings(blocks: LayoutBlock[]): void {
   // How many chars sit at the body font class? Low-tier classification
   // (level 2 structural / level 3) requires "the page actually has body
   // text"; without that, fontSize differences are just typography.
-  const bodyChars = charWeighted.filter(
-    (fs) => Math.abs(fs - bodyFontSize) / bodyFontSize <= BODY_FONT_TOLERANCE,
-  ).length;
+  // Manual counter loop to avoid the intermediate array `filter().length`
+  // would build — `charWeighted` carries one entry per character on the
+  // page, so dense documents would allocate thousands of slots only to
+  // discard them.
+  let bodyChars = 0;
+  for (const fs of charWeighted) {
+    if (Math.abs(fs - bodyFontSize) / bodyFontSize <= BODY_FONT_TOLERANCE) {
+      bodyChars++;
+    }
+  }
   const hasCredibleBody = bodyChars >= MIN_BODY_CHARS_FOR_LOW_TIER;
 
   // For the "standalone" / "locally larger" structural checks we need each
@@ -474,17 +481,19 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0): PageLayout {
         Math.max(line.fontSize, prev.fontSize) / Math.max(Math.min(line.fontSize, prev.fontSize), 0.001);
       const xDisjoint = line.x + line.width <= prev.x || prev.x + prev.width <= line.x;
       const sideBySide = gap < 0 && xDisjoint;
-      // Narrow heading-glue split: when the previous block is a single
-      // short line at a noticeably larger fontSize than the incoming
-      // line, treat it as a (sub)heading that mustn't merge with the
-      // body below. The general 1.3× ratio rule above would miss arxiv
-      // subsections (10.96 over 9.96 ≈ 1.10×); this rule fires only at
-      // 1.05× and only with the heading-shaped guards, so it doesn't
-      // over-split emphasis runs inside paragraphs.
+      // Narrow heading-glue split: when the previous line is short and
+      // at a noticeably larger fontSize than the incoming line, treat
+      // the run that ends at `prev` as a (sub)heading that mustn't merge
+      // with the body below. The general 1.3× ratio rule above would miss
+      // arxiv subsections (10.96 over 9.96 ≈ 1.10×); this rule fires only
+      // at 1.05× and only with the heading-shaped guards, so it doesn't
+      // over-split emphasis runs inside paragraphs. We deliberately do
+      // not gate on `last.length === 1` — level 2 structural headings can
+      // legitimately span two lines (see the LEVEL_2_MAX_LINES path), so
+      // a 2-line heading whose second line is short + larger than the
+      // body still needs to break here.
       const prevWasShortLarger =
-        last.length === 1 &&
-        prev.fontSize > line.fontSize * 1.05 &&
-        prev.text.replace(/\s/g, '').length <= MAX_HEADING_CHARS;
+        prev.fontSize > line.fontSize * 1.05 && prev.text.replace(/\s/g, '').length <= MAX_HEADING_CHARS;
       if (gap > prev.height * 1.0 || sizeRatio > 1.3 || sideBySide || prevWasShortLarger) {
         blockGroups.push([line]);
       } else {
