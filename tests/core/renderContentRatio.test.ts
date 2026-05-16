@@ -31,10 +31,23 @@ describe('computeContentRatio', () => {
     expect(computeContentRatio(fillRgba(100, 0, 0, 0, 0))).toBe(0);
   });
 
-  it('returns 1 for a pure-black opaque raster', () => {
-    // Every pixel has all-zero RGB (well below 250) and full alpha →
-    // 100% content. Black-on-white inversion test for the heuristic.
-    expect(computeContentRatio(fillRgba(100, 0, 0, 0, 255))).toBe(1);
+  it('returns 0 for a uniformly dark page — the Internet-Archive dark-cover signature', () => {
+    // Every pixel at black (luminance ~0): the dominant background IS
+    // that black, so nothing differs from background → 0% content.
+    // Previously this returned 1 because the heuristic was anchored at
+    // white; an Internet-Archive scan of a dark book cover therefore
+    // claimed `renderContentRatio = 1` despite carrying no ink. The
+    // semantic now is "different-from-page-background", not
+    // "different-from-white".
+    expect(computeContentRatio(fillRgba(100, 0, 0, 0, 255))).toBe(0);
+  });
+
+  it('returns 0 for a uniformly off-white / beige page (paper scan background)', () => {
+    // Old-paper scans render to a mid-cream luminance (~230). Without
+    // background-relative classification this would count as content;
+    // with histogram-relative classification it correctly reads as
+    // blank because that cream IS the background.
+    expect(computeContentRatio(fillRgba(100, 230, 220, 200, 255))).toBe(0);
   });
 
   it('keeps near-white pixels above the threshold (251+) classified as background', () => {
@@ -44,16 +57,10 @@ describe('computeContentRatio', () => {
     expect(computeContentRatio(fillRgba(100, 252, 252, 252, 255))).toBe(0);
   });
 
-  it('treats a single channel below the near-white threshold as content', () => {
-    // A pixel with R=249 G=255 B=255 has at least one channel below
-    // 250 → counts as content. Catches near-white-but-tinted text /
-    // backgrounds that the agent should see as "something drawn".
-    expect(computeContentRatio(fillRgba(100, 249, 255, 255, 255))).toBe(1);
-  });
-
   it('measures the fraction of content pixels across a mixed raster', () => {
-    // 30 black pixels + 70 white pixels = 30% content. Verifies the
-    // ratio is a real fraction, not just a boolean.
+    // 30 black pixels + 70 white pixels = 30% content. White is the
+    // dominant bucket so background is white; the 30 black pixels are
+    // far enough from white to count as content.
     const buf = new Uint8ClampedArray(100 * 4);
     for (let i = 0; i < 30 * 4; i += 4) {
       buf[i] = 0;
@@ -68,6 +75,29 @@ describe('computeContentRatio', () => {
       buf[i + 3] = 255;
     }
     expect(computeContentRatio(buf)).toBe(0.3);
+  });
+
+  it('measures content against a dark background — bright marks on a dark page', () => {
+    // 95 dark-grey pixels (dominant background) + 5 white "marks".
+    // Old heuristic anchored at white would count the 95 dark pixels
+    // as content (= 0.95) and miss the 5 actual marks; the new
+    // histogram-relative heuristic correctly returns 0.05 because
+    // the dark grey IS the background and the 5 whites are the
+    // outliers.
+    const buf = new Uint8ClampedArray(100 * 4);
+    for (let i = 0; i < 95 * 4; i += 4) {
+      buf[i] = 40;
+      buf[i + 1] = 40;
+      buf[i + 2] = 40;
+      buf[i + 3] = 255;
+    }
+    for (let i = 95 * 4; i < buf.length; i += 4) {
+      buf[i] = 255;
+      buf[i + 1] = 255;
+      buf[i + 2] = 255;
+      buf[i + 3] = 255;
+    }
+    expect(computeContentRatio(buf)).toBe(0.05);
   });
 
   it('rounds to 6 decimal places so the "near-blank" band stays discriminable', () => {

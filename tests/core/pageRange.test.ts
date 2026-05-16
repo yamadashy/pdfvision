@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePageRange } from '../../src/core/pageRange.js';
+import { parsePageRange, parsePageRangeWithSkipped } from '../../src/core/pageRange.js';
 
 describe('parsePageRange', () => {
   it('parses a single page', () => {
@@ -54,5 +54,39 @@ describe('parsePageRange', () => {
     // segments.length !== 2 branch — three numbers separated by hyphens
     // is not a valid pdfvision range syntax.
     expect(() => parsePageRange('1-2-3', 10)).toThrow(/malformed range/);
+  });
+});
+
+describe('parsePageRangeWithSkipped', () => {
+  it('lists the in-range pages alongside the out-of-range skipped numbers', () => {
+    const r = parsePageRangeWithSkipped('1-3,5,99', 4);
+    expect(r.pages).toEqual([1, 2, 3]);
+    expect(r.skipped).toEqual([5, 99]);
+    expect(r.skippedTruncated).toBe(false);
+  });
+
+  it('returns an empty skipped list when nothing fell out of range', () => {
+    const r = parsePageRangeWithSkipped('1-3', 10);
+    expect(r.pages).toEqual([1, 2, 3]);
+    expect(r.skipped).toEqual([]);
+    expect(r.skippedTruncated).toBe(false);
+  });
+
+  it('caps `skipped` and flags truncation on adversarially large ranges', () => {
+    // `--pages 1-1000000000` against a small doc would otherwise OOM by
+    // enumerating 10^9 page numbers into the skipped Set. The cap stops
+    // the walk at MAX_TRACKED_SKIPPED (=100) entries; `skippedTruncated`
+    // tells the caller there were more, so the warning can hint at it.
+    const r = parsePageRangeWithSkipped('1-1000000000', 4);
+    expect(r.pages).toEqual([1, 2, 3, 4]);
+    expect(r.skipped.length).toBe(100);
+    expect(r.skipped[0]).toBe(5);
+    expect(r.skippedTruncated).toBe(true);
+  });
+
+  it('still throws when every requested page is out of range', () => {
+    // Behaviour preserved from parsePageRange — a request that matches
+    // nothing is a usage error, not a warning.
+    expect(() => parsePageRangeWithSkipped('11-20', 10)).toThrow(/no pages selected/);
   });
 });

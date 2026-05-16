@@ -141,6 +141,13 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
       imageBoxes: (values['image-boxes'] as boolean | undefined) ?? false,
       ocr: (values.ocr as boolean | undefined) ?? false,
       ocrLang: (values['ocr-lang'] as string | undefined) ?? 'eng',
+      // Library callers stay silent by default; the CLI wires warnings
+      // to stderr so users see them alongside the formatted output on
+      // stdout. Single-line "pdfvision: warning: ..." prefix matches
+      // the existing CLI error format from `exitWithError`.
+      onWarning: (msg) => {
+        process.stderr.write(`pdfvision: warning: ${msg}\n`);
+      },
     });
     console.log(result);
   } catch (error) {

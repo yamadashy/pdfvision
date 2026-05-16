@@ -50,12 +50,15 @@ function isNonPrintableCodePoint(cp: number): boolean {
 }
 
 /**
- * Compute the non-printable ratio for a string, iterating by Unicode code
- * point (not UTF-16 code unit). Returns a value in [0, 1] rounded to 3dp,
- * matching `textCoverage`'s rounding so the two signals compare like-for-like.
+ * Compute non-printable counts for a string, iterating by Unicode code
+ * point (not UTF-16 code unit). Returns the raw count alongside the
+ * ratio so callers can still see sparse occurrences (e.g. 2 control
+ * chars in a 5000-char body page) that the 3dp ratio would round to 0.
+ * Ratio matches `textCoverage`'s rounding so the two signals compare
+ * like-for-like.
  */
-export function nonPrintableRatio(text: string): number {
-  if (text.length === 0) return 0;
+export function nonPrintableStats(text: string): { count: number; ratio: number } {
+  if (text.length === 0) return { count: 0, ratio: 0 };
   let total = 0;
   let bad = 0;
   // Manual codePointAt loop instead of `for (const ch of text)` — the
@@ -69,5 +72,14 @@ export function nonPrintableRatio(text: string): number {
     if (isNonPrintableCodePoint(cp)) bad++;
     i += cp > 0xffff ? 2 : 1;
   }
-  return Math.round((bad / total) * 1000) / 1000;
+  return { count: bad, ratio: Math.round((bad / total) * 1000) / 1000 };
+}
+
+/**
+ * Back-compat wrapper around {@link nonPrintableStats} — keeps the
+ * public 0..1 ratio function shape stable for library consumers that
+ * imported it directly.
+ */
+export function nonPrintableRatio(text: string): number {
+  return nonPrintableStats(text).ratio;
 }

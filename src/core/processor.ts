@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 import { lstatSync, mkdirSync, mkdtempSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join, dirname as pathDirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { formatJson } from '../output/json.js';
 import { formatMarkdown } from '../output/markdown.js';
@@ -10,6 +11,7 @@ import type {
   DocumentResult,
   ImageBox,
   PageLayout,
+  PageQuality,
   PageResult,
   ProcessDocumentOptions,
   ProcessOptions,
@@ -18,8 +20,8 @@ import type {
 import { dropCached, ensurePrivateDir, getCacheDir, getCached, setCache } from './cache.js';
 import { buildImageBoxes, type ImageOps } from './imageBoxes.js';
 import { buildLayout, markRepeatedBlocks } from './layout.js';
-import { nonPrintableRatio } from './nonPrintable.js';
-import { parsePageRange } from './pageRange.js';
+import { nonPrintableStats } from './nonPrintable.js';
+import { parsePageRangeWithSkipped } from './pageRange.js';
 import { runParallel } from './parallel.js';
 
 /** Inputs that determine which cached entry a request maps to. */
@@ -48,7 +50,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v11',
+    format: 'structured-v12',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -114,11 +116,45 @@ interface PageData {
   imageCount: number;
   textCoverage: number;
   nonPrintableRatio: number;
+  nonPrintableCount: number;
   width: number;
   height: number;
   spans?: TextSpan[];
   layout?: PageLayout;
   imageBoxes?: ImageBox[];
+}
+
+/**
+ * Threshold above which `nonPrintableRatio` is taken to mean "pdf.js
+ * returned raw glyph codes" rather than "occasional control char in
+ * otherwise clean text". Matches the skill-doc guidance.
+ */
+const UNUSABLE_NPR_THRESHOLD = 0.05;
+/** Same blank threshold the skill doc publishes for `renderContentRatio`. */
+const BLANK_RENDER_THRESHOLD = 0.001;
+
+/**
+ * Derive {@link PageQuality} from the already-extracted signals.
+ * Pure function of the raw fields — invoked once per page after OCR
+ * has had a chance to attach its own `renderContentRatio`.
+ */
+function derivePageQuality(p: PageResult): PageQuality {
+  const hasVisualRender = p.renderContentRatio !== undefined && p.renderContentRatio > BLANK_RENDER_THRESHOLD;
+  let nativeTextStatus: PageQuality['nativeTextStatus'];
+  if (p.nonPrintableRatio >= UNUSABLE_NPR_THRESHOLD) {
+    nativeTextStatus = 'unusable_glyph_indices';
+  } else if (p.charCount > 0) {
+    nativeTextStatus = 'ok';
+  } else if (p.imageCount > 0 || hasVisualRender) {
+    nativeTextStatus = 'empty_but_visual_content';
+  } else {
+    nativeTextStatus = 'empty';
+  }
+  const quality: PageQuality = { nativeTextStatus };
+  if (p.renderContentRatio !== undefined) {
+    quality.visualStatus = p.renderContentRatio > BLANK_RENDER_THRESHOLD ? 'ok' : 'blank';
+  }
+  return quality;
 }
 
 interface PageFlags {
@@ -226,18 +262,24 @@ async function extractPageData(
   // Build layout last so it always sees the final span list (post normalize).
   const layout = flags.layout ? buildLayout(spans, round2(width)) : undefined;
 
+  // Measured on the text we actually return (post-normalize) so the
+  // count + ratio match what an agent sees in `text`. Cheap (one
+  // string walk), so always on — this is the primary signal for
+  // catching ToUnicode-CMap-less PDFs that look 100% covered but emit
+  // raw glyph indices. Surfacing the raw count alongside the ratio
+  // keeps sparse occurrences (a handful of control chars in a long
+  // body page) discriminable from "zero" when the 3dp ratio rounds
+  // them down.
+  const npStats = nonPrintableStats(text);
+
   return {
     text,
     rawText: preservedRaw,
     charCount: text.length,
     imageCount,
     textCoverage: Math.round(textCoverage * 1000) / 1000,
-    // Measured on the text we actually return (post-normalize) so the
-    // ratio matches what an agent sees in `text`. Cheap (one string
-    // walk), so always on — this is the primary signal for catching
-    // ToUnicode-CMap-less PDFs that look 100% covered but emit raw
-    // glyph indices.
-    nonPrintableRatio: nonPrintableRatio(text),
+    nonPrintableRatio: npStats.ratio,
+    nonPrintableCount: npStats.count,
     // Round to 2dp; PDF dimensions are nominally integers (Letter 612×792,
     // A4 595×842) but encrypted/cropped PDFs can carry sub-point fractions.
     width: round2(width),
@@ -335,39 +377,72 @@ export async function processDocument(filePath: string, options: ProcessDocument
     OPS.paintImageMaskXObject,
     OPS.paintInlineImageXObject,
   ]);
-  // Hand pdf.js the bundled OpenJPEG (JPX / JPEG2000) + JBIG2 wasm decoders.
-  // Without `wasmUrl` pdf.js 5.x silently renders pages whose image XObjects
-  // use JPX (typical of Internet Archive scans) as fully-white PNGs — OCR on
-  // that input returns confidence 0 and the agent has no way to tell
-  // render-pipeline failure from a genuine empty page. The wasm files ship
-  // inside pdfjs-dist, so resolving the installed package directory is
-  // enough; no extra dependency required. We intentionally do NOT set
-  // `iccUrl`: turning on ICC color management subtly shifts rendered pixel
-  // values on Linux, which makes tesseract misread otherwise clean glyphs
-  // (observed: `hello pdfvision` → `helb pdfvisdn` on ubuntu CI). JPX
-  // decoding does not require ICC, so we keep it off.
-  // Falls back silently to pre-wasm behaviour if resolution fails (the JPX
-  // page would have been blank either way, and non-JPX content still
-  // renders) rather than throwing on otherwise-readable PDFs.
+  // Hand pdf.js the bundled OpenJPEG (JPX / JPEG2000) + JBIG2 wasm decoders
+  // AND the predefined CJK CMap pack.
+  //   - `wasmUrl` lets pdf.js decode JPX image streams (Internet Archive
+  //     scans). Without it those pages render as solid blanks.
+  //   - `cMapUrl` + `cMapPacked: true` lets pdf.js resolve CJK glyphs that
+  //     reference predefined CMaps like `Adobe-Japan1-UCS2`. Without it
+  //     SpeakerDeck / Office Japanese exports come back with `text: ""`
+  //     and the agent has no way to tell native-text-empty from
+  //     image-only.
+  // We pass *plain filesystem paths* (no `file://` prefix). pdf.js's Node
+  // factory calls `fs.readFile(url)` directly, which silently fails on
+  // `file://` *strings* (only `URL` objects are accepted by fs); plain
+  // paths sidestep that mismatch entirely. pdf.js validates only the
+  // trailing slash, not the URL scheme.
+  // We intentionally do NOT set `iccUrl`: turning on ICC color management
+  // subtly shifts rendered pixel values on Linux, which makes tesseract
+  // misread otherwise clean glyphs (observed: `hello pdfvision` → `helb
+  // pdfvisdn` on ubuntu CI). JPX decoding does not require ICC.
+  // Best-effort: if pdfjs-dist resolution fails, fall back to pre-asset
+  // behaviour rather than failing the whole extraction.
   const docOptions: Record<string, unknown> = { url: filePath };
   try {
     // `import.meta.resolve` is sync since Node 20.6 and returns a file://
-    // URL string for an installed package. Deriving the wasm dir by URL
-    // arithmetic avoids reaching for createRequire + path helpers.
-    const pdfjsPkgUrl = new URL(import.meta.resolve('pdfjs-dist/package.json'));
-    // pdf.js expects a trailing slash on the directory URL so it can
-    // append filenames (`openjpeg.wasm`, etc.) directly.
-    docOptions.wasmUrl = new URL('wasm/', pdfjsPkgUrl).href;
+    // URL for an installed package; convert to a plain directory path so
+    // the resulting wasm/cmap dirs work with fs.readFile in Node.
+    const pdfjsPkgPath = fileURLToPath(import.meta.resolve('pdfjs-dist/package.json'));
+    const pdfjsPkgDir = pathDirname(pdfjsPkgPath);
+    // Trailing slash matters: pdf.js appends the filename to this value
+    // without an extra separator. pdf.js's `getFactoryUrlProp` only
+    // accepts strings ending in `/`, so even on Windows we need to
+    // append `/` (not `path.sep`). Inside the path we use `path.join`
+    // for platform safety, then concatenate the literal forward slash
+    // to satisfy pdf.js's URL contract — Node's `fs.readFile` accepts
+    // mixed separators on Windows so this remains portable.
+    docOptions.wasmUrl = `${join(pdfjsPkgDir, 'wasm')}/`;
+    docOptions.cMapUrl = `${join(pdfjsPkgDir, 'cmaps')}/`;
+    docOptions.cMapPacked = true;
   } catch {
-    // Best-effort: keep going without the wasm asset URL rather than fail
-    // the whole extraction over a missing optional decoder.
+    // Best-effort: keep going without the wasm/cmap asset URLs rather
+    // than fail the whole extraction over a missing optional asset.
   }
   const doc = await getDocument(docOptions).promise;
   try {
     const totalPages = doc.numPages;
-    const pageNumbers = options.pages
-      ? parsePageRange(options.pages, totalPages)
-      : Array.from({ length: totalPages }, (_, i) => i + 1);
+    let pageNumbers: number[];
+    if (options.pages) {
+      const parsed = parsePageRangeWithSkipped(options.pages, totalPages);
+      pageNumbers = parsed.pages;
+      // Warn (not throw) when the request named pages past the end. A
+      // hard error would over-rotate on the common case `--pages 1-50`
+      // for a 30-page doc; a silent drop lost real data (codex flagged
+      // this on the apple-10-k sample). The middle path lets the
+      // extraction succeed for the in-range pages while still telling
+      // the caller something got skipped.
+      // Library code must not write to stderr unsolicited; route the
+      // notice through the caller-supplied `onWarning` callback if any
+      // (the CLI passes one that prints to stderr).
+      if (parsed.skipped.length > 0 && options.onWarning) {
+        const more = parsed.skippedTruncated ? ` (+ more, truncated)` : '';
+        options.onWarning(
+          `--pages "${options.pages}" included page(s) past the end of the document (totalPages=${totalPages}); skipped: ${parsed.skipped.join(', ')}${more}`,
+        );
+      }
+    } else {
+      pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
 
     const metadata = await doc.getMetadata();
     const info = metadata.info as Record<string, unknown> | null;
@@ -432,7 +507,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     const pages: PageResult[] = await runParallel(pageNumbers, async (pageNum, i) => {
       const data = await extractPageData(doc, pageNum, imageOps, flags);
       const renderRatio = renderRatios[i];
-      return {
+      const page: PageResult = {
         page: pageNum,
         text: data.text,
         ...(data.rawText !== undefined && { rawText: data.rawText }),
@@ -441,13 +516,20 @@ export async function processDocument(filePath: string, options: ProcessDocument
         imageCount: data.imageCount,
         textCoverage: data.textCoverage,
         nonPrintableRatio: data.nonPrintableRatio,
+        nonPrintableCount: data.nonPrintableCount,
         ...(renderRatio !== undefined && { renderContentRatio: renderRatio }),
         width: data.width,
         height: data.height,
         ...(data.spans !== undefined && { spans: data.spans }),
         ...(data.layout !== undefined && { layout: data.layout }),
         ...(data.imageBoxes !== undefined && { imageBoxes: data.imageBoxes }),
+        // Initial classification using whatever signals we have so far.
+        // OCR may attach a renderContentRatio below; the post-OCR pass
+        // overwrites this with the final classification.
+        quality: { nativeTextStatus: 'empty' },
       };
+      page.quality = derivePageQuality(page);
+      return page;
     });
 
     // Repeated-chrome detection has to wait until every selected page is
@@ -468,6 +550,13 @@ export async function processDocument(filePath: string, options: ProcessDocument
       await attachOcr(doc, pageNumbers, pages, ocrLang, imagePaths ?? undefined);
     }
 
+    // Compute the derived `quality` field *after* OCR so the OCR-only
+    // path's renderContentRatio is included in the empty_but_visual_content
+    // decision.
+    for (const p of pages) {
+      p.quality = derivePageQuality(p);
+    }
+
     const metaString = (raw: unknown): string | null => {
       if (typeof raw !== 'string') return null;
       return flags.normalize ? normalizeText(raw) : raw;
@@ -485,11 +574,13 @@ export async function processDocument(filePath: string, options: ProcessDocument
             imageCount: p.imageCount,
             textCoverage: p.textCoverage,
             nonPrintableRatio: p.nonPrintableRatio,
+            nonPrintableCount: p.nonPrintableCount,
             // Mirror the per-page renderContentRatio onto the overview row
             // so an agent can spot blank-rendered pages from the top-level
             // summary alone. Stays optional when neither --render nor --ocr
             // produced a raster.
             ...(p.renderContentRatio !== undefined && { renderContentRatio: p.renderContentRatio }),
+            quality: p.quality,
             width: p.width,
             height: p.height,
           }))
@@ -536,6 +627,7 @@ export async function processFile(filePath: string, options: ProcessOptions): Pr
     imageBoxes: options.imageBoxes,
     ocr: options.ocr,
     ocrLang: options.ocrLang,
+    onWarning: options.onWarning,
   });
   return render(result, options.format);
 }

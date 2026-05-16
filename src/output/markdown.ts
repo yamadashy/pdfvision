@@ -34,10 +34,11 @@ export function formatMarkdown(result: DocumentResult): string {
     // a `layout` payload). Lets agents see at a glance how the doc breaks
     // down into structural pieces without scrolling into the body.
     const showBlocks = result.pages.some((p) => p.layout !== undefined);
-    // The NonPrint column appears only when at least one page has a
-    // non-zero ratio. Most PDFs are clean, so showing 0% on every row
-    // would clutter the table without helping any agent decision.
-    const showNonPrint = result.pages.some((p) => p.nonPrintableRatio > 0);
+    // The NonPrint column appears only when at least one page has any
+    // non-printable code points (count > 0). Reading `count` instead of
+    // `ratio` here catches sparse occurrences that would otherwise
+    // round to 0% and hide the column for the whole document.
+    const showNonPrint = result.pages.some((p) => p.nonPrintableCount > 0);
     // The Render column appears only when at least one page was rasterised
     // (--render or --ocr). Showing it on every doc would clutter the
     // overview with empty cells for the default text-only flow.
@@ -53,7 +54,14 @@ export function formatMarkdown(result: DocumentResult): string {
     );
     for (const page of result.pages) {
       const coveragePct = Math.round(page.textCoverage * 100);
-      const nonPrintCell = showNonPrint ? ` ${Math.round(page.nonPrintableRatio * 100)}% |` : '';
+      // Use `<1%` (instead of the rounded `0%`) when the page has *any*
+      // non-printable chars — otherwise sparse occurrences like 2 bad
+      // codepoints in a 5000-char body page silently render as `0%` and
+      // the column-trigger above looks inconsistent.
+      const nonPrintPct = Math.round(page.nonPrintableRatio * 100);
+      const nonPrintCell = showNonPrint
+        ? ` ${nonPrintPct === 0 && page.nonPrintableCount > 0 ? '<1%' : `${nonPrintPct}%`} |`
+        : '';
       const renderCell = showRender
         ? // Two decimals as a percent so the agent sees the difference
           // between blank (0.00%) and sparse-marks (0.10%) — three or more
@@ -74,11 +82,12 @@ export function formatMarkdown(result: DocumentResult): string {
     lines.push('');
     lines.push(`## Page ${page.page}`);
     lines.push('');
-    // Inline the nonPrint signal only when it's non-zero so clean PDFs
-    // don't pay a noisy "nonPrint: 0%" suffix on every page header. The
-    // ratio renders as a percent for parity with `coverage`.
-    const nonPrintFragment =
-      page.nonPrintableRatio > 0 ? ` · nonPrint: ${Math.round(page.nonPrintableRatio * 100)}%` : '';
+    // Inline the nonPrint signal only when the page actually has any
+    // non-printable code points (count > 0). Renders the rounded
+    // percent, except <1% when sparse so the agent can tell "0 bad
+    // chars" from "a few bad chars that round to 0%".
+    const npPct = Math.round(page.nonPrintableRatio * 100);
+    const nonPrintFragment = page.nonPrintableCount > 0 ? ` · nonPrint: ${npPct === 0 ? '<1%' : `${npPct}%`}` : '';
     // Inline the render-content ratio (when rasterised) so a single-page
     // run still surfaces it without the overview table. Two decimal
     // places match the column format above.
