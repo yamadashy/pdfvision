@@ -460,7 +460,12 @@ export async function processDocument(filePath: string, options: ProcessDocument
     // care about the difference can compare `text` vs `ocr.text` directly.
     if (ocrEnabled) {
       const { attachOcr } = await import('./ocr.js');
-      await attachOcr(doc, pageNumbers, pages, ocrLang);
+      // Hand the already-rendered PNG paths to attachOcr so we don't
+      // re-rasterise the same pages a second time when both `--render`
+      // and `--ocr` are on. attachOcr falls back to its own pdf.js
+      // raster for any slot where the path is missing (no `--render`,
+      // or a cache-hit slot that returned `contentRatio: undefined`).
+      await attachOcr(doc, pageNumbers, pages, ocrLang, imagePaths ?? undefined);
     }
 
     const metaString = (raw: unknown): string | null => {

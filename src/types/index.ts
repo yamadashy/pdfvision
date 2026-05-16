@@ -256,9 +256,11 @@ export interface PageResult {
   nonPrintableRatio: number;
   /**
    * Fraction of pixels in the rasterised page (0–1, rounded to 6dp) that
-   * carry visible content — alpha > 0 and not near-white. Present only
-   * when `--render` or `--ocr` actually rasterised the page; absent when
-   * neither caused a raster.
+   * carry visible content — visible alpha (≥ 16 / 255) and not near-white.
+   * The ≥ 16 floor ignores near-transparent anti-aliasing fringes that
+   * would otherwise float the ratio on otherwise blank pages. Present
+   * only when `--render` or `--ocr` actually rasterised the page; absent
+   * when neither caused a raster.
    *
    * Catches a class of silent failure the text-side signals miss: the
    * raster came out blank (or near-blank) even though pdfvision didn't
