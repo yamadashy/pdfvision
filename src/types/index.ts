@@ -65,6 +65,15 @@ export interface ProcessDocumentOptions {
    * Defaults to `eng`. Only consulted when `ocr` is true.
    */
   ocrLang?: string;
+  /**
+   * Called once per non-fatal warning produced during extraction (e.g.
+   * `--pages` named pages past the end of the document). pdfvision is
+   * used both as a library and a CLI; the CLI passes a handler that
+   * writes to stderr, library callers can supply their own logger or
+   * leave the option unset to silence warnings entirely. Defaults to
+   * `undefined` (silent).
+   */
+  onWarning?: (message: string) => void;
 }
 
 export interface ProcessOptions {
@@ -79,6 +88,8 @@ export interface ProcessOptions {
   imageBoxes?: boolean;
   ocr?: boolean;
   ocrLang?: string;
+  /** See {@link ProcessDocumentOptions.onWarning}. */
+  onWarning?: (message: string) => void;
 }
 
 /**

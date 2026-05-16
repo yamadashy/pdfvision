@@ -405,9 +405,14 @@ export async function processDocument(filePath: string, options: ProcessDocument
     const pdfjsPkgPath = fileURLToPath(import.meta.resolve('pdfjs-dist/package.json'));
     const pdfjsPkgDir = pathDirname(pdfjsPkgPath);
     // Trailing slash matters: pdf.js appends the filename to this value
-    // without an extra separator.
-    docOptions.wasmUrl = `${pdfjsPkgDir}/wasm/`;
-    docOptions.cMapUrl = `${pdfjsPkgDir}/cmaps/`;
+    // without an extra separator. pdf.js's `getFactoryUrlProp` only
+    // accepts strings ending in `/`, so even on Windows we need to
+    // append `/` (not `path.sep`). Inside the path we use `path.join`
+    // for platform safety, then concatenate the literal forward slash
+    // to satisfy pdf.js's URL contract — Node's `fs.readFile` accepts
+    // mixed separators on Windows so this remains portable.
+    docOptions.wasmUrl = `${join(pdfjsPkgDir, 'wasm')}/`;
+    docOptions.cMapUrl = `${join(pdfjsPkgDir, 'cmaps')}/`;
     docOptions.cMapPacked = true;
   } catch {
     // Best-effort: keep going without the wasm/cmap asset URLs rather
@@ -426,9 +431,13 @@ export async function processDocument(filePath: string, options: ProcessDocument
       // this on the apple-10-k sample). The middle path lets the
       // extraction succeed for the in-range pages while still telling
       // the caller something got skipped.
-      if (parsed.skipped.length > 0) {
-        process.stderr.write(
-          `pdfvision: warning: --pages "${options.pages}" included page(s) past the end of the document (totalPages=${totalPages}); skipped: ${parsed.skipped.join(', ')}\n`,
+      // Library code must not write to stderr unsolicited; route the
+      // notice through the caller-supplied `onWarning` callback if any
+      // (the CLI passes one that prints to stderr).
+      if (parsed.skipped.length > 0 && options.onWarning) {
+        const more = parsed.skippedTruncated ? ` (+ more, truncated)` : '';
+        options.onWarning(
+          `--pages "${options.pages}" included page(s) past the end of the document (totalPages=${totalPages}); skipped: ${parsed.skipped.join(', ')}${more}`,
         );
       }
     } else {
@@ -618,6 +627,7 @@ export async function processFile(filePath: string, options: ProcessOptions): Pr
     imageBoxes: options.imageBoxes,
     ocr: options.ocr,
     ocrLang: options.ocrLang,
+    onWarning: options.onWarning,
   });
   return render(result, options.format);
 }
