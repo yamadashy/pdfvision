@@ -58,10 +58,16 @@ export function nonPrintableRatio(text: string): number {
   if (text.length === 0) return 0;
   let total = 0;
   let bad = 0;
-  for (const ch of text) {
+  // Manual codePointAt loop instead of `for (const ch of text)` — the
+  // string-iterator form allocates a fresh 1- or 2-char string per code
+  // point, which adds up on large pages (tens of thousands of chars).
+  // Advance by 2 on supplementary-plane code points to keep pair-aware
+  // iteration; BMP and unpaired surrogates advance by 1.
+  for (let i = 0; i < text.length; ) {
+    const cp = text.codePointAt(i) as number;
     total++;
-    if (isNonPrintableCodePoint(ch.codePointAt(0) as number)) bad++;
+    if (isNonPrintableCodePoint(cp)) bad++;
+    i += cp > 0xffff ? 2 : 1;
   }
-  if (total === 0) return 0;
   return Math.round((bad / total) * 1000) / 1000;
 }
