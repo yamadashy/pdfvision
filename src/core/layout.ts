@@ -84,21 +84,51 @@ function joinLineSpans(xSorted: TextSpan[]): string {
   return out;
 }
 
+/** Min non-whitespace chars at the body font size required before low-tier
+ *  (level 2 with structural support, or level 3) headings may fire. Pages
+ *  with less body text than this — slide decks, posters, title pages — only
+ *  get level 1 headings, so a uniform-large page doesn't end up tagged as
+ *  "all headings". Empirically ~100 chars is one short paragraph. */
+const MIN_BODY_CHARS_FOR_LOW_TIER = 100;
+
+/** Tolerance around the body fontSize used when counting how many chars sit
+ *  at the body font class. PDFs from LaTeX commonly drift by ±0.5pt between
+ *  body lines (footnote refs, math runs) so a strict-equal would underflow
+ *  the body-char count. ±5% covers the observed drift. */
+const BODY_FONT_TOLERANCE = 0.05;
+
+/** Max non-whitespace chars before a block is "long" — long blocks are body
+ *  paragraphs even when their dominant fontSize lifts them off the median. */
+const MAX_HEADING_CHARS = 100;
+
 /**
- * Classify each block as `heading` or `body` (default) based on its
- * dominant font size relative to the page's body fontSize.
+ * Classify each block as a heading (with a tiered confidence `level`) or
+ * leave it as body. Body fontSize is the char-weighted median of every
+ * line's fontSize, so a short 24pt heading doesn't pull the median up
+ * against a 12pt body.
  *
- * The page-body fontSize is the median of every line's fontSize, weighted
- * by the line's character count so a short 24pt heading doesn't drag the
- * median up against a 12pt body. A block becomes a heading when its first
- * line is at least 1.25× the body fontSize — large enough that real
- * heading hierarchies (H1/H2/H3 typically span 1.4×/1.25×/1.1×) are
- * caught while accidental size jitter (tab stops, sub/superscripts) is
- * not. The threshold is documented here rather than passed in because
- * tuning is a downstream concern — agents that want a different cutoff
- * can compute their own from `block.lines[0].fontSize`.
+ * Three tiers, all driven by `ratio = block.lines[0].fontSize / bodyFs`:
+ *   - level 1 (`ratio ≥ 1.40`): paper / page titles. Fires unconditionally
+ *     so a one-block slide or poster keeps a recognisable title.
+ *   - level 2 (`ratio ≥ 1.25`): preserves the legacy threshold for full-
+ *     confidence headings, gated only by the page having enough body text
+ *     to make "heading vs body" a meaningful distinction.
+ *   - level 2 (`1.15 ≤ ratio < 1.25`): catches the LaTeX/arxiv pattern
+ *     (`12pt heading / 10pt body = 1.20`). Requires short + standalone
+ *     + locally larger than neighbours, because that band overlaps with
+ *     ordinary body-fontSize jitter.
+ *   - level 3 (`1.08 ≤ ratio < 1.15`): subsection candidates
+ *     (ResNet-style `3.1.` at 10.96/9.96 ≈ 1.10). Strict gates: short,
+ *     single-line, standalone, locally larger.
+ *
+ * Below `1.08` the signal collapses into body-text jitter and is left
+ * unclassified.
+ *
+ * Mutates each qualifying block in place by setting `role = 'heading'`
+ * and `level`. Blocks that don't qualify keep both fields undefined.
  */
 function classifyHeadings(blocks: LayoutBlock[]): void {
+  if (blocks.length === 0) return;
   const charWeighted: number[] = [];
   for (const b of blocks) {
     for (const line of b.lines) {
@@ -109,10 +139,129 @@ function classifyHeadings(blocks: LayoutBlock[]): void {
   if (charWeighted.length === 0) return;
   const bodyFontSize = median(charWeighted);
   if (bodyFontSize <= 0) return;
+
+  // How many chars sit at the body font class? Low-tier classification
+  // (level 2 structural / level 3) requires "the page actually has body
+  // text"; without that, fontSize differences are just typography.
+  // Manual counter loop to avoid the intermediate array `filter().length`
+  // would build — `charWeighted` carries one entry per character on the
+  // page, so dense documents would allocate thousands of slots only to
+  // discard them.
+  let bodyChars = 0;
+  for (const fs of charWeighted) {
+    if (Math.abs(fs - bodyFontSize) / bodyFontSize <= BODY_FONT_TOLERANCE) {
+      bodyChars++;
+    }
+  }
+  const hasCredibleBody = bodyChars >= MIN_BODY_CHARS_FOR_LOW_TIER;
+
+  // For the "standalone" / "locally larger" structural checks we need each
+  // block's vertical neighbours. Pre-sort by y once so the per-block lookup
+  // stays O(1).
+  const byY = [...blocks].sort((a, b) => a.y - b.y);
+  const yIndex = new Map<LayoutBlock, number>();
+  for (let i = 0; i < byY.length; i++) yIndex.set(byY[i], i);
+
+  // Dominant fontSize per block, char-weighted across the block's lines.
+  // The "locally larger" check below compares against this rather than
+  // `lines[0].fontSize` — a body paragraph that opens with inline math /
+  // footnote ref / sub-superscript can have a noisy first-line fontSize
+  // (e.g. 11.96pt run inside a 9.96pt body), which would otherwise let a
+  // 10.96pt subheading look "not locally larger" than its body neighbour.
+  const dominantFs = new Map<LayoutBlock, number>();
+  for (const b of blocks) {
+    const fontWeights: number[] = [];
+    for (const line of b.lines) {
+      const weight = Math.max(line.text.replace(/\s/g, '').length, 1);
+      for (let i = 0; i < weight; i++) fontWeights.push(line.fontSize);
+    }
+    dominantFs.set(b, fontWeights.length > 0 ? median(fontWeights) : (b.lines[0]?.fontSize ?? bodyFontSize));
+  }
+
   for (const b of blocks) {
     const repFont = b.lines[0]?.fontSize ?? bodyFontSize;
-    if (repFont >= bodyFontSize * 1.25) {
+    const ratio = repFont / bodyFontSize;
+    if (ratio < 1.08) continue;
+
+    const nonWsChars = b.lines.reduce((acc, l) => acc + l.text.replace(/\s/g, '').length, 0);
+    const isShort = nonWsChars <= MAX_HEADING_CHARS;
+    const lineCount = b.lines.length;
+
+    // "Above" / "below" must be the candidate's same-column neighbours,
+    // not just the y-adjacent blocks. On multi-column pages a subheading
+    // in the left column has the right column's body sitting at the same
+    // y; without an x-overlap filter, the structural checks compare against
+    // the wrong neighbour and the gap reads as negative ("they overlap").
+    const cx0 = b.x;
+    const cx1 = b.x + b.width;
+    const xOverlaps = (other: LayoutBlock): boolean => other.x < cx1 && other.x + other.width > cx0;
+    const idx = yIndex.get(b) ?? 0;
+    let above: LayoutBlock | undefined;
+    for (let i = idx - 1; i >= 0; i--) {
+      if (xOverlaps(byY[i])) {
+        above = byY[i];
+        break;
+      }
+    }
+    let below: LayoutBlock | undefined;
+    for (let i = idx + 1; i < byY.length; i++) {
+      if (xOverlaps(byY[i])) {
+        below = byY[i];
+        break;
+      }
+    }
+    // "Standalone" = visibly separated from both neighbours. Use the
+    // candidate's own line height as the unit so a 24pt heading needs a
+    // bigger gap than an 8pt footer to count.
+    const halfLine = repFont * 0.5;
+    const gapAbove = above ? b.y - (above.y + above.height) : Number.POSITIVE_INFINITY;
+    const gapBelow = below ? below.y - (b.y + b.height) : Number.POSITIVE_INFINITY;
+    const standalone = gapAbove >= halfLine && gapBelow >= halfLine;
+    // "Locally larger" = bigger than the adjacent block's dominant fontSize
+    // (not just its first line). Edge-of-page blocks (no neighbour) pass
+    // trivially via Array.every on an empty array, no special-casing needed.
+    const neighbours = [above, below].filter((n): n is LayoutBlock => n !== undefined);
+    const locallyLarger = neighbours.every((n) => repFont > (dominantFs.get(n) ?? bodyFontSize));
+
+    if (ratio >= 1.4) {
+      // Level 1: titles. Always classify, even on poster/slide pages with
+      // no body text — losing the title hurts more than a rare false
+      // positive on a page that's nothing but a single big word.
       b.role = 'heading';
+      b.level = 1;
+    } else if (ratio >= 1.25) {
+      // Level 2 (legacy band). The historical 1.25× rule, kept intact
+      // except for one new guard: if the page lacks a credible body, we
+      // demote so a uniform-large page doesn't tag every block.
+      if (!hasCredibleBody) continue;
+      b.role = 'heading';
+      b.level = 2;
+    } else if (ratio >= 1.15) {
+      // Level 2 (structural band). Catches arxiv-style 12pt section
+      // headings over 10pt body. Requires the page to have real body
+      // text AND the block to look heading-shaped.
+      if (!hasCredibleBody) continue;
+      if (!isShort) continue;
+      if (lineCount > 2) continue;
+      if (!standalone && !locallyLarger) continue;
+      b.role = 'heading';
+      b.level = 2;
+    } else {
+      // Level 3 (subsection band). Strict gates — short + single-line +
+      // locally-larger-than-same-column-neighbours + credible body. The
+      // gap-based "standalone" check is intentionally NOT required here:
+      // on multi-column pages the body block's bbox spans the full page
+      // width (union of left + right column lines), so gap-to-next-block
+      // can read negative even when the actual same-column content is
+      // far below. locallyLarger uses the neighbour's dominant fontSize,
+      // which doesn't suffer from that geometry issue, and is strict
+      // enough on its own to catch arxiv subsections (10.96/9.96 ≈ 1.10).
+      if (!hasCredibleBody) continue;
+      if (!isShort) continue;
+      if (lineCount > 1) continue;
+      if (!locallyLarger) continue;
+      b.role = 'heading';
+      b.level = 3;
     }
   }
 }
@@ -204,9 +353,13 @@ function reorderForColumns(blocks: LayoutBlock[], pageWidth: number): LayoutBloc
     }
     return false;
   };
+  // Only stronger headings act as column separators. Level 3 candidates
+  // (subsections like "3.1.") are typically embedded inside a column;
+  // promoting them would break two-column reading order by treating every
+  // local subsection break as a page-wide flush.
   const promoted = new Set<LayoutBlock>();
   for (const b of narrow) {
-    if (b.role === 'heading' && !hasParallelInOtherColumn(b)) {
+    if (b.role === 'heading' && (b.level ?? 1) <= 2 && !hasParallelInOtherColumn(b)) {
       promoted.add(b);
     }
   }
@@ -328,7 +481,20 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0): PageLayout {
         Math.max(line.fontSize, prev.fontSize) / Math.max(Math.min(line.fontSize, prev.fontSize), 0.001);
       const xDisjoint = line.x + line.width <= prev.x || prev.x + prev.width <= line.x;
       const sideBySide = gap < 0 && xDisjoint;
-      if (gap > prev.height * 1.0 || sizeRatio > 1.3 || sideBySide) {
+      // Narrow heading-glue split: when the previous line is short and
+      // at a noticeably larger fontSize than the incoming line, treat
+      // the run that ends at `prev` as a (sub)heading that mustn't merge
+      // with the body below. The general 1.3× ratio rule above would miss
+      // arxiv subsections (10.96 over 9.96 ≈ 1.10×); this rule fires only
+      // at 1.05× and only with the heading-shaped guards, so it doesn't
+      // over-split emphasis runs inside paragraphs. We deliberately do
+      // not gate on `last.length === 1` — level 2 structural headings can
+      // legitimately span two lines (see the LEVEL_2_MAX_LINES path), so
+      // a 2-line heading whose second line is short + larger than the
+      // body still needs to break here.
+      const prevWasShortLarger =
+        prev.fontSize > line.fontSize * 1.05 && prev.text.replace(/\s/g, '').length <= MAX_HEADING_CHARS;
+      if (gap > prev.height * 1.0 || sizeRatio > 1.3 || sideBySide || prevWasShortLarger) {
         blockGroups.push([line]);
       } else {
         last.push(line);

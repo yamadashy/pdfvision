@@ -70,7 +70,8 @@ interface LayoutBlock {
   text: string;              // line texts joined with \n
   x: number; y: number; width: number; height: number;
   lines: LayoutLine[];
-  role?: 'heading';          // dominant fontSize ≥ 1.25× page body
+  role?: 'heading';          // heuristic heading classification — see `level`
+  level?: 1 | 2 | 3;         // present iff role === 'heading': 1=title, 2=section, 3=subsection candidate
   repeated?: boolean;        // chrome (running header / footer / page number / watermark) detected across pages
 }
 
@@ -81,7 +82,22 @@ interface LayoutLine {
 }
 ```
 
-Multi-column reading order: `blocks[]` reads top-to-bottom of the left column before the right column. Standalone headings act as column separators. Block clustering is still heuristic — table cells may merge into a single block.
+Multi-column reading order: `blocks[]` reads top-to-bottom of the left column before the right column. Standalone level-1 / level-2 headings act as column separators; level-3 candidates stay inside their column so subsection breaks don't scramble reading order. Block clustering is still heuristic — table cells may merge into a single block.
+
+### Heading levels (`role === 'heading'`)
+
+`role` is set when a block is classified as a heading; `level` ranks the visual hierarchy:
+
+- `level: 1` — paper / page title (fontSize ≥ 1.40× body median).
+- `level: 2` — section heading (≥ 1.25× under the legacy rule, or ≥ 1.15× with structural support: short and either standalone or locally larger than neighbours). Catches the typical LaTeX 12pt-over-10pt section style.
+- `level: 3` — subsection candidate (≥ 1.08×, single short line, locally larger than same-column neighbours). Lower confidence; the kind of heading ResNet's `3.1.` and `3.4.` use.
+
+Pick a slice that matches the use case:
+- Title-only: `role === 'heading' && level === 1`.
+- High precision (sections only): `role === 'heading' && level <= 2`.
+- Recall-oriented (include subsections): all `role === 'heading'`.
+
+Headings can co-occur with `repeated: true` (a doc title in a running header is still a heading); when chunking body content, filter `repeated: true` first.
 
 ## Image boxes (`--image-boxes`)
 

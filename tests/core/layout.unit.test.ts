@@ -60,6 +60,74 @@ describe('buildLayout — heading classification', () => {
     ];
     const layout = buildLayout(spans);
     expect(layout.blocks[0].role).toBe('heading');
+    // Ratio 30/11 = 2.7× → level 1 (titles).
+    expect(layout.blocks[0].level).toBe(1);
+  });
+
+  it('flags arxiv-style 1.20× section headings (12pt over 10pt body) at level 2', () => {
+    // The most common LaTeX article layout: 10pt body with 12pt section
+    // headings. Ratio 1.20 sits in the 1.15–1.25 band, so the block must
+    // also be short and standalone to qualify. Many body lines push
+    // bodyChars above the credible-body threshold so low-tier headings
+    // get unlocked.
+    const bodyLines: TextSpan[] = [];
+    for (let i = 0; i < 20; i++) {
+      bodyLines.push(span('Body paragraph line that adds enough chars for credible body.', 50, 200 + i * 12, 10));
+    }
+    const spans: TextSpan[] = [span('1 Introduction', 50, 100, 12), ...bodyLines];
+    const layout = buildLayout(spans);
+    const heading = layout.blocks.find((b) => b.text.includes('Introduction'));
+    expect(heading?.role).toBe('heading');
+    expect(heading?.level).toBe(2);
+  });
+
+  it('flags a 1.10× single-line subheading at level 3 when it is standalone and short', () => {
+    // ResNet-style "3.1. Residual Learning" at 10.96pt over 9.96pt body
+    // (ratio ≈ 1.10) — too low for level 2, but the strict level-3 gate
+    // (short, single-line, standalone, locally larger) catches it.
+    const bodyLines: TextSpan[] = [];
+    for (let i = 0; i < 20; i++) {
+      bodyLines.push(span('Lots of body content sits underneath the subheading here.', 50, 220 + i * 10, 10));
+    }
+    const spans: TextSpan[] = [
+      span('Body paragraph above the subheading boundary line.', 50, 100, 10),
+      span('3.1. Subsection', 50, 200, 11, 80),
+      ...bodyLines,
+    ];
+    const layout = buildLayout(spans);
+    const heading = layout.blocks.find((b) => b.text.includes('Subsection'));
+    expect(heading?.role).toBe('heading');
+    expect(heading?.level).toBe(3);
+  });
+
+  it('does NOT flag a 1.10× line at level 3 when surrounded by same-fontSize body', () => {
+    // The candidate sits at 1.10× the body median (11 vs 10) — the borderline
+    // ratio level 3 is supposed to handle. We pin the y-neighbours at the
+    // same body fontSize as the rest of the page so the "locally larger"
+    // structural gate has no fontSize-drop on either side to anchor on,
+    // and the candidate falls back to looking like a body emphasis run
+    // rather than a subheading. The strict gate must reject it.
+    const spans: TextSpan[] = [
+      span('Body line one above the candidate.', 50, 100, 10),
+      span('Candidate line.', 50, 120, 11, 80),
+      span('Body line two below the candidate.', 50, 140, 10),
+    ];
+    const layout = buildLayout(spans);
+    for (const block of layout.blocks) {
+      expect(block.role).toBeUndefined();
+    }
+  });
+
+  it('still flags a level-1 title on sparse pages where the body is too short to be credible', () => {
+    // A poster / cover page typically has a giant title and a tiny tagline;
+    // bodyChars stays under the credible-body threshold so level 2/3
+    // wouldn't fire, but level 1 (ratio ≥ 1.40) must still pass so the
+    // title isn't lost. 48pt over 12pt = 4.0×.
+    const spans: TextSpan[] = [span('Poster Title', 50, 50, 48, 200), span('Short tagline.', 50, 120, 12)];
+    const layout = buildLayout(spans);
+    const title = layout.blocks.find((b) => b.text.includes('Poster Title'));
+    expect(title?.role).toBe('heading');
+    expect(title?.level).toBe(1);
   });
 });
 

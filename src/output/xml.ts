@@ -103,6 +103,7 @@ export function formatXml(result: DocumentResult): string {
         for (const block of page.layout.blocks) {
           const blockAttrs = [`x="${block.x}"`, `y="${block.y}"`, `width="${block.width}"`, `height="${block.height}"`];
           if (block.role) blockAttrs.push(`role="${block.role}"`);
+          if (block.level !== undefined) blockAttrs.push(`level="${block.level}"`);
           if (block.repeated) blockAttrs.push('repeated="true"');
           out.push(`<block ${blockAttrs.join(' ')}>`);
           for (const line of block.lines) {
