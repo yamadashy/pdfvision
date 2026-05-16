@@ -152,19 +152,35 @@ export interface LayoutBlock {
   lines: LayoutLine[];
   /**
    * Coarse semantic role. `'heading'` when the block's dominant fontSize
-   * is meaningfully larger than the page's body text (currently ≥ 1.25×
-   * the char-weighted median fontSize). Omitted otherwise — the absence
-   * of `role` means body / regular text. Lets agents pick out section
-   * anchors without re-deriving fontSize statistics. Caption / list /
-   * other roles are not detected today; this field will gain values as
-   * heuristics are added rather than be retroactively renamed.
+   * and surrounding shape look like a section anchor — see {@link level}
+   * for the tiered confidence. Omitted otherwise; the absence of `role`
+   * means body / regular text or insufficient evidence (not proof the
+   * block is semantically non-heading). Caption / list / other roles are
+   * not detected today; this field will gain values as heuristics are
+   * added rather than be retroactively renamed.
    */
   role?: 'heading';
+  /**
+   * Approximate heading hierarchy, present only when `role === 'heading'`:
+   *   - `1` — major title (fontSize ≥ 1.40× body median).
+   *   - `2` — section heading (≥ 1.15× body, or ≥ 1.25× under the legacy
+   *           rule). For the 1.15–1.25 band the block must also be short
+   *           and either standalone or locally larger than its neighbours.
+   *   - `3` — subsection candidate (≥ 1.08× body) — strict gates: short,
+   *           single-line, standalone, locally larger than neighbours.
+   * Consumers picking a high-precision slice should use `level <= 2`;
+   * recall-oriented consumers can include `level === 3`. Title-only
+   * extraction is `level === 1`.
+   */
+  level?: 1 | 2 | 3;
   /**
    * `true` when this block appears at the same vertical position with the
    * same text on enough other pages to look like a running header, footer,
    * page number, or watermark. Lets agents skip the chrome and focus on
    * the body. Detected post-clustering across the selected page set.
+   * Repeated blocks can still carry `role: 'heading'` (a doc title in a
+   * running header is still a heading); consumers that want body-only
+   * chunking should filter `repeated: true` before reading `role`.
    */
   repeated?: boolean;
 }
