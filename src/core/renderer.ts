@@ -137,8 +137,15 @@ export async function renderPageWithStats(
 ): Promise<{ path: string; contentRatio: number }> {
   const outputPath = join(outputDir, `page-${pageNum}.png`);
   if (isReusableImage(outputPath)) {
-    const contentRatio = await computeContentRatioFromPng(outputPath);
-    return { path: outputPath, contentRatio };
+    try {
+      const contentRatio = await computeContentRatioFromPng(outputPath);
+      return { path: outputPath, contentRatio };
+    } catch {
+      // Corrupt or partially-written cached PNG (e.g. disk error mid-write
+      // that still produced a non-zero file). Fall through to a fresh
+      // raster instead of failing the whole extraction over an unusable
+      // cache entry; atomicWrite below replaces the bad file.
+    }
   }
   const { buffer, contentRatio } = await renderPageToBuffer(doc, pageNum, scale);
   atomicWrite(outputPath, buffer);
