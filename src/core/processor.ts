@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 import { lstatSync, mkdirSync, mkdtempSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join, dirname as pathDirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { formatJson } from '../output/json.js';
 import { formatMarkdown } from '../output/markdown.js';
@@ -335,32 +336,41 @@ export async function processDocument(filePath: string, options: ProcessDocument
     OPS.paintImageMaskXObject,
     OPS.paintInlineImageXObject,
   ]);
-  // Hand pdf.js the bundled OpenJPEG (JPX / JPEG2000) + JBIG2 wasm decoders.
-  // Without `wasmUrl` pdf.js 5.x silently renders pages whose image XObjects
-  // use JPX (typical of Internet Archive scans) as fully-white PNGs — OCR on
-  // that input returns confidence 0 and the agent has no way to tell
-  // render-pipeline failure from a genuine empty page. The wasm files ship
-  // inside pdfjs-dist, so resolving the installed package directory is
-  // enough; no extra dependency required. We intentionally do NOT set
-  // `iccUrl`: turning on ICC color management subtly shifts rendered pixel
-  // values on Linux, which makes tesseract misread otherwise clean glyphs
-  // (observed: `hello pdfvision` → `helb pdfvisdn` on ubuntu CI). JPX
-  // decoding does not require ICC, so we keep it off.
-  // Falls back silently to pre-wasm behaviour if resolution fails (the JPX
-  // page would have been blank either way, and non-JPX content still
-  // renders) rather than throwing on otherwise-readable PDFs.
+  // Hand pdf.js the bundled OpenJPEG (JPX / JPEG2000) + JBIG2 wasm decoders
+  // AND the predefined CJK CMap pack.
+  //   - `wasmUrl` lets pdf.js decode JPX image streams (Internet Archive
+  //     scans). Without it those pages render as solid blanks.
+  //   - `cMapUrl` + `cMapPacked: true` lets pdf.js resolve CJK glyphs that
+  //     reference predefined CMaps like `Adobe-Japan1-UCS2`. Without it
+  //     SpeakerDeck / Office Japanese exports come back with `text: ""`
+  //     and the agent has no way to tell native-text-empty from
+  //     image-only.
+  // We pass *plain filesystem paths* (no `file://` prefix). pdf.js's Node
+  // factory calls `fs.readFile(url)` directly, which silently fails on
+  // `file://` *strings* (only `URL` objects are accepted by fs); plain
+  // paths sidestep that mismatch entirely. pdf.js validates only the
+  // trailing slash, not the URL scheme.
+  // We intentionally do NOT set `iccUrl`: turning on ICC color management
+  // subtly shifts rendered pixel values on Linux, which makes tesseract
+  // misread otherwise clean glyphs (observed: `hello pdfvision` → `helb
+  // pdfvisdn` on ubuntu CI). JPX decoding does not require ICC.
+  // Best-effort: if pdfjs-dist resolution fails, fall back to pre-asset
+  // behaviour rather than failing the whole extraction.
   const docOptions: Record<string, unknown> = { url: filePath };
   try {
     // `import.meta.resolve` is sync since Node 20.6 and returns a file://
-    // URL string for an installed package. Deriving the wasm dir by URL
-    // arithmetic avoids reaching for createRequire + path helpers.
-    const pdfjsPkgUrl = new URL(import.meta.resolve('pdfjs-dist/package.json'));
-    // pdf.js expects a trailing slash on the directory URL so it can
-    // append filenames (`openjpeg.wasm`, etc.) directly.
-    docOptions.wasmUrl = new URL('wasm/', pdfjsPkgUrl).href;
+    // URL for an installed package; convert to a plain directory path so
+    // the resulting wasm/cmap dirs work with fs.readFile in Node.
+    const pdfjsPkgPath = fileURLToPath(import.meta.resolve('pdfjs-dist/package.json'));
+    const pdfjsPkgDir = pathDirname(pdfjsPkgPath);
+    // Trailing slash matters: pdf.js appends the filename to this value
+    // without an extra separator.
+    docOptions.wasmUrl = `${pdfjsPkgDir}/wasm/`;
+    docOptions.cMapUrl = `${pdfjsPkgDir}/cmaps/`;
+    docOptions.cMapPacked = true;
   } catch {
-    // Best-effort: keep going without the wasm asset URL rather than fail
-    // the whole extraction over a missing optional decoder.
+    // Best-effort: keep going without the wasm/cmap asset URLs rather
+    // than fail the whole extraction over a missing optional asset.
   }
   const doc = await getDocument(docOptions).promise;
   try {
