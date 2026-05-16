@@ -327,7 +327,32 @@ export async function processDocument(filePath: string, options: ProcessDocument
     OPS.paintImageMaskXObject,
     OPS.paintInlineImageXObject,
   ]);
-  const doc = await getDocument(filePath).promise;
+  // Hand pdf.js the bundled OpenJPEG (JPX / JPEG2000) + JBIG2 wasm decoders
+  // and the ICC color profiles. Without `wasmUrl` pdf.js 5.x silently
+  // renders pages whose image XObjects use JPX (typical of Internet Archive
+  // scans) as fully-white PNGs — OCR on that input returns confidence 0 and
+  // the agent has no way to tell render-pipeline failure from a genuine
+  // empty page. The wasm files ship inside pdfjs-dist, so resolving the
+  // installed package directory is enough; no extra dependency required.
+  // Falls back silently to pre-wasm behaviour if resolution fails (the JPX
+  // page would have been blank either way, and non-JPX content still
+  // renders) rather than throwing on otherwise-readable PDFs.
+  const docOptions: Record<string, unknown> = { url: filePath };
+  try {
+    const { createRequire } = await import('node:module');
+    const { pathToFileURL } = await import('node:url');
+    const { dirname, join: joinPath } = await import('node:path');
+    const requireFromHere = createRequire(import.meta.url);
+    const pdfjsPkg = requireFromHere.resolve('pdfjs-dist/package.json');
+    const pdfjsRoot = dirname(pdfjsPkg);
+    // pdf.js expects a trailing slash on the directory URL.
+    docOptions.wasmUrl = `${pathToFileURL(joinPath(pdfjsRoot, 'wasm')).href}/`;
+    docOptions.iccUrl = `${pathToFileURL(joinPath(pdfjsRoot, 'iccs')).href}/`;
+  } catch {
+    // Best-effort: keep going without the wasm asset URLs rather than fail
+    // the whole extraction over a missing optional decoder.
+  }
+  const doc = await getDocument(docOptions).promise;
   try {
     const totalPages = doc.numPages;
     const pageNumbers = options.pages
