@@ -20,8 +20,8 @@ import type {
 import { dropCached, ensurePrivateDir, getCacheDir, getCached, setCache } from './cache.js';
 import { buildImageBoxes, type ImageOps } from './imageBoxes.js';
 import { buildLayout, markRepeatedBlocks } from './layout.js';
-import { nonPrintableRatio } from './nonPrintable.js';
-import { parsePageRange } from './pageRange.js';
+import { nonPrintableStats } from './nonPrintable.js';
+import { parsePageRangeWithSkipped } from './pageRange.js';
 import { runParallel } from './parallel.js';
 
 /** Inputs that determine which cached entry a request maps to. */
@@ -50,7 +50,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v11',
+    format: 'structured-v12',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -116,6 +116,7 @@ interface PageData {
   imageCount: number;
   textCoverage: number;
   nonPrintableRatio: number;
+  nonPrintableCount: number;
   width: number;
   height: number;
   spans?: TextSpan[];
@@ -261,18 +262,24 @@ async function extractPageData(
   // Build layout last so it always sees the final span list (post normalize).
   const layout = flags.layout ? buildLayout(spans, round2(width)) : undefined;
 
+  // Measured on the text we actually return (post-normalize) so the
+  // count + ratio match what an agent sees in `text`. Cheap (one
+  // string walk), so always on — this is the primary signal for
+  // catching ToUnicode-CMap-less PDFs that look 100% covered but emit
+  // raw glyph indices. Surfacing the raw count alongside the ratio
+  // keeps sparse occurrences (a handful of control chars in a long
+  // body page) discriminable from "zero" when the 3dp ratio rounds
+  // them down.
+  const npStats = nonPrintableStats(text);
+
   return {
     text,
     rawText: preservedRaw,
     charCount: text.length,
     imageCount,
     textCoverage: Math.round(textCoverage * 1000) / 1000,
-    // Measured on the text we actually return (post-normalize) so the
-    // ratio matches what an agent sees in `text`. Cheap (one string
-    // walk), so always on — this is the primary signal for catching
-    // ToUnicode-CMap-less PDFs that look 100% covered but emit raw
-    // glyph indices.
-    nonPrintableRatio: nonPrintableRatio(text),
+    nonPrintableRatio: npStats.ratio,
+    nonPrintableCount: npStats.count,
     // Round to 2dp; PDF dimensions are nominally integers (Letter 612×792,
     // A4 595×842) but encrypted/cropped PDFs can carry sub-point fractions.
     width: round2(width),
@@ -409,9 +416,24 @@ export async function processDocument(filePath: string, options: ProcessDocument
   const doc = await getDocument(docOptions).promise;
   try {
     const totalPages = doc.numPages;
-    const pageNumbers = options.pages
-      ? parsePageRange(options.pages, totalPages)
-      : Array.from({ length: totalPages }, (_, i) => i + 1);
+    let pageNumbers: number[];
+    if (options.pages) {
+      const parsed = parsePageRangeWithSkipped(options.pages, totalPages);
+      pageNumbers = parsed.pages;
+      // Warn (not throw) when the request named pages past the end. A
+      // hard error would over-rotate on the common case `--pages 1-50`
+      // for a 30-page doc; a silent drop lost real data (codex flagged
+      // this on the apple-10-k sample). The middle path lets the
+      // extraction succeed for the in-range pages while still telling
+      // the caller something got skipped.
+      if (parsed.skipped.length > 0) {
+        process.stderr.write(
+          `pdfvision: warning: --pages "${options.pages}" included page(s) past the end of the document (totalPages=${totalPages}); skipped: ${parsed.skipped.join(', ')}\n`,
+        );
+      }
+    } else {
+      pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
 
     const metadata = await doc.getMetadata();
     const info = metadata.info as Record<string, unknown> | null;
@@ -485,6 +507,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
         imageCount: data.imageCount,
         textCoverage: data.textCoverage,
         nonPrintableRatio: data.nonPrintableRatio,
+        nonPrintableCount: data.nonPrintableCount,
         ...(renderRatio !== undefined && { renderContentRatio: renderRatio }),
         width: data.width,
         height: data.height,
@@ -542,6 +565,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
             imageCount: p.imageCount,
             textCoverage: p.textCoverage,
             nonPrintableRatio: p.nonPrintableRatio,
+            nonPrintableCount: p.nonPrintableCount,
             // Mirror the per-page renderContentRatio onto the overview row
             // so an agent can spot blank-rendered pages from the top-level
             // summary alone. Stays optional when neither --render nor --ocr

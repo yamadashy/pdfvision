@@ -59,13 +59,30 @@ The default extraction is enough for most native-text PDFs (papers, exports from
 
 ## Detecting silent failures with the density Overview
 
-When `result.pages.length > 1`, the markdown output starts with an Overview table that reports `Chars / Images / Coverage / Size` per page (plus `NonPrint` when any page has non-zero non-printable ratio, and `Blocks` when `--layout` was on). The JSON / XML output carries the same data in `overview[]` with field names `charCount` / `imageCount` / `textCoverage` / `nonPrintableRatio` / `width` / `height` — use the field names directly when grepping or filtering in code. Use the Overview before scrolling the body:
+When `result.pages.length > 1`, the markdown output starts with an Overview table that reports `Chars / Images / Coverage / Size` per page (plus `NonPrint` when any page has non-zero non-printable ratio, and `Blocks` when `--layout` was on). The JSON / XML output carries the same data in `overview[]` with field names `charCount` / `imageCount` / `textCoverage` / `nonPrintableRatio` / `nonPrintableCount` / `width` / `height` / `quality` — use the field names directly when grepping or filtering in code. Use the Overview before scrolling the body.
+
+### One-shot dispatch: `pages[].quality`
+
+Each page (and each overview row) carries a derived `quality` field that classifies the page from the raw signals so agents don't have to reimplement the threshold logic:
+
+- `quality.nativeTextStatus`:
+  - `ok` — usable native text.
+  - `unusable_glyph_indices` — `nonPrintableRatio >= 0.05`. Text is binary garbage even though `charCount` looks healthy. Fall back to `--render` or `--ocr`.
+  - `empty_but_visual_content` — no native text, but the page carries images or non-blank pixels. Re-run with `--ocr` (or read the rendered PNG via `--render`).
+  - `empty` — no text, no detected visual content. Likely a genuinely blank page (or a render failure — combine with `visualStatus` below).
+- `quality.visualStatus` (present only when `--render` or `--ocr` ran):
+  - `ok` — renderer drew real content.
+  - `blank` — page came out effectively blank against its own dominant background. Render-pipeline failure or genuinely blank page.
+
+pdfvision deliberately stops at observation: it does **not** recommend an action. The action is the agent's call based on the two statuses + the raw signals below.
+
+### Raw signals (the inputs to `quality`)
 
 - `textCoverage: 0` (rendered as `coverage: 0%` in markdown) + `imageCount > 0` → the page body is a rasterised image. The text stream is empty. Re-run with `--ocr` or `--render`.
-- `nonPrintableRatio >= 0.05` → pdf.js fell back to raw glyph indices because the PDF's fonts lack a ToUnicode CMap (common with Hebrew, older CJK, custom symbol fonts). `text` reads as full coverage but is binary garbage. Do **not** trust native text on these pages — re-run with `--render` to look at the page visually, or `--ocr` to extract via raster. Values `>= 0.3` are pathological; `< 0.01` is normal.
+- `nonPrintableRatio >= 0.05` → pdf.js fell back to raw glyph indices because the PDF's fonts lack a ToUnicode CMap (common with Hebrew, older CJK, custom symbol fonts). `text` reads as full coverage but is binary garbage. Values `>= 0.3` are pathological; `< 0.01` is normal. The raw count is in `nonPrintableCount` — when the 3dp ratio rounds to 0 the count still tells you whether any non-printable code points slipped through (useful for "is there ANY garbage in this page?" filters).
 - `charCount: 0` but `imageCount: 0` → genuinely blank page (separator, end matter).
 - Sudden drop in `textCoverage` on a single page in an otherwise text-dense doc → that page is likely a figure / scan / chart. Inspect with `--render`.
-- `renderContentRatio <= 0.001` (when `--render` or `--ocr` was on) → the rasterised page came out blank. Likely a render-pipeline failure (pdf.js + @napi-rs/canvas can't decode JPEG2000 image streams, or the font has no resolvable glyphs). OCR on this page returns `confidence: 0` not because OCR failed but because the input was a white image — distinguish this from a real OCR miss before trusting "no text".
+- `renderContentRatio <= 0.001` (when `--render` or `--ocr` was on) → the rasterised page came out blank **against its own dominant background**. Likely a render-pipeline failure (pdf.js + @napi-rs/canvas can't decode JPEG2000 image streams, or the font has no resolvable glyphs). The ratio is background-aware — dark book covers and beige scan paper don't false-trip it. OCR on this page returns `confidence: 0` not because OCR failed but because the input was a near-uniform image.
 
 The density signal is the reason to prefer pdfvision over reading a PDF directly — silent failures (empty `text` that looks fine to a downstream consumer, or full `text` that is actually NUL bytes) become visible up front.
 

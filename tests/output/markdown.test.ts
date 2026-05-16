@@ -11,6 +11,7 @@ function makePage(overrides: Partial<PageResult> & Pick<PageResult, 'page'>): Pa
     imageCount: 0,
     textCoverage: 0,
     nonPrintableRatio: 0,
+    nonPrintableCount: 0,
     quality: { nativeTextStatus: 'empty' },
     width: 612,
     height: 792,
@@ -221,14 +222,37 @@ describe('formatMarkdown', () => {
       makeResult({
         totalPages: 2,
         pages: [
-          makePage({ page: 1, text: 'clean', charCount: 5, nonPrintableRatio: 0 }),
-          makePage({ page: 2, text: '\x00\x01bad', charCount: 3, nonPrintableRatio: 0.667 }),
+          makePage({ page: 1, text: 'clean', charCount: 5, nonPrintableRatio: 0, nonPrintableCount: 0 }),
+          makePage({
+            page: 2,
+            text: '\x00\x01bad',
+            charCount: 3,
+            nonPrintableRatio: 0.667,
+            nonPrintableCount: 2,
+          }),
         ],
       }),
     );
     expect(out).toMatch(/\| Page \| Chars \| Images \| Coverage \| NonPrint \| Size \(pt\) \|/);
     expect(out).toMatch(/\| 1 \| 5 \| 0 \| 0% \| 0% \| 612×792 \|/);
     expect(out).toMatch(/\| 2 \| 3 \| 0 \| 0% \| 67% \| 612×792 \|/);
+  });
+
+  it('shows `<1%` instead of `0%` when nonPrintableCount > 0 but the ratio rounds to 0', () => {
+    // Sparse occurrences (a couple of control bytes in a multi-thousand-char
+    // body page) round to 0% but are still worth surfacing so the agent can
+    // filter on "is there ANY garbage?".
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 2,
+        pages: [
+          makePage({ page: 1, text: 'a'.repeat(1000), charCount: 1000, nonPrintableRatio: 0, nonPrintableCount: 0 }),
+          makePage({ page: 2, text: 'b'.repeat(1000), charCount: 1000, nonPrintableRatio: 0, nonPrintableCount: 2 }),
+        ],
+      }),
+    );
+    expect(out).toMatch(/NonPrint/);
+    expect(out).toMatch(/\| 2 \| 1000 \| 0 \| 0% \| <1% \| 612×792 \|/);
   });
 
   it('omits the NonPrint column when every page has nonPrintableRatio = 0', () => {
@@ -247,7 +271,7 @@ describe('formatMarkdown', () => {
   it('appends a nonPrint fragment to the page density line when nonPrintableRatio > 0', () => {
     const out = formatMarkdown(
       makeResult({
-        pages: [makePage({ page: 1, text: '\x00', charCount: 1, nonPrintableRatio: 1 })],
+        pages: [makePage({ page: 1, text: '\x00', charCount: 1, nonPrintableRatio: 1, nonPrintableCount: 1 })],
       }),
     );
     expect(out).toMatch(/_chars: 1 · images: 0 · coverage: 0% · nonPrint: 100% · size: 612×792pt_/);

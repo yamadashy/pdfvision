@@ -255,6 +255,14 @@ export interface PageResult {
    */
   nonPrintableRatio: number;
   /**
+   * Raw count of non-printable code points in `text`. Surfaced alongside
+   * the ratio so sparse occurrences (e.g. two stray control bytes inside
+   * an arxiv body page) stay discriminable from "zero" — the 3dp
+   * `nonPrintableRatio` rounds them down to 0 even though the agent
+   * may still want to know "is there ANY garbage?".
+   */
+  nonPrintableCount: number;
+  /**
    * Fraction of pixels in the rasterised page (0–1, rounded to 6dp) that
    * carry visible content — visible alpha (≥ 16 / 255) AND luminance
    * meaningfully different from the page's own dominant background
@@ -385,6 +393,8 @@ export interface PageOverview {
    * `pages[]`.
    */
   nonPrintableRatio: number;
+  /** Raw count companion to {@link nonPrintableRatio}; see PageResult. */
+  nonPrintableCount: number;
   /**
    * Same field as {@link PageResult.renderContentRatio} — mirrored on the
    * overview so an agent can spot blank-rendered pages from the top-level

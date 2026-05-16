@@ -60,8 +60,11 @@ export function formatXml(result: DocumentResult): string {
         `imageCount="${p.imageCount}"`,
         `textCoverage="${p.textCoverage}"`,
         `nonPrintableRatio="${p.nonPrintableRatio}"`,
+        `nonPrintableCount="${p.nonPrintableCount}"`,
       ];
       if (p.renderContentRatio !== undefined) ovAttrs.push(`renderContentRatio="${p.renderContentRatio}"`);
+      ovAttrs.push(`nativeTextStatus="${p.quality.nativeTextStatus}"`);
+      if (p.quality.visualStatus !== undefined) ovAttrs.push(`visualStatus="${p.quality.visualStatus}"`);
       ovAttrs.push(`width="${p.width}"`, `height="${p.height}"`);
       out.push(`<page ${ovAttrs.join(' ')}/>`);
     }
@@ -76,8 +79,11 @@ export function formatXml(result: DocumentResult): string {
       `imageCount="${page.imageCount}"`,
       `textCoverage="${page.textCoverage}"`,
       `nonPrintableRatio="${page.nonPrintableRatio}"`,
+      `nonPrintableCount="${page.nonPrintableCount}"`,
     ];
     if (page.renderContentRatio !== undefined) attrs.push(`renderContentRatio="${page.renderContentRatio}"`);
+    attrs.push(`nativeTextStatus="${page.quality.nativeTextStatus}"`);
+    if (page.quality.visualStatus !== undefined) attrs.push(`visualStatus="${page.quality.visualStatus}"`);
     attrs.push(`width="${page.width}"`, `height="${page.height}"`);
     if (page.image) attrs.push(`image="${escapeAttr(page.image)}"`);
     out.push(`<page ${attrs.join(' ')}>`);

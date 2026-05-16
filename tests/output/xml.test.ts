@@ -9,6 +9,7 @@ function makePage(overrides: Partial<PageResult> & Pick<PageResult, 'page'>): Pa
     imageCount: 0,
     textCoverage: 0,
     nonPrintableRatio: 0,
+    nonPrintableCount: 0,
     quality: { nativeTextStatus: 'empty' },
     width: 612,
     height: 792,
@@ -61,6 +62,7 @@ describe('formatXml', () => {
             imageCount: 0,
             textCoverage: 0.1,
             nonPrintableRatio: 0,
+            nonPrintableCount: 0,
             quality: { nativeTextStatus: 'ok' },
             width: 612,
             height: 792,
@@ -71,6 +73,7 @@ describe('formatXml', () => {
             imageCount: 5,
             textCoverage: 0.02,
             nonPrintableRatio: 0,
+            nonPrintableCount: 0,
             quality: { nativeTextStatus: 'empty_but_visual_content' },
             width: 612,
             height: 792,
@@ -84,10 +87,10 @@ describe('formatXml', () => {
     );
     expect(out).toMatch(/<overview>/);
     expect(out).toMatch(
-      /<page no="1" charCount="10" imageCount="0" textCoverage="0\.1" nonPrintableRatio="0" width="612" height="792"\/>/,
+      /<page no="1" charCount="10" imageCount="0" textCoverage="0\.1" nonPrintableRatio="0" nonPrintableCount="0" nativeTextStatus="ok" width="612" height="792"\/>/,
     );
     expect(out).toMatch(
-      /<page no="2" charCount="0" imageCount="5" textCoverage="0\.02" nonPrintableRatio="0" width="612" height="792"\/>/,
+      /<page no="2" charCount="0" imageCount="5" textCoverage="0\.02" nonPrintableRatio="0" nonPrintableCount="0" nativeTextStatus="empty_but_visual_content" width="612" height="792"\/>/,
     );
   });
 

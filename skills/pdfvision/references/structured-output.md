@@ -27,16 +27,18 @@ interface PageOverview {
   imageCount: number;             // raster image draws (XObject + inline + mask), per drawn instance
   textCoverage: number;           // 0..1, fraction of page area covered by text glyph bboxes
   nonPrintableRatio: number;      // 0..1, fraction of `text` that is NUL / control / noncharacter
-  renderContentRatio?: number;    // 0..1, fraction of non-blank pixels in the raster (present iff --render or --ocr)
+  nonPrintableCount: number;      // raw count — stays discriminable when the 3dp ratio rounds to 0
+  renderContentRatio?: number;    // 0..1, fraction of pixels differing from the page's dominant background (present iff --render or --ocr)
+  quality: PageQuality;           // derived classification — see below
   width: number;                  // PDF user-space points
   height: number;
 }
 ```
 
-`overview[]` is the first thing to inspect for silent-failure detection. Signatures:
+`overview[]` is the first thing to inspect for silent-failure detection. The `quality` field gives a one-shot classification; the raw signals below let agents combine signals their own way:
 - `imageCount > 0 && textCoverage ≈ 0` → image-flattened page; the text stream is empty.
-- `nonPrintableRatio >= 0.05` → ToUnicode CMap missing; the text stream is full of raw glyph indices (NUL + control chars) even though `textCoverage` looks fine. Native text is unusable; fall back to `--render` or `--ocr`.
-- `renderContentRatio <= 0.001` → rasterised page is effectively blank (only meaningful when `--render` or `--ocr` was on). Catches render-pipeline failures pdfvision can't otherwise surface: pdf.js + @napi-rs/canvas can't decode JPEG2000 image streams (common in Internet Archive scans), and PDFs whose fonts have no resolvable glyphs draw nothing. When OCR runs against this, `confidence: 0` is *not* an OCR miss — the input was a white image.
+- `nonPrintableRatio >= 0.05` → ToUnicode CMap missing; the text stream is full of raw glyph indices (NUL + control chars) even though `textCoverage` looks fine. Native text is unusable; fall back to `--render` or `--ocr`. Maps to `quality.nativeTextStatus === 'unusable_glyph_indices'`.
+- `renderContentRatio <= 0.001` → rasterised page is effectively blank against its own dominant background (only meaningful when `--render` or `--ocr` was on). Background-aware so dark covers and beige scans don't false-trip it. Catches render-pipeline failures pdfvision can't otherwise surface: pdf.js + @napi-rs/canvas can't decode JPEG2000 image streams (common in Internet Archive scans), and PDFs whose fonts have no resolvable glyphs draw nothing. When OCR runs against this, `confidence: 0` is *not* an OCR miss — the input was a near-uniform image. Maps to `quality.visualStatus === 'blank'`.
 
 ## PageResult (per page)
 
@@ -49,7 +51,9 @@ interface PageResult {
   imageCount: number;
   textCoverage: number;
   nonPrintableRatio: number;     // NUL / control / noncharacter ratio in `text`
-  renderContentRatio?: number;   // non-blank pixel fraction in the raster (present iff --render or --ocr)
+  nonPrintableCount: number;     // raw count alongside the ratio
+  renderContentRatio?: number;   // pixel fraction differing from the page's dominant background (present iff --render or --ocr)
+  quality: PageQuality;          // derived per-page classification — agent-side dispatch lives on this field
   width: number;
   height: number;
   image?: string;                // absolute PNG path — present iff --render
@@ -58,9 +62,22 @@ interface PageResult {
   imageBoxes?: ImageBox[];       // present iff --image-boxes
   ocr?: PageOcr;                 // present iff --ocr
 }
+
+interface PageQuality {
+  nativeTextStatus:
+    | 'ok'                       // usable native text
+    | 'unusable_glyph_indices'   // nonPrintableRatio >= 0.05 — fall back to --ocr / --render
+    | 'empty_but_visual_content' // no native text but the page has images / non-blank pixels
+    | 'empty';                   // no text, no detected visual content
+  visualStatus?:                 // present iff --render or --ocr triggered a raster
+    | 'ok'                       // renderContentRatio > 0.001 — renderer drew real content
+    | 'blank';                   // renderContentRatio <= 0.001 — effectively blank against the page's own background
+}
 ```
 
 `text` is the pdfjs-derived text stream. `ocr.text` (when `--ocr` is on) is the OCR result alongside, **never overwriting `text`** — consumers diff or pick whichever signal looks better for the page.
+
+`quality` is pure observation, not recommendation: pdfvision tells the agent what it saw, the agent picks what to do next.
 
 ## Layout (`--layout`)
 
