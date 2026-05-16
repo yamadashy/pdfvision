@@ -339,15 +339,14 @@ export async function processDocument(filePath: string, options: ProcessDocument
   // renders) rather than throwing on otherwise-readable PDFs.
   const docOptions: Record<string, unknown> = { url: filePath };
   try {
-    const { createRequire } = await import('node:module');
-    const { pathToFileURL } = await import('node:url');
-    const { dirname, join: joinPath } = await import('node:path');
-    const requireFromHere = createRequire(import.meta.url);
-    const pdfjsPkg = requireFromHere.resolve('pdfjs-dist/package.json');
-    const pdfjsRoot = dirname(pdfjsPkg);
-    // pdf.js expects a trailing slash on the directory URL.
-    docOptions.wasmUrl = `${pathToFileURL(joinPath(pdfjsRoot, 'wasm')).href}/`;
-    docOptions.iccUrl = `${pathToFileURL(joinPath(pdfjsRoot, 'iccs')).href}/`;
+    // `import.meta.resolve` is sync since Node 20.6 and returns a file://
+    // URL string for an installed package. Deriving the wasm/icc dirs by
+    // URL arithmetic avoids reaching for createRequire + path helpers.
+    const pdfjsPkgUrl = new URL(import.meta.resolve('pdfjs-dist/package.json'));
+    // pdf.js expects a trailing slash on the directory URL so it can
+    // append filenames (`openjpeg.wasm`, etc.) directly.
+    docOptions.wasmUrl = new URL('wasm/', pdfjsPkgUrl).href;
+    docOptions.iccUrl = new URL('iccs/', pdfjsPkgUrl).href;
   } catch {
     // Best-effort: keep going without the wasm asset URLs rather than fail
     // the whole extraction over a missing optional decoder.
