@@ -11,6 +11,7 @@ import type {
   DocumentResult,
   ImageBox,
   PageLayout,
+  PageQuality,
   PageResult,
   ProcessDocumentOptions,
   ProcessOptions,
@@ -120,6 +121,39 @@ interface PageData {
   spans?: TextSpan[];
   layout?: PageLayout;
   imageBoxes?: ImageBox[];
+}
+
+/**
+ * Threshold above which `nonPrintableRatio` is taken to mean "pdf.js
+ * returned raw glyph codes" rather than "occasional control char in
+ * otherwise clean text". Matches the skill-doc guidance.
+ */
+const UNUSABLE_NPR_THRESHOLD = 0.05;
+/** Same blank threshold the skill doc publishes for `renderContentRatio`. */
+const BLANK_RENDER_THRESHOLD = 0.001;
+
+/**
+ * Derive {@link PageQuality} from the already-extracted signals.
+ * Pure function of the raw fields — invoked once per page after OCR
+ * has had a chance to attach its own `renderContentRatio`.
+ */
+function derivePageQuality(p: PageResult): PageQuality {
+  const hasVisualRender = p.renderContentRatio !== undefined && p.renderContentRatio > BLANK_RENDER_THRESHOLD;
+  let nativeTextStatus: PageQuality['nativeTextStatus'];
+  if (p.nonPrintableRatio >= UNUSABLE_NPR_THRESHOLD) {
+    nativeTextStatus = 'unusable_glyph_indices';
+  } else if (p.charCount > 0) {
+    nativeTextStatus = 'ok';
+  } else if (p.imageCount > 0 || hasVisualRender) {
+    nativeTextStatus = 'empty_but_visual_content';
+  } else {
+    nativeTextStatus = 'empty';
+  }
+  const quality: PageQuality = { nativeTextStatus };
+  if (p.renderContentRatio !== undefined) {
+    quality.visualStatus = p.renderContentRatio > BLANK_RENDER_THRESHOLD ? 'ok' : 'blank';
+  }
+  return quality;
 }
 
 interface PageFlags {
@@ -442,7 +476,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     const pages: PageResult[] = await runParallel(pageNumbers, async (pageNum, i) => {
       const data = await extractPageData(doc, pageNum, imageOps, flags);
       const renderRatio = renderRatios[i];
-      return {
+      const page: PageResult = {
         page: pageNum,
         text: data.text,
         ...(data.rawText !== undefined && { rawText: data.rawText }),
@@ -457,7 +491,13 @@ export async function processDocument(filePath: string, options: ProcessDocument
         ...(data.spans !== undefined && { spans: data.spans }),
         ...(data.layout !== undefined && { layout: data.layout }),
         ...(data.imageBoxes !== undefined && { imageBoxes: data.imageBoxes }),
+        // Initial classification using whatever signals we have so far.
+        // OCR may attach a renderContentRatio below; the post-OCR pass
+        // overwrites this with the final classification.
+        quality: { nativeTextStatus: 'empty' },
       };
+      page.quality = derivePageQuality(page);
+      return page;
     });
 
     // Repeated-chrome detection has to wait until every selected page is
@@ -476,6 +516,13 @@ export async function processDocument(filePath: string, options: ProcessDocument
       // raster for any slot where the path is missing (no `--render`,
       // or a cache-hit slot that returned `contentRatio: undefined`).
       await attachOcr(doc, pageNumbers, pages, ocrLang, imagePaths ?? undefined);
+    }
+
+    // Compute the derived `quality` field *after* OCR so the OCR-only
+    // path's renderContentRatio is included in the empty_but_visual_content
+    // decision.
+    for (const p of pages) {
+      p.quality = derivePageQuality(p);
     }
 
     const metaString = (raw: unknown): string | null => {
@@ -500,6 +547,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
             // summary alone. Stays optional when neither --render nor --ocr
             // produced a raster.
             ...(p.renderContentRatio !== undefined && { renderContentRatio: p.renderContentRatio }),
+            quality: p.quality,
             width: p.width,
             height: p.height,
           }))

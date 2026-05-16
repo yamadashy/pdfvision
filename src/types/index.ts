@@ -256,11 +256,12 @@ export interface PageResult {
   nonPrintableRatio: number;
   /**
    * Fraction of pixels in the rasterised page (0–1, rounded to 6dp) that
-   * carry visible content — visible alpha (≥ 16 / 255) and not near-white.
-   * The ≥ 16 floor ignores near-transparent anti-aliasing fringes that
-   * would otherwise float the ratio on otherwise blank pages. Present
-   * only when `--render` or `--ocr` actually rasterised the page; absent
-   * when neither caused a raster.
+   * carry visible content — visible alpha (≥ 16 / 255) AND luminance
+   * meaningfully different from the page's own dominant background
+   * (measured against a 16-bucket luminance histogram so dark / beige /
+   * cream pages don't float the ratio). Present only when `--render` or
+   * `--ocr` actually rasterised the page; absent when neither caused a
+   * raster.
    *
    * Catches a class of silent failure the text-side signals miss: the
    * raster came out blank (or near-blank) even though pdfvision didn't
@@ -308,6 +309,54 @@ export interface PageResult {
    * the page in question.
    */
   ocr?: PageOcr;
+  /**
+   * Compact derived classification of the page's text and visual state,
+   * computed from the raw signals (`charCount`, `nonPrintableRatio`,
+   * `imageCount`, `renderContentRatio`) so agents can dispatch on a
+   * single field instead of re-implementing the threshold logic. Pure
+   * observation — pdfvision deliberately does NOT recommend an action
+   * (e.g. "rerun with --ocr"); that judgment stays with the agent.
+   *
+   * See {@link PageQuality} for the field semantics and the exact
+   * derivation rules.
+   */
+  quality: PageQuality;
+}
+
+/**
+ * Derived page-quality classification. The values are observational —
+ * they tell the agent what pdfvision saw, not what the agent should do
+ * about it.
+ */
+export interface PageQuality {
+  /**
+   * Native-text extraction outcome:
+   *   - `ok` — the page has usable native text (`charCount > 0` and
+   *     `nonPrintableRatio < 0.05`).
+   *   - `unusable_glyph_indices` — `nonPrintableRatio >= 0.05`. pdf.js
+   *     returned raw glyph codes (no usable ToUnicode CMap), so `text`
+   *     is binary garbage even though `charCount` may look healthy.
+   *   - `empty_but_visual_content` — `charCount === 0` AND the page has
+   *     visual content (`imageCount > 0`, or `renderContentRatio` is
+   *     above the blank threshold when --render/--ocr ran). Typical of
+   *     image-flattened slides and scans.
+   *   - `empty` — `charCount === 0` and no visual content detected.
+   *     Likely a genuinely blank page or a render failure (combine with
+   *     `visualStatus` to disambiguate).
+   */
+  nativeTextStatus: 'ok' | 'unusable_glyph_indices' | 'empty_but_visual_content' | 'empty';
+  /**
+   * Rasterisation outcome, present only when `--render` or `--ocr`
+   * actually rasterised the page:
+   *   - `ok` — `renderContentRatio > 0.001`. The renderer drew
+   *     meaningful content.
+   *   - `blank` — `renderContentRatio <= 0.001`. The page came out
+   *     effectively blank against its own dominant background;
+   *     typically a render-pipeline failure (unsupported image format,
+   *     missing fonts) or a genuinely blank page.
+   * Absent when neither `--render` nor `--ocr` triggered a raster.
+   */
+  visualStatus?: 'ok' | 'blank';
 }
 
 export interface DocumentMetadata {
@@ -343,6 +392,12 @@ export interface PageOverview {
    * `--ocr` triggered a raster on at least the corresponding page.
    */
   renderContentRatio?: number;
+  /**
+   * Mirror of {@link PageResult.quality} so the overview can flag
+   * unusable / blank pages at a glance without descending into
+   * `pages[]`.
+   */
+  quality: PageQuality;
   width: number;
   height: number;
 }

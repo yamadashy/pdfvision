@@ -11,6 +11,7 @@ function makePage(overrides: Partial<PageResult> & Pick<PageResult, 'page'>): Pa
     imageCount: 0,
     textCoverage: 0,
     nonPrintableRatio: 0,
+    quality: { nativeTextStatus: 'empty' },
     width: 612,
     height: 792,
     ...overrides,
