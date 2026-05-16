@@ -1,6 +1,6 @@
 import { existsSync, lstatSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { createCanvas } from '@napi-rs/canvas';
+import { createCanvas, loadImage } from '@napi-rs/canvas';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { atomicWrite } from './cache.js';
 import { runParallel } from './parallel.js';
@@ -103,12 +103,28 @@ export async function renderPageToBuffer(
 }
 
 /**
- * Render a page to disk and (when actually rasterising) report the
- * content ratio computed from the freshly-drawn canvas. Cached PNGs are
- * reused without re-rasterising — in that case `contentRatio` is
- * `undefined`, because reading pixels back from the cached PNG would
- * defeat the cache's speed benefit AND the higher-level JSON result
- * cache already stores the ratio from the original run.
+ * Decode a previously-rendered PNG and run the same content-ratio scan
+ * the rasteriser does. Used on the PNG-cache-hit path so the higher
+ * level JSON result still gets a populated `renderContentRatio` after
+ * an invalidation that wiped the result cache but left the PNG dir
+ * intact (e.g. a cache-key bump like v10 → v11). Costs one PNG decode
+ * per page, which is much cheaper than re-rastering through pdf.js.
+ */
+async function computeContentRatioFromPng(path: string): Promise<number> {
+  const img = await loadImage(path);
+  const canvas = createCanvas(img.width, img.height);
+  const context = canvas.getContext('2d');
+  context.drawImage(img, 0, 0);
+  const rgba = context.getImageData(0, 0, img.width, img.height).data;
+  return computeContentRatio(rgba);
+}
+
+/**
+ * Render a page to disk and report the content ratio. On a PNG cache
+ * hit we decode the cached PNG instead of re-rastering through pdf.js,
+ * so the ratio is still populated after a result-cache invalidation
+ * that left the on-disk PNGs intact. The decode is ~10× cheaper than
+ * the pdf.js raster path so the cache speedup is preserved.
  *
  * The simpler {@link renderPage} wrapper exists for callers that don't
  * need the ratio (preserves the legacy `Promise<string>` signature).
@@ -118,10 +134,11 @@ export async function renderPageWithStats(
   pageNum: number,
   outputDir: string,
   scale = DEFAULT_SCALE,
-): Promise<{ path: string; contentRatio?: number }> {
+): Promise<{ path: string; contentRatio: number }> {
   const outputPath = join(outputDir, `page-${pageNum}.png`);
   if (isReusableImage(outputPath)) {
-    return { path: outputPath };
+    const contentRatio = await computeContentRatioFromPng(outputPath);
+    return { path: outputPath, contentRatio };
   }
   const { buffer, contentRatio } = await renderPageToBuffer(doc, pageNum, scale);
   atomicWrite(outputPath, buffer);
@@ -147,7 +164,7 @@ export async function renderPagesWithStats(
   pageNumbers: number[],
   outputDir: string,
   scale?: number,
-): Promise<{ path: string; contentRatio?: number }[]> {
+): Promise<{ path: string; contentRatio: number }[]> {
   return runParallel(pageNumbers, (pageNum) => renderPageWithStats(doc, pageNum, outputDir, scale));
 }
 
