@@ -85,16 +85,30 @@ export function formatMarkdown(result: DocumentResult): string {
     // Inline the nonPrint signal only when the page actually has any
     // non-printable code points (count > 0). Renders the rounded
     // percent, except <1% when sparse so the agent can tell "0 bad
-    // chars" from "a few bad chars that round to 0%".
+    // chars" from "a few bad chars that round to 0%". Append the raw
+    // count in parentheses — for unusable_glyph_indices PDFs the
+    // absolute count (e.g. "1706") is more actionable than the rounded
+    // percentage.
     const npPct = Math.round(page.nonPrintableRatio * 100);
-    const nonPrintFragment = page.nonPrintableCount > 0 ? ` · nonPrint: ${npPct === 0 ? '<1%' : `${npPct}%`}` : '';
+    const nonPrintFragment =
+      page.nonPrintableCount > 0 ? ` · nonPrint: ${npPct === 0 ? '<1%' : `${npPct}%`} (${page.nonPrintableCount})` : '';
     // Inline the render-content ratio (when rasterised) so a single-page
     // run still surfaces it without the overview table. Two decimal
     // places match the column format above.
     const renderFragment =
       page.renderContentRatio !== undefined ? ` · render: ${(page.renderContentRatio * 100).toFixed(2)}%` : '';
+    // Surface the derived quality classification when it's abnormal so
+    // the LLM-facing markdown carries the same dispatch signal that
+    // JSON / XML expose. `nativeTextStatus === 'ok'` and an `'empty'`
+    // page with no visual content are normal flows; the other states
+    // are the ones an agent reader needs to react to.
+    const showNative =
+      page.quality.nativeTextStatus === 'unusable_glyph_indices' ||
+      page.quality.nativeTextStatus === 'empty_but_visual_content';
+    const nativeFragment = showNative ? ` · native: ${page.quality.nativeTextStatus}` : '';
+    const visualFragment = page.quality.visualStatus === 'blank' ? ` · visual: blank` : '';
     lines.push(
-      `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${nonPrintFragment}${renderFragment} · size: ${formatSize(page)}pt_`,
+      `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${nonPrintFragment}${renderFragment}${nativeFragment}${visualFragment} · size: ${formatSize(page)}pt_`,
     );
     if (page.text) {
       lines.push('');

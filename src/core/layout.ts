@@ -1,4 +1,5 @@
 import type { LayoutBlock, LayoutLine, PageLayout, PageResult, TextSpan } from '../types/index.js';
+import { isCjkLeading } from './cjkJoin.js';
 
 interface BBox {
   x: number;
@@ -62,6 +63,20 @@ function median(values: number[]): number {
   return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 }
 
+/** Gap (as a fraction of fontSize) above which we synthesize a space
+ *  between two CJK glyph spans. Justified CJK text often spreads glyphs
+ *  to ~0.3–0.5 × fontSize without it being a word boundary (Chinese UDHR
+ *  is the canonical case); ordinary CJK column gutters and inserted
+ *  full-width spaces are >= 1.0 × fontSize. Treat anything in between
+ *  as a positioning artifact, matching the primary `joinPageText`
+ *  behavior that drops the synthetic whitespace item. */
+const CJK_PAIR_SPACE_GAP_RATIO = 1.0;
+
+/** Gap fraction for non-CJK pairs — pdf.js typically packs inter-word
+ *  spaces around 0.25 × fontSize. Preserves the pre-fix behavior for
+ *  Latin / digits / punctuation. */
+const DEFAULT_SPACE_GAP_RATIO = 0.25;
+
 /**
  * Join the spans of a single layout line into a readable string. pdfjs
  * emits whitespace as separate items (already filtered upstream) but for
@@ -69,7 +84,9 @@ function median(values: number[]): number {
  * ' ' join produces `背景・ 目 的` for what is really `背景・目的`. Use
  * the visual gap between consecutive spans as a proxy: if it's at least
  * a quarter of the font size we treat them as different words and insert
- * a single space, otherwise we concatenate.
+ * a single space, otherwise we concatenate. CJK glyph pairs use a much
+ * larger threshold because justified per-character spacing routinely
+ * exceeds 0.25 × fontSize without being a real word boundary.
  */
 function joinLineSpans(xSorted: TextSpan[]): string {
   if (xSorted.length === 0) return '';
@@ -78,7 +95,8 @@ function joinLineSpans(xSorted: TextSpan[]): string {
     const prev = xSorted[i - 1];
     const cur = xSorted[i];
     const gap = cur.x - (prev.x + prev.width);
-    const threshold = cur.fontSize * 0.25;
+    const bothCjk = isCjkLeading(prev.text) && isCjkLeading(cur.text);
+    const threshold = cur.fontSize * (bothCjk ? CJK_PAIR_SPACE_GAP_RATIO : DEFAULT_SPACE_GAP_RATIO);
     out += gap > threshold ? ` ${cur.text}` : cur.text;
   }
   return out;

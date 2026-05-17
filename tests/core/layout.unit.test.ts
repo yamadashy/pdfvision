@@ -317,6 +317,48 @@ describe('buildLayout — multi-column reading order', () => {
     }
   });
 
+  it('concatenates consecutive CJK glyph spans without synthetic whitespace', () => {
+    // Chinese UDHR-shaped input: per-character spans with a sub-fontSize
+    // visual gap (justified body text spreads glyphs to ~0.5 × fontSize
+    // without it being a word boundary). The default 0.25-fontSize gap
+    // threshold would insert a space between every glyph; the CJK-pair
+    // path must keep them merged so the layout text matches the primary
+    // `pages[].text` produced by joinPageText.
+    const spans: TextSpan[] = [
+      span('人', 50, 50, 12, 12),
+      span('人', 68, 50, 12, 12), // gap = 68 - (50 + 12) = 6 = 0.5 × fontSize
+      span('生', 86, 50, 12, 12),
+      span('而', 104, 50, 12, 12),
+      span('自', 122, 50, 12, 12),
+      span('由', 140, 50, 12, 12),
+    ];
+    const layout = buildLayout(spans);
+    expect(layout.blocks[0].lines[0].text).toBe('人人生而自由');
+  });
+
+  it('keeps a space between a CJK glyph and an adjacent Latin token', () => {
+    // The CJK-pair guard must not over-merge across script boundaries —
+    // `2024 年` stays separated because only one side is CJK leading.
+    const spans: TextSpan[] = [span('2024', 50, 50, 12, 24), span('年', 80, 50, 12, 12)];
+    const layout = buildLayout(spans);
+    expect(layout.blocks[0].lines[0].text).toBe('2024 年');
+  });
+
+  it('synthesizes a space between two CJK glyphs when the gap is column-break wide', () => {
+    // A 1.5 × fontSize gap (column gutter, or an inserted U+3000 full-
+    // width space) should still produce a word boundary. Anything below
+    // 1.0 × fontSize stays merged to absorb justified spacing.
+    const spans: TextSpan[] = [
+      span('序', 50, 50, 12, 12),
+      span('文', 68, 50, 12, 12), // tight pair — merged
+      span('第', 110, 50, 12, 12), // gap = 110 - 80 = 30 = 2.5 × fontSize → split
+      span('一', 128, 50, 12, 12),
+      span('条', 146, 50, 12, 12),
+    ];
+    const layout = buildLayout(spans);
+    expect(layout.blocks[0].lines[0].text).toBe('序文 第一条');
+  });
+
   it('does not falsely detect columns when only one block sits at a different x', () => {
     // Four body blocks at x=50 plus a single right-margin note. The
     // detection requires every candidate column to have ≥ 2 blocks, so
