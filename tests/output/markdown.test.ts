@@ -268,18 +268,96 @@ describe('formatMarkdown', () => {
     expect(out).not.toMatch(/NonPrint/);
   });
 
-  it('appends a nonPrint fragment to the page density line when nonPrintableRatio > 0', () => {
+  it('appends a nonPrint fragment with raw count to the page density line when nonPrintableRatio > 0', () => {
     const out = formatMarkdown(
       makeResult({
         pages: [makePage({ page: 1, text: '\x00', charCount: 1, nonPrintableRatio: 1, nonPrintableCount: 1 })],
       }),
     );
-    expect(out).toMatch(/_chars: 1 · images: 0 · coverage: 0% · nonPrint: 100% · size: 612×792pt_/);
+    expect(out).toMatch(/_chars: 1 · images: 0 · coverage: 0% · nonPrint: 100% \(1\) · size: 612×792pt_/);
   });
 
   it('omits the nonPrint fragment from the page density line when nonPrintableRatio = 0', () => {
     const out = formatMarkdown(makeResult());
     expect(out).not.toMatch(/nonPrint/);
+  });
+
+  it('appends a native: unusable_glyph_indices badge when quality flags cmap garbage', () => {
+    // Hebrew UDHR-shaped page: usable charCount but the glyph indices are
+    // garbage. JSON / XML already expose this; markdown must surface it
+    // too so an agent reader can dispatch without inferring "62% means bad".
+    const out = formatMarkdown(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 'garbage text payload',
+            charCount: 2760,
+            nonPrintableRatio: 0.62,
+            nonPrintableCount: 1706,
+            quality: { nativeTextStatus: 'unusable_glyph_indices' },
+          }),
+        ],
+      }),
+    );
+    expect(out).toMatch(/nonPrint: 62% \(1706\)/);
+    expect(out).toMatch(/native: unusable_glyph_indices/);
+  });
+
+  it('appends a native: empty_but_visual_content badge for image-only pages', () => {
+    // SpeakerDeck-shaped page: no native text but visual content present.
+    const out = formatMarkdown(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: '',
+            charCount: 0,
+            imageCount: 1,
+            quality: { nativeTextStatus: 'empty_but_visual_content' },
+          }),
+        ],
+      }),
+    );
+    expect(out).toMatch(/native: empty_but_visual_content/);
+  });
+
+  it('appends a visual: blank badge when the rendered page came out blank', () => {
+    // Alice dark scan: charCount=0, renderContentRatio rounds to 0.00%,
+    // visualStatus="blank" tells the agent the render itself failed.
+    const out = formatMarkdown(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: '',
+            charCount: 0,
+            imageCount: 2,
+            renderContentRatio: 0.000021,
+            quality: { nativeTextStatus: 'empty_but_visual_content', visualStatus: 'blank' },
+          }),
+        ],
+      }),
+    );
+    expect(out).toMatch(/render: 0\.00%/);
+    expect(out).toMatch(/native: empty_but_visual_content/);
+    expect(out).toMatch(/visual: blank/);
+  });
+
+  it('omits quality badges on healthy pages (nativeTextStatus=ok, no visualStatus)', () => {
+    const out = formatMarkdown(
+      makeResult({ pages: [makePage({ page: 1, text: 'ok', charCount: 2, quality: { nativeTextStatus: 'ok' } })] }),
+    );
+    expect(out).not.toMatch(/native:/);
+    expect(out).not.toMatch(/visual:/);
+  });
+
+  it('omits the native badge for empty pages with no visual content (default empty case)', () => {
+    // A truly blank page (nativeTextStatus="empty", no images, no render)
+    // is a normal flow — the existing chars: 0 / images: 0 already
+    // communicates it. Don't add a redundant "native: empty" badge.
+    const out = formatMarkdown(makeResult({ pages: [makePage({ page: 1 })] }));
+    expect(out).not.toMatch(/native:/);
   });
 
   it('renders an OCR section with lang and confidence percent below the native text', () => {

@@ -317,6 +317,63 @@ describe('buildLayout — multi-column reading order', () => {
     }
   });
 
+  it('concatenates consecutive CJK glyph spans without synthetic whitespace', () => {
+    // Chinese UDHR-shaped input: per-character spans whose gap reflects
+    // the real PDF (~0.28 × fontSize between consecutive glyphs, the
+    // residual space left by pdf.js's justification-positioned items).
+    // The default 0.25 threshold would insert a space at every glyph;
+    // the shared CJK threshold (0.3) must keep them merged so the
+    // layout text matches `pages[].text` produced by joinPageText.
+    const spans: TextSpan[] = [
+      span('人', 50, 50, 12, 12),
+      span('人', 65.36, 50, 12, 12), // gap = 65.36 - 62 = 3.36 ≈ 0.28 × fontSize
+      span('生', 80.72, 50, 12, 12),
+      span('而', 96.08, 50, 12, 12),
+      span('自', 111.44, 50, 12, 12),
+      span('由', 126.8, 50, 12, 12),
+    ];
+    const layout = buildLayout(spans);
+    expect(layout.blocks[0].lines[0].text).toBe('人人生而自由');
+  });
+
+  it('keeps a space between a CJK glyph and an adjacent Latin token', () => {
+    // The CJK-pair guard must not over-merge across script boundaries —
+    // `2024 年` stays separated because only one side is CJK leading and
+    // the default 0.25 threshold applies.
+    const spans: TextSpan[] = [span('2024', 50, 50, 12, 24), span('年', 80, 50, 12, 12)];
+    const layout = buildLayout(spans);
+    expect(layout.blocks[0].lines[0].text).toBe('2024 年');
+  });
+
+  it('synthesizes a space between two CJK glyphs when the gap is column-break wide', () => {
+    // A multi-fontSize gap (column gutter, inserted U+3000 full-width
+    // space, or letterspaced heading) sits well above 0.3 × fontSize
+    // and produces a word boundary.
+    const spans: TextSpan[] = [
+      span('序', 50, 50, 12, 12),
+      span('文', 65.36, 50, 12, 12), // tight pair (ratio 0.28) — merged
+      span('第', 110, 50, 12, 12), // gap = 110 - 77.36 = 32.64 ≈ 2.7 × fontSize → split
+      span('一', 125.36, 50, 12, 12),
+      span('条', 140.72, 50, 12, 12),
+    ];
+    const layout = buildLayout(spans);
+    expect(layout.blocks[0].lines[0].text).toBe('序文 第一条');
+  });
+
+  it('does not fragment text when spans report fontSize 0 (broken PDF guard)', () => {
+    // Some malformed PDFs strip the text matrix scale, leaving fontSize=0
+    // on every span. Without a fallback the threshold collapses to 0 and
+    // every positive gap synthesizes a space, fragmenting Latin words
+    // into single letters. The 12pt fontSize fallback keeps the default
+    // 0.25 threshold meaningful: gap 2pt < 12pt × 0.25 = 3pt → no space.
+    const spans: TextSpan[] = [
+      { text: 'hello', x: 50, y: 50, width: 25, height: 0, fontSize: 0 },
+      { text: 'world', x: 77, y: 50, width: 25, height: 0, fontSize: 0 },
+    ];
+    const layout = buildLayout(spans);
+    expect(layout.blocks[0].lines[0].text).toBe('helloworld');
+  });
+
   it('does not falsely detect columns when only one block sits at a different x', () => {
     // Four body blocks at x=50 plus a single right-margin note. The
     // detection requires every candidate column to have ≥ 2 blocks, so
