@@ -35,13 +35,19 @@ export interface JoinItem {
 
 /**
  * Max gap (as a fraction of fontSize) between two CJK glyphs that we
- * still consider "touching". Pdf.js inserts a synthetic space whenever
- * the horizontal gap > 0; we treat anything below this fraction as a
- * positioning artifact and drop the intervening whitespace item.
- * Empirically 0.3 catches the udhr-chinese case (gap ≈ 0) while
- * preserving column-break gaps (typically > 1.0 * fontSize).
+ * still consider "touching". Used by both this module (to drop a pdf.js
+ * synthetic whitespace item when its neighbours sit closer than this)
+ * and by the layout assembler (to decide whether to *synthesize* a
+ * space between two consecutive CJK glyph spans). Both surfaces ask
+ * the same question — "is the visual gap a positioning artifact or a
+ * real word boundary?" — so they must agree on a single threshold,
+ * otherwise `pages[].text` and `pages[].layout.blocks[].text` would
+ * disagree in the 0.3-1.0 band on the same document.
+ * Empirically 0.3 catches the udhr-chinese case (real gap ≈ 0.28 ×
+ * fontSize) while preserving column-break gaps (typically > 1.0 ×
+ * fontSize).
  */
-const CJK_TIGHT_GAP_RATIO = 0.3;
+export const CJK_TIGHT_GAP_RATIO = 0.3;
 
 /**
  * Returns `true` if `s`'s first code point is in a CJK script we want

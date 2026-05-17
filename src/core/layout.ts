@@ -1,5 +1,5 @@
 import type { LayoutBlock, LayoutLine, PageLayout, PageResult, TextSpan } from '../types/index.js';
-import { isCjkLeading } from './cjkJoin.js';
+import { CJK_TIGHT_GAP_RATIO, isCjkLeading } from './cjkJoin.js';
 
 interface BBox {
   x: number;
@@ -63,19 +63,20 @@ function median(values: number[]): number {
   return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 }
 
-/** Gap (as a fraction of fontSize) above which we synthesize a space
- *  between two CJK glyph spans. Justified CJK text often spreads glyphs
- *  to ~0.3–0.5 × fontSize without it being a word boundary (Chinese UDHR
- *  is the canonical case); ordinary CJK column gutters and inserted
- *  full-width spaces are >= 1.0 × fontSize. Treat anything in between
- *  as a positioning artifact, matching the primary `joinPageText`
- *  behavior that drops the synthetic whitespace item. */
-const CJK_PAIR_SPACE_GAP_RATIO = 1.0;
-
 /** Gap fraction for non-CJK pairs — pdf.js typically packs inter-word
  *  spaces around 0.25 × fontSize. Preserves the pre-fix behavior for
- *  Latin / digits / punctuation. */
+ *  Latin / digits / punctuation. CJK pairs use {@link CJK_TIGHT_GAP_RATIO}
+ *  imported from cjkJoin so primary text and layout-block text classify
+ *  the same gap identically. */
 const DEFAULT_SPACE_GAP_RATIO = 0.25;
+
+/** Fallback fontSize when both prev and cur report 0 (rare — usually
+ *  malformed PDFs that strip the text matrix scale). Without this the
+ *  threshold would collapse to 0 and any positive gap would synthesize
+ *  a space, fragmenting the text into single glyphs (`s p a c e d`).
+ *  12pt matches the most common Western body fontSize and is harmless
+ *  as a heuristic backstop. */
+const FONT_SIZE_FALLBACK_PT = 12;
 
 /**
  * Join the spans of a single layout line into a readable string. pdfjs
@@ -84,9 +85,9 @@ const DEFAULT_SPACE_GAP_RATIO = 0.25;
  * ' ' join produces `背景・ 目 的` for what is really `背景・目的`. Use
  * the visual gap between consecutive spans as a proxy: if it's at least
  * a quarter of the font size we treat them as different words and insert
- * a single space, otherwise we concatenate. CJK glyph pairs use a much
- * larger threshold because justified per-character spacing routinely
- * exceeds 0.25 × fontSize without being a real word boundary.
+ * a single space, otherwise we concatenate. CJK glyph pairs use the
+ * tighter shared threshold so the layout-side classification matches
+ * the primary `joinPageText` behavior on the same gap.
  */
 function joinLineSpans(xSorted: TextSpan[]): string {
   if (xSorted.length === 0) return '';
@@ -96,7 +97,12 @@ function joinLineSpans(xSorted: TextSpan[]): string {
     const cur = xSorted[i];
     const gap = cur.x - (prev.x + prev.width);
     const bothCjk = isCjkLeading(prev.text) && isCjkLeading(cur.text);
-    const threshold = cur.fontSize * (bothCjk ? CJK_PAIR_SPACE_GAP_RATIO : DEFAULT_SPACE_GAP_RATIO);
+    // Prefer the current span's fontSize; fall back to the previous
+    // span's, then to a Western-body default. A 0 fontSize on both
+    // sides would otherwise zero the threshold and turn every gap
+    // into a synthesized space.
+    const fontSize = cur.fontSize || prev.fontSize || FONT_SIZE_FALLBACK_PT;
+    const threshold = fontSize * (bothCjk ? CJK_TIGHT_GAP_RATIO : DEFAULT_SPACE_GAP_RATIO);
     out += gap > threshold ? ` ${cur.text}` : cur.text;
   }
   return out;
@@ -469,7 +475,11 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0): PageLayout {
       const prev = xSorted[i - 1];
       const cur = xSorted[i];
       const gap = cur.x - (prev.x + prev.width);
-      if (gap > prev.fontSize * 5) {
+      // Same broken-PDF guard as joinLineSpans: fontSize=0 on both
+      // sides would turn this into `gap > 0` and split every span into
+      // its own subLine.
+      const fontSize = prev.fontSize || cur.fontSize || FONT_SIZE_FALLBACK_PT;
+      if (gap > fontSize * 5) {
         subLines.push([cur]);
       } else {
         subLines[subLines.length - 1].push(cur);
