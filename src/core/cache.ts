@@ -105,8 +105,22 @@ function hashFileContent(filePath: string): string {
   return hash.digest('hex').slice(0, 16);
 }
 
-export function getCacheDir(filePath: string): string {
-  const key = hashFileContent(filePath);
+/**
+ * Stable per-PDF content fingerprint — the same 16-char sha256 prefix
+ * that powers the cache directory name. Exposed so other modules can
+ * derive per-PDF subdirectories (e.g. the render output layout) from
+ * the same identity the cache uses, without re-hashing or having to
+ * parse it back out of the cache dir path.
+ */
+export function pdfFingerprint(filePath: string): string {
+  return hashFileContent(filePath);
+}
+
+export function getCacheDir(filePath: string, fingerprint?: string): string {
+  // Optional precomputed fingerprint lets a caller hash the file once
+  // and feed the same identity into both `getCacheDir` and any other
+  // per-PDF path (e.g. the render-output subdir layout in processor).
+  const key = fingerprint ?? hashFileContent(filePath);
   const root = getCacheRoot();
   ensurePrivateDir(root);
   const dir = join(root, key);

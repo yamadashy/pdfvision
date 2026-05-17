@@ -17,7 +17,7 @@ import type {
   ProcessOptions,
   TextSpan,
 } from '../types/index.js';
-import { dropCached, ensurePrivateDir, getCacheDir, getCached, setCache } from './cache.js';
+import { dropCached, ensurePrivateDir, getCacheDir, getCached, pdfFingerprint, setCache } from './cache.js';
 import { type JoinItem, joinPageText } from './cjkJoin.js';
 import { buildImageBoxes, type ImageOps } from './imageBoxes.js';
 import { buildLayout, markRepeatedBlocks } from './layout.js';
@@ -51,7 +51,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v12',
+    format: 'structured-v13',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -356,7 +356,14 @@ function dropCachedSafe(cacheDir: string, cacheKey: string): void {
  * For the formatted (string) variant used by the CLI, see {@link processFile}.
  */
 export async function processDocument(filePath: string, options: ProcessDocumentOptions = {}): Promise<DocumentResult> {
-  const cacheDir = options.noCache ? null : getCacheDir(filePath);
+  // Compute the per-PDF fingerprint up front when any code path below
+  // needs it (caching, or render output isolation). Hashing the file is
+  // the most expensive sync step in this function, so do it once and
+  // share — the cache layer accepts a precomputed fingerprint to avoid
+  // re-reading the same file.
+  const needFingerprint = !options.noCache || !!(options.render && options.renderOutput);
+  const fingerprint = needFingerprint ? pdfFingerprint(filePath) : null;
+  const cacheDir = options.noCache ? null : getCacheDir(filePath, fingerprint ?? undefined);
 
   const cacheKey = buildCacheKey(options);
   if (cacheDir) {
@@ -476,7 +483,17 @@ export async function processDocument(filePath: string, options: ProcessDocument
         // User-supplied path: don't enforce 0o700 here — the caller owns
         // their output directory and may need it readable for downstream
         // consumers. We do create it if missing.
-        imagesDir = resolve(options.renderOutput);
+        //
+        // Always namespace by the PDF fingerprint: two different PDFs
+        // sharing the same `--render-output ./images` used to overwrite
+        // each other's `page-N.png` and the renderer's PNG-reuse check
+        // happily handed the survivor back as both documents' image.
+        // A per-fingerprint subdir makes collisions structurally
+        // impossible while keeping the inner filename (`page-N.png`)
+        // stable for downstream consumers.
+        const baseDir = resolve(options.renderOutput);
+        mkdirSync(baseDir, { recursive: true });
+        imagesDir = join(baseDir, fingerprint ?? pdfFingerprint(filePath));
         mkdirSync(imagesDir, { recursive: true });
       } else if (cacheDir) {
         imagesDir = join(cacheDir, 'images');

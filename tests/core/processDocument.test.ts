@@ -89,12 +89,15 @@ describe('processDocument', () => {
     expect(existsSync(result.pages[0].image as string)).toBe(true);
   });
 
-  it('writes rendered PNGs into a caller-supplied renderOutput directory', async () => {
-    // Agent ergonomics: with renderOutput the PNGs should land directly in
-    // the caller's chosen directory (created if missing) rather than tmp.
+  it('writes rendered PNGs into a per-PDF subdirectory of the caller-supplied renderOutput', async () => {
+    // Agent ergonomics: with renderOutput the PNGs land under the caller's
+    // chosen directory (created if missing) rather than tmp. They sit in a
+    // per-PDF subdirectory (keyed by content fingerprint) so two different
+    // PDFs sharing the same `--render-output ./images` never overwrite each
+    // other — see the "keeps per-PDF rendered PNGs isolated" test below.
     const { mkdtempSync, rmSync } = await import('node:fs');
     const { tmpdir } = await import('node:os');
-    const { join, dirname } = await import('node:path');
+    const { join, dirname, relative } = await import('node:path');
     const baseTmp = mkdtempSync(join(tmpdir(), 'pdfvision-render-output-test-'));
     const outDir = join(baseTmp, 'nested', 'images'); // not yet created
     try {
@@ -106,8 +109,56 @@ describe('processDocument', () => {
       const imagePath = result.pages[0].image as string;
       expect(imagePath).toBeTypeOf('string');
       expect(existsSync(imagePath)).toBe(true);
-      // The PNG must be inside the requested directory, not anywhere else.
-      expect(dirname(imagePath)).toBe(outDir);
+      // The PNG sits one level below the requested dir (in a fingerprint
+      // subdir), not anywhere outside it.
+      const rel = relative(outDir, imagePath);
+      expect(rel.startsWith('..')).toBe(false);
+      expect(dirname(imagePath).startsWith(outDir)).toBe(true);
+      expect(dirname(imagePath)).not.toBe(outDir);
+    } finally {
+      rmSync(baseTmp, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps per-PDF rendered PNGs isolated when two PDFs share the same renderOutput directory', async () => {
+    // Regression: previously `renderer` always wrote `page-${n}.png` into the
+    // caller-supplied renderOutput dir verbatim. Running two different PDFs
+    // against the same `--render-output ./img` overwrote A's page-1.png with
+    // B's bytes — and worse, `isReusableImage` then handed B's PNG back as
+    // A's image on subsequent runs because the filename matched.
+    //
+    // Contract: distinct PDFs sharing a renderOutput directory MUST end up
+    // with distinct on-disk PNG paths, and the first PDF's image bytes
+    // MUST survive a subsequent render of the second PDF.
+    const { mkdtempSync, rmSync, readFileSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const { createHash } = await import('node:crypto');
+    const baseTmp = mkdtempSync(join(tmpdir(), 'pdfvision-render-collision-test-'));
+    const sharedOut = join(baseTmp, 'images');
+    try {
+      const a = await processDocument(SAMPLE_PDF, {
+        render: true,
+        renderOutput: sharedOut,
+        noCache: true,
+      });
+      const aImagePath = a.pages[0].image as string;
+      const aBytesBefore = createHash('sha256').update(readFileSync(aImagePath)).digest('hex');
+
+      const b = await processDocument(SAMPLE_WITH_IMAGE_PDF, {
+        render: true,
+        renderOutput: sharedOut,
+        noCache: true,
+      });
+      const bImagePath = b.pages[0].image as string;
+
+      // Different PDFs must resolve to different on-disk paths under the
+      // shared directory.
+      expect(aImagePath).not.toBe(bImagePath);
+      // A's PNG bytes must still match the original A render — they must
+      // not have been silently replaced by B's render.
+      const aBytesAfter = createHash('sha256').update(readFileSync(aImagePath)).digest('hex');
+      expect(aBytesAfter).toBe(aBytesBefore);
     } finally {
       rmSync(baseTmp, { recursive: true, force: true });
     }
