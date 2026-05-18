@@ -492,8 +492,12 @@ export async function processDocument(filePath: string, options: ProcessDocument
         // impossible while keeping the inner filename (`page-N.png`)
         // stable for downstream consumers.
         const baseDir = resolve(options.renderOutput);
-        mkdirSync(baseDir, { recursive: true });
-        imagesDir = join(baseDir, fingerprint ?? pdfFingerprint(filePath));
+        // `needFingerprint` above forces a hash whenever
+        // `render && renderOutput`, so `fingerprint` is non-null on
+        // this branch — assert rather than re-hash.
+        imagesDir = join(baseDir, fingerprint as string);
+        // `recursive: true` creates baseDir too if missing, so the
+        // separate `mkdirSync(baseDir)` would be redundant.
         mkdirSync(imagesDir, { recursive: true });
         // The fingerprint subdir name is deterministic (same PDF →
         // same name) and now sits inside a user-controlled directory
