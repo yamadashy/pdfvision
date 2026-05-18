@@ -164,6 +164,88 @@ describe('processDocument', () => {
     }
   });
 
+  it('keeps cached image paths isolated when two PDFs share renderOutput across cache hits', async () => {
+    // Complements the noCache regression test above with the cache-hit
+    // half of the same bug: a stale cached `pages[].image` must continue
+    // to point at the original PDF's fingerprint subdir even after a
+    // different PDF has been rendered into the same renderOutput. Uses
+    // an isolated PDFVISION_CACHE_DIR so this test never races the
+    // shared cache root with other vitest workers.
+    const { mkdtempSync, rmSync, readFileSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const { createHash } = await import('node:crypto');
+    const cacheRoot = mkdtempSync(join(tmpdir(), 'pdfvision-cache-isolation-test-'));
+    const sharedOut = mkdtempSync(join(tmpdir(), 'pdfvision-render-isolation-test-'));
+    const originalCache = process.env.PDFVISION_CACHE_DIR;
+    process.env.PDFVISION_CACHE_DIR = cacheRoot;
+    try {
+      const a1 = await processDocument(SAMPLE_PDF, {
+        render: true,
+        renderOutput: sharedOut,
+        noCache: false,
+      });
+      const aImagePath = a1.pages[0].image as string;
+      const aBytesBefore = createHash('sha256').update(readFileSync(aImagePath)).digest('hex');
+
+      await processDocument(SAMPLE_WITH_IMAGE_PDF, {
+        render: true,
+        renderOutput: sharedOut,
+        noCache: false,
+      });
+
+      // Re-run A: should hit the cache and hand back the same path.
+      const a2 = await processDocument(SAMPLE_PDF, {
+        render: true,
+        renderOutput: sharedOut,
+        noCache: false,
+      });
+      expect(a2.pages[0].image).toBe(aImagePath);
+      const aBytesAfter = createHash('sha256')
+        .update(readFileSync(a2.pages[0].image as string))
+        .digest('hex');
+      expect(aBytesAfter).toBe(aBytesBefore);
+    } finally {
+      if (originalCache === undefined) delete process.env.PDFVISION_CACHE_DIR;
+      else process.env.PDFVISION_CACHE_DIR = originalCache;
+      rmSync(cacheRoot, { recursive: true, force: true });
+      rmSync(sharedOut, { recursive: true, force: true });
+    }
+  });
+
+  it('refuses to render when the per-PDF subdir under renderOutput is a pre-planted symlink', async () => {
+    // Hardening: the fingerprint subdir name is deterministic, so on a
+    // shared writable host another process could plant
+    // `<renderOutput>/<fingerprint>` as a symlink to elsewhere and
+    // redirect our `page-N.png` writes. Catch that before any render
+    // happens — silently following the symlink would be a security
+    // regression vs the cache hierarchy's posture.
+    //
+    // POSIX-only: Windows `symlinkSync` needs elevated privileges or
+    // a special `type: 'dir'` mode and is awkward to test there. The
+    // matching cache-side symlink tests in `tests/core/cache.test.ts`
+    // also skip Windows for the same reason.
+    if (process.platform === 'win32') return;
+    const { mkdtempSync, mkdirSync, rmSync, symlinkSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const { pdfFingerprint } = await import('../../src/core/cache.js');
+    const baseTmp = mkdtempSync(join(tmpdir(), 'pdfvision-render-symlink-test-'));
+    const outDir = join(baseTmp, 'images');
+    const decoy = join(baseTmp, 'decoy');
+    mkdirSync(outDir, { recursive: true });
+    mkdirSync(decoy, { recursive: true });
+    const fp = pdfFingerprint(SAMPLE_PDF);
+    symlinkSync(decoy, join(outDir, fp));
+    try {
+      await expect(processDocument(SAMPLE_PDF, { render: true, renderOutput: outDir, noCache: true })).rejects.toThrow(
+        /symlink/,
+      );
+    } finally {
+      rmSync(baseTmp, { recursive: true, force: true });
+    }
+  });
+
   it('produces the same DocumentResult that processFile then JSON.parse would', async () => {
     // Same content under both APIs is the contract.
     const direct = await processDocument(SAMPLE_PDF, { noCache: true });

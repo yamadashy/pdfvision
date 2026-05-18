@@ -495,6 +495,23 @@ export async function processDocument(filePath: string, options: ProcessDocument
         mkdirSync(baseDir, { recursive: true });
         imagesDir = join(baseDir, fingerprint ?? pdfFingerprint(filePath));
         mkdirSync(imagesDir, { recursive: true });
+        // The fingerprint subdir name is deterministic (same PDF →
+        // same name) and now sits inside a user-controlled directory
+        // we explicitly do NOT lock down to 0700. In a shared writable
+        // parent (CI runners, multi-user hosts) another process could
+        // pre-create that subdir as a symlink to elsewhere; mkdir
+        // -p would silently accept it and the renderer would then
+        // write `page-N.png` through the redirect. Refuse to keep
+        // going if the path is a symlink or somehow not a directory,
+        // matching the same posture `ensurePrivateDir` enforces for
+        // the cache hierarchy.
+        const imagesDirStat = lstatSync(imagesDir);
+        if (imagesDirStat.isSymbolicLink()) {
+          throw new Error(`Refusing to render into ${imagesDir}: path is a symlink`);
+        }
+        if (!imagesDirStat.isDirectory()) {
+          throw new Error(`Refusing to render into ${imagesDir}: path exists but is not a directory`);
+        }
       } else if (cacheDir) {
         imagesDir = join(cacheDir, 'images');
         ensurePrivateDir(imagesDir);

@@ -38,6 +38,11 @@ const FILE_MODE = 0o600;
 // Reject any cache key that isn't a single safe path segment.
 // Cache callers always supply a hash-derived key, so the safe set is narrow.
 const SAFE_KEY = /^[A-Za-z0-9._-]+$/;
+// Strict shape of a per-PDF fingerprint — 16 lowercase hex chars as
+// produced by `hashFileContent`. Used to validate the optional
+// fingerprint argument to `getCacheDir`, since that path joins the
+// value into the cache root before `ensurePrivateDir` would chmod it.
+const SAFE_FINGERPRINT = /^[a-f0-9]{16}$/;
 
 const isPosix = process.platform !== 'win32';
 
@@ -120,6 +125,13 @@ export function getCacheDir(filePath: string, fingerprint?: string): string {
   // Optional precomputed fingerprint lets a caller hash the file once
   // and feed the same identity into both `getCacheDir` and any other
   // per-PDF path (e.g. the render-output subdir layout in processor).
+  // Validate the shape strictly — the value is joined into the cache
+  // root and then `ensurePrivateDir` will mkdir+chmod 0700 it, so an
+  // unchecked `../foo` from an external caller would escape the cache
+  // hierarchy.
+  if (fingerprint !== undefined && !SAFE_FINGERPRINT.test(fingerprint)) {
+    throw new Error(`Invalid pdf fingerprint: ${fingerprint}`);
+  }
   const key = fingerprint ?? hashFileContent(filePath);
   const root = getCacheRoot();
   ensurePrivateDir(root);

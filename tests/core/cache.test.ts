@@ -109,6 +109,22 @@ describe('cache', () => {
     }
   });
 
+  it('rejects an externally-supplied fingerprint that is not a 16-char hex string', () => {
+    // `getCacheDir` is re-exported from `src/index.ts`. Its optional
+    // second arg lands inside `join(cacheRoot, fingerprint)` and then
+    // `ensurePrivateDir` will mkdir+chmod 0700 it. A caller that
+    // forwards user input (or a buggy plugin) must not be able to
+    // escape the cache root via `..` or any other path-traversal
+    // payload. Reject anything that isn't the same shape
+    // `pdfFingerprint` produces.
+    expect(() => getCacheDir(tmpFile, '../escape')).toThrow(/Invalid pdf fingerprint/);
+    expect(() => getCacheDir(tmpFile, '/abs/path')).toThrow(/Invalid pdf fingerprint/);
+    expect(() => getCacheDir(tmpFile, 'CAPSHEX0123456789')).toThrow(/Invalid pdf fingerprint/);
+    expect(() => getCacheDir(tmpFile, 'short')).toThrow(/Invalid pdf fingerprint/);
+    // Accepts a well-formed precomputed fingerprint.
+    expect(() => getCacheDir(tmpFile, '0123456789abcdef')).not.toThrow();
+  });
+
   it('writes cache files private to the current user', () => {
     if (process.platform === 'win32') return; // POSIX mode bits only
     const dir = getCacheDir(tmpFile);
