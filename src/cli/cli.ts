@@ -31,7 +31,14 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
         help: { type: 'boolean', short: 'h' },
         version: { type: 'boolean', short: 'v' },
         pages: { type: 'string', short: 'p' },
-        format: { type: 'string', short: 'f', default: 'markdown' },
+        // Canonical format flag — `default` is intentionally NOT set
+        // here so we can tell "user typed -f X" apart from "no -f at
+        // all"; that distinction is needed when reconciling against
+        // the `--markdown` / `--json` / `--xml` shortcut flags below.
+        format: { type: 'string', short: 'f' },
+        markdown: { type: 'boolean' },
+        json: { type: 'boolean' },
+        xml: { type: 'boolean' },
         render: { type: 'boolean', short: 'r' },
         'render-output': { type: 'string' },
         'no-cache': { type: 'boolean' },
@@ -39,6 +46,7 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
         geometry: { type: 'boolean' },
         layout: { type: 'boolean' },
         'image-boxes': { type: 'boolean' },
+        'strip-repeated': { type: 'boolean' },
         remote: { type: 'string' },
         'clear-cache': { type: 'boolean' },
         ocr: { type: 'boolean' },
@@ -88,7 +96,32 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
     exitWithError('--remote and a file path are mutually exclusive');
   }
 
-  const format = (values.format as string) ?? 'markdown';
+  // Resolve the output format from the canonical `-f / --format` flag
+  // plus the `--markdown` / `--json` / `--xml` shortcut aliases. The
+  // canonical form is kept for completeness (future formats like html,
+  // jsonl can ride on it without inventing yet another shortcut) but
+  // the aliases are what most callers will reach for.
+  const aliasFormats: OutputFormat[] = [];
+  if (values.markdown) aliasFormats.push('markdown');
+  if (values.json) aliasFormats.push('json');
+  if (values.xml) aliasFormats.push('xml');
+  if (aliasFormats.length > 1) {
+    // Different aliases at once means the user typed two contradicting
+    // requests — silently picking last-wins would hide the intent
+    // mismatch. Fail loudly.
+    exitWithError(`Output format specified multiple times: ${aliasFormats.map((a) => `--${a}`).join(', ')}`);
+  }
+  const explicitFormat = values.format as string | undefined;
+  if (aliasFormats.length === 1 && explicitFormat !== undefined && explicitFormat !== aliasFormats[0]) {
+    // Alias and `-f` disagree (e.g. `--json -f xml`) — also a clear
+    // intent conflict.
+    exitWithError(`Output format conflict: --${aliasFormats[0]} vs --format ${explicitFormat}`);
+  }
+  // Pick alias if present, otherwise the explicit `-f` value, otherwise
+  // default to markdown. Same-value duplicates (`--json -f json`) are
+  // allowed and idempotent so a script that composes flags from
+  // multiple sources doesn't blow up on accidental redundancy.
+  const format = aliasFormats[0] ?? explicitFormat ?? 'markdown';
   if (!isValidFormat(format)) {
     exitWithError(`Invalid --format "${format}". Expected one of: ${VALID_FORMATS.join(', ')}`);
   }
@@ -99,6 +132,22 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
     // --render-output only does something if pages are actually rendered.
     // Failing fast is friendlier than silently writing nothing to the dir.
     exitWithError('--render-output requires --render');
+  }
+
+  const layout = (values.layout as boolean | undefined) ?? false;
+  const stripRepeated = (values['strip-repeated'] as boolean | undefined) ?? false;
+  if (stripRepeated && !layout) {
+    // `repeated: true` is only emitted by the cross-page layout pass,
+    // so without --layout there is no signal to filter on. Mirrors the
+    // --render-output / --render relationship above.
+    exitWithError('--strip-repeated requires --layout');
+  }
+  if (stripRepeated && format !== 'markdown') {
+    // The JSON / XML outputs already carry `repeated: true` on each
+    // layout block, so consumers there can filter themselves. Strip
+    // is only a Markdown-output concern — fail rather than silently
+    // ignore so the user notices the flag had no effect.
+    exitWithError(`--strip-repeated only applies to markdown output (got --format ${format})`);
   }
 
   const noCache = (values['no-cache'] as boolean | undefined) ?? false;
@@ -137,8 +186,9 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
       // diffing, ...).
       normalize: !((values['no-normalize'] as boolean | undefined) ?? false),
       geometry: (values.geometry as boolean | undefined) ?? false,
-      layout: (values.layout as boolean | undefined) ?? false,
+      layout,
       imageBoxes: (values['image-boxes'] as boolean | undefined) ?? false,
+      stripRepeated,
       ocr: (values.ocr as boolean | undefined) ?? false,
       ocrLang: (values['ocr-lang'] as string | undefined) ?? 'eng',
       // Library callers stay silent by default; the CLI wires warnings

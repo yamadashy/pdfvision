@@ -16,6 +16,11 @@ Usage:
 Options
   -p, --pages <range>     Pages to extract: "1", "1-5", "1,3,5", "2-4,7". Default: all pages.
   -f, --format <type>     Output format: markdown (default), json, xml.
+      --markdown          Shortcut for --format markdown.
+      --json              Shortcut for --format json.
+      --xml               Shortcut for --format xml.
+                          (Specifying more than one format, or mixing a shortcut with a different
+                          --format, is an error — pdfvision does not last-wins-resolve them.)
   -r, --render            Render each selected page to a PNG and include the path on every page result.
       --render-output <dir>
                           Directory to write rendered PNGs into, created if missing. Requires --render.
@@ -28,6 +33,11 @@ Options
                           reading order) from the same span data. Only -f json / -f xml.
       --image-boxes       Emit \`pages[].imageBoxes\` — bounding box of every raster image
                           draw on the page. Only -f json / -f xml.
+      --strip-repeated    Drop running headers / footers / page numbers (blocks the layout
+                          pass tagged as \`repeated\`) from the rendered Markdown body so
+                          LLM readers don't have to wade through the same footer N times.
+                          Markdown only; JSON / XML already expose \`repeated: true\` per
+                          block. Requires --layout.
       --ocr               Run OCR on each selected page and attach \`pages[].ocr\`
                           (text + confidence + lang). Slow; opt-in. Requires the
                           optional \`tesseract.js\` dependency. \`pages[].text\` is
@@ -50,13 +60,15 @@ Output formats
 
 Examples
   pdfvision document.pdf                                                       # markdown to stdout
-  pdfvision document.pdf -p 1-3 -f json                                        # specific pages, JSON
+  pdfvision document.pdf --json                                                # JSON shortcut
+  pdfvision document.pdf -p 1-3 --json                                         # specific pages, JSON
   pdfvision document.pdf -r --render-output ./images                           # render PNGs to ./images
-  pdfvision report.pdf -p 3-5 -r --render-output ./images --geometry -f json   # PNGs + spans for 3-5
-  pdfvision slides.pdf -f xml --geometry                                       # layout / geometry as XML
-  pdfvision scan.pdf --ocr -f json                                             # OCR a scanned PDF
-  pdfvision scan-ja.pdf --ocr --ocr-lang eng+jpn -f json                       # multi-lang OCR
-  pdfvision --remote https://example.com/paper.pdf -f json                     # fetch + extract JSON
+  pdfvision report.pdf -p 3-5 -r --render-output ./images --geometry --json    # PNGs + spans for 3-5
+  pdfvision slides.pdf --xml --geometry                                        # layout / geometry as XML
+  pdfvision report.pdf --layout --strip-repeated                               # markdown w/o repeated chrome
+  pdfvision scan.pdf --ocr --json                                              # OCR a scanned PDF
+  pdfvision scan-ja.pdf --ocr --ocr-lang eng+jpn --json                        # multi-lang OCR
+  pdfvision --remote https://example.com/paper.pdf --json                      # fetch + extract JSON
   pdfvision --clear-cache                                                      # wipe the on-disk cache
 
 Exit codes

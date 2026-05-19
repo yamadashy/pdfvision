@@ -392,4 +392,83 @@ describe('formatMarkdown', () => {
     expect(out).toMatch(/## Page 1/);
     expect(out).toMatch(/images: 3/);
   });
+
+  it('drops repeated-chrome blocks from the page body when stripRepeated + layout are on', async () => {
+    // Cross-page layout tags chrome (header / footer / page number) with
+    // `repeated: true`. With stripRepeated enabled the Markdown body
+    // rebuilds from non-repeated blocks instead of pdf.js's raw
+    // `page.text`, so the rendered body does not contain footer noise
+    // the agent would otherwise re-read on every page.
+    const out = formatMarkdown(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 'Real body line.\n© COLOPL, Inc.',
+            charCount: 31,
+            layout: {
+              blocks: [
+                { text: 'Real body line.', x: 0, y: 0, width: 100, height: 12, lines: [] },
+                {
+                  text: '© COLOPL, Inc.',
+                  x: 0,
+                  y: 780,
+                  width: 100,
+                  height: 10,
+                  lines: [],
+                  repeated: true,
+                },
+              ],
+            },
+          }),
+        ],
+      }),
+      { stripRepeated: true },
+    );
+    expect(out).toContain('Real body line.');
+    expect(out).not.toContain('© COLOPL, Inc.');
+  });
+
+  it('leaves the body untouched when stripRepeated is off (default)', async () => {
+    // Sanity: opting out of strip means the existing `page.text` flow
+    // is preserved verbatim, including the repeated chrome.
+    const out = formatMarkdown(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 'Body\n© Footer',
+            charCount: 14,
+            layout: {
+              blocks: [
+                { text: 'Body', x: 0, y: 0, width: 100, height: 12, lines: [] },
+                {
+                  text: '© Footer',
+                  x: 0,
+                  y: 780,
+                  width: 100,
+                  height: 10,
+                  lines: [],
+                  repeated: true,
+                },
+              ],
+            },
+          }),
+        ],
+      }),
+    );
+    expect(out).toContain('Body');
+    expect(out).toContain('© Footer');
+  });
+
+  it('throws when stripRepeated is requested but the page carries no layout', async () => {
+    // `repeated: true` only exists after the cross-page layout pass, so
+    // stripping without a layout payload is a misconfigured call. Fail
+    // loudly rather than silently emit the unfiltered text.
+    expect(() =>
+      formatMarkdown(makeResult({ pages: [makePage({ page: 1, text: 'no layout', charCount: 9 })] }), {
+        stripRepeated: true,
+      }),
+    ).toThrow(/stripRepeated requires layout/);
+  });
 });

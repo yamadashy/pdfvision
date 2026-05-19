@@ -114,6 +114,70 @@ describe('cli', () => {
     expect(parsed.pages[0].text).toContain('Hello pdfvision');
   });
 
+  it('accepts the --json shortcut as an alias for --format json', async () => {
+    // Canonical `-f json` is kept for forward-compat (future formats like
+    // html / jsonl can ride on it), but the alias is what most callers
+    // reach for. Same output, fewer keystrokes.
+    const r = await captureRun([SAMPLE_PDF, '--json', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    const parsed = JSON.parse(r.stdout.join('\n'));
+    expect(parsed.totalPages).toBe(1);
+  });
+
+  it('accepts the --xml shortcut as an alias for --format xml', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--xml', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    expect(r.stdout.join('\n')).toMatch(/^<document /);
+  });
+
+  it('accepts the --markdown shortcut explicitly (matches the default)', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--markdown', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    expect(r.stdout.join('\n')).toMatch(/^# /);
+  });
+
+  it('rejects two different format aliases at once', async () => {
+    // `--json --xml` is a clear intent conflict — silently picking
+    // last-wins would mask whichever the user actually meant.
+    const r = await captureRun([SAMPLE_PDF, '--json', '--xml', '--no-cache']);
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr.join('\n')).toMatch(/Output format specified multiple times/);
+  });
+
+  it('rejects a format alias that disagrees with --format', async () => {
+    // `--json -f xml` is also a conflict — same reason as above.
+    const r = await captureRun([SAMPLE_PDF, '--json', '-f', 'xml', '--no-cache']);
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr.join('\n')).toMatch(/Output format conflict/);
+  });
+
+  it('allows a format alias to match --format with the same value (idempotent)', async () => {
+    // A script that composes flags from multiple sources may end up
+    // with redundant but non-conflicting format specs (`--json -f json`).
+    // That should not be an error.
+    const r = await captureRun([SAMPLE_PDF, '--json', '-f', 'json', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    const parsed = JSON.parse(r.stdout.join('\n'));
+    expect(parsed.totalPages).toBe(1);
+  });
+
+  it('rejects --strip-repeated without --layout', async () => {
+    // `repeated: true` is only set during the cross-page layout pass,
+    // so without --layout there is nothing to filter on. Fail fast
+    // rather than silently emit unfiltered Markdown.
+    const r = await captureRun([SAMPLE_PDF, '--strip-repeated', '--no-cache']);
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr.join('\n')).toMatch(/--strip-repeated requires --layout/);
+  });
+
+  it('rejects --strip-repeated on non-markdown output', async () => {
+    // JSON / XML already expose `repeated: true` on each layout block;
+    // forcing the CLI to strip would be either no-op or destructive.
+    const r = await captureRun([SAMPLE_PDF, '--layout', '--strip-repeated', '--json', '--no-cache']);
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr.join('\n')).toMatch(/--strip-repeated only applies to markdown/);
+  });
+
   it('rejects --render-output without --render', async () => {
     // --render-output only meaningfully writes when --render is requested.
     // Silent no-op would leave the user's empty directory looking like a

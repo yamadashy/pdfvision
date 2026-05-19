@@ -310,10 +310,11 @@ async function extractPageData(
 }
 
 /** Render a structured DocumentResult into the caller-requested string format. */
-function render(result: DocumentResult, format: ProcessOptions['format']): string {
+function render(result: DocumentResult, options: ProcessOptions): string {
+  const { format } = options;
   if (format === 'json') return formatJson(result);
   if (format === 'xml') return formatXml(result);
-  return formatMarkdown(result);
+  return formatMarkdown(result, { stripRepeated: options.stripRepeated });
 }
 
 /**
@@ -671,6 +672,14 @@ export async function processDocument(filePath: string, options: ProcessDocument
  * usually want `processDocument()` instead.
  */
 export async function processFile(filePath: string, options: ProcessOptions): Promise<string> {
+  // Validate format-specific options up front so the caller doesn't pay
+  // the extraction cost (potentially seconds of pdf.js / OCR work) only
+  // to hit a render-time mismatch. `stripRepeated` depends on the
+  // layout pass having tagged blocks with `repeated: true`, which only
+  // happens when `layout: true` is requested.
+  if (options.stripRepeated && !options.layout) {
+    throw new Error('stripRepeated requires layout: true');
+  }
   const result = await processDocument(filePath, {
     pages: options.pages,
     render: options.render,
@@ -684,5 +693,5 @@ export async function processFile(filePath: string, options: ProcessOptions): Pr
     ocrLang: options.ocrLang,
     onWarning: options.onWarning,
   });
-  return render(result, options.format);
+  return render(result, options);
 }
