@@ -238,4 +238,4 @@ for (const page of result.pages) {
 
 `processFile()` returns the formatted string output (`markdown` / `json` / `xml`). `processDocument()` returns the structured object directly.
 
-Exported types: `DocumentResult`, `DocumentMetadata`, `PageOverview`, `PageResult`, `LayoutBlock`, `LayoutLine`, `PageLayout`, `ImageBox`, `TextSpan`, `PageOcr`, `OutputFormat`, `ProcessDocumentOptions`, `ProcessOptions`.
+Exported types: `DocumentResult`, `DocumentMetadata`, `PageOverview`, `PageResult`, `PageQuality`, `LayoutBlock`, `LayoutLine`, `PageLayout`, `ImageBox`, `TextSpan`, `PageOcr`, `OutputFormat`, `ProcessDocumentOptions`, `ProcessOptions`.

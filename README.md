@@ -120,7 +120,7 @@ for (const page of result.pages) {
 
 `processFile()` returns the same string output the CLI prints (`markdown` / `json` / `xml`).
 
-Exports: `processDocument`, `processFile`, `parsePageRange`, `renderPage`, `renderPages`, `getCacheDir`, `getCached`, `setCache`, plus full type definitions for `DocumentResult` / `PageResult` / `PageOverview` / `DocumentMetadata` / `ProcessDocumentOptions` / `ProcessOptions` / `OutputFormat` / `TextSpan` / `LayoutBlock` / `LayoutLine` / `PageLayout` / `ImageBox` / `PageOcr`.
+Exports: `processDocument`, `processFile`, `parsePageRange`, plus full type definitions for `DocumentResult` / `PageResult` / `PageOverview` / `PageQuality` / `DocumentMetadata` / `ProcessDocumentOptions` / `ProcessOptions` / `OutputFormat` / `TextSpan` / `LayoutBlock` / `LayoutLine` / `PageLayout` / `ImageBox` / `PageOcr`.
 
 ## 🤖 Agent Skill
 
