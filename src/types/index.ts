@@ -88,6 +88,20 @@ export interface ProcessOptions {
   imageBoxes?: boolean;
   ocr?: boolean;
   ocrLang?: string;
+  /**
+   * Drop repeated-chrome blocks (running headers, footers, page numbers
+   * detected by the cross-page layout pass) from the rendered Markdown
+   * body so an LLM doesn't have to read the same footer N times.
+   *
+   * Only applies when `format` is `'markdown'`. Passing it with `'json'`
+   * or `'xml'` throws — those formats already expose `repeated: true`
+   * on each layout block, so downstream consumers can filter themselves
+   * and a silent no-op there would be a footgun.
+   *
+   * Requires `layout: true` (the `repeated` flag is only set during the
+   * cross-page layout pass); throws otherwise.
+   */
+  stripRepeated?: boolean;
   /** See {@link ProcessDocumentOptions.onWarning}. */
   onWarning?: (message: string) => void;
 }

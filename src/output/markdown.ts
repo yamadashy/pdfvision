@@ -1,9 +1,44 @@
 import type { DocumentResult, PageResult } from '../types/index.js';
 
+/** Options that influence the Markdown rendering without changing the
+ *  underlying `DocumentResult`. JSON / XML formatters don't need them
+ *  because they already expose the same metadata (e.g. `repeated: true`)
+ *  for downstream consumers to filter themselves; Markdown is read by
+ *  humans / LLMs that benefit from the filtering being pre-applied. */
+export interface MarkdownOptions {
+  /** Drop blocks flagged `repeated: true` (running header / footer /
+   *  page number, etc.) from the per-page body. Requires the document
+   *  to have been extracted with `layout: true`; throws otherwise so
+   *  silent no-ops don't mask a misconfigured call. */
+  stripRepeated?: boolean;
+}
+
 /** "595×842" — drops trailing .00 so integer dimensions stay readable. */
 function formatSize(page: PageResult): string {
   const trim = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2));
   return `${trim(page.width)}×${trim(page.height)}`;
+}
+
+/** Body text for a page: either the pdf.js-derived `page.text` (default),
+ *  or — when `stripRepeated` is on — a layout-driven rebuild that filters
+ *  out the blocks the cross-page pass tagged as repeated chrome. */
+function pageBody(page: PageResult, options: MarkdownOptions): string {
+  if (!options.stripRepeated) return page.text;
+  if (!page.layout) {
+    // Caller asked to strip repeated chrome but the document carries no
+    // layout — `repeated: true` is only set during the cross-page
+    // layout pass, so there is no way to filter without it. Fail loud
+    // rather than silently emitting the unfiltered text.
+    throw new Error('stripRepeated requires layout extraction (pass layout: true to processDocument)');
+  }
+  // Rebuild the body from non-repeated blocks. Use double-newline
+  // separators so consecutive paragraphs / heading + body don't run
+  // together when their original spacing came from layout gaps rather
+  // than literal newlines.
+  return page.layout.blocks
+    .filter((b) => !b.repeated)
+    .map((b) => b.text)
+    .join('\n\n');
 }
 
 /**
@@ -13,7 +48,7 @@ function formatSize(page: PageResult): string {
  * visible as a single italic line to keep the silent-failure signal close to
  * the text.
  */
-export function formatMarkdown(result: DocumentResult): string {
+export function formatMarkdown(result: DocumentResult, options: MarkdownOptions = {}): string {
   const lines: string[] = [];
   lines.push(`# ${result.file}`);
   lines.push('');
@@ -110,9 +145,10 @@ export function formatMarkdown(result: DocumentResult): string {
     lines.push(
       `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${nonPrintFragment}${renderFragment}${nativeFragment}${visualFragment} · size: ${formatSize(page)}pt_`,
     );
-    if (page.text) {
+    const body = pageBody(page, options);
+    if (body) {
       lines.push('');
-      lines.push(page.text);
+      lines.push(body);
     }
     if (page.ocr) {
       // OCR sits below the native text so the agent reads pdfjs first
