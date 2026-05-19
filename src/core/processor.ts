@@ -17,7 +17,7 @@ import type {
   ProcessOptions,
   TextSpan,
 } from '../types/index.js';
-import { dropCached, ensurePrivateDir, getCacheDir, getCached, setCache } from './cache.js';
+import { dropCached, ensurePrivateDir, getCacheDir, getCached, pdfFingerprint, setCache } from './cache.js';
 import { type JoinItem, joinPageText } from './cjkJoin.js';
 import { buildImageBoxes, type ImageOps } from './imageBoxes.js';
 import { buildLayout, markRepeatedBlocks } from './layout.js';
@@ -51,7 +51,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v12',
+    format: 'structured-v13',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -356,7 +356,14 @@ function dropCachedSafe(cacheDir: string, cacheKey: string): void {
  * For the formatted (string) variant used by the CLI, see {@link processFile}.
  */
 export async function processDocument(filePath: string, options: ProcessDocumentOptions = {}): Promise<DocumentResult> {
-  const cacheDir = options.noCache ? null : getCacheDir(filePath);
+  // Compute the per-PDF fingerprint up front when any code path below
+  // needs it (caching, or render output isolation). Hashing the file is
+  // the most expensive sync step in this function, so do it once and
+  // share — the cache layer accepts a precomputed fingerprint to avoid
+  // re-reading the same file.
+  const needFingerprint = !options.noCache || !!(options.render && options.renderOutput);
+  const fingerprint = needFingerprint ? pdfFingerprint(filePath) : null;
+  const cacheDir = options.noCache ? null : getCacheDir(filePath, fingerprint ?? undefined);
 
   const cacheKey = buildCacheKey(options);
   if (cacheDir) {
@@ -476,8 +483,39 @@ export async function processDocument(filePath: string, options: ProcessDocument
         // User-supplied path: don't enforce 0o700 here — the caller owns
         // their output directory and may need it readable for downstream
         // consumers. We do create it if missing.
-        imagesDir = resolve(options.renderOutput);
+        //
+        // Always namespace by the PDF fingerprint: two different PDFs
+        // sharing the same `--render-output ./images` used to overwrite
+        // each other's `page-N.png` and the renderer's PNG-reuse check
+        // happily handed the survivor back as both documents' image.
+        // A per-fingerprint subdir makes collisions structurally
+        // impossible while keeping the inner filename (`page-N.png`)
+        // stable for downstream consumers.
+        const baseDir = resolve(options.renderOutput);
+        // `needFingerprint` above forces a hash whenever
+        // `render && renderOutput`, so `fingerprint` is non-null on
+        // this branch — assert rather than re-hash.
+        imagesDir = join(baseDir, fingerprint as string);
+        // `recursive: true` creates baseDir too if missing, so the
+        // separate `mkdirSync(baseDir)` would be redundant.
         mkdirSync(imagesDir, { recursive: true });
+        // The fingerprint subdir name is deterministic (same PDF →
+        // same name) and now sits inside a user-controlled directory
+        // we explicitly do NOT lock down to 0700. In a shared writable
+        // parent (CI runners, multi-user hosts) another process could
+        // pre-create that subdir as a symlink to elsewhere; mkdir
+        // -p would silently accept it and the renderer would then
+        // write `page-N.png` through the redirect. Refuse to keep
+        // going if the path is a symlink or somehow not a directory,
+        // matching the same posture `ensurePrivateDir` enforces for
+        // the cache hierarchy.
+        const imagesDirStat = lstatSync(imagesDir);
+        if (imagesDirStat.isSymbolicLink()) {
+          throw new Error(`Refusing to render into ${imagesDir}: path is a symlink`);
+        }
+        if (!imagesDirStat.isDirectory()) {
+          throw new Error(`Refusing to render into ${imagesDir}: path exists but is not a directory`);
+        }
       } else if (cacheDir) {
         imagesDir = join(cacheDir, 'images');
         ensurePrivateDir(imagesDir);
