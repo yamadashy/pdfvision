@@ -680,6 +680,14 @@ export async function processFile(filePath: string, options: ProcessOptions): Pr
   if (options.stripRepeated && !options.layout) {
     throw new Error('stripRepeated requires layout: true');
   }
+  if (options.stripRepeated && options.format !== 'markdown') {
+    // JSON / XML already expose `repeated: true` on each layout block,
+    // so passing `stripRepeated` with those formats is a misconfigured
+    // call (the flag would silently no-op against the formatter).
+    // Match the CLI's posture and fail loudly so library users notice
+    // the flag had no effect.
+    throw new Error(`stripRepeated only applies to markdown output (got format: ${options.format})`);
+  }
   const result = await processDocument(filePath, {
     pages: options.pages,
     render: options.render,

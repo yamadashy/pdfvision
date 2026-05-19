@@ -260,6 +260,25 @@ describe('processDocument', () => {
     await expect(processDocument(SAMPLE_PDF, { pages: 'abc', noCache: true })).rejects.toThrow(/positive integer/);
   });
 
+  it('rejects processFile({ stripRepeated, layout: false }) before any extraction work', async () => {
+    // Library variant of the CLI's `--strip-repeated requires --layout`
+    // check. Fail fast so the caller doesn't pay seconds of pdf.js
+    // work just to hit a render-time rejection.
+    await expect(
+      processFile(SAMPLE_PDF, { format: 'markdown', stripRepeated: true, layout: false, noCache: true }),
+    ).rejects.toThrow(/stripRepeated requires layout/);
+  });
+
+  it('rejects processFile({ stripRepeated, format: "json" }) — strip is markdown-only', async () => {
+    // JSON / XML already expose `repeated: true` on each layout block,
+    // so the formatter never consults `stripRepeated` there. Without
+    // this guard the library would silently no-op while the CLI errors
+    // — keep the two surfaces symmetric.
+    await expect(
+      processFile(SAMPLE_PDF, { format: 'json', stripRepeated: true, layout: true, noCache: true }),
+    ).rejects.toThrow(/stripRepeated only applies to markdown/);
+  });
+
   it('is reachable through the package public entrypoint', async () => {
     // Guard against accidentally breaking the index.ts re-export of the
     // new API. Library consumers will hit `import { processDocument } from
