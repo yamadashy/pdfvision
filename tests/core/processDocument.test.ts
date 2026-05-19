@@ -270,6 +270,22 @@ describe('processDocument', () => {
     expect(result.totalPages).toBe(1);
   });
 
+  it('keeps the public surface narrow — internal cache + renderer entry points stay unexported', async () => {
+    // Negative guard against the public surface accidentally widening
+    // again. Earlier versions re-exported cache primitives and the
+    // pdf.js-backed renderer entry points from `src/index.ts`; both
+    // had no useful contract for library consumers (renderPage
+    // required a `PDFDocumentProxy`, which made pdf.js the de-facto
+    // public contract). They live under `src/core/*` now and must
+    // not leak back out of the package barrel.
+    const pkg = (await import('../../src/index.js')) as Record<string, unknown>;
+    expect(pkg.getCacheDir).toBeUndefined();
+    expect(pkg.getCached).toBeUndefined();
+    expect(pkg.setCache).toBeUndefined();
+    expect(pkg.renderPage).toBeUndefined();
+    expect(pkg.renderPages).toBeUndefined();
+  });
+
   it('drops the cache entry when a previously rendered image has gone missing', async () => {
     // Populate the rendered cache, then delete the PNG file out from under
     // it. The next call must detect the missing image, drop the stale

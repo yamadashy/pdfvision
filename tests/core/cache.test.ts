@@ -110,13 +110,15 @@ describe('cache', () => {
   });
 
   it('rejects an externally-supplied fingerprint that is not a 16-char hex string', () => {
-    // `getCacheDir` is re-exported from `src/index.ts`. Its optional
-    // second arg lands inside `join(cacheRoot, fingerprint)` and then
-    // `ensurePrivateDir` will mkdir+chmod 0700 it. A caller that
-    // forwards user input (or a buggy plugin) must not be able to
-    // escape the cache root via `..` or any other path-traversal
-    // payload. Reject anything that isn't the same shape
-    // `pdfFingerprint` produces.
+    // `getCacheDir` is internal to `src/core/cache.ts` but still gets
+    // a precomputed fingerprint from `processor.ts`. Its second arg
+    // lands inside `join(cacheRoot, fingerprint)` and then
+    // `ensurePrivateDir` will mkdir+chmod 0700 it. Even though the
+    // function is no longer re-exported from `src/index.ts`, any
+    // caller inside core (or a future plugin) that forwards user
+    // input must not be able to escape the cache root via `..` or
+    // any other path-traversal payload. Reject anything that isn't
+    // the same shape `pdfFingerprint` produces.
     expect(() => getCacheDir(tmpFile, '../escape')).toThrow(/Invalid pdf fingerprint/);
     expect(() => getCacheDir(tmpFile, '/abs/path')).toThrow(/Invalid pdf fingerprint/);
     expect(() => getCacheDir(tmpFile, 'CAPSHEX0123456789')).toThrow(/Invalid pdf fingerprint/);
