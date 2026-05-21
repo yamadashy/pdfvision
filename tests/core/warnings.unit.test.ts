@@ -149,6 +149,31 @@ describe('detectPageWarnings', () => {
     });
   });
 
+  describe('chromeDetectionReliable context', () => {
+    it('suppresses near_bottom_edge when the cross-page chrome pass had no material', () => {
+      // Single-page extraction (`--pages 13 --layout`) — markRepeatedBlocks
+      // bails on <2 pages so what's really a running footer reads as a
+      // body block. Skipping near_bottom_edge under those conditions
+      // is the right trade: silence one warning class on single-page
+      // runs rather than fire false positives on every footer.
+      const blocks = [block(50, 700, 500, 80)]; // ends 12pt from bottom
+      const reliable = detectPageWarnings(page(blocks), { chromeDetectionReliable: true });
+      expect(reliable.some((w) => w.code === 'near_bottom_edge')).toBe(true);
+      const unreliable = detectPageWarnings(page(blocks), { chromeDetectionReliable: false });
+      expect(unreliable.filter((w) => w.code === 'near_bottom_edge')).toEqual([]);
+    });
+
+    it('still runs body_near_repeated_chrome even when context says chrome detection was unreliable', () => {
+      // body_near_repeated_chrome only fires when a block already has
+      // `repeated: true`, so absence of cross-page evidence naturally
+      // suppresses it; the gate doesn't need to enforce extra silence.
+      const out = detectPageWarnings(page([block(50, 400, 500, 102.5), block(50, 506, 500, 12, { repeated: true })]), {
+        chromeDetectionReliable: false,
+      });
+      expect(out.some((w) => w.code === 'body_near_repeated_chrome')).toBe(true);
+    });
+  });
+
   describe('body_near_repeated_chrome', () => {
     it('flags a body block whose bottom is < 6pt above a horizontally-overlapping repeated block', () => {
       // Body ends at y=502.5, chrome starts at y=506 → gap 3.5pt.
@@ -179,6 +204,25 @@ describe('detectPageWarnings', () => {
         page([block(50, 50, 500, 12, { repeated: true, text: 'header' }), block(50, 100, 500, 600)]),
       );
       expect(out.filter((w) => w.code === 'body_near_repeated_chrome')).toEqual([]);
+    });
+
+    it('flags actual bbox overlap with a repeated chrome block (negative gap)', () => {
+      // Body bottom = 510, chrome top = 502 → gap = -8 (overlap by 8pt).
+      // This is the colopl page-13 worst case: the closing line's bbox
+      // literally intersects the footer's bbox. Previously the negative
+      // gap was skipped, leaving body↔chrome overlap with no detection
+      // channel (text_overlap excludes repeated blocks too).
+      const out = detectPageWarnings(
+        page([
+          block(50, 400, 500, 110, { text: 'body closing line' }),
+          block(50, 502, 500, 12, { repeated: true, text: '© COLOPL, Inc.' }),
+        ]),
+      );
+      const overlap = out.find((w) => w.code === 'body_near_repeated_chrome');
+      expect(overlap).toBeDefined();
+      expect(overlap?.message).toMatch(/overlaps a repeated chrome block by 8\.0pt/);
+      expect(overlap?.blockIndex).toBe(0);
+      expect(overlap?.otherBlockIndex).toBe(1);
     });
   });
 

@@ -600,8 +600,18 @@ export async function processDocument(filePath: string, options: ProcessDocument
       // it behind another flag would add a config knob with no
       // meaningful cost saving. Empty arrays are omitted to keep the
       // common "no warnings" page from carrying an empty field in JSON.
+      //
+      // `chromeDetectionReliable` tells the detector whether the
+      // upstream cross-page pass had enough material to produce
+      // meaningful `repeated` flags. On a single-page extraction
+      // (or one where every page came back with empty layout) every
+      // block stays unflagged-as-chrome, so rules that distinguish
+      // body from chrome on the `repeated` axis (`near_bottom_edge`)
+      // would mis-fire on what's really a running footer.
+      const pagesWithLayout = pages.filter((p) => p.layout && p.layout.blocks.length > 0).length;
+      const chromeDetectionReliable = pagesWithLayout >= 2;
       for (const p of pages) {
-        const warnings = detectPageWarnings(p);
+        const warnings = detectPageWarnings(p, { chromeDetectionReliable });
         if (warnings.length > 0) p.warnings = warnings;
       }
     }

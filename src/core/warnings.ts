@@ -1,5 +1,21 @@
 import type { LayoutBlock, PageResult, PageWarning } from '../types/index.js';
 
+/** Context flags the orchestrator passes to the detector so the
+ *  rules can route on facts that the page alone doesn't know.
+ *  Right now the only such fact is "did chrome detection have enough
+ *  pages to run reliably?" — `markRepeatedBlocks` needs at least
+ *  two pages with layout to call anything `repeated`, so on a
+ *  single-page extraction every block is "body" by default and the
+ *  `near_bottom_edge` rule would mis-fire on running footers. */
+export interface PageWarningContext {
+  /** True when the cross-page repeated-chrome pass had enough pages
+   *  (≥ 2 with layout) to produce meaningful `block.repeated` flags.
+   *  Defaults to `true` so unit tests that hand-build pages with
+   *  explicit `repeated: true` flags don't have to thread the field
+   *  through their helpers. */
+  chromeDetectionReliable?: boolean;
+}
+
 /**
  * Detect geometry-driven layout anomalies on a single page.
  *
@@ -18,14 +34,25 @@ import type { LayoutBlock, PageResult, PageWarning } from '../types/index.js';
  * uniformly `for (...)` over it. `processor.ts` is responsible for
  * omitting the field from the public output when the array is empty.
  */
-export function detectPageWarnings(page: PageResult): PageWarning[] {
+export function detectPageWarnings(page: PageResult, context: PageWarningContext = {}): PageWarning[] {
   if (!page.layout || page.layout.blocks.length === 0) return [];
   const warnings: PageWarning[] = [];
   const blocks = page.layout.blocks;
+  // Default true: keep the unit tests' hand-built pages (which set
+  // `repeated: true` directly on blocks) free to exercise rules
+  // without threading the context through every helper.
+  const chromeDetectionReliable = context.chromeDetectionReliable !== false;
 
   detectOffPage(blocks, page.width, page.height, warnings);
   detectTextOverlap(blocks, warnings);
-  detectNearBottomEdge(blocks, page.height, warnings);
+  // `near_bottom_edge` only distinguishes body from chrome via the
+  // `repeated` flag, which is meaningless when chrome detection
+  // didn't run reliably (single-page extraction, or every layout
+  // page deselected). Suppress to avoid false positives where a
+  // running footer reads as "body crowded against the bottom".
+  if (chromeDetectionReliable) {
+    detectNearBottomEdge(blocks, page.height, warnings);
+  }
   detectBodyNearRepeatedChrome(blocks, warnings);
 
   // Stable sort by (severity error first, then code, then blockIndex)
@@ -143,34 +170,49 @@ function detectNearBottomEdge(blocks: LayoutBlock[], pageHeight: number, out: Pa
 
 function detectBodyNearRepeatedChrome(blocks: LayoutBlock[], out: PageWarning[]): void {
   // For each non-repeated body block, find the nearest repeated block
-  // below it and flag when the gap is below CHROME_TOO_CLOSE_GAP_PT.
-  // The `repeated` flag is set across pages, so chrome blocks here
-  // are the running headers / footers / page numbers that mark
-  // `markRepeatedBlocks` identifies.
+  // and flag when the body either crowds against it (gap below
+  // CHROME_TOO_CLOSE_GAP_PT) or actually overlaps it (negative gap).
+  // The overlap case is the worse one — it's the colopl page-13
+  // scenario where the body line's bbox literally intersects the
+  // footer's bbox — and the earlier draft skipped it because we
+  // also exclude repeated blocks from the generic `text_overlap`
+  // rule, leaving body↔chrome overlap with no detection channel at
+  // all.
   for (let i = 0; i < blocks.length; i++) {
     const body = blocks[i];
     if (body.repeated) continue;
+    const bodyTop = body.y;
     const bodyBottom = body.y + body.height;
     let nearest: { gap: number; index: number } | null = null;
     for (let j = 0; j < blocks.length; j++) {
       if (i === j) continue;
       const chrome = blocks[j];
       if (!chrome.repeated) continue;
-      const gap = chrome.y - bodyBottom;
-      // Only count chrome strictly below the body. A header above
-      // the body is a different geometric relationship and isn't
-      // what this rule is meant to catch.
-      if (gap < 0) continue;
+      // Chrome that lives entirely above the body (a running header
+      // above the first body block) is a different geometric
+      // relationship and isn't what this rule is meant to catch.
+      // The check uses chrome-bottom vs body-top so that a header
+      // overlapping the body's top STILL fires (overlap case).
+      const chromeBottom = chrome.y + chrome.height;
+      if (chromeBottom <= bodyTop) continue;
       if (!horizontalOverlap(body, chrome)) continue;
+      const gap = chrome.y - bodyBottom;
+      // Negative gap → bboxes overlap; positive gap → chrome below
+      // body with a vertical gap. Both are worth flagging when the
+      // gap is below the threshold; the message differentiates.
       if (nearest === null || gap < nearest.gap) {
         nearest = { gap, index: j };
       }
     }
     if (nearest === null || nearest.gap >= CHROME_TOO_CLOSE_GAP_PT) continue;
+    const message =
+      nearest.gap < 0
+        ? `body block overlaps a repeated chrome block by ${(-nearest.gap).toFixed(1)}pt — body text and footer/header are visually colliding`
+        : `body block ends ${nearest.gap.toFixed(1)}pt above a repeated chrome block (threshold ${CHROME_TOO_CLOSE_GAP_PT}pt) — body text and footer/header may run together for LLM readers`;
     out.push({
       code: 'body_near_repeated_chrome',
       severity: 'warning',
-      message: `body block ends ${nearest.gap.toFixed(1)}pt above a repeated chrome block (threshold ${CHROME_TOO_CLOSE_GAP_PT}pt) — body text and footer/header may run together for LLM readers`,
+      message,
       blockIndex: i,
       otherBlockIndex: nearest.index,
     });
