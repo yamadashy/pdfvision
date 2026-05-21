@@ -78,14 +78,19 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     // (--render or --ocr). Showing it on every doc would clutter the
     // overview with empty cells for the default text-only flow.
     const showRender = result.pages.some((p) => p.renderContentRatio !== undefined);
+    // The Warnings column appears only when at least one page carries
+    // a non-empty `warnings` array. Like NonPrint / Render, the column
+    // only shows up when there's actual signal — otherwise the table
+    // grows a column of zeroes for the default extraction.
+    const showWarnings = result.pages.some((p) => p.warnings && p.warnings.length > 0);
     lines.push('');
     lines.push('## Overview');
     lines.push('');
     lines.push(
-      `| Page | Chars | Images | Coverage |${showNonPrint ? ' NonPrint |' : ''}${showRender ? ' Render |' : ''} Size (pt) |${showBlocks ? ' Blocks |' : ''}`,
+      `| Page | Chars | Images | Coverage |${showNonPrint ? ' NonPrint |' : ''}${showRender ? ' Render |' : ''} Size (pt) |${showBlocks ? ' Blocks |' : ''}${showWarnings ? ' Warnings |' : ''}`,
     );
     lines.push(
-      `| ---: | ---: | ---: | ---: |${showNonPrint ? ' ---: |' : ''}${showRender ? ' ---: |' : ''} ---: |${showBlocks ? ' ---: |' : ''}`,
+      `| ---: | ---: | ---: | ---: |${showNonPrint ? ' ---: |' : ''}${showRender ? ' ---: |' : ''} ---: |${showBlocks ? ' ---: |' : ''}${showWarnings ? ' ---: |' : ''}`,
     );
     for (const page of result.pages) {
       const coveragePct = Math.round(page.textCoverage * 100);
@@ -104,8 +109,9 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
           ` ${page.renderContentRatio !== undefined ? `${(page.renderContentRatio * 100).toFixed(2)}%` : '—'} |`
         : '';
       const blocksCell = showBlocks ? ` ${page.layout?.blocks.length ?? 0} |` : '';
+      const warningsCell = showWarnings ? ` ${page.warnings?.length ?? 0} |` : '';
       lines.push(
-        `| ${page.page} | ${page.charCount} | ${page.imageCount} | ${coveragePct}% |${nonPrintCell}${renderCell} ${formatSize(page)} |${blocksCell}`,
+        `| ${page.page} | ${page.charCount} | ${page.imageCount} | ${coveragePct}% |${nonPrintCell}${renderCell} ${formatSize(page)} |${blocksCell}${warningsCell}`,
       );
     }
   }
@@ -142,13 +148,37 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
       page.quality.nativeTextStatus === 'empty_but_visual_content';
     const nativeFragment = showNative ? ` · native: ${page.quality.nativeTextStatus}` : '';
     const visualFragment = page.quality.visualStatus === 'blank' ? ` · visual: blank` : '';
+    // Inline the warnings count when the page has any. Mirrors the
+    // nonPrint / render fragments — the per-page density line is the
+    // first thing an agent sees inside a `## Page N` section, so
+    // surfacing the count there gives them an immediate "this page
+    // had geometry issues" signal before they read the body.
+    const warningCount = page.warnings?.length ?? 0;
+    const warningsFragment = warningCount > 0 ? ` · warnings: ${warningCount}` : '';
     lines.push(
-      `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${nonPrintFragment}${renderFragment}${nativeFragment}${visualFragment} · size: ${formatSize(page)}pt_`,
+      `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${nonPrintFragment}${renderFragment}${nativeFragment}${visualFragment}${warningsFragment} · size: ${formatSize(page)}pt_`,
     );
     const body = pageBody(page, options);
     if (body) {
       lines.push('');
       lines.push(body);
+    }
+    if (page.warnings && page.warnings.length > 0) {
+      // Per-warning blockquote section. Placed after the body so the
+      // agent reads the page content first and only sees the anomaly
+      // list when it specifically looks for problems. Blockquote `>`
+      // is visually distinct from body paragraphs and parses cleanly
+      // in both plain Markdown viewers and LLM contexts.
+      lines.push('');
+      lines.push('### Warnings');
+      lines.push('');
+      for (const w of page.warnings) {
+        // Severity goes first as a bold label so a quick scan
+        // separates `error` (likely render-broken / data-integrity)
+        // from `warning` (typesetting concern). Code follows in
+        // parentheses for the machine-readable handle.
+        lines.push(`> **${w.severity}** (${w.code}): ${w.message}`);
+      }
     }
     if (page.ocr) {
       // OCR sits below the native text so the agent reads pdfjs first

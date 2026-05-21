@@ -65,6 +65,7 @@ export function formatXml(result: DocumentResult): string {
       if (p.renderContentRatio !== undefined) ovAttrs.push(`renderContentRatio="${p.renderContentRatio}"`);
       ovAttrs.push(`nativeTextStatus="${p.quality.nativeTextStatus}"`);
       if (p.quality.visualStatus !== undefined) ovAttrs.push(`visualStatus="${p.quality.visualStatus}"`);
+      if (p.warningCount !== undefined) ovAttrs.push(`warningCount="${p.warningCount}"`);
       ovAttrs.push(`width="${p.width}"`, `height="${p.height}"`);
       out.push(`<page ${ovAttrs.join(' ')}/>`);
     }
@@ -140,6 +141,21 @@ export function formatXml(result: DocumentResult): string {
         }
         out.push('</imageBoxes>');
       }
+    }
+
+    if (page.warnings && page.warnings.length > 0) {
+      // Warnings are only attached when at least one rule fired (the
+      // detector returns `[]` on a clean page and processor omits the
+      // field), so there is no empty-warnings self-closing form like
+      // `<layout/>` to mirror — absence already means "no findings".
+      out.push('<warnings>');
+      for (const w of page.warnings) {
+        const wAttrs = [`code="${w.code}"`, `severity="${w.severity}"`];
+        if (w.blockIndex !== undefined) wAttrs.push(`blockIndex="${w.blockIndex}"`);
+        if (w.otherBlockIndex !== undefined) wAttrs.push(`otherBlockIndex="${w.otherBlockIndex}"`);
+        out.push(`<warning ${wAttrs.join(' ')}>${escapeText(w.message)}</warning>`);
+      }
+      out.push('</warnings>');
     }
 
     if (page.text) {

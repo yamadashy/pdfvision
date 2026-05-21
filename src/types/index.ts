@@ -357,6 +357,53 @@ export interface PageResult {
    * derivation rules.
    */
   quality: PageQuality;
+  /**
+   * Geometry-driven layout anomalies detected on the page (text
+   * overlapping other text, body crowded against repeated chrome,
+   * off-page bbox, ...). Present only when extraction ran with
+   * `layout: true` — the warnings live on layout blocks, so without
+   * layout there is nothing to inspect. Empty array is omitted; a
+   * populated array means at least one rule fired.
+   *
+   * Same observational stance as {@link PageQuality}: the warning
+   * describes what pdfvision saw, not what the agent should do. See
+   * {@link PageWarning} for the field semantics and the rule catalog.
+   */
+  warnings?: PageWarning[];
+}
+
+/**
+ * Geometry-driven anomaly observed on a page during the layout pass.
+ * Surfaced so agents can spot pages with overlapping text, bodies
+ * crowded against chrome, off-page bboxes, etc. — the visual problems
+ * that the existing density signals (`charCount`, `renderContentRatio`,
+ * ...) can't catch because the extraction itself succeeded.
+ */
+export interface PageWarning {
+  /** Machine-readable rule identifier. */
+  code: 'text_overlap' | 'near_bottom_edge' | 'body_near_repeated_chrome' | 'off_page';
+  /**
+   * `'error'` means likely data-integrity issue (off-page bbox usually
+   * indicates a broken render or pathological PDF), `'warning'` means
+   * a typesetting / readability concern that the extraction still
+   * carried through faithfully. Agents typically gate on `severity` to
+   * decide whether to surface to the user vs silently log.
+   */
+  severity: 'warning' | 'error';
+  /** Human-readable summary of the rule's findings on this page. */
+  message: string;
+  /**
+   * 0-based index into `page.layout.blocks` for the block the warning
+   * primarily refers to. Lets callers highlight the block without
+   * re-walking the bbox set. Omitted for warnings that don't pin to a
+   * specific block.
+   */
+  blockIndex?: number;
+  /**
+   * For pair-wise rules (currently only `text_overlap`), the second
+   * block's index. Convention: `blockIndex < otherBlockIndex`.
+   */
+  otherBlockIndex?: number;
 }
 
 /**
@@ -436,6 +483,14 @@ export interface PageOverview {
    * `pages[]`.
    */
   quality: PageQuality;
+  /**
+   * Count of geometry-driven anomalies detected on the page (mirror
+   * of `pages[].warnings.length`). Surfaced on the overview so an
+   * agent can spot problem pages from the top-level table without
+   * descending into `pages[]`. Omitted when no warnings were emitted
+   * for the page.
+   */
+  warningCount?: number;
   width: number;
   height: number;
 }

@@ -24,6 +24,7 @@ import { buildLayout, markRepeatedBlocks } from './layout.js';
 import { nonPrintableStats } from './nonPrintable.js';
 import { parsePageRangeWithSkipped } from './pageRange.js';
 import { runParallel } from './parallel.js';
+import { detectPageWarnings } from './warnings.js';
 
 /** Inputs that determine which cached entry a request maps to. */
 interface CacheKeyInput {
@@ -51,7 +52,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v13',
+    format: 'structured-v14',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -591,7 +592,29 @@ export async function processDocument(filePath: string, options: ProcessDocument
     // Repeated-chrome detection has to wait until every selected page is
     // populated, since a single page can't tell its own chrome from its
     // body. Skipped when --layout was off (nothing to flag).
-    if (flags.layout) markRepeatedBlocks(pages);
+    if (flags.layout) {
+      markRepeatedBlocks(pages);
+      // Warning detection runs strictly after `markRepeatedBlocks` so
+      // every rule can route on `block.repeated`. Cheap (post-pass over
+      // already-built blocks) so it's always on when layout is — gating
+      // it behind another flag would add a config knob with no
+      // meaningful cost saving. Empty arrays are omitted to keep the
+      // common "no warnings" page from carrying an empty field in JSON.
+      //
+      // `chromeDetectionReliable` tells the detector whether the
+      // upstream cross-page pass had enough material to produce
+      // meaningful `repeated` flags. On a single-page extraction
+      // (or one where every page came back with empty layout) every
+      // block stays unflagged-as-chrome, so rules that distinguish
+      // body from chrome on the `repeated` axis (`near_bottom_edge`)
+      // would mis-fire on what's really a running footer.
+      const pagesWithLayout = pages.filter((p) => p.layout && p.layout.blocks.length > 0).length;
+      const chromeDetectionReliable = pagesWithLayout >= 2;
+      for (const p of pages) {
+        const warnings = detectPageWarnings(p, { chromeDetectionReliable });
+        if (warnings.length > 0) p.warnings = warnings;
+      }
+    }
 
     // OCR runs after the main pass so it can attach to already-built
     // PageResults. The pdfjs-derived `text` stays untouched — agents that
@@ -637,6 +660,12 @@ export async function processDocument(filePath: string, options: ProcessDocument
             // produced a raster.
             ...(p.renderContentRatio !== undefined && { renderContentRatio: p.renderContentRatio }),
             quality: p.quality,
+            // Mirror the warnings count from each page so the top-level
+            // table flags problem pages at a glance. Omitted when no
+            // warnings fired (or when --layout was off so no detection
+            // ran), matching the PageResult.warnings field's optional
+            // shape.
+            ...(p.warnings && p.warnings.length > 0 && { warningCount: p.warnings.length }),
             width: p.width,
             height: p.height,
           }))

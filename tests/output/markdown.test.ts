@@ -471,4 +471,80 @@ describe('formatMarkdown', () => {
       }),
     ).toThrow(/stripRepeated requires layout/);
   });
+
+  it('appends a warnings fragment to the page density line and a blockquote section under the page', async () => {
+    // Per-page warnings surface in two places: a count fragment on
+    // the density line (matches the nonPrint / render / native /
+    // visual pattern) and a `### Warnings` blockquote section after
+    // the body so an agent can scan severity + code at a glance.
+    const out = formatMarkdown(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 'closing line.\n© FOO',
+            charCount: 19,
+            warnings: [
+              {
+                code: 'body_near_repeated_chrome',
+                severity: 'warning',
+                message: 'body block ends 3.5pt above a repeated chrome block',
+                blockIndex: 0,
+                otherBlockIndex: 1,
+              },
+              {
+                code: 'off_page',
+                severity: 'error',
+                message: 'block bbox extends past the page right edge',
+                blockIndex: 2,
+              },
+            ],
+          }),
+        ],
+      }),
+    );
+    expect(out).toMatch(/· warnings: 2/);
+    expect(out).toMatch(/### Warnings/);
+    expect(out).toContain('> **warning** (body_near_repeated_chrome):');
+    expect(out).toContain('> **error** (off_page):');
+  });
+
+  it('omits the warnings fragment and section when the page has no warnings', async () => {
+    // Clean page: no count fragment on the density line, no
+    // `### Warnings` heading. Same shape as the existing nonPrint /
+    // render fragments — absence means "everything OK".
+    const out = formatMarkdown(makeResult());
+    expect(out).not.toMatch(/warnings/);
+    expect(out).not.toMatch(/### Warnings/);
+  });
+
+  it('adds a Warnings column to the Overview table when at least one page has warnings', async () => {
+    // The column appears only when there's signal — keeps the
+    // overview tight for the common "no anomalies" case. Mirrors
+    // the show-NonPrint / show-Render gating.
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 2,
+        pages: [
+          makePage({ page: 1, text: 'clean', charCount: 5 }),
+          makePage({
+            page: 2,
+            text: 'problem',
+            charCount: 7,
+            warnings: [
+              {
+                code: 'off_page',
+                severity: 'error',
+                message: 'block bbox extends past the page right edge',
+                blockIndex: 0,
+              },
+            ],
+          }),
+        ],
+      }),
+    );
+    expect(out).toMatch(/\| Warnings \|/);
+    // Page 2's row carries the count, page 1 shows 0.
+    expect(out).toMatch(/\| 2 \| 7 \|.*\| 1 \|/);
+  });
 });

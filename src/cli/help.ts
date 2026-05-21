@@ -31,6 +31,9 @@ Options
                           Only takes effect with -f json or -f xml.
       --layout            Reconstruct \`pages[].layout\` (lines + blocks in approximate
                           reading order) from the same span data. Only -f json / -f xml.
+                          Also enables geometry-driven anomaly detection: any pages with
+                          overlapping text, off-page bboxes, or body crowded against
+                          repeated chrome get \`pages[].warnings\` populated.
       --image-boxes       Emit \`pages[].imageBoxes\` — bounding box of every raster image
                           draw on the page. Only -f json / -f xml.
       --strip-repeated    Drop running headers / footers / page numbers (blocks the layout
