@@ -102,6 +102,12 @@ describe('processDocument', () => {
     await expect(processDocument(SAMPLE_PDF, { render: true, renderScale: Number.NaN, noCache: true })).rejects.toThrow(
       /renderScale/,
     );
+    // Sub-rounding-tick value: `0.004` rounds to `0`, which would otherwise
+    // slip past a naive `> 0` gate done before rounding and ship `scale: 0`
+    // to the renderer. The validator must round first, then range-check.
+    await expect(processDocument(SAMPLE_PDF, { render: true, renderScale: 0.004, noCache: true })).rejects.toThrow(
+      /renderScale/,
+    );
   });
 
   it('renders a smaller PNG when renderScale is set below the default', async () => {

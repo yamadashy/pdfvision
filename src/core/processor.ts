@@ -56,10 +56,18 @@ const MAX_RENDER_SCALE = 4;
  */
 function validateRenderScale(scale: number | undefined): number | undefined {
   if (scale === undefined) return undefined;
-  if (!Number.isFinite(scale) || scale <= 0 || scale > MAX_RENDER_SCALE) {
+  if (!Number.isFinite(scale)) {
     throw new Error(`Invalid renderScale ${scale}: expected a finite number in (0, ${MAX_RENDER_SCALE}]`);
   }
-  return Math.round(scale * 100) / 100;
+  // Round before the range gate so a value like `0.004` (which would
+  // otherwise pass `> 0`, then round to `0`, then ship `0` to the
+  // renderer) is rejected up front instead of silently breaking the
+  // (0, 4] invariant downstream.
+  const rounded = Math.round(scale * 100) / 100;
+  if (rounded <= 0 || rounded > MAX_RENDER_SCALE) {
+    throw new Error(`Invalid renderScale ${scale}: expected a finite number in (0, ${MAX_RENDER_SCALE}]`);
+  }
+  return rounded;
 }
 
 /**
