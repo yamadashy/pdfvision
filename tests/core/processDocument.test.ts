@@ -89,6 +89,65 @@ describe('processDocument', () => {
     expect(existsSync(result.pages[0].image as string)).toBe(true);
   });
 
+  it('rejects an out-of-range renderScale before extraction starts', async () => {
+    // The validator runs ahead of pdfjs load + hashing so a typo in a
+    // CI script fails fast rather than burning the extraction budget on
+    // an unusable scale value.
+    await expect(processDocument(SAMPLE_PDF, { render: true, renderScale: 0, noCache: true })).rejects.toThrow(
+      /renderScale/,
+    );
+    await expect(processDocument(SAMPLE_PDF, { render: true, renderScale: 10, noCache: true })).rejects.toThrow(
+      /renderScale/,
+    );
+    await expect(processDocument(SAMPLE_PDF, { render: true, renderScale: Number.NaN, noCache: true })).rejects.toThrow(
+      /renderScale/,
+    );
+  });
+
+  it('renders a smaller PNG when renderScale is set below the default', async () => {
+    // Geometry: scale ratio should propagate to the encoded PNG dimensions
+    // (1.0× → ~half the per-axis pixels of the default 2.0×). Use loadImage
+    // because PNG dimensions live in the IHDR chunk, no full decode needed.
+    const { loadImage } = await import('@napi-rs/canvas');
+    const def = await processDocument(SAMPLE_PDF, { render: true, noCache: true });
+    const small = await processDocument(SAMPLE_PDF, { render: true, renderScale: 1, noCache: true });
+    const defImg = await loadImage(def.pages[0].image as string);
+    const smallImg = await loadImage(small.pages[0].image as string);
+    // Roughly half on each axis (allow ±1 for rounding by the rasteriser).
+    expect(Math.abs(smallImg.width - defImg.width / 2)).toBeLessThanOrEqual(1);
+    expect(Math.abs(smallImg.height - defImg.height / 2)).toBeLessThanOrEqual(1);
+  });
+
+  it('isolates non-default renderScale output from the default-scale dir under renderOutput', async () => {
+    // Two scales must not stomp each other's PNGs. The non-default scale
+    // gets a `s<scale>` subdir so the default-scale path stays stable for
+    // existing user workflows.
+    const { mkdtempSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const baseTmp = mkdtempSync(join(tmpdir(), 'pdfvision-scale-isolation-'));
+    try {
+      const def = await processDocument(SAMPLE_PDF, {
+        render: true,
+        renderOutput: baseTmp,
+        noCache: true,
+      });
+      const small = await processDocument(SAMPLE_PDF, {
+        render: true,
+        renderOutput: baseTmp,
+        renderScale: 1,
+        noCache: true,
+      });
+      expect(def.pages[0].image).not.toBe(small.pages[0].image);
+      // Non-default scale lives under an extra subdir.
+      expect((small.pages[0].image as string).split('/').filter(Boolean)).toEqual(
+        expect.arrayContaining([expect.stringMatching(/^s1$/)]),
+      );
+    } finally {
+      rmSync(baseTmp, { recursive: true, force: true });
+    }
+  });
+
   it('writes rendered PNGs into a per-PDF subdirectory of the caller-supplied renderOutput', async () => {
     // Agent ergonomics: with renderOutput the PNGs land under the caller's
     // chosen directory (created if missing) rather than tmp. They sit in a

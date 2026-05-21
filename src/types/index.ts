@@ -19,12 +19,37 @@ export interface ProcessDocumentOptions {
    */
   renderOutput?: string;
   /**
+   * Multiplier applied to the PDF's intrinsic page size when rasterising
+   * (`--render` and `--ocr`). `2` (the default) renders a 612×792 letter
+   * page at 1224×1584 — readable by vision models without losing detail.
+   * Smaller values trade fidelity for payload size (a 1.0× page is roughly
+   * a quarter the bytes of the 2.0× default and is sufficient for most
+   * agentic-vision dispatch tasks). Values outside (0, 4] throw — 4× is
+   * 16× the pixel count and a soft ceiling against accidental OOM.
+   *
+   * Affects both `pages[].image` (the on-disk PNG) and `renderContentRatio`
+   * (the same raster is what the ratio scan runs on). Different scales
+   * cache separately and write to distinct directories so back-to-back
+   * runs at different scales don't clobber each other.
+   */
+  renderScale?: number;
+  /**
    * Apply Unicode NFKC normalization to extracted text and metadata strings.
    * Defaults to `true`. PDFs (especially Japanese ones produced by Office /
    * iWork) frequently embed compatibility codepoints like `⽬` (U+2F6C) in
    * place of `目` (U+76EE), which silently break grep / diff / structured
-   * extraction downstream. Pass `false` if you specifically need the raw
-   * code points emitted by pdf.js.
+   * extraction downstream. NFKC also folds fullwidth punctuation (`（` → `(`),
+   * ligatures (`ﬁ` → `fi`), and halfwidth/fullwidth digit variants.
+   *
+   * When the normalization actually changes the page text, the
+   * pre-normalization form is preserved on `pages[].rawText` (json / xml
+   * outputs) so callers can diff the two without re-running with
+   * `normalize: false`. Markdown output only renders the normalized form
+   * — pass `normalize: false` if original codepoint fidelity matters for
+   * downstream diff / forensics / glyph-level audit.
+   *
+   * Pass `false` if you specifically need the raw code points emitted by
+   * pdf.js (e.g. a forensic tool inspecting how the PDF was authored).
    */
   normalize?: boolean;
   /**
@@ -82,6 +107,8 @@ export interface ProcessOptions {
   noCache: boolean;
   render?: boolean;
   renderOutput?: string;
+  /** See {@link ProcessDocumentOptions.renderScale}. */
+  renderScale?: number;
   normalize?: boolean;
   geometry?: boolean;
   layout?: boolean;
@@ -198,6 +225,26 @@ export interface LayoutBlock {
    * extraction is `level === 1`.
    */
   level?: 1 | 2 | 3;
+  /**
+   * Heuristic confidence in the `role: 'heading'` classification on a
+   * 0–1 scale (rounded to 2dp). Present only when `role === 'heading'`.
+   *
+   * The classifier is feature-based (font-size ratio, isShort, standalone,
+   * locally-larger-than-neighbours), not statistical — `roleConfidence`
+   * exposes how many of those features lined up rather than a calibrated
+   * probability. Useful when an agent needs to threshold (e.g. only treat
+   * `>= 0.7` as a section anchor) instead of relying on the discrete
+   * `level` tier. The two fields are correlated by construction —
+   * higher levels imply higher confidence — but the threshold value is
+   * the agent's call.
+   *
+   * Rough bands (subject to tuning; do NOT hard-code exact values):
+   *   - `>= 0.85` — clear title / top-of-section heading (level 1, or
+   *     level 2 with every structural gate passing).
+   *   - `0.60–0.85` — solid section heading with most gates passing.
+   *   - `< 0.60` — recall-oriented level-3 subsection candidates.
+   */
+  roleConfidence?: number;
   /**
    * `true` when this block appears at the same vertical position with the
    * same text on enough other pages to look like a running header, footer,

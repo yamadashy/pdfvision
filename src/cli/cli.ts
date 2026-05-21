@@ -41,6 +41,7 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
         xml: { type: 'boolean' },
         render: { type: 'boolean', short: 'r' },
         'render-output': { type: 'string' },
+        'render-scale': { type: 'string' },
         'no-cache': { type: 'boolean' },
         'no-normalize': { type: 'boolean' },
         geometry: { type: 'boolean' },
@@ -134,6 +135,26 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
     exitWithError('--render-output requires --render');
   }
 
+  // --render-scale parses as a number with explicit error messaging so
+  // the user sees the actual bounds (0, 4] instead of a generic NaN
+  // failure inside the processor. Allows --ocr-only scale changes too
+  // (OCR's internal rasterise respects the scale), so we don't gate
+  // on --render here.
+  const renderScaleRaw = values['render-scale'] as string | undefined;
+  let renderScale: number | undefined;
+  if (renderScaleRaw !== undefined) {
+    if (!render && !(values.ocr as boolean | undefined)) {
+      // No rasterisation will actually happen; the flag silently does
+      // nothing. Failing loudly mirrors the --render-output relationship.
+      exitWithError('--render-scale requires --render or --ocr');
+    }
+    const parsed = Number(renderScaleRaw);
+    if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 4) {
+      exitWithError(`Invalid --render-scale "${renderScaleRaw}": expected a number in (0, 4]`);
+    }
+    renderScale = parsed;
+  }
+
   const layout = (values.layout as boolean | undefined) ?? false;
   const stripRepeated = (values['strip-repeated'] as boolean | undefined) ?? false;
   if (stripRepeated && !layout) {
@@ -179,6 +200,7 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
       format,
       render,
       renderOutput,
+      renderScale,
       noCache,
       // NFKC normalization is on by default — agents almost always want
       // canonical Unicode. --no-normalize lets callers opt out for cases

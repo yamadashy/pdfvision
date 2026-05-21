@@ -31,12 +31,41 @@ interface CacheKeyInput {
   pages?: string;
   render?: boolean;
   renderOutput?: string;
+  renderScale?: number;
   normalize?: boolean;
   geometry?: boolean;
   layout?: boolean;
   imageBoxes?: boolean;
   ocr?: boolean;
   ocrLang?: string;
+}
+
+/** Default rasterisation multiplier — must match renderer.ts DEFAULT_SCALE. */
+const DEFAULT_RENDER_SCALE = 2;
+/** Hard cap: 4× a letter page is 2448×3168px, ~7.7Mpx. Higher invites OOM. */
+const MAX_RENDER_SCALE = 4;
+
+/**
+ * Validate a user-supplied `renderScale`. Rejects non-finite values, ≤ 0
+ * scales, and scales above {@link MAX_RENDER_SCALE}. Returns the validated
+ * number unchanged so callers can chain it inline.
+ */
+function validateRenderScale(scale: number | undefined): number | undefined {
+  if (scale === undefined) return undefined;
+  if (!Number.isFinite(scale) || scale <= 0 || scale > MAX_RENDER_SCALE) {
+    throw new Error(`Invalid renderScale ${scale}: expected a finite number in (0, ${MAX_RENDER_SCALE}]`);
+  }
+  return scale;
+}
+
+/**
+ * Format the scale for use as a filesystem path component. Trims trailing
+ * zeros so `2.0` → `2` (keeps the default path stable when callers pass
+ * the default explicitly) and `1.50` → `1.5`. Rounds to 2dp first to
+ * keep e.g. `1.234567` from minting unique cache dirs per FP-noise tick.
+ */
+function scaleDirSuffix(scale: number): string {
+  return `s${(Math.round(scale * 100) / 100).toString()}`;
 }
 
 /**
@@ -52,11 +81,17 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v14',
+    format: 'structured-v15',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
     renderOutput: input.renderOutput ? resolve(input.renderOutput) : null,
+    // Different `renderScale` values change `pages[].image` content and
+    // `renderContentRatio` (anti-aliasing shifts the histogram); key
+    // separately so a 1.5× run doesn't return a cached 2.0× payload.
+    // `null` for the off path so non-render extractions still hit a
+    // shared slot regardless of the value the caller passed.
+    renderScale: input.render || input.ocr ? (input.renderScale ?? DEFAULT_RENDER_SCALE) : null,
     // Normalized vs raw text are different payloads; key them separately so
     // toggling the flag doesn't return stale text.
     normalize: input.normalize !== false,
@@ -358,6 +393,11 @@ function dropCachedSafe(cacheDir: string, cacheKey: string): void {
  * For the formatted (string) variant used by the CLI, see {@link processFile}.
  */
 export async function processDocument(filePath: string, options: ProcessDocumentOptions = {}): Promise<DocumentResult> {
+  // Reject malformed renderScale up front — before fingerprint hashing
+  // or pdfjs load — so callers see the error fast even when --render
+  // isn't on (the validation is cheap and a leftover flag in a script
+  // shouldn't be quietly ignored).
+  const renderScale = validateRenderScale(options.renderScale);
   // Compute the per-PDF fingerprint up front when any code path below
   // needs it (caching, or render output isolation). Hashing the file is
   // the most expensive sync step in this function, so do it once and
@@ -367,7 +407,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
   const fingerprint = needFingerprint ? pdfFingerprint(filePath) : null;
   const cacheDir = options.noCache ? null : getCacheDir(filePath, fingerprint ?? undefined);
 
-  const cacheKey = buildCacheKey(options);
+  const cacheKey = buildCacheKey({ ...options, renderScale });
   if (cacheDir) {
     const cached = getCached(cacheDir, cacheKey);
     if (cached) {
@@ -481,6 +521,12 @@ export async function processDocument(filePath: string, options: ProcessDocument
     let renderRatios: (number | undefined)[] = [];
     if (options.render) {
       let imagesDir: string;
+      // Non-default scales sit in their own subdir so different scales
+      // don't share `page-N.png` filenames and stomp each other's bytes.
+      // Keeping the default (2.0) on the legacy path preserves existing
+      // user paths under `--render-output ./images/<fp>/page-N.png`.
+      const effectiveScale = renderScale ?? DEFAULT_RENDER_SCALE;
+      const scaleSubdir = effectiveScale === DEFAULT_RENDER_SCALE ? null : scaleDirSuffix(effectiveScale);
       if (options.renderOutput) {
         // User-supplied path: don't enforce 0o700 here — the caller owns
         // their output directory and may need it readable for downstream
@@ -497,7 +543,9 @@ export async function processDocument(filePath: string, options: ProcessDocument
         // `needFingerprint` above forces a hash whenever
         // `render && renderOutput`, so `fingerprint` is non-null on
         // this branch — assert rather than re-hash.
-        imagesDir = join(baseDir, fingerprint as string);
+        imagesDir = scaleSubdir
+          ? join(baseDir, fingerprint as string, scaleSubdir)
+          : join(baseDir, fingerprint as string);
         // `recursive: true` creates baseDir too if missing, so the
         // separate `mkdirSync(baseDir)` would be redundant.
         mkdirSync(imagesDir, { recursive: true });
@@ -519,7 +567,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
           throw new Error(`Refusing to render into ${imagesDir}: path exists but is not a directory`);
         }
       } else if (cacheDir) {
-        imagesDir = join(cacheDir, 'images');
+        imagesDir = scaleSubdir ? join(cacheDir, 'images', scaleSubdir) : join(cacheDir, 'images');
         ensurePrivateDir(imagesDir);
       } else {
         // mkdtemp creates with 0o700 by default and never reuses an existing
@@ -530,7 +578,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       // renderer pulls in @napi-rs/canvas (native binding); only load it
       // when --render is requested.
       const { renderPagesWithStats } = await import('./renderer.js');
-      const rendered = await renderPagesWithStats(doc, pageNumbers, imagesDir);
+      const rendered = await renderPagesWithStats(doc, pageNumbers, imagesDir, renderScale);
       imagePaths = rendered.map((r) => r.path);
       renderRatios = rendered.map((r) => r.contentRatio);
     }
@@ -626,7 +674,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       // and `--ocr` are on. attachOcr falls back to its own pdf.js
       // raster for any slot where the path is missing (no `--render`,
       // or a cache-hit slot that returned `contentRatio: undefined`).
-      await attachOcr(doc, pageNumbers, pages, ocrLang, imagePaths ?? undefined);
+      await attachOcr(doc, pageNumbers, pages, ocrLang, imagePaths ?? undefined, renderScale);
     }
 
     // Compute the derived `quality` field *after* OCR so the OCR-only
@@ -722,6 +770,7 @@ export async function processFile(filePath: string, options: ProcessOptions): Pr
     render: options.render,
     noCache: options.noCache,
     renderOutput: options.renderOutput,
+    renderScale: options.renderScale,
     normalize: options.normalize,
     geometry: options.geometry,
     layout: options.layout,

@@ -63,6 +63,7 @@ Options:
   -r, --render            Render pages as PNG images
       --render-output <dir>
                           Directory for rendered PNGs (requires --render)
+      --render-scale <n>  Rasterisation multiplier (default 2; bounds (0, 4]). Requires --render or --ocr.
       --geometry          Emit per-text-item bbox + font size in pages[].spans (json/xml)
       --layout            Reconstruct lines + blocks (with role / repeated flags) in pages[].layout
       --image-boxes       Emit per-image bbox in pages[].imageBoxes
@@ -70,7 +71,9 @@ Options:
       --ocr-lang <lang>   Tesseract lang(s), plus-separated (e.g. eng+jpn). Default: eng
       --remote <url>      Download an http(s) PDF into the cache, then extract
       --no-cache          Skip the on-disk cache
-      --no-normalize      Disable Unicode NFKC normalization (default: on)
+      --no-normalize      Disable Unicode NFKC normalization (default: on; pre-normalization text
+                          is preserved in JSON/XML \`rawText\` only when normalization changed
+                          the string — pass this if you need raw codepoints in markdown too)
       --clear-cache       Wipe every cached extraction, render, and remote download, then exit
   -v, --version           Show version
   -h, --help              Show this help

@@ -202,6 +202,27 @@ function classifyHeadings(blocks: LayoutBlock[]): void {
     dominantFs.set(b, fontWeights.length > 0 ? median(fontWeights) : (b.lines[0]?.fontSize ?? bodyFontSize));
   }
 
+  // Map a heading block's geometric features to a 0..1 confidence. Used
+  // to populate `roleConfidence` whenever a block is classified — agents
+  // that want a high-precision slice can threshold (e.g. `>= 0.7`) instead
+  // of relying on the discrete `level`. The formula is intentionally
+  // simple and inspectable: half the score comes from how far the
+  // candidate's fontSize sits above body (saturating at ratio 1.5), the
+  // other half from how many of the 4 structural gates passed (each
+  // worth 0.125). See LayoutBlock.roleConfidence in types/index.ts for
+  // the band guidance that surfaces in JSDoc.
+  const computeRoleConfidence = (
+    ratio: number,
+    isShort: boolean,
+    standalone: boolean,
+    locallyLarger: boolean,
+    singleLine: boolean,
+  ): number => {
+    const fontRatioScore = Math.max(0, Math.min(1, (ratio - 1.0) / 0.5));
+    const passed = (isShort ? 1 : 0) + (standalone ? 1 : 0) + (locallyLarger ? 1 : 0) + (singleLine ? 1 : 0);
+    return Math.round((0.5 * fontRatioScore + 0.125 * passed) * 100) / 100;
+  };
+
   for (const b of blocks) {
     const repFont = b.lines[0]?.fontSize ?? bodyFontSize;
     const ratio = repFont / bodyFontSize;
@@ -247,12 +268,14 @@ function classifyHeadings(blocks: LayoutBlock[]): void {
     const neighbours = [above, below].filter((n): n is LayoutBlock => n !== undefined);
     const locallyLarger = neighbours.every((n) => repFont > (dominantFs.get(n) ?? bodyFontSize));
 
+    const singleLine = lineCount === 1;
     if (ratio >= 1.4) {
       // Level 1: titles. Always classify, even on poster/slide pages with
       // no body text — losing the title hurts more than a rare false
       // positive on a page that's nothing but a single big word.
       b.role = 'heading';
       b.level = 1;
+      b.roleConfidence = computeRoleConfidence(ratio, isShort, standalone, locallyLarger, singleLine);
     } else if (ratio >= 1.25) {
       // Level 2 (legacy band). The historical 1.25× rule, kept intact
       // except for one new guard: if the page lacks a credible body, we
@@ -260,6 +283,7 @@ function classifyHeadings(blocks: LayoutBlock[]): void {
       if (!hasCredibleBody) continue;
       b.role = 'heading';
       b.level = 2;
+      b.roleConfidence = computeRoleConfidence(ratio, isShort, standalone, locallyLarger, singleLine);
     } else if (ratio >= 1.15) {
       // Level 2 (structural band). Catches arxiv-style 12pt section
       // headings over 10pt body. Requires the page to have real body
@@ -270,6 +294,7 @@ function classifyHeadings(blocks: LayoutBlock[]): void {
       if (!standalone && !locallyLarger) continue;
       b.role = 'heading';
       b.level = 2;
+      b.roleConfidence = computeRoleConfidence(ratio, isShort, standalone, locallyLarger, singleLine);
     } else {
       // Level 3 (subsection band). Strict gates — short + single-line +
       // locally-larger-than-same-column-neighbours + credible body. The
@@ -286,6 +311,7 @@ function classifyHeadings(blocks: LayoutBlock[]): void {
       if (!locallyLarger) continue;
       b.role = 'heading';
       b.level = 3;
+      b.roleConfidence = computeRoleConfidence(ratio, isShort, standalone, locallyLarger, singleLine);
     }
   }
 }
@@ -600,6 +626,7 @@ export function markRepeatedBlocks(pages: PageResult[]): void {
       if (block.role === 'heading') {
         block.role = undefined;
         block.level = undefined;
+        block.roleConfidence = undefined;
       }
     }
   }
