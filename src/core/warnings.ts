@@ -169,21 +169,33 @@ function detectNearBottomEdge(blocks: LayoutBlock[], pageHeight: number, out: Pa
 }
 
 function detectBodyNearRepeatedChrome(blocks: LayoutBlock[], out: PageWarning[]): void {
-  // For each non-repeated body block, find the nearest repeated block
-  // and flag when the body either crowds against it (gap below
-  // CHROME_TOO_CLOSE_GAP_PT) or actually overlaps it (negative gap).
-  // The overlap case is the worse one — it's the colopl page-13
-  // scenario where the body line's bbox literally intersects the
-  // footer's bbox — and the earlier draft skipped it because we
-  // also exclude repeated blocks from the generic `text_overlap`
-  // rule, leaving body↔chrome overlap with no detection channel at
-  // all.
+  // For each non-repeated body block, look at every repeated chrome
+  // block on the page and pick the worst geometric relationship to
+  // report:
+  //
+  //   - **Overlap**: the bboxes vertically intersect. Magnitude is
+  //     the true intersection depth (`min(bodyBottom, chromeBottom)
+  //     - max(bodyTop, chrome.y)`), not `-gap`. The naive `-gap`
+  //     would be wildly off when chrome encroaches on the body's
+  //     top edge from above — e.g. a 40pt header sitting at y=80
+  //     with body at y=100,h=600 overlaps by 20pt, but `-gap`
+  //     (`-(80 - 700) = 620`) would report a 620pt overlap and let
+  //     that header outrank a footer that's barely touching the
+  //     body's bottom.
+  //
+  //   - **Gap**: chrome sits strictly below the body bottom with a
+  //     vertical gap < CHROME_TOO_CLOSE_GAP_PT.
+  //
+  // Overlap always wins over gap (it's a worse readability problem
+  // for an LLM reader), and within each category the worst case
+  // wins — deepest overlap, or smallest gap.
   for (let i = 0; i < blocks.length; i++) {
     const body = blocks[i];
     if (body.repeated) continue;
     const bodyTop = body.y;
     const bodyBottom = body.y + body.height;
-    let nearest: { gap: number; index: number } | null = null;
+    let worstOverlap: { depth: number; index: number } | null = null;
+    let worstGap: { gap: number; index: number } | null = null;
     for (let j = 0; j < blocks.length; j++) {
       if (i === j) continue;
       const chrome = blocks[j];
@@ -191,31 +203,42 @@ function detectBodyNearRepeatedChrome(blocks: LayoutBlock[], out: PageWarning[])
       // Chrome that lives entirely above the body (a running header
       // above the first body block) is a different geometric
       // relationship and isn't what this rule is meant to catch.
-      // The check uses chrome-bottom vs body-top so that a header
-      // overlapping the body's top STILL fires (overlap case).
+      // Comparing chrome-bottom against body-top lets a header that
+      // dips into the body's top STILL fire (overlap case).
       const chromeBottom = chrome.y + chrome.height;
       if (chromeBottom <= bodyTop) continue;
       if (!horizontalOverlap(body, chrome)) continue;
-      const gap = chrome.y - bodyBottom;
-      // Negative gap → bboxes overlap; positive gap → chrome below
-      // body with a vertical gap. Both are worth flagging when the
-      // gap is below the threshold; the message differentiates.
-      if (nearest === null || gap < nearest.gap) {
-        nearest = { gap, index: j };
+      const overlapDepth = Math.min(bodyBottom, chromeBottom) - Math.max(bodyTop, chrome.y);
+      if (overlapDepth > 0) {
+        if (worstOverlap === null || overlapDepth > worstOverlap.depth) {
+          worstOverlap = { depth: overlapDepth, index: j };
+        }
+      } else {
+        const gap = chrome.y - bodyBottom;
+        if (gap >= 0 && gap < CHROME_TOO_CLOSE_GAP_PT) {
+          if (worstGap === null || gap < worstGap.gap) {
+            worstGap = { gap, index: j };
+          }
+        }
       }
     }
-    if (nearest === null || nearest.gap >= CHROME_TOO_CLOSE_GAP_PT) continue;
-    const message =
-      nearest.gap < 0
-        ? `body block overlaps a repeated chrome block by ${(-nearest.gap).toFixed(1)}pt — body text and footer/header are visually colliding`
-        : `body block ends ${nearest.gap.toFixed(1)}pt above a repeated chrome block (threshold ${CHROME_TOO_CLOSE_GAP_PT}pt) — body text and footer/header may run together for LLM readers`;
-    out.push({
-      code: 'body_near_repeated_chrome',
-      severity: 'warning',
-      message,
-      blockIndex: i,
-      otherBlockIndex: nearest.index,
-    });
+    if (worstOverlap !== null) {
+      out.push({
+        code: 'body_near_repeated_chrome',
+        severity: 'warning',
+        message: `body block overlaps a repeated chrome block by ${worstOverlap.depth.toFixed(1)}pt — body text and footer/header are visually colliding`,
+        blockIndex: i,
+        otherBlockIndex: worstOverlap.index,
+      });
+    } else if (worstGap !== null) {
+      out.push({
+        code: 'body_near_repeated_chrome',
+        severity: 'warning',
+        message: `body block ends ${worstGap.gap.toFixed(1)}pt above a repeated chrome block (threshold ${CHROME_TOO_CLOSE_GAP_PT}pt) — body text and footer/header may run together for LLM readers`,
+        blockIndex: i,
+        otherBlockIndex: worstGap.index,
+      });
+    }
   }
 }
 

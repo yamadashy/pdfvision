@@ -207,11 +207,12 @@ describe('detectPageWarnings', () => {
     });
 
     it('flags actual bbox overlap with a repeated chrome block (negative gap)', () => {
-      // Body bottom = 510, chrome top = 502 → gap = -8 (overlap by 8pt).
-      // This is the colopl page-13 worst case: the closing line's bbox
-      // literally intersects the footer's bbox. Previously the negative
-      // gap was skipped, leaving body↔chrome overlap with no detection
-      // channel (text_overlap excludes repeated blocks too).
+      // Body bottom = 510, chrome top = 502 → vertical intersection
+      // 502..510 = 8pt. This is the colopl page-13 worst case: the
+      // closing line's bbox literally intersects the footer's bbox.
+      // Previously the negative gap was skipped, leaving body↔chrome
+      // overlap with no detection channel (text_overlap excludes
+      // repeated blocks too).
       const out = detectPageWarnings(
         page([
           block(50, 400, 500, 110, { text: 'body closing line' }),
@@ -223,6 +224,42 @@ describe('detectPageWarnings', () => {
       expect(overlap?.message).toMatch(/overlaps a repeated chrome block by 8\.0pt/);
       expect(overlap?.blockIndex).toBe(0);
       expect(overlap?.otherBlockIndex).toBe(1);
+    });
+
+    it('reports true intersection depth when a repeated header dips into the body top', () => {
+      // Body at y=100,h=600 (bbox 100..700). Header at y=80,h=40 (bbox
+      // 80..120). True vertical intersection = 100..120 = 20pt. The
+      // naive `-gap = -(80 - 700) = 620` would report 620pt and let
+      // that header outrank a footer barely touching the body's bottom
+      // — so the rule must use true intersection depth.
+      const out = detectPageWarnings(
+        page([block(50, 80, 500, 40, { repeated: true, text: 'header' }), block(50, 100, 500, 600, { text: 'body' })]),
+      );
+      const overlap = out.find((w) => w.code === 'body_near_repeated_chrome');
+      expect(overlap).toBeDefined();
+      expect(overlap?.message).toMatch(/overlaps a repeated chrome block by 20\.0pt/);
+      expect(overlap?.blockIndex).toBe(1);
+      expect(overlap?.otherBlockIndex).toBe(0);
+    });
+
+    it('prefers an overlap finding over a near-gap finding when both exist on the same page', () => {
+      // Body at y=100,h=400 (bbox 100..500). Header overlaps body top
+      // by 10pt (chrome y=90,h=20 → bbox 90..110, overlap 100..110).
+      // Footer sits 4pt below body bottom (chrome y=504,h=12). Both
+      // chromes match the rule's geometric conditions; the overlap is
+      // the worse readability problem so it must win selection.
+      const out = detectPageWarnings(
+        page([
+          block(50, 90, 500, 20, { repeated: true, text: 'header' }),
+          block(50, 100, 500, 400, { text: 'body' }),
+          block(50, 504, 500, 12, { repeated: true, text: 'footer' }),
+        ]),
+      );
+      const finding = out.find((w) => w.code === 'body_near_repeated_chrome');
+      expect(finding).toBeDefined();
+      expect(finding?.message).toMatch(/overlaps a repeated chrome block by 10\.0pt/);
+      // Selection landed on the header (index 0), not the footer.
+      expect(finding?.otherBlockIndex).toBe(0);
     });
   });
 
