@@ -46,26 +46,30 @@ const DEFAULT_RENDER_SCALE = 2;
 const MAX_RENDER_SCALE = 4;
 
 /**
- * Validate a user-supplied `renderScale`. Rejects non-finite values, ≤ 0
- * scales, and scales above {@link MAX_RENDER_SCALE}. Returns the validated
- * number unchanged so callers can chain it inline.
+ * Validate and canonicalise a user-supplied `renderScale`. Rejects
+ * non-finite values, ≤ 0 scales, and scales above {@link MAX_RENDER_SCALE},
+ * then rounds to 2dp so the same value flows through cache keys, render
+ * calls, and path composition. Without the rounding step `1.23` and
+ * `1.234` would hash to different cache slots but collapse onto the
+ * same `s1.23` PNG subdir, and the renderer would hand back the first
+ * call's bytes for the second.
  */
 function validateRenderScale(scale: number | undefined): number | undefined {
   if (scale === undefined) return undefined;
   if (!Number.isFinite(scale) || scale <= 0 || scale > MAX_RENDER_SCALE) {
     throw new Error(`Invalid renderScale ${scale}: expected a finite number in (0, ${MAX_RENDER_SCALE}]`);
   }
-  return scale;
+  return Math.round(scale * 100) / 100;
 }
 
 /**
- * Format the scale for use as a filesystem path component. Trims trailing
- * zeros so `2.0` → `2` (keeps the default path stable when callers pass
- * the default explicitly) and `1.50` → `1.5`. Rounds to 2dp first to
- * keep e.g. `1.234567` from minting unique cache dirs per FP-noise tick.
+ * Format the scale for use as a filesystem path component. Assumes the
+ * input is already rounded to 2dp via {@link validateRenderScale};
+ * `Number.toString()` then drops trailing zeros so `2` → `s2` and
+ * `1.5` → `s1.5`.
  */
 function scaleDirSuffix(scale: number): string {
-  return `s${(Math.round(scale * 100) / 100).toString()}`;
+  return `s${scale.toString()}`;
 }
 
 /**
@@ -543,12 +547,6 @@ export async function processDocument(filePath: string, options: ProcessDocument
         // `needFingerprint` above forces a hash whenever
         // `render && renderOutput`, so `fingerprint` is non-null on
         // this branch — assert rather than re-hash.
-        imagesDir = scaleSubdir
-          ? join(baseDir, fingerprint as string, scaleSubdir)
-          : join(baseDir, fingerprint as string);
-        // `recursive: true` creates baseDir too if missing, so the
-        // separate `mkdirSync(baseDir)` would be redundant.
-        mkdirSync(imagesDir, { recursive: true });
         // The fingerprint subdir name is deterministic (same PDF →
         // same name) and now sits inside a user-controlled directory
         // we explicitly do NOT lock down to 0700. In a shared writable
@@ -559,12 +557,34 @@ export async function processDocument(filePath: string, options: ProcessDocument
         // going if the path is a symlink or somehow not a directory,
         // matching the same posture `ensurePrivateDir` enforces for
         // the cache hierarchy.
-        const imagesDirStat = lstatSync(imagesDir);
-        if (imagesDirStat.isSymbolicLink()) {
-          throw new Error(`Refusing to render into ${imagesDir}: path is a symlink`);
-        }
-        if (!imagesDirStat.isDirectory()) {
-          throw new Error(`Refusing to render into ${imagesDir}: path exists but is not a directory`);
+        //
+        // When `scaleSubdir` is set we also have to check the
+        // *intermediate* fingerprint dir: a planted symlink there
+        // would otherwise be followed by `mkdirSync({recursive:true})`
+        // for the scale subdir, leaving the final lstat on a real
+        // directory at the symlink's target and bypassing the check.
+        // So: assert the fingerprint dir first, then create + assert
+        // the scale subdir on top.
+        const fingerprintDir = join(baseDir, fingerprint as string);
+        // `recursive: true` creates baseDir too if missing, so the
+        // separate `mkdirSync(baseDir)` would be redundant.
+        mkdirSync(fingerprintDir, { recursive: true });
+        const assertSafeDir = (dir: string): void => {
+          const stat = lstatSync(dir);
+          if (stat.isSymbolicLink()) {
+            throw new Error(`Refusing to render into ${dir}: path is a symlink`);
+          }
+          if (!stat.isDirectory()) {
+            throw new Error(`Refusing to render into ${dir}: path exists but is not a directory`);
+          }
+        };
+        assertSafeDir(fingerprintDir);
+        if (scaleSubdir) {
+          imagesDir = join(fingerprintDir, scaleSubdir);
+          mkdirSync(imagesDir, { recursive: true });
+          assertSafeDir(imagesDir);
+        } else {
+          imagesDir = fingerprintDir;
         }
       } else if (cacheDir) {
         imagesDir = scaleSubdir ? join(cacheDir, 'images', scaleSubdir) : join(cacheDir, 'images');

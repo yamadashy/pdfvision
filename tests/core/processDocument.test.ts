@@ -305,6 +305,37 @@ describe('processDocument', () => {
     }
   });
 
+  it('also refuses a pre-planted symlink at the intermediate fingerprint dir when renderScale forces a nested subdir', async () => {
+    // Regression: with `--render-scale` the imagesDir becomes
+    // `<renderOutput>/<fingerprint>/s<scale>`. `mkdirSync(...,
+    // { recursive: true })` follows a symlink at the intermediate
+    // `<fingerprint>` segment to plant the scale subdir at the
+    // attacker's target — and a final lstat on the deeper path then
+    // sees a regular dir at the target and lets the render proceed.
+    // The check must also assert the fingerprint dir before going
+    // deeper, otherwise non-default scales silently bypass the
+    // hardening that already guards the default-scale path above.
+    if (process.platform === 'win32') return;
+    const { mkdtempSync, mkdirSync, rmSync, symlinkSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const { pdfFingerprint } = await import('../../src/core/cache.js');
+    const baseTmp = mkdtempSync(join(tmpdir(), 'pdfvision-render-scale-symlink-'));
+    const outDir = join(baseTmp, 'images');
+    const decoy = join(baseTmp, 'decoy');
+    mkdirSync(outDir, { recursive: true });
+    mkdirSync(decoy, { recursive: true });
+    const fp = pdfFingerprint(SAMPLE_PDF);
+    symlinkSync(decoy, join(outDir, fp));
+    try {
+      await expect(
+        processDocument(SAMPLE_PDF, { render: true, renderOutput: outDir, renderScale: 1, noCache: true }),
+      ).rejects.toThrow(/symlink/);
+    } finally {
+      rmSync(baseTmp, { recursive: true, force: true });
+    }
+  });
+
   it('produces the same DocumentResult that processFile then JSON.parse would', async () => {
     // Same content under both APIs is the contract.
     const direct = await processDocument(SAMPLE_PDF, { noCache: true });
