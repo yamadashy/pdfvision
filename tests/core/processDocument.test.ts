@@ -108,6 +108,13 @@ describe('processDocument', () => {
     await expect(processDocument(SAMPLE_PDF, { render: true, renderScale: 0.004, noCache: true })).rejects.toThrow(
       /renderScale/,
     );
+    // Upper-bound symmetry with the sub-tick floor test: `4.004` must
+    // be rejected on the *raw* value, not silently clamped to `4` via
+    // rounding. Otherwise the library API would accept inputs the CLI
+    // and the JSDoc explicitly reject.
+    await expect(processDocument(SAMPLE_PDF, { render: true, renderScale: 4.004, noCache: true })).rejects.toThrow(
+      /renderScale/,
+    );
   });
 
   it('renders a smaller PNG when renderScale is set below the default', async () => {
