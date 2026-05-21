@@ -154,6 +154,29 @@ describe('processDocument layout: true', () => {
     expect(rightTwoIdx).toBeGreaterThan(rightOneIdx);
   });
 
+  it('does not attach a warnings field to pages with nothing to flag', async () => {
+    // Sanity for the integration path: a clean fixture extracted with
+    // --layout must come back with no `warnings` field (we omit the
+    // field when the detector returns no findings rather than writing
+    // an empty array). Same fixture set as the repeated-detection
+    // tests; if either fires for a clean page it's a detector bug.
+    const result = await processDocument(SAMPLE_HEADERS_PDF, { noCache: true, layout: true });
+    for (const page of result.pages) {
+      expect(page.warnings).toBeUndefined();
+    }
+  });
+
+  it('skips warning detection entirely when layout is off', async () => {
+    // Same fixture, layout disabled. Even though `repeated` and bbox
+    // info would let some rules fire if computed, we deliberately
+    // don't run the detector without layout — it would be misleading
+    // since the chrome-aware rules need the cross-page pass.
+    const result = await processDocument(SAMPLE_HEADERS_PDF, { noCache: true });
+    for (const page of result.pages) {
+      expect(page.warnings).toBeUndefined();
+    }
+  });
+
   it('keeps cache entries with vs without layout separate', async () => {
     // Use SAMPLE_HEADERS_PDF rather than SAMPLE_PDF: the headers fixture is
     // only consumed by --layout tests with `noCache: true`, so its cache

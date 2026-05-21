@@ -253,4 +253,89 @@ describe('formatXml', () => {
     // with the newline encoded as a numeric entity.
     expect(out).toMatch(/<span text="a&#10;b"/);
   });
+
+  it('emits <warnings> with one <warning> per entry and includes blockIndex / otherBlockIndex when set', () => {
+    // Each detector entry becomes a `<warning code=... severity=...
+    // blockIndex=... otherBlockIndex=...>message</warning>`. Two-block
+    // rules (text_overlap, body_near_repeated_chrome) include
+    // otherBlockIndex; single-block rules (off_page) omit it.
+    const out = formatXml(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 't',
+            charCount: 1,
+            warnings: [
+              {
+                code: 'body_near_repeated_chrome',
+                severity: 'warning',
+                message: 'body crowds footer',
+                blockIndex: 0,
+                otherBlockIndex: 1,
+              },
+              {
+                code: 'off_page',
+                severity: 'error',
+                message: 'past right edge',
+                blockIndex: 2,
+              },
+            ],
+          }),
+        ],
+      }),
+    );
+    expect(out).toMatch(/<warnings>/);
+    expect(out).toMatch(
+      /<warning code="body_near_repeated_chrome" severity="warning" blockIndex="0" otherBlockIndex="1">body crowds footer<\/warning>/,
+    );
+    expect(out).toMatch(/<warning code="off_page" severity="error" blockIndex="2">past right edge<\/warning>/);
+    expect(out).toMatch(/<\/warnings>/);
+  });
+
+  it('omits the <warnings> tag entirely when the page has no warnings', () => {
+    // Absence already means "no findings". No empty `<warnings/>` form
+    // — unlike `<layout/>` or `<imageBoxes/>`, the warnings array is
+    // also omitted from the structured result when empty (processor
+    // strips it), so the XML emitter never sees the empty case.
+    const out = formatXml(makeResult());
+    expect(out).not.toMatch(/<warnings/);
+  });
+
+  it('includes warningCount on overview rows when any page has warnings', () => {
+    const out = formatXml(
+      makeResult({
+        totalPages: 2,
+        overview: [
+          {
+            page: 1,
+            charCount: 5,
+            imageCount: 0,
+            textCoverage: 0,
+            nonPrintableRatio: 0,
+            nonPrintableCount: 0,
+            quality: { nativeTextStatus: 'ok' },
+            width: 612,
+            height: 792,
+          },
+          {
+            page: 2,
+            charCount: 7,
+            imageCount: 0,
+            textCoverage: 0,
+            nonPrintableRatio: 0,
+            nonPrintableCount: 0,
+            quality: { nativeTextStatus: 'ok' },
+            warningCount: 1,
+            width: 612,
+            height: 792,
+          },
+        ],
+        pages: [makePage({ page: 1, text: 'clean' }), makePage({ page: 2, text: 'problem' })],
+      }),
+    );
+    // Page 1 lacks warningCount, page 2 has it.
+    expect(out).toMatch(/<page no="2"[^>]* warningCount="1"/);
+    expect(out).not.toMatch(/<page no="1"[^>]* warningCount=/);
+  });
 });
