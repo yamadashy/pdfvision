@@ -597,8 +597,21 @@ export async function processDocument(filePath: string, options: ProcessDocument
           imagesDir = fingerprintDir;
         }
       } else if (cacheDir) {
-        imagesDir = scaleSubdir ? join(cacheDir, 'images', scaleSubdir) : join(cacheDir, 'images');
-        ensurePrivateDir(imagesDir);
+        // Lock down the intermediate `images/` first, then the scale
+        // subdir (when present), matching the per-level pattern in
+        // ocr.ts. mkdirSync({recursive:true}) only applies the
+        // requested mode to the leaf — without an explicit
+        // ensurePrivateDir on the parent the `images/` perms would
+        // fall back to umask defaults (0755) even though the rest of
+        // the cache hierarchy is 0700.
+        const baseImagesDir = join(cacheDir, 'images');
+        ensurePrivateDir(baseImagesDir);
+        if (scaleSubdir) {
+          imagesDir = join(baseImagesDir, scaleSubdir);
+          ensurePrivateDir(imagesDir);
+        } else {
+          imagesDir = baseImagesDir;
+        }
       } else {
         // mkdtemp creates with 0o700 by default and never reuses an existing
         // path, so it sidesteps the symlink/ownership concerns for the

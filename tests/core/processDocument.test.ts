@@ -137,7 +137,7 @@ describe('processDocument', () => {
     // existing user workflows.
     const { mkdtempSync, rmSync } = await import('node:fs');
     const { tmpdir } = await import('node:os');
-    const { join } = await import('node:path');
+    const { basename, dirname, join } = await import('node:path');
     const baseTmp = mkdtempSync(join(tmpdir(), 'pdfvision-scale-isolation-'));
     try {
       const def = await processDocument(SAMPLE_PDF, {
@@ -152,10 +152,10 @@ describe('processDocument', () => {
         noCache: true,
       });
       expect(def.pages[0].image).not.toBe(small.pages[0].image);
-      // Non-default scale lives under an extra subdir.
-      expect((small.pages[0].image as string).split('/').filter(Boolean)).toEqual(
-        expect.arrayContaining([expect.stringMatching(/^s1$/)]),
-      );
+      // Non-default scale lives under an extra subdir. Use path utilities
+      // rather than a hardcoded `/` split so the assertion stays valid on
+      // Windows runners (where the separator is `\`).
+      expect(basename(dirname(small.pages[0].image as string))).toBe('s1');
     } finally {
       rmSync(baseTmp, { recursive: true, force: true });
     }
