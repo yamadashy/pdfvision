@@ -2,7 +2,7 @@
   <img src="https://raw.githubusercontent.com/yamadashy/pdfvision/main/docs/logo.svg" alt="pdfvision" width="180" />
   <h1>pdfvision</h1>
   <p>
-    <b>Turn any PDF into AI-friendly output</b>
+    <b>Give AI agents human-like PDF vision</b>
   </p>
 </div>
 
@@ -15,9 +15,9 @@
 [![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/yamadashy/pdfvision?utm_source=oss&utm_medium=github&utm_campaign=yamadashy%2Fpdfvision&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)](https://coderabbit.ai)
 [![License](https://img.shields.io/npm/l/pdfvision)](LICENSE)
 
-🔍 **pdfvision** turns any PDF into AI-friendly output — text, metadata, structured layout, and rendered page images — in a single CLI / library built for agents.
+🔍 **pdfvision** gives AI agents human-like PDF vision — text, layout, and rendered page images in one pass, delivered as a CLI / library built for agents.
 
-> **Mission: any PDF, read accurately by an AI agent.** No silent gaps, no "looks fine but the body was an image" failures.
+> **Mission: make every PDF reliably readable by AI agents.** Surface text, layout, and page images together, and expose extraction gaps instead of hiding them.
 
 ## 💡 Why pdfvision
 
@@ -25,14 +25,32 @@ PDF tooling has historically been built for humans copying text into a document.
 
 pdfvision is built around that gap. The goal is to **deliver every signal a PDF carries, in a form the agent can act on, and never silently hide that the extraction came up short.**
 
-- **Silent-failure visibility.** Every page reports `charCount`, `imageCount`, and `textCoverage`, so an agent can tell at a glance that "this slide is an image, not text" — and decide to re-run with `--render` or `--ocr` instead of trusting an empty string.
-- **Multimodal handoff in one step.** `--render` writes PNG paths the agent can pass straight to a vision model — no second tool, no temp-file plumbing.
-- **Raw structural signals.** `--layout` returns blocks with `role: 'heading'`, `repeated: true` for running headers and footers, and multi-column reading order. `--image-boxes` reports where each raster draw lands. The agent picks which signals matter; pdfvision doesn't bake one answer.
-- **OCR when text alone isn't enough.** `--ocr` runs tesseract.js on each page and attaches `pages[].ocr` (text + confidence + lang) alongside the native pdfjs text — agents diff the two to detect scanned / image-flattened pages without losing the primary signal.
-- **Compatibility codepoints handled.** Japanese and scientific PDFs full of `⽬` / `Ａ` / `ﬁ` collapse to canonical forms by default. The pre-normalisation text stays available in `rawText` when a diff matters.
+### See whether text extraction actually worked
+
+Every page reports `charCount`, `imageCount`, and `textCoverage`, so an agent can tell at a glance that "this slide is an image, not text" — and decide to re-run with `--render` or `--ocr` instead of trusting an empty string.
+
+### Look at the page, not just the text
+
+- **`--render`** writes PNG paths the agent can pass straight to a vision model — no second tool, no temp-file plumbing.
+- **`--ocr`** runs tesseract.js on each page and attaches `pages[].ocr` (text + confidence + lang) alongside the native pdfjs text — agents diff the two to detect scanned / image-flattened pages without losing the primary signal.
+
+### Preserve layout and visual structure
+
+- **`--layout`** returns blocks with `role: 'heading'`, `repeated: true` for running headers and footers, and multi-column reading order.
+- **`--image-boxes`** reports where each raster draw lands.
+- **`--geometry`** emits per-text-item `bbox` + `fontSize` so callers can reconstruct visual hierarchy themselves.
+
+The agent picks which signals matter; pdfvision doesn't bake one answer.
+
+### Keep raw evidence available
+
+- Japanese and scientific PDFs full of `⽬` / `Ａ` / `ﬁ` collapse to canonical forms by default. The pre-normalisation text stays available in `rawText` when a diff matters.
+- The `xml` format carries the same data as `json` but as `<page>` / `<text>` tags, which some LLMs locate more reliably than nested object keys.
+
+### Make repeated agent reads cheap
+
 - **Cache-first.** Same PDF, second read takes ~30 ms. Agents that revisit a PDF dozens of times across a session pay the parsing cost once.
 - **URLs are first-class.** `--remote https://…` downloads, caches, and extracts in one flag.
-- **Tag-shaped output too.** The `xml` format carries the same data as `json` but as `<page>` / `<text>` tags, which some LLMs locate more reliably than nested object keys.
 
 The design principle is **agent decides; pdfvision delivers raw signals.** No auto-detect heuristics that decide for the agent and hide what the PDF actually contained.
 
@@ -42,6 +60,9 @@ The design principle is **agent decides; pdfvision delivers raw signals.** No au
 # Try without installing
 npx pdfvision document.pdf
 
+# Render page images for a multimodal LLM
+npx pdfvision document.pdf --render
+
 # Pull from a URL
 npx pdfvision --remote https://raw.githubusercontent.com/mozilla/pdf.js-sample-files/master/tracemonkey.pdf -f json
 
@@ -49,6 +70,20 @@ npx pdfvision --remote https://raw.githubusercontent.com/mozilla/pdf.js-sample-f
 npm install -g pdfvision
 pdfvision document.pdf
 ```
+
+## 🤖 Agent Skill
+
+pdfvision ships a bundled agent skill at [`skills/pdfvision/`](https://github.com/yamadashy/pdfvision/tree/main/skills/pdfvision/) (a `SKILL.md` plus a small `references/` set) so a Claude Code, Codex, or Cursor session knows when to reach for the CLI and how to pick flags. Install it with [`npx skills`](https://github.com/vercel-labs/skills):
+
+```bash
+# Project install (default) — drops the skill into <cwd>/.claude/skills/pdfvision/
+npx skills add yamadashy/pdfvision
+
+# Global install — drops it into ~/.claude/skills/pdfvision/ instead
+npx skills add yamadashy/pdfvision -g
+```
+
+The skill covers the daily extraction flow, the density-Overview-based silent-failure detection, and points at `references/structured-output.md` (full `DocumentResult` schema for programmatic consumers) and `references/ocr.md` (multi-language OCR, traineddata, troubleshooting) only when those specific cases apply.
 
 ## 📖 Usage
 
@@ -121,20 +156,6 @@ for (const page of result.pages) {
 `processFile()` returns the same string output the CLI prints (`markdown` / `json` / `xml`).
 
 Exports: `processDocument`, `processFile`, `parsePageRange`, plus full type definitions for `DocumentResult` / `PageResult` / `PageOverview` / `PageQuality` / `DocumentMetadata` / `ProcessDocumentOptions` / `ProcessOptions` / `OutputFormat` / `TextSpan` / `LayoutBlock` / `LayoutLine` / `PageLayout` / `ImageBox` / `PageOcr`.
-
-## 🤖 Agent Skill
-
-pdfvision ships a bundled agent skill at [`skills/pdfvision/`](https://github.com/yamadashy/pdfvision/tree/main/skills/pdfvision/) (a `SKILL.md` plus a small `references/` set) so a Claude Code, Codex, or Cursor session knows when to reach for the CLI and how to pick flags. Install it with [`npx skills`](https://github.com/vercel-labs/skills):
-
-```bash
-# Project install (default) — drops the skill into <cwd>/.claude/skills/pdfvision/
-npx skills add yamadashy/pdfvision
-
-# Global install — drops it into ~/.claude/skills/pdfvision/ instead
-npx skills add yamadashy/pdfvision -g
-```
-
-The skill covers the daily extraction flow, the density-Overview-based silent-failure detection, and points at `references/structured-output.md` (full `DocumentResult` schema for programmatic consumers) and `references/ocr.md` (multi-language OCR, traineddata, troubleshooting) only when those specific cases apply.
 
 ## 💾 Caching
 
