@@ -31,12 +31,55 @@ interface CacheKeyInput {
   pages?: string;
   render?: boolean;
   renderOutput?: string;
+  renderScale?: number;
   normalize?: boolean;
   geometry?: boolean;
   layout?: boolean;
   imageBoxes?: boolean;
   ocr?: boolean;
   ocrLang?: string;
+}
+
+/** Default rasterisation multiplier — must match renderer.ts DEFAULT_SCALE. */
+const DEFAULT_RENDER_SCALE = 2;
+/** Hard cap: 4× a letter page is 2448×3168px, ~7.7Mpx. Higher invites OOM. */
+const MAX_RENDER_SCALE = 4;
+
+/**
+ * Validate and canonicalise a user-supplied `renderScale`. Rejects
+ * non-finite values, ≤ 0 scales, and scales above {@link MAX_RENDER_SCALE},
+ * then rounds to 2dp so the same value flows through cache keys, render
+ * calls, and path composition. Without the rounding step `1.23` and
+ * `1.234` would hash to different cache slots but collapse onto the
+ * same `s1.23` PNG subdir, and the renderer would hand back the first
+ * call's bytes for the second.
+ */
+function validateRenderScale(scale: number | undefined): number | undefined {
+  if (scale === undefined) return undefined;
+  // Gate against the upper bound on the raw value — otherwise `4.004`
+  // would round to `4` and slip past the cap, contradicting both the
+  // JSDoc contract and the CLI's pre-round rejection.
+  if (!Number.isFinite(scale) || scale > MAX_RENDER_SCALE) {
+    throw new Error(`Invalid renderScale ${scale}: expected a finite number in (0, ${MAX_RENDER_SCALE}]`);
+  }
+  const rounded = Math.round(scale * 100) / 100;
+  // Gate against the lower bound on the rounded value — `0.004` would
+  // otherwise pass `> 0`, round to `0`, and ship `scale: 0` to the
+  // renderer. Both gates together pin the rounded result to (0, MAX].
+  if (rounded <= 0) {
+    throw new Error(`Invalid renderScale ${scale}: expected a finite number in (0, ${MAX_RENDER_SCALE}]`);
+  }
+  return rounded;
+}
+
+/**
+ * Format the scale for use as a filesystem path component. Assumes the
+ * input is already rounded to 2dp via {@link validateRenderScale};
+ * `Number.toString()` then drops trailing zeros so `2` → `s2` and
+ * `1.5` → `s1.5`.
+ */
+function scaleDirSuffix(scale: number): string {
+  return `s${scale.toString()}`;
 }
 
 /**
@@ -52,11 +95,17 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v14',
+    format: 'structured-v15',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
     renderOutput: input.renderOutput ? resolve(input.renderOutput) : null,
+    // Different `renderScale` values change `pages[].image` content and
+    // `renderContentRatio` (anti-aliasing shifts the histogram); key
+    // separately so a 1.5× run doesn't return a cached 2.0× payload.
+    // `null` for the off path so non-render extractions still hit a
+    // shared slot regardless of the value the caller passed.
+    renderScale: input.render || input.ocr ? (input.renderScale ?? DEFAULT_RENDER_SCALE) : null,
     // Normalized vs raw text are different payloads; key them separately so
     // toggling the flag doesn't return stale text.
     normalize: input.normalize !== false,
@@ -358,6 +407,11 @@ function dropCachedSafe(cacheDir: string, cacheKey: string): void {
  * For the formatted (string) variant used by the CLI, see {@link processFile}.
  */
 export async function processDocument(filePath: string, options: ProcessDocumentOptions = {}): Promise<DocumentResult> {
+  // Reject malformed renderScale up front — before fingerprint hashing
+  // or pdfjs load — so callers see the error fast even when --render
+  // isn't on (the validation is cheap and a leftover flag in a script
+  // shouldn't be quietly ignored).
+  const renderScale = validateRenderScale(options.renderScale);
   // Compute the per-PDF fingerprint up front when any code path below
   // needs it (caching, or render output isolation). Hashing the file is
   // the most expensive sync step in this function, so do it once and
@@ -367,7 +421,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
   const fingerprint = needFingerprint ? pdfFingerprint(filePath) : null;
   const cacheDir = options.noCache ? null : getCacheDir(filePath, fingerprint ?? undefined);
 
-  const cacheKey = buildCacheKey(options);
+  const cacheKey = buildCacheKey({ ...options, renderScale });
   if (cacheDir) {
     const cached = getCached(cacheDir, cacheKey);
     if (cached) {
@@ -481,6 +535,12 @@ export async function processDocument(filePath: string, options: ProcessDocument
     let renderRatios: (number | undefined)[] = [];
     if (options.render) {
       let imagesDir: string;
+      // Non-default scales sit in their own subdir so different scales
+      // don't share `page-N.png` filenames and stomp each other's bytes.
+      // Keeping the default (2.0) on the legacy path preserves existing
+      // user paths under `--render-output ./images/<fp>/page-N.png`.
+      const effectiveScale = renderScale ?? DEFAULT_RENDER_SCALE;
+      const scaleSubdir = effectiveScale === DEFAULT_RENDER_SCALE ? null : scaleDirSuffix(effectiveScale);
       if (options.renderOutput) {
         // User-supplied path: don't enforce 0o700 here — the caller owns
         // their output directory and may need it readable for downstream
@@ -497,10 +557,6 @@ export async function processDocument(filePath: string, options: ProcessDocument
         // `needFingerprint` above forces a hash whenever
         // `render && renderOutput`, so `fingerprint` is non-null on
         // this branch — assert rather than re-hash.
-        imagesDir = join(baseDir, fingerprint as string);
-        // `recursive: true` creates baseDir too if missing, so the
-        // separate `mkdirSync(baseDir)` would be redundant.
-        mkdirSync(imagesDir, { recursive: true });
         // The fingerprint subdir name is deterministic (same PDF →
         // same name) and now sits inside a user-controlled directory
         // we explicitly do NOT lock down to 0700. In a shared writable
@@ -511,16 +567,51 @@ export async function processDocument(filePath: string, options: ProcessDocument
         // going if the path is a symlink or somehow not a directory,
         // matching the same posture `ensurePrivateDir` enforces for
         // the cache hierarchy.
-        const imagesDirStat = lstatSync(imagesDir);
-        if (imagesDirStat.isSymbolicLink()) {
-          throw new Error(`Refusing to render into ${imagesDir}: path is a symlink`);
-        }
-        if (!imagesDirStat.isDirectory()) {
-          throw new Error(`Refusing to render into ${imagesDir}: path exists but is not a directory`);
+        //
+        // When `scaleSubdir` is set we also have to check the
+        // *intermediate* fingerprint dir: a planted symlink there
+        // would otherwise be followed by `mkdirSync({recursive:true})`
+        // for the scale subdir, leaving the final lstat on a real
+        // directory at the symlink's target and bypassing the check.
+        // So: assert the fingerprint dir first, then create + assert
+        // the scale subdir on top.
+        const fingerprintDir = join(baseDir, fingerprint as string);
+        // `recursive: true` creates baseDir too if missing, so the
+        // separate `mkdirSync(baseDir)` would be redundant.
+        mkdirSync(fingerprintDir, { recursive: true });
+        const assertSafeDir = (dir: string): void => {
+          const stat = lstatSync(dir);
+          if (stat.isSymbolicLink()) {
+            throw new Error(`Refusing to render into ${dir}: path is a symlink`);
+          }
+          if (!stat.isDirectory()) {
+            throw new Error(`Refusing to render into ${dir}: path exists but is not a directory`);
+          }
+        };
+        assertSafeDir(fingerprintDir);
+        if (scaleSubdir) {
+          imagesDir = join(fingerprintDir, scaleSubdir);
+          mkdirSync(imagesDir, { recursive: true });
+          assertSafeDir(imagesDir);
+        } else {
+          imagesDir = fingerprintDir;
         }
       } else if (cacheDir) {
-        imagesDir = join(cacheDir, 'images');
-        ensurePrivateDir(imagesDir);
+        // Lock down the intermediate `images/` first, then the scale
+        // subdir (when present), matching the per-level pattern in
+        // ocr.ts. mkdirSync({recursive:true}) only applies the
+        // requested mode to the leaf — without an explicit
+        // ensurePrivateDir on the parent the `images/` perms would
+        // fall back to umask defaults (0755) even though the rest of
+        // the cache hierarchy is 0700.
+        const baseImagesDir = join(cacheDir, 'images');
+        ensurePrivateDir(baseImagesDir);
+        if (scaleSubdir) {
+          imagesDir = join(baseImagesDir, scaleSubdir);
+          ensurePrivateDir(imagesDir);
+        } else {
+          imagesDir = baseImagesDir;
+        }
       } else {
         // mkdtemp creates with 0o700 by default and never reuses an existing
         // path, so it sidesteps the symlink/ownership concerns for the
@@ -530,7 +621,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       // renderer pulls in @napi-rs/canvas (native binding); only load it
       // when --render is requested.
       const { renderPagesWithStats } = await import('./renderer.js');
-      const rendered = await renderPagesWithStats(doc, pageNumbers, imagesDir);
+      const rendered = await renderPagesWithStats(doc, pageNumbers, imagesDir, renderScale);
       imagePaths = rendered.map((r) => r.path);
       renderRatios = rendered.map((r) => r.contentRatio);
     }
@@ -626,7 +717,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       // and `--ocr` are on. attachOcr falls back to its own pdf.js
       // raster for any slot where the path is missing (no `--render`,
       // or a cache-hit slot that returned `contentRatio: undefined`).
-      await attachOcr(doc, pageNumbers, pages, ocrLang, imagePaths ?? undefined);
+      await attachOcr(doc, pageNumbers, pages, ocrLang, imagePaths ?? undefined, renderScale);
     }
 
     // Compute the derived `quality` field *after* OCR so the OCR-only
@@ -722,6 +813,7 @@ export async function processFile(filePath: string, options: ProcessOptions): Pr
     render: options.render,
     noCache: options.noCache,
     renderOutput: options.renderOutput,
+    renderScale: options.renderScale,
     normalize: options.normalize,
     geometry: options.geometry,
     layout: options.layout,

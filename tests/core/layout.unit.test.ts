@@ -129,6 +129,62 @@ describe('buildLayout — heading classification', () => {
     expect(title?.role).toBe('heading');
     expect(title?.level).toBe(1);
   });
+
+  it('attaches a 0..1 roleConfidence whenever a block is classified as heading', () => {
+    // The number is the agent-facing knob for threshold-based dispatch
+    // ("only treat >= 0.7 as a section anchor"). Pinning to a specific
+    // value would be brittle, but the field must (a) exist for every
+    // heading and (b) sit in [0, 1].
+    const spans: TextSpan[] = [
+      span('Title', 50, 50, 30, 100),
+      span('First sentence of body content that anchors the median.', 50, 100, 11),
+      span('Second sentence keeps the body weighting high.', 50, 115, 11),
+      span('Third sentence pushes char count above credible body.', 50, 130, 11),
+    ];
+    const layout = buildLayout(spans);
+    const title = layout.blocks.find((b) => b.text.includes('Title'));
+    expect(title?.role).toBe('heading');
+    expect(title?.roleConfidence).toBeTypeOf('number');
+    expect(title?.roleConfidence ?? 0).toBeGreaterThan(0);
+    expect(title?.roleConfidence ?? 0).toBeLessThanOrEqual(1);
+  });
+
+  it('does not attach roleConfidence to blocks that are not headings', () => {
+    // Negative complement to the heading-confidence test — body blocks
+    // must come back with the field absent so consumers can tell "no
+    // role" from "low-confidence role".
+    const spans: TextSpan[] = [
+      span('Body line one stays at the body fontSize.', 50, 50, 12),
+      span('Body line two keeps the page uniformly body.', 50, 70, 12),
+    ];
+    const layout = buildLayout(spans);
+    for (const block of layout.blocks) {
+      expect(block.roleConfidence).toBeUndefined();
+    }
+  });
+
+  it('reports higher roleConfidence for clear titles than for borderline subheadings', () => {
+    // Ordering is the agent-facing contract: an agent thresholding at
+    // 0.7 should reliably pick up clear titles and reliably drop
+    // borderline level-3 subsections, regardless of exact numeric values.
+    const titleSpans: TextSpan[] = [
+      span('Big Bold Title', 50, 50, 30, 100),
+      span('First sentence of body content that anchors the median fontSize.', 50, 100, 11),
+      span('Second sentence keeps the body weighting clearly high.', 50, 115, 11),
+      span('Third sentence pushes char count above credible body.', 50, 130, 11),
+    ];
+    const subSpans: TextSpan[] = [];
+    subSpans.push(span('Body paragraph above the candidate subheading.', 50, 100, 10));
+    subSpans.push(span('3.1. Subsection', 50, 200, 11, 80));
+    for (let i = 0; i < 20; i++) {
+      subSpans.push(span('Body content sits underneath the subheading here.', 50, 220 + i * 10, 10));
+    }
+    const titleLayout = buildLayout(titleSpans);
+    const subLayout = buildLayout(subSpans);
+    const title = titleLayout.blocks.find((b) => b.text.includes('Big Bold Title'));
+    const sub = subLayout.blocks.find((b) => b.text.includes('Subsection'));
+    expect(title?.roleConfidence).toBeGreaterThan(sub?.roleConfidence ?? 1);
+  });
 });
 
 describe('buildLayout — multi-column reading order', () => {
@@ -304,6 +360,12 @@ describe('buildLayout — multi-column reading order', () => {
       makePage(2, 'Body of page 2'),
       makePage(3, 'Body of page 3'),
     ];
+    // Seed roleConfidence on the EN block so we can assert it's wiped
+    // along with role / level when the block is reclassified as chrome.
+    for (const page of pages) {
+      const en = page.layout?.blocks[0];
+      if (en) en.roleConfidence = 0.9;
+    }
     markRepeatedBlocks(pages);
     for (const page of pages) {
       const en = page.layout?.blocks[0];
@@ -311,6 +373,7 @@ describe('buildLayout — multi-column reading order', () => {
       expect(en?.repeated).toBe(true);
       expect(en?.role).toBeUndefined();
       expect(en?.level).toBeUndefined();
+      expect(en?.roleConfidence).toBeUndefined();
       // Body blocks (different text per page) stay non-repeated and
       // keep whatever role they had.
       expect(body?.repeated).toBeUndefined();

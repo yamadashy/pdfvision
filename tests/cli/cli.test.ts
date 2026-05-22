@@ -187,6 +187,27 @@ describe('cli', () => {
     expect(r.stderr.join('\n')).toMatch(/--render-output requires --render/);
   });
 
+  it('rejects --render-scale without --render or --ocr', async () => {
+    // Same posture as --render-output: silently ignoring a flag the user
+    // explicitly passed would hide misconfiguration.
+    const r = await captureRun([SAMPLE_PDF, '--render-scale', '1.5']);
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr.join('\n')).toMatch(/--render-scale requires --render or --ocr/);
+  });
+
+  it('rejects --render-scale outside (0, 4]', async () => {
+    // Upper bound: 4× a letter page is already ~7.7Mpx; higher invites OOM.
+    const r = await captureRun([SAMPLE_PDF, '--render', '--render-scale', '10']);
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr.join('\n')).toMatch(/Invalid --render-scale.*\(0, 4\]/);
+  });
+
+  it('rejects non-numeric --render-scale', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--render', '--render-scale', 'huge']);
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr.join('\n')).toMatch(/Invalid --render-scale/);
+  });
+
   it('surfaces processor errors as a clean CLI error', async () => {
     // Invalid pages selector — processor throws, CLI should turn that into
     // exit(1) + stderr message instead of an unhandled rejection.

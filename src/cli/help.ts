@@ -25,8 +25,14 @@ Options
       --render-output <dir>
                           Directory to write rendered PNGs into, created if missing. Requires --render.
                           Without this, PNGs land under the cache (or OS tmp with --no-cache).
+      --render-scale <n>  Rasterisation multiplier for --render / --ocr. Default 2 (≈144 DPI on a
+                          letter page). Smaller values shrink the PNG (and vision-model payload);
+                          larger values capture more detail. Accepts decimals; bounds (0, 4].
       --no-normalize      Disable Unicode NFKC normalization. Default ON; pre-normalization text is
                           surfaced in \`rawText\` (json/xml) when normalization changed the string.
+                          Markdown output shows only the normalized form — pass --no-normalize if
+                          original codepoint fidelity (e.g. fullwidth punctuation \`（\`, ligatures
+                          \`ﬁ\`) matters for downstream diff / forensics.
       --geometry          Emit per-text-item bbox + font size in \`pages[].spans\`.
                           Only takes effect with -f json or -f xml.
       --layout            Reconstruct \`pages[].layout\` (lines + blocks in approximate
@@ -66,6 +72,7 @@ Examples
   pdfvision document.pdf --json                                                # JSON shortcut
   pdfvision document.pdf -p 1-3 --json                                         # specific pages, JSON
   pdfvision document.pdf -r --render-output ./images                           # render PNGs to ./images
+  pdfvision slides.pdf -r --render-scale 1                                     # 1× raster (smaller PNGs)
   pdfvision report.pdf -p 3-5 -r --render-output ./images --geometry --json    # PNGs + spans for 3-5
   pdfvision slides.pdf --xml --geometry                                        # layout / geometry as XML
   pdfvision report.pdf --layout --strip-repeated                               # markdown w/o repeated chrome

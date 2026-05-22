@@ -125,6 +125,7 @@ export async function attachOcr(
   pages: { ocr?: PageOcr; renderContentRatio?: number }[],
   lang: string,
   imagePaths?: (string | undefined)[],
+  scale?: number,
 ): Promise<void> {
   // Canonicalise whitespace / stray separators so ` eng + jpn ` and
   // `eng+jpn` end up with the same echoed `ocr.lang`. Order is preserved
@@ -148,7 +149,7 @@ export async function attachOcr(
       if (cachedImage) {
         png = await readFile(cachedImage);
       } else {
-        const rasterised = await renderPageToBuffer(doc, pageNumbers[i]);
+        const rasterised = await renderPageToBuffer(doc, pageNumbers[i], scale);
         png = rasterised.buffer;
         contentRatio = rasterised.contentRatio;
       }

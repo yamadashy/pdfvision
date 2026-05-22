@@ -89,6 +89,78 @@ describe('processDocument', () => {
     expect(existsSync(result.pages[0].image as string)).toBe(true);
   });
 
+  it('rejects an out-of-range renderScale before extraction starts', async () => {
+    // The validator runs ahead of pdfjs load + hashing so a typo in a
+    // CI script fails fast rather than burning the extraction budget on
+    // an unusable scale value.
+    await expect(processDocument(SAMPLE_PDF, { render: true, renderScale: 0, noCache: true })).rejects.toThrow(
+      /renderScale/,
+    );
+    await expect(processDocument(SAMPLE_PDF, { render: true, renderScale: 10, noCache: true })).rejects.toThrow(
+      /renderScale/,
+    );
+    await expect(processDocument(SAMPLE_PDF, { render: true, renderScale: Number.NaN, noCache: true })).rejects.toThrow(
+      /renderScale/,
+    );
+    // Sub-rounding-tick value: `0.004` rounds to `0`, which would otherwise
+    // slip past a naive `> 0` gate done before rounding and ship `scale: 0`
+    // to the renderer. The validator must round first, then range-check.
+    await expect(processDocument(SAMPLE_PDF, { render: true, renderScale: 0.004, noCache: true })).rejects.toThrow(
+      /renderScale/,
+    );
+    // Upper-bound symmetry with the sub-tick floor test: `4.004` must
+    // be rejected on the *raw* value, not silently clamped to `4` via
+    // rounding. Otherwise the library API would accept inputs the CLI
+    // and the JSDoc explicitly reject.
+    await expect(processDocument(SAMPLE_PDF, { render: true, renderScale: 4.004, noCache: true })).rejects.toThrow(
+      /renderScale/,
+    );
+  });
+
+  it('renders a smaller PNG when renderScale is set below the default', async () => {
+    // Geometry: scale ratio should propagate to the encoded PNG dimensions
+    // (1.0× → ~half the per-axis pixels of the default 2.0×). Use loadImage
+    // because PNG dimensions live in the IHDR chunk, no full decode needed.
+    const { loadImage } = await import('@napi-rs/canvas');
+    const def = await processDocument(SAMPLE_PDF, { render: true, noCache: true });
+    const small = await processDocument(SAMPLE_PDF, { render: true, renderScale: 1, noCache: true });
+    const defImg = await loadImage(def.pages[0].image as string);
+    const smallImg = await loadImage(small.pages[0].image as string);
+    // Roughly half on each axis (allow ±1 for rounding by the rasteriser).
+    expect(Math.abs(smallImg.width - defImg.width / 2)).toBeLessThanOrEqual(1);
+    expect(Math.abs(smallImg.height - defImg.height / 2)).toBeLessThanOrEqual(1);
+  });
+
+  it('isolates non-default renderScale output from the default-scale dir under renderOutput', async () => {
+    // Two scales must not stomp each other's PNGs. The non-default scale
+    // gets a `s<scale>` subdir so the default-scale path stays stable for
+    // existing user workflows.
+    const { mkdtempSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { basename, dirname, join } = await import('node:path');
+    const baseTmp = mkdtempSync(join(tmpdir(), 'pdfvision-scale-isolation-'));
+    try {
+      const def = await processDocument(SAMPLE_PDF, {
+        render: true,
+        renderOutput: baseTmp,
+        noCache: true,
+      });
+      const small = await processDocument(SAMPLE_PDF, {
+        render: true,
+        renderOutput: baseTmp,
+        renderScale: 1,
+        noCache: true,
+      });
+      expect(def.pages[0].image).not.toBe(small.pages[0].image);
+      // Non-default scale lives under an extra subdir. Use path utilities
+      // rather than a hardcoded `/` split so the assertion stays valid on
+      // Windows runners (where the separator is `\`).
+      expect(basename(dirname(small.pages[0].image as string))).toBe('s1');
+    } finally {
+      rmSync(baseTmp, { recursive: true, force: true });
+    }
+  });
+
   it('writes rendered PNGs into a per-PDF subdirectory of the caller-supplied renderOutput', async () => {
     // Agent ergonomics: with renderOutput the PNGs land under the caller's
     // chosen directory (created if missing) rather than tmp. They sit in a
@@ -241,6 +313,37 @@ describe('processDocument', () => {
       await expect(processDocument(SAMPLE_PDF, { render: true, renderOutput: outDir, noCache: true })).rejects.toThrow(
         /symlink/,
       );
+    } finally {
+      rmSync(baseTmp, { recursive: true, force: true });
+    }
+  });
+
+  it('also refuses a pre-planted symlink at the intermediate fingerprint dir when renderScale forces a nested subdir', async () => {
+    // Regression: with `--render-scale` the imagesDir becomes
+    // `<renderOutput>/<fingerprint>/s<scale>`. `mkdirSync(...,
+    // { recursive: true })` follows a symlink at the intermediate
+    // `<fingerprint>` segment to plant the scale subdir at the
+    // attacker's target — and a final lstat on the deeper path then
+    // sees a regular dir at the target and lets the render proceed.
+    // The check must also assert the fingerprint dir before going
+    // deeper, otherwise non-default scales silently bypass the
+    // hardening that already guards the default-scale path above.
+    if (process.platform === 'win32') return;
+    const { mkdtempSync, mkdirSync, rmSync, symlinkSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const { pdfFingerprint } = await import('../../src/core/cache.js');
+    const baseTmp = mkdtempSync(join(tmpdir(), 'pdfvision-render-scale-symlink-'));
+    const outDir = join(baseTmp, 'images');
+    const decoy = join(baseTmp, 'decoy');
+    mkdirSync(outDir, { recursive: true });
+    mkdirSync(decoy, { recursive: true });
+    const fp = pdfFingerprint(SAMPLE_PDF);
+    symlinkSync(decoy, join(outDir, fp));
+    try {
+      await expect(
+        processDocument(SAMPLE_PDF, { render: true, renderOutput: outDir, renderScale: 1, noCache: true }),
+      ).rejects.toThrow(/symlink/);
     } finally {
       rmSync(baseTmp, { recursive: true, force: true });
     }
