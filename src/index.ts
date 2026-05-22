@@ -25,6 +25,7 @@ export type {
   PageOverview,
   PageQuality,
   PageResult,
+  PageWarning,
   ProcessDocumentOptions,
   ProcessOptions,
   TextSpan,
