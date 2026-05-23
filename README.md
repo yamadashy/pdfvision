@@ -42,6 +42,17 @@ Every page reports `charCount`, `imageCount`, and `textCoverage`, so an agent ca
 
 The agent picks which signals matter; pdfvision doesn't bake one answer.
 
+### Spot anomalies a human would notice
+
+When `--layout` is on, each page also carries `pages[].warnings` — the kind of "this page looks off" signals a human would catch at a glance, but a text-only extractor would silently miss:
+
+- **`text_overlap`** — two text blocks visibly overlap on the page.
+- **`near_bottom_edge`** — body text runs into the bottom margin (often a sign of clipped content).
+- **`body_near_repeated_chrome`** — body text sits on top of, or right against, a running header / footer.
+- **`off_page`** (severity `error`) — a block's bbox lies outside the page's MediaBox.
+
+Each warning carries `code`, `severity` (`warning` | `error`), `message`, and the offending `blockIndex` (plus `otherBlockIndex` where applicable), and is emitted in all three output formats.
+
 ### Keep raw evidence available
 
 - Japanese and scientific PDFs full of `⽬` / `Ａ` / `ﬁ` collapse to canonical forms by default. The pre-normalisation text stays available in `rawText` when a diff matters.
@@ -100,7 +111,9 @@ Options:
                           Directory for rendered PNGs (requires --render)
       --render-scale <n>  Rasterisation multiplier (default 2; bounds (0, 4]). Requires --render or --ocr.
       --geometry          Emit per-text-item bbox + font size in pages[].spans (json/xml)
-      --layout            Reconstruct lines + blocks (with role / repeated flags) in pages[].layout
+      --layout            Reconstruct lines + blocks (with role / repeated flags) in pages[].layout;
+                          also emit pages[].warnings (text_overlap / near_bottom_edge /
+                          body_near_repeated_chrome / off_page)
       --image-boxes       Emit per-image bbox in pages[].imageBoxes
       --ocr               Run tesseract.js OCR; attach pages[].ocr (text/confidence/lang)
       --ocr-lang <lang>   Tesseract lang(s), plus-separated (e.g. eng+jpn). Default: eng
@@ -129,7 +142,9 @@ pdfvision document.pdf -p 1-3 -f json
 # Render PNGs into ./images for a multimodal LLM
 pdfvision document.pdf -r --render-output ./images
 
-# Layout + image bboxes — agent reconstructs reading order itself
+# Layout + image bboxes — agent reconstructs reading order itself,
+# and pages[].warnings flags overlapping text, body running into the
+# bottom edge, body colliding with running headers/footers, etc.
 pdfvision document.pdf --layout --image-boxes -f json
 
 # Per-text-item geometry (bbox + fontSize per glyph run)
@@ -158,7 +173,7 @@ for (const page of result.pages) {
 
 `processFile()` returns the same string output the CLI prints (`markdown` / `json` / `xml`).
 
-Exports: `processDocument`, `processFile`, `parsePageRange`, plus full type definitions for `DocumentResult` / `PageResult` / `PageOverview` / `PageQuality` / `DocumentMetadata` / `ProcessDocumentOptions` / `ProcessOptions` / `OutputFormat` / `TextSpan` / `LayoutBlock` / `LayoutLine` / `PageLayout` / `ImageBox` / `PageOcr`.
+Exports: `processDocument`, `processFile`, `parsePageRange`, plus full type definitions for `DocumentResult` / `PageResult` / `PageOverview` / `PageQuality` / `DocumentMetadata` / `ProcessDocumentOptions` / `ProcessOptions` / `OutputFormat` / `TextSpan` / `LayoutBlock` / `LayoutLine` / `PageLayout` / `ImageBox` / `PageOcr` / `PageWarning`.
 
 ## 💾 Caching
 
