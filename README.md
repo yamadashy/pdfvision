@@ -49,9 +49,9 @@ When `--layout` is on, each page also carries `pages[].warnings` — the kind of
 - **`text_overlap`** — two text blocks visibly overlap on the page.
 - **`near_bottom_edge`** — body text runs into the bottom margin (often a sign of clipped content).
 - **`body_near_repeated_chrome`** — body text sits on top of, or right against, a running header / footer.
-- **`off_page`** (severity `error`) — a block's bbox lies outside the page's MediaBox entirely.
+- **`off_page`** (severity `error`) — a block's bbox lies outside the page's MediaBox.
 
-Each warning carries `code`, `severity` (`warning` | `error`), `message`, and the offending `blockIndex` (plus `otherBlockIndex` for overlap cases), and is emitted in all three output formats.
+Each warning carries `code`, `severity` (`warning` | `error`), `message`, and the offending `blockIndex` (plus `otherBlockIndex` where applicable), and is emitted in all three output formats.
 
 ### Keep raw evidence available
 
