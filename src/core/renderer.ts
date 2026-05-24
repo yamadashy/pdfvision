@@ -147,9 +147,14 @@ export async function renderPageToBuffer(
   const viewport = page.getViewport({ scale });
 
   // With a region, the canvas captures only the sub-rectangle; without
-  // it, we render the full viewport.
-  const canvasW = region ? Math.round(region.width * scale) : viewport.width;
-  const canvasH = region ? Math.round(region.height * scale) : viewport.height;
+  // it, we render the full viewport. `Math.round` matches the rounding
+  // pdf.js uses on the full viewport so cropped + full pixel grids
+  // align at integer pt × integer scale. `Math.max(1, ...)` keeps
+  // sub-pixel regions (e.g. 0.4pt × scale 1 → 0.4px) from collapsing
+  // the canvas to a 0-dim allocation that @napi-rs/canvas refuses with
+  // an opaque error.
+  const canvasW = region ? Math.max(1, Math.round(region.width * scale)) : viewport.width;
+  const canvasH = region ? Math.max(1, Math.round(region.height * scale)) : viewport.height;
   const canvas = createCanvas(canvasW, canvasH);
   const context = canvas.getContext('2d');
 

@@ -454,9 +454,20 @@ export async function processDocument(filePath: string, options: ProcessDocument
   const renderScale = validateRenderScale(options.renderScale);
   // Same posture for renderRegion: shape (positive width/height, no
   // negatives, finite numbers) gets validated synchronously; the
-  // single-page + within-bounds checks come after page resolution and
-  // pdfjs load below.
+  // single-page + within-bounds + non-rotated-page checks come after
+  // page resolution and pdfjs load below.
   const renderRegion = validateRenderRegion(options.renderRegion);
+  // renderRegion only makes sense when rasterisation actually runs.
+  // The CLI already enforces this, but library callers can bypass it
+  // and we'd then hit two real bugs: (1) the result cache slot is
+  // shared with text-only extractions (renderRegion isn't part of the
+  // text-only cache key), so back-to-back calls with different regions
+  // would return stale `renderRegion` echoes; (2) the single-page +
+  // bounds checks below sit inside the `options.render || options.ocr`
+  // branch, so they'd silently no-op. Fail loud at the boundary instead.
+  if (renderRegion && !options.render && !options.ocr) {
+    throw new Error('renderRegion requires render: true or ocr: true');
+  }
   // Compute the per-PDF fingerprint up front when any code path below
   // needs it (caching, or render output isolation). Hashing the file is
   // the most expensive sync step in this function, so do it once and
@@ -578,16 +589,34 @@ export async function processDocument(filePath: string, options: ProcessDocument
         `renderRegion requires exactly 1 page (resolved ${pageNumbers.length} from pages selector ${options.pages ? `"${options.pages}"` : '(all pages)'})`,
       );
     }
-    // Bounds check against the actual page viewport (post-rotation, in
-    // PDF points). Catches off-page regions before we burn the raster.
+    // Bounds + rotation guards. V1 rejects pages with `page.rotate !== 0`
+    // because pdfvision's existing geometry (spans / imageBoxes /
+    // layout.blocks) is in unrotated MediaBox-derived coordinates, while
+    // pdf.js's render viewport applies rotation. The two coord systems
+    // disagree for /Rotate 90/180/270, so a user pulling a bbox from
+    // `imageBoxes` and feeding it as `renderRegion` would crop the
+    // wrong area on rotated pages. Fixing the underlying inconsistency
+    // is a multi-file refactor (renderer + spans + imageBoxes + layout);
+    // out of V1 scope. Reject loudly so the agent doesn't get a silently
+    // wrong PNG.
     if (renderRegion && (options.render || options.ocr)) {
       const probePage = await doc.getPage(pageNumbers[0]);
-      const probeViewport = probePage.getViewport({ scale: 1 });
+      if (probePage.rotate !== 0) {
+        throw new Error(
+          `renderRegion is not supported on rotated pages (page ${pageNumbers[0]} has rotate=${probePage.rotate}); the region coord system would not match imageBoxes / layout.blocks. V1 limitation.`,
+        );
+      }
+      // Bounds against the page MediaBox dimensions — matches the
+      // coordinate system pdfvision exposes via spans / imageBoxes
+      // / layout.blocks, not the post-rotation viewport.
+      const view = probePage.view;
+      const pageW = Math.abs(view[2] - view[0]);
+      const pageH = Math.abs(view[3] - view[1]);
       const right = renderRegion.x + renderRegion.width;
       const bottom = renderRegion.y + renderRegion.height;
-      if (right > probeViewport.width || bottom > probeViewport.height) {
+      if (right > pageW || bottom > pageH) {
         throw new Error(
-          `renderRegion ${right}×${bottom} (right×bottom) falls outside page ${pageNumbers[0]} bounds ${probeViewport.width}×${probeViewport.height} (width×height, PDF points)`,
+          `renderRegion ${right}×${bottom} (right×bottom) falls outside page ${pageNumbers[0]} bounds ${pageW}×${pageH} (width×height, PDF points)`,
         );
       }
     }

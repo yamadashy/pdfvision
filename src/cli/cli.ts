@@ -174,6 +174,12 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
         `Invalid --render-region "${renderRegionRaw}": expected "x,y,width,height" (4 comma-separated numbers)`,
       );
     }
+    // Reject empty parts BEFORE Number() — `Number('')` is 0, so
+    // `"10,,30,40"` would silently coerce to `y=0` and execute as
+    // valid input instead of surfacing the typo.
+    if (parts.some((p) => p === '')) {
+      exitWithError(`Invalid --render-region "${renderRegionRaw}": empty value between commas`);
+    }
     const [x, y, w, h] = parts.map(Number);
     if (![x, y, w, h].every((n) => Number.isFinite(n))) {
       exitWithError(`Invalid --render-region "${renderRegionRaw}": all four values must be finite numbers`);

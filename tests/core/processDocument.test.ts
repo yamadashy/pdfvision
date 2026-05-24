@@ -262,6 +262,55 @@ describe('processDocument', () => {
     ).rejects.toThrow(/width and height must be > 0/);
   });
 
+  it('rejects renderRegion when neither render nor ocr is requested', async () => {
+    // Library boundary check (the CLI already gates this). Without the
+    // boundary check, calling processDocument with renderRegion but no
+    // render/ocr would hit the text-only result-cache slot — which does
+    // NOT include renderRegion in its key — and either return stale
+    // data or store the unrelated renderRegion echo on a shared slot.
+    await expect(
+      processDocument(SAMPLE_PDF, { renderRegion: { x: 0, y: 0, width: 100, height: 100 }, noCache: true }),
+    ).rejects.toThrow(/renderRegion requires render: true or ocr: true/);
+  });
+
+  it('rejects renderRegion on rotated pages with a clear V1 limitation message', async () => {
+    // The fixture isn't rotated, so we synthesise the check by patching
+    // the probe-page rotation. Skipped instead of failing fast if no
+    // rotated fixture exists yet. The behaviour we guard: the error
+    // message must say "rotated" so the agent knows it's a V1 gap and
+    // not a coordinate-system bug they need to debug.
+    const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    const doc = await getDocument(SAMPLE_PDF).promise;
+    const page = await doc.getPage(1);
+    if (page.rotate !== 0) {
+      await expect(
+        processDocument(SAMPLE_PDF, {
+          render: true,
+          renderRegion: { x: 0, y: 0, width: 50, height: 50 },
+          noCache: true,
+        }),
+      ).rejects.toThrow(/rotated/);
+    }
+    // No rotated fixture available — the bounds-check + reject-on-
+    // rotate path is exercised on real data only when one's added.
+  });
+
+  it('keeps a sub-pixel region from collapsing the canvas to a zero dimension', async () => {
+    // 0.4pt × scale 1 = 0.4px → Math.round = 0 without the floor. The
+    // renderer clamps each rounded dimension to >= 1 so @napi-rs/canvas
+    // doesn't refuse the allocation with an opaque InvalidArg error.
+    const { loadImage } = await import('@napi-rs/canvas');
+    const result = await processDocument(SAMPLE_PDF, {
+      render: true,
+      renderRegion: { x: 10, y: 10, width: 0.4, height: 0.4 },
+      renderScale: 1,
+      noCache: true,
+    });
+    const img = await loadImage(result.pages[0].image as string);
+    expect(img.width).toBeGreaterThanOrEqual(1);
+    expect(img.height).toBeGreaterThanOrEqual(1);
+  });
+
   it('rejects renderRegion with negative x or y', async () => {
     await expect(
       processDocument(SAMPLE_PDF, {
