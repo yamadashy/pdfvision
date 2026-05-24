@@ -182,9 +182,6 @@ export function formatXml(result: DocumentResult): string {
           );
           out.push(`<match ${mAttrs.join(' ')}>`);
           out.push(`<text>${escapeText(m.text)}</text>`);
-          if (m.normalizedText !== undefined) {
-            out.push(`<normalizedText>${escapeText(m.normalizedText)}</normalizedText>`);
-          }
           for (const b of m.boxes) {
             out.push(`<box x="${b.x}" y="${b.y}" width="${b.width}" height="${b.height}"/>`);
           }

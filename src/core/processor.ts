@@ -421,12 +421,12 @@ async function extractPageData(
     height: round2(height),
     // Spans are only exposed publicly when --geometry is on; layout /
     // imageBoxes each have their own opt-in flags and are independent
-    // of `geometry`. The internal spans (always populated when
-    // wantSpans was true) ride on `_internalSpans` so the search pass
-    // downstream can compute per-match bbox without forcing the agent
-    // to opt into geometry.
+    // of `geometry`. `_internalSpans` only rides along when search
+    // actually needs them — `--layout` alone already consumed the
+    // span list during `buildLayout` above, so re-emitting them on
+    // PageData would waste memory on the typical extraction.
     ...(flags.geometry && { spans }),
-    ...(wantSpans && { _internalSpans: spans }),
+    ...(flags.needSpansForSearch && { _internalSpans: spans }),
     ...(layout !== undefined && { layout }),
     ...(imageBoxes !== undefined && { imageBoxes }),
   };

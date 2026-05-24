@@ -548,15 +548,13 @@ export interface SearchMatch {
    *  per containing span (single-span matches → one box). Lets callers
    *  draw precise highlight overlays or split multi-span matches. */
   boxes: { x: number; y: number; width: number; height: number }[];
-  /** The matched text as it appears in the source PDF (pre-normalization
-   *  when applicable). For OCR-source matches this is the OCR-derived
-   *  text. */
+  /** The matched substring in the same form as `pages[].text` — NFKC-
+   *  normalized when `normalize` is on (the default), raw codepoints
+   *  when `--no-normalize` was passed. For OCR-source matches this is
+   *  the OCR-derived text. Agents wanting both forms can extract from
+   *  the surrounding `pages[].text` / `pages[].rawText` pair using the
+   *  bbox offsets — V1 doesn't dual-emit per match. */
   text: string;
-  /** The matched text after NFKC normalization, present only when
-   *  normalization actually changed the matched substring (mirrors the
-   *  `pages[].rawText` ↔ `pages[].text` relationship). Useful for
-   *  agents diffing CJK / ligature / fullwidth variants. */
-  normalizedText?: string;
   /** Where the match came from. `'native'` = pdf.js text stream
    *  (precise bbox via spans). `'ocr'` = `pages[].ocr.text` (page-level
    *  bbox — V1 limitation, no per-word OCR bbox yet). */

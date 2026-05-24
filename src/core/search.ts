@@ -61,15 +61,22 @@ export function compileSearch(
   const isMulti = queries.length > 1;
   const flags = options.caseSensitive ? 'g' : 'gi';
   const matchers = queries.map((rawQuery, i) => {
-    // NFKC-normalize the query so it matches the same form the
-    // document text is in (when --normalize is on, which is default).
-    const query = normalize ? nfkc(rawQuery) : rawQuery;
     let pattern: string;
     if (options.regex) {
       // Verbatim — let JS RegExp surface invalid-pattern errors with
-      // their own messages.
-      pattern = query;
+      // their own messages. Crucially we do NOT NFKC-normalize regex
+      // queries: NFKC can turn compatibility punctuation into regex
+      // metacharacters (`Ａ．Ｂ` → `A.B`, silent overmatch) or break
+      // syntax outright (`［…］` → `[…]`, may not be a valid char
+      // class). Users opting into regex semantics get the literal
+      // codepoints they typed.
+      pattern = rawQuery;
     } else {
+      // Literal mode: NFKC the query so `"目"` finds compatibility
+      // `"⽬"` PDFs, matching what we do to the document text. Escape
+      // *after* normalization so a fullwidth `．` that normalises to
+      // `.` is still treated literally.
+      const query = normalize ? nfkc(rawQuery) : rawQuery;
       pattern = escapeRegExp(query);
     }
     let regex: RegExp;
@@ -154,11 +161,10 @@ export function searchPage(
           ...(m.queryIndex !== undefined && { queryIndex: m.queryIndex }),
           bbox: box,
           boxes: [box],
+          // `hit[0]` is in the same form as the span text (NFKC when
+          // normalize is on, raw under --no-normalize), matching the
+          // documented `text` contract.
           text: hit[0],
-          // The text is already NFKC if the document was normalised,
-          // so emitting normalizedText separately would just duplicate
-          // it. Skip the field unless a future raw-mode search adds a
-          // real divergence to surface.
           source: 'native',
           context: haystack,
         });

@@ -73,6 +73,28 @@ describe('processDocument search', () => {
     expect(literal.pages[0].matches?.length ?? 0).toBe(0);
   });
 
+  it('does NOT NFKC-normalize regex queries (compatibility chars stay literal)', async () => {
+    // Regression guard: a regex query containing a fullwidth char like
+    // `．` (FULLWIDTH FULL STOP, U+FF0E) would, if NFKC-normalised
+    // before RegExp compilation, collapse to `.` and silently match
+    // any character. Document text is still normalised (so the
+    // fullwidth `．` in the PDF becomes `.`), but the regex engine
+    // sees the raw `．` codepoint and won't match the normalised `.`.
+    // The expected behaviour: regex mode is literal-codepoint;
+    // mismatches are the user's responsibility once they opt into
+    // regex semantics.
+    const fullwidthDot = '．';
+    const result = await processDocument(SAMPLE_PDF, {
+      search: `pdf${fullwidthDot}vision`,
+      searchRegex: true,
+      noCache: true,
+    });
+    // The fullwidth dot would not normally appear in the document
+    // text — only `.` does (post-NFKC). So an opt-in regex with the
+    // fullwidth dot must NOT match `pdfXvision` / `pdfAvision` etc.
+    expect(result.pages[0].matches?.length ?? 0).toBe(0);
+  });
+
   it('treats query as a regular expression when searchRegex is on', async () => {
     // Same `pd.vision` pattern now interpreted as regex matches the
     // literal "pdfvision" string in the body.
