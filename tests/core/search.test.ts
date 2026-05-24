@@ -83,15 +83,18 @@ describe('processDocument search', () => {
     // The expected behaviour: regex mode is literal-codepoint;
     // mismatches are the user's responsibility once they opt into
     // regex semantics.
+    // Use `pd．vision` so the buggy path would have collapsed to the
+    // regex `pd.vision`, which DOES match `pdfvision` (pd + f + vision)
+    // in the fixture body. The fixed path keeps the fullwidth `．`
+    // verbatim, which doesn't appear in normalised page text, so no
+    // match. Asymmetric query/document by design: regex mode is the
+    // user's opt-in into literal-codepoint semantics.
     const fullwidthDot = '．';
     const result = await processDocument(SAMPLE_PDF, {
-      search: `pdf${fullwidthDot}vision`,
+      search: `pd${fullwidthDot}vision`,
       searchRegex: true,
       noCache: true,
     });
-    // The fullwidth dot would not normally appear in the document
-    // text — only `.` does (post-NFKC). So an opt-in regex with the
-    // fullwidth dot must NOT match `pdfXvision` / `pdfAvision` etc.
     expect(result.pages[0].matches?.length ?? 0).toBe(0);
   });
 

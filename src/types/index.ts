@@ -85,10 +85,15 @@ export interface ProcessDocumentOptions {
    *     as a JavaScript regular expression
    *   - **case-insensitive** (Unicode-aware via String.toLowerCase);
    *     set {@link searchCaseSensitive} for exact-case matching
-   *   - **NFKC-aware** when {@link normalize} is on (the default) — the
-   *     query and the page text are both normalised before matching,
-   *     so `"目"` (U+76EE) finds `"⽬"` (U+2F6C) compatibility PDFs
-   *     external grep would miss
+   *   - **NFKC-aware in literal mode** when {@link normalize} is on
+   *     (the default) — the literal query and the page text are both
+   *     normalised before matching, so `"目"` (U+76EE) finds `"⽬"`
+   *     (U+2F6C) compatibility PDFs external grep would miss.
+   *     {@link searchRegex} queries are NOT normalised (NFKC can turn
+   *     compatibility punctuation into regex metacharacters, silently
+   *     overmatching or breaking the pattern); regex users get the
+   *     literal codepoints they typed against the normalised document
+   *     text and own the asymmetry.
    *
    * Internally enables span extraction so per-match bboxes are
    * available; the public `pages[].spans` still requires `geometry`,
