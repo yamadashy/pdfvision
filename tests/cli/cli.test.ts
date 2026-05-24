@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { run } from '../../src/cli/cli.js';
 
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
+const SAMPLE_JA_PDF = resolve(__dirname, '../fixtures/sample-ja.pdf');
 
 interface CliCapture {
   stdout: string[];
@@ -226,6 +227,46 @@ describe('cli', () => {
     const r = await captureRun([SAMPLE_PDF, '--render', '--render-region', '10,abc,30,40']);
     expect(r.exitCode).toBe(1);
     expect(r.stderr.join('\n')).toMatch(/finite numbers/);
+  });
+
+  it('--search hits get echoed in markdown overview (Matches column)', async () => {
+    // CLI smoke test: an unspecified-format (markdown default) run with
+    // --search on a multi-page doc must surface the matches column so
+    // an LLM consumer reading the markdown sees per-page hit counts.
+    // captureRun leaves exitCode === null on success (process.exit is
+    // never called on the happy path) — the existing success-path tests
+    // assert `toBeNull` rather than `toBe(0)`.
+    const r = await captureRun([SAMPLE_JA_PDF, '--search', 'これは', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    const stdout = r.stdout.join('\n');
+    expect(stdout).toMatch(/Matches/);
+  });
+
+  it('rejects an empty --search query at the CLI before the processor runs', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--search', '', '--no-cache']);
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr.join('\n')).toMatch(/--search: query must be a non-empty string/);
+  });
+
+  it('rejects --search-regex without any --search query', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--search-regex', '--no-cache']);
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr.join('\n')).toMatch(/--search-regex .* require at least one --search query/);
+  });
+
+  it('rejects --search-case-sensitive without any --search query', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--search-case-sensitive', '--no-cache']);
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr.join('\n')).toMatch(/require at least one --search query/);
+  });
+
+  it('accepts repeated --search flags as multi-query', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--search', 'Hello', '--search', 'pdfvision', '--json', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    const result = JSON.parse(r.stdout.join('\n'));
+    const matches = result.pages[0].matches ?? [];
+    expect(matches.length).toBeGreaterThanOrEqual(2);
+    expect(matches.every((m: { queryIndex?: number }) => m.queryIndex !== undefined)).toBe(true);
   });
 
   it('rejects --render-region with an empty value between commas', async () => {

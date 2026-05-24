@@ -157,6 +157,75 @@ describe('formatXml', () => {
     );
   });
 
+  it('emits a <matches> block with <match><text/>...<box/></match> per hit when search ran', () => {
+    const out = formatXml(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 't',
+            charCount: 1,
+            matches: [
+              {
+                page: 1,
+                query: 'foo',
+                bbox: { x: 10, y: 20, width: 30, height: 12 },
+                boxes: [{ x: 10, y: 20, width: 30, height: 12 }],
+                text: 'foo',
+                source: 'native',
+                context: 'this is foo context',
+              },
+            ],
+          }),
+        ],
+      }),
+    );
+    expect(out).toContain('<matches>');
+    expect(out).toMatch(/<match page="1" query="foo" source="native" x="10" y="20" width="30" height="12">/);
+    expect(out).toContain('<text>foo</text>');
+    expect(out).toContain('<box x="10" y="20" width="30" height="12"/>');
+    expect(out).toContain('<context>this is foo context</context>');
+    expect(out).toContain('</matches>');
+  });
+
+  it('emits self-closing <matches/> when search ran but the page had no hits', () => {
+    // Mirrors the <imageBoxes/> empty-tag pattern: distinguishes
+    // "search ran, no hits" from "search wasn't requested" (omitted).
+    const out = formatXml(makeResult({ pages: [makePage({ page: 1, text: 't', charCount: 1, matches: [] })] }));
+    expect(out).toContain('<matches/>');
+  });
+
+  it('omits the <matches> tag entirely when no search ran on the page', () => {
+    const out = formatXml(makeResult());
+    expect(out).not.toMatch(/<matches/);
+  });
+
+  it('includes queryIndex on match elements when set (multi-query searches)', () => {
+    const out = formatXml(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 't',
+            charCount: 1,
+            matches: [
+              {
+                page: 1,
+                query: 'foo',
+                queryIndex: 1,
+                bbox: { x: 0, y: 0, width: 10, height: 10 },
+                boxes: [],
+                text: 'foo',
+                source: 'native',
+              },
+            ],
+          }),
+        ],
+      }),
+    );
+    expect(out).toMatch(/<match page="1" query="foo" queryIndex="1" source="native"/);
+  });
+
   it('omits the renderRegion attributes on a full-page render', () => {
     const out = formatXml(makeResult({ pages: [makePage({ page: 1, text: 't', charCount: 1, image: '/tmp/p.png' })] }));
     expect(out).not.toMatch(/renderRegion/);

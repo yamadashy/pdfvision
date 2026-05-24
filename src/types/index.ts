@@ -69,6 +69,45 @@ export interface ProcessDocumentOptions {
    */
   renderRegion?: RenderRegion;
   /**
+   * Find every occurrence of the given query (or queries) on each page
+   * and attach `pages[].matches[]` with the bbox of each hit. Pipe a
+   * match's bbox straight into a follow-up `renderRegion` call to get
+   * a PNG zoomed onto the match.
+   *
+   * Accepts a single string or an array (repeatable `--search` on the
+   * CLI). Each emitted match carries `query` (the source string) and,
+   * for multi-query searches, `queryIndex` (0-based into the array)
+   * so consumers can demultiplex.
+   *
+   * Default semantics:
+   *   - **literal substring** (regex special characters are matched
+   *     verbatim); set {@link searchRegex} to `true` to treat the query
+   *     as a JavaScript regular expression
+   *   - **case-insensitive** (Unicode-aware via String.toLowerCase);
+   *     set {@link searchCaseSensitive} for exact-case matching
+   *   - **NFKC-aware** when {@link normalize} is on (the default) — the
+   *     query and the page text are both normalised before matching,
+   *     so `"目"` (U+76EE) finds `"⽬"` (U+2F6C) compatibility PDFs
+   *     external grep would miss
+   *
+   * Internally enables span extraction so per-match bboxes are
+   * available; the public `pages[].spans` still requires `geometry`,
+   * and the public `pages[].layout` still requires `layout`. OCR text
+   * is also searched when {@link ocr} is on — those matches come back
+   * with `source: 'ocr'` and a page-level bbox (V1 limitation: no
+   * per-word OCR bbox yet).
+   */
+  search?: string | string[];
+  /** Treat each {@link search} query as a JavaScript regular expression
+   *  instead of a literal substring. Off by default — regex-default
+   *  surprises agents feeding raw user input that happens to contain
+   *  `(`, `[`, `?`, etc. */
+  searchRegex?: boolean;
+  /** Match case exactly. Off by default — recall-oriented agents
+   *  typically want "売上" / "売上高" / "Sales" matches regardless of
+   *  the source PDF's casing. */
+  searchCaseSensitive?: boolean;
+  /**
    * Apply Unicode NFKC normalization to extracted text and metadata strings.
    * Defaults to `true`. PDFs (especially Japanese ones produced by Office /
    * iWork) frequently embed compatibility codepoints like `⽬` (U+2F6C) in
@@ -146,6 +185,12 @@ export interface ProcessOptions {
   renderScale?: number;
   /** See {@link ProcessDocumentOptions.renderRegion}. */
   renderRegion?: RenderRegion;
+  /** See {@link ProcessDocumentOptions.search}. */
+  search?: string | string[];
+  /** See {@link ProcessDocumentOptions.searchRegex}. */
+  searchRegex?: boolean;
+  /** See {@link ProcessDocumentOptions.searchCaseSensitive}. */
+  searchCaseSensitive?: boolean;
   normalize?: boolean;
   geometry?: boolean;
   layout?: boolean;
@@ -450,6 +495,14 @@ export interface PageResult {
    */
   quality: PageQuality;
   /**
+   * Hits for {@link ProcessDocumentOptions.search} queries on this page,
+   * one entry per occurrence. Present only when `search` was passed.
+   * Empty array is preserved (distinguishes "search ran, no hits" from
+   * "search wasn't requested") so consumers can iterate `pages[].matches`
+   * uniformly.
+   */
+  matches?: SearchMatch[];
+  /**
    * Geometry-driven layout anomalies detected on the page (text
    * overlapping other text, body crowded against repeated chrome,
    * off-page bbox, ...). Present only when extraction ran with
@@ -462,6 +515,55 @@ export interface PageResult {
    * {@link PageWarning} for the field semantics and the rule catalog.
    */
   warnings?: PageWarning[];
+}
+
+/**
+ * One occurrence of a {@link ProcessDocumentOptions.search} query on a
+ * page. Emitted per match, not per page — so the same query found
+ * three times on page 5 yields three SearchMatch entries with `page: 5`.
+ *
+ * The bbox is in PDF points (top-left origin, y grows downward —
+ * matching {@link TextSpan} / {@link LayoutBlock} / {@link ImageBox}),
+ * so an agent can pipe it directly into a follow-up `renderRegion`
+ * call to get a PNG zoomed onto the match.
+ */
+export interface SearchMatch {
+  /** 1-based page number the match was found on. Mirrored on the
+   *  parent `PageResult.page` for convenience — so a match plucked out
+   *  of a flat `pages.flatMap(p => p.matches ?? [])` still knows where
+   *  it came from. */
+  page: number;
+  /** The query string that produced this match (verbatim, before NFKC
+   *  normalization). Useful when the search ran with multiple queries
+   *  and the consumer wants to filter / group by source query. */
+  query: string;
+  /** 0-based index into the `search` array when more than one query
+   *  was passed. Omitted when search was a single string — keeps the
+   *  common case un-noisy. */
+  queryIndex?: number;
+  /** Union bbox covering every contributing span. Suitable for
+   *  `renderRegion` zoom. */
+  bbox: { x: number; y: number; width: number; height: number };
+  /** Per-span bboxes that contribute to the match. V1 emits one entry
+   *  per containing span (single-span matches → one box). Lets callers
+   *  draw precise highlight overlays or split multi-span matches. */
+  boxes: { x: number; y: number; width: number; height: number }[];
+  /** The matched text as it appears in the source PDF (pre-normalization
+   *  when applicable). For OCR-source matches this is the OCR-derived
+   *  text. */
+  text: string;
+  /** The matched text after NFKC normalization, present only when
+   *  normalization actually changed the matched substring (mirrors the
+   *  `pages[].rawText` ↔ `pages[].text` relationship). Useful for
+   *  agents diffing CJK / ligature / fullwidth variants. */
+  normalizedText?: string;
+  /** Where the match came from. `'native'` = pdf.js text stream
+   *  (precise bbox via spans). `'ocr'` = `pages[].ocr.text` (page-level
+   *  bbox — V1 limitation, no per-word OCR bbox yet). */
+  source: 'native' | 'ocr';
+  /** Optional surrounding-line text (typically ±N characters from the
+   *  match) for human / LLM readability. Trimmed and de-newlined. */
+  context?: string;
 }
 
 /**
@@ -583,6 +685,15 @@ export interface PageOverview {
    * for the page.
    */
   warningCount?: number;
+  /**
+   * Count of search hits on the page (mirror of
+   * `pages[].matches.length`). Lets an agent jump straight to the
+   * pages a query landed on from the overview, without scanning
+   * `pages[].matches` for each entry. Omitted when no `search` was
+   * requested; present-with-`0` when search ran but the page had no
+   * hits so consumers can tell "ran, found none" from "didn't run".
+   */
+  matchCount?: number;
   width: number;
   height: number;
 }

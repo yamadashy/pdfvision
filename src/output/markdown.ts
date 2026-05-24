@@ -83,14 +83,20 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     // only shows up when there's actual signal — otherwise the table
     // grows a column of zeroes for the default extraction.
     const showWarnings = result.pages.some((p) => p.warnings && p.warnings.length > 0);
+    // The Matches column appears whenever a search was run (any page
+    // carries a `matches` field, even an empty one). Present-with-0
+    // is meaningful — tells the agent search ran but this page had
+    // no hits, vs the column not appearing at all (search wasn't
+    // requested).
+    const showMatches = result.pages.some((p) => p.matches !== undefined);
     lines.push('');
     lines.push('## Overview');
     lines.push('');
     lines.push(
-      `| Page | Chars | Images | Coverage |${showNonPrint ? ' NonPrint |' : ''}${showRender ? ' Render |' : ''} Size (pt) |${showBlocks ? ' Blocks |' : ''}${showWarnings ? ' Warnings |' : ''}`,
+      `| Page | Chars | Images | Coverage |${showNonPrint ? ' NonPrint |' : ''}${showRender ? ' Render |' : ''} Size (pt) |${showBlocks ? ' Blocks |' : ''}${showWarnings ? ' Warnings |' : ''}${showMatches ? ' Matches |' : ''}`,
     );
     lines.push(
-      `| ---: | ---: | ---: | ---: |${showNonPrint ? ' ---: |' : ''}${showRender ? ' ---: |' : ''} ---: |${showBlocks ? ' ---: |' : ''}${showWarnings ? ' ---: |' : ''}`,
+      `| ---: | ---: | ---: | ---: |${showNonPrint ? ' ---: |' : ''}${showRender ? ' ---: |' : ''} ---: |${showBlocks ? ' ---: |' : ''}${showWarnings ? ' ---: |' : ''}${showMatches ? ' ---: |' : ''}`,
     );
     for (const page of result.pages) {
       const coveragePct = Math.round(page.textCoverage * 100);
@@ -110,8 +116,9 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
         : '';
       const blocksCell = showBlocks ? ` ${page.layout?.blocks.length ?? 0} |` : '';
       const warningsCell = showWarnings ? ` ${page.warnings?.length ?? 0} |` : '';
+      const matchesCell = showMatches ? ` ${page.matches?.length ?? 0} |` : '';
       lines.push(
-        `| ${page.page} | ${page.charCount} | ${page.imageCount} | ${coveragePct}% |${nonPrintCell}${renderCell} ${formatSize(page)} |${blocksCell}${warningsCell}`,
+        `| ${page.page} | ${page.charCount} | ${page.imageCount} | ${coveragePct}% |${nonPrintCell}${renderCell} ${formatSize(page)} |${blocksCell}${warningsCell}${matchesCell}`,
       );
     }
   }
@@ -155,8 +162,13 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     // had geometry issues" signal before they read the body.
     const warningCount = page.warnings?.length ?? 0;
     const warningsFragment = warningCount > 0 ? ` · warnings: ${warningCount}` : '';
+    // Inline the search-hits count when `--search` was on. Present-
+    // with-`0` is meaningful here too — the agent knows the page was
+    // searched and came back clean, vs the fragment being absent
+    // because no search ran. Mirrors the overview Matches column.
+    const matchesFragment = page.matches !== undefined ? ` · matches: ${page.matches.length}` : '';
     lines.push(
-      `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${nonPrintFragment}${renderFragment}${nativeFragment}${visualFragment}${warningsFragment} · size: ${formatSize(page)}pt_`,
+      `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${nonPrintFragment}${renderFragment}${nativeFragment}${visualFragment}${warningsFragment}${matchesFragment} · size: ${formatSize(page)}pt_`,
     );
     const body = pageBody(page, options);
     if (body) {

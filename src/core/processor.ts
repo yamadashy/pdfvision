@@ -26,6 +26,7 @@ import { buildLayout, markRepeatedBlocks } from './layout.js';
 import { nonPrintableStats } from './nonPrintable.js';
 import { parsePageRangeWithSkipped } from './pageRange.js';
 import { runParallel } from './parallel.js';
+import { type CompiledSearch, compileSearch, searchPage } from './search.js';
 import { detectPageWarnings } from './warnings.js';
 
 /** Inputs that determine which cached entry a request maps to. */
@@ -41,6 +42,9 @@ interface CacheKeyInput {
   imageBoxes?: boolean;
   ocr?: boolean;
   ocrLang?: string;
+  search?: string | string[];
+  searchRegex?: boolean;
+  searchCaseSensitive?: boolean;
 }
 
 /** Default rasterisation multiplier — must match renderer.ts DEFAULT_SCALE. */
@@ -135,7 +139,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v17',
+    format: 'structured-v18',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -166,6 +170,13 @@ function buildCacheKey(input: CacheKeyInput): string {
     // `eng+jpn` do.
     ocr: !!input.ocr,
     ocrLang: input.ocr ? canonicalOcrLang(input.ocrLang) : null,
+    // Search results change the structured payload (pages[].matches),
+    // so the query list and flags are part of the key. Multi-query
+    // order matters (queryIndex on each match is index-stable), so we
+    // preserve array order in the key.
+    search: input.search !== undefined ? (Array.isArray(input.search) ? input.search : [input.search]) : null,
+    searchRegex: !!input.searchRegex,
+    searchCaseSensitive: !!input.searchCaseSensitive,
   });
   const hash = createHash('sha256').update(payload).digest('hex').slice(0, 16);
   return `result_${hash}.json`;
@@ -218,6 +229,11 @@ interface PageData {
   width: number;
   height: number;
   spans?: TextSpan[];
+  /** Spans built internally (independent of `flags.geometry`) for
+   *  downstream search bbox computation. Mirrors `spans` when both
+   *  are present; lives separately so the public PageResult.spans
+   *  gating stays the simple "geometry on / off" rule. */
+  _internalSpans?: TextSpan[];
   layout?: PageLayout;
   imageBoxes?: ImageBox[];
 }
@@ -260,6 +276,10 @@ interface PageFlags {
   geometry: boolean;
   layout: boolean;
   imageBoxes: boolean;
+  /** Build spans internally even when neither `geometry` nor `layout`
+   *  was requested. Search needs them for per-match bbox; the public
+   *  `pages[].spans` payload still requires `geometry`. */
+  needSpansForSearch: boolean;
 }
 
 /**
@@ -286,10 +306,11 @@ async function extractPageData(
   const height = Math.abs(view[3] - view[1]);
   const yMin = Math.min(view[1], view[3]);
 
-  // Spans are also the input to layout reconstruction, so we build them
-  // whenever either flag is set — even though we may only expose them on
-  // PageResult when `geometry` is on.
-  const wantSpans = flags.geometry || flags.layout;
+  // Spans are the input to layout reconstruction AND to search bbox
+  // computation, so we build them whenever any of those needs is set —
+  // even though we may only expose them on PageResult when `geometry`
+  // is on.
+  const wantSpans = flags.geometry || flags.layout || flags.needSpansForSearch;
 
   // Collect typed items for the CJK-aware page-text joiner. We can't
   // build the final string in this loop because the join decision for
@@ -398,9 +419,14 @@ async function extractPageData(
     // A4 595×842) but encrypted/cropped PDFs can carry sub-point fractions.
     width: round2(width),
     height: round2(height),
-    // Spans are only exposed when --geometry is on; layout / imageBoxes
-    // each have their own opt-in flags and are independent of `geometry`.
+    // Spans are only exposed publicly when --geometry is on; layout /
+    // imageBoxes each have their own opt-in flags and are independent
+    // of `geometry`. The internal spans (always populated when
+    // wantSpans was true) ride on `_internalSpans` so the search pass
+    // downstream can compute per-match bbox without forcing the agent
+    // to opt into geometry.
     ...(flags.geometry && { spans }),
+    ...(wantSpans && { _internalSpans: spans }),
     ...(layout !== undefined && { layout }),
     ...(imageBoxes !== undefined && { imageBoxes }),
   };
@@ -471,6 +497,15 @@ export async function processDocument(filePath: string, options: ProcessDocument
   // single-page + within-bounds + non-rotated-page checks come after
   // page resolution and pdfjs load below.
   const renderRegion = validateRenderRegion(options.renderRegion);
+  // Compile search queries up front so a bad regex or empty query
+  // surfaces immediately rather than after the extraction budget
+  // is partly spent. `compileSearch` returns undefined when search
+  // isn't requested — the per-page loop below skips on undefined.
+  const compiledSearch: CompiledSearch | undefined = compileSearch(options.search, {
+    regex: options.searchRegex,
+    caseSensitive: options.searchCaseSensitive,
+    normalize: options.normalize,
+  });
   // renderRegion only makes sense when rasterisation actually runs.
   // The CLI already enforces this, but library callers can bypass it
   // and we'd then hit two real bugs: (1) the result cache slot is
@@ -742,6 +777,10 @@ export async function processDocument(filePath: string, options: ProcessDocument
       geometry: !!options.geometry,
       layout: !!options.layout,
       imageBoxes: !!options.imageBoxes,
+      // Search needs span-level bbox to populate `matches[*].bbox`;
+      // build spans internally even if the caller didn't ask for the
+      // full `pages[].spans` payload via --geometry.
+      needSpansForSearch: compiledSearch !== undefined,
     };
     const ocrEnabled = !!options.ocr;
     const ocrLang = options.ocrLang ?? 'eng';
@@ -789,6 +828,21 @@ export async function processDocument(filePath: string, options: ProcessDocument
         quality: { nativeTextStatus: 'empty' },
       };
       page.quality = derivePageQuality(page);
+      // Run the native (span-based) search pass here while the internal
+      // spans are still in scope. OCR-based matches are appended
+      // post-OCR below — both produce the same SearchMatch shape, so
+      // consumers iterate `pages[].matches` uniformly.
+      if (compiledSearch) {
+        const nativeMatches = searchPage(
+          data._internalSpans,
+          undefined,
+          pageNum,
+          data.width,
+          data.height,
+          compiledSearch,
+        );
+        page.matches = nativeMatches;
+      }
       return page;
     });
 
@@ -839,6 +893,19 @@ export async function processDocument(filePath: string, options: ProcessDocument
       p.quality = derivePageQuality(p);
     }
 
+    // OCR search pass. The native pass ran in the per-page loop above
+    // (spans were in scope); OCR results only exist after attachOcr,
+    // so this second pass adds OCR-source matches at the end of each
+    // page's `matches[]`. Skipped when OCR wasn't enabled — no
+    // ocr.text to search.
+    if (compiledSearch && ocrEnabled) {
+      for (const p of pages) {
+        if (!p.ocr) continue;
+        const ocrMatches = searchPage(undefined, p.ocr, p.page, p.width, p.height, compiledSearch);
+        p.matches = (p.matches ?? []).concat(ocrMatches);
+      }
+    }
+
     const metaString = (raw: unknown): string | null => {
       if (typeof raw !== 'string') return null;
       return flags.normalize ? normalizeText(raw) : raw;
@@ -869,6 +936,11 @@ export async function processDocument(filePath: string, options: ProcessDocument
             // ran), matching the PageResult.warnings field's optional
             // shape.
             ...(p.warnings && p.warnings.length > 0 && { warningCount: p.warnings.length }),
+            // Search hits per page. Present-with-`0` is meaningful
+            // ("search ran, no hits on this page"); omitted when
+            // `search` wasn't requested at all so the overview stays
+            // clean for the default extraction.
+            ...(compiledSearch !== undefined && { matchCount: p.matches?.length ?? 0 }),
             width: p.width,
             height: p.height,
           }))
@@ -927,6 +999,9 @@ export async function processFile(filePath: string, options: ProcessOptions): Pr
     renderOutput: options.renderOutput,
     renderScale: options.renderScale,
     renderRegion: options.renderRegion,
+    search: options.search,
+    searchRegex: options.searchRegex,
+    searchCaseSensitive: options.searchCaseSensitive,
     normalize: options.normalize,
     geometry: options.geometry,
     layout: options.layout,
