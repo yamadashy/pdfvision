@@ -26,6 +26,18 @@
       "matchUpdateTypes": ["major"],
       "groupName": "major dependencies",
     },
+    // @napi-rs/canvas 1.0.0 ships a breaking change to ctx.fill() that
+    // pdfjs-dist@5.x's paintChar path trips into (Error: "Value is none
+    // of these types `String`, `Path`" — see closed PR #51). Pin to
+    // <1.0.0 until pdfjs-dist (or a canvas 1.x patch) restores
+    // compatibility, and give it its own group so future bumps don't
+    // re-block the rest of the dependency tree behind the same PR.
+    // When unblocking, drop `allowedVersions` and leave `groupName`.
+    {
+      "matchPackageNames": ["@napi-rs/canvas"],
+      "groupName": "@napi-rs/canvas",
+      "allowedVersions": "<1.0.0",
+    },
   ],
   "ignoreDeps": [
     // Node engines are bumped intentionally alongside CI matrix changes.
