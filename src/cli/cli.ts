@@ -1,7 +1,7 @@
 import { accessSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import type { OutputFormat } from '../types/index.js';
+import type { OutputFormat, RenderRegion } from '../types/index.js';
 import { HELP_TEXT } from './help.js';
 import { getVersion } from './version.js';
 
@@ -163,7 +163,7 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
   // get enforced in the processor against the resolved page list, so
   // we don't need to know totalPages here.
   const renderRegionRaw = values['render-region'] as string | undefined;
-  let renderRegion: { x: number; y: number; width: number; height: number } | undefined;
+  let renderRegion: RenderRegion | undefined;
   if (renderRegionRaw !== undefined) {
     if (!render && !(values.ocr as boolean | undefined)) {
       exitWithError('--render-region requires --render or --ocr');

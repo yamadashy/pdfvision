@@ -180,6 +180,39 @@ describe('processDocument', () => {
     expect(img.height).toBe(200);
   });
 
+  it('actually crops to the requested (x, y) — not just (0, 0) with the right dimensions', async () => {
+    // Regression guard against a misreading of pdf.js's `transform` option
+    // (gemini PR #53 review claimed translation should be in PDF points
+    // with positive y; the actual semantics, per pdfjs-dist source, are
+    // pixel-space with the y flip already baked into viewport.transform,
+    // so `[1,0,0,1,-x*scale,-y*scale]` is the correct shift to put a
+    // top-down PDF region at canvas (0, 0)).
+    //
+    // Two same-sized regions at different (x, y) on the same page must
+    // produce different PNG bytes. If the transform were wrong and both
+    // rendered from page (0, 0), the captured content would match and
+    // the hashes would collide.
+    const { createHash } = await import('node:crypto');
+    const { readFile } = await import('node:fs/promises');
+    const upperLeft = await processDocument(SAMPLE_PDF, {
+      render: true,
+      renderRegion: { x: 0, y: 0, width: 200, height: 100 },
+      noCache: true,
+    });
+    const lowerRight = await processDocument(SAMPLE_PDF, {
+      render: true,
+      renderRegion: { x: 300, y: 500, width: 200, height: 100 },
+      noCache: true,
+    });
+    const hashUL = createHash('sha256')
+      .update(await readFile(upperLeft.pages[0].image as string))
+      .digest('hex');
+    const hashLR = createHash('sha256')
+      .update(await readFile(lowerRight.pages[0].image as string))
+      .digest('hex');
+    expect(hashUL).not.toBe(hashLR);
+  });
+
   it('composes renderRegion with renderScale (region size × scale = pixels)', async () => {
     // 200×100pt × scale 3 = 600×300px. Guards the multiplicative
     // contract documented on ProcessDocumentOptions.renderRegion.

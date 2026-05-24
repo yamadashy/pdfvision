@@ -2,8 +2,14 @@ import { existsSync, lstatSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import type { RenderRegion } from '../types/index.js';
 import { atomicWrite } from './cache.js';
 import { runParallel } from './parallel.js';
+
+// Re-export so existing imports (`import type { RenderRegion } from
+// './renderer.js'`) keep working without churn — the canonical
+// declaration lives in `src/types/index.ts` per the project convention.
+export type { RenderRegion };
 
 const DEFAULT_SCALE = 2;
 
@@ -104,18 +110,6 @@ export function computeContentRatio(rgba: Uint8ClampedArray): number {
     if (Math.abs(lum - bgLum) >= CONTENT_LUM_DELTA) content++;
   }
   return Math.round((content / totalPx) * 1_000_000) / 1_000_000;
-}
-
-/** Sub-rectangle to rasterise instead of the full page. Coordinates are
- *  PDF points in pdfvision's existing top-down convention (origin at
- *  top-left, y grows downward), matching `spans` / `layout.blocks` /
- *  `imageBoxes`. Width / height must be positive; bounds checking lives
- *  in the processor so the renderer can stay primitive. */
-export interface RenderRegion {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
 }
 
 /**

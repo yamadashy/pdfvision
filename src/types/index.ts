@@ -1,6 +1,20 @@
 export type OutputFormat = 'markdown' | 'json' | 'xml';
 
 /**
+ * Sub-rectangle of a page to rasterise. PDF user-space points with the
+ * top-down origin pdfvision uses for `spans`, `layout.blocks`, and
+ * `imageBoxes` — `(0, 0)` is the page's top-left, `y` grows downward.
+ * width / height must be positive; bounds and single-page checks live
+ * in the processor so this stays a pure shape type.
+ */
+export interface RenderRegion {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
  * Options for the structured `processDocument()` API.
  * Independent of formatting concerns: format / pretty-printing / etc. are
  * the caller's responsibility once they have the structured result.
@@ -53,12 +67,7 @@ export interface ProcessDocumentOptions {
    * or if `width` / `height` are not positive. Goes through the cache key
    * and the on-disk PNG filename so multiple regions per page coexist.
    */
-  renderRegion?: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  };
+  renderRegion?: RenderRegion;
   /**
    * Apply Unicode NFKC normalization to extracted text and metadata strings.
    * Defaults to `true`. PDFs (especially Japanese ones produced by Office /
@@ -136,7 +145,7 @@ export interface ProcessOptions {
   /** See {@link ProcessDocumentOptions.renderScale}. */
   renderScale?: number;
   /** See {@link ProcessDocumentOptions.renderRegion}. */
-  renderRegion?: { x: number; y: number; width: number; height: number };
+  renderRegion?: RenderRegion;
   normalize?: boolean;
   geometry?: boolean;
   layout?: boolean;
@@ -333,7 +342,7 @@ export interface PageResult {
    * request. Coordinates are in PDF points (top-left origin), matching
    * the input. Omitted for full-page renders.
    */
-  renderRegion?: { x: number; y: number; width: number; height: number };
+  renderRegion?: RenderRegion;
   text: string;
   /**
    * Pre-normalization form of `text`. Only present when NFKC normalization

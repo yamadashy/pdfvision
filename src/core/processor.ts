@@ -15,6 +15,7 @@ import type {
   PageResult,
   ProcessDocumentOptions,
   ProcessOptions,
+  RenderRegion,
   TextSpan,
 } from '../types/index.js';
 import { dropCached, ensurePrivateDir, getCacheDir, getCached, pdfFingerprint, setCache } from './cache.js';
@@ -24,7 +25,6 @@ import { buildLayout, markRepeatedBlocks } from './layout.js';
 import { nonPrintableStats } from './nonPrintable.js';
 import { parsePageRangeWithSkipped } from './pageRange.js';
 import { runParallel } from './parallel.js';
-import type { RenderRegion } from './renderer.js';
 import { detectPageWarnings } from './warnings.js';
 
 /** Inputs that determine which cached entry a request maps to. */
@@ -112,7 +112,12 @@ function validateRenderRegion(region: RenderRegion | undefined): RenderRegion | 
   if (width <= 0 || height <= 0) {
     throw new Error(`Invalid renderRegion: width and height must be > 0 (got width=${width}, height=${height})`);
   }
-  return { x, y, width, height };
+  // Canonicalise to 2dp so the cache key, the on-disk filename, and
+  // the echoed PageResult.renderRegion all agree on a single
+  // representation. Matches the rounding spans / layout.blocks /
+  // imageBoxes already get from `round2` so an agent piping a bbox
+  // directly into renderRegion hits the same value.
+  return { x: round2(x), y: round2(y), width: round2(width), height: round2(height) };
 }
 
 /**
