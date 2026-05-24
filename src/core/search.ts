@@ -10,10 +10,15 @@ export interface CompiledSearch {
    *  code below — literal queries get the substring escaped and the
    *  `g` flag added, regex queries get the user pattern verbatim. */
   matchers: { query: string; regex: RegExp; queryIndex?: number }[];
-  /** Whether NFKC normalization was applied to the queries (mirrors
-   *  the document side). When the document's `text` / spans are NFKC-
-   *  normalised, the queries must be too so `"目"` finds compatibility
-   *  `"⽬"` PDFs. When `--no-normalize` is on, both sides stay raw. */
+  /** Whether NFKC normalization applies on the *document* side
+   *  (spans / OCR haystack). Literal-mode queries are also NFKC-
+   *  normalised in this case so `"目"` finds compatibility `"⽬"`
+   *  PDFs. Regex queries are NEVER normalised, even when this flag
+   *  is true — NFKC can turn compatibility punctuation into regex
+   *  metacharacters; users opting into regex get literal codepoints
+   *  against the normalised document text and own the asymmetry.
+   *  When `--no-normalize` is on, this is false and the document
+   *  side stays raw too. */
   normalize: boolean;
 }
 
@@ -129,8 +134,11 @@ export function searchPage(
   // Native pass — per-span literal/regex match.
   for (const span of spans ?? []) {
     // Span text is already NFKC-normalised when `--normalize` is on
-    // (matches what we put in pages[].spans). So we don't re-normalize
-    // here — the compiled query is already in the same form.
+    // (matches what we put in pages[].spans). Literal-mode queries
+    // were NFKC'd at compile time too, so they're in the same form
+    // as the haystack. Regex-mode queries are intentionally NOT
+    // normalised — the user opts into literal-codepoint semantics
+    // against the normalised document text (see CompiledSearch).
     const haystack = span.text;
     for (const m of compiled.matchers) {
       // Reset lastIndex so the same RegExp object can be reused
