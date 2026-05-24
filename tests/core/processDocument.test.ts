@@ -275,6 +275,21 @@ describe('processDocument', () => {
     ).rejects.toThrow(/renderRegion .* falls outside page/);
   });
 
+  it('rejects renderRegion whose width/height rounds to 0 after 2dp canonicalisation', async () => {
+    // `0.004` passes the raw `> 0` check, then rounds to `0` after the
+    // 2dp canonicalisation that makes the value flow consistently through
+    // the cache key / filename / echo. Without rejecting post-round we'd
+    // ship `width: 0` to the on-disk filename and the renderer would
+    // silently clamp the canvas to 1px — a confusing contract break.
+    await expect(
+      processDocument(SAMPLE_PDF, {
+        render: true,
+        renderRegion: { x: 0, y: 0, width: 0.004, height: 100 },
+        noCache: true,
+      }),
+    ).rejects.toThrow(/width and height must be > 0/);
+  });
+
   it('rejects renderRegion with non-positive width or height up front', async () => {
     // Shape errors are caught before pdfjs loads so callers see them
     // immediately. Width 0 collapses to no pixels; negative height is

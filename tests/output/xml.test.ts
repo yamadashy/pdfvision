@@ -135,6 +135,33 @@ describe('formatXml', () => {
     expect(out).toMatch(/<page [^>]* image="\/tmp\/p\.png">/);
   });
 
+  it('echoes renderRegion as four sibling attributes on the page when present', () => {
+    // Mirrors the JSON output's `renderRegion` echo so XML consumers can
+    // also tell a cropped raster from a full-page one without parsing
+    // the on-disk filename.
+    const out = formatXml(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 't',
+            charCount: 1,
+            image: '/tmp/p.png',
+            renderRegion: { x: 50, y: 100, width: 200, height: 150 },
+          }),
+        ],
+      }),
+    );
+    expect(out).toMatch(
+      /<page [^>]* renderRegionX="50" renderRegionY="100" renderRegionWidth="200" renderRegionHeight="150">/,
+    );
+  });
+
+  it('omits the renderRegion attributes on a full-page render', () => {
+    const out = formatXml(makeResult({ pages: [makePage({ page: 1, text: 't', charCount: 1, image: '/tmp/p.png' })] }));
+    expect(out).not.toMatch(/renderRegion/);
+  });
+
   it('escapes characters that would otherwise break XML attribute or text parsing', () => {
     // PDF text and titles can contain `<`, `>`, `&`, `"`. Without escaping
     // these, the output stops being parseable XML — which defeats the point

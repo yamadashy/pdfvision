@@ -109,15 +109,16 @@ function validateRenderRegion(region: RenderRegion | undefined): RenderRegion | 
   if (x < 0 || y < 0) {
     throw new Error(`Invalid renderRegion: x and y must be >= 0 (got x=${x}, y=${y})`);
   }
-  if (width <= 0 || height <= 0) {
+  // Canonicalise to 2dp BEFORE the positive-size gate so a raw value
+  // like 0.004 (which would otherwise pass `> 0`, round to 0, and ship
+  // `width: 0` to the filename / echo while the renderer silently
+  // clamped the canvas to 1px) is rejected up front. Matches the
+  // round-then-validate posture used by validateRenderScale.
+  const rounded = { x: round2(x), y: round2(y), width: round2(width), height: round2(height) };
+  if (rounded.width <= 0 || rounded.height <= 0) {
     throw new Error(`Invalid renderRegion: width and height must be > 0 (got width=${width}, height=${height})`);
   }
-  // Canonicalise to 2dp so the cache key, the on-disk filename, and
-  // the echoed PageResult.renderRegion all agree on a single
-  // representation. Matches the rounding spans / layout.blocks /
-  // imageBoxes already get from `round2` so an agent piping a bbox
-  // directly into renderRegion hits the same value.
-  return { x: round2(x), y: round2(y), width: round2(width), height: round2(height) };
+  return rounded;
 }
 
 /**

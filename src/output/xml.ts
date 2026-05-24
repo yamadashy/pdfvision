@@ -87,6 +87,19 @@ export function formatXml(result: DocumentResult): string {
     if (page.quality.visualStatus !== undefined) attrs.push(`visualStatus="${page.quality.visualStatus}"`);
     attrs.push(`width="${page.width}"`, `height="${page.height}"`);
     if (page.image) attrs.push(`image="${escapeAttr(page.image)}"`);
+    // Echo the requested render region so XML consumers can tell
+    // crop-vs-full output the same way JSON consumers do. Encoded as
+    // four sibling attributes (matching the bbox shape we already use
+    // for <span>, <block>, <imageBox>) so the parser surface stays
+    // homogeneous.
+    if (page.renderRegion) {
+      attrs.push(
+        `renderRegionX="${page.renderRegion.x}"`,
+        `renderRegionY="${page.renderRegion.y}"`,
+        `renderRegionWidth="${page.renderRegion.width}"`,
+        `renderRegionHeight="${page.renderRegion.height}"`,
+      );
+    }
     out.push(`<page ${attrs.join(' ')}>`);
 
     if (page.spans && page.spans.length > 0) {
