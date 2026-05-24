@@ -1,6 +1,20 @@
 export type OutputFormat = 'markdown' | 'json' | 'xml';
 
 /**
+ * Sub-rectangle of a page to rasterise. PDF user-space points with the
+ * top-down origin pdfvision uses for `spans`, `layout.blocks`, and
+ * `imageBoxes` — `(0, 0)` is the page's top-left, `y` grows downward.
+ * width / height must be positive; bounds and single-page checks live
+ * in the processor so this stays a pure shape type.
+ */
+export interface RenderRegion {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
  * Options for the structured `processDocument()` API.
  * Independent of formatting concerns: format / pretty-printing / etc. are
  * the caller's responsibility once they have the structured result.
@@ -33,6 +47,27 @@ export interface ProcessDocumentOptions {
    * runs at different scales don't clobber each other.
    */
   renderScale?: number;
+  /**
+   * Sub-rectangle of the page to rasterise instead of the full page,
+   * specified in PDF points (top-left origin, y grows downward — same
+   * coordinate system as `pages[].spans`, `layout.blocks`, and
+   * `imageBoxes`). Composes orthogonally with `renderScale`: a 400×300pt
+   * region at scale 3 yields a 1200×900px PNG.
+   *
+   * Typical agent flow: run with `--layout`, pick a suspicious block from
+   * `warnings[]` / `layout.blocks[blockIndex]`, then re-run with that
+   * block's bbox here to get just that region as a high-detail PNG.
+   *
+   * V1 is strictly single-page: passing a `pages` selector that resolves
+   * to anything other than exactly one page throws. The use case is
+   * "zoom into THIS region of THIS page"; multi-page region semantics
+   * (varying page sizes, off-page on shorter pages) are not modelled.
+   *
+   * Throws if the region falls outside the page bounds (no silent clip)
+   * or if `width` / `height` are not positive. Goes through the cache key
+   * and the on-disk PNG filename so multiple regions per page coexist.
+   */
+  renderRegion?: RenderRegion;
   /**
    * Apply Unicode NFKC normalization to extracted text and metadata strings.
    * Defaults to `true`. PDFs (especially Japanese ones produced by Office /
@@ -109,6 +144,8 @@ export interface ProcessOptions {
   renderOutput?: string;
   /** See {@link ProcessDocumentOptions.renderScale}. */
   renderScale?: number;
+  /** See {@link ProcessDocumentOptions.renderRegion}. */
+  renderRegion?: RenderRegion;
   normalize?: boolean;
   geometry?: boolean;
   layout?: boolean;
@@ -298,6 +335,14 @@ export interface ImageBox {
 
 export interface PageResult {
   page: number;
+  /**
+   * Rendered region echoed back when `renderRegion` was passed to the
+   * extraction call. Lets consumers tell whether `pages[].image` is the
+   * full page or a sub-rectangle without having to track the original
+   * request. Coordinates are in PDF points (top-left origin), matching
+   * the input. Omitted for full-page renders.
+   */
+  renderRegion?: RenderRegion;
   text: string;
   /**
    * Pre-normalization form of `text`. Only present when NFKC normalization

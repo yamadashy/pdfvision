@@ -5,7 +5,7 @@ description: "Extract text, metadata, per-page density signals, structural layou
 
 # pdfvision
 
-[pdfvision](https://github.com/yamadashy/pdfvision) extracts text + metadata + per-page density signals from any PDF, with opt-in OCR (`--ocr`), layout reconstruction (`--layout`), image bounding boxes (`--image-boxes`), per-text-item geometry (`--geometry`), and PNG rendering (`--render`). Cached by content hash, so the second read of the same PDF returns in ~30 ms.
+[pdfvision](https://github.com/yamadashy/pdfvision) extracts text + metadata + per-page density signals from any PDF, with opt-in OCR (`--ocr`), layout reconstruction (`--layout`), geometry-driven anomaly detection (`pages[].warnings[]` when `--layout` is on), image bounding boxes (`--image-boxes`), per-text-item geometry (`--geometry`), and PNG rendering (`--render`, optionally sized with `--render-scale` and cropped with `--render-region`). Cached by content hash, so the second read of the same PDF returns in ~30 ms.
 
 ## Prerequisite
 
@@ -38,6 +38,13 @@ npx pdfvision doc.pdf -f xml          # tag-shaped, some LLMs locate <page> fast
 npx pdfvision scan.pdf --ocr -f json                     # tesseract.js OCR
 npx pdfvision scan.pdf --render --render-output ./images # PNG for vision LLM
 
+# Smaller / larger raster for vision-model payload
+npx pdfvision slides.pdf --render --render-scale 1       # half-size PNG (default scale is 2)
+npx pdfvision tiny.pdf --render --render-scale 3         # higher-detail PNG
+
+# Zoom into a specific region on one page (PDF points, top-left origin)
+npx pdfvision doc.pdf -p 3 --render --render-region 100,200,300,150
+
 # Wipe the on-disk cache
 npx pdfvision --clear-cache
 ```
@@ -55,6 +62,8 @@ The default extraction is enough for most native-text PDFs (papers, exports from
 | Per-glyph bbox + fontSize | `--geometry` | Heading detection by font-size, custom layout heuristics |
 | Page is an image — get text from raster | `--ocr` + `--ocr-lang` | `coverage: 0%` in the Overview, or `nonPrintableRatio >= 0.05` (text exists but is glyph-index garbage; see below). **For non-English text, language order matters** — primary language goes first (`jpn+eng` for Japanese-dominant, `eng+jpn` for English-dominant). Full lang combinations and confidence semantics in `references/ocr.md`. |
 | Hand the page to a vision model | `--render` + `--render-output <dir>` | Multimodal flows. Density Overview already flagged the page as low-text |
+| Shrink / enlarge the rendered PNG | `--render-scale <n>` (default 2, bounds `(0, 4]`) | 1×: half-size payload, fine for most agentic-vision dispatch. 3×+: capture chart / fine-print detail |
+| Zoom into a sub-rectangle of one page | `--render-region <x,y,w,h>` | Agent already saw a suspect block via `--layout` / `warnings[]` and only wants the visual confirmation of that bbox, not the whole page. PDF points, top-left origin, single-page only (errors if `--pages` resolves to multiple). Composes with `--render-scale` |
 | Skip the on-disk cache | `--no-cache` | Forced re-extraction. Default behaviour is cache-on |
 
 ## Detecting silent failures with the density Overview
@@ -102,7 +111,8 @@ The density signal is the reason to prefer pdfvision over reading a PDF directly
 2. Read the density signals (the markdown Overview table, or `overview[]` / `pages[].textCoverage` / `imageCount` / `charCount` in JSON) to find low-coverage pages.
 3. For low-coverage pages: re-run with `--ocr` if text is needed, or `--render` if a vision model will look at the rasterised page.
 4. For structured / multi-column docs: re-run with `--layout` (and `--image-boxes` when figure positions matter).
-5. Cache means steps 3–4 only re-pay the cost of the new flag combination on the affected page subset, not the whole extract.
+5. **Zoom into a specific block when `--layout` flags one.** If `pages[].warnings[]` fires on a `blockIndex`, or `layout.blocks[i]` looks suspicious (overlapping bboxes, a chart you want a vision model to read), re-run with `--pages <N> --render --render-region <x,y,w,h>` using that block's bbox. The PNG comes back cropped to just the region (xywh × `--render-scale` = pixel dims), avoiding a full-page raster the model has to ignore most of.
+6. Cache means steps 3–5 only re-pay the cost of the new flag combination on the affected page subset, not the whole extract.
 
 ## When to read `references/`
 

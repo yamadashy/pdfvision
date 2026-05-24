@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { PageOcr } from '../types/index.js';
 import { ensurePrivateDir, getCacheRoot } from './cache.js';
-import { renderPageToBuffer } from './renderer.js';
+import { type RenderRegion, renderPageToBuffer } from './renderer.js';
 
 /**
  * One OCR worker, reusable across many pages. Created once per
@@ -126,6 +126,7 @@ export async function attachOcr(
   lang: string,
   imagePaths?: (string | undefined)[],
   scale?: number,
+  region?: RenderRegion,
 ): Promise<void> {
   // Canonicalise whitespace / stray separators so ` eng + jpn ` and
   // `eng+jpn` end up with the same echoed `ocr.lang`. Order is preserved
@@ -149,7 +150,7 @@ export async function attachOcr(
       if (cachedImage) {
         png = await readFile(cachedImage);
       } else {
-        const rasterised = await renderPageToBuffer(doc, pageNumbers[i], scale);
+        const rasterised = await renderPageToBuffer(doc, pageNumbers[i], scale, region);
         png = rasterised.buffer;
         contentRatio = rasterised.contentRatio;
       }

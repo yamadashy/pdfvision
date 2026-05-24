@@ -28,5 +28,6 @@ export type {
   PageWarning,
   ProcessDocumentOptions,
   ProcessOptions,
+  RenderRegion,
   TextSpan,
 } from './types/index.js';

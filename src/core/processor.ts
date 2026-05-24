@@ -15,6 +15,7 @@ import type {
   PageResult,
   ProcessDocumentOptions,
   ProcessOptions,
+  RenderRegion,
   TextSpan,
 } from '../types/index.js';
 import { dropCached, ensurePrivateDir, getCacheDir, getCached, pdfFingerprint, setCache } from './cache.js';
@@ -32,6 +33,7 @@ interface CacheKeyInput {
   render?: boolean;
   renderOutput?: string;
   renderScale?: number;
+  renderRegion?: RenderRegion;
   normalize?: boolean;
   geometry?: boolean;
   layout?: boolean;
@@ -83,6 +85,43 @@ function scaleDirSuffix(scale: number): string {
 }
 
 /**
+ * Validate and canonicalise the user-supplied `renderRegion`. Surface
+ * shape errors (non-finite, negative, zero-area) before any page is
+ * loaded so a typo in a script fails fast rather than burning the
+ * extraction budget on an unusable region.
+ *
+ * Page-bounds and single-page checks happen later — they need the page
+ * list and viewport, which aren't available at this point.
+ */
+function validateRenderRegion(region: RenderRegion | undefined): RenderRegion | undefined {
+  if (region === undefined) return undefined;
+  const { x, y, width, height } = region;
+  for (const [name, value] of [
+    ['x', x],
+    ['y', y],
+    ['width', width],
+    ['height', height],
+  ] as const) {
+    if (!Number.isFinite(value)) {
+      throw new Error(`Invalid renderRegion.${name} ${value}: expected a finite number`);
+    }
+  }
+  if (x < 0 || y < 0) {
+    throw new Error(`Invalid renderRegion: x and y must be >= 0 (got x=${x}, y=${y})`);
+  }
+  // Canonicalise to 2dp BEFORE the positive-size gate so a raw value
+  // like 0.004 (which would otherwise pass `> 0`, round to 0, and ship
+  // `width: 0` to the filename / echo while the renderer silently
+  // clamped the canvas to 1px) is rejected up front. Matches the
+  // round-then-validate posture used by validateRenderScale.
+  const rounded = { x: round2(x), y: round2(y), width: round2(width), height: round2(height) };
+  if (rounded.width <= 0 || rounded.height <= 0) {
+    throw new Error(`Invalid renderRegion: width and height must be > 0 (got width=${width}, height=${height})`);
+  }
+  return rounded;
+}
+
+/**
  * Build a deterministic, hashed cache key for the given options.
  *
  * The hash hides the raw `pages` string so user-controlled input cannot
@@ -95,7 +134,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v15',
+    format: 'structured-v17',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -106,6 +145,13 @@ function buildCacheKey(input: CacheKeyInput): string {
     // `null` for the off path so non-render extractions still hit a
     // shared slot regardless of the value the caller passed.
     renderScale: input.render || input.ocr ? (input.renderScale ?? DEFAULT_RENDER_SCALE) : null,
+    // `renderRegion` changes both the PNG content and `renderContentRatio`
+    // (cropped pixels → different histogram). Key on the xywh tuple so
+    // two regions on the same page get distinct cache entries.
+    renderRegion:
+      (input.render || input.ocr) && input.renderRegion
+        ? `${input.renderRegion.x},${input.renderRegion.y},${input.renderRegion.width},${input.renderRegion.height}`
+        : null,
     // Normalized vs raw text are different payloads; key them separately so
     // toggling the flag doesn't return stale text.
     normalize: input.normalize !== false,
@@ -412,6 +458,22 @@ export async function processDocument(filePath: string, options: ProcessDocument
   // isn't on (the validation is cheap and a leftover flag in a script
   // shouldn't be quietly ignored).
   const renderScale = validateRenderScale(options.renderScale);
+  // Same posture for renderRegion: shape (positive width/height, no
+  // negatives, finite numbers) gets validated synchronously; the
+  // single-page + within-bounds + non-rotated-page checks come after
+  // page resolution and pdfjs load below.
+  const renderRegion = validateRenderRegion(options.renderRegion);
+  // renderRegion only makes sense when rasterisation actually runs.
+  // The CLI already enforces this, but library callers can bypass it
+  // and we'd then hit two real bugs: (1) the result cache slot is
+  // shared with text-only extractions (renderRegion isn't part of the
+  // text-only cache key), so back-to-back calls with different regions
+  // would return stale `renderRegion` echoes; (2) the single-page +
+  // bounds checks below sit inside the `options.render || options.ocr`
+  // branch, so they'd silently no-op. Fail loud at the boundary instead.
+  if (renderRegion && !options.render && !options.ocr) {
+    throw new Error('renderRegion requires render: true or ocr: true');
+  }
   // Compute the per-PDF fingerprint up front when any code path below
   // needs it (caching, or render output isolation). Hashing the file is
   // the most expensive sync step in this function, so do it once and
@@ -421,7 +483,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
   const fingerprint = needFingerprint ? pdfFingerprint(filePath) : null;
   const cacheDir = options.noCache ? null : getCacheDir(filePath, fingerprint ?? undefined);
 
-  const cacheKey = buildCacheKey({ ...options, renderScale });
+  const cacheKey = buildCacheKey({ ...options, renderScale, renderRegion });
   if (cacheDir) {
     const cached = getCached(cacheDir, cacheKey);
     if (cached) {
@@ -524,6 +586,47 @@ export async function processDocument(filePath: string, options: ProcessDocument
       pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1);
     }
 
+    // renderRegion is V1-strict: exactly one page selected. The use case
+    // is "zoom into THIS region of THIS page"; applying the same xywh
+    // to many pages (potentially with different sizes) needs a different
+    // surface (e.g. per-page region map) we deliberately don't ship yet.
+    if (renderRegion && pageNumbers.length !== 1) {
+      throw new Error(
+        `renderRegion requires exactly 1 page (resolved ${pageNumbers.length} from pages selector ${options.pages ? `"${options.pages}"` : '(all pages)'})`,
+      );
+    }
+    // Bounds + rotation guards. V1 rejects pages with `page.rotate !== 0`
+    // because pdfvision's existing geometry (spans / imageBoxes /
+    // layout.blocks) is in unrotated MediaBox-derived coordinates, while
+    // pdf.js's render viewport applies rotation. The two coord systems
+    // disagree for /Rotate 90/180/270, so a user pulling a bbox from
+    // `imageBoxes` and feeding it as `renderRegion` would crop the
+    // wrong area on rotated pages. Fixing the underlying inconsistency
+    // is a multi-file refactor (renderer + spans + imageBoxes + layout);
+    // out of V1 scope. Reject loudly so the agent doesn't get a silently
+    // wrong PNG.
+    if (renderRegion && (options.render || options.ocr)) {
+      const probePage = await doc.getPage(pageNumbers[0]);
+      if (probePage.rotate !== 0) {
+        throw new Error(
+          `renderRegion is not supported on rotated pages (page ${pageNumbers[0]} has rotate=${probePage.rotate}); the region coord system would not match imageBoxes / layout.blocks. V1 limitation.`,
+        );
+      }
+      // Bounds against the page MediaBox dimensions — matches the
+      // coordinate system pdfvision exposes via spans / imageBoxes
+      // / layout.blocks, not the post-rotation viewport.
+      const view = probePage.view;
+      const pageW = Math.abs(view[2] - view[0]);
+      const pageH = Math.abs(view[3] - view[1]);
+      const right = renderRegion.x + renderRegion.width;
+      const bottom = renderRegion.y + renderRegion.height;
+      if (right > pageW || bottom > pageH) {
+        throw new Error(
+          `renderRegion ${right}×${bottom} (right×bottom) falls outside page ${pageNumbers[0]} bounds ${pageW}×${pageH} (width×height, PDF points)`,
+        );
+      }
+    }
+
     const metadata = await doc.getMetadata();
     const info = metadata.info as Record<string, unknown> | null;
 
@@ -621,7 +724,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       // renderer pulls in @napi-rs/canvas (native binding); only load it
       // when --render is requested.
       const { renderPagesWithStats } = await import('./renderer.js');
-      const rendered = await renderPagesWithStats(doc, pageNumbers, imagesDir, renderScale);
+      const rendered = await renderPagesWithStats(doc, pageNumbers, imagesDir, renderScale, renderRegion);
       imagePaths = rendered.map((r) => r.path);
       renderRatios = rendered.map((r) => r.contentRatio);
     }
@@ -657,6 +760,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       const renderRatio = renderRatios[i];
       const page: PageResult = {
         page: pageNum,
+        ...(renderRegion !== undefined && { renderRegion }),
         text: data.text,
         ...(data.rawText !== undefined && { rawText: data.rawText }),
         image: imagePaths?.[i],
@@ -717,7 +821,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       // and `--ocr` are on. attachOcr falls back to its own pdf.js
       // raster for any slot where the path is missing (no `--render`,
       // or a cache-hit slot that returned `contentRatio: undefined`).
-      await attachOcr(doc, pageNumbers, pages, ocrLang, imagePaths ?? undefined, renderScale);
+      await attachOcr(doc, pageNumbers, pages, ocrLang, imagePaths ?? undefined, renderScale, renderRegion);
     }
 
     // Compute the derived `quality` field *after* OCR so the OCR-only
@@ -814,6 +918,7 @@ export async function processFile(filePath: string, options: ProcessOptions): Pr
     noCache: options.noCache,
     renderOutput: options.renderOutput,
     renderScale: options.renderScale,
+    renderRegion: options.renderRegion,
     normalize: options.normalize,
     geometry: options.geometry,
     layout: options.layout,
