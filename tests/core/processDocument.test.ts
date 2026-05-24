@@ -161,6 +161,136 @@ describe('processDocument', () => {
     }
   });
 
+  it('renders a sub-rectangle when renderRegion is set and echoes it back on the page result', async () => {
+    // Single-page extraction (SAMPLE_PDF is 1 page) so the V1 single-page
+    // gate doesn't fire. Region of 200×100pt on the upper-left area of
+    // a 612×792 letter page; with the default scale of 2 the PNG must
+    // come back as 400×200px. Region is also echoed back on the page
+    // result so callers can tell crop-or-full from the structured output
+    // without inspecting the filename.
+    const { loadImage } = await import('@napi-rs/canvas');
+    const result = await processDocument(SAMPLE_PDF, {
+      render: true,
+      renderRegion: { x: 50, y: 50, width: 200, height: 100 },
+      noCache: true,
+    });
+    expect(result.pages[0].renderRegion).toEqual({ x: 50, y: 50, width: 200, height: 100 });
+    const img = await loadImage(result.pages[0].image as string);
+    expect(img.width).toBe(400);
+    expect(img.height).toBe(200);
+  });
+
+  it('composes renderRegion with renderScale (region size × scale = pixels)', async () => {
+    // 200×100pt × scale 3 = 600×300px. Guards the multiplicative
+    // contract documented on ProcessDocumentOptions.renderRegion.
+    const { loadImage } = await import('@napi-rs/canvas');
+    const result = await processDocument(SAMPLE_PDF, {
+      render: true,
+      renderRegion: { x: 0, y: 0, width: 200, height: 100 },
+      renderScale: 3,
+      noCache: true,
+    });
+    const img = await loadImage(result.pages[0].image as string);
+    expect(img.width).toBe(600);
+    expect(img.height).toBe(300);
+  });
+
+  it('encodes the region in the PNG filename so multiple regions per page coexist', async () => {
+    // page-<N>_x<x>_y<y>_w<w>_h<h>.png — back-to-back renders of two
+    // different regions must produce two distinct files, neither
+    // overwriting the other under the cache.
+    const { basename } = await import('node:path');
+    const a = await processDocument(SAMPLE_PDF, {
+      render: true,
+      renderRegion: { x: 10, y: 20, width: 100, height: 80 },
+      noCache: true,
+    });
+    const b = await processDocument(SAMPLE_PDF, {
+      render: true,
+      renderRegion: { x: 200, y: 300, width: 100, height: 80 },
+      noCache: true,
+    });
+    expect(basename(a.pages[0].image as string)).toMatch(/^page-1_x10_y20_w100_h80\.png$/);
+    expect(basename(b.pages[0].image as string)).toMatch(/^page-1_x200_y300_w100_h80\.png$/);
+    expect(a.pages[0].image).not.toBe(b.pages[0].image);
+  });
+
+  it('rejects renderRegion when more than one page is selected', async () => {
+    // V1 contract: region only makes sense for a single page. SAMPLE_JA_PDF
+    // is multi-page; passing renderRegion without narrowing via pages
+    // must throw rather than silently apply the same xywh to every page.
+    await expect(
+      processDocument(SAMPLE_JA_PDF, {
+        render: true,
+        renderRegion: { x: 0, y: 0, width: 100, height: 100 },
+        noCache: true,
+      }),
+    ).rejects.toThrow(/renderRegion requires exactly 1 page/);
+  });
+
+  it('rejects renderRegion that falls outside the page bounds', async () => {
+    // SAMPLE_PDF is letter (612×792). A region whose right edge sits at
+    // x+width = 700 falls past the right margin and must fail before any
+    // raster work — silently clipping would mask agent typos / coordinate
+    // confusion (pre-rotation vs post-rotation, etc.).
+    await expect(
+      processDocument(SAMPLE_PDF, {
+        render: true,
+        renderRegion: { x: 500, y: 0, width: 200, height: 100 },
+        noCache: true,
+      }),
+    ).rejects.toThrow(/renderRegion .* falls outside page/);
+  });
+
+  it('rejects renderRegion with non-positive width or height up front', async () => {
+    // Shape errors are caught before pdfjs loads so callers see them
+    // immediately. Width 0 collapses to no pixels; negative height is
+    // a coordinate-system confusion that must not silently swap edges.
+    await expect(
+      processDocument(SAMPLE_PDF, {
+        render: true,
+        renderRegion: { x: 0, y: 0, width: 0, height: 100 },
+        noCache: true,
+      }),
+    ).rejects.toThrow(/width and height must be > 0/);
+    await expect(
+      processDocument(SAMPLE_PDF, {
+        render: true,
+        renderRegion: { x: 0, y: 0, width: 100, height: -50 },
+        noCache: true,
+      }),
+    ).rejects.toThrow(/width and height must be > 0/);
+  });
+
+  it('rejects renderRegion with negative x or y', async () => {
+    await expect(
+      processDocument(SAMPLE_PDF, {
+        render: true,
+        renderRegion: { x: -1, y: 0, width: 100, height: 100 },
+        noCache: true,
+      }),
+    ).rejects.toThrow(/x and y must be >= 0/);
+  });
+
+  it('keeps cache entries with different renderRegions separate', async () => {
+    // Same PDF, same scale, two regions must each get their own cache
+    // result (and therefore their own on-disk PNG). Otherwise a second
+    // region call would return the first region's image path on cache
+    // hit — visible regression of the kind --render-scale was hardened
+    // against in v0.8.0.
+    const a = await processDocument(SAMPLE_PDF, {
+      render: true,
+      renderRegion: { x: 0, y: 0, width: 100, height: 100 },
+      noCache: false,
+    });
+    const b = await processDocument(SAMPLE_PDF, {
+      render: true,
+      renderRegion: { x: 100, y: 100, width: 100, height: 100 },
+      noCache: false,
+    });
+    expect(a.pages[0].image).not.toBe(b.pages[0].image);
+  });
+
   it('writes rendered PNGs into a per-PDF subdirectory of the caller-supplied renderOutput', async () => {
     // Agent ergonomics: with renderOutput the PNGs land under the caller's
     // chosen directory (created if missing) rather than tmp. They sit in a

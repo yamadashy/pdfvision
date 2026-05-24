@@ -42,6 +42,7 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
         render: { type: 'boolean', short: 'r' },
         'render-output': { type: 'string' },
         'render-scale': { type: 'string' },
+        'render-region': { type: 'string' },
         'no-cache': { type: 'boolean' },
         'no-normalize': { type: 'boolean' },
         geometry: { type: 'boolean' },
@@ -155,6 +156,31 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
     renderScale = parsed;
   }
 
+  // --render-region parses "x,y,width,height" as PDF points (top-left
+  // origin, y grows downward — same coord system as imageBoxes /
+  // layout.blocks). CLI surfaces shape errors (wrong field count,
+  // non-numeric); positive-width/height and single-page constraints
+  // get enforced in the processor against the resolved page list, so
+  // we don't need to know totalPages here.
+  const renderRegionRaw = values['render-region'] as string | undefined;
+  let renderRegion: { x: number; y: number; width: number; height: number } | undefined;
+  if (renderRegionRaw !== undefined) {
+    if (!render && !(values.ocr as boolean | undefined)) {
+      exitWithError('--render-region requires --render or --ocr');
+    }
+    const parts = renderRegionRaw.split(',').map((p) => p.trim());
+    if (parts.length !== 4) {
+      exitWithError(
+        `Invalid --render-region "${renderRegionRaw}": expected "x,y,width,height" (4 comma-separated numbers)`,
+      );
+    }
+    const [x, y, w, h] = parts.map(Number);
+    if (![x, y, w, h].every((n) => Number.isFinite(n))) {
+      exitWithError(`Invalid --render-region "${renderRegionRaw}": all four values must be finite numbers`);
+    }
+    renderRegion = { x, y, width: w, height: h };
+  }
+
   const layout = (values.layout as boolean | undefined) ?? false;
   const stripRepeated = (values['strip-repeated'] as boolean | undefined) ?? false;
   if (stripRepeated && !layout) {
@@ -201,6 +227,7 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
       render,
       renderOutput,
       renderScale,
+      renderRegion,
       noCache,
       // NFKC normalization is on by default — agents almost always want
       // canonical Unicode. --no-normalize lets callers opt out for cases

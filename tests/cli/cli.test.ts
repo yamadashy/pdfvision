@@ -208,6 +208,26 @@ describe('cli', () => {
     expect(r.stderr.join('\n')).toMatch(/Invalid --render-scale/);
   });
 
+  it('rejects --render-region without --render or --ocr', async () => {
+    // Mirrors --render-scale / --render-output posture: a flag the user
+    // typed must take effect or be loud about why it didn't.
+    const r = await captureRun([SAMPLE_PDF, '--render-region', '0,0,100,100']);
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr.join('\n')).toMatch(/--render-region requires --render or --ocr/);
+  });
+
+  it('rejects --render-region with the wrong number of comma-separated values', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--render', '--render-region', '10,20,30']);
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr.join('\n')).toMatch(/4 comma-separated numbers/);
+  });
+
+  it('rejects --render-region with a non-numeric component', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--render', '--render-region', '10,abc,30,40']);
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr.join('\n')).toMatch(/finite numbers/);
+  });
+
   it('surfaces processor errors as a clean CLI error', async () => {
     // Invalid pages selector — processor throws, CLI should turn that into
     // exit(1) + stderr message instead of an unhandled rejection.

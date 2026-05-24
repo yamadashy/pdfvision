@@ -28,6 +28,14 @@ Options
       --render-scale <n>  Rasterisation multiplier for --render / --ocr. Default 2 (≈144 DPI on a
                           letter page). Smaller values shrink the PNG (and vision-model payload);
                           larger values capture more detail. Accepts decimals; bounds (0, 4].
+      --render-region <x,y,width,height>
+                          Render only the given sub-rectangle (PDF points, top-left origin, y
+                          grows downward — same coordinate system as imageBoxes / layout.blocks).
+                          Composes with --render-scale: a 400×300pt region at scale 3 yields a
+                          1200×900px PNG. Single-page only: --pages must resolve to exactly one
+                          page (errors otherwise). Region must fit within the page bounds.
+                          Typical use: --layout to find a suspect block, then re-run with that
+                          block's bbox here to zoom in.
       --no-normalize      Disable Unicode NFKC normalization. Default ON; pre-normalization text is
                           surfaced in \`rawText\` (json/xml) when normalization changed the string.
                           Markdown output shows only the normalized form — pass --no-normalize if
@@ -73,6 +81,7 @@ Examples
   pdfvision document.pdf -p 1-3 --json                                         # specific pages, JSON
   pdfvision document.pdf -r --render-output ./images                           # render PNGs to ./images
   pdfvision slides.pdf -r --render-scale 1                                     # 1× raster (smaller PNGs)
+  pdfvision report.pdf -p 3 -r --render-region 100,200,300,150                 # zoom into a 300×150pt box on page 3
   pdfvision report.pdf -p 3-5 -r --render-output ./images --geometry --json    # PNGs + spans for 3-5
   pdfvision slides.pdf --xml --geometry                                        # layout / geometry as XML
   pdfvision report.pdf --layout --strip-repeated                               # markdown w/o repeated chrome

@@ -106,10 +106,30 @@ export function computeContentRatio(rgba: Uint8ClampedArray): number {
   return Math.round((content / totalPx) * 1_000_000) / 1_000_000;
 }
 
+/** Sub-rectangle to rasterise instead of the full page. Coordinates are
+ *  PDF points in pdfvision's existing top-down convention (origin at
+ *  top-left, y grows downward), matching `spans` / `layout.blocks` /
+ *  `imageBoxes`. Width / height must be positive; bounds checking lives
+ *  in the processor so the renderer can stay primitive. */
+export interface RenderRegion {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 /**
  * Internal raster primitive. Returns the encoded PNG buffer AND the
  * content-ratio computed from the pre-encode RGBA pixels — measuring
  * after PNG encode would require decoding back, which is wasteful.
+ *
+ * When `region` is set, the canvas is sized to `region.width × region.height`
+ * (times `scale`) and the pdf.js render call gets a translation transform
+ * that shifts the full-page draw so the region's top-left corner lands at
+ * canvas (0, 0). pdf.js still walks the full operator list — the
+ * speedup comes from skipping pixel work outside the canvas, not from
+ * skipping draw calls. For region-extraction workloads (agent zooming
+ * into a flagged block) that's the right trade.
  *
  * Shared by `renderPageWithStats` (writes the buffer to disk) and the
  * OCR pipeline (feeds the buffer to tesseract.js without filesystem
@@ -121,22 +141,32 @@ export async function renderPageToBuffer(
   doc: PDFDocumentProxy,
   pageNum: number,
   scale = DEFAULT_SCALE,
+  region?: RenderRegion,
 ): Promise<{ buffer: Buffer; contentRatio: number }> {
   const page = await doc.getPage(pageNum);
   const viewport = page.getViewport({ scale });
 
-  const canvas = createCanvas(viewport.width, viewport.height);
+  // With a region, the canvas captures only the sub-rectangle; without
+  // it, we render the full viewport.
+  const canvasW = region ? Math.round(region.width * scale) : viewport.width;
+  const canvasH = region ? Math.round(region.height * scale) : viewport.height;
+  const canvas = createCanvas(canvasW, canvasH);
   const context = canvas.getContext('2d');
 
   await page.render({
     // @ts-expect-error -- pdfjs-dist expects CanvasRenderingContext2D but @napi-rs/canvas is compatible
     canvasContext: context,
     viewport,
+    // Translation matrix applied *after* the viewport transform — shifts
+    // pixel output so PDF top-down (region.x, region.y) lands at canvas
+    // (0, 0). When `region` is undefined, omit the option so pdf.js takes
+    // the identity path it always has.
+    ...(region ? { transform: [1, 0, 0, 1, -region.x * scale, -region.y * scale] } : {}),
   }).promise;
 
   // Read the RGBA buffer BEFORE PNG encode — the post-encode round trip
   // would otherwise re-decode the PNG just to count pixels.
-  const imageData = context.getImageData(0, 0, viewport.width, viewport.height);
+  const imageData = context.getImageData(0, 0, canvasW, canvasH);
   const contentRatio = computeContentRatio(imageData.data);
   const buffer = canvas.toBuffer('image/png');
   return { buffer, contentRatio };
@@ -160,6 +190,19 @@ async function computeContentRatioFromPng(path: string): Promise<number> {
 }
 
 /**
+ * Build the on-disk filename for a rendered page. Region-bearing renders
+ * encode the bbox in the filename so multiple regions per page can
+ * coexist on disk: `page-3_x50_y100_w400_h300.png`. Without a region the
+ * legacy `page-N.png` shape is preserved so existing consumers don't
+ * have to learn a new pattern. Numbers are normalised through `String`
+ * which drops trailing zeros (`50.5` stays `50.5`, `50.0` becomes `50`).
+ */
+function pngFilename(pageNum: number, region: RenderRegion | undefined): string {
+  if (!region) return `page-${pageNum}.png`;
+  return `page-${pageNum}_x${region.x}_y${region.y}_w${region.width}_h${region.height}.png`;
+}
+
+/**
  * Render a page to disk and report the content ratio. On a PNG cache
  * hit we decode the cached PNG instead of re-rastering through pdf.js,
  * so the ratio is still populated after a result-cache invalidation
@@ -174,8 +217,9 @@ export async function renderPageWithStats(
   pageNum: number,
   outputDir: string,
   scale = DEFAULT_SCALE,
+  region?: RenderRegion,
 ): Promise<{ path: string; contentRatio: number }> {
-  const outputPath = join(outputDir, `page-${pageNum}.png`);
+  const outputPath = join(outputDir, pngFilename(pageNum, region));
   if (isReusableImage(outputPath)) {
     try {
       const contentRatio = await computeContentRatioFromPng(outputPath);
@@ -187,7 +231,7 @@ export async function renderPageWithStats(
       // cache entry; atomicWrite below replaces the bad file.
     }
   }
-  const { buffer, contentRatio } = await renderPageToBuffer(doc, pageNum, scale);
+  const { buffer, contentRatio } = await renderPageToBuffer(doc, pageNum, scale, region);
   atomicWrite(outputPath, buffer);
   return { path: outputPath, contentRatio };
 }
@@ -211,8 +255,9 @@ export async function renderPagesWithStats(
   pageNumbers: number[],
   outputDir: string,
   scale?: number,
+  region?: RenderRegion,
 ): Promise<{ path: string; contentRatio: number }[]> {
-  return runParallel(pageNumbers, (pageNum) => renderPageWithStats(doc, pageNum, outputDir, scale));
+  return runParallel(pageNumbers, (pageNum) => renderPageWithStats(doc, pageNum, outputDir, scale, region));
 }
 
 export async function renderPages(
@@ -220,7 +265,8 @@ export async function renderPages(
   pageNumbers: number[],
   outputDir: string,
   scale?: number,
+  region?: RenderRegion,
 ): Promise<string[]> {
-  const results = await renderPagesWithStats(doc, pageNumbers, outputDir, scale);
+  const results = await renderPagesWithStats(doc, pageNumbers, outputDir, scale, region);
   return results.map((r) => r.path);
 }
