@@ -57,10 +57,12 @@ interface PageResult {
   width: number;
   height: number;
   image?: string;                // absolute PNG path — present iff --render
+  renderRegion?: { x, y, width, height }; // echoed back when --render-region was set; lets consumers tell crop vs full
   spans?: TextSpan[];            // present iff --geometry
   layout?: PageLayout;           // present iff --layout
   imageBoxes?: ImageBox[];       // present iff --image-boxes
   ocr?: PageOcr;                 // present iff --ocr
+  warnings?: PageWarning[];      // present iff --layout, omitted when no rule fired on the page
 }
 
 interface PageQuality {
@@ -157,7 +159,7 @@ interface PageOcr {
 
 ## Coordinate system
 
-All coordinates (spans, layout blocks, image boxes) use a **top-down origin** in PDF user-space points: `(0, 0)` at the top-left of the page, `y` grows downward. This matches the rendered PNG convention, so a consumer can overlay any of the geometry signals onto `image` (when `--render` is on) without flipping.
+All coordinates (spans, layout blocks, image boxes, `renderRegion`) use a **top-down origin** in PDF user-space points: `(0, 0)` at the top-left of the page, `y` grows downward. This matches the rendered PNG convention, so a consumer can overlay any of the geometry signals onto `image` (when `--render` is on) without flipping.
 
 To map PDF points onto rendered PNG pixels:
 
@@ -166,6 +168,29 @@ const sx = image.width / page.width;
 const sy = image.height / page.height;
 const pixelBox = { x: box.x * sx, y: box.y * sy, width: box.width * sx, height: box.height * sy };
 ```
+
+## Rendering: `--render-scale` and `--render-region`
+
+Both flags only have effect when `--render` (or `--ocr`, which internally rasterises) is on.
+
+- **`--render-scale <n>`**: multiplier in pixels-per-point. Default `2` (≈144 DPI on a letter page). Bounds `(0, 4]`. Smaller values shrink the vision-model payload; larger values capture finer detail (chart labels, small typography).
+- **`--render-region <x,y,w,h>`**: render only the given sub-rectangle of one page instead of the full page. PDF points, top-left origin, same coord system as `imageBoxes` / `layout.blocks`. Composes orthogonally with `--render-scale`: a 400×300pt region at scale 3 produces a 1200×900px PNG. V1 is strictly single-page (errors if `--pages` resolves to anything but exactly one page), rejects regions that fall outside the page bounds, and rejects rotated pages (`page.rotate !== 0` — pdfvision's existing geometry is in unrotated MediaBox coordinates and the rotation fix is a multi-file refactor still pending). The xywh tuple is part of the cache key and the on-disk filename (`page-N_x<x>_y<y>_w<w>_h<h>.png`), so multiple regions per page coexist. Echoed back on `PageResult.renderRegion` so consumers can tell a cropped image from a full-page one without inspecting the filename.
+
+Typical agent flow: extract with `--layout`, find a suspect block in `layout.blocks[i]` (or get its index out of `warnings[i].blockIndex`), then re-run with `--pages <N> --render --render-region <x,y,w,h>` using `blocks[i]`'s bbox to zoom in.
+
+## Warnings (`--layout`)
+
+```ts
+interface PageWarning {
+  code: 'text_overlap' | 'near_bottom_edge' | 'body_near_repeated_chrome' | 'off_page';
+  severity: 'warning' | 'error';
+  message: string;
+  blockIndex?: number;        // 0-based into pages[N].layout.blocks
+  otherBlockIndex?: number;   // for pair-wise rules (text_overlap, body_near_repeated_chrome)
+}
+```
+
+Emitted only when `--layout` is on. Each entry pins to a specific block (or block pair) and describes what looks visually off — overlapping text, off-page bbox, body crowding a detected running header/footer. Same observational posture as `quality`: pdfvision tells the agent what it saw; the agent decides whether to surface, re-OCR, or zoom in via `--render-region <blocks[blockIndex].x>,...`.
 
 ## XML output shape
 
@@ -238,4 +263,4 @@ for (const page of result.pages) {
 
 `processFile()` returns the formatted string output (`markdown` / `json` / `xml`). `processDocument()` returns the structured object directly.
 
-Exported types: `DocumentResult`, `DocumentMetadata`, `PageOverview`, `PageResult`, `PageQuality`, `LayoutBlock`, `LayoutLine`, `PageLayout`, `ImageBox`, `TextSpan`, `PageOcr`, `OutputFormat`, `ProcessDocumentOptions`, `ProcessOptions`.
+Exported types: `DocumentResult`, `DocumentMetadata`, `PageOverview`, `PageResult`, `PageQuality`, `PageWarning`, `LayoutBlock`, `LayoutLine`, `PageLayout`, `ImageBox`, `TextSpan`, `PageOcr`, `OutputFormat`, `ProcessDocumentOptions`, `ProcessOptions`.
