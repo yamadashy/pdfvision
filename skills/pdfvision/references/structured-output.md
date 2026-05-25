@@ -1,8 +1,8 @@
 # Structured output schema
 
-Reference for `-f json` and `-f xml` consumers. Read this when an agent or tooling consumes the structured payload programmatically and needs to know every field, its shape, and its coordinate convention.
+Reference for `-f json`, `-f xml`, and `-f toon` consumers. Read this when an agent or tooling consumes the structured payload programmatically and needs to know every field, its shape, and its coordinate convention.
 
-The shape of `-f json` is the `DocumentResult` interface exported by the `pdfvision` package. `-f xml` carries the same data as `<document>` / `<page>` / nested tags. The two are isomorphic — pick whichever is easier for the consumer to parse.
+The shape of `-f json` is the `DocumentResult` interface exported by the `pdfvision` package. `-f xml` carries the same data as `<document>` / `<page>` / nested tags, and `-f toon` carries it as [Token-Oriented Object Notation](https://toonformat.dev). All three are isomorphic to the same `DocumentResult` — pick whichever is easier for the consumer to parse (`toon` is the most token-frugal on span/array-heavy output; see "TOON output shape" below).
 
 ## DocumentResult (top level)
 
@@ -240,6 +240,40 @@ Emitted only when `--layout` is on. Each entry pins to a specific block (or bloc
 
 Empty `<layout/>`, `<imageBoxes/>`, and `<ocr/>` (self-closing) mean "the pass ran and found nothing", which is distinct from the tag being absent (the pass wasn't requested).
 
+## TOON output shape
+
+`-f toon` is the same `DocumentResult` re-encoded as [Token-Oriented Object Notation](https://toonformat.dev): YAML-style indentation for nested objects, plus a CSV-like tabular form for **uniform object arrays** that declares the field names once in a `[N]{fields}:` header and then streams one comma-delimited row per element. Optional fields that are unset are omitted (not emitted as `null`), so the field set matches `-f json` exactly.
+
+```
+file: /path/doc.pdf
+totalPages: 14
+metadata:
+  title: ...
+overview[2]:
+  - page: 1
+    charCount: 40
+    quality:
+      nativeTextStatus: ok
+    width: 612
+    height: 792
+  - page: 2
+    ...
+pages[2]:
+  - page: 1
+    text: "line one\nline two"
+    charCount: 40
+    spans[2]{text,x,y,width,height,fontSize,fontName}:
+      pdfvision headers fixture,50,27.18,108.38,10,10,g_d0_f1
+      Body of page 1,50,194.36,134.54,20,20,g_d0_f1
+    layout:
+      blocks[2]:
+        - text: ...
+          lines[1]{text,x,y,width,height,fontSize}:
+            ...
+```
+
+Decode back to the `DocumentResult` data model with the `@toon-format/toon` package (`decode(toonString)`). Where the win lands: `spans[]` (`--geometry`), `overview[]`, `imageBoxes[]`, and per-block `lines[]` all tabularize, so geometry/span-dense output is ~40–48% fewer tokens than the pretty-printed JSON. Free text bodies and the non-uniform `layout.blocks[]` (optional `role` / `level` / `repeated` per block) do **not** tabularize — for layout-dominant output `-f xml` is usually more compact than `toon`.
+
 ## Library API (Node.js consumers)
 
 If the consumer is itself a Node.js process, prefer the library API over invoking the CLI:
@@ -261,6 +295,6 @@ for (const page of result.pages) {
 }
 ```
 
-`processFile()` returns the formatted string output (`markdown` / `json` / `xml`). `processDocument()` returns the structured object directly.
+`processFile()` returns the formatted string output (`markdown` / `json` / `xml` / `toon`). `processDocument()` returns the structured object directly.
 
 Exported types: `DocumentResult`, `DocumentMetadata`, `PageOverview`, `PageResult`, `PageQuality`, `PageWarning`, `LayoutBlock`, `LayoutLine`, `PageLayout`, `ImageBox`, `RenderRegion`, `TextSpan`, `PageOcr`, `OutputFormat`, `ProcessDocumentOptions`, `ProcessOptions`.

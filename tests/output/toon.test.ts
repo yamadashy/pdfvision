@@ -131,6 +131,22 @@ describe('formatToon', () => {
     expect(out).toMatch(/overview\[2\]/);
   });
 
+  it('omits optional fields that are undefined instead of emitting them as null', () => {
+    // The TOON encoder renders an `undefined` property value as an explicit
+    // `null`, while the json formatter (JSON.stringify) drops it. A fresh
+    // PageResult carries `image: undefined`; after a cache round-trip the key
+    // is gone entirely. formatToon must normalize through the JSON data model
+    // so its output matches `-f json` and doesn't flip with cache state.
+    const result = makeResult({
+      pages: [makePage({ page: 1, text: 'hi', charCount: 2, image: undefined })],
+    });
+    const out = formatToon(result);
+    expect(out).not.toContain('image:');
+    // and the absent key must not reappear after decoding
+    const decoded = decode(out) as { pages: Record<string, unknown>[] };
+    expect('image' in decoded.pages[0]).toBe(false);
+  });
+
   it('produces fewer characters than the pretty-printed JSON on geometry-heavy output', () => {
     // The whole point of the format: on span-dense output (the case the
     // type docs flag as 5–10× the textual length) TOON should be clearly

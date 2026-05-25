@@ -14,7 +14,17 @@ import type { DocumentResult } from '../types/index.js';
  *
  * The encoding round-trips back to the JSON data model via `decode`, so
  * programmatic consumers lose nothing relative to `-f json`.
+ *
+ * We encode the JSON-normalized form (`JSON.parse(JSON.stringify(...))`)
+ * rather than the raw result: the TOON encoder renders an object property
+ * whose value is `undefined` as an explicit `null`, whereas `JSON.stringify`
+ * drops it. Optional fields like `image` / `ocr` / `layout` are `undefined`
+ * on a fresh extraction but absent after a cache round-trip (disk JSON
+ * strips them), so encoding the raw object would make `-f toon` emit
+ * spurious `field: null` lines that (a) disagree with `-f json` and
+ * (b) flip depending on cache state. Normalizing first keeps TOON output
+ * field-isomorphic with the JSON output and stable across cache hits.
  */
 export function formatToon(result: DocumentResult): string {
-  return encode(result);
+  return encode(JSON.parse(JSON.stringify(result)));
 }
