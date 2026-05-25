@@ -1,4 +1,4 @@
-export type OutputFormat = 'markdown' | 'json' | 'xml';
+export type OutputFormat = 'markdown' | 'json' | 'xml' | 'toon';
 
 /**
  * Sub-rectangle of a page to rasterise. PDF user-space points with the

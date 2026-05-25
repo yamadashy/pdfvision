@@ -51,7 +51,7 @@ When `--layout` is on, each page also carries `pages[].warnings` — the kind of
 - **`body_near_repeated_chrome`** — body text sits on top of, or right against, a running header / footer.
 - **`off_page`** (severity `error`) — a block's bbox lies outside the page's MediaBox.
 
-Each warning carries `code`, `severity` (`warning` | `error`), `message`, and the offending `blockIndex` (plus `otherBlockIndex` where applicable), and is emitted in all three output formats.
+Each warning carries `code`, `severity` (`warning` | `error`), `message`, and the offending `blockIndex` (plus `otherBlockIndex` where applicable), and is emitted in all four output formats.
 
 ### Keep raw evidence available
 
@@ -105,12 +105,12 @@ pdfvision --clear-cache
 
 Options:
   -p, --pages <range>     Page range (e.g. "1-5", "3", "1,3,5")
-  -f, --format <type>     Output format: markdown (default), json, xml
+  -f, --format <type>     Output format: markdown (default), json, xml, toon
   -r, --render            Render pages as PNG images
       --render-output <dir>
                           Directory for rendered PNGs (requires --render)
       --render-scale <n>  Rasterisation multiplier (default 2; bounds (0, 4]). Requires --render or --ocr.
-      --geometry          Emit per-text-item bbox + font size in pages[].spans (json/xml)
+      --geometry          Emit per-text-item bbox + font size in pages[].spans (json/xml/toon)
       --layout            Reconstruct lines + blocks (with role / repeated flags) in pages[].layout;
                           also emit pages[].warnings (text_overlap / near_bottom_edge /
                           body_near_repeated_chrome / off_page)
@@ -132,6 +132,7 @@ Options:
 - **`markdown` (default)** — per-page sections, density Overview table, image links inline. For LLM context windows.
 - **`json`** — full `DocumentResult` schema. For programmatic consumers.
 - **`xml`** — same data as JSON but tag-shaped. For LLMs that locate `<page>` / `<text>` tags more reliably than nested object keys.
+- **`toon`** — [Token-Oriented Object Notation](https://toonformat.dev): a lossless, schema-aware encoding of the same `DocumentResult` schema, tuned for LLM token budgets. Uniform object arrays (`overview`, `spans`, `imageBoxes`, `layout` lines) collapse into a CSV-like tabular form that declares field names once instead of repeating them per row, cutting ~40% of tokens versus the pretty-printed JSON on geometry / layout-heavy output (where spans can outnumber the body text 5–10×). On plain text-body extraction the win is smaller since free text doesn't compress. Round-trips back to JSON, so programmatic consumers lose nothing.
 
 ### Examples
 
@@ -149,6 +150,9 @@ pdfvision document.pdf --layout --image-boxes -f json
 
 # Per-text-item geometry (bbox + fontSize per glyph run)
 pdfvision document.pdf -f json --geometry
+
+# Same geometry as token-efficient TOON (spans become tabular rows)
+pdfvision document.pdf -f toon --geometry
 
 # OCR a scanned PDF (multi-language)
 pdfvision scan.pdf --ocr --ocr-lang eng+jpn -f json
@@ -171,7 +175,7 @@ for (const page of result.pages) {
 }
 ```
 
-`processFile()` returns the same string output the CLI prints (`markdown` / `json` / `xml`).
+`processFile()` returns the same string output the CLI prints (`markdown` / `json` / `xml` / `toon`).
 
 Exports: `processDocument`, `processFile`, `parsePageRange`, plus full type definitions for `DocumentResult` / `PageResult` / `PageOverview` / `PageQuality` / `DocumentMetadata` / `ProcessDocumentOptions` / `ProcessOptions` / `OutputFormat` / `TextSpan` / `LayoutBlock` / `LayoutLine` / `PageLayout` / `ImageBox` / `PageOcr` / `PageWarning`.
 

@@ -33,6 +33,7 @@ npx pdfvision doc.pdf -p 1,3,5
 # Programmatic / structured consumers
 npx pdfvision doc.pdf -f json
 npx pdfvision doc.pdf -f xml          # tag-shaped, some LLMs locate <page> faster than JSON keys
+npx pdfvision doc.pdf -f toon --geometry  # same schema, ~40% fewer tokens on span/array-heavy output
 
 # Image-flattened / scanned page — two options:
 npx pdfvision scan.pdf --ocr -f json                     # tesseract.js OCR
@@ -49,7 +50,9 @@ npx pdfvision doc.pdf -p 3 --render --render-region 100,200,300,150
 npx pdfvision --clear-cache
 ```
 
-Format choice (`markdown` / `json` / `xml`) does **not** change the cache slot — the structured payload is shared and only re-formatted on output.
+Format choice (`markdown` / `json` / `xml` / `toon`) does **not** change the cache slot — the structured payload is shared and only re-formatted on output.
+
+`toon` ([Token-Oriented Object Notation](https://toonformat.dev)) is a lossless, schema-aware re-encoding of the same `DocumentResult` as `-f json`, tuned for tight LLM token budgets. Its win is concentrated in **uniform-array-heavy output**: `--geometry` (spans) drops ~40–48% of tokens versus the pretty-printed JSON because spans collapse into a CSV-like tabular form that names fields once. On plain text-body extraction the saving is negligible (free text doesn't compress), and on `--layout` (nested, non-uniform blocks) `-f xml` is usually more compact than `toon`. Reach for `toon` specifically when handing span/geometry-dense output to an LLM; otherwise `json` / `xml` remain the defaults. Decode back to the JSON data model with the `@toon-format/toon` package, so programmatic consumers lose nothing.
 
 ## Picking the right flags
 
@@ -105,7 +108,7 @@ The density signal is the reason to prefer pdfvision over reading a PDF directly
 
 **Inherit the user's scope first.** If the user already named a specific page or range ("page 2", "chapter 3", "the last few pages"), pass `-p` from step 1 — the density Overview works per page, so there's no need to scan a 100-page doc when the user pointed at page 2. Only run unscoped when the user genuinely asked about the whole document. Sections with conventional locations also help: "abstract" → `-p 1`, "conclusion" → `-p <last-few>`, "TOC" → `-p 1-3`.
 
-**Pick a format that matches the consumer.** If the consumer is the LLM itself reading text inline (the typical "user asks me to read this PDF" case), the markdown default is already optimal — no flag needed. Switch to `-f json` only when a downstream programmatic step needs structured field access (`overview[]`, `pages[].layout`, `pages[].ocr`, etc.). XML when the LLM downstream parses tags more reliably than nested JSON.
+**Pick a format that matches the consumer.** If the consumer is the LLM itself reading text inline (the typical "user asks me to read this PDF" case), the markdown default is already optimal — no flag needed. Switch to `-f json` only when a downstream programmatic step needs structured field access (`overview[]`, `pages[].layout`, `pages[].ocr`, etc.). XML when the LLM downstream parses tags more reliably than nested JSON. `-f toon` when the consumer is an LLM and the output is span/geometry-dense (`--geometry`) and token budget is tight — same schema, ~40% fewer tokens there (see the format note under Quick reference for where it does and doesn't help).
 
 1. Run `npx pdfvision doc.pdf` (add `-p <range>` per the scope note, and `-f json` only when you'll consume structured fields) — gets text + density Overview for the selected pages.
 2. Read the density signals (the markdown Overview table, or `overview[]` / `pages[].textCoverage` / `imageCount` / `charCount` in JSON) to find low-coverage pages.

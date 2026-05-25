@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { formatJson } from '../output/json.js';
 import { formatMarkdown } from '../output/markdown.js';
+import { formatToon } from '../output/toon.js';
 import { formatXml } from '../output/xml.js';
 import type {
   DocumentResult,
@@ -408,9 +409,16 @@ async function extractPageData(
 /** Render a structured DocumentResult into the caller-requested string format. */
 function render(result: DocumentResult, options: ProcessOptions): string {
   const { format } = options;
-  if (format === 'json') return formatJson(result);
-  if (format === 'xml') return formatXml(result);
-  return formatMarkdown(result, { stripRepeated: options.stripRepeated });
+  switch (format) {
+    case 'json':
+      return formatJson(result);
+    case 'xml':
+      return formatXml(result);
+    case 'toon':
+      return formatToon(result);
+    default:
+      return formatMarkdown(result, { stripRepeated: options.stripRepeated });
+  }
 }
 
 /**

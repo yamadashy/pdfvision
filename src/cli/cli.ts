@@ -5,7 +5,7 @@ import type { OutputFormat, RenderRegion } from '../types/index.js';
 import { HELP_TEXT } from './help.js';
 import { getVersion } from './version.js';
 
-const VALID_FORMATS: readonly OutputFormat[] = ['markdown', 'json', 'xml'];
+const VALID_FORMATS: readonly OutputFormat[] = ['markdown', 'json', 'xml', 'toon'];
 
 function isValidFormat(value: string): value is OutputFormat {
   return (VALID_FORMATS as readonly string[]).includes(value);
@@ -39,6 +39,7 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
         markdown: { type: 'boolean' },
         json: { type: 'boolean' },
         xml: { type: 'boolean' },
+        toon: { type: 'boolean' },
         render: { type: 'boolean', short: 'r' },
         'render-output': { type: 'string' },
         'render-scale': { type: 'string' },
@@ -107,6 +108,7 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
   if (values.markdown) aliasFormats.push('markdown');
   if (values.json) aliasFormats.push('json');
   if (values.xml) aliasFormats.push('xml');
+  if (values.toon) aliasFormats.push('toon');
   if (aliasFormats.length > 1) {
     // Different aliases at once means the user typed two contradicting
     // requests — silently picking last-wins would hide the intent
