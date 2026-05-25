@@ -192,6 +192,25 @@ describe('processDocument search', () => {
     expect(result.pages[0].matches?.[0].bbox.width).toBeGreaterThan(0);
   });
 
+  it('caps matches per page per query at MAX_MATCHES_PER_QUERY_PER_PAGE and surfaces a warning', async () => {
+    // Defence-in-depth against a degenerate regex (or a bad literal
+    // query that happens to match every span). Test directly against
+    // searchPage with a synthesised span so we don't need a fixture
+    // big enough to hit the cap — easier to assert exact cap value
+    // (10000) than to ship a > 10k-char PDF.
+    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const compiled = compileSearch('.', { regex: true });
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    // 20k characters: easily exceeds the 10k cap and gives plenty of
+    // headroom so the cap message is unambiguous.
+    const longText = 'x'.repeat(20000);
+    const span = { text: longText, x: 0, y: 0, width: 100, height: 12, fontSize: 12 };
+    const warnings: string[] = [];
+    const matches = searchPage([span], undefined, 1, 612, 792, compiled, (m) => warnings.push(m));
+    expect(matches.length).toBe(10000);
+    expect(warnings.some((m) => m.includes('per-page native match cap'))).toBe(true);
+  });
+
   it('keeps cache entries with different search queries separate', async () => {
     // Same PDF, two different queries — distinct cache slots so a
     // second query doesn't return the first's matches. Isolate

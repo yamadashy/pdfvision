@@ -107,7 +107,22 @@ export interface ProcessDocumentOptions {
   /** Treat each {@link search} query as a JavaScript regular expression
    *  instead of a literal substring. Off by default — regex-default
    *  surprises agents feeding raw user input that happens to contain
-   *  `(`, `[`, `?`, etc. */
+   *  `(`, `[`, `?`, etc.
+   *
+   *  **ReDoS caveat**: pdfvision compiles the user pattern straight to
+   *  a JavaScript RegExp and runs `.exec(...)` over every span/OCR
+   *  haystack. A catastrophic-backtracking pattern (`(a+)+b` against
+   *  `"aaa...!"`) can stall extraction on a single string. There is a
+   *  per-page, per-query, per-source emission cap (10,000 matches)
+   *  that brakes degenerate patterns producing too many hits, surfaced
+   *  via `onWarning` when the cap is reached — but the cap counts
+   *  emissions, not exec time, so it cannot interrupt an in-flight
+   *  exponential match. Library consumers exposing pdfvision to
+   *  untrusted regex input should wrap the call in their own timeout
+   *  (e.g. via `worker_threads` or `AbortSignal.timeout`). The
+   *  threat model assumed here is "user matching against their own
+   *  input" — a heavy mitigation (safe-regex dep, RE2 backend) would
+   *  cost more than it's worth for that use. */
   searchRegex?: boolean;
   /** Match case exactly. Off by default — recall-oriented agents
    *  typically want `"Sales"` / `"sales"` / `"SALES"` matches

@@ -840,6 +840,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
           data.width,
           data.height,
           compiledSearch,
+          options.onWarning,
         );
         page.matches = nativeMatches;
       }
@@ -901,7 +902,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     if (compiledSearch && ocrEnabled) {
       for (const p of pages) {
         if (!p.ocr) continue;
-        const ocrMatches = searchPage(undefined, p.ocr, p.page, p.width, p.height, compiledSearch);
+        const ocrMatches = searchPage(undefined, p.ocr, p.page, p.width, p.height, compiledSearch, options.onWarning);
         p.matches = (p.matches ?? []).concat(ocrMatches);
       }
     }

@@ -103,6 +103,25 @@ function round2(n: number): number {
 }
 
 /**
+ * Per-(query, page, source) cap on the number of emitted matches. Acts
+ * as a defence-in-depth against a degenerate regex (e.g. `.` against a
+ * 100KB OCR page produces 100k hits) and a soft brake on user typos.
+ *
+ * NOT a full ReDoS mitigation — the cap counts emitted matches, so a
+ * catastrophic-backtracking pattern on a single string can still stall
+ * inside one `regex.exec(...)` call before any match would have been
+ * pushed. pdfvision's threat model is "the user is matching against
+ * their own input", so the cost of safe-regex / worker / RE2 is
+ * deliberately not paid. Library consumers exposing pdfvision to
+ * untrusted regex input should wrap the call in their own timeout.
+ *
+ * 10000 is generous enough that a real "find every paragraph match"
+ * query passes; lower and we'd false-positive on legitimate use, higher
+ * and a degenerate pattern stays expensive enough to be a problem.
+ */
+const MAX_MATCHES_PER_QUERY_PER_PAGE = 10000;
+
+/**
  * Find every occurrence of every compiled query in the given page's
  * native text (via spans) and OCR text (when present). Returns the
  * matches in page-natural order: per-span pass for spans (top-down
@@ -128,11 +147,18 @@ export function searchPage(
   pageWidth: number,
   pageHeight: number,
   compiled: CompiledSearch,
+  onWarning?: (message: string) => void,
 ): SearchMatch[] {
   const matches: SearchMatch[] = [];
 
+  // Per-query, per-page, per-source emission counter. Resets between
+  // native and OCR passes (each gets its own cap). Track per matcher
+  // index so multi-query searches don't share a budget.
+  const nativeCount = new Map<number, number>();
+  const nativeCapped = new Set<number>();
+
   // Native pass — per-span literal/regex match.
-  for (const span of spans ?? []) {
+  spanLoop: for (const span of spans ?? []) {
     // Span text is already NFKC-normalised when `--normalize` is on
     // (matches what we put in pages[].spans). Literal-mode queries
     // were NFKC'd at compile time too, so they're in the same form
@@ -140,7 +166,9 @@ export function searchPage(
     // normalised — the user opts into literal-codepoint semantics
     // against the normalised document text (see CompiledSearch).
     const haystack = span.text;
-    for (const m of compiled.matchers) {
+    for (let mi = 0; mi < compiled.matchers.length; mi++) {
+      const m = compiled.matchers[mi];
+      if (nativeCapped.has(mi)) continue;
       // Reset lastIndex so the same RegExp object can be reused
       // across spans (`g` flag is stateful).
       m.regex.lastIndex = 0;
@@ -176,6 +204,18 @@ export function searchPage(
           source: 'native',
           context: haystack,
         });
+        const next = (nativeCount.get(mi) ?? 0) + 1;
+        nativeCount.set(mi, next);
+        if (next >= MAX_MATCHES_PER_QUERY_PER_PAGE) {
+          nativeCapped.add(mi);
+          onWarning?.(
+            `search query ${JSON.stringify(m.query)} hit the per-page native match cap of ${MAX_MATCHES_PER_QUERY_PER_PAGE} on page ${pageNum}; subsequent native matches for this query on this page were dropped.`,
+          );
+          // Stop scanning further spans for this matcher; other
+          // matchers may still have budget.
+          if (nativeCapped.size === compiled.matchers.length) break spanLoop;
+          break;
+        }
       }
     }
   }
@@ -187,6 +227,8 @@ export function searchPage(
     const pageBox = { x: 0, y: 0, width: round2(pageWidth), height: round2(pageHeight) };
     for (const m of compiled.matchers) {
       m.regex.lastIndex = 0;
+      let count = 0;
+      let capped = false;
       while (true) {
         const hit = m.regex.exec(ocrHaystack);
         if (hit === null) break;
@@ -211,6 +253,16 @@ export function searchPage(
           source: 'ocr',
           context,
         });
+        count++;
+        if (count >= MAX_MATCHES_PER_QUERY_PER_PAGE) {
+          capped = true;
+          break;
+        }
+      }
+      if (capped) {
+        onWarning?.(
+          `search query ${JSON.stringify(m.query)} hit the per-page OCR match cap of ${MAX_MATCHES_PER_QUERY_PER_PAGE} on page ${pageNum}; subsequent OCR matches for this query on this page were dropped.`,
+        );
       }
     }
   }
