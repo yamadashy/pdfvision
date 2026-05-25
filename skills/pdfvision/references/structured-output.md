@@ -30,6 +30,8 @@ interface PageOverview {
   nonPrintableCount: number;      // raw count — stays discriminable when the 3dp ratio rounds to 0
   renderContentRatio?: number;    // 0..1, fraction of pixels differing from the page's dominant background (present iff --render or --ocr)
   quality: PageQuality;           // derived classification — see below
+  warningCount?: number;          // mirror of pages[N].warnings.length, omitted when --layout off or no rule fired
+  matchCount?: number;            // mirror of pages[N].matches.length; present-with-0 means "search ran, no hit"
   width: number;                  // PDF user-space points
   height: number;
 }
