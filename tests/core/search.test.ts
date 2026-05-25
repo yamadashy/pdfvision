@@ -194,11 +194,26 @@ describe('processDocument search', () => {
 
   it('keeps cache entries with different search queries separate', async () => {
     // Same PDF, two different queries — distinct cache slots so a
-    // second query doesn't return the first's matches.
-    const a = await processDocument(SAMPLE_PDF, { search: 'Hello', noCache: false });
-    const b = await processDocument(SAMPLE_PDF, { search: 'pdfvision', noCache: false });
-    const aTexts = (a.pages[0].matches ?? []).map((m) => m.text.toLowerCase()).join('\n');
-    const bTexts = (b.pages[0].matches ?? []).map((m) => m.text.toLowerCase()).join('\n');
-    expect(aTexts).not.toBe(bTexts);
+    // second query doesn't return the first's matches. Isolate
+    // PDFVISION_CACHE_DIR so this never races SAMPLE_PDF's shared
+    // cache directory contended by the chmod / corruption tests
+    // running in parallel under vitest.
+    const { mkdtempSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const cacheRoot = mkdtempSync(join(tmpdir(), 'pdfvision-search-cache-isolation-'));
+    const originalCache = process.env.PDFVISION_CACHE_DIR;
+    process.env.PDFVISION_CACHE_DIR = cacheRoot;
+    try {
+      const a = await processDocument(SAMPLE_PDF, { search: 'Hello', noCache: false });
+      const b = await processDocument(SAMPLE_PDF, { search: 'pdfvision', noCache: false });
+      const aTexts = (a.pages[0].matches ?? []).map((m) => m.text.toLowerCase()).join('\n');
+      const bTexts = (b.pages[0].matches ?? []).map((m) => m.text.toLowerCase()).join('\n');
+      expect(aTexts).not.toBe(bTexts);
+    } finally {
+      if (originalCache === undefined) delete process.env.PDFVISION_CACHE_DIR;
+      else process.env.PDFVISION_CACHE_DIR = originalCache;
+      rmSync(cacheRoot, { recursive: true, force: true });
+    }
   });
 });

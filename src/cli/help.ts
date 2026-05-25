@@ -68,8 +68,9 @@ Options
                           zoom. Repeatable: \`--search A --search B\` searches both
                           (each match carries the source query). Literal substring
                           by default; case-insensitive; NFKC-aware (matches
-                          compatibility codepoints like \`⽬\` for \`目\`). Also
-                          searches OCR text when --ocr is on (marked source:'ocr').
+                          compatibility codepoints like \`ﬁ\` (U+FB01 ligature) for
+                          \`fi\`). Also searches OCR text when --ocr is on
+                          (marked source:'ocr').
       --search-regex      Treat each --search query as a JavaScript regular expression
                           (default: literal substring).
       --search-case-sensitive
@@ -97,7 +98,7 @@ Examples
   pdfvision document.pdf -r --render-output ./images                           # render PNGs to ./images
   pdfvision slides.pdf -r --render-scale 1                                     # 1× raster (smaller PNGs)
   pdfvision report.pdf -p 3 -r --render-region 100,200,300,150                 # zoom into a 300×150pt box on page 3
-  pdfvision report.pdf --search "売上" --json                                  # find every "売上" with bbox; pipe to --render-region
+  pdfvision report.pdf --search "revenue" --json                               # find every "revenue" with bbox; pipe to --render-region
   pdfvision paper.pdf --search "GPT" --search "transformer" --json             # multi-query (each match keeps its source query)
   pdfvision report.pdf -p 3-5 -r --render-output ./images --geometry --json    # PNGs + spans for 3-5
   pdfvision slides.pdf --xml --geometry                                        # layout / geometry as XML

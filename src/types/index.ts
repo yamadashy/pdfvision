@@ -87,8 +87,9 @@ export interface ProcessDocumentOptions {
    *     set {@link searchCaseSensitive} for exact-case matching
    *   - **NFKC-aware in literal mode** when {@link normalize} is on
    *     (the default) — the literal query and the page text are both
-   *     normalised before matching, so `"目"` (U+76EE) finds `"⽬"`
-   *     (U+2F6C) compatibility PDFs external grep would miss.
+   *     normalised before matching, so `"fi"` finds `"ﬁ"` (U+FB01
+   *     ligature) PDFs that external grep would miss; same fold
+   *     applies to fullwidth Latin / CJK compatibility forms.
    *     {@link searchRegex} queries are NOT normalised (NFKC can turn
    *     compatibility punctuation into regex metacharacters, silently
    *     overmatching or breaking the pattern); regex users get the
@@ -109,8 +110,8 @@ export interface ProcessDocumentOptions {
    *  `(`, `[`, `?`, etc. */
   searchRegex?: boolean;
   /** Match case exactly. Off by default — recall-oriented agents
-   *  typically want "売上" / "売上高" / "Sales" matches regardless of
-   *  the source PDF's casing. */
+   *  typically want `"Sales"` / `"sales"` / `"SALES"` matches
+   *  regardless of the source PDF's casing. */
   searchCaseSensitive?: boolean;
   /**
    * Apply Unicode NFKC normalization to extracted text and metadata strings.

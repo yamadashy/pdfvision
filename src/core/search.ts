@@ -12,8 +12,8 @@ export interface CompiledSearch {
   matchers: { query: string; regex: RegExp; queryIndex?: number }[];
   /** Whether NFKC normalization applies on the *document* side
    *  (spans / OCR haystack). Literal-mode queries are also NFKC-
-   *  normalised in this case so `"目"` finds compatibility `"⽬"`
-   *  PDFs. Regex queries are NEVER normalised, even when this flag
+   *  normalised in this case so `"fi"` finds compatibility ligature
+   *  `"ﬁ"` (U+FB01) PDFs. Regex queries are NEVER normalised, even when this flag
    *  is true — NFKC can turn compatibility punctuation into regex
    *  metacharacters; users opting into regex get literal codepoints
    *  against the normalised document text and own the asymmetry.
@@ -77,10 +77,10 @@ export function compileSearch(
       // codepoints they typed.
       pattern = rawQuery;
     } else {
-      // Literal mode: NFKC the query so `"目"` finds compatibility
-      // `"⽬"` PDFs, matching what we do to the document text. Escape
-      // *after* normalization so a fullwidth `．` that normalises to
-      // `.` is still treated literally.
+      // Literal mode: NFKC the query so `"fi"` finds compatibility
+      // ligature `"ﬁ"` (U+FB01) PDFs, matching what we do to the
+      // document text. Escape *after* normalization so a fullwidth
+      // dot that normalises to `.` is still treated literally.
       const query = normalize ? nfkc(rawQuery) : rawQuery;
       pattern = escapeRegExp(query);
     }
