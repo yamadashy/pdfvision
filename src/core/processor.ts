@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { formatJson } from '../output/json.js';
 import { formatMarkdown } from '../output/markdown.js';
+import { formatToon } from '../output/toon.js';
 import { formatXml } from '../output/xml.js';
 import type {
   DocumentResult,
@@ -410,6 +411,7 @@ function render(result: DocumentResult, options: ProcessOptions): string {
   const { format } = options;
   if (format === 'json') return formatJson(result);
   if (format === 'xml') return formatXml(result);
+  if (format === 'toon') return formatToon(result);
   return formatMarkdown(result, { stripRepeated: options.stripRepeated });
 }
 

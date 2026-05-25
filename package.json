@@ -64,6 +64,7 @@
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.100",
+    "@toon-format/toon": "^2.3.0",
     "pdfjs-dist": "^5.7.0"
   },
   "optionalDependencies": {

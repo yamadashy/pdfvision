@@ -30,6 +30,20 @@ describe('processFile', () => {
     expect(result).toContain('Hello pdfvision');
   });
 
+  it('extracts text as TOON', async () => {
+    // Guard the format='toon' wiring through processFile so a typo in the
+    // dispatch switch can't silently fall through to markdown.
+    const { decode } = await import('@toon-format/toon');
+    const result = await processFile(SAMPLE_PDF, {
+      format: 'toon',
+      noCache: true,
+    });
+    const parsed = decode(result) as { totalPages: number; pages: { text: string }[] };
+    expect(parsed.totalPages).toBe(1);
+    expect(parsed.pages).toHaveLength(1);
+    expect(parsed.pages[0].text).toContain('Hello pdfvision');
+  });
+
   it('respects page range', async () => {
     const result = await processFile(SAMPLE_PDF, {
       pages: '1',

@@ -15,10 +15,11 @@ Usage:
 
 Options
   -p, --pages <range>     Pages to extract: "1", "1-5", "1,3,5", "2-4,7". Default: all pages.
-  -f, --format <type>     Output format: markdown (default), json, xml.
+  -f, --format <type>     Output format: markdown (default), json, xml, toon.
       --markdown          Shortcut for --format markdown.
       --json              Shortcut for --format json.
       --xml               Shortcut for --format xml.
+      --toon              Shortcut for --format toon.
                           (Specifying more than one format, or mixing a shortcut with a different
                           --format, is an error — pdfvision does not last-wins-resolve them.)
   -r, --render            Render each selected page to a PNG and include the path on every page result.
@@ -42,14 +43,14 @@ Options
                           original codepoint fidelity (e.g. fullwidth punctuation \`（\`, ligatures
                           \`ﬁ\`) matters for downstream diff / forensics.
       --geometry          Emit per-text-item bbox + font size in \`pages[].spans\`.
-                          Only takes effect with -f json or -f xml.
+                          Only takes effect with -f json, -f xml, or -f toon.
       --layout            Reconstruct \`pages[].layout\` (lines + blocks in approximate
-                          reading order) from the same span data. Only -f json / -f xml.
+                          reading order) from the same span data. Only -f json / -f xml / -f toon.
                           Also enables geometry-driven anomaly detection: any pages with
                           overlapping text, off-page bboxes, or body crowded against
                           repeated chrome get \`pages[].warnings\` populated.
       --image-boxes       Emit \`pages[].imageBoxes\` — bounding box of every raster image
-                          draw on the page. Only -f json / -f xml.
+                          draw on the page. Only -f json / -f xml / -f toon.
       --strip-repeated    Drop running headers / footers / page numbers (blocks the layout
                           pass tagged as \`repeated\`) from the rendered Markdown body so
                           LLM readers don't have to wade through the same footer N times.
@@ -74,6 +75,8 @@ Output formats
   markdown (default)  Per-page sections, density Overview table, image links inline. For LLM context.
   json                Full DocumentResult schema. For programmatic parsing.
   xml                 Tag-shaped variant of json. For LLMs that parse tags more reliably than JSON.
+  toon                Token-Oriented Object Notation: lossless, tabular encoding of the json schema
+                      that cuts tokens (~40% on geometry/layout-heavy output). For tight LLM budgets.
 
 Examples
   pdfvision document.pdf                                                       # markdown to stdout
@@ -84,6 +87,7 @@ Examples
   pdfvision report.pdf -p 3 -r --render-region 100,200,300,150                 # zoom into a 300×150pt box on page 3
   pdfvision report.pdf -p 3-5 -r --render-output ./images --geometry --json    # PNGs + spans for 3-5
   pdfvision slides.pdf --xml --geometry                                        # layout / geometry as XML
+  pdfvision report.pdf --toon --geometry                                       # token-efficient spans (TOON)
   pdfvision report.pdf --layout --strip-repeated                               # markdown w/o repeated chrome
   pdfvision scan.pdf --ocr --json                                              # OCR a scanned PDF
   pdfvision scan-ja.pdf --ocr --ocr-lang eng+jpn --json                        # multi-lang OCR
