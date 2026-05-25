@@ -18,7 +18,7 @@ function exitWithError(message: string): never {
 }
 
 export async function run(argv: string[] = process.argv.slice(2)): Promise<void> {
-  let values: Record<string, string | boolean | undefined>;
+  let values: Record<string, string | string[] | boolean | undefined>;
   let positionals: string[];
   try {
     // parseArgs throws on unknown options or missing required values.
@@ -54,9 +54,16 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
         'clear-cache': { type: 'boolean' },
         ocr: { type: 'boolean' },
         'ocr-lang': { type: 'string', default: 'eng' },
+        // --search is repeatable so `--search A --search B` works
+        // (multi-query AND-merge into pages[].matches[]). The bool
+        // companions modify ALL queries — case sensitivity / regex
+        // semantics per-query would invite confusion.
+        search: { type: 'string', multiple: true },
+        'search-regex': { type: 'boolean' },
+        'search-case-sensitive': { type: 'boolean' },
       },
     });
-    values = parsed.values as Record<string, string | boolean | undefined>;
+    values = parsed.values as Record<string, string | string[] | boolean | undefined>;
     positionals = parsed.positionals;
   } catch (error) {
     exitWithError(error instanceof Error ? error.message : String(error));
@@ -205,6 +212,19 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
     exitWithError(`--strip-repeated only applies to markdown output (got --format ${format})`);
   }
 
+  // --search collects 0..N queries (multiple: true gives string[] |
+  // undefined). The bool companions only make sense when at least one
+  // query was passed — fail loud rather than silently no-op.
+  const searchQueries = values.search as string[] | undefined;
+  const searchRegex = (values['search-regex'] as boolean | undefined) ?? false;
+  const searchCaseSensitive = (values['search-case-sensitive'] as boolean | undefined) ?? false;
+  if (!searchQueries && (searchRegex || values['search-case-sensitive'])) {
+    exitWithError('--search-regex / --search-case-sensitive require at least one --search query');
+  }
+  if (searchQueries?.some((q) => q === '')) {
+    exitWithError('--search: query must be a non-empty string');
+  }
+
   const noCache = (values['no-cache'] as boolean | undefined) ?? false;
 
   let filePath: string;
@@ -236,6 +256,12 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
       renderOutput,
       renderScale,
       renderRegion,
+      // search may be undefined (no --search), a 1-length array (single
+      // --search), or a longer array (repeated --search). Pass through
+      // as-is — the processor's compileSearch handles both shapes.
+      search: searchQueries,
+      searchRegex,
+      searchCaseSensitive,
       noCache,
       // NFKC normalization is on by default — agents almost always want
       // canonical Unicode. --no-normalize lets callers opt out for cases

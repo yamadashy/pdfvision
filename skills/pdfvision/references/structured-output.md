@@ -30,6 +30,8 @@ interface PageOverview {
   nonPrintableCount: number;      // raw count — stays discriminable when the 3dp ratio rounds to 0
   renderContentRatio?: number;    // 0..1, fraction of pixels differing from the page's dominant background (present iff --render or --ocr)
   quality: PageQuality;           // derived classification — see below
+  warningCount?: number;          // mirror of pages[N].warnings.length, omitted when --layout off or no rule fired
+  matchCount?: number;            // mirror of pages[N].matches.length; present-with-0 means "search ran, no hit"
   width: number;                  // PDF user-space points
   height: number;
 }
@@ -63,6 +65,7 @@ interface PageResult {
   imageBoxes?: ImageBox[];       // present iff --image-boxes
   ocr?: PageOcr;                 // present iff --ocr
   warnings?: PageWarning[];      // present iff --layout, omitted when no rule fired on the page
+  matches?: SearchMatch[];       // present iff --search; empty array means "search ran, no hit on this page"
 }
 
 interface PageQuality {
@@ -192,6 +195,44 @@ interface PageWarning {
 
 Emitted only when `--layout` is on. Each entry pins to a specific block (or block pair) and describes what looks visually off — overlapping text, off-page bbox, body crowding a detected running header/footer. Same observational posture as `quality`: pdfvision tells the agent what it saw; the agent decides whether to surface, re-OCR, or zoom in via `--render-region <blocks[blockIndex].x>,...`.
 
+## Search (`--search`)
+
+```ts
+interface SearchMatch {
+  page: number;                // 1-based, mirrors PageResult.page
+  query: string;               // verbatim source query
+  queryIndex?: number;         // 0-based into the search array; omitted for single-query calls
+  bbox: { x, y, width, height }; // union bbox of contributing spans; feed straight into --render-region
+  boxes: { x, y, width, height }[]; // per-span bboxes (V1: one entry for single-span matches)
+  text: string;                // matched substring in the same form as pages[].text (NFKC when normalize is on)
+  source: 'native' | 'ocr';    // native = precise span bbox; ocr = page-level bbox (V1 limit)
+  context?: string;            // surrounding line text for human / LLM readability
+}
+```
+
+Emitted only when `--search` is passed. Each query occurrence becomes one match — three hits of `"foo"` on page 5 yield three entries with `page: 5`.
+
+**One-pipeline find-then-zoom**: a match's `bbox` is in the same coord system as `--render-region`, so the agent loop is:
+
+```bash
+pdfvision doc.pdf --search "revenue" --json
+# pick a match m from pages[N].matches[*]
+pdfvision doc.pdf -p <m.page> --render --render-region <m.bbox.x>,<m.bbox.y>,<m.bbox.width>,<m.bbox.height>
+```
+
+**Semantics**:
+
+- **literal substring** by default (regex chars in the query are escaped). Pass `--search-regex` to opt into JavaScript regular expressions.
+- **case-insensitive** by default (recall-oriented). Pass `--search-case-sensitive` for exact-case matching.
+- **NFKC-aware in literal mode** when `--normalize` is on (default) — `"fi"` finds `"ﬁ"` (U+FB01 ligature) PDFs that external grep would miss, same fold for fullwidth Latin / CJK compatibility forms.
+- **Regex queries are NOT normalized** — NFKC can turn compatibility punctuation into regex metacharacters (silent overmatch or syntax break). Regex users get the literal codepoints they typed against the normalized document text and own the asymmetry.
+- **Multi-query** via repeating `--search` (or `search: string[]` in library). Each match carries `queryIndex` so the agent can demultiplex which query produced it.
+- **OCR text is searched too when `--ocr` is on**. OCR-derived matches come back with `source: 'ocr'` and a page-level `bbox` (V1: per-word OCR bbox from tesseract `data.words[]` not plumbed yet — the source-tag lets consumers disambiguate from precise native matches).
+
+V1 native matching is **single-span only**. A query straddling two pdf.js spans (e.g. `"Hello World"` where `Hello` and `World` are different spans) won't match. Most short queries hit single spans because pdf.js groups by font run; multi-span matching is a follow-up.
+
+`pages[].matches` is **present-with-`[]`** when `--search` ran but the page had no hits — distinct from the field being absent entirely (search wasn't requested). The same posture extends to the overview, which gains a `matchCount` mirror field with the same present-with-`0` semantics.
+
 ## XML output shape
 
 `-f xml` mirrors the JSON shape one-for-one:
@@ -297,4 +338,4 @@ for (const page of result.pages) {
 
 `processFile()` returns the formatted string output (`markdown` / `json` / `xml` / `toon`). `processDocument()` returns the structured object directly.
 
-Exported types: `DocumentResult`, `DocumentMetadata`, `PageOverview`, `PageResult`, `PageQuality`, `PageWarning`, `LayoutBlock`, `LayoutLine`, `PageLayout`, `ImageBox`, `RenderRegion`, `TextSpan`, `PageOcr`, `OutputFormat`, `ProcessDocumentOptions`, `ProcessOptions`.
+Exported types: `DocumentResult`, `DocumentMetadata`, `PageOverview`, `PageResult`, `PageQuality`, `PageWarning`, `SearchMatch`, `LayoutBlock`, `LayoutLine`, `PageLayout`, `ImageBox`, `RenderRegion`, `TextSpan`, `PageOcr`, `OutputFormat`, `ProcessDocumentOptions`, `ProcessOptions`.

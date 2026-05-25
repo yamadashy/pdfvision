@@ -62,6 +62,19 @@ Options
                           preserved alongside so callers can compare native vs OCR.
       --ocr-lang <lang>   Tesseract language code(s), plus-separated for multi-lang
                           (e.g. \`eng+jpn\`). Default: eng. Only used with --ocr.
+      --search <query>    Find every occurrence of <query> on each page and emit
+                          \`pages[].matches[]\` with the bbox of each hit. Pipe a
+                          match's bbox into a follow-up --render-region for visual
+                          zoom. Repeatable: \`--search A --search B\` searches both
+                          (each match carries the source query). Literal substring
+                          by default; case-insensitive; NFKC-aware (matches
+                          compatibility codepoints like \`ﬁ\` (U+FB01 ligature) for
+                          \`fi\`). Also searches OCR text when --ocr is on
+                          (marked source:'ocr').
+      --search-regex      Treat each --search query as a JavaScript regular expression
+                          (default: literal substring).
+      --search-case-sensitive
+                          Match case exactly (default: insensitive).
       --remote <url>      Download an http(s) URL to the on-disk cache and run extraction
                           on it. Same URL → same cache slot; combine with --no-cache (or
                           --clear-cache) to refresh.
@@ -85,6 +98,8 @@ Examples
   pdfvision document.pdf -r --render-output ./images                           # render PNGs to ./images
   pdfvision slides.pdf -r --render-scale 1                                     # 1× raster (smaller PNGs)
   pdfvision report.pdf -p 3 -r --render-region 100,200,300,150                 # zoom into a 300×150pt box on page 3
+  pdfvision report.pdf --search "revenue" --json                               # find every "revenue" with bbox; pipe to --render-region
+  pdfvision paper.pdf --search "GPT" --search "transformer" --json             # multi-query (each match keeps its source query)
   pdfvision report.pdf -p 3-5 -r --render-output ./images --geometry --json    # PNGs + spans for 3-5
   pdfvision slides.pdf --xml --geometry                                        # layout / geometry as XML
   pdfvision report.pdf --toon --geometry                                       # token-efficient spans (TOON)

@@ -66,6 +66,7 @@ export function formatXml(result: DocumentResult): string {
       ovAttrs.push(`nativeTextStatus="${p.quality.nativeTextStatus}"`);
       if (p.quality.visualStatus !== undefined) ovAttrs.push(`visualStatus="${p.quality.visualStatus}"`);
       if (p.warningCount !== undefined) ovAttrs.push(`warningCount="${p.warningCount}"`);
+      if (p.matchCount !== undefined) ovAttrs.push(`matchCount="${p.matchCount}"`);
       ovAttrs.push(`width="${p.width}"`, `height="${p.height}"`);
       out.push(`<page ${ovAttrs.join(' ')}/>`);
     }
@@ -154,6 +155,42 @@ export function formatXml(result: DocumentResult): string {
           out.push(`<imageBox x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}"/>`);
         }
         out.push('</imageBoxes>');
+      }
+    }
+
+    if (page.matches) {
+      // Search hits. Empty array → self-closing `<matches/>` so XML
+      // consumers can distinguish "search ran, nothing matched" from
+      // "search wasn't requested" the same way JSON does (absent
+      // field vs present-empty-array). Each match emits its bbox as
+      // sibling attributes (renderRegionX-style), plus per-span boxes
+      // inside as `<box .../>` children so highlight overlays still
+      // work for multi-span matches in the future.
+      if (page.matches.length === 0) {
+        out.push('<matches/>');
+      } else {
+        out.push('<matches>');
+        for (const m of page.matches) {
+          const mAttrs = [`page="${m.page}"`, `query="${escapeAttr(m.query)}"`];
+          if (m.queryIndex !== undefined) mAttrs.push(`queryIndex="${m.queryIndex}"`);
+          mAttrs.push(
+            `source="${m.source}"`,
+            `x="${m.bbox.x}"`,
+            `y="${m.bbox.y}"`,
+            `width="${m.bbox.width}"`,
+            `height="${m.bbox.height}"`,
+          );
+          out.push(`<match ${mAttrs.join(' ')}>`);
+          out.push(`<text>${escapeText(m.text)}</text>`);
+          for (const b of m.boxes) {
+            out.push(`<box x="${b.x}" y="${b.y}" width="${b.width}" height="${b.height}"/>`);
+          }
+          if (m.context !== undefined) {
+            out.push(`<context>${escapeText(m.context)}</context>`);
+          }
+          out.push('</match>');
+        }
+        out.push('</matches>');
       }
     }
 

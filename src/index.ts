@@ -29,5 +29,6 @@ export type {
   ProcessDocumentOptions,
   ProcessOptions,
   RenderRegion,
+  SearchMatch,
   TextSpan,
 } from './types/index.js';
