@@ -409,10 +409,16 @@ async function extractPageData(
 /** Render a structured DocumentResult into the caller-requested string format. */
 function render(result: DocumentResult, options: ProcessOptions): string {
   const { format } = options;
-  if (format === 'json') return formatJson(result);
-  if (format === 'xml') return formatXml(result);
-  if (format === 'toon') return formatToon(result);
-  return formatMarkdown(result, { stripRepeated: options.stripRepeated });
+  switch (format) {
+    case 'json':
+      return formatJson(result);
+    case 'xml':
+      return formatXml(result);
+    case 'toon':
+      return formatToon(result);
+    default:
+      return formatMarkdown(result, { stripRepeated: options.stripRepeated });
+  }
 }
 
 /**

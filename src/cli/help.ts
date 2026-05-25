@@ -43,7 +43,7 @@ Options
                           original codepoint fidelity (e.g. fullwidth punctuation \`（\`, ligatures
                           \`ﬁ\`) matters for downstream diff / forensics.
       --geometry          Emit per-text-item bbox + font size in \`pages[].spans\`.
-                          Only takes effect with -f json, -f xml, or -f toon.
+                          Only takes effect with -f json / -f xml / -f toon.
       --layout            Reconstruct \`pages[].layout\` (lines + blocks in approximate
                           reading order) from the same span data. Only -f json / -f xml / -f toon.
                           Also enables geometry-driven anomaly detection: any pages with
