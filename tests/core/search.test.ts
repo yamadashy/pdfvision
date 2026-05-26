@@ -192,6 +192,85 @@ describe('processDocument search', () => {
     expect(result.pages[0].matches?.[0].bbox.width).toBeGreaterThan(0);
   });
 
+  it('finds native phrase matches that cross pdf.js span boundaries', async () => {
+    // Real PDFs often split adjacent words into separate glyph runs
+    // because the font, style, or text matrix changes. Search should
+    // still find the phrase and return a bbox union suitable for
+    // renderRegion zoom.
+    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const compiled = compileSearch('Hello World', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const matches = searchPage(
+      [
+        { text: 'Hello', x: 10, y: 20, width: 30, height: 10, fontSize: 10 },
+        { text: 'World', x: 46, y: 20, width: 35, height: 10, fontSize: 10 },
+      ],
+      undefined,
+      1,
+      612,
+      792,
+      compiled,
+    );
+    expect(matches).toHaveLength(1);
+    expect(matches[0].text).toBe('Hello World');
+    expect(matches[0].boxes).toHaveLength(2);
+    expect(matches[0].bbox).toEqual({ x: 10, y: 20, width: 71, height: 10 });
+  });
+
+  it('does not double-insert a synthetic space when adjacent spans already carry whitespace', async () => {
+    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const compiled = compileSearch('Hello World', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const matches = searchPage(
+      [
+        { text: 'Hello ', x: 10, y: 20, width: 34, height: 10, fontSize: 10 },
+        { text: 'World', x: 50, y: 20, width: 35, height: 10, fontSize: 10 },
+      ],
+      undefined,
+      1,
+      612,
+      792,
+      compiled,
+    );
+    expect(matches).toHaveLength(1);
+    expect(matches[0].text).toBe('Hello World');
+  });
+
+  it('uses the CJK-aware gap threshold when matching across glyph spans', async () => {
+    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const compiled = compileSearch('背景・目的', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const spans = Array.from('背景・目的').map((text, i) => ({
+      text,
+      x: 10 + i * 12.7,
+      y: 20,
+      width: 10,
+      height: 10,
+      fontSize: 10,
+    }));
+    const matches = searchPage(spans, undefined, 1, 612, 792, compiled);
+    expect(matches).toHaveLength(1);
+    expect(matches[0].text).toBe('背景・目的');
+  });
+
+  it('does not match phrases across large same-baseline column gaps', async () => {
+    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const compiled = compileSearch('left right', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const matches = searchPage(
+      [
+        { text: 'left', x: 10, y: 20, width: 22, height: 10, fontSize: 10 },
+        { text: 'right', x: 240, y: 20, width: 28, height: 10, fontSize: 10 },
+      ],
+      undefined,
+      1,
+      612,
+      792,
+      compiled,
+    );
+    expect(matches).toEqual([]);
+  });
+
   it('caps matches per page per query at MAX_MATCHES_PER_QUERY_PER_PAGE and surfaces a warning', async () => {
     // Defence-in-depth against a degenerate regex (or a bad literal
     // query that happens to match every span). Test directly against
