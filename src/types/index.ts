@@ -640,11 +640,14 @@ export interface PageWarning {
 export interface PageQuality {
   /**
    * Native-text extraction outcome:
-   *   - `ok` — the page has usable native text (`charCount > 0` and
-   *     `nonPrintableRatio < 0.05`).
+   *   - `ok` — the page has usable native text that is not sparse
+   *     relative to non-text visual content.
    *   - `unusable_glyph_indices` — `nonPrintableRatio >= 0.05`. pdf.js
    *     returned raw glyph codes (no usable ToUnicode CMap), so `text`
    *     is binary garbage even though `charCount` may look healthy.
+   *   - `sparse_text_with_visual_content` — native text exists, but it is
+   *     too sparse to explain a visually populated page (often just a page
+   *     number, decorative label, or thin OCR residue over images/vectors).
    *   - `empty_but_visual_content` — `charCount === 0` AND the page has
    *     visual content (`imageCount > 0`, `vectorCount > 0`, or
    *     `renderContentRatio` is above the blank threshold when
@@ -654,7 +657,12 @@ export interface PageQuality {
    *     Likely a genuinely blank page or a render failure (combine with
    *     `visualStatus` to disambiguate).
    */
-  nativeTextStatus: 'ok' | 'unusable_glyph_indices' | 'empty_but_visual_content' | 'empty';
+  nativeTextStatus:
+    | 'ok'
+    | 'unusable_glyph_indices'
+    | 'sparse_text_with_visual_content'
+    | 'empty_but_visual_content'
+    | 'empty';
   /**
    * Rasterisation outcome, present only when `--render` or `--ocr`
    * actually rasterised the page:

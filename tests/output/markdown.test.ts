@@ -340,6 +340,24 @@ describe('formatMarkdown', () => {
     expect(out).toMatch(/native: empty_but_visual_content/);
   });
 
+  it('appends a native: sparse_text_with_visual_content badge for visual pages with only sparse text', () => {
+    const out = formatMarkdown(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: '4',
+            charCount: 1,
+            imageCount: 1,
+            textCoverage: 0.001,
+            quality: { nativeTextStatus: 'sparse_text_with_visual_content' },
+          }),
+        ],
+      }),
+    );
+    expect(out).toMatch(/native: sparse_text_with_visual_content/);
+  });
+
   it('appends a visual: blank badge when the rendered page came out blank', () => {
     // Alice dark scan: charCount=0, renderContentRatio rounds to 0.00%,
     // visualStatus="blank" tells the agent the render itself failed.

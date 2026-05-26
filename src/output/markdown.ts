@@ -155,6 +155,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     // are the ones an agent reader needs to react to.
     const showNative =
       page.quality.nativeTextStatus === 'unusable_glyph_indices' ||
+      page.quality.nativeTextStatus === 'sparse_text_with_visual_content' ||
       page.quality.nativeTextStatus === 'empty_but_visual_content';
     const nativeFragment = showNative ? ` · native: ${page.quality.nativeTextStatus}` : '';
     const visualFragment = page.quality.visualStatus === 'blank' ? ` · visual: blank` : '';

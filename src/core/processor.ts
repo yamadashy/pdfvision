@@ -140,7 +140,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v23',
+    format: 'structured-v24',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -224,6 +224,7 @@ interface PageData {
   rawText?: string;
   charCount: number;
   imageCount: number;
+  rasterBackedTextLayer: boolean;
   vectorCount: number;
   textCoverage: number;
   nonPrintableRatio: number;
@@ -248,6 +249,23 @@ interface PageData {
 const UNUSABLE_NPR_THRESHOLD = 0.05;
 /** Same blank threshold the skill doc publishes for `renderContentRatio`. */
 const BLANK_RENDER_THRESHOLD = 0.001;
+const SPARSE_VISUAL_TEXT_COVERAGE_THRESHOLD = 0.02;
+const SPARSE_VISUAL_TEXT_CHAR_THRESHOLD = 200;
+const RASTER_BACKED_TEXT_COVERAGE_THRESHOLD = 0.1;
+const FULL_PAGE_RASTER_COVERAGE_THRESHOLD = 0.9;
+
+function hasFullPageRasterBackdrop(imageBoxes: readonly ImageBox[], pageWidth: number, pageHeight: number): boolean {
+  const pageArea = pageWidth * pageHeight;
+  if (pageArea <= 0) return false;
+  return imageBoxes.some((box) => {
+    const x1 = Math.max(0, box.x);
+    const y1 = Math.max(0, box.y);
+    const x2 = Math.min(pageWidth, box.x + box.width);
+    const y2 = Math.min(pageHeight, box.y + box.height);
+    const overlap = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
+    return overlap / pageArea >= FULL_PAGE_RASTER_COVERAGE_THRESHOLD;
+  });
+}
 
 /**
  * Derive {@link PageQuality} from the already-extracted signals.
@@ -256,12 +274,19 @@ const BLANK_RENDER_THRESHOLD = 0.001;
  */
 function derivePageQuality(p: PageResult): PageQuality {
   const hasVisualRender = p.renderContentRatio !== undefined && p.renderContentRatio > BLANK_RENDER_THRESHOLD;
+  const hasNonTextVisualContent = p.imageCount > 0 || p.vectorCount > 0;
+  const hasVisualContent = hasNonTextVisualContent || hasVisualRender;
   let nativeTextStatus: PageQuality['nativeTextStatus'];
   if (p.nonPrintableRatio >= UNUSABLE_NPR_THRESHOLD) {
     nativeTextStatus = 'unusable_glyph_indices';
   } else if (p.charCount > 0) {
-    nativeTextStatus = 'ok';
-  } else if (p.imageCount > 0 || p.vectorCount > 0 || hasVisualRender) {
+    nativeTextStatus =
+      hasNonTextVisualContent &&
+      p.charCount <= SPARSE_VISUAL_TEXT_CHAR_THRESHOLD &&
+      p.textCoverage < SPARSE_VISUAL_TEXT_COVERAGE_THRESHOLD
+        ? 'sparse_text_with_visual_content'
+        : 'ok';
+  } else if (hasVisualContent) {
     nativeTextStatus = 'empty_but_visual_content';
   } else {
     nativeTextStatus = 'empty';
@@ -396,6 +421,11 @@ async function extractPageData(
   const pageArea = width * height;
   const rawCoverage = pageArea > 0 ? textArea / pageArea : 0;
   const textCoverage = Math.max(0, Math.min(1, rawCoverage));
+  const rasterBackedTextLayer =
+    imageCount > 0 &&
+    vectorCount === 0 &&
+    textCoverage >= RASTER_BACKED_TEXT_COVERAGE_THRESHOLD &&
+    hasFullPageRasterBackdrop(allBoxes, width, height);
 
   // Build layout last so it always sees the final span list (post normalize).
   const layout = flags.layout ? buildLayout(spans, round2(width)) : undefined;
@@ -415,6 +445,7 @@ async function extractPageData(
     rawText: preservedRaw,
     charCount: text.length,
     imageCount,
+    rasterBackedTextLayer,
     vectorCount,
     textCoverage: Math.round(textCoverage * 1000) / 1000,
     nonPrintableRatio: npStats.ratio,
@@ -802,6 +833,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     };
     const ocrEnabled = !!options.ocr;
     const ocrLang = options.ocrLang ?? 'eng';
+    const rasterBackedTextLayerByPage = new Map<number, boolean>();
     const imageOps: ImageOps = {
       save: OPS.save,
       restore: OPS.restore,
@@ -825,6 +857,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     // docs where every concurrent page builds its own canvas / op list.
     const pages: PageResult[] = await runParallel(pageNumbers, async (pageNum, i) => {
       const data = await extractPageData(doc, pageNum, imageOps, flags);
+      rasterBackedTextLayerByPage.set(pageNum, data.rasterBackedTextLayer);
       const renderRatio = renderRatios[i];
       const page: PageResult = {
         page: pageNum,
@@ -891,7 +924,10 @@ export async function processDocument(filePath: string, options: ProcessDocument
       const pagesWithLayout = pages.filter((p) => p.layout && p.layout.blocks.length > 0).length;
       const chromeDetectionReliable = pagesWithLayout >= 2;
       for (const p of pages) {
-        const warnings = detectPageWarnings(p, { chromeDetectionReliable });
+        const warnings = detectPageWarnings(p, {
+          chromeDetectionReliable,
+          rasterBackedTextLayer: rasterBackedTextLayerByPage.get(p.page),
+        });
         if (warnings.length > 0) p.warnings = warnings;
       }
     }

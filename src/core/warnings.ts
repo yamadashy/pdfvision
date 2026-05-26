@@ -1,12 +1,7 @@
 import type { LayoutBlock, PageResult, PageWarning } from '../types/index.js';
 
 /** Context flags the orchestrator passes to the detector so the
- *  rules can route on facts that the page alone doesn't know.
- *  Right now the only such fact is "did chrome detection have enough
- *  pages to run reliably?" — `markRepeatedBlocks` needs at least
- *  two pages with layout to call anything `repeated`, so on a
- *  single-page extraction every block is "body" by default and the
- *  `near_bottom_edge` rule would mis-fire on running footers. */
+ *  rules can route on facts that the page alone doesn't know. */
 export interface PageWarningContext {
   /** True when the cross-page repeated-chrome pass had enough pages
    *  (≥ 2 with layout) to produce meaningful `block.repeated` flags.
@@ -14,6 +9,10 @@ export interface PageWarningContext {
    *  explicit `repeated: true` flags don't have to thread the field
    *  through their helpers. */
   chromeDetectionReliable?: boolean;
+  /** True when a full-page raster scan backs a dense text layer. In
+   *  that case layout bboxes describe hidden OCR text, not the pixels a
+   *  human sees, so geometry-driven warnings are more noise than signal. */
+  rasterBackedTextLayer?: boolean;
 }
 
 /**
@@ -36,6 +35,7 @@ export interface PageWarningContext {
  */
 export function detectPageWarnings(page: PageResult, context: PageWarningContext = {}): PageWarning[] {
   if (!page.layout || page.layout.blocks.length === 0) return [];
+  if (context.rasterBackedTextLayer) return [];
   const warnings: PageWarning[] = [];
   const blocks = page.layout.blocks;
   // Default true: keep the unit tests' hand-built pages (which set
@@ -104,21 +104,26 @@ const TEXT_OVERLAP_MIN_DEPTH_RATIO = 0.5;
 const INLINE_FRAGMENT_MAX_CHARS = 12;
 const INLINE_FRAGMENT_MAX_WIDTH_PT = 40;
 const INLINE_FRAGMENT_MAX_HEIGHT_PT = 12;
+const OFF_PAGE_REL_TOLERANCE = 0.006;
+const OFF_PAGE_MAX_TOLERANCE_PT = 6;
+const MATH_ANNOTATION_MAX_HEIGHT_RATIO = 0.85;
+const MATH_ANNOTATION_MAX_CHARS = 80;
 
 function detectOffPage(blocks: LayoutBlock[], pageWidth: number, pageHeight: number, out: PageWarning[]): void {
   // pageWidth / pageHeight come from the MediaBox; cropbox / trim
   // boxes might be inside that, but for "is this likely a broken
   // render" the outer MediaBox is the right yardstick.
+  const tolerance = offPageTolerance(pageWidth, pageHeight);
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i];
     const left = b.x;
     const top = b.y;
     const right = b.x + b.width;
     const bottom = b.y + b.height;
-    const offLeft = left < -OFF_PAGE_TOLERANCE_PT;
-    const offTop = top < -OFF_PAGE_TOLERANCE_PT;
-    const offRight = right > pageWidth + OFF_PAGE_TOLERANCE_PT;
-    const offBottom = bottom > pageHeight + OFF_PAGE_TOLERANCE_PT;
+    const offLeft = left < -tolerance;
+    const offTop = top < -tolerance;
+    const offRight = right > pageWidth + tolerance;
+    const offBottom = bottom > pageHeight + tolerance;
     if (!offLeft && !offTop && !offRight && !offBottom) continue;
     const sides: string[] = [];
     if (offLeft) sides.push('left');
@@ -167,7 +172,7 @@ function detectTextOverlap(blocks: LayoutBlock[], out: PageWarning[]): void {
 }
 
 function isInlineFragmentPair(a: LayoutBlock, b: LayoutBlock): boolean {
-  return isInlineFragment(a, b) || isInlineFragment(b, a);
+  return isInlineFragment(a, b) || isInlineFragment(b, a) || isMathAnnotation(a, b) || isMathAnnotation(b, a);
 }
 
 function isInlineFragment(fragment: LayoutBlock, neighbour: LayoutBlock): boolean {
@@ -175,9 +180,30 @@ function isInlineFragment(fragment: LayoutBlock, neighbour: LayoutBlock): boolea
   if (text.length === 0 || text.length > INLINE_FRAGMENT_MAX_CHARS) return false;
   if (fragment.lines.length > 1) return false;
   if (fragment.width > INLINE_FRAGMENT_MAX_WIDTH_PT || fragment.height > INLINE_FRAGMENT_MAX_HEIGHT_PT) return false;
-  if (neighbour.width < fragment.width * 4 || neighbour.height < fragment.height * 1.5) return false;
+  if (neighbour.width < fragment.width * 4) return false;
   if (!sitsOnNeighbourLine(fragment, neighbour)) return false;
   return true;
+}
+
+function isMathAnnotation(annotation: LayoutBlock, neighbour: LayoutBlock): boolean {
+  if (annotation.lines.length !== 1 || neighbour.lines.length === 0) return false;
+  const compact = annotation.text.replace(/\s+/g, '');
+  if (compact.length === 0 || compact.length > MATH_ANNOTATION_MAX_CHARS) return false;
+  if (annotation.height > neighbour.height * MATH_ANNOTATION_MAX_HEIGHT_RATIO) return false;
+  if (!isMathLikeAnnotationText(annotation.text, neighbour.text)) return false;
+  if (!sitsOnNeighbourLine(annotation, neighbour)) return false;
+  return true;
+}
+
+function isMathLikeAnnotationText(text: string, neighbourText: string): boolean {
+  const compact = text.replace(/\s+/g, '');
+  if (/[\d±=+\-−×÷∫√∞≤≥<>()[\].,]/u.test(compact)) return true;
+  if (/[\u0370-\u03ff]/u.test(compact)) return true;
+  const singleLetterTokens = text
+    .trim()
+    .split(/\s+/)
+    .every((part) => /^[A-Za-z]$/u.test(part));
+  return singleLetterTokens && /[\d±=+\-−×÷∫√∞≤≥<>()[\].,]/u.test(neighbourText);
 }
 
 function sitsOnNeighbourLine(fragment: LayoutBlock, neighbour: LayoutBlock): boolean {
@@ -219,6 +245,7 @@ function detectNearBottomEdge(blocks: LayoutBlock[], pageHeight: number, out: Pa
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i];
     if (b.repeated) continue;
+    if (isBottomReference(b)) continue;
     const distance = pageHeight - (b.y + b.height);
     if (distance < 0) continue; // off_page handles this case
     if (distance >= threshold) continue;
@@ -229,6 +256,18 @@ function detectNearBottomEdge(blocks: LayoutBlock[], pageHeight: number, out: Pa
       blockIndex: i,
     });
   }
+}
+
+function isBottomReference(block: LayoutBlock): boolean {
+  const text = block.text.trim();
+  if (text.length === 0 || text.length > 160) return false;
+  if (block.width <= 40 && /^\d{1,4}$/u.test(text)) return true;
+  return /\b(?:https?:\/\/|www\.|doi:|arxiv:)/i.test(text);
+}
+
+function offPageTolerance(pageWidth: number, pageHeight: number): number {
+  const relative = Math.min(pageWidth, pageHeight) * OFF_PAGE_REL_TOLERANCE;
+  return Math.min(OFF_PAGE_MAX_TOLERANCE_PT, Math.max(OFF_PAGE_TOLERANCE_PT, relative));
 }
 
 function detectBodyNearRepeatedChrome(blocks: LayoutBlock[], out: PageWarning[]): void {

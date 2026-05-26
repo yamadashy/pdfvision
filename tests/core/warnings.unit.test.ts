@@ -85,6 +85,19 @@ describe('detectPageWarnings', () => {
       const out = detectPageWarnings(page([block(50, 50, 562.5, 100)]));
       expect(out.filter((w) => w.code === 'off_page')).toEqual([]);
     });
+
+    it('does not flag small proportional title bleed on a large slide page', () => {
+      // SpeakerDeck-style PDFs often place large title text a few
+      // points past the slide edge. On a 1920x1080 canvas this is a
+      // harmless typographic bleed, not a broken extraction.
+      const out = detectPageWarnings(page([block(260, -5.5, 1400, 67)], 1920, 1080));
+      expect(out.filter((w) => w.code === 'off_page')).toEqual([]);
+    });
+
+    it('still flags substantial off-page bleed on a large slide page', () => {
+      const out = detectPageWarnings(page([block(260, -20, 1400, 67)], 1920, 1080));
+      expect(out.some((w) => w.code === 'off_page' && w.message.includes('top'))).toBe(true);
+    });
   });
 
   describe('text_overlap', () => {
@@ -155,6 +168,50 @@ describe('detectPageWarnings', () => {
       const out = detectPageWarnings(page([paragraph, label]));
       expect(out.some((w) => w.code === 'text_overlap')).toBe(true);
     });
+
+    it('does not flag compact subscript blocks embedded in a displayed formula', () => {
+      const formula = block(300, 208, 43, 8, {
+        text: 'τ τ −τ',
+        lines: [{ text: 'τ τ −τ', x: 300, y: 208, width: 43, height: 8, fontSize: 8 }],
+      });
+      const subscript = block(328, 211, 4, 6, {
+        text: '0',
+        lines: [{ text: '0', x: 328, y: 211, width: 4, height: 6, fontSize: 6 }],
+      });
+      const out = detectPageWarnings(page([formula, subscript]));
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
+    it('does not flag small uncertainty rows that are visually part of a table row', () => {
+      const row = block(113, 129, 385, 10, {
+        text: 'RoB (AdptD)* 0.3M 87.1 94.2 88.5 60.8 93.1 90.2 71.5 89.7 84.4',
+        lines: [
+          {
+            text: 'RoB (AdptD)* 0.3M 87.1 94.2 88.5 60.8 93.1 90.2 71.5 89.7 84.4',
+            x: 113,
+            y: 129,
+            width: 385,
+            height: 10,
+            fontSize: 10,
+          },
+        ],
+      });
+      const uncertainty = block(242, 134, 234, 6, {
+        text: '±.0 ±.1 ±1.1 ±.4 ±.1 ±.0 ±2.7 ±.3',
+        lines: [
+          {
+            text: '±.0 ±.1 ±1.1 ±.4 ±.1 ±.0 ±2.7 ±.3',
+            x: 242,
+            y: 134,
+            width: 234,
+            height: 6,
+            fontSize: 6,
+          },
+        ],
+      });
+      const out = detectPageWarnings(page([row, uncertainty]));
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
   });
 
   describe('near_bottom_edge', () => {
@@ -180,6 +237,23 @@ describe('detectPageWarnings', () => {
       expect(out.filter((w) => w.code === 'near_bottom_edge')).toEqual([]);
     });
 
+    it('does not flag URL reference blocks at the bottom edge', () => {
+      const out = detectPageWarnings(
+        page([block(650, 1050, 625, 24, { text: 'https://www.ipa.go.jp/sec/reports/20150331_1.html' })], 1920, 1080),
+      );
+      expect(out.filter((w) => w.code === 'near_bottom_edge')).toEqual([]);
+    });
+
+    it('does not flag centered numeric page numbers at the bottom edge', () => {
+      const out = detectPageWarnings(page([block(294, 758, 6, 9, { text: '83' })], 594, 774));
+      expect(out.filter((w) => w.code === 'near_bottom_edge')).toEqual([]);
+    });
+
+    it('still flags non-reference body text near the bottom edge', () => {
+      const out = detectPageWarnings(page([block(50, 758, 80, 9, { text: 'closing note' })], 594, 774));
+      expect(out.some((w) => w.code === 'near_bottom_edge')).toBe(true);
+    });
+
     it('scales the threshold down for small pages so it stays proportional', () => {
       // A 200pt-tall thumbnail: 18pt threshold would be 9% of the
       // page — too aggressive. The min(18, h × 0.025) rule clamps
@@ -194,6 +268,17 @@ describe('detectPageWarnings', () => {
   });
 
   describe('chromeDetectionReliable context', () => {
+    it('suppresses geometry warnings for full-page raster-backed text layers', () => {
+      // Hidden OCR text over a scanned page often carries bboxes that
+      // do not line up with the pixels a human sees. The processor
+      // detects the full-page raster backdrop and asks the warning
+      // layer to stay silent for geometry-only findings.
+      const out = detectPageWarnings(page([block(50, 50, 300, 200), block(200, 150, 300, 150)]), {
+        rasterBackedTextLayer: true,
+      });
+      expect(out).toEqual([]);
+    });
+
     it('suppresses near_bottom_edge when the cross-page chrome pass had no material', () => {
       // Single-page extraction (`--pages 13 --layout`) — markRepeatedBlocks
       // bails on <2 pages so what's really a running footer reads as a
