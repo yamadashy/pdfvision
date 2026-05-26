@@ -27,7 +27,7 @@ Hand an agent a PDF and it usually either can't read it at all, or swallows the 
 
 ### See whether text extraction actually worked
 
-Every page reports `charCount`, `imageCount`, and `textCoverage`, so an agent can tell "this slide is an image, not text" and re-run with `--render` or `--ocr` instead of trusting an empty string.
+Every page reports `charCount`, `imageCount`, `vectorCount`, and `textCoverage`, so an agent can tell at a glance that "this slide is visual, not just text" — and decide to re-run with `--render` or `--ocr` instead of trusting an empty string.
 
 ### Look at the page, not just the text
 
@@ -35,7 +35,12 @@ Every page reports `charCount`, `imageCount`, and `textCoverage`, so an agent ca
 
 ### Preserve layout and visual structure
 
-`--layout`, `--image-boxes`, and `--geometry` expose reading order, raster positions, and per-item geometry as raw signals — the agent picks which lens fits and tries another when one falls short, rather than trusting one baked answer.
+- **`--layout`** returns blocks with `role: 'heading'`, `repeated: true` for running headers and footers, and multi-column reading order.
+- **`--image-boxes`** reports where each raster draw lands.
+- **`vectorCount`** reports non-text vector drawing operations such as rules, form boxes, chart paths, and slide shapes.
+- **`--geometry`** emits per-text-item `bbox` + `fontSize` so callers can reconstruct visual hierarchy themselves.
+
+The agent picks which signals matter; pdfvision doesn't bake one answer.
 
 ### Spot anomalies a human would notice
 
@@ -132,6 +137,7 @@ pdfvision document.pdf -r --render-output ./images
 # Layout + image bboxes — agent reconstructs reading order itself,
 # and pages[].warnings flags overlapping text, body running into the
 # bottom edge, body colliding with running headers/footers, etc.
+# Pages also expose vectorCount for form boxes, chart paths, and shapes.
 pdfvision document.pdf --layout --image-boxes -f json
 
 # Per-text-item geometry (bbox + fontSize per glyph run)

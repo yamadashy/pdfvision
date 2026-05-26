@@ -25,6 +25,7 @@ interface PageOverview {
   page: number;
   charCount: number;
   imageCount: number;             // raster image draws (XObject + inline + mask), per drawn instance
+  vectorCount: number;            // vector drawing ops (paths / shadings), e.g. form boxes, chart rules, slide shapes
   textCoverage: number;           // 0..1, fraction of page area covered by text glyph bboxes
   nonPrintableRatio: number;      // 0..1, fraction of `text` that is NUL / control / noncharacter
   nonPrintableCount: number;      // raw count — stays discriminable when the 3dp ratio rounds to 0
@@ -39,6 +40,7 @@ interface PageOverview {
 
 `overview[]` is the first thing to inspect for silent-failure detection. The `quality` field gives a one-shot classification; the raw signals below let agents combine signals their own way:
 - `imageCount > 0 && textCoverage ≈ 0` → image-flattened page; the text stream is empty.
+- `vectorCount > 0 && textCoverage is low` → visible non-raster structure exists even when `imageCount` is zero; forms, charts, diagrams, and slide shapes may require `--render`.
 - `nonPrintableRatio >= 0.05` → ToUnicode CMap missing; the text stream is full of raw glyph indices (NUL + control chars) even though `textCoverage` looks fine. Native text is unusable; fall back to `--render` or `--ocr`. Maps to `quality.nativeTextStatus === 'unusable_glyph_indices'`.
 - `renderContentRatio <= 0.001` → rasterised page is effectively blank against its own dominant background (only meaningful when `--render` or `--ocr` was on). Background-aware so dark covers and beige scans don't false-trip it. Catches render-pipeline failures pdfvision can't otherwise surface: pdf.js + @napi-rs/canvas can't decode JPEG2000 image streams (common in Internet Archive scans), and PDFs whose fonts have no resolvable glyphs draw nothing. When OCR runs against this, `confidence: 0` is *not* an OCR miss — the input was a near-uniform image. Maps to `quality.visualStatus === 'blank'`.
 
@@ -51,6 +53,7 @@ interface PageResult {
   rawText?: string;              // pre-normalization text — only present when normalization changed it
   charCount: number;
   imageCount: number;
+  vectorCount: number;
   textCoverage: number;
   nonPrintableRatio: number;     // NUL / control / noncharacter ratio in `text`
   nonPrintableCount: number;     // raw count alongside the ratio
@@ -72,7 +75,7 @@ interface PageQuality {
   nativeTextStatus:
     | 'ok'                       // usable native text
     | 'unusable_glyph_indices'   // nonPrintableRatio >= 0.05 — fall back to --ocr / --render
-    | 'empty_but_visual_content' // no native text but the page has images / non-blank pixels
+    | 'empty_but_visual_content' // no native text but the page has images / vectors / non-blank pixels
     | 'empty';                   // no text, no detected visual content
   visualStatus?:                 // present iff --render or --ocr triggered a raster
     | 'ok'                       // renderContentRatio > 0.001 — renderer drew real content
@@ -203,7 +206,7 @@ interface SearchMatch {
   query: string;               // verbatim source query
   queryIndex?: number;         // 0-based into the search array; omitted for single-query calls
   bbox: { x, y, width, height }; // union bbox of contributing spans; feed straight into --render-region
-  boxes: { x, y, width, height }[]; // per-span bboxes (V1: one entry for single-span matches)
+  boxes: { x, y, width, height }[]; // per-span bboxes; phrase matches across spans carry multiple boxes
   text: string;                // matched substring in the same form as pages[].text (NFKC when normalize is on)
   source: 'native' | 'ocr';    // native = precise span bbox; ocr = page-level bbox (V1 limit)
   context?: string;            // surrounding line text for human / LLM readability
@@ -227,9 +230,8 @@ pdfvision doc.pdf -p <m.page> --render --render-region <m.bbox.x>,<m.bbox.y>,<m.
 - **NFKC-aware in literal mode** when `--normalize` is on (default) — `"fi"` finds `"ﬁ"` (U+FB01 ligature) PDFs that external grep would miss, same fold for fullwidth Latin / CJK compatibility forms.
 - **Regex queries are NOT normalized** — NFKC can turn compatibility punctuation into regex metacharacters (silent overmatch or syntax break). Regex users get the literal codepoints they typed against the normalized document text and own the asymmetry.
 - **Multi-query** via repeating `--search` (or `search: string[]` in library). Each match carries `queryIndex` so the agent can demultiplex which query produced it.
+- **Native text is searched at reconstructed line level**. A query can cross pdf.js span / font-run boundaries on the same line (e.g. `"Hello World"` split into `Hello` + `World`) and returns a union `bbox` plus per-span `boxes[]`. Multi-line phrase stitching is intentionally not modelled yet because the resulting region is usually too broad for visual zoom.
 - **OCR text is searched too when `--ocr` is on**. OCR-derived matches come back with `source: 'ocr'` and a page-level `bbox` (V1: per-word OCR bbox from tesseract `data.words[]` not plumbed yet — the source-tag lets consumers disambiguate from precise native matches).
-
-V1 native matching is **single-span only**. A query straddling two pdf.js spans (e.g. `"Hello World"` where `Hello` and `World` are different spans) won't match. Most short queries hit single spans because pdf.js groups by font run; multi-span matching is a follow-up.
 
 `pages[].matches` is **present-with-`[]`** when `--search` ran but the page had no hits — distinct from the field being absent entirely (search wasn't requested). The same posture extends to the overview, which gains a `matchCount` mirror field with the same present-with-`0` semantics.
 
@@ -244,11 +246,11 @@ V1 native matching is **single-span only**. A query straddling two pdf.js spans 
     <author>...</author>
   </metadata>
   <overview>
-    <page no="1" charCount="..." imageCount="..." textCoverage="..." nonPrintableRatio="..." width="..." height="..."/>
+    <page no="1" charCount="..." imageCount="..." vectorCount="..." textCoverage="..." nonPrintableRatio="..." width="..." height="..."/>
     ...
   </overview>
   <pages>
-    <page no="1" charCount="..." imageCount="..." textCoverage="..." nonPrintableRatio="..." width="..." height="..." image="...">
+    <page no="1" charCount="..." imageCount="..." vectorCount="..." textCoverage="..." nonPrintableRatio="..." width="..." height="..." image="...">
       <spans>
         <span text="..." x="..." y="..." width="..." height="..." fontSize="..." fontName="..."/>
         ...
