@@ -345,6 +345,7 @@ describe('buildLayout — multi-column reading order', () => {
         text: `EN\n${bodyText}`,
         charCount: bodyText.length + 3,
         imageCount: 0,
+        vectorCount: 0,
         textCoverage: 0.5,
         nonPrintableRatio: 0,
         nonPrintableCount: 0,

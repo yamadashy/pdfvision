@@ -7,6 +7,7 @@ function makePage(overrides: Partial<PageResult> & Pick<PageResult, 'page'>): Pa
     text: '',
     charCount: 0,
     imageCount: 0,
+    vectorCount: 0,
     textCoverage: 0,
     nonPrintableRatio: 0,
     nonPrintableCount: 0,
@@ -60,6 +61,7 @@ describe('formatXml', () => {
             page: 1,
             charCount: 10,
             imageCount: 0,
+            vectorCount: 2,
             textCoverage: 0.1,
             nonPrintableRatio: 0,
             nonPrintableCount: 0,
@@ -71,6 +73,7 @@ describe('formatXml', () => {
             page: 2,
             charCount: 0,
             imageCount: 5,
+            vectorCount: 0,
             textCoverage: 0.02,
             nonPrintableRatio: 0,
             nonPrintableCount: 0,
@@ -87,10 +90,10 @@ describe('formatXml', () => {
     );
     expect(out).toMatch(/<overview>/);
     expect(out).toMatch(
-      /<page no="1" charCount="10" imageCount="0" textCoverage="0\.1" nonPrintableRatio="0" nonPrintableCount="0" nativeTextStatus="ok" width="612" height="792"\/>/,
+      /<page no="1" charCount="10" imageCount="0" vectorCount="2" textCoverage="0\.1" nonPrintableRatio="0" nonPrintableCount="0" nativeTextStatus="ok" width="612" height="792"\/>/,
     );
     expect(out).toMatch(
-      /<page no="2" charCount="0" imageCount="5" textCoverage="0\.02" nonPrintableRatio="0" nonPrintableCount="0" nativeTextStatus="empty_but_visual_content" width="612" height="792"\/>/,
+      /<page no="2" charCount="0" imageCount="5" vectorCount="0" textCoverage="0\.02" nonPrintableRatio="0" nonPrintableCount="0" nativeTextStatus="empty_but_visual_content" width="612" height="792"\/>/,
     );
   });
 
@@ -407,6 +410,7 @@ describe('formatXml', () => {
             page: 1,
             charCount: 5,
             imageCount: 0,
+            vectorCount: 0,
             textCoverage: 0,
             nonPrintableRatio: 0,
             nonPrintableCount: 0,
@@ -418,6 +422,7 @@ describe('formatXml', () => {
             page: 2,
             charCount: 7,
             imageCount: 0,
+            vectorCount: 0,
             textCoverage: 0,
             nonPrintableRatio: 0,
             nonPrintableCount: 0,

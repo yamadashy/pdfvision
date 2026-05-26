@@ -27,6 +27,7 @@ import { nonPrintableStats } from './nonPrintable.js';
 import { parsePageRangeWithSkipped } from './pageRange.js';
 import { runParallel } from './parallel.js';
 import { type CompiledSearch, compileSearch, searchPage } from './search.js';
+import { countVectorPaintOps } from './vectorOps.js';
 import { detectPageWarnings } from './warnings.js';
 
 /** Inputs that determine which cached entry a request maps to. */
@@ -139,7 +140,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v19',
+    format: 'structured-v23',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -223,6 +224,7 @@ interface PageData {
   rawText?: string;
   charCount: number;
   imageCount: number;
+  vectorCount: number;
   textCoverage: number;
   nonPrintableRatio: number;
   nonPrintableCount: number;
@@ -259,7 +261,7 @@ function derivePageQuality(p: PageResult): PageQuality {
     nativeTextStatus = 'unusable_glyph_indices';
   } else if (p.charCount > 0) {
     nativeTextStatus = 'ok';
-  } else if (p.imageCount > 0 || hasVisualRender) {
+  } else if (p.imageCount > 0 || p.vectorCount > 0 || hasVisualRender) {
     nativeTextStatus = 'empty_but_visual_content';
   } else {
     nativeTextStatus = 'empty';
@@ -389,6 +391,7 @@ async function extractPageData(
   const allBoxes = buildImageBoxes(opList.fnArray, opList.argsArray as unknown[][], ops, height, view[0], yMin);
   const imageCount = allBoxes.length;
   const imageBoxes = flags.imageBoxes ? allBoxes : undefined;
+  const vectorCount = countVectorPaintOps(opList.fnArray, opList.argsArray as unknown[][], ops);
 
   const pageArea = width * height;
   const rawCoverage = pageArea > 0 ? textArea / pageArea : 0;
@@ -412,6 +415,7 @@ async function extractPageData(
     rawText: preservedRaw,
     charCount: text.length,
     imageCount,
+    vectorCount,
     textCoverage: Math.round(textCoverage * 1000) / 1000,
     nonPrintableRatio: npStats.ratio,
     nonPrintableCount: npStats.count,
@@ -562,8 +566,19 @@ export async function processDocument(filePath: string, options: ProcessDocument
     OPS.paintImageMaskXObject,
     OPS.paintInlineImageXObject,
   ]);
-  // Hand pdf.js the bundled OpenJPEG (JPX / JPEG2000) + JBIG2 wasm decoders
-  // AND the predefined CJK CMap pack.
+  const pathPaintOps = new Set<number>([
+    OPS.stroke,
+    OPS.closeStroke,
+    OPS.fill,
+    OPS.eoFill,
+    OPS.fillStroke,
+    OPS.eoFillStroke,
+    OPS.closeFillStroke,
+    OPS.closeEOFillStroke,
+  ]);
+  const vectorPaintOps = new Set<number>([...pathPaintOps, OPS.shadingFill, OPS.rawFillPath]);
+  // Hand pdf.js the bundled OpenJPEG (JPX / JPEG2000) + JBIG2 wasm decoders,
+  // predefined CJK CMap pack, and standard font data.
   //   - `wasmUrl` lets pdf.js decode JPX image streams (Internet Archive
   //     scans). Without it those pages render as solid blanks.
   //   - `cMapUrl` + `cMapPacked: true` lets pdf.js resolve CJK glyphs that
@@ -571,6 +586,8 @@ export async function processDocument(filePath: string, options: ProcessDocument
   //     SpeakerDeck / Office Japanese exports come back with `text: ""`
   //     and the agent has no way to tell native-text-empty from
   //     image-only.
+  //   - `standardFontDataUrl` prevents pdf.js from falling back when a PDF
+  //     references one of the built-in Type1 fonts without embedding it.
   // We pass *plain filesystem paths* (no `file://` prefix). pdf.js's Node
   // factory calls `fs.readFile(url)` directly, which silently fails on
   // `file://` *strings* (only `URL` objects are accepted by fs); plain
@@ -599,6 +616,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     docOptions.wasmUrl = `${join(pdfjsPkgDir, 'wasm')}/`;
     docOptions.cMapUrl = `${join(pdfjsPkgDir, 'cmaps')}/`;
     docOptions.cMapPacked = true;
+    docOptions.standardFontDataUrl = `${join(pdfjsPkgDir, 'standard_fonts')}/`;
   } catch {
     // Best-effort: keep going without the wasm/cmap asset URLs rather
     // than fail the whole extraction over a missing optional asset.
@@ -791,6 +809,9 @@ export async function processDocument(filePath: string, options: ProcessDocument
       formBegin: OPS.paintFormXObjectBegin,
       formEnd: OPS.paintFormXObjectEnd,
       singleImageOps,
+      constructPath: OPS.constructPath,
+      pathPaintOps,
+      vectorPaintOps,
       paintImageXObjectRepeat: OPS.paintImageXObjectRepeat,
       paintImageMaskXObjectRepeat: OPS.paintImageMaskXObjectRepeat,
       paintImageMaskXObjectGroup: OPS.paintImageMaskXObjectGroup,
@@ -813,6 +834,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
         image: imagePaths?.[i],
         charCount: data.charCount,
         imageCount: data.imageCount,
+        vectorCount: data.vectorCount,
         textCoverage: data.textCoverage,
         nonPrintableRatio: data.nonPrintableRatio,
         nonPrintableCount: data.nonPrintableCount,
@@ -922,6 +944,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
             page: p.page,
             charCount: p.charCount,
             imageCount: p.imageCount,
+            vectorCount: p.vectorCount,
             textCoverage: p.textCoverage,
             nonPrintableRatio: p.nonPrintableRatio,
             nonPrintableCount: p.nonPrintableCount,
