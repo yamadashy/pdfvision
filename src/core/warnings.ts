@@ -89,6 +89,22 @@ const EDGE_NEAR_BOTTOM_REL = 0.025;
  *  paragraph and the footer reads as body text. */
 const CHROME_TOO_CLOSE_GAP_PT = 6;
 
+/** Real text collisions overlap deeply on the y axis. PDF text bboxes
+ *  routinely include ascender / descender slack that makes adjacent lines
+ *  touch by a few points, especially in forms and title blocks. Require
+ *  at least 50% of the smaller line/block height to overlap before
+ *  treating the pair as a visual collision. */
+const TEXT_OVERLAP_MIN_DEPTH_RATIO = 0.5;
+
+/** Tiny one-line fragments are often superscripts, subscripts, footnote
+ *  markers, or equation indices that intentionally sit inside a paragraph
+ *  line's bbox. A human reads them as inline math, not as colliding blocks.
+ *  Suppress only when the fragment is clearly small relative to its
+ *  neighbour so true small callouts can still be reported. */
+const INLINE_FRAGMENT_MAX_CHARS = 12;
+const INLINE_FRAGMENT_MAX_WIDTH_PT = 40;
+const INLINE_FRAGMENT_MAX_HEIGHT_PT = 12;
+
 function detectOffPage(blocks: LayoutBlock[], pageWidth: number, pageHeight: number, out: PageWarning[]): void {
   // pageWidth / pageHeight come from the MediaBox; cropbox / trim
   // boxes might be inside that, but for "is this likely a broken
@@ -130,10 +146,11 @@ function detectTextOverlap(blocks: LayoutBlock[], out: PageWarning[]): void {
       const b = blocks[j];
       if (b.repeated) continue;
       if (!boxesIntersect(a, b)) continue;
+      if (isInlineFragmentPair(a, b)) continue;
       // Compute intersection area to give the message a concrete
       // anchor — a 0.1 pt² nick at a column boundary reads very
       // differently from a half-page overlap.
-      const overlapArea = intersectionArea(a, b);
+      const overlapArea = textOverlapArea(a, b);
       // Tiny rounding-fringe overlaps shouldn't fire — < 1 pt² is
       // typically just adjacent blocks whose bbox includes glyph
       // ascender/descender slack.
@@ -147,6 +164,52 @@ function detectTextOverlap(blocks: LayoutBlock[], out: PageWarning[]): void {
       });
     }
   }
+}
+
+function isInlineFragmentPair(a: LayoutBlock, b: LayoutBlock): boolean {
+  return isInlineFragment(a, b) || isInlineFragment(b, a);
+}
+
+function isInlineFragment(fragment: LayoutBlock, neighbour: LayoutBlock): boolean {
+  const text = fragment.text.replace(/\s+/g, '');
+  if (text.length === 0 || text.length > INLINE_FRAGMENT_MAX_CHARS) return false;
+  if (fragment.lines.length > 1) return false;
+  if (fragment.width > INLINE_FRAGMENT_MAX_WIDTH_PT || fragment.height > INLINE_FRAGMENT_MAX_HEIGHT_PT) return false;
+  if (neighbour.width < fragment.width * 4 || neighbour.height < fragment.height * 1.5) return false;
+  if (!sitsOnNeighbourLine(fragment, neighbour)) return false;
+  return true;
+}
+
+function sitsOnNeighbourLine(fragment: LayoutBlock, neighbour: LayoutBlock): boolean {
+  const fragmentBox = fragment.lines[0] ?? fragment;
+  const fragmentCenterX = fragmentBox.x + fragmentBox.width / 2;
+  const fragmentCenterY = fragmentBox.y + fragmentBox.height / 2;
+  for (const line of neighbour.lines) {
+    if (fragmentCenterX < line.x || fragmentCenterX > line.x + line.width) continue;
+    if (!boxesIntersect(fragmentBox, line)) continue;
+    const depth = verticalIntersectionDepth(fragmentBox, line);
+    const minHeight = Math.max(Math.min(fragmentBox.height, line.height), 0.001);
+    if (depth / minHeight < TEXT_OVERLAP_MIN_DEPTH_RATIO) continue;
+    const lineCenterY = line.y + line.height / 2;
+    if (Math.abs(fragmentCenterY - lineCenterY) < line.height * 0.12) continue;
+    return true;
+  }
+  return false;
+}
+
+function textOverlapArea(a: LayoutBlock, b: LayoutBlock): number {
+  const aBoxes = a.lines.length > 0 ? a.lines : [a];
+  const bBoxes = b.lines.length > 0 ? b.lines : [b];
+  let total = 0;
+  for (const aa of aBoxes) {
+    for (const bb of bBoxes) {
+      const depth = verticalIntersectionDepth(aa, bb);
+      const minHeight = Math.max(Math.min(aa.height, bb.height), 0.001);
+      if (depth / minHeight < TEXT_OVERLAP_MIN_DEPTH_RATIO) continue;
+      total += intersectionArea(aa, bb);
+    }
+  }
+  return total;
 }
 
 function detectNearBottomEdge(blocks: LayoutBlock[], pageHeight: number, out: PageWarning[]): void {
@@ -255,9 +318,13 @@ function boxesIntersect(a: Box, b: Box): boolean {
 
 function intersectionArea(a: Box, b: Box): number {
   const dx = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
-  const dy = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+  const dy = verticalIntersectionDepth(a, b);
   if (dx <= 0 || dy <= 0) return 0;
   return dx * dy;
+}
+
+function verticalIntersectionDepth(a: Box, b: Box): number {
+  return Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
 }
 
 function horizontalOverlap(a: Box, b: Box): boolean {

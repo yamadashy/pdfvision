@@ -26,6 +26,7 @@ function page(blocks: LayoutBlock[], width = 612, height = 792): PageResult {
     text: '',
     charCount: 0,
     imageCount: 0,
+    vectorCount: 0,
     textCoverage: 0,
     nonPrintableRatio: 0,
     nonPrintableCount: 0,
@@ -45,6 +46,7 @@ describe('detectPageWarnings', () => {
       text: '',
       charCount: 0,
       imageCount: 0,
+      vectorCount: 0,
       textCoverage: 0,
       nonPrintableRatio: 0,
       nonPrintableCount: 0,
@@ -110,6 +112,48 @@ describe('detectPageWarnings', () => {
       // the right channel for that.
       const out = detectPageWarnings(page([block(50, 700, 500, 50), block(50, 720, 500, 30, { repeated: true })]));
       expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
+    it('does not flag tiny inline math fragments that sit inside a paragraph bbox', () => {
+      // arXiv PDFs often emit subscripts / superscripts (`t-1`, `1 n`,
+      // footnote markers) as separate tiny blocks whose bboxes overlap
+      // the surrounding paragraph line. A human reads these as inline
+      // notation, not as colliding text.
+      const paragraph = block(50, 100, 400, 80, {
+        text: 'The decoder consumes y t-1 while predicting the next token.',
+        lines: [
+          { text: 'The decoder consumes y while predicting', x: 50, y: 100, width: 300, height: 10, fontSize: 10 },
+          { text: 'the next token.', x: 50, y: 112, width: 140, height: 10, fontSize: 10 },
+        ],
+      });
+      const subscript = block(178, 104, 12, 7, {
+        text: 't-1',
+        lines: [{ text: 't-1', x: 178, y: 104, width: 12, height: 7, fontSize: 7 }],
+      });
+      const out = detectPageWarnings(page([paragraph, subscript]));
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
+    it('still flags a small independent label that collides with a text line', () => {
+      const paragraph = block(50, 100, 400, 40, {
+        text: 'The main paragraph has an overlapping callout.',
+        lines: [
+          {
+            text: 'The main paragraph has an overlapping callout.',
+            x: 50,
+            y: 100,
+            width: 310,
+            height: 10,
+            fontSize: 10,
+          },
+        ],
+      });
+      const label = block(178, 101, 12, 7, {
+        text: 'ID',
+        lines: [{ text: 'ID', x: 178, y: 101, width: 12, height: 7, fontSize: 7 }],
+      });
+      const out = detectPageWarnings(page([paragraph, label]));
+      expect(out.some((w) => w.code === 'text_overlap')).toBe(true);
     });
   });
 
