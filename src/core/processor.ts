@@ -27,6 +27,7 @@ import { nonPrintableStats } from './nonPrintable.js';
 import { parsePageRangeWithSkipped } from './pageRange.js';
 import { runParallel } from './parallel.js';
 import { type CompiledSearch, compileSearch, searchPage } from './search.js';
+import { textMatrixFontSize, textRunGeometryFromTransform } from './textGeometry.js';
 import { countVectorPaintOps } from './vectorOps.js';
 import { detectPageWarnings } from './warnings.js';
 
@@ -140,7 +141,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v24',
+    format: 'structured-v25',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -331,6 +332,7 @@ async function extractPageData(
   // area instead of falling through to 0 coverage.
   const width = Math.abs(view[2] - view[0]);
   const height = Math.abs(view[3] - view[1]);
+  const xMin = Math.min(view[0], view[2]);
   const yMin = Math.min(view[1], view[3]);
 
   // Spans are the input to layout reconstruction AND to search bbox
@@ -354,7 +356,7 @@ async function extractPageData(
     // text matrix, which is effectively the glyph height in user units.
     const reportedH = typeof item.height === 'number' ? item.height : 0;
     const transform = item.transform;
-    const h = reportedH > 0 ? reportedH : Math.abs(transform?.[3] ?? 0);
+    const h = reportedH > 0 ? reportedH : transform ? textMatrixFontSize(transform) : 0;
     textArea += Math.abs(w * h);
 
     // Feed the page-text joiner. x/fontSize default to 0 when the
@@ -362,7 +364,7 @@ async function extractPageData(
     // items); the joiner already handles zero fontSize by falling back
     // to a neighbour.
     const itemX = transform ? transform[4] : 0;
-    const itemFontSize = transform ? Math.max(Math.abs(transform[0]), Math.abs(transform[3])) : h;
+    const itemFontSize = transform ? textMatrixFontSize(transform, h) : h;
     joinItems.push({
       str: item.str,
       x: itemX,
@@ -377,23 +379,17 @@ async function extractPageData(
     // The aggregate `text` already preserves the spaces, so layout
     // analysis loses nothing; downstream agents get a cleaner signal.
     if (wantSpans && item.str.trim().length > 0 && transform) {
-      // pdfjs transform = [a, b, c, d, e, f]; (e, f) is the baseline origin
-      // of the glyph run in PDF user-space (origin: bottom-left). Convert
-      // to a top-down bbox so callers can overlay spans on the rendered
-      // PNG without flipping y.
-      const xPdf = transform[4];
-      const yBaselinePdf = transform[5];
-      // Top-edge in PDF coords sits one glyph-height above the baseline,
-      // and the page's bottom-left can sit at a non-zero MediaBox minY.
-      const yTopDown = height - (yBaselinePdf + h - yMin);
-      const fontSize = Math.max(Math.abs(transform[0]), Math.abs(transform[3]));
+      const geometry = textRunGeometryFromTransform({
+        transform,
+        width: w,
+        height: h,
+        pageHeight: height,
+        viewMinX: xMin,
+        viewMinY: yMin,
+      });
       spans.push({
         text: flags.normalize ? normalizeText(item.str) : item.str,
-        x: round2(xPdf - view[0]),
-        y: round2(yTopDown),
-        width: round2(w),
-        height: round2(h),
-        fontSize: round2(fontSize),
+        ...geometry,
         ...(typeof item.fontName === 'string' && { fontName: item.fontName }),
       });
     }

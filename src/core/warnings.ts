@@ -151,6 +151,7 @@ function detectTextOverlap(blocks: LayoutBlock[], out: PageWarning[]): void {
       const b = blocks[j];
       if (b.repeated) continue;
       if (!boxesIntersect(a, b)) continue;
+      if (isLooseLineContinuationPair(a, b)) continue;
       if (isInlineFragmentPair(a, b)) continue;
       // Compute intersection area to give the message a concrete
       // anchor — a 0.1 pt² nick at a column boundary reads very
@@ -175,6 +176,25 @@ function isInlineFragmentPair(a: LayoutBlock, b: LayoutBlock): boolean {
   return isInlineFragment(a, b) || isInlineFragment(b, a) || isMathAnnotation(a, b) || isMathAnnotation(b, a);
 }
 
+function isLooseLineContinuationPair(a: LayoutBlock, b: LayoutBlock): boolean {
+  const [upper, lower] = a.y <= b.y ? [a, b] : [b, a];
+  const upperLine = upper.lines.at(-1);
+  const lowerLine = lower.lines[0];
+  if (!upperLine || !lowerLine) return false;
+  const baselineDelta = lowerLine.y - upperLine.y;
+  if (baselineDelta <= 0 || baselineDelta > Math.max(upperLine.fontSize, lowerLine.fontSize) * 1.4) return false;
+  if (lowerLine.y >= upperLine.y + upperLine.height) return false;
+  const continuationIndent =
+    lowerLine.x >= upperLine.x - 2 && lowerLine.x - upperLine.x <= Math.max(42, upperLine.fontSize * 4);
+  if (!continuationIndent || !horizontalOverlap(upperLine, lowerLine)) return false;
+  return (
+    upperLine.height > upperLine.fontSize * 1.35 ||
+    /^[!•]\s/u.test(upperLine.text.trim()) ||
+    /[!•]\s*$/u.test(upperLine.text.trim()) ||
+    /[-‐‑–]\s*$/u.test(upperLine.text.trim())
+  );
+}
+
 function isInlineFragment(fragment: LayoutBlock, neighbour: LayoutBlock): boolean {
   const text = fragment.text.replace(/\s+/g, '');
   if (text.length === 0 || text.length > INLINE_FRAGMENT_MAX_CHARS) return false;
@@ -191,22 +211,60 @@ function isMathAnnotation(annotation: LayoutBlock, neighbour: LayoutBlock): bool
   if (compact.length === 0 || compact.length > MATH_ANNOTATION_MAX_CHARS) return false;
   if (annotation.height > neighbour.height * MATH_ANNOTATION_MAX_HEIGHT_RATIO) return false;
   if (!isMathLikeAnnotationText(annotation.text, neighbour.text)) return false;
-  if (!sitsOnNeighbourLine(annotation, neighbour)) return false;
+  if (!sitsOnNeighbourLine(annotation, neighbour, { allowCentered: true })) return false;
   return true;
 }
 
 function isMathLikeAnnotationText(text: string, neighbourText: string): boolean {
   const compact = text.replace(/\s+/g, '');
-  if (/[\d±=+\-−×÷∫√∞≤≥<>()[\].,]/u.test(compact)) return true;
-  if (/[\u0370-\u03ff]/u.test(compact)) return true;
+  const neighbourHasFormulaContext = hasFormulaContextSignal(neighbourText);
+  if (hasMathSignal(compact) && (neighbourHasFormulaContext || isStrongStandaloneMath(compact))) return true;
   const singleLetterTokens = text
     .trim()
     .split(/\s+/)
     .every((part) => /^[A-Za-z]$/u.test(part));
-  return singleLetterTokens && /[\d±=+\-−×÷∫√∞≤≥<>()[\].,]/u.test(neighbourText);
+  if (singleLetterTokens && neighbourHasFormulaContext) return true;
+  const tokens = text.trim().split(/\s+/);
+  const compactLabel =
+    tokens.length <= 8 &&
+    tokens.join('').length <= 24 &&
+    tokens.every((part) => /^[A-Za-z0-9][A-Za-z0-9]*$/u.test(part));
+  if (compactLabel && neighbourHasFormulaContext) return true;
+  return isSymbolDense(compact) && neighbourHasFormulaContext;
 }
 
-function sitsOnNeighbourLine(fragment: LayoutBlock, neighbour: LayoutBlock): boolean {
+function hasFormulaContextSignal(text: string): boolean {
+  return hasMathSignal(text) || /\b[A-Z]\s*(?:,|and)\s*[A-Z]\b/u.test(text) || isVariableTokenList(text);
+}
+
+function hasMathSignal(text: string): boolean {
+  return /[±=+\-−×÷∫√∞≤≥<>()[\]|_^{}∑∏∂∆∇∈∉∪∩⊂⊃⊆⊇≈≠≡∝∀∃∥‖′″]/u.test(text) || /[\u0370-\u03ff]/u.test(text);
+}
+
+function isStrongStandaloneMath(text: string): boolean {
+  return /[±=+\-−×÷∫√∞≤≥<>|_^{}∑∏∂∆∇∈∉∪∩⊂⊃⊆⊇≈≠≡∝∀∃∥‖′″]/u.test(text) || /[\u0370-\u03ff]/u.test(text);
+}
+
+function isSymbolDense(text: string): boolean {
+  if (text.length === 0 || text.length > 12) return false;
+  const symbolCount = Array.from(text).filter((char) => /[^A-Za-z0-9\s]/u.test(char)).length;
+  return symbolCount / Array.from(text).length >= 0.5;
+}
+
+function isVariableTokenList(text: string): boolean {
+  const tokens = text
+    .replace(/[.,;:·…]+/gu, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  return tokens.length >= 2 && tokens.every((token) => /^[A-Za-z]$/u.test(token));
+}
+
+function sitsOnNeighbourLine(
+  fragment: LayoutBlock,
+  neighbour: LayoutBlock,
+  options: { allowCentered?: boolean } = {},
+): boolean {
   const fragmentBox = fragment.lines[0] ?? fragment;
   const fragmentCenterX = fragmentBox.x + fragmentBox.width / 2;
   const fragmentCenterY = fragmentBox.y + fragmentBox.height / 2;
@@ -217,7 +275,7 @@ function sitsOnNeighbourLine(fragment: LayoutBlock, neighbour: LayoutBlock): boo
     const minHeight = Math.max(Math.min(fragmentBox.height, line.height), 0.001);
     if (depth / minHeight < TEXT_OVERLAP_MIN_DEPTH_RATIO) continue;
     const lineCenterY = line.y + line.height / 2;
-    if (Math.abs(fragmentCenterY - lineCenterY) < line.height * 0.12) continue;
+    if (!options.allowCentered && Math.abs(fragmentCenterY - lineCenterY) < line.height * 0.12) continue;
     return true;
   }
   return false;
@@ -262,7 +320,14 @@ function isBottomReference(block: LayoutBlock): boolean {
   const text = block.text.trim();
   if (text.length === 0 || text.length > 160) return false;
   if (block.width <= 40 && /^\d{1,4}$/u.test(text)) return true;
+  if (block.width <= 40 && isRomanNumeralPageLabel(text)) return true;
   return /\b(?:https?:\/\/|www\.|doi:|arxiv:)/i.test(text);
+}
+
+function isRomanNumeralPageLabel(text: string): boolean {
+  const normalized = text.toLowerCase();
+  if (!/^[ivxlcdm]{1,12}$/u.test(normalized)) return false;
+  return /^m{0,4}(cm|cd|d?c{0,3})(xc|xl|l?x{0,3})(ix|iv|v?i{0,3})$/u.test(normalized);
 }
 
 function offPageTolerance(pageWidth: number, pageHeight: number): number {

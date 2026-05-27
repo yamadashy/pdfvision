@@ -77,6 +77,8 @@ const DEFAULT_SPACE_GAP_RATIO = 0.25;
  *  12pt matches the most common Western body fontSize and is harmless
  *  as a heuristic backstop. */
 const FONT_SIZE_FALLBACK_PT = 12;
+const VERTICAL_SPAN_ASPECT_RATIO = 2;
+const VERTICAL_SPAN_MIN_FONT_MULTIPLIER = 3;
 
 /**
  * Join the spans of a single layout line into a readable string. pdfjs
@@ -106,6 +108,17 @@ function joinLineSpans(xSorted: TextSpan[]): string {
     out += gap > threshold ? ` ${cur.text}` : cur.text;
   }
   return out;
+}
+
+function hasVerticalTextShape(span: TextSpan): boolean {
+  const fontSize = span.fontSize || FONT_SIZE_FALLBACK_PT;
+  return (
+    span.height > span.width * VERTICAL_SPAN_ASPECT_RATIO && span.height > fontSize * VERTICAL_SPAN_MIN_FONT_MULTIPLIER
+  );
+}
+
+function canShareLine(a: TextSpan, b: TextSpan): boolean {
+  return hasVerticalTextShape(a) === hasVerticalTextShape(b);
 }
 
 /** Min non-whitespace chars at the body font size required before low-tier
@@ -482,7 +495,7 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0): PageLayout {
   for (const s of sorted) {
     const last = lineGroups[lineGroups.length - 1];
     const tolerance = Math.max(s.height, 1) * 0.5;
-    if (last && Math.abs(s.y - last[0].y) < tolerance) {
+    if (last && canShareLine(s, last[0]) && Math.abs(s.y - last[0].y) < tolerance) {
       last.push(s);
     } else {
       lineGroups.push([s]);

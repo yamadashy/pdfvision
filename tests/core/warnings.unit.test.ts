@@ -169,6 +169,59 @@ describe('detectPageWarnings', () => {
       expect(out.some((w) => w.code === 'text_overlap')).toBe(true);
     });
 
+    it('still flags a small parenthesized label over ordinary prose', () => {
+      const paragraph = block(50, 100, 400, 40, {
+        text: 'The main paragraph has an overlapping callout.',
+        lines: [
+          {
+            text: 'The main paragraph has an overlapping callout.',
+            x: 50,
+            y: 100,
+            width: 310,
+            height: 10,
+            fontSize: 10,
+          },
+        ],
+      });
+      const label = block(178, 101, 14, 7, {
+        text: '(A)',
+        lines: [{ text: '(A)', x: 178, y: 101, width: 14, height: 7, fontSize: 7 }],
+      });
+      const out = detectPageWarnings(page([paragraph, label]));
+      expect(out.some((w) => w.code === 'text_overlap')).toBe(true);
+    });
+
+    it('does not flag an indented continuation line inside a loose bullet bbox', () => {
+      const bullet = block(236, 458, 152, 25, {
+        text: '! Specific rules apply to deter-',
+        lines: [
+          {
+            text: '! Specific rules apply to deter-',
+            x: 236,
+            y: 458,
+            width: 152,
+            height: 25,
+            fontSize: 19,
+          },
+        ],
+      });
+      const continuation = block(260, 470, 128, 10, {
+        text: 'mine if you are a resident alien,',
+        lines: [
+          {
+            text: 'mine if you are a resident alien,',
+            x: 260,
+            y: 470,
+            width: 128,
+            height: 10,
+            fontSize: 10,
+          },
+        ],
+      });
+      const out = detectPageWarnings(page([bullet, continuation]));
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
     it('does not flag compact subscript blocks embedded in a displayed formula', () => {
       const formula = block(300, 208, 43, 8, {
         text: 'τ τ −τ',
@@ -212,6 +265,120 @@ describe('detectPageWarnings', () => {
       const out = detectPageWarnings(page([row, uncertainty]));
       expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
     });
+
+    it('does not flag compact alphabetic labels embedded in formula text', () => {
+      const paragraph = block(108, 472, 195, 10, {
+        text: 'trainable parameters is |Θ| = d ×(l +l ).',
+        lines: [
+          {
+            text: 'trainable parameters is |Θ| = d ×(l +l ).',
+            x: 108,
+            y: 472,
+            width: 195,
+            height: 10,
+            fontSize: 10,
+          },
+        ],
+      });
+      const formulaLabel = block(232, 476, 64, 7, {
+        text: 'model p i',
+        lines: [{ text: 'model p i', x: 232, y: 476, width: 64, height: 7, fontSize: 7 }],
+      });
+      const out = detectPageWarnings(page([paragraph, formulaLabel]));
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
+    it('does not flag symbol-encoded formula fragments over a formula line', () => {
+      const formula = block(120, 200, 220, 12, {
+        text: 'p(y | x) = softmax(W h)',
+        lines: [{ text: 'p(y | x) = softmax(W h)', x: 120, y: 200, width: 220, height: 12, fontSize: 12 }],
+      });
+      const encoded = block(180, 202, 24, 7, {
+        text: '!"# !',
+        lines: [{ text: '!"# !', x: 180, y: 202, width: 24, height: 7, fontSize: 7 }],
+      });
+      const out = detectPageWarnings(page([formula, encoded]));
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
+    it('does not flag small centered letter groups that are part of a formula', () => {
+      const formula = block(108, 668, 396, 13, {
+        text: 'φ(A, B, i, j) = ψ(Ui , Uj) = ‖Ui>U ‖2',
+        lines: [
+          {
+            text: 'φ(A, B, i, j) = ψ(Ui , Uj) = ‖Ui>U ‖2',
+            x: 108,
+            y: 668,
+            width: 396,
+            height: 13,
+            fontSize: 10,
+          },
+        ],
+      });
+      const subscript = block(374, 672, 29, 6, {
+        text: 'A B F',
+        lines: [{ text: 'A B F', x: 374, y: 672, width: 29, height: 6, fontSize: 5 }],
+      });
+      const out = detectPageWarnings(page([formula, subscript]));
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
+    it('does not flag short variable subscripts embedded in variable lists', () => {
+      const formula = block(225, 531, 244, 10, {
+        text: 'W , W , W , W 74.1 73.7 74.0 74.0 73.9',
+        lines: [
+          {
+            text: 'W , W , W , W 74.1 73.7 74.0 74.0 73.9',
+            x: 225,
+            y: 531,
+            width: 244,
+            height: 10,
+            fontSize: 10,
+          },
+        ],
+      });
+      const subscript = block(235, 535, 59, 7, {
+        text: 'q k v o',
+        lines: [{ text: 'q k v o', x: 235, y: 535, width: 59, height: 7, fontSize: 7 }],
+      });
+      const out = detectPageWarnings(page([formula, subscript]));
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
+    it('does not flag mixed alphanumeric formula annotations over math text', () => {
+      const formula = block(108, 668, 396, 13, {
+        text: 'singular values of Ui>Uj to be σ , σ ,· · · , σ',
+        lines: [
+          {
+            text: 'singular values of Ui>Uj to be σ , σ ,· · · , σ',
+            x: 108,
+            y: 668,
+            width: 396,
+            height: 13,
+            fontSize: 10,
+          },
+        ],
+      });
+      const subscript = block(214, 672, 52, 7, {
+        text: 'A B 1 2 p',
+        lines: [{ text: 'A B 1 2 p', x: 214, y: 672, width: 52, height: 7, fontSize: 7 }],
+      });
+      const out = detectPageWarnings(page([formula, subscript]));
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
+    it('does not flag numeric subscripts over compact variable lists', () => {
+      const formula = block(68, 666, 104, 9, {
+        text: 'x y x y x y c',
+        lines: [{ text: 'x y x y x y c', x: 68, y: 666, width: 104, height: 9, fontSize: 9 }],
+      });
+      const subscript = block(72, 671, 72, 7, {
+        text: '1 1 2 2 3 3',
+        lines: [{ text: '1 1 2 2 3 3', x: 72, y: 671, width: 72, height: 7, fontSize: 7 }],
+      });
+      const out = detectPageWarnings(page([formula, subscript]));
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
   });
 
   describe('near_bottom_edge', () => {
@@ -246,6 +413,11 @@ describe('detectPageWarnings', () => {
 
     it('does not flag centered numeric page numbers at the bottom edge', () => {
       const out = detectPageWarnings(page([block(294, 758, 6, 9, { text: '83' })], 594, 774));
+      expect(out.filter((w) => w.code === 'near_bottom_edge')).toEqual([]);
+    });
+
+    it('does not flag centered roman numeral page numbers at the bottom edge', () => {
+      const out = detectPageWarnings(page([block(294, 758, 8, 9, { text: 'iv' })], 594, 774));
       expect(out.filter((w) => w.code === 'near_bottom_edge')).toEqual([]);
     });
 
