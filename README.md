@@ -21,9 +21,9 @@
 
 ## 💡 Why pdfvision
 
-PDF tooling has historically been built for humans copying text into a document. Agents need different things: to know whether the extraction actually captured the content, to hand visual pages to a vision model in the same step, and to receive raw structural signals rather than one pre-formatted answer they can't second-guess.
+Hand an agent a PDF and it usually either **can't read it at all**, or swallows the whole file and **blows past its context window**. Neither is how anyone actually reads a PDF. A person goes **page by page**, looks at the **figures and images**, and **zooms in** when a detail won't resolve.
 
-pdfvision is built around that gap. The goal is to **deliver every signal a PDF carries, in a form the agent can act on, and never silently hide that the extraction came up short.**
+**pdfvision gives agents those same eyes.** A lightweight CLI, packed with recognition aids, built specifically so an agent can **experiment with *how* it looks at a PDF** — one page at a time, as text, as a rendered image, zoomed into a region — instead of being handed a single pre-baked answer it can't second-guess.
 
 ### See whether text extraction actually worked
 
@@ -40,7 +40,7 @@ Every page reports `charCount`, `imageCount`, and `textCoverage`, so an agent ca
 - **`--image-boxes`** reports where each raster draw lands.
 - **`--geometry`** emits per-text-item `bbox` + `fontSize` so callers can reconstruct visual hierarchy themselves.
 
-The agent picks which signals matter; pdfvision doesn't bake one answer.
+The agent picks which signals matter and tries another lens when one falls short; pdfvision doesn't bake one answer.
 
 ### Spot anomalies a human would notice
 
@@ -60,7 +60,7 @@ Each warning carries `code`, `severity` (`warning` | `error`), `message`, and th
 
 ### Make repeated agent reads cheap
 
-- **Cache-first.** Same PDF, second read takes ~30 ms. Agents that revisit a PDF dozens of times across a session pay the parsing cost once.
+- **Cache-first.** Same PDF, second read takes ~30 ms — so the trial-and-error above (re-read this page rendered, now with OCR, now zoomed) stays practical. Agents that revisit a PDF dozens of times across a session pay the parsing cost once.
 - **URLs are first-class.** `--remote https://…` downloads, caches, and extracts in one flag.
 
 The design principle is **agent decides; pdfvision delivers raw signals.** No auto-detect heuristics that decide for the agent and hide what the PDF actually contained.
