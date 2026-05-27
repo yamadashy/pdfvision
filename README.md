@@ -43,7 +43,7 @@ With `--layout`, each page carries `pages[].warnings` — overlapping text, body
 
 ### Keep raw evidence available
 
-Normalisation is on by default but the pre-normalised text stays in `rawText`, and the `xml` format mirrors `json` as tags some LLMs locate more reliably — the original signal is never thrown away.
+Normalization is on by default but the pre-normalized text stays in `rawText`, and the `xml` format mirrors `json` as tags some LLMs locate more reliably — the original signal is never thrown away.
 
 ### Make repeated agent reads cheap
 
