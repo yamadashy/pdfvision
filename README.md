@@ -21,9 +21,9 @@
 
 ## 💡 Why pdfvision
 
-Hand an agent a PDF and it usually either **can't read it at all**, or swallows the whole file and **blows past its context window**. Neither is how anyone actually reads a PDF. A person goes **page by page**, looks at the **figures and images**, and **zooms in** when a detail won't resolve.
+Hand an agent a PDF and it usually either can't read it at all, or swallows the whole file and blows past its context window. Neither is how anyone actually reads a PDF. A person goes page by page, looks at the figures and images, and zooms in when a detail won't resolve.
 
-**pdfvision gives agents those same eyes.** A lightweight CLI, packed with recognition aids, built specifically so an agent can **experiment with *how* it looks at a PDF** — one page at a time, as text, as a rendered image, zoomed into a region — instead of being handed a single pre-baked answer it can't second-guess.
+**pdfvision gives agents those same eyes.** A lightweight CLI, packed with recognition aids, built specifically so an agent can experiment with *how* it looks at a PDF — one page at a time, as text, as a rendered image, zoomed into a region — instead of being handed a single pre-baked answer it can't second-guess.
 
 ### See whether text extraction actually worked
 
