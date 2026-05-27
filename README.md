@@ -27,41 +27,27 @@ Hand an agent a PDF and it usually either **can't read it at all**, or swallows 
 
 ### See whether text extraction actually worked
 
-Every page reports `charCount`, `imageCount`, and `textCoverage`, so an agent can tell at a glance that "this slide is an image, not text" — and decide to re-run with `--render` or `--ocr` instead of trusting an empty string.
+Every page reports `charCount`, `imageCount`, and `textCoverage`, so an agent can tell "this slide is an image, not text" and re-run with `--render` or `--ocr` instead of trusting an empty string.
 
 ### Look at the page, not just the text
 
-- **`--render`** writes PNG paths the agent can pass straight to a vision model — no second tool, no temp-file plumbing.
-- **`--ocr`** runs tesseract.js on each page and attaches `pages[].ocr` (text + confidence + lang) alongside the native pdfjs text — agents diff the two to detect scanned / image-flattened pages without losing the primary signal.
+`--render` hands PNG paths straight to a vision model and `--ocr` attaches per-page OCR alongside the native text, so an agent can read a page visually when the text layer falls short.
 
 ### Preserve layout and visual structure
 
-- **`--layout`** returns blocks with `role: 'heading'`, `repeated: true` for running headers and footers, and multi-column reading order.
-- **`--image-boxes`** reports where each raster draw lands.
-- **`--geometry`** emits per-text-item `bbox` + `fontSize` so callers can reconstruct visual hierarchy themselves.
-
-The agent picks which signals matter and tries another lens when one falls short; pdfvision doesn't bake one answer.
+`--layout`, `--image-boxes`, and `--geometry` expose reading order, raster positions, and per-item geometry as raw signals — the agent picks which lens fits and tries another when one falls short, rather than trusting one baked answer.
 
 ### Spot anomalies a human would notice
 
-When `--layout` is on, each page also carries `pages[].warnings` — the kind of "this page looks off" signals a human would catch at a glance, but a text-only extractor would silently miss:
-
-- **`text_overlap`** — two text blocks visibly overlap on the page.
-- **`near_bottom_edge`** — body text runs into the bottom margin (often a sign of clipped content).
-- **`body_near_repeated_chrome`** — body text sits on top of, or right against, a running header / footer.
-- **`off_page`** (severity `error`) — a block's bbox lies outside the page's MediaBox.
-
-Each warning carries `code`, `severity` (`warning` | `error`), `message`, and the offending `blockIndex` (plus `otherBlockIndex` where applicable), and is emitted in all four output formats.
+With `--layout`, each page carries `pages[].warnings` — overlapping text, body running off the page, collisions with running headers/footers — the "this looks off" cues a text-only extractor silently drops.
 
 ### Keep raw evidence available
 
-- Japanese and scientific PDFs full of `⽬` / `Ａ` / `ﬁ` collapse to canonical forms by default. The pre-normalisation text stays available in `rawText` when a diff matters.
-- The `xml` format carries the same data as `json` but as `<page>` / `<text>` tags, which some LLMs locate more reliably than nested object keys.
+Normalization is on by default but the pre-normalized text stays in `rawText`, and the `xml` format mirrors `json` as tags some LLMs locate more reliably — the original signal is never thrown away.
 
 ### Make repeated agent reads cheap
 
-- **Cache-first.** Same PDF, second read takes ~30 ms — so the trial-and-error above (re-read this page rendered, now with OCR, now zoomed) stays practical. Agents that revisit a PDF dozens of times across a session pay the parsing cost once.
-- **URLs are first-class.** `--remote https://…` downloads, caches, and extracts in one flag.
+A cache-first design (~30 ms on the second read) and first-class `--remote` URLs keep the trial-and-error above practical across a whole session.
 
 The design principle is **agent decides; pdfvision delivers raw signals.** No auto-detect heuristics that decide for the agent and hide what the PDF actually contained.
 
