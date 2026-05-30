@@ -74,15 +74,15 @@
     "@biomejs/biome": "^2.4.15",
     "@expo-google-fonts/noto-sans-jp": "^0.4.3",
     "@secretlint/secretlint-rule-preset-recommend": "^13.0.2",
-    "@types/node": "^25.8.0",
+    "@types/node": "^25.9.1",
     "@types/pdfkit": "^0.17.6",
-    "@typescript/native-preview": "^7.0.0-dev.20260516.1",
-    "@vitest/coverage-v8": "^4.1.6",
-    "oxlint": "^1.65.0",
+    "@typescript/native-preview": "^7.0.0-dev.20260522.1",
+    "@vitest/coverage-v8": "^4.1.7",
+    "oxlint": "^1.66.0",
     "pdfkit": "^0.18.0",
     "secretlint": "^13.0.2",
     "tsdown": "^0.22.0",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.6"
+    "vitest": "^4.1.7"
   }
 }
