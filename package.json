@@ -76,7 +76,7 @@
     "@secretlint/secretlint-rule-preset-recommend": "^13.0.2",
     "@types/node": "^25.9.1",
     "@types/pdfkit": "^0.17.6",
-    "@typescript/native-preview": "^7.0.0-dev.20260522.1",
+    "@typescript/native-preview": "^7.0.0-dev.20260523.1",
     "@vitest/coverage-v8": "^4.1.7",
     "oxlint": "^1.66.0",
     "pdfkit": "^0.18.0",
