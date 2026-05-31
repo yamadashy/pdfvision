@@ -31,7 +31,23 @@ const ops: ImageOps = {
 describe('countVectorPaintOps', () => {
   it('counts painted constructPath operations and direct vector paint ops', () => {
     const fnArray = [OP.constructPath, OP.constructPath, OP.constructPath, OP.shadingFill, OP.rawFillPath];
-    const argsArray: unknown[][] = [[OP.stroke], [OP.endPath], [OP.clip], [], []];
+    const argsArray: unknown[][] = [
+      [OP.stroke, [0, 0, 10, 10], [0, 0, 10, 10]],
+      [OP.endPath, [0, 0, 10, 10], [0, 0, 10, 10]],
+      [OP.clip, [0, 0, 10, 10], [0, 0, 10, 10]],
+      [],
+      [],
+    ];
     expect(countVectorPaintOps(fnArray, argsArray, ops)).toBe(3);
+  });
+
+  it('does not count empty constructPath paint operations', () => {
+    const fnArray = [OP.constructPath, OP.constructPath, OP.constructPath];
+    const argsArray: unknown[][] = [
+      [OP.stroke, [null], null],
+      [OP.fill, [null], undefined],
+      [OP.stroke, [0, 0, 10, 10], [0, 0, 10, 10]],
+    ];
+    expect(countVectorPaintOps(fnArray, argsArray, ops)).toBe(1);
   });
 });
