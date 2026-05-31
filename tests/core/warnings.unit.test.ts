@@ -222,6 +222,37 @@ describe('detectPageWarnings', () => {
       expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
     });
 
+    it('does not treat a trailing exclamation mark as a loose continuation marker', () => {
+      const upper = block(236, 458, 152, 10, {
+        text: 'Important!',
+        lines: [
+          {
+            text: 'Important!',
+            x: 236,
+            y: 458,
+            width: 152,
+            height: 10,
+            fontSize: 10,
+          },
+        ],
+      });
+      const lower = block(260, 463, 128, 10, {
+        text: 'overlapping body line',
+        lines: [
+          {
+            text: 'overlapping body line',
+            x: 260,
+            y: 463,
+            width: 128,
+            height: 10,
+            fontSize: 10,
+          },
+        ],
+      });
+      const out = detectPageWarnings(page([upper, lower]));
+      expect(out.some((w) => w.code === 'text_overlap')).toBe(true);
+    });
+
     it('does not flag compact subscript blocks embedded in a displayed formula', () => {
       const formula = block(300, 208, 43, 8, {
         text: 'τ τ −τ',
@@ -418,6 +449,11 @@ describe('detectPageWarnings', () => {
 
     it('does not flag centered roman numeral page numbers at the bottom edge', () => {
       const out = detectPageWarnings(page([block(294, 758, 8, 9, { text: 'iv' })], 594, 774));
+      expect(out.filter((w) => w.code === 'near_bottom_edge')).toEqual([]);
+    });
+
+    it('does not flag common Page X of Y labels at the bottom edge', () => {
+      const out = detectPageWarnings(page([block(257, 758, 80, 9, { text: 'Page 2 of 10' })], 594, 774));
       expect(out.filter((w) => w.code === 'near_bottom_edge')).toEqual([]);
     });
 

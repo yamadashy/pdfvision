@@ -37,8 +37,9 @@ Every page reports `charCount`, `imageCount`, `vectorCount`, `textCoverage`, and
 
 - **`--layout`** returns blocks with `role: 'heading'`, `repeated: true` for running headers and footers, and multi-column reading order.
 - **`--image-boxes`** reports where each raster draw lands.
-- **`vectorCount`** reports non-text vector drawing operations such as rules, form boxes, chart paths, and slide shapes.
 - **`--geometry`** emits per-text-item `bbox` + `fontSize` so callers can reconstruct visual hierarchy themselves.
+
+Every page always includes `vectorCount` — the number of non-text vector drawing operations such as rules, form boxes, chart paths, and slide shapes.
 
 The agent picks which signals matter; pdfvision doesn't bake one answer.
 

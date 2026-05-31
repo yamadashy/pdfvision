@@ -26,6 +26,7 @@ import { buildLayout, markRepeatedBlocks } from './layout.js';
 import { nonPrintableStats } from './nonPrintable.js';
 import { parsePageRangeWithSkipped } from './pageRange.js';
 import { runParallel } from './parallel.js';
+import { isRasterBackedTextLayer } from './rasterBackedTextLayer.js';
 import { type CompiledSearch, compileSearch, searchPage } from './search.js';
 import { textMatrixFontSize, textRunGeometryFromTransform } from './textGeometry.js';
 import { countVectorPaintOps } from './vectorOps.js';
@@ -252,21 +253,6 @@ const UNUSABLE_NPR_THRESHOLD = 0.05;
 const BLANK_RENDER_THRESHOLD = 0.001;
 const SPARSE_VISUAL_TEXT_COVERAGE_THRESHOLD = 0.02;
 const SPARSE_VISUAL_TEXT_CHAR_THRESHOLD = 200;
-const RASTER_BACKED_TEXT_COVERAGE_THRESHOLD = 0.1;
-const FULL_PAGE_RASTER_COVERAGE_THRESHOLD = 0.9;
-
-function hasFullPageRasterBackdrop(imageBoxes: readonly ImageBox[], pageWidth: number, pageHeight: number): boolean {
-  const pageArea = pageWidth * pageHeight;
-  if (pageArea <= 0) return false;
-  return imageBoxes.some((box) => {
-    const x1 = Math.max(0, box.x);
-    const y1 = Math.max(0, box.y);
-    const x2 = Math.min(pageWidth, box.x + box.width);
-    const y2 = Math.min(pageHeight, box.y + box.height);
-    const overlap = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
-    return overlap / pageArea >= FULL_PAGE_RASTER_COVERAGE_THRESHOLD;
-  });
-}
 
 /**
  * Derive {@link PageQuality} from the already-extracted signals.
@@ -417,11 +403,14 @@ async function extractPageData(
   const pageArea = width * height;
   const rawCoverage = pageArea > 0 ? textArea / pageArea : 0;
   const textCoverage = Math.max(0, Math.min(1, rawCoverage));
-  const rasterBackedTextLayer =
-    imageCount > 0 &&
-    vectorCount === 0 &&
-    textCoverage >= RASTER_BACKED_TEXT_COVERAGE_THRESHOLD &&
-    hasFullPageRasterBackdrop(allBoxes, width, height);
+  const rasterBackedTextLayer = isRasterBackedTextLayer({
+    imageCount,
+    vectorCount,
+    textCoverage,
+    imageBoxes: allBoxes,
+    pageWidth: width,
+    pageHeight: height,
+  });
 
   // Build layout last so it always sees the final span list (post normalize).
   const layout = flags.layout ? buildLayout(spans, round2(width)) : undefined;

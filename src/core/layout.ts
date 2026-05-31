@@ -77,6 +77,10 @@ const DEFAULT_SPACE_GAP_RATIO = 0.25;
  *  12pt matches the most common Western body fontSize and is harmless
  *  as a heuristic backstop. */
 const FONT_SIZE_FALLBACK_PT = 12;
+/** VERTICAL_SPAN_ASPECT_RATIO and VERTICAL_SPAN_MIN_FONT_MULTIPLIER
+ *  were tuned against tall side labels and version annotations in sample
+ *  PDFs. The ratio admits narrow vertical runs, while the font-size
+ *  multiplier keeps short emphasis glyphs from being treated as vertical. */
 const VERTICAL_SPAN_ASPECT_RATIO = 2;
 const VERTICAL_SPAN_MIN_FONT_MULTIPLIER = 3;
 

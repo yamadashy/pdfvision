@@ -123,6 +123,11 @@ function round2(n: number): number {
 const MAX_MATCHES_PER_QUERY_PER_PAGE = 10000;
 const DEFAULT_SPACE_GAP_RATIO = 0.25;
 const FONT_SIZE_FALLBACK_PT = 12;
+/** Search segment splitting uses max(SEARCH_SEGMENT_GAP_RATIO * fontSize,
+ *  SEARCH_SEGMENT_MIN_GAP_PT) so phrase matching stays within a visual
+ *  line or column. These values were tuned on multi-column papers,
+ *  slides, and scanned pages to avoid joining text across gutters while
+ *  preserving normal intra-line span joins. */
 const SEARCH_SEGMENT_GAP_RATIO = 3;
 const SEARCH_SEGMENT_MIN_GAP_PT = 24;
 
