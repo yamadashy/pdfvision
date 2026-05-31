@@ -9,6 +9,7 @@ function makePage(overrides: Partial<PageResult> & Pick<PageResult, 'page'>): Pa
     text: '',
     charCount: 0,
     imageCount: 0,
+    vectorCount: 0,
     textCoverage: 0,
     nonPrintableRatio: 0,
     nonPrintableCount: 0,
@@ -145,6 +146,23 @@ describe('formatMarkdown', () => {
       }),
     );
     expect(out).not.toMatch(/Blocks/);
+  });
+
+  it('adds a Vectors column and density fragment when pages carry vector drawing operations', () => {
+    // Vector drawings cover slide shapes, form boxes, chart rules, and
+    // diagrams — visible content that does not show up in imageCount.
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 2,
+        pages: [
+          makePage({ page: 1, text: 'plain', charCount: 5 }),
+          makePage({ page: 2, text: 'diagram', charCount: 7, vectorCount: 12 }),
+        ],
+      }),
+    );
+    expect(out).toMatch(/\| Page \| Chars \| Images \| Coverage \| Size \(pt\) \| Vectors \|/);
+    expect(out).toMatch(/\| 2 \| 7 \| 0 \| 0% \| 612×792 \| 12 \|/);
+    expect(out).toMatch(/vectors: 12/);
   });
 
   it('adds a Blocks column to the Overview table when --layout populated pages[].layout', () => {
@@ -320,6 +338,24 @@ describe('formatMarkdown', () => {
       }),
     );
     expect(out).toMatch(/native: empty_but_visual_content/);
+  });
+
+  it('appends a native: sparse_text_with_visual_content badge for visual pages with only sparse text', () => {
+    const out = formatMarkdown(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: '4',
+            charCount: 1,
+            imageCount: 1,
+            textCoverage: 0.001,
+            quality: { nativeTextStatus: 'sparse_text_with_visual_content' },
+          }),
+        ],
+      }),
+    );
+    expect(out).toMatch(/native: sparse_text_with_visual_content/);
   });
 
   it('appends a visual: blank badge when the rendered page came out blank', () => {

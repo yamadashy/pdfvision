@@ -78,6 +78,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     // (--render or --ocr). Showing it on every doc would clutter the
     // overview with empty cells for the default text-only flow.
     const showRender = result.pages.some((p) => p.renderContentRatio !== undefined);
+    const showVectors = result.pages.some((p) => p.vectorCount > 0);
     // The Warnings column appears only when at least one page carries
     // a non-empty `warnings` array. Like NonPrint / Render, the column
     // only shows up when there's actual signal — otherwise the table
@@ -93,10 +94,10 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     lines.push('## Overview');
     lines.push('');
     lines.push(
-      `| Page | Chars | Images | Coverage |${showNonPrint ? ' NonPrint |' : ''}${showRender ? ' Render |' : ''} Size (pt) |${showBlocks ? ' Blocks |' : ''}${showWarnings ? ' Warnings |' : ''}${showMatches ? ' Matches |' : ''}`,
+      `| Page | Chars | Images | Coverage |${showNonPrint ? ' NonPrint |' : ''}${showRender ? ' Render |' : ''} Size (pt) |${showVectors ? ' Vectors |' : ''}${showBlocks ? ' Blocks |' : ''}${showWarnings ? ' Warnings |' : ''}${showMatches ? ' Matches |' : ''}`,
     );
     lines.push(
-      `| ---: | ---: | ---: | ---: |${showNonPrint ? ' ---: |' : ''}${showRender ? ' ---: |' : ''} ---: |${showBlocks ? ' ---: |' : ''}${showWarnings ? ' ---: |' : ''}${showMatches ? ' ---: |' : ''}`,
+      `| ---: | ---: | ---: | ---: |${showNonPrint ? ' ---: |' : ''}${showRender ? ' ---: |' : ''} ---: |${showVectors ? ' ---: |' : ''}${showBlocks ? ' ---: |' : ''}${showWarnings ? ' ---: |' : ''}${showMatches ? ' ---: |' : ''}`,
     );
     for (const page of result.pages) {
       const coveragePct = Math.round(page.textCoverage * 100);
@@ -114,11 +115,12 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
           // would clutter and reading <0.01% as "blank" is the heuristic.
           ` ${page.renderContentRatio !== undefined ? `${(page.renderContentRatio * 100).toFixed(2)}%` : '—'} |`
         : '';
+      const vectorsCell = showVectors ? ` ${page.vectorCount} |` : '';
       const blocksCell = showBlocks ? ` ${page.layout?.blocks.length ?? 0} |` : '';
       const warningsCell = showWarnings ? ` ${page.warnings?.length ?? 0} |` : '';
       const matchesCell = showMatches ? ` ${page.matches?.length ?? 0} |` : '';
       lines.push(
-        `| ${page.page} | ${page.charCount} | ${page.imageCount} | ${coveragePct}% |${nonPrintCell}${renderCell} ${formatSize(page)} |${blocksCell}${warningsCell}${matchesCell}`,
+        `| ${page.page} | ${page.charCount} | ${page.imageCount} | ${coveragePct}% |${nonPrintCell}${renderCell} ${formatSize(page)} |${vectorsCell}${blocksCell}${warningsCell}${matchesCell}`,
       );
     }
   }
@@ -145,6 +147,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     // places match the column format above.
     const renderFragment =
       page.renderContentRatio !== undefined ? ` · render: ${(page.renderContentRatio * 100).toFixed(2)}%` : '';
+    const vectorsFragment = page.vectorCount > 0 ? ` · vectors: ${page.vectorCount}` : '';
     // Surface the derived quality classification when it's abnormal so
     // the LLM-facing markdown carries the same dispatch signal that
     // JSON / XML expose. `nativeTextStatus === 'ok'` and an `'empty'`
@@ -152,6 +155,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     // are the ones an agent reader needs to react to.
     const showNative =
       page.quality.nativeTextStatus === 'unusable_glyph_indices' ||
+      page.quality.nativeTextStatus === 'sparse_text_with_visual_content' ||
       page.quality.nativeTextStatus === 'empty_but_visual_content';
     const nativeFragment = showNative ? ` · native: ${page.quality.nativeTextStatus}` : '';
     const visualFragment = page.quality.visualStatus === 'blank' ? ` · visual: blank` : '';
@@ -168,7 +172,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     // because no search ran. Mirrors the overview Matches column.
     const matchesFragment = page.matches !== undefined ? ` · matches: ${page.matches.length}` : '';
     lines.push(
-      `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${nonPrintFragment}${renderFragment}${nativeFragment}${visualFragment}${warningsFragment}${matchesFragment} · size: ${formatSize(page)}pt_`,
+      `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${nonPrintFragment}${renderFragment}${vectorsFragment}${nativeFragment}${visualFragment}${warningsFragment}${matchesFragment} · size: ${formatSize(page)}pt_`,
     );
     const body = pageBody(page, options);
     if (body) {

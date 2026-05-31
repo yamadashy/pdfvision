@@ -75,6 +75,25 @@ describe('processDocument', () => {
     expect(result.pages[0].imageCount).toBeGreaterThanOrEqual(2);
   });
 
+  it('flags sparse native text on visually populated pages', async () => {
+    // A page with only a tiny label plus raster content should not be
+    // classified as fully OK; agents need to know the visible page is
+    // mostly outside the native text stream.
+    const result = await processDocument(SAMPLE_WITH_IMAGE_PDF, { noCache: true });
+    expect(result.pages[0].quality.nativeTextStatus).toBe('sparse_text_with_visual_content');
+  });
+
+  it('keeps short text-only pages ok when rendering is enabled', async () => {
+    // Rendering native text creates visible pixels, but that is the same
+    // native text stream, not extra non-text visual content. The native
+    // text quality classification should not change just because
+    // --render was requested.
+    const result = await processDocument(SAMPLE_PDF, { render: true, noCache: true });
+    expect(result.pages[0].imageCount).toBe(0);
+    expect(result.pages[0].vectorCount).toBe(0);
+    expect(result.pages[0].quality.nativeTextStatus).toBe('ok');
+  });
+
   it('honours pages selector', async () => {
     const result = await processDocument(SAMPLE_JA_PDF, { pages: '2-3', noCache: true });
     expect(result.pages.map((p) => p.page)).toEqual([2, 3]);

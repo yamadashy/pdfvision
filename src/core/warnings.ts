@@ -1,12 +1,8 @@
 import type { LayoutBlock, PageResult, PageWarning } from '../types/index.js';
+import { detectTextOverlap, horizontalOverlap } from './warningTextOverlap.js';
 
 /** Context flags the orchestrator passes to the detector so the
- *  rules can route on facts that the page alone doesn't know.
- *  Right now the only such fact is "did chrome detection have enough
- *  pages to run reliably?" — `markRepeatedBlocks` needs at least
- *  two pages with layout to call anything `repeated`, so on a
- *  single-page extraction every block is "body" by default and the
- *  `near_bottom_edge` rule would mis-fire on running footers. */
+ *  rules can route on facts that the page alone doesn't know. */
 export interface PageWarningContext {
   /** True when the cross-page repeated-chrome pass had enough pages
    *  (≥ 2 with layout) to produce meaningful `block.repeated` flags.
@@ -14,6 +10,10 @@ export interface PageWarningContext {
    *  explicit `repeated: true` flags don't have to thread the field
    *  through their helpers. */
   chromeDetectionReliable?: boolean;
+  /** True when a full-page raster scan backs a dense text layer. In
+   *  that case layout bboxes describe hidden OCR text, not the pixels a
+   *  human sees, so geometry-driven warnings are more noise than signal. */
+  rasterBackedTextLayer?: boolean;
 }
 
 /**
@@ -36,6 +36,7 @@ export interface PageWarningContext {
  */
 export function detectPageWarnings(page: PageResult, context: PageWarningContext = {}): PageWarning[] {
   if (!page.layout || page.layout.blocks.length === 0) return [];
+  if (context.rasterBackedTextLayer) return [];
   const warnings: PageWarning[] = [];
   const blocks = page.layout.blocks;
   // Default true: keep the unit tests' hand-built pages (which set
@@ -89,20 +90,24 @@ const EDGE_NEAR_BOTTOM_REL = 0.025;
  *  paragraph and the footer reads as body text. */
 const CHROME_TOO_CLOSE_GAP_PT = 6;
 
+const OFF_PAGE_REL_TOLERANCE = 0.006;
+const OFF_PAGE_MAX_TOLERANCE_PT = 6;
+
 function detectOffPage(blocks: LayoutBlock[], pageWidth: number, pageHeight: number, out: PageWarning[]): void {
   // pageWidth / pageHeight come from the MediaBox; cropbox / trim
   // boxes might be inside that, but for "is this likely a broken
   // render" the outer MediaBox is the right yardstick.
+  const tolerance = offPageTolerance(pageWidth, pageHeight);
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i];
     const left = b.x;
     const top = b.y;
     const right = b.x + b.width;
     const bottom = b.y + b.height;
-    const offLeft = left < -OFF_PAGE_TOLERANCE_PT;
-    const offTop = top < -OFF_PAGE_TOLERANCE_PT;
-    const offRight = right > pageWidth + OFF_PAGE_TOLERANCE_PT;
-    const offBottom = bottom > pageHeight + OFF_PAGE_TOLERANCE_PT;
+    const offLeft = left < -tolerance;
+    const offTop = top < -tolerance;
+    const offRight = right > pageWidth + tolerance;
+    const offBottom = bottom > pageHeight + tolerance;
     if (!offLeft && !offTop && !offRight && !offBottom) continue;
     const sides: string[] = [];
     if (offLeft) sides.push('left');
@@ -118,37 +123,6 @@ function detectOffPage(blocks: LayoutBlock[], pageWidth: number, pageHeight: num
   }
 }
 
-function detectTextOverlap(blocks: LayoutBlock[], out: PageWarning[]): void {
-  // Only non-repeated pairs — repeated chrome (footers, page numbers)
-  // legitimately occupies the bottom margin where body sometimes
-  // bleeds, and the `body_near_repeated_chrome` rule covers the case
-  // we actually care about there.
-  for (let i = 0; i < blocks.length; i++) {
-    const a = blocks[i];
-    if (a.repeated) continue;
-    for (let j = i + 1; j < blocks.length; j++) {
-      const b = blocks[j];
-      if (b.repeated) continue;
-      if (!boxesIntersect(a, b)) continue;
-      // Compute intersection area to give the message a concrete
-      // anchor — a 0.1 pt² nick at a column boundary reads very
-      // differently from a half-page overlap.
-      const overlapArea = intersectionArea(a, b);
-      // Tiny rounding-fringe overlaps shouldn't fire — < 1 pt² is
-      // typically just adjacent blocks whose bbox includes glyph
-      // ascender/descender slack.
-      if (overlapArea < 1) continue;
-      out.push({
-        code: 'text_overlap',
-        severity: 'warning',
-        message: `block bboxes overlap (${overlapArea.toFixed(1)}pt²) — text from different blocks may visually collide`,
-        blockIndex: i,
-        otherBlockIndex: j,
-      });
-    }
-  }
-}
-
 function detectNearBottomEdge(blocks: LayoutBlock[], pageHeight: number, out: PageWarning[]): void {
   // Only non-repeated body blocks — a footer at the bottom edge is
   // by definition "near the bottom edge" and that's not a finding.
@@ -156,6 +130,7 @@ function detectNearBottomEdge(blocks: LayoutBlock[], pageHeight: number, out: Pa
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i];
     if (b.repeated) continue;
+    if (isBottomReference(b)) continue;
     const distance = pageHeight - (b.y + b.height);
     if (distance < 0) continue; // off_page handles this case
     if (distance >= threshold) continue;
@@ -166,6 +141,26 @@ function detectNearBottomEdge(blocks: LayoutBlock[], pageHeight: number, out: Pa
       blockIndex: i,
     });
   }
+}
+
+function isBottomReference(block: LayoutBlock): boolean {
+  const text = block.text.trim();
+  if (text.length === 0 || text.length > 160) return false;
+  if (block.width <= 40 && /^\d{1,4}$/u.test(text)) return true;
+  if (block.width <= 40 && isRomanNumeralPageLabel(text)) return true;
+  if (block.width <= 100 && /^page\s+\d{1,4}(?:\s+of\s+\d{1,4})?$/iu.test(text)) return true;
+  return /\b(?:https?:\/\/|www\.|doi:|arxiv:)/i.test(text);
+}
+
+function isRomanNumeralPageLabel(text: string): boolean {
+  const normalized = text.toLowerCase();
+  if (!/^[ivxlcdm]{1,12}$/u.test(normalized)) return false;
+  return /^m{0,4}(cm|cd|d?c{0,3})(xc|xl|l?x{0,3})(ix|iv|v?i{0,3})$/u.test(normalized);
+}
+
+function offPageTolerance(pageWidth: number, pageHeight: number): number {
+  const relative = Math.min(pageWidth, pageHeight) * OFF_PAGE_REL_TOLERANCE;
+  return Math.min(OFF_PAGE_MAX_TOLERANCE_PT, Math.max(OFF_PAGE_TOLERANCE_PT, relative));
 }
 
 function detectBodyNearRepeatedChrome(blocks: LayoutBlock[], out: PageWarning[]): void {
@@ -240,26 +235,4 @@ function detectBodyNearRepeatedChrome(blocks: LayoutBlock[], out: PageWarning[])
       });
     }
   }
-}
-
-interface Box {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-function boxesIntersect(a: Box, b: Box): boolean {
-  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
-}
-
-function intersectionArea(a: Box, b: Box): number {
-  const dx = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
-  const dy = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
-  if (dx <= 0 || dy <= 0) return 0;
-  return dx * dy;
-}
-
-function horizontalOverlap(a: Box, b: Box): boolean {
-  return a.x < b.x + b.width && a.x + a.width > b.x;
 }

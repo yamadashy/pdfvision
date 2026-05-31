@@ -67,6 +67,7 @@ pdfvision/
 - If a file exceeds 250 lines, consider splitting.
 - Add comments in English only when the **why** is non-obvious. Skip comments that describe what the code already shows.
 - New features come with tests.
+- When changing pdfvision behavior, CLI flags, output fields, quality signals, or recommended agent workflows, update the bundled agent skill under `skills/pdfvision/` in the same change. Keep `SKILL.md` and `references/structured-output.md` aligned with the public schema and README.
 - Before declaring work done, run:
   ```bash
   npm run lint

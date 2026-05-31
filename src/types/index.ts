@@ -423,6 +423,18 @@ export interface PageResult {
   /** Number of raster image objects drawn on the page (XObject + inline + mask). */
   imageCount: number;
   /**
+   * Number of vector drawing operations on the page (path construction,
+   * filled / stroked paths, and shadings). Raster images are counted
+   * separately in {@link imageCount}; this signal catches diagrams,
+   * form boxes, slide shapes, rules, and charts that a human can see but a
+   * text-only / raster-image-only pass would otherwise miss.
+   *
+   * The value is a count of paint operations, not geometry area. Treat it
+   * as a "there is non-text visual structure here" signal; agents that
+   * need visual fidelity should pair it with `--render`.
+   */
+  vectorCount: number;
+  /**
    * Approximate fraction of page area covered by text glyph boxes (0–1).
    * A heuristic — items can overlap, so this is clamped to ≤ 1. Low values
    * (e.g. < 0.05) suggest the page is dominated by images rather than text.
@@ -565,9 +577,10 @@ export interface SearchMatch {
   /** Union bbox covering every contributing span. Suitable for
    *  `renderRegion` zoom. */
   bbox: { x: number; y: number; width: number; height: number };
-  /** Per-span bboxes that contribute to the match. V1 emits one entry
-   *  per containing span (single-span matches → one box). Lets callers
-   *  draw precise highlight overlays or split multi-span matches. */
+  /** Per-span bboxes that contribute to the match. Single-span matches
+   *  have one box; phrase matches crossing pdf.js span boundaries carry
+   *  multiple boxes and a union `bbox`. Lets callers draw precise
+   *  highlight overlays or split multi-span matches. */
   boxes: { x: number; y: number; width: number; height: number }[];
   /** The matched substring in the same form as `pages[].text` — NFKC-
    *  normalized when `normalize` is on (the default), raw codepoints
@@ -627,20 +640,29 @@ export interface PageWarning {
 export interface PageQuality {
   /**
    * Native-text extraction outcome:
-   *   - `ok` — the page has usable native text (`charCount > 0` and
-   *     `nonPrintableRatio < 0.05`).
+   *   - `ok` — the page has usable native text that is not sparse
+   *     relative to non-text visual content.
    *   - `unusable_glyph_indices` — `nonPrintableRatio >= 0.05`. pdf.js
    *     returned raw glyph codes (no usable ToUnicode CMap), so `text`
    *     is binary garbage even though `charCount` may look healthy.
+   *   - `sparse_text_with_visual_content` — native text exists, but it is
+   *     too sparse to explain a visually populated page (often just a page
+   *     number, decorative label, or thin OCR residue over images/vectors).
    *   - `empty_but_visual_content` — `charCount === 0` AND the page has
-   *     visual content (`imageCount > 0`, or `renderContentRatio` is
-   *     above the blank threshold when --render/--ocr ran). Typical of
-   *     image-flattened slides and scans.
+   *     visual content (`imageCount > 0`, `vectorCount > 0`, or
+   *     `renderContentRatio` is above the blank threshold when
+   *     --render/--ocr ran). Typical of image-flattened slides, scans,
+   *     and vector-only diagrams / forms.
    *   - `empty` — `charCount === 0` and no visual content detected.
    *     Likely a genuinely blank page or a render failure (combine with
    *     `visualStatus` to disambiguate).
    */
-  nativeTextStatus: 'ok' | 'unusable_glyph_indices' | 'empty_but_visual_content' | 'empty';
+  nativeTextStatus:
+    | 'ok'
+    | 'unusable_glyph_indices'
+    | 'sparse_text_with_visual_content'
+    | 'empty_but_visual_content'
+    | 'empty';
   /**
    * Rasterisation outcome, present only when `--render` or `--ocr`
    * actually rasterised the page:
@@ -673,6 +695,12 @@ export interface PageOverview {
   page: number;
   charCount: number;
   imageCount: number;
+  /**
+   * Same field as {@link PageResult.vectorCount}. Mirrored on the overview
+   * so agents can spot vector-heavy pages (forms, charts, diagrams,
+   * slides with shapes but no raster images) before walking `pages[]`.
+   */
+  vectorCount: number;
   textCoverage: number;
   /**
    * Same field as on {@link PageResult.nonPrintableRatio}. Mirrored on

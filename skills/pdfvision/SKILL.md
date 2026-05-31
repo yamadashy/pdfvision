@@ -5,7 +5,7 @@ description: "Extract text, metadata, per-page density signals, structural layou
 
 # pdfvision
 
-[pdfvision](https://github.com/yamadashy/pdfvision) extracts text + metadata + per-page density signals from any PDF, with opt-in OCR (`--ocr`), layout reconstruction (`--layout`), geometry-driven anomaly detection (`pages[].warnings[]` when `--layout` is on), image bounding boxes (`--image-boxes`), per-text-item geometry (`--geometry`), PNG rendering (`--render`, optionally sized with `--render-scale` and cropped with `--render-region`), and per-page text search with bbox (`--search`, hits ride into `--render-region` for one-pipeline find-then-zoom). Cached by content hash, so the second read of the same PDF returns in ~30 ms.
+[pdfvision](https://github.com/yamadashy/pdfvision) extracts text + metadata + per-page density signals from any PDF, with opt-in OCR (`--ocr`), layout reconstruction (`--layout`), geometry-driven anomaly detection (`pages[].warnings[]` when `--layout` is on), raster image bounding boxes (`--image-boxes`), vector drawing counts (`vectorCount`), per-text-item geometry (`--geometry`), PNG rendering (`--render`, optionally sized with `--render-scale` and cropped with `--render-region`), and per-page text search with bbox (`--search`, hits ride into `--render-region` for one-pipeline find-then-zoom). Cached by content hash, so the second read of the same PDF returns in ~30 ms.
 
 ## Prerequisite
 
@@ -76,16 +76,17 @@ The default extraction is enough for most native-text PDFs (papers, exports from
 
 ## Detecting silent failures with the density Overview
 
-When `result.pages.length > 1`, the markdown output starts with an Overview table that reports `Chars / Images / Coverage / Size` per page (plus `NonPrint` when any page has non-zero non-printable ratio, and `Blocks` when `--layout` was on). The JSON / XML output carries the same data in `overview[]` with field names `charCount` / `imageCount` / `textCoverage` / `nonPrintableRatio` / `nonPrintableCount` / `width` / `height` / `quality` — use the field names directly when grepping or filtering in code. Use the Overview before scrolling the body.
+When `result.pages.length > 1`, the markdown output starts with an Overview table that reports `Chars / Images / Coverage / Size` per page (plus `Vectors` when any page has vector drawing operations, `NonPrint` when any page has non-zero non-printable ratio, and `Blocks` when `--layout` was on). The JSON / XML output carries the same data in `overview[]` with field names `charCount` / `imageCount` / `vectorCount` / `textCoverage` / `nonPrintableRatio` / `nonPrintableCount` / `width` / `height` / `quality` — use the field names directly when grepping or filtering in code. Use the Overview before scrolling the body.
 
 ### One-shot dispatch: `pages[].quality`
 
 Each page (and each overview row) carries a derived `quality` field that classifies the page from the raw signals so agents don't have to reimplement the threshold logic:
 
 - `quality.nativeTextStatus`:
-  - `ok` — usable native text.
+  - `ok` — usable native text that is not sparse relative to non-text visual content.
   - `unusable_glyph_indices` — `nonPrintableRatio >= 0.05`. Text is binary garbage even though `charCount` looks healthy. Fall back to `--render` or `--ocr`.
-  - `empty_but_visual_content` — no native text, but the page carries images or non-blank pixels. Re-run with `--ocr` (or read the rendered PNG via `--render`).
+  - `sparse_text_with_visual_content` — native text exists, but it is too sparse to explain a visually populated page (for example, only a page number over an image-heavy slide). Inspect with `--render`.
+  - `empty_but_visual_content` — no native text, but the page carries images, vector drawings, or non-blank pixels. Re-run with `--ocr` (or read the rendered PNG via `--render`).
   - `empty` — no text, no detected visual content. Likely a genuinely blank page (or a render failure — combine with `visualStatus` below).
 - `quality.visualStatus` (present only when `--render` or `--ocr` ran):
   - `ok` — renderer drew real content.
@@ -96,6 +97,8 @@ pdfvision deliberately stops at observation: it does **not** recommend an action
 ### Raw signals (the inputs to `quality`)
 
 - `textCoverage: 0` (rendered as `coverage: 0%` in markdown) + `imageCount > 0` → the page body is a rasterised image. The text stream is empty. Re-run with `--ocr` or `--render`.
+- Very low `textCoverage` plus `imageCount > 0` / `vectorCount > 0` and only a few characters → the visible page is mostly outside native text (`quality.nativeTextStatus === 'sparse_text_with_visual_content'`). Render before trusting the sparse text.
+- `vectorCount > 0` with low text coverage → visible non-raster structure exists (forms, chart paths, slide shapes, diagrams) even when `imageCount` is zero. Inspect with `--render` when the visual layout matters.
 - `nonPrintableRatio >= 0.05` → pdf.js fell back to raw glyph indices because the PDF's fonts lack a ToUnicode CMap (common with Hebrew, older CJK, custom symbol fonts). `text` reads as full coverage but is binary garbage. Values `>= 0.3` are pathological; `< 0.01` is normal. The raw count is in `nonPrintableCount` — when the 3dp ratio rounds to 0 the count still tells you whether any non-printable code points slipped through (useful for "is there ANY garbage in this page?" filters).
 - `charCount: 0` but `imageCount: 0` → genuinely blank page (separator, end matter).
 - Sudden drop in `textCoverage` on a single page in an otherwise text-dense doc → that page is likely a figure / scan / chart. Inspect with `--render`.
@@ -116,7 +119,7 @@ The density signal is the reason to prefer pdfvision over reading a PDF directly
 **Pick a format that matches the consumer.** If the consumer is the LLM itself reading text inline (the typical "user asks me to read this PDF" case), the markdown default is already optimal — no flag needed. Switch to `-f json` only when a downstream programmatic step needs structured field access (`overview[]`, `pages[].layout`, `pages[].ocr`, etc.). XML when the LLM downstream parses tags more reliably than nested JSON. `-f toon` when the consumer is an LLM and the output is span/geometry-dense (`--geometry`) and token budget is tight — same schema, ~40% fewer tokens there (see the format note under Quick reference for where it does and doesn't help).
 
 1. Run `npx pdfvision doc.pdf` (add `-p <range>` per the scope note, and `-f json` only when you'll consume structured fields) — gets text + density Overview for the selected pages.
-2. Read the density signals (the markdown Overview table, or `overview[]` / `pages[].textCoverage` / `imageCount` / `charCount` in JSON) to find low-coverage pages.
+2. Read the density signals (the markdown Overview table, or `overview[]` / `pages[].textCoverage` / `imageCount` / `vectorCount` / `charCount` in JSON) to find low-coverage or visually dense pages.
 3. For low-coverage pages: re-run with `--ocr` if text is needed, or `--render` if a vision model will look at the rasterised page.
 4. For structured / multi-column docs: re-run with `--layout` (and `--image-boxes` when figure positions matter).
 5. **Zoom into a specific block when `--layout` flags one.** If `pages[].warnings[]` fires on a `blockIndex`, or `layout.blocks[i]` looks suspicious (overlapping bboxes, a chart you want a vision model to read), re-run with `--pages <N> --render --render-region <x,y,w,h>` using that block's bbox. The PNG comes back cropped to just the region (xywh × `--render-scale` = pixel dims), avoiding a full-page raster the model has to ignore most of.

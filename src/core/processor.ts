@@ -26,7 +26,10 @@ import { buildLayout, markRepeatedBlocks } from './layout.js';
 import { nonPrintableStats } from './nonPrintable.js';
 import { parsePageRangeWithSkipped } from './pageRange.js';
 import { runParallel } from './parallel.js';
+import { isRasterBackedTextLayer } from './rasterBackedTextLayer.js';
 import { type CompiledSearch, compileSearch, searchPage } from './search.js';
+import { textMatrixFontSize, textRunGeometryFromTransform } from './textGeometry.js';
+import { countVectorPaintOps } from './vectorOps.js';
 import { detectPageWarnings } from './warnings.js';
 
 /** Inputs that determine which cached entry a request maps to. */
@@ -139,7 +142,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v19',
+    format: 'structured-v25',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -223,6 +226,8 @@ interface PageData {
   rawText?: string;
   charCount: number;
   imageCount: number;
+  rasterBackedTextLayer: boolean;
+  vectorCount: number;
   textCoverage: number;
   nonPrintableRatio: number;
   nonPrintableCount: number;
@@ -246,6 +251,8 @@ interface PageData {
 const UNUSABLE_NPR_THRESHOLD = 0.05;
 /** Same blank threshold the skill doc publishes for `renderContentRatio`. */
 const BLANK_RENDER_THRESHOLD = 0.001;
+const SPARSE_VISUAL_TEXT_COVERAGE_THRESHOLD = 0.02;
+const SPARSE_VISUAL_TEXT_CHAR_THRESHOLD = 200;
 
 /**
  * Derive {@link PageQuality} from the already-extracted signals.
@@ -254,12 +261,19 @@ const BLANK_RENDER_THRESHOLD = 0.001;
  */
 function derivePageQuality(p: PageResult): PageQuality {
   const hasVisualRender = p.renderContentRatio !== undefined && p.renderContentRatio > BLANK_RENDER_THRESHOLD;
+  const hasNonTextVisualContent = p.imageCount > 0 || p.vectorCount > 0;
+  const hasVisualContent = hasNonTextVisualContent || hasVisualRender;
   let nativeTextStatus: PageQuality['nativeTextStatus'];
   if (p.nonPrintableRatio >= UNUSABLE_NPR_THRESHOLD) {
     nativeTextStatus = 'unusable_glyph_indices';
   } else if (p.charCount > 0) {
-    nativeTextStatus = 'ok';
-  } else if (p.imageCount > 0 || hasVisualRender) {
+    nativeTextStatus =
+      hasNonTextVisualContent &&
+      p.charCount <= SPARSE_VISUAL_TEXT_CHAR_THRESHOLD &&
+      p.textCoverage < SPARSE_VISUAL_TEXT_COVERAGE_THRESHOLD
+        ? 'sparse_text_with_visual_content'
+        : 'ok';
+  } else if (hasVisualContent) {
     nativeTextStatus = 'empty_but_visual_content';
   } else {
     nativeTextStatus = 'empty';
@@ -304,6 +318,7 @@ async function extractPageData(
   // area instead of falling through to 0 coverage.
   const width = Math.abs(view[2] - view[0]);
   const height = Math.abs(view[3] - view[1]);
+  const xMin = Math.min(view[0], view[2]);
   const yMin = Math.min(view[1], view[3]);
 
   // Spans are the input to layout reconstruction AND to search bbox
@@ -327,7 +342,7 @@ async function extractPageData(
     // text matrix, which is effectively the glyph height in user units.
     const reportedH = typeof item.height === 'number' ? item.height : 0;
     const transform = item.transform;
-    const h = reportedH > 0 ? reportedH : Math.abs(transform?.[3] ?? 0);
+    const h = reportedH > 0 ? reportedH : transform ? textMatrixFontSize(transform) : 0;
     textArea += Math.abs(w * h);
 
     // Feed the page-text joiner. x/fontSize default to 0 when the
@@ -335,7 +350,7 @@ async function extractPageData(
     // items); the joiner already handles zero fontSize by falling back
     // to a neighbour.
     const itemX = transform ? transform[4] : 0;
-    const itemFontSize = transform ? Math.max(Math.abs(transform[0]), Math.abs(transform[3])) : h;
+    const itemFontSize = transform ? textMatrixFontSize(transform, h) : h;
     joinItems.push({
       str: item.str,
       x: itemX,
@@ -350,23 +365,17 @@ async function extractPageData(
     // The aggregate `text` already preserves the spaces, so layout
     // analysis loses nothing; downstream agents get a cleaner signal.
     if (wantSpans && item.str.trim().length > 0 && transform) {
-      // pdfjs transform = [a, b, c, d, e, f]; (e, f) is the baseline origin
-      // of the glyph run in PDF user-space (origin: bottom-left). Convert
-      // to a top-down bbox so callers can overlay spans on the rendered
-      // PNG without flipping y.
-      const xPdf = transform[4];
-      const yBaselinePdf = transform[5];
-      // Top-edge in PDF coords sits one glyph-height above the baseline,
-      // and the page's bottom-left can sit at a non-zero MediaBox minY.
-      const yTopDown = height - (yBaselinePdf + h - yMin);
-      const fontSize = Math.max(Math.abs(transform[0]), Math.abs(transform[3]));
+      const geometry = textRunGeometryFromTransform({
+        transform,
+        width: w,
+        height: h,
+        pageHeight: height,
+        viewMinX: xMin,
+        viewMinY: yMin,
+      });
       spans.push({
         text: flags.normalize ? normalizeText(item.str) : item.str,
-        x: round2(xPdf - view[0]),
-        y: round2(yTopDown),
-        width: round2(w),
-        height: round2(h),
-        fontSize: round2(fontSize),
+        ...geometry,
         ...(typeof item.fontName === 'string' && { fontName: item.fontName }),
       });
     }
@@ -389,10 +398,19 @@ async function extractPageData(
   const allBoxes = buildImageBoxes(opList.fnArray, opList.argsArray as unknown[][], ops, height, view[0], yMin);
   const imageCount = allBoxes.length;
   const imageBoxes = flags.imageBoxes ? allBoxes : undefined;
+  const vectorCount = countVectorPaintOps(opList.fnArray, opList.argsArray as unknown[][], ops);
 
   const pageArea = width * height;
   const rawCoverage = pageArea > 0 ? textArea / pageArea : 0;
   const textCoverage = Math.max(0, Math.min(1, rawCoverage));
+  const rasterBackedTextLayer = isRasterBackedTextLayer({
+    imageCount,
+    vectorCount,
+    textCoverage,
+    imageBoxes: allBoxes,
+    pageWidth: width,
+    pageHeight: height,
+  });
 
   // Build layout last so it always sees the final span list (post normalize).
   const layout = flags.layout ? buildLayout(spans, round2(width)) : undefined;
@@ -412,6 +430,8 @@ async function extractPageData(
     rawText: preservedRaw,
     charCount: text.length,
     imageCount,
+    rasterBackedTextLayer,
+    vectorCount,
     textCoverage: Math.round(textCoverage * 1000) / 1000,
     nonPrintableRatio: npStats.ratio,
     nonPrintableCount: npStats.count,
@@ -562,8 +582,19 @@ export async function processDocument(filePath: string, options: ProcessDocument
     OPS.paintImageMaskXObject,
     OPS.paintInlineImageXObject,
   ]);
-  // Hand pdf.js the bundled OpenJPEG (JPX / JPEG2000) + JBIG2 wasm decoders
-  // AND the predefined CJK CMap pack.
+  const pathPaintOps = new Set<number>([
+    OPS.stroke,
+    OPS.closeStroke,
+    OPS.fill,
+    OPS.eoFill,
+    OPS.fillStroke,
+    OPS.eoFillStroke,
+    OPS.closeFillStroke,
+    OPS.closeEOFillStroke,
+  ]);
+  const vectorPaintOps = new Set<number>([...pathPaintOps, OPS.shadingFill, OPS.rawFillPath]);
+  // Hand pdf.js the bundled OpenJPEG (JPX / JPEG2000) + JBIG2 wasm decoders,
+  // predefined CJK CMap pack, and standard font data.
   //   - `wasmUrl` lets pdf.js decode JPX image streams (Internet Archive
   //     scans). Without it those pages render as solid blanks.
   //   - `cMapUrl` + `cMapPacked: true` lets pdf.js resolve CJK glyphs that
@@ -571,6 +602,8 @@ export async function processDocument(filePath: string, options: ProcessDocument
   //     SpeakerDeck / Office Japanese exports come back with `text: ""`
   //     and the agent has no way to tell native-text-empty from
   //     image-only.
+  //   - `standardFontDataUrl` prevents pdf.js from falling back when a PDF
+  //     references one of the built-in Type1 fonts without embedding it.
   // We pass *plain filesystem paths* (no `file://` prefix). pdf.js's Node
   // factory calls `fs.readFile(url)` directly, which silently fails on
   // `file://` *strings* (only `URL` objects are accepted by fs); plain
@@ -599,6 +632,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     docOptions.wasmUrl = `${join(pdfjsPkgDir, 'wasm')}/`;
     docOptions.cMapUrl = `${join(pdfjsPkgDir, 'cmaps')}/`;
     docOptions.cMapPacked = true;
+    docOptions.standardFontDataUrl = `${join(pdfjsPkgDir, 'standard_fonts')}/`;
   } catch {
     // Best-effort: keep going without the wasm/cmap asset URLs rather
     // than fail the whole extraction over a missing optional asset.
@@ -784,6 +818,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     };
     const ocrEnabled = !!options.ocr;
     const ocrLang = options.ocrLang ?? 'eng';
+    const rasterBackedTextLayerByPage = new Map<number, boolean>();
     const imageOps: ImageOps = {
       save: OPS.save,
       restore: OPS.restore,
@@ -791,6 +826,9 @@ export async function processDocument(filePath: string, options: ProcessDocument
       formBegin: OPS.paintFormXObjectBegin,
       formEnd: OPS.paintFormXObjectEnd,
       singleImageOps,
+      constructPath: OPS.constructPath,
+      pathPaintOps,
+      vectorPaintOps,
       paintImageXObjectRepeat: OPS.paintImageXObjectRepeat,
       paintImageMaskXObjectRepeat: OPS.paintImageMaskXObjectRepeat,
       paintImageMaskXObjectGroup: OPS.paintImageMaskXObjectGroup,
@@ -804,6 +842,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     // docs where every concurrent page builds its own canvas / op list.
     const pages: PageResult[] = await runParallel(pageNumbers, async (pageNum, i) => {
       const data = await extractPageData(doc, pageNum, imageOps, flags);
+      rasterBackedTextLayerByPage.set(pageNum, data.rasterBackedTextLayer);
       const renderRatio = renderRatios[i];
       const page: PageResult = {
         page: pageNum,
@@ -813,6 +852,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
         image: imagePaths?.[i],
         charCount: data.charCount,
         imageCount: data.imageCount,
+        vectorCount: data.vectorCount,
         textCoverage: data.textCoverage,
         nonPrintableRatio: data.nonPrintableRatio,
         nonPrintableCount: data.nonPrintableCount,
@@ -869,7 +909,10 @@ export async function processDocument(filePath: string, options: ProcessDocument
       const pagesWithLayout = pages.filter((p) => p.layout && p.layout.blocks.length > 0).length;
       const chromeDetectionReliable = pagesWithLayout >= 2;
       for (const p of pages) {
-        const warnings = detectPageWarnings(p, { chromeDetectionReliable });
+        const warnings = detectPageWarnings(p, {
+          chromeDetectionReliable,
+          rasterBackedTextLayer: rasterBackedTextLayerByPage.get(p.page),
+        });
         if (warnings.length > 0) p.warnings = warnings;
       }
     }
@@ -922,6 +965,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
             page: p.page,
             charCount: p.charCount,
             imageCount: p.imageCount,
+            vectorCount: p.vectorCount,
             textCoverage: p.textCoverage,
             nonPrintableRatio: p.nonPrintableRatio,
             nonPrintableCount: p.nonPrintableCount,

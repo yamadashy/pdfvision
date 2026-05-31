@@ -345,6 +345,7 @@ describe('buildLayout — multi-column reading order', () => {
         text: `EN\n${bodyText}`,
         charCount: bodyText.length + 3,
         imageCount: 0,
+        vectorCount: 0,
         textCoverage: 0.5,
         nonPrintableRatio: 0,
         nonPrintableCount: 0,
@@ -435,6 +436,21 @@ describe('buildLayout — multi-column reading order', () => {
     ];
     const layout = buildLayout(spans);
     expect(layout.blocks[0].lines[0].text).toBe('helloworld');
+  });
+
+  it('does not merge vertical side labels into horizontal text lines', () => {
+    const spans: TextSpan[] = [
+      { text: '(Version 2)', x: 114, y: 200, width: 45, height: 10, fontSize: 10 },
+      { text: 'arXiv:2106.09685v2 [cs.CL] 16 Oct 2021', x: 12, y: 214, width: 20, height: 346, fontSize: 20 },
+      span('Abstract body text starts in the main column.', 144, 265, 10, 220),
+    ];
+    const layout = buildLayout(spans, 612);
+    const sidebar = layout.blocks.find((b) => b.text.includes('arXiv'));
+    const version = layout.blocks.find((b) => b.text.includes('Version'));
+
+    expect(sidebar?.text).toBe('arXiv:2106.09685v2 [cs.CL] 16 Oct 2021');
+    expect(sidebar?.width).toBe(20);
+    expect(version?.text).toBe('(Version 2)');
   });
 
   it('does not falsely detect columns when only one block sits at a different x', () => {

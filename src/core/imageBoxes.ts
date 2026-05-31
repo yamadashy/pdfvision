@@ -20,6 +20,12 @@ export interface ImageOps {
   formEnd: number;
   /** Image draws that count as a single instance per op (paintImage*, paintInlineImage*, paintImageMaskXObject). */
   singleImageOps: Set<number>;
+  /** pdf.js wraps path painting in constructPath and stores the actual path op as args[0]. */
+  constructPath: number;
+  /** Path operations that actually paint pixels when they appear inside constructPath. */
+  pathPaintOps: ReadonlySet<number>;
+  /** Direct vector drawing operations that expose non-text, non-raster structure. */
+  vectorPaintOps: ReadonlySet<number>;
   paintImageXObjectRepeat: number;
   paintImageMaskXObjectRepeat: number;
   paintImageMaskXObjectGroup: number;
