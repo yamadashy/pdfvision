@@ -75,7 +75,7 @@ Options
                           (default: literal substring).
       --search-case-sensitive
                           Match case exactly (default: insensitive).
-      --remote <url>      Download an http(s) URL to the on-disk cache and run extraction
+      --remote <url>      Download an http(s) PDF to the on-disk cache, validate the PDF header, and run extraction
                           on it. Same URL → same cache slot; combine with --no-cache (or
                           --clear-cache) to refresh.
       --no-cache          Skip the on-disk cache (re-download / re-extract every run).

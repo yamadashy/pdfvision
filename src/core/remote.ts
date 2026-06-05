@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { existsSync, statSync } from 'node:fs';
+import { closeSync, existsSync, openSync, readSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { atomicWrite, ensurePrivateDir } from './cache.js';
@@ -22,6 +22,8 @@ function remoteCacheRoot(): string {
 const DEFAULT_MAX_BYTES = 100 * 1024 * 1024;
 /** Default 60 s — enough for slow links, short enough that a hung server doesn't lock the CLI. */
 const DEFAULT_TIMEOUT_MS = 60_000;
+/** The PDF header must appear near the start of the file, per ISO 32000. */
+const PDF_HEADER_SCAN_BYTES = 1024;
 
 export interface DownloadRemoteOptions {
   /**
@@ -64,6 +66,21 @@ function safeBasenameFromUrl(url: URL): string {
   return cleaned.toLowerCase().endsWith('.pdf') ? cleaned : `${cleaned}.pdf`;
 }
 
+function hasPdfHeader(data: Buffer): boolean {
+  return data.subarray(0, PDF_HEADER_SCAN_BYTES).includes(Buffer.from('%PDF-', 'ascii'));
+}
+
+function cachedFileHasPdfHeader(path: string): boolean {
+  const fd = openSync(path, 'r');
+  try {
+    const buffer = Buffer.alloc(PDF_HEADER_SCAN_BYTES);
+    const bytesRead = readSync(fd, buffer, 0, buffer.length, 0);
+    return hasPdfHeader(buffer.subarray(0, bytesRead));
+  } finally {
+    closeSync(fd);
+  }
+}
+
 /**
  * Download a remote PDF and return the local path it was cached at.
  *
@@ -103,7 +120,7 @@ export async function downloadRemote(rawUrl: string, options: DownloadRemoteOpti
 
   if (!noCache && existsSync(cachePath)) {
     try {
-      if (statSync(cachePath).size > 0) return cachePath;
+      if (statSync(cachePath).size > 0 && cachedFileHasPdfHeader(cachePath)) return cachePath;
     } catch {
       // fall through and re-download
     }
@@ -166,6 +183,10 @@ export async function downloadRemote(rawUrl: string, options: DownloadRemoteOpti
   }
 
   const data = Buffer.concat(chunks);
+  if (!hasPdfHeader(data)) {
+    const contentType = response.headers.get('content-type')?.trim() || 'unknown';
+    throw new Error(`Remote URL did not return a PDF (content-type: ${contentType}, bytes: ${data.length}): ${rawUrl}`);
+  }
   // Defensive retry: another process running `--clear-cache` (or a
   // concurrent test worker rmSync-ing the cache root) can race the
   // ensurePrivateDir calls above and nuke the parent dir before we

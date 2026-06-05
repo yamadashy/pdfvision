@@ -77,6 +77,11 @@ const DEFAULT_SPACE_GAP_RATIO = 0.25;
  *  12pt matches the most common Western body fontSize and is harmless
  *  as a heuristic backstop. */
 const FONT_SIZE_FALLBACK_PT = 12;
+/** Visual gutter threshold for splitting one y-row into separate layout
+ *  lines. IRS-style three-column instructions have gutters around 18pt:
+ *  much wider than a word gap, but well below the old 5× font-size rule. */
+const LAYOUT_SEGMENT_GAP_RATIO = 1.5;
+const LAYOUT_SEGMENT_MIN_GAP_PT = 16;
 /** VERTICAL_SPAN_ASPECT_RATIO and VERTICAL_SPAN_MIN_FONT_MULTIPLIER
  *  were tuned against tall side labels and version annotations in sample
  *  PDFs. The ratio admits narrow vertical runs, while the font-size
@@ -141,6 +146,12 @@ const BODY_FONT_TOLERANCE = 0.05;
 /** Max non-whitespace chars before a block is "long" — long blocks are body
  *  paragraphs even when their dominant fontSize lifts them off the median. */
 const MAX_HEADING_CHARS = 100;
+
+function isHeadingCandidateText(text: string): boolean {
+  const trimmed = text.trim();
+  if (!/[\p{L}\p{N}]/u.test(trimmed)) return false;
+  return !/^[•●◦▪■‣]\s*/u.test(trimmed);
+}
 
 /**
  * Classify each block as a heading (with a tiered confidence `level`) or
@@ -241,6 +252,7 @@ function classifyHeadings(blocks: LayoutBlock[]): void {
   };
 
   for (const b of blocks) {
+    if (!isHeadingCandidateText(b.text)) continue;
     const repFont = b.lines[0]?.fontSize ?? bodyFontSize;
     const ratio = repFont / bodyFontSize;
     if (ratio < 1.08) continue;
@@ -470,6 +482,43 @@ function reorderForColumns(blocks: LayoutBlock[], pageWidth: number): LayoutBloc
   return out;
 }
 
+function mergeAdjacentColumnBlocks(blocks: LayoutBlock[]): LayoutBlock[] {
+  if (blocks.length < 2) return blocks;
+  const out: LayoutBlock[] = [];
+  for (const block of blocks) {
+    const prev = out[out.length - 1];
+    if (prev && canMergeAdjacentBodyBlocks(prev, block)) {
+      prev.lines.push(...block.lines);
+      prev.text = prev.lines.map((l) => l.text).join('\n');
+      const box = unionBox(prev.lines);
+      prev.x = box.x;
+      prev.y = box.y;
+      prev.width = box.width;
+      prev.height = box.height;
+    } else {
+      out.push(block);
+    }
+  }
+  return out;
+}
+
+function canMergeAdjacentBodyBlocks(a: LayoutBlock, b: LayoutBlock): boolean {
+  if (a.role || b.role) return false;
+  const prevLine = a.lines.at(-1);
+  const nextLine = b.lines[0];
+  if (!prevLine || !nextLine) return false;
+
+  const gap = b.y - (a.y + a.height);
+  if (gap < -0.5 || gap > prevLine.height * 1.0) return false;
+
+  const overlap = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+  if (overlap <= 0) return false;
+
+  const sizeRatio =
+    Math.max(prevLine.fontSize, nextLine.fontSize) / Math.max(Math.min(prevLine.fontSize, nextLine.fontSize), 0.001);
+  return sizeRatio <= 1.3;
+}
+
 /**
  * Group `spans` into lines (by y proximity) and lines into blocks (by
  * vertical-gap and font-size similarity), then classify headings and
@@ -506,11 +555,10 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0): PageLayout {
     }
   }
 
-  // Split each y-row into runs of contiguous spans. An x-gap of ≥ 5× the
-  // preceding span's fontSize is a strong column-gutter signal — ordinary
-  // inter-word gaps are well under 1× fontSize, so this threshold leaves
-  // body text untouched while preventing left and right column spans at
-  // the same y from collapsing into one mega-line that crosses the page.
+  // Split each y-row into runs of contiguous spans. An x-gap of
+  // max(1.5×fontSize, 16pt) is a strong column/table gutter signal:
+  // ordinary inter-word gaps are well under 1× fontSize, while narrow
+  // three-column instruction pages can use only ~18pt between columns.
   const lines: LayoutLine[] = lineGroups.flatMap((group) => {
     const xSorted = [...group].sort((a, b) => a.x - b.x);
     const subLines: TextSpan[][] = [[xSorted[0]]];
@@ -521,8 +569,11 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0): PageLayout {
       // Same broken-PDF guard as joinLineSpans: fontSize=0 on both
       // sides would turn this into `gap > 0` and split every span into
       // its own subLine.
-      const fontSize = prev.fontSize || cur.fontSize || FONT_SIZE_FALLBACK_PT;
-      if (gap > fontSize * 5) {
+      const prevFontSize = prev.fontSize || FONT_SIZE_FALLBACK_PT;
+      const curFontSize = cur.fontSize || FONT_SIZE_FALLBACK_PT;
+      const fontSize = Math.min(prevFontSize, curFontSize);
+      const segmentGap = Math.max(fontSize * LAYOUT_SEGMENT_GAP_RATIO, LAYOUT_SEGMENT_MIN_GAP_PT);
+      if (gap > segmentGap) {
         subLines.push([cur]);
       } else {
         subLines[subLines.length - 1].push(cur);
@@ -552,6 +603,12 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0): PageLayout {
         Math.max(line.fontSize, prev.fontSize) / Math.max(Math.min(line.fontSize, prev.fontSize), 0.001);
       const xDisjoint = line.x + line.width <= prev.x || prev.x + prev.width <= line.x;
       const sideBySide = gap < 0 && xDisjoint;
+      // Multi-column pages often emit the right-column line for row N,
+      // then the left-column line for row N+1. They do not vertically
+      // overlap, so `sideBySide` misses them and the old clustering glued
+      // different columns into one block. If two close lines have no
+      // horizontal overlap at all, keep them as separate visual blocks.
+      const closeButDifferentColumn = xDisjoint && Math.abs(gap) <= prev.height * 1.5;
       // Narrow heading-glue split: when the previous line is short and
       // at a noticeably larger fontSize than the incoming line, treat
       // the run that ends at `prev` as a (sub)heading that mustn't merge
@@ -565,7 +622,7 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0): PageLayout {
       // body still needs to break here.
       const prevWasShortLarger =
         prev.fontSize > line.fontSize * 1.05 && prev.text.replace(/\s/g, '').length <= MAX_HEADING_CHARS;
-      if (gap > prev.height * 1.0 || sizeRatio > 1.3 || sideBySide || prevWasShortLarger) {
+      if (gap > prev.height * 1.0 || sizeRatio > 1.3 || sideBySide || closeButDifferentColumn || prevWasShortLarger) {
         blockGroups.push([line]);
       } else {
         last.push(line);
@@ -583,6 +640,7 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0): PageLayout {
 
   classifyHeadings(blocks);
   const ordered = pageWidth > 0 ? reorderForColumns(blocks, pageWidth) : blocks;
+  if (ordered !== blocks) return { blocks: mergeAdjacentColumnBlocks(ordered) };
 
   return { blocks: ordered };
 }

@@ -23,7 +23,7 @@ Requires Node.js >= 22.13. Install globally with `npm install -g pdfvision` if u
 # Local PDF, markdown to stdout (per-page sections + density Overview table)
 npx pdfvision /path/to/doc.pdf
 
-# Fetch a PDF over http(s) — downloads to cache, then extracts
+# Fetch a PDF over http(s) — downloads to cache, validates the PDF header, then extracts
 npx pdfvision --remote https://example.org/paper.pdf
 
 # Page subset
@@ -112,6 +112,7 @@ The density signal is the reason to prefer pdfvision over reading a PDF directly
 
 - Cache root: `<os-tmp>/pdfvision/<content-sha>/` — macOS `/var/folders/.../T/pdfvision/`, Linux `/tmp/pdfvision/`. Override with `PDFVISION_CACHE_DIR=/path`.
 - Keyed by **PDF content hash + flag combination**. Same PDF + same flags → ~30 ms on the second call. Different flags (e.g. add `--layout` later) → different slot, fresh extraction.
+- `--remote` validates that the downloaded body contains a PDF header before caching. If a `.pdf` URL returns HTML (login/challenge/landing page), treat the failure as a source/download problem and choose another direct PDF URL.
 - Wipe everything (cached extractions, rendered PNGs, downloaded remote PDFs, OCR traineddata) with `npx pdfvision --clear-cache`.
 
 ## Typical agent flow

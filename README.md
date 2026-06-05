@@ -109,7 +109,7 @@ Options:
       --image-boxes       Emit per-image bbox in pages[].imageBoxes
       --ocr               Run tesseract.js OCR; attach pages[].ocr (text/confidence/lang)
       --ocr-lang <lang>   Tesseract lang(s), plus-separated (e.g. eng+jpn). Default: eng
-      --remote <url>      Download an http(s) PDF into the cache, then extract
+      --remote <url>      Download an http(s) PDF into the cache, validate the PDF header, then extract
       --no-cache          Skip the on-disk cache
       --no-normalize      Disable Unicode NFKC normalization (default: on; pre-normalization text
                           is preserved in JSON/XML \`rawText\` only when normalization changed
@@ -175,6 +175,8 @@ Exports: `processDocument`, `processFile`, `parsePageRange`, plus full type defi
 ## 💾 Caching
 
 Results land under `<os-tmp>/pdfvision/<sha256-prefix>/` keyed by file content. POSIX `0700` / `0600` permissions, symlink/TOCTOU defences. Override the location with `PDFVISION_CACHE_DIR=/path` or wipe everything with `pdfvision --clear-cache`.
+
+Remote downloads must actually return a PDF header. If a `.pdf` URL returns an HTML challenge, landing page, or other non-PDF body, pdfvision fails before caching it and reports the response content type instead of surfacing a later `Invalid PDF structure` parse error.
 
 ## 🛠️ Requirements
 

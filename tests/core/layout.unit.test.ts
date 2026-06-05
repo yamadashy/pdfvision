@@ -163,6 +163,30 @@ describe('buildLayout — heading classification', () => {
     }
   });
 
+  it('does not classify punctuation-only icon text as a heading', () => {
+    const spans: TextSpan[] = [
+      span('!', 50, 50, 24, 10),
+      span('Body text around a caution icon should anchor the body font.', 80, 52, 10, 260),
+      span('More body text keeps the page from looking like a poster.', 80, 66, 10, 260),
+    ];
+    const layout = buildLayout(spans, 612);
+    const icon = layout.blocks.find((b) => b.text === '!');
+    expect(icon?.role).toBeUndefined();
+    expect(icon?.roleConfidence).toBeUndefined();
+  });
+
+  it('does not classify bullet list items as headings only because the bullet glyph is large', () => {
+    const spans: TextSpan[] = [
+      span('• You have a valid social security number', 50, 50, 15, 220),
+      span('Continuation text at the normal body size.', 50, 72, 10, 220),
+      span('More body text keeps the median at the body size.', 50, 86, 10, 220),
+    ];
+    const layout = buildLayout(spans, 612);
+    const bullet = layout.blocks.find((b) => b.text.startsWith('•'));
+    expect(bullet?.role).toBeUndefined();
+    expect(bullet?.roleConfidence).toBeUndefined();
+  });
+
   it('reports higher roleConfidence for clear titles than for borderline subheadings', () => {
     // Ordering is the agent-facing contract: an agent thresholding at
     // 0.7 should reliably pick up clear titles and reliably drop
@@ -279,6 +303,30 @@ describe('buildLayout — multi-column reading order', () => {
       'Right bottom A',
       'Right bottom B',
     ]);
+  });
+
+  it('does not glue staggered lines from different columns into one block', () => {
+    // IRS-style three-column instructions: the PDF stream can emit row N
+    // as left+right, then row N+1 as left+middle+right. The right line
+    // from row N must not merge with the left line from row N+1 just
+    // because their vertical gap is paragraph-sized.
+    const spans: TextSpan[] = [
+      span('Left row 1.', 42, 40, 10, 164),
+      span('Right row 1.', 406, 40, 10, 164),
+      span('Left row 2.', 42, 52, 10, 164),
+      span('Middle heading', 224, 54, 16, 164),
+      span('Right row 2.', 406, 64, 10, 164),
+      span('Left row 3.', 42, 76, 10, 164),
+      span('Middle body.', 224, 88, 10, 164),
+      span('Right row 3.', 406, 88, 10, 164),
+    ];
+    const layout = buildLayout(spans, 612);
+    const texts = layout.blocks.map((b) => b.text);
+
+    expect(texts.some((text) => text.includes('Left row 1.') && text.includes('Left row 2.'))).toBe(true);
+    expect(texts.some((text) => text.includes('Right row 1.'))).toBe(true);
+    expect(texts).not.toContain('Right row 1.\nLeft row 2.');
+    expect(texts).not.toContain('Middle body. Right row 3.');
   });
 
   it('treats a mid-page heading as a column separator instead of pulling it into the left column', () => {
@@ -409,16 +457,16 @@ describe('buildLayout — multi-column reading order', () => {
     expect(layout.blocks[0].lines[0].text).toBe('2024 年');
   });
 
-  it('synthesizes a space between two CJK glyphs when the gap is column-break wide', () => {
-    // A multi-fontSize gap (column gutter, inserted U+3000 full-width
-    // space, or letterspaced heading) sits well above 0.3 × fontSize
-    // and produces a word boundary.
+  it('synthesizes a space between two CJK glyphs when the gap looks like an inserted full-width space', () => {
+    // A gap above the tight CJK join threshold but below the layout
+    // gutter threshold should stay on one line and produce a word
+    // boundary, as with an inserted U+3000 full-width space.
     const spans: TextSpan[] = [
       span('序', 50, 50, 12, 12),
       span('文', 65.36, 50, 12, 12), // tight pair (ratio 0.28) — merged
-      span('第', 110, 50, 12, 12), // gap = 110 - 77.36 = 32.64 ≈ 2.7 × fontSize → split
-      span('一', 125.36, 50, 12, 12),
-      span('条', 140.72, 50, 12, 12),
+      span('第', 86, 50, 12, 12), // gap = 86 - 77.36 = 8.64 ≈ 0.72 × fontSize → space
+      span('一', 101.36, 50, 12, 12),
+      span('条', 116.72, 50, 12, 12),
     ];
     const layout = buildLayout(spans);
     expect(layout.blocks[0].lines[0].text).toBe('序文 第一条');
