@@ -12,7 +12,6 @@ import type {
   DocumentResult,
   ImageBox,
   PageLayout,
-  PageQuality,
   PageResult,
   ProcessDocumentOptions,
   ProcessOptions,
@@ -24,6 +23,7 @@ import { type JoinItem, joinPageText } from './cjkJoin.js';
 import { buildImageBoxes, type ImageOps } from './imageBoxes.js';
 import { buildLayout, markRepeatedBlocks } from './layout.js';
 import { nonPrintableStats } from './nonPrintable.js';
+import { derivePageQuality } from './pageQuality.js';
 import { parsePageRangeWithSkipped } from './pageRange.js';
 import { runParallel } from './parallel.js';
 import { isRasterBackedTextLayer } from './rasterBackedTextLayer.js';
@@ -142,7 +142,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v25',
+    format: 'structured-v26',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -241,48 +241,6 @@ interface PageData {
   _internalSpans?: TextSpan[];
   layout?: PageLayout;
   imageBoxes?: ImageBox[];
-}
-
-/**
- * Threshold above which `nonPrintableRatio` is taken to mean "pdf.js
- * returned raw glyph codes" rather than "occasional control char in
- * otherwise clean text". Matches the skill-doc guidance.
- */
-const UNUSABLE_NPR_THRESHOLD = 0.05;
-/** Same blank threshold the skill doc publishes for `renderContentRatio`. */
-const BLANK_RENDER_THRESHOLD = 0.001;
-const SPARSE_VISUAL_TEXT_COVERAGE_THRESHOLD = 0.02;
-const SPARSE_VISUAL_TEXT_CHAR_THRESHOLD = 200;
-
-/**
- * Derive {@link PageQuality} from the already-extracted signals.
- * Pure function of the raw fields — invoked once per page after OCR
- * has had a chance to attach its own `renderContentRatio`.
- */
-function derivePageQuality(p: PageResult): PageQuality {
-  const hasVisualRender = p.renderContentRatio !== undefined && p.renderContentRatio > BLANK_RENDER_THRESHOLD;
-  const hasNonTextVisualContent = p.imageCount > 0 || p.vectorCount > 0;
-  const hasVisualContent = hasNonTextVisualContent || hasVisualRender;
-  let nativeTextStatus: PageQuality['nativeTextStatus'];
-  if (p.nonPrintableRatio >= UNUSABLE_NPR_THRESHOLD) {
-    nativeTextStatus = 'unusable_glyph_indices';
-  } else if (p.charCount > 0) {
-    nativeTextStatus =
-      hasNonTextVisualContent &&
-      p.charCount <= SPARSE_VISUAL_TEXT_CHAR_THRESHOLD &&
-      p.textCoverage < SPARSE_VISUAL_TEXT_COVERAGE_THRESHOLD
-        ? 'sparse_text_with_visual_content'
-        : 'ok';
-  } else if (hasVisualContent) {
-    nativeTextStatus = 'empty_but_visual_content';
-  } else {
-    nativeTextStatus = 'empty';
-  }
-  const quality: PageQuality = { nativeTextStatus };
-  if (p.renderContentRatio !== undefined) {
-    quality.visualStatus = p.renderContentRatio > BLANK_RENDER_THRESHOLD ? 'ok' : 'blank';
-  }
-  return quality;
 }
 
 interface PageFlags {
@@ -931,8 +889,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     }
 
     // Compute the derived `quality` field *after* OCR so the OCR-only
-    // path's renderContentRatio is included in the empty_but_visual_content
-    // decision.
+    // path's renderContentRatio participates in visual-status decisions.
     for (const p of pages) {
       p.quality = derivePageQuality(p);
     }

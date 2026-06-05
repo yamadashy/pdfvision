@@ -648,6 +648,10 @@ export interface PageQuality {
    *   - `sparse_text_with_visual_content` — native text exists, but it is
    *     too sparse to explain a visually populated page (often just a page
    *     number, decorative label, or thin OCR residue over images/vectors).
+   *   - `sparse_text_on_blank_visual` — native text exists, but it is
+   *     sparse and the rendered page is effectively blank. Common in
+   *     scanned-book front matter where hidden OCR residue is not visible
+   *     to a human reader.
    *   - `empty_but_visual_content` — `charCount === 0` AND the page has
    *     visual content (`imageCount > 0`, `vectorCount > 0`, or
    *     `renderContentRatio` is above the blank threshold when
@@ -660,6 +664,7 @@ export interface PageQuality {
   nativeTextStatus:
     | 'ok'
     | 'unusable_glyph_indices'
+    | 'sparse_text_on_blank_visual'
     | 'sparse_text_with_visual_content'
     | 'empty_but_visual_content'
     | 'empty';

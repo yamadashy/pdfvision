@@ -86,6 +86,7 @@ Each page (and each overview row) carries a derived `quality` field that classif
   - `ok` — usable native text that is not sparse relative to non-text visual content.
   - `unusable_glyph_indices` — `nonPrintableRatio >= 0.05`. Text is binary garbage even though `charCount` looks healthy. Fall back to `--render` or `--ocr`.
   - `sparse_text_with_visual_content` — native text exists, but it is too sparse to explain a visually populated page (for example, only a page number over an image-heavy slide). Inspect with `--render`.
+  - `sparse_text_on_blank_visual` — native text exists, but it is sparse and the rendered page is effectively blank. Treat the text as hidden OCR residue or a render/text-layer mismatch until visually confirmed.
   - `empty_but_visual_content` — no native text, but the page carries images, vector drawings, or non-blank pixels. Re-run with `--ocr` (or read the rendered PNG via `--render`).
   - `empty` — no text, no detected visual content. Likely a genuinely blank page (or a render failure — combine with `visualStatus` below).
 - `quality.visualStatus` (present only when `--render` or `--ocr` ran):
@@ -98,6 +99,7 @@ pdfvision deliberately stops at observation: it does **not** recommend an action
 
 - `textCoverage: 0` (rendered as `coverage: 0%` in markdown) + `imageCount > 0` → the page body is a rasterised image. The text stream is empty. Re-run with `--ocr` or `--render`.
 - Very low `textCoverage` plus `imageCount > 0` / `vectorCount > 0` and only a few characters → the visible page is mostly outside native text (`quality.nativeTextStatus === 'sparse_text_with_visual_content'`). Render before trusting the sparse text.
+- Very low `textCoverage` plus `renderContentRatio <= 0.001` → the sparse native text is not visible in the rendered page (`quality.nativeTextStatus === 'sparse_text_on_blank_visual'`). Common in scanned-book front matter and failed renders; do not treat the text as the human-visible page content.
 - `vectorCount > 0` with low text coverage → visible non-raster structure exists (forms, chart paths, slide shapes, diagrams) even when `imageCount` is zero. Inspect with `--render` when the visual layout matters.
 - `nonPrintableRatio >= 0.05` → pdf.js fell back to raw glyph indices because the PDF's fonts lack a ToUnicode CMap (common with Hebrew, older CJK, custom symbol fonts). `text` reads as full coverage but is binary garbage. Values `>= 0.3` are pathological; `< 0.01` is normal. The raw count is in `nonPrintableCount` — when the 3dp ratio rounds to 0 the count still tells you whether any non-printable code points slipped through (useful for "is there ANY garbage in this page?" filters).
 - `charCount: 0` but `imageCount: 0` → genuinely blank page (separator, end matter).
