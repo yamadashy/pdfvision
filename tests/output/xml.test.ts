@@ -353,7 +353,7 @@ describe('formatXml', () => {
     expect(out).toMatch(/<span text="a&#10;b"/);
   });
 
-  it('emits <warnings> with one <warning> per entry and includes blockIndex / otherBlockIndex when set', () => {
+  it('emits <warnings> with one <warning> per entry and includes blockIndex / otherBlockIndex / imageBoxIndex when set', () => {
     // Each detector entry becomes a `<warning code=... severity=...
     // blockIndex=... otherBlockIndex=...>message</warning>`. Two-block
     // rules (text_overlap, body_near_repeated_chrome) include
@@ -379,6 +379,12 @@ describe('formatXml', () => {
                 message: 'past right edge',
                 blockIndex: 2,
               },
+              {
+                code: 'large_raster_low_text_overlap',
+                severity: 'warning',
+                message: 'large image needs visual inspection',
+                imageBoxIndex: 0,
+              },
             ],
           }),
         ],
@@ -387,6 +393,9 @@ describe('formatXml', () => {
     expect(out).toMatch(/<warnings>/);
     expect(out).toMatch(
       /<warning code="body_near_repeated_chrome" severity="warning" blockIndex="0" otherBlockIndex="1">body crowds footer<\/warning>/,
+    );
+    expect(out).toMatch(
+      /<warning code="large_raster_low_text_overlap" severity="warning" imageBoxIndex="0">large image needs visual inspection<\/warning>/,
     );
     expect(out).toMatch(/<warning code="off_page" severity="error" blockIndex="2">past right edge<\/warning>/);
     expect(out).toMatch(/<\/warnings>/);

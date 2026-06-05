@@ -159,7 +159,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     // nonPrint / render fragments — the per-page density line is the
     // first thing an agent sees inside a `## Page N` section, so
     // surfacing the count there gives them an immediate "this page
-    // had geometry issues" signal before they read the body.
+    // had anomalies" signal before they read the body.
     const warningCount = page.warnings?.length ?? 0;
     const warningsFragment = warningCount > 0 ? ` · warnings: ${warningCount}` : '';
     // Inline the search-hits count when `--search` was on. Present-

@@ -40,7 +40,7 @@ function page(blocks: LayoutBlock[], width = 612, height = 792): PageResult {
 describe('detectPageWarnings', () => {
   it('returns an empty array when no layout is present', () => {
     // Without layout there are no bboxes to inspect — the detector
-    // must not crash and must not invent warnings.
+    // must not crash and must not invent geometry warnings.
     const noLayout: PageResult = {
       page: 1,
       text: '',
@@ -55,6 +55,90 @@ describe('detectPageWarnings', () => {
       quality: { nativeTextStatus: 'empty' },
     };
     expect(detectPageWarnings(noLayout)).toEqual([]);
+  });
+
+  it('flags localized non-printable glyph noise below the mixed-glyph ratio threshold', () => {
+    // Heritage Financial slide p5-shaped case: native text is otherwise
+    // usable, but bullet glyphs come through as C1 control code points.
+    const out = detectPageWarnings({
+      page: 1,
+      text: 'strategy bullets',
+      charCount: 2600,
+      imageCount: 1,
+      vectorCount: 0,
+      textCoverage: 0.327,
+      nonPrintableRatio: 0.007,
+      nonPrintableCount: 18,
+      width: 720,
+      height: 540,
+      quality: { nativeTextStatus: 'ok' },
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'localized_glyph_noise', severity: 'warning' });
+    expect(out[0].message).toContain('18 non-printable');
+  });
+
+  it('does not duplicate localized glyph warnings when the page is already classified as mixed glyph indices', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: 'mixed garbage',
+      charCount: 1330,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.128,
+      nonPrintableRatio: 0.141,
+      nonPrintableCount: 188,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'mixed_glyph_indices' },
+    });
+    expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
+  });
+
+  it('flags large raster images with little overlapping native text', () => {
+    // Investor-slide map case: a large raster area may contain labels
+    // that native extraction cannot see even when nearby body text is OK.
+    const out = detectPageWarnings({
+      ...page([block(700, 50, 200, 200, { text: 'bullet panel' })], 1000, 1000),
+      imageCount: 1,
+      imageBoxes: [{ x: 0, y: 0, width: 600, height: 600 }],
+      quality: { nativeTextStatus: 'ok' },
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({
+      code: 'large_raster_low_text_overlap',
+      severity: 'warning',
+      imageBoxIndex: 0,
+    });
+    expect(out[0].message).toContain('36.0%');
+  });
+
+  it('does not flag a large raster image when native text overlaps the image region', () => {
+    const out = detectPageWarnings({
+      ...page([block(20, 20, 300, 40, { text: 'native map labels' })], 1000, 1000),
+      imageCount: 1,
+      imageBoxes: [{ x: 0, y: 0, width: 600, height: 600 }],
+      quality: { nativeTextStatus: 'ok' },
+    });
+    expect(out.filter((w) => w.code === 'large_raster_low_text_overlap')).toEqual([]);
+  });
+
+  it('does not claim low text overlap when no text bboxes were requested', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: 'native text may overlap the image, but bbox extraction did not run',
+      charCount: 61,
+      imageCount: 1,
+      vectorCount: 0,
+      textCoverage: 0.1,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 1000,
+      height: 1000,
+      imageBoxes: [{ x: 0, y: 0, width: 600, height: 600 }],
+      quality: { nativeTextStatus: 'ok' },
+    });
+    expect(out.filter((w) => w.code === 'large_raster_low_text_overlap')).toEqual([]);
   });
 
   it('returns an empty array for a clean single-block page', () => {

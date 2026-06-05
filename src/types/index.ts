@@ -537,12 +537,12 @@ export interface PageResult {
    */
   matches?: SearchMatch[];
   /**
-   * Geometry-driven layout anomalies detected on the page (text
-   * overlapping other text, body crowded against repeated chrome,
-   * off-page bbox, ...). Present only when extraction ran with
-   * `layout: true` — the warnings live on layout blocks, so without
-   * layout there is nothing to inspect. Empty array is omitted; a
-   * populated array means at least one rule fired.
+   * Page anomalies detected from layout geometry, text-quality signals,
+   * or image boxes. Layout-specific warnings require `layout: true`;
+   * image-region warnings require `imageBoxes: true` plus `layout: true`
+   * or `geometry: true`; localized glyph noise can surface from the
+   * always-on non-printable counters. Empty array is omitted; a populated
+   * array means at least one rule fired.
    *
    * Same observational stance as {@link PageQuality}: the warning
    * describes what pdfvision saw, not what the agent should do. See
@@ -600,15 +600,20 @@ export interface SearchMatch {
 }
 
 /**
- * Geometry-driven anomaly observed on a page during the layout pass.
- * Surfaced so agents can spot pages with overlapping text, bodies
- * crowded against chrome, off-page bboxes, etc. — the visual problems
- * that the existing density signals (`charCount`, `renderContentRatio`,
- * ...) can't catch because the extraction itself succeeded.
+ * Page anomaly surfaced so agents can spot extraction or visual risks
+ * that raw text alone hides: overlapping layout blocks, bodies crowded
+ * against chrome, off-page bboxes, localized glyph noise, large image
+ * regions whose internal labels will not appear in native text, etc.
  */
 export interface PageWarning {
   /** Machine-readable rule identifier. */
-  code: 'text_overlap' | 'near_bottom_edge' | 'body_near_repeated_chrome' | 'off_page';
+  code:
+    | 'text_overlap'
+    | 'near_bottom_edge'
+    | 'body_near_repeated_chrome'
+    | 'off_page'
+    | 'localized_glyph_noise'
+    | 'large_raster_low_text_overlap';
   /**
    * `'error'` means likely data-integrity issue (off-page bbox usually
    * indicates a broken render or pathological PDF), `'warning'` means
@@ -631,6 +636,12 @@ export interface PageWarning {
    * block's index. Convention: `blockIndex < otherBlockIndex`.
    */
   otherBlockIndex?: number;
+  /**
+   * 0-based index into `page.imageBoxes` for warnings that pin to a
+   * raster image region. Lets callers re-render or inspect the exact
+   * image box without matching by geometry.
+   */
+  imageBoxIndex?: number;
 }
 
 /**
@@ -735,11 +746,10 @@ export interface PageOverview {
    */
   quality: PageQuality;
   /**
-   * Count of geometry-driven anomalies detected on the page (mirror
-   * of `pages[].warnings.length`). Surfaced on the overview so an
-   * agent can spot problem pages from the top-level table without
-   * descending into `pages[]`. Omitted when no warnings were emitted
-   * for the page.
+   * Count of page anomalies detected on the page (mirror of
+   * `pages[].warnings.length`). Surfaced on the overview so an agent
+   * can spot problem pages from the top-level table without descending
+   * into `pages[]`. Omitted when no warnings were emitted for the page.
    */
   warningCount?: number;
   /**

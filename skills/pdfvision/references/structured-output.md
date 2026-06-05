@@ -31,7 +31,7 @@ interface PageOverview {
   nonPrintableCount: number;      // raw count — stays discriminable when the 3dp ratio rounds to 0
   renderContentRatio?: number;    // 0..1, fraction of pixels differing from the page's dominant background (present iff --render or --ocr)
   quality: PageQuality;           // derived classification — see below
-  warningCount?: number;          // mirror of pages[N].warnings.length, omitted when --layout off or no rule fired
+  warningCount?: number;          // mirror of pages[N].warnings.length, omitted when no rule fired
   matchCount?: number;            // mirror of pages[N].matches.length; present-with-0 means "search ran, no hit"
   width: number;                  // PDF user-space points
   height: number;
@@ -70,7 +70,7 @@ interface PageResult {
   layout?: PageLayout;           // present iff --layout
   imageBoxes?: ImageBox[];       // present iff --image-boxes
   ocr?: PageOcr;                 // present iff --ocr
-  warnings?: PageWarning[];      // present iff --layout, omitted when no rule fired on the page
+  warnings?: PageWarning[];      // omitted when no rule fired on the page
   matches?: SearchMatch[];       // present iff --search; empty array means "search ran, no hit on this page"
 }
 
@@ -190,19 +190,37 @@ Both flags only have effect when `--render` (or `--ocr`, which internally raster
 
 Typical agent flow: extract with `--layout`, find a suspect block in `layout.blocks[i]` (or get its index out of `warnings[i].blockIndex`), then re-run with `--pages <N> --render --render-region <x,y,w,h>` using `blocks[i]`'s bbox to zoom in.
 
-## Warnings (`--layout`)
+## Warnings
 
 ```ts
 interface PageWarning {
-  code: 'text_overlap' | 'near_bottom_edge' | 'body_near_repeated_chrome' | 'off_page';
+  code:
+    | 'text_overlap'
+    | 'near_bottom_edge'
+    | 'body_near_repeated_chrome'
+    | 'off_page'
+    | 'localized_glyph_noise'
+    | 'large_raster_low_text_overlap';
   severity: 'warning' | 'error';
   message: string;
   blockIndex?: number;        // 0-based into pages[N].layout.blocks
   otherBlockIndex?: number;   // for pair-wise rules (text_overlap, body_near_repeated_chrome)
+  imageBoxIndex?: number;     // 0-based into pages[N].imageBoxes for image-region rules
 }
 ```
 
-Emitted only when `--layout` is on. Each entry pins to a specific block (or block pair) and describes what looks visually off — overlapping text, off-page bbox, body crowding a detected running header/footer. Same observational posture as `quality`: pdfvision tells the agent what it saw; the agent decides whether to surface, re-OCR, or zoom in via `--render-region <blocks[blockIndex].x>,...`.
+`pages[].warnings[]` is omitted when no rule fired. Geometry warnings require `--layout` because they pin to layout blocks. Image-region warnings require `--image-boxes` plus `--layout` or `--geometry` because they compare image boxes against native text bboxes and pin to `imageBoxes[imageBoxIndex]`. `localized_glyph_noise` uses the always-on non-printable counters and can appear without layout.
+
+The current rule catalog:
+
+- `text_overlap` — non-repeated layout blocks overlap in a way that may scramble reading order.
+- `near_bottom_edge` — body text ends unusually close to the page bottom.
+- `body_near_repeated_chrome` — body text overlaps or nearly touches detected repeated header/footer chrome.
+- `off_page` — a layout block bbox extends beyond the page.
+- `localized_glyph_noise` — several non-printable code points appear below the mixed-glyph threshold; often broken bullets or icon-font symbols.
+- `large_raster_low_text_overlap` — bbox-enabled extraction found a large raster image with little overlapping native text, so labels, chart text, map text, or screenshot text inside it will not appear in native text.
+
+Same observational posture as `quality`: pdfvision tells the agent what it saw; the agent decides whether to surface, re-OCR, or zoom in via `--render-region`.
 
 ## Search (`--search`)
 

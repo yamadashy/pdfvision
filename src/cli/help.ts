@@ -46,11 +46,11 @@ Options
                           Only takes effect with -f json / -f xml / -f toon.
       --layout            Reconstruct \`pages[].layout\` (lines + blocks in approximate
                           reading order) from the same span data. Only -f json / -f xml / -f toon.
-                          Also enables geometry-driven anomaly detection: any pages with
-                          overlapping text, off-page bboxes, or body crowded against
-                          repeated chrome get \`pages[].warnings\` populated.
+                          Also enables geometry warnings: overlapping text, off-page bboxes,
+                          or body crowded against repeated chrome in \`pages[].warnings\`.
       --image-boxes       Emit \`pages[].imageBoxes\` — bounding box of every raster image
-                          draw on the page. Only -f json / -f xml / -f toon.
+                          draw on the page. Enables large-raster warnings with --layout or
+                          --geometry. Only -f json / -f xml / -f toon.
       --strip-repeated    Drop running headers / footers / page numbers (blocks the layout
                           pass tagged as \`repeated\`) from the rendered Markdown body so
                           LLM readers don't have to wade through the same footer N times.

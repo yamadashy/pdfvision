@@ -35,9 +35,15 @@ export interface PageWarningContext {
  * omitting the field from the public output when the array is empty.
  */
 export function detectPageWarnings(page: PageResult, context: PageWarningContext = {}): PageWarning[] {
-  if (!page.layout || page.layout.blocks.length === 0) return [];
-  if (context.rasterBackedTextLayer) return [];
   const warnings: PageWarning[] = [];
+
+  detectLocalizedGlyphNoise(page, warnings);
+  detectLargeRasterLowTextOverlap(page, warnings);
+
+  if (!page.layout || page.layout.blocks.length === 0 || context.rasterBackedTextLayer) {
+    sortWarnings(warnings);
+    return warnings;
+  }
   const blocks = page.layout.blocks;
   // Default true: keep the unit tests' hand-built pages (which set
   // `repeated: true` directly on blocks) free to exercise rules
@@ -56,6 +62,16 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
   }
   detectBodyNearRepeatedChrome(blocks, warnings);
 
+  sortWarnings(warnings);
+  return warnings;
+}
+
+const LOCALIZED_GLYPH_NOISE_RATIO_THRESHOLD = 0.05;
+const LOCALIZED_GLYPH_NOISE_COUNT_THRESHOLD = 3;
+const LARGE_RASTER_AREA_RATIO_THRESHOLD = 0.2;
+const LARGE_RASTER_TEXT_OVERLAP_RATIO_THRESHOLD = 0.01;
+
+function sortWarnings(warnings: PageWarning[]): void {
   // Stable sort by (severity error first, then code, then blockIndex)
   // so the rendered output is deterministic across runs and easy to
   // diff in tests / golden files.
@@ -64,9 +80,63 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
     if (a.code !== b.code) return a.code < b.code ? -1 : 1;
     const ai = a.blockIndex ?? -1;
     const bi = b.blockIndex ?? -1;
-    return ai - bi;
+    if (ai !== bi) return ai - bi;
+    const aImage = a.imageBoxIndex ?? -1;
+    const bImage = b.imageBoxIndex ?? -1;
+    return aImage - bImage;
   });
-  return warnings;
+}
+
+function detectLocalizedGlyphNoise(page: PageResult, out: PageWarning[]): void {
+  if (page.nonPrintableCount < LOCALIZED_GLYPH_NOISE_COUNT_THRESHOLD) return;
+  if (page.nonPrintableRatio >= LOCALIZED_GLYPH_NOISE_RATIO_THRESHOLD) return;
+  out.push({
+    code: 'localized_glyph_noise',
+    severity: 'warning',
+    message: `native text contains ${page.nonPrintableCount} non-printable code points below the glyph-garbage ratio threshold — likely localized glyph noise such as bullets or symbols; inspect the render if exact text matters`,
+  });
+}
+
+function detectLargeRasterLowTextOverlap(page: PageResult, out: PageWarning[]): void {
+  if (!page.imageBoxes || page.imageBoxes.length === 0) return;
+  if (page.quality.nativeTextStatus !== 'ok') return;
+  const pageArea = page.width * page.height;
+  if (pageArea <= 0) return;
+
+  const textBoxes = page.layout?.blocks ?? page.spans ?? [];
+  if (textBoxes.length === 0) return;
+  for (let i = 0; i < page.imageBoxes.length; i++) {
+    const image = page.imageBoxes[i];
+    const imageArea = clippedArea(image, { x: 0, y: 0, width: page.width, height: page.height });
+    const imageAreaRatio = imageArea / pageArea;
+    if (imageAreaRatio < LARGE_RASTER_AREA_RATIO_THRESHOLD) continue;
+
+    const textOverlap = textBoxes.reduce((sum, box) => sum + clippedArea(box, image), 0);
+    const textOverlapRatio = imageArea > 0 ? textOverlap / imageArea : 0;
+    if (textOverlapRatio >= LARGE_RASTER_TEXT_OVERLAP_RATIO_THRESHOLD) continue;
+
+    out.push({
+      code: 'large_raster_low_text_overlap',
+      severity: 'warning',
+      message: `large raster image covers ${(imageAreaRatio * 100).toFixed(1)}% of the page with little native-text overlap (${(textOverlapRatio * 100).toFixed(2)}%) — labels, chart text, or map text inside the image will not appear in native text`,
+      imageBoxIndex: i,
+    });
+  }
+}
+
+interface BoxLike {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+function clippedArea(a: BoxLike, b: BoxLike): number {
+  const left = Math.max(a.x, b.x);
+  const top = Math.max(a.y, b.y);
+  const right = Math.min(a.x + a.width, b.x + b.width);
+  const bottom = Math.min(a.y + a.height, b.y + b.height);
+  return Math.max(0, right - left) * Math.max(0, bottom - top);
 }
 
 /** Tolerance for off-page detection. PDFs commonly have sub-point

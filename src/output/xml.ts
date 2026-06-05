@@ -206,6 +206,7 @@ export function formatXml(result: DocumentResult): string {
         const wAttrs = [`code="${w.code}"`, `severity="${w.severity}"`];
         if (w.blockIndex !== undefined) wAttrs.push(`blockIndex="${w.blockIndex}"`);
         if (w.otherBlockIndex !== undefined) wAttrs.push(`otherBlockIndex="${w.otherBlockIndex}"`);
+        if (w.imageBoxIndex !== undefined) wAttrs.push(`imageBoxIndex="${w.imageBoxIndex}"`);
         out.push(`<warning ${wAttrs.join(' ')}>${escapeText(w.message)}</warning>`);
       }
       out.push('</warnings>');

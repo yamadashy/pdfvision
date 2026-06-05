@@ -5,7 +5,7 @@ description: "Extract text, metadata, per-page density signals, structural layou
 
 # pdfvision
 
-[pdfvision](https://github.com/yamadashy/pdfvision) extracts text + metadata + per-page density signals from any PDF, with opt-in OCR (`--ocr`), layout reconstruction (`--layout`), geometry-driven anomaly detection (`pages[].warnings[]` when `--layout` is on), raster image bounding boxes (`--image-boxes`), vector drawing counts (`vectorCount`), per-text-item geometry (`--geometry`), PNG rendering (`--render`, optionally sized with `--render-scale` and cropped with `--render-region`), and per-page text search with bbox (`--search`, hits ride into `--render-region` for one-pipeline find-then-zoom). Cached by content hash, so the second read of the same PDF returns in ~30 ms.
+[pdfvision](https://github.com/yamadashy/pdfvision) extracts text + metadata + per-page density signals from any PDF, with opt-in OCR (`--ocr`), layout reconstruction (`--layout`), page anomaly warnings (`pages[].warnings[]` from layout geometry, glyph-noise, and image-box signals), raster image bounding boxes (`--image-boxes`), vector drawing counts (`vectorCount`), per-text-item geometry (`--geometry`), PNG rendering (`--render`, optionally sized with `--render-scale` and cropped with `--render-region`), and per-page text search with bbox (`--search`, hits ride into `--render-region` for one-pipeline find-then-zoom). Cached by content hash, so the second read of the same PDF returns in ~30 ms.
 
 ## Prerequisite
 
@@ -106,6 +106,14 @@ pdfvision deliberately stops at observation: it does **not** recommend an action
 - `charCount: 0` but `imageCount: 0` → genuinely blank page (separator, end matter).
 - Sudden drop in `textCoverage` on a single page in an otherwise text-dense doc → that page is likely a figure / scan / chart. Inspect with `--render`.
 - `renderContentRatio <= 0.001` (when `--render` or `--ocr` was on) → the rasterised page came out blank **against its own dominant background**. Likely a render-pipeline failure (pdf.js + @napi-rs/canvas can't decode JPEG2000 image streams, or the font has no resolvable glyphs). The ratio is background-aware — dark book covers and beige scan paper don't false-trip it. OCR on this page returns `confidence: 0` not because OCR failed but because the input was a near-uniform image.
+
+### Warnings
+
+`pages[].warnings[]` carries page anomalies that deserve visual attention even when `quality.nativeTextStatus` is still `ok`.
+
+- Geometry warnings (`text_overlap`, `near_bottom_edge`, `body_near_repeated_chrome`, `off_page`) require `--layout`.
+- `localized_glyph_noise` uses the always-on `nonPrintableCount` signal and fires when several non-printable code points appear below the mixed-glyph ratio threshold. Common case: bullet symbols or custom icon fonts that render fine but extract as control characters.
+- `large_raster_low_text_overlap` requires `--image-boxes` plus `--layout` or `--geometry`, and fires when a large raster image has little native text overlapping it. Treat it as "labels, chart text, map text, or screenshot text inside this image may need `--render` / `--render-region` / OCR."
 
 The density signal is the reason to prefer pdfvision over reading a PDF directly — silent failures (empty `text` that looks fine to a downstream consumer, or full `text` that is actually NUL bytes) become visible up front.
 

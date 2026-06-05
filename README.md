@@ -45,7 +45,7 @@ The agent picks which signals matter; pdfvision doesn't bake one answer.
 
 ### Spot anomalies a human would notice
 
-With `--layout`, each page carries `pages[].warnings` — overlapping text, body running off the page, collisions with running headers/footers — the "this looks off" cues a text-only extractor silently drops.
+Each page can carry `pages[].warnings` — overlapping text, body running off the page, collisions with running headers/footers, localized glyph noise, or large raster regions whose internal labels will not appear in native text — the "this looks off" cues a text-only extractor silently drops.
 
 ### Keep raw evidence available
 
@@ -104,9 +104,10 @@ Options:
       --render-scale <n>  Rasterisation multiplier (default 2; bounds (0, 4]). Requires --render or --ocr.
       --geometry          Emit per-text-item bbox + font size in pages[].spans (json/xml/toon)
       --layout            Reconstruct lines + blocks (with role / repeated flags) in pages[].layout;
-                          also emit pages[].warnings (text_overlap / near_bottom_edge /
+                          also enables geometry warnings (text_overlap / near_bottom_edge /
                           body_near_repeated_chrome / off_page)
-      --image-boxes       Emit per-image bbox in pages[].imageBoxes
+      --image-boxes       Emit per-image bbox in pages[].imageBoxes;
+                          enables large-raster warnings with --layout or --geometry
       --ocr               Run tesseract.js OCR; attach pages[].ocr (text/confidence/lang)
       --ocr-lang <lang>   Tesseract lang(s), plus-separated (e.g. eng+jpn). Default: eng
       --remote <url>      Download an http(s) PDF into the cache, validate the PDF header, then extract
@@ -135,9 +136,10 @@ pdfvision document.pdf -p 1-3 -f json
 # Render PNGs into ./images for a multimodal LLM
 pdfvision document.pdf -r --render-output ./images
 
-# Layout + image bboxes — agent reconstructs reading order itself,
-# and pages[].warnings flags overlapping text, body running into the
-# bottom edge, body colliding with running headers/footers, etc.
+# Layout + image bboxes — agent reconstructs reading order itself.
+# pages[].warnings flags overlapping text, body running into the
+# bottom edge, body colliding with running headers/footers, localized
+# glyph noise, and large raster images whose labels may need vision.
 # Pages also expose vectorCount for form boxes, chart paths, and shapes.
 pdfvision document.pdf --layout --image-boxes -f json
 
