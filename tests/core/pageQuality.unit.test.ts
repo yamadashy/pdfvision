@@ -20,6 +20,73 @@ function makePage(overrides: Partial<PageResult> = {}): PageResult {
 }
 
 describe('derivePageQuality', () => {
+  it('flags mixed glyph indices separately from fully unusable pages', () => {
+    const quality = derivePageQuality(
+      makePage({
+        text: 'garbled prefix on connectivity readable tail',
+        charCount: 1330,
+        textCoverage: 0.128,
+        nonPrintableRatio: 0.141,
+        nonPrintableCount: 188,
+        renderContentRatio: 0.156,
+      }),
+    );
+
+    expect(quality).toEqual({
+      nativeTextStatus: 'mixed_glyph_indices',
+      visualStatus: 'ok',
+    });
+  });
+
+  it('keeps glyph-index boundary thresholds stable', () => {
+    expect(
+      derivePageQuality(
+        makePage({
+          text: 'clean enough',
+          charCount: 12,
+          nonPrintableRatio: 0.049,
+          nonPrintableCount: 1,
+        }),
+      ).nativeTextStatus,
+    ).toBe('ok');
+    expect(
+      derivePageQuality(
+        makePage({
+          text: 'mixed garbage',
+          charCount: 14,
+          nonPrintableRatio: 0.05,
+          nonPrintableCount: 1,
+        }),
+      ).nativeTextStatus,
+    ).toBe('mixed_glyph_indices');
+    expect(
+      derivePageQuality(
+        makePage({
+          text: 'mostly garbage',
+          charCount: 14,
+          nonPrintableRatio: 0.3,
+          nonPrintableCount: 4,
+        }),
+      ).nativeTextStatus,
+    ).toBe('unusable_glyph_indices');
+  });
+
+  it('keeps mostly glyph-index pages classified as unusable', () => {
+    const quality = derivePageQuality(
+      makePage({
+        text: 'glyph garbage',
+        charCount: 2760,
+        textCoverage: 0.62,
+        nonPrintableRatio: 0.62,
+        nonPrintableCount: 1706,
+      }),
+    );
+
+    expect(quality).toEqual({
+      nativeTextStatus: 'unusable_glyph_indices',
+    });
+  });
+
   it('flags sparse native text that is not visible on a blank render', () => {
     const quality = derivePageQuality(
       makePage({

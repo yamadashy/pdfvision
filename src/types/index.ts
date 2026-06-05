@@ -445,11 +445,12 @@ export interface PageResult {
    * (0–1, rounded to 3dp). pdf.js falls back to raw glyph indices
    * (U+0000, U+0001, ...) when a font has no ToUnicode CMap, which makes
    * the page look fully covered by `textCoverage` while the actual text
-   * is binary garbage. `>= 0.05` is a strong signal that native text
-   * is unusable; fall back to `--render` or `--ocr`. Counts NUL, C0
-   * (except `\t\n\r`), DEL, C1, unpaired surrogates, and Unicode
-   * noncharacters. Private Use Area, format controls, and combining
-   * marks are intentionally excluded.
+   * is partly or mostly binary garbage. `>= 0.05` means native text is
+   * incomplete or risky; `>= 0.3` means it is mostly unusable. Fall back
+   * to `--render` or `--ocr` when this appears. Counts NUL, C0 (except
+   * `\t\n\r`), DEL, C1, unpaired surrogates, and Unicode noncharacters.
+   * Private Use Area, format controls, and combining marks are
+   * intentionally excluded.
    */
   nonPrintableRatio: number;
   /**
@@ -642,9 +643,12 @@ export interface PageQuality {
    * Native-text extraction outcome:
    *   - `ok` — the page has usable native text that is not sparse
    *     relative to non-text visual content.
-   *   - `unusable_glyph_indices` — `nonPrintableRatio >= 0.05`. pdf.js
-   *     returned raw glyph codes (no usable ToUnicode CMap), so `text`
-   *     is binary garbage even though `charCount` may look healthy.
+   *   - `mixed_glyph_indices` — `0.05 <= nonPrintableRatio < 0.3`.
+   *     Native text contains readable fragments mixed with raw glyph
+   *     codes, so it is not trustworthy as the full human-visible page.
+   *   - `unusable_glyph_indices` — `nonPrintableRatio >= 0.3`. pdf.js
+   *     returned mostly raw glyph codes (no usable ToUnicode CMap), so
+   *     `text` is binary garbage even though `charCount` may look healthy.
    *   - `sparse_text_with_visual_content` — native text exists, but it is
    *     too sparse to explain a visually populated page (often just a page
    *     number, decorative label, or thin OCR residue over images/vectors).
@@ -663,6 +667,7 @@ export interface PageQuality {
    */
   nativeTextStatus:
     | 'ok'
+    | 'mixed_glyph_indices'
     | 'unusable_glyph_indices'
     | 'sparse_text_on_blank_visual'
     | 'sparse_text_with_visual_content'

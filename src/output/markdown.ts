@@ -136,9 +136,8 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     // non-printable code points (count > 0). Renders the rounded
     // percent, except <1% when sparse so the agent can tell "0 bad
     // chars" from "a few bad chars that round to 0%". Append the raw
-    // count in parentheses — for unusable_glyph_indices PDFs the
-    // absolute count (e.g. "1706") is more actionable than the rounded
-    // percentage.
+    // count in parentheses — for glyph-index PDFs the absolute count
+    // (e.g. "1706") is more actionable than the rounded percentage.
     const npPct = Math.round(page.nonPrintableRatio * 100);
     const nonPrintFragment =
       page.nonPrintableCount > 0 ? ` · nonPrint: ${npPct === 0 ? '<1%' : `${npPct}%`} (${page.nonPrintableCount})` : '';

@@ -43,7 +43,8 @@ interface PageOverview {
 - `imageCount > 0 || vectorCount > 0` plus very low `textCoverage` and a tiny `charCount` → the visible page is mostly outside native text (often just a page number over a slide/image). Maps to `quality.nativeTextStatus === 'sparse_text_with_visual_content'`.
 - Very low `textCoverage` and a tiny `charCount` plus `renderContentRatio <= 0.001` → sparse native text is not visible on the rasterised page. Maps to `quality.nativeTextStatus === 'sparse_text_on_blank_visual'`.
 - `vectorCount > 0 && textCoverage is low` → visible non-raster structure exists even when `imageCount` is zero; forms, charts, diagrams, and slide shapes may require `--render`.
-- `nonPrintableRatio >= 0.05` → ToUnicode CMap missing; the text stream is full of raw glyph indices (NUL + control chars) even though `textCoverage` looks fine. Native text is unusable; fall back to `--render` or `--ocr`. Maps to `quality.nativeTextStatus === 'unusable_glyph_indices'`.
+- `0.05 <= nonPrintableRatio < 0.3` → one or more fonts lack a usable ToUnicode CMap; native text contains readable fragments mixed with raw glyph indices. Native text is incomplete even if some words look usable. Maps to `quality.nativeTextStatus === 'mixed_glyph_indices'`.
+- `nonPrintableRatio >= 0.3` → ToUnicode CMap missing for most of the page; the text stream is mostly raw glyph indices (NUL + control chars) even though `textCoverage` looks fine. Native text is unusable; fall back to `--render` or `--ocr`. Maps to `quality.nativeTextStatus === 'unusable_glyph_indices'`.
 - `renderContentRatio <= 0.001` → rasterised page is effectively blank against its own dominant background (only meaningful when `--render` or `--ocr` was on). Background-aware so dark covers and beige scans don't false-trip it. Catches render-pipeline failures pdfvision can't otherwise surface: pdf.js + @napi-rs/canvas can't decode JPEG2000 image streams (common in Internet Archive scans), and PDFs whose fonts have no resolvable glyphs draw nothing. When OCR runs against this, `confidence: 0` is *not* an OCR miss — the input was a near-uniform image. Maps to `quality.visualStatus === 'blank'`.
 
 ## PageResult (per page)
@@ -76,7 +77,8 @@ interface PageResult {
 interface PageQuality {
   nativeTextStatus:
     | 'ok'                       // usable native text that is not sparse relative to non-text visuals
-    | 'unusable_glyph_indices'   // nonPrintableRatio >= 0.05 — fall back to --ocr / --render
+    | 'mixed_glyph_indices'      // 0.05 <= nonPrintableRatio < 0.3 — readable fragments mixed with glyph garbage
+    | 'unusable_glyph_indices'   // nonPrintableRatio >= 0.3 — fall back to --ocr / --render
     | 'sparse_text_on_blank_visual' // sparse native text exists but the rendered page is effectively blank
     | 'sparse_text_with_visual_content' // native text exists but is too sparse for a visual page
     | 'empty_but_visual_content' // no native text but the page has images / vectors / non-blank pixels
@@ -250,11 +252,11 @@ pdfvision doc.pdf -p <m.page> --render --render-region <m.bbox.x>,<m.bbox.y>,<m.
     <author>...</author>
   </metadata>
   <overview>
-    <page no="1" charCount="..." imageCount="..." vectorCount="..." textCoverage="..." nonPrintableRatio="..." width="..." height="..."/>
+    <page no="1" charCount="..." imageCount="..." vectorCount="..." textCoverage="..." nonPrintableRatio="..." nonPrintableCount="..." nativeTextStatus="..." visualStatus="..." width="..." height="..."/>
     ...
   </overview>
   <pages>
-    <page no="1" charCount="..." imageCount="..." vectorCount="..." textCoverage="..." nonPrintableRatio="..." width="..." height="..." image="...">
+    <page no="1" charCount="..." imageCount="..." vectorCount="..." textCoverage="..." nonPrintableRatio="..." nonPrintableCount="..." nativeTextStatus="..." visualStatus="..." width="..." height="..." image="...">
       <spans>
         <span text="..." x="..." y="..." width="..." height="..." fontSize="..." fontName="..."/>
         ...

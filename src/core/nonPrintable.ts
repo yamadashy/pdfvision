@@ -11,8 +11,9 @@
  *
  * `nonPrintableRatio` exposes this directly: ratio of non-printable code
  * points to total code points in the page text. Empty strings produce 0.
- * `>= 0.05` is a strong signal that the extracted text is unusable as
- * native text; agents should fall back to `--render` or `--ocr`.
+ * `>= 0.05` is a strong signal that extracted native text is incomplete
+ * or risky; `>= 0.3` means it is mostly unusable glyph garbage. Agents
+ * should fall back to `--render` or `--ocr` when this signal appears.
  *
  * What counts as non-printable (deliberately narrow — we want a clean
  * "raw bytes" signal, not a "weird text" signal):

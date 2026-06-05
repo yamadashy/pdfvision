@@ -322,6 +322,25 @@ describe('formatMarkdown', () => {
     expect(out).toMatch(/native: unusable_glyph_indices/);
   });
 
+  it('appends a native: mixed_glyph_indices badge when only part of the page has glyph garbage', () => {
+    const out = formatMarkdown(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 'garbled prefix on connectivity readable tail',
+            charCount: 1330,
+            nonPrintableRatio: 0.141,
+            nonPrintableCount: 188,
+            quality: { nativeTextStatus: 'mixed_glyph_indices' },
+          }),
+        ],
+      }),
+    );
+    expect(out).toMatch(/nonPrint: 14% \(188\)/);
+    expect(out).toMatch(/native: mixed_glyph_indices/);
+  });
+
   it('appends a native: empty_but_visual_content badge for image-only pages', () => {
     // SpeakerDeck-shaped page: no native text but visual content present.
     const out = formatMarkdown(
