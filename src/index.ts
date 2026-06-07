@@ -61,6 +61,8 @@ export type {
   TextSpan,
   VectorBox,
   VisualRegion,
+  VisualRegionAssociatedText,
+  VisualRegionAssociatedTextRelation,
   VisualRegionKind,
   VisualRegionSource,
   VisualRegionSourceType,

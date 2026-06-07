@@ -487,6 +487,17 @@ describe('formatXml', () => {
                 reason: 'raster & vector <cluster>',
                 image: '/tmp/region&crop.png',
                 renderContentRatio: 0.1234,
+                associatedText: [
+                  {
+                    text: 'Figure 1. A&B',
+                    relation: 'caption',
+                    x: 40,
+                    y: 256,
+                    width: 180,
+                    height: 12,
+                    blockIndex: 3,
+                  },
+                ],
               },
             ],
           }),
@@ -501,6 +512,10 @@ describe('formatXml', () => {
     );
     expect(out).toContain('<source type="imageBox" index="0"/>');
     expect(out).toContain('<source type="vectorBox" index="3"/>');
+    expect(out).toContain('<associatedText>');
+    expect(out).toContain(
+      '<text relation="caption" x="40" y="256" width="180" height="12" blockIndex="3">Figure 1. A&amp;B</text>',
+    );
   });
 
   it('emits self-closing <visualRegions/> when extraction ran but found no visual regions', () => {

@@ -4,6 +4,7 @@ import type {
   PageLayout,
   VectorBox,
   VisualRegion,
+  VisualRegionAssociatedText,
   VisualRegionKind,
   VisualRegionSource,
 } from '../types/index.js';
@@ -20,6 +21,7 @@ interface Candidate extends BoxLike {
   priority: number;
   reason: string;
   sources: VisualRegionSource[];
+  associatedText?: VisualRegionAssociatedText[];
 }
 
 interface BuildVisualRegionsInput {
@@ -39,6 +41,10 @@ const MIN_REGION_DIMENSION_PT = 18;
 const MIN_IMAGE_AREA_RATIO = 0.015;
 const MIN_VECTOR_CLUSTER_SOURCES = 6;
 const MIN_VECTOR_CLUSTER_AREA_RATIO = 0.01;
+const CAPTION_MAX_GAP_PT = 54;
+const CAPTION_MIN_HORIZONTAL_OVERLAP_RATIO = 0.2;
+const MAX_ASSOCIATED_TEXT = 3;
+const CAPTION_PATTERN = /^\s*(?:fig(?:ure)?\.?|table|図|表)\s*[\w\d０-９一二三四五六七八九十ivxlcdm]+[\s.:：．、-]/iu;
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
@@ -144,12 +150,14 @@ function mergeSources(sources: readonly VisualRegionSource[]): VisualRegionSourc
 function mergeCandidates(a: Candidate, b: Candidate): Candidate {
   const box = unionBox(a, b);
   const sources = mergeSources([...a.sources, ...b.sources]);
+  const associatedText = mergeAssociatedText([...(a.associatedText ?? []), ...(b.associatedText ?? [])]);
   return {
     ...box,
     kind: a.kind === b.kind ? a.kind : 'mixed',
     priority: Math.max(a.priority, b.priority),
     reason: a.reason === b.reason ? a.reason : `${a.reason}; ${b.reason}`,
     sources,
+    ...(associatedText.length > 0 && { associatedText }),
   };
 }
 
@@ -162,6 +170,7 @@ function finalizeCandidate(candidate: Candidate, pageWidth: number, pageHeight: 
   const box = padAndClamp(candidate, pageWidth, pageHeight);
   const totalArea = pageWidth * pageHeight;
   const sources = mergeSources(candidate.sources);
+  const associatedText = mergeAssociatedText(candidate.associatedText ?? []);
   return {
     kind: candidate.kind,
     ...box,
@@ -169,6 +178,7 @@ function finalizeCandidate(candidate: Candidate, pageWidth: number, pageHeight: 
     sourceCount: sources.length,
     sources: sources.slice(0, MAX_SOURCE_REFS),
     reason: candidate.reason,
+    ...(associatedText.length > 0 && { associatedText: associatedText.slice(0, MAX_ASSOCIATED_TEXT) }),
   };
 }
 
@@ -253,13 +263,114 @@ function addFormCandidate(formFields: readonly FormField[] | undefined, candidat
     .map((field, index) => ({ field, index }))
     .filter(({ field }) => isFinitePositiveBox(field));
   if (usableFields.length === 0) return;
-  const box = usableFields.slice(1).reduce<BoxLike>((acc, { field }) => unionBox(acc, field), usableFields[0].field);
+  const associatedText = usableFields.flatMap(({ field, index }) =>
+    field.label
+      ? [
+          {
+            text: field.label.text,
+            relation: 'label' as const,
+            x: field.label.x,
+            y: field.label.y,
+            width: field.label.width,
+            height: field.label.height,
+            fieldIndex: index,
+          },
+        ]
+      : [],
+  );
+  const boxes = [
+    ...usableFields.map(({ field }) => field),
+    ...associatedText.map((label) => ({
+      x: label.x,
+      y: label.y,
+      width: label.width,
+      height: label.height,
+    })),
+  ];
+  const box = boxes.slice(1).reduce<BoxLike>((acc, item) => unionBox(acc, item), boxes[0]);
   candidates.push({
     ...box,
     kind: 'form',
     priority: 3,
     reason: `${usableFields.length} interactive form fields in one page region`,
     sources: usableFields.map(({ index }) => ({ type: 'formField', index })),
+    ...(associatedText.length > 0 && { associatedText }),
+  });
+}
+
+function associatedTextKey(text: VisualRegionAssociatedText): string {
+  return `${text.relation}:${text.blockIndex ?? ''}:${text.fieldIndex ?? ''}:${text.text}`;
+}
+
+function mergeAssociatedText(items: readonly VisualRegionAssociatedText[]): VisualRegionAssociatedText[] {
+  const seen = new Set<string>();
+  const merged: VisualRegionAssociatedText[] = [];
+  for (const item of items) {
+    const key = associatedTextKey(item);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(item);
+  }
+  return merged.sort((a, b) => a.y - b.y || a.x - b.x);
+}
+
+function normalizeAssociatedText(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+function horizontalOverlapRatio(a: BoxLike, b: BoxLike): number {
+  const overlap = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+  return Math.max(0, overlap) / Math.max(1, Math.min(a.width, b.width));
+}
+
+function captionScore(candidate: Candidate, textBox: BoxLike): number | undefined {
+  const captionBottom = textBox.y + textBox.height;
+  const regionBottom = candidate.y + candidate.height;
+  const belowGap = textBox.y - regionBottom;
+  const aboveGap = candidate.y - captionBottom;
+  const overlapsVertically = overlapArea(candidate, textBox) > 0;
+  const gap = overlapsVertically ? 0 : belowGap >= 0 ? belowGap : aboveGap >= 0 ? aboveGap : Number.POSITIVE_INFINITY;
+  if (gap > CAPTION_MAX_GAP_PT) return undefined;
+
+  const overlap = horizontalOverlapRatio(candidate, textBox);
+  if (overlap < CAPTION_MIN_HORIZONTAL_OVERLAP_RATIO) return undefined;
+  const belowBonus = belowGap >= -4 ? 0 : 12;
+  return gap + (1 - overlap) * 30 + belowBonus;
+}
+
+function attachCaptionText(candidates: Candidate[], layout: PageLayout | undefined): Candidate[] {
+  const blocks = layout?.blocks ?? [];
+  if (blocks.length === 0) return candidates;
+  return candidates.map((candidate) => {
+    const captions = blocks
+      .map((block, index) => ({ block, index, text: normalizeAssociatedText(block.text) }))
+      .filter(({ block, text }) => !block.repeated && CAPTION_PATTERN.test(text))
+      .map(({ block, index, text }) => {
+        const associatedText: VisualRegionAssociatedText = {
+          text,
+          relation: 'caption' as const,
+          x: block.x,
+          y: block.y,
+          width: block.width,
+          height: block.height,
+          blockIndex: index,
+        };
+        return {
+          text: associatedText,
+          score: captionScore(candidate, block),
+        };
+      })
+      .filter((item): item is { text: VisualRegionAssociatedText; score: number } => item.score !== undefined)
+      .sort((a, b) => a.score - b.score)
+      .slice(0, MAX_ASSOCIATED_TEXT);
+    if (captions.length === 0) return candidate;
+
+    const associatedText = mergeAssociatedText([
+      ...(candidate.associatedText ?? []),
+      ...captions.map((caption) => caption.text),
+    ]);
+    const box = captions.reduce<BoxLike>((acc, caption) => unionBox(acc, caption.text), candidate);
+    return { ...candidate, ...box, associatedText };
   });
 }
 
@@ -283,7 +394,7 @@ export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion
   addFormCandidate(input.formFields, candidates);
 
   const totalArea = pageArea(input);
-  return dedupeCandidates(candidates)
+  return attachCaptionText(dedupeCandidates(candidates), input.layout)
     .filter((candidate) => isUsableBox(candidate))
     .sort((a, b) => visualScore(b, totalArea) - visualScore(a, totalArea))
     .slice(0, MAX_REGIONS)

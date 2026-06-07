@@ -576,12 +576,26 @@ export interface VectorBox {
 
 export type VisualRegionKind = 'raster' | 'vector' | 'table' | 'form' | 'mixed';
 export type VisualRegionSourceType = 'imageBox' | 'vectorBox' | 'layoutTable' | 'formField';
+export type VisualRegionAssociatedTextRelation = 'caption' | 'label';
 
 export interface VisualRegionSource {
   /** Source geometry collection this region was derived from. */
   type: VisualRegionSourceType;
   /** 0-based index into the source collection on the same page. */
   index: number;
+}
+
+export interface VisualRegionAssociatedText {
+  text: string;
+  relation: VisualRegionAssociatedTextRelation;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** 0-based index into `layout.blocks` when relation is `caption`. */
+  blockIndex?: number;
+  /** 0-based index into `formFields` when relation is `label`. */
+  fieldIndex?: number;
 }
 
 /**
@@ -607,6 +621,8 @@ export interface VisualRegion {
   sources: VisualRegionSource[];
   /** Short human-readable reason for why the region is worth inspecting. */
   reason: string;
+  /** Nearby text that identifies or explains this visual region, such as a caption or form label. */
+  associatedText?: VisualRegionAssociatedText[];
   /** Cropped PNG path for this region when `renderVisualRegions` was requested. */
   image?: string;
   /** Content ratio measured from the cropped region PNG when rendered. */

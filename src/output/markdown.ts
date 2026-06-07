@@ -59,6 +59,10 @@ function visualRegionSources(region: NonNullable<PageResult['visualRegions']>[nu
   return refs.join(', ');
 }
 
+function visualRegionAssociatedText(region: NonNullable<PageResult['visualRegions']>[number]): string {
+  return (region.associatedText ?? []).map((item) => `${item.relation}: ${item.text}`).join('; ');
+}
+
 function formatBox(box: { x: number; y: number; width: number; height: number }): string {
   return `${box.x},${box.y},${box.width},${box.height}`;
 }
@@ -427,18 +431,24 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
       } else {
         lines.push('');
         const showRegionImages = page.visualRegions.some((region) => region.image !== undefined);
+        const showAssociatedText = page.visualRegions.some((region) => (region.associatedText?.length ?? 0) > 0);
         const imageHeader = showRegionImages ? ' Image | Render |' : '';
         const imageSep = showRegionImages ? ' --- | ---: |' : '';
-        lines.push(`| ID | Kind | BBox | Area |${imageHeader} Sources | Reason |`);
-        lines.push(`| --- | --- | --- | ---: |${imageSep} --- | --- |`);
+        const associatedTextHeader = showAssociatedText ? ' Text |' : '';
+        const associatedTextSep = showAssociatedText ? ' --- |' : '';
+        lines.push(`| ID | Kind | BBox | Area |${imageHeader}${associatedTextHeader} Sources | Reason |`);
+        lines.push(`| --- | --- | --- | ---: |${imageSep}${associatedTextSep} --- | --- |`);
         for (const region of page.visualRegions) {
           const imageCells = showRegionImages
             ? ` ${escapeTableCell(region.image ?? '')} | ${
                 region.renderContentRatio !== undefined ? `${(region.renderContentRatio * 100).toFixed(2)}%` : ''
               } |`
             : '';
+          const associatedTextCell = showAssociatedText
+            ? ` ${escapeTableCell(visualRegionAssociatedText(region))} |`
+            : '';
           lines.push(
-            `| ${escapeTableCell(region.id ?? '')} | ${region.kind} | ${formatBox(region)} | ${(region.areaRatio * 100).toFixed(1)}% |${imageCells} ${escapeTableCell(visualRegionSources(region))} | ${escapeTableCell(region.reason)} |`,
+            `| ${escapeTableCell(region.id ?? '')} | ${region.kind} | ${formatBox(region)} | ${(region.areaRatio * 100).toFixed(1)}% |${imageCells}${associatedTextCell} ${escapeTableCell(visualRegionSources(region))} | ${escapeTableCell(region.reason)} |`,
           );
         }
       }

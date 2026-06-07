@@ -361,12 +361,29 @@ export function formatXml(result: DocumentResult): string {
           if (region.renderContentRatio !== undefined) {
             attrs.push(`renderContentRatio="${region.renderContentRatio}"`);
           }
-          if (region.sources.length === 0) {
+          const associatedText = region.associatedText ?? [];
+          if (region.sources.length === 0 && associatedText.length === 0) {
             out.push(`<region ${attrs.join(' ')}/>`);
           } else {
             out.push(`<region ${attrs.join(' ')}>`);
             for (const source of region.sources) {
               out.push(`<source type="${source.type}" index="${source.index}"/>`);
+            }
+            if (associatedText.length > 0) {
+              out.push('<associatedText>');
+              for (const item of associatedText) {
+                const textAttrs = [
+                  `relation="${item.relation}"`,
+                  `x="${item.x}"`,
+                  `y="${item.y}"`,
+                  `width="${item.width}"`,
+                  `height="${item.height}"`,
+                  ...(item.blockIndex !== undefined ? [`blockIndex="${item.blockIndex}"`] : []),
+                  ...(item.fieldIndex !== undefined ? [`fieldIndex="${item.fieldIndex}"`] : []),
+                ];
+                out.push(`<text ${textAttrs.join(' ')}>${escapeText(item.text)}</text>`);
+              }
+              out.push('</associatedText>');
             }
             out.push('</region>');
           }

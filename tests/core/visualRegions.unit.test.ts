@@ -122,4 +122,100 @@ describe('buildVisualRegions', () => {
       },
     ]);
   });
+
+  it('attaches nearby caption text and expands the crop box to include it', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 200,
+      pageHeight: 200,
+      imageBoxes: [{ x: 40, y: 40, width: 80, height: 50 }],
+      layout: {
+        blocks: [
+          {
+            text: 'Figure 1. Example chart',
+            x: 45,
+            y: 96,
+            width: 90,
+            height: 14,
+            lines: [{ text: 'Figure 1. Example chart', x: 45, y: 96, width: 90, height: 14, fontSize: 10 }],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'raster',
+        x: 32,
+        y: 32,
+        width: 111,
+        height: 86,
+        areaRatio: 0.239,
+        sourceCount: 1,
+        sources: [{ type: 'imageBox', index: 0 }],
+        reason: 'raster image covers 10.0% of the page',
+        associatedText: [
+          {
+            text: 'Figure 1. Example chart',
+            relation: 'caption',
+            x: 45,
+            y: 96,
+            width: 90,
+            height: 14,
+            blockIndex: 0,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('attaches form labels and expands the crop box to include them', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 200,
+      pageHeight: 200,
+      imageBoxes: [],
+      formFields: [
+        {
+          name: 'name',
+          type: 'text',
+          x: 100,
+          y: 80,
+          width: 80,
+          height: 20,
+          label: {
+            text: 'Legal name',
+            relation: 'above',
+            x: 40,
+            y: 60,
+            width: 140,
+            height: 12,
+          },
+        },
+      ],
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'form',
+        x: 32,
+        y: 52,
+        width: 156,
+        height: 56,
+        areaRatio: 0.218,
+        sourceCount: 1,
+        sources: [{ type: 'formField', index: 0 }],
+        reason: '1 interactive form fields in one page region',
+        associatedText: [
+          {
+            text: 'Legal name',
+            relation: 'label',
+            x: 40,
+            y: 60,
+            width: 140,
+            height: 12,
+            fieldIndex: 0,
+          },
+        ],
+      },
+    ]);
+  });
 });
