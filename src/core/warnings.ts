@@ -165,7 +165,7 @@ function detectDenseVectorGraphics(page: PageResult, out: PageWarning[]): void {
 
 function detectLargeRasterLowTextOverlap(page: PageResult, out: PageWarning[]): void {
   if (!page.imageBoxes || page.imageBoxes.length === 0) return;
-  if (page.quality.nativeTextStatus !== 'ok') return;
+  if (!canCompareNativeTextAgainstRaster(page.quality.nativeTextStatus)) return;
   const pageArea = page.width * page.height;
   if (pageArea <= 0) return;
 
@@ -188,6 +188,10 @@ function detectLargeRasterLowTextOverlap(page: PageResult, out: PageWarning[]): 
       imageBoxIndex: i,
     });
   }
+}
+
+function canCompareNativeTextAgainstRaster(status: PageResult['quality']['nativeTextStatus']): boolean {
+  return status === 'ok' || status === 'sparse_text_with_visual_content';
 }
 
 interface BoxLike {

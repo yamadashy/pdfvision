@@ -191,6 +191,35 @@ describe('detectPageWarnings', () => {
     expect(out[0].message).toContain('36.0%');
   });
 
+  it('flags large raster images on sparse visual pages with only a little native text', () => {
+    // SpeakerDeck screenshot slide-shaped case: the title remains as
+    // native text, but the rest of the visual slide is a full-page
+    // raster image whose labels will not appear in native extraction.
+    const out = detectPageWarnings({
+      ...page([block(62, 40, 118, 28, { text: 'Repomix' })], 612, 792),
+      text: 'Repomix',
+      charCount: 9,
+      imageCount: 3,
+      imageBoxes: [{ x: 0, y: 0, width: 612, height: 792 }],
+      textCoverage: 0.012,
+      quality: { nativeTextStatus: 'sparse_text_with_visual_content' },
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'large_raster_low_text_overlap', severity: 'warning' });
+  });
+
+  it('does not add large-raster warnings when native text is already glyph-garbage', () => {
+    const out = detectPageWarnings({
+      ...page([block(20, 20, 300, 40, { text: '\x00\x01\x02' })], 1000, 1000),
+      imageCount: 1,
+      imageBoxes: [{ x: 0, y: 0, width: 600, height: 600 }],
+      nonPrintableRatio: 0.4,
+      nonPrintableCount: 3,
+      quality: { nativeTextStatus: 'unusable_glyph_indices' },
+    });
+    expect(out.filter((w) => w.code === 'large_raster_low_text_overlap')).toEqual([]);
+  });
+
   it('does not flag a large raster image when native text overlaps the image region', () => {
     const out = detectPageWarnings({
       ...page([block(20, 20, 300, 40, { text: 'native map labels' })], 1000, 1000),
