@@ -603,7 +603,8 @@ export interface SearchMatch {
  * Page anomaly surfaced so agents can spot extraction or visual risks
  * that raw text alone hides: overlapping layout blocks, bodies crowded
  * against chrome, off-page bboxes, localized glyph noise, large image
- * regions whose internal labels will not appear in native text, etc.
+ * regions whose internal labels will not appear in native text, OCR-backed
+ * scan layers whose bboxes may drift from pixels, etc.
  */
 export interface PageWarning {
   /** Machine-readable rule identifier. */
@@ -613,6 +614,7 @@ export interface PageWarning {
     | 'body_near_repeated_chrome'
     | 'off_page'
     | 'localized_glyph_noise'
+    | 'raster_backed_text_layer'
     | 'large_raster_low_text_overlap';
   /**
    * `'error'` means likely data-integrity issue (off-page bbox usually

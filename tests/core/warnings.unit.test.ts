@@ -560,15 +560,44 @@ describe('detectPageWarnings', () => {
   });
 
   describe('chromeDetectionReliable context', () => {
-    it('suppresses geometry warnings for full-page raster-backed text layers', () => {
+    it('surfaces full-page raster-backed text layers while suppressing geometry warnings', () => {
       // Hidden OCR text over a scanned page often carries bboxes that
       // do not line up with the pixels a human sees. The processor
-      // detects the full-page raster backdrop and asks the warning
-      // layer to stay silent for geometry-only findings.
-      const out = detectPageWarnings(page([block(50, 50, 300, 200), block(200, 150, 300, 150)]), {
-        rasterBackedTextLayer: true,
-      });
-      expect(out).toEqual([]);
+      // detects the full-page raster backdrop and asks the warning layer
+      // to report the OCR-layer caveat instead of geometry-only findings.
+      const out = detectPageWarnings(
+        {
+          ...page([block(50, 50, 300, 200), block(200, 150, 300, 150)]),
+          imageCount: 2,
+          textCoverage: 0.83,
+        },
+        {
+          rasterBackedTextLayer: true,
+        },
+      );
+      expect(out).toHaveLength(1);
+      expect(out[0]).toMatchObject({ code: 'raster_backed_text_layer', severity: 'warning' });
+      expect(out[0].message).toContain('textCoverage 83.0%');
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
+    it('can surface raster-backed text layers without public layout output', () => {
+      const noLayout: PageResult = {
+        page: 1,
+        text: 'hidden OCR layer',
+        charCount: 16,
+        imageCount: 1,
+        vectorCount: 0,
+        textCoverage: 0.42,
+        nonPrintableRatio: 0,
+        nonPrintableCount: 0,
+        width: 612,
+        height: 792,
+        quality: { nativeTextStatus: 'ok' },
+      };
+      const out = detectPageWarnings(noLayout, { rasterBackedTextLayer: true });
+      expect(out).toHaveLength(1);
+      expect(out[0]).toMatchObject({ code: 'raster_backed_text_layer' });
     });
 
     it('suppresses near_bottom_edge when the cross-page chrome pass had no material', () => {

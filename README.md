@@ -45,7 +45,7 @@ The agent picks which signals matter; pdfvision doesn't bake one answer.
 
 ### Spot anomalies a human would notice
 
-Each page can carry `pages[].warnings` — overlapping text, body running off the page, collisions with running headers/footers, localized glyph noise, or large raster regions whose internal labels will not appear in native text — the "this looks off" cues a text-only extractor silently drops.
+Each page can carry `pages[].warnings` — overlapping text, body running off the page, collisions with running headers/footers, localized glyph noise, OCR/text layers over full-page scans, or large raster regions whose internal labels will not appear in native text — the "this looks off" cues a text-only extractor silently drops.
 
 ### Keep raw evidence available
 
@@ -139,7 +139,8 @@ pdfvision document.pdf -r --render-output ./images
 # Layout + image bboxes — agent reconstructs reading order itself.
 # pages[].warnings flags overlapping text, body running into the
 # bottom edge, body colliding with running headers/footers, localized
-# glyph noise, and large raster images whose labels may need vision.
+# glyph noise, OCR/text layers over full-page scans, and large raster
+# images whose labels may need vision.
 # Pages also expose vectorCount for form boxes, chart paths, and shapes.
 pdfvision document.pdf --layout --image-boxes -f json
 

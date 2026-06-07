@@ -51,6 +51,7 @@ Options
       --image-boxes       Emit \`pages[].imageBoxes\` — bounding box of every raster image
                           draw on the page. Enables large-raster warnings with --layout or
                           --geometry. Only -f json / -f xml / -f toon.
+                          Full-page scan/OCR-layer warnings can appear even without this flag.
       --strip-repeated    Drop running headers / footers / page numbers (blocks the layout
                           pass tagged as \`repeated\`) from the rendered Markdown body so
                           LLM readers don't have to wade through the same footer N times.

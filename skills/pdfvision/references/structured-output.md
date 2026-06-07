@@ -200,6 +200,7 @@ interface PageWarning {
     | 'body_near_repeated_chrome'
     | 'off_page'
     | 'localized_glyph_noise'
+    | 'raster_backed_text_layer'
     | 'large_raster_low_text_overlap';
   severity: 'warning' | 'error';
   message: string;
@@ -209,7 +210,7 @@ interface PageWarning {
 }
 ```
 
-`pages[].warnings[]` is omitted when no rule fired. Geometry warnings require `--layout` because they pin to layout blocks. Image-region warnings require `--image-boxes` plus `--layout` or `--geometry` because they compare image boxes against native text bboxes and pin to `imageBoxes[imageBoxIndex]`. `localized_glyph_noise` uses the always-on non-printable counters and can appear without layout.
+`pages[].warnings[]` is omitted when no rule fired. Geometry warnings require `--layout` because they pin to layout blocks. Image-region warnings require `--image-boxes` plus `--layout` or `--geometry` because they compare image boxes against native text bboxes and pin to `imageBoxes[imageBoxIndex]`. `localized_glyph_noise` uses the always-on non-printable counters and can appear without layout. `raster_backed_text_layer` uses pdfvision's internal image-box pass and can appear even when `--image-boxes` was not requested.
 
 The current rule catalog:
 
@@ -218,6 +219,7 @@ The current rule catalog:
 - `body_near_repeated_chrome` — body text overlaps or nearly touches detected repeated header/footer chrome.
 - `off_page` — a layout block bbox extends beyond the page.
 - `localized_glyph_noise` — several non-printable code points appear below the mixed-glyph threshold; often broken bullets or icon-font symbols.
+- `raster_backed_text_layer` — native text appears to be an OCR/text layer over a full-page raster image; text may be useful, but bbox/layout geometry can drift from the pixels a human sees.
 - `large_raster_low_text_overlap` — bbox-enabled extraction found a large raster image with little overlapping native text, so labels, chart text, map text, or screenshot text inside it will not appear in native text.
 
 Same observational posture as `quality`: pdfvision tells the agent what it saw; the agent decides whether to surface, re-OCR, or zoom in via `--render-region`.

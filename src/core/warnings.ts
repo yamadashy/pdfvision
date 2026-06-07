@@ -38,6 +38,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
   const warnings: PageWarning[] = [];
 
   detectLocalizedGlyphNoise(page, warnings);
+  detectRasterBackedTextLayer(page, context, warnings);
   detectLargeRasterLowTextOverlap(page, warnings);
 
   if (!page.layout || page.layout.blocks.length === 0 || context.rasterBackedTextLayer) {
@@ -94,6 +95,15 @@ function detectLocalizedGlyphNoise(page: PageResult, out: PageWarning[]): void {
     code: 'localized_glyph_noise',
     severity: 'warning',
     message: `native text contains ${page.nonPrintableCount} non-printable code points below the glyph-garbage ratio threshold — likely localized glyph noise such as bullets or symbols; inspect the render if exact text matters`,
+  });
+}
+
+function detectRasterBackedTextLayer(page: PageResult, context: PageWarningContext, out: PageWarning[]): void {
+  if (!context.rasterBackedTextLayer) return;
+  out.push({
+    code: 'raster_backed_text_layer',
+    severity: 'warning',
+    message: `native text appears to be an OCR/text layer over a full-page raster image (textCoverage ${(page.textCoverage * 100).toFixed(1)}%, imageCount ${page.imageCount}) — text may be usable, but bboxes and layout can drift from the pixels a human sees`,
   });
 }
 
