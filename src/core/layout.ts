@@ -82,6 +82,8 @@ const FONT_SIZE_FALLBACK_PT = 12;
  *  much wider than a word gap, but well below the old 5× font-size rule. */
 const LAYOUT_SEGMENT_GAP_RATIO = 1.5;
 const LAYOUT_SEGMENT_MIN_GAP_PT = 16;
+const LINE_TOP_ALIGNMENT_RATIO = 0.5;
+const LINE_VERTICAL_OVERLAP_RATIO = 0.35;
 /** VERTICAL_SPAN_ASPECT_RATIO and VERTICAL_SPAN_MIN_FONT_MULTIPLIER
  *  were tuned against tall side labels and version annotations in sample
  *  PDFs. The ratio admits narrow vertical runs, while the font-size
@@ -128,6 +130,14 @@ function hasVerticalTextShape(span: TextSpan): boolean {
 
 function canShareLine(a: TextSpan, b: TextSpan): boolean {
   return hasVerticalTextShape(a) === hasVerticalTextShape(b);
+}
+
+function canShareTextLine(a: TextSpan, b: TextSpan): boolean {
+  if (!canShareLine(a, b)) return false;
+  const minHeight = Math.max(Math.min(a.height, b.height), 1);
+  if (Math.abs(a.y - b.y) < minHeight * LINE_TOP_ALIGNMENT_RATIO) return true;
+  const overlap = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+  return overlap >= minHeight * LINE_VERTICAL_OVERLAP_RATIO;
 }
 
 /** Min non-whitespace chars at the body font size required before low-tier
@@ -585,8 +595,7 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0): PageLayout {
   const lineGroups: TextSpan[][] = [];
   for (const s of sorted) {
     const last = lineGroups[lineGroups.length - 1];
-    const tolerance = Math.max(s.height, 1) * 0.5;
-    if (last && canShareLine(s, last[0]) && Math.abs(s.y - last[0].y) < tolerance) {
+    if (last && canShareTextLine(s, last[0])) {
       last.push(s);
     } else {
       lineGroups.push([s]);

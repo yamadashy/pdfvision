@@ -530,6 +530,21 @@ describe('buildLayout — multi-column reading order', () => {
     expect(layout.blocks[0].lines[0].text).toBe('序文 第一条');
   });
 
+  it('splits large numeric callouts from small annotation lines while keeping the unit', () => {
+    // Japanese infographic-shaped case: a small "75%" annotation sits
+    // above a large "9,308万枚" KPI. The large number's tall bbox used
+    // to pull the KPI into the annotation line.
+    const spans: TextSpan[] = [
+      span('国⺠の', 91.92, 218.48, 10.02, 30.06),
+      span('75%', 121.98, 218.48, 10.02, 20.81),
+      span('9,308', 91.92, 238.46, 54.02, 139.46),
+      span('万枚', 231.43, 264.46, 28.02, 56.1),
+    ];
+    const layout = buildLayout(spans);
+    const lines = layout.blocks.flatMap((block) => block.lines.map((line) => line.text));
+    expect(lines).toEqual(['国⺠の75%', '9,308万枚']);
+  });
+
   it('does not fragment text when spans report fontSize 0 (broken PDF guard)', () => {
     // Some malformed PDFs strip the text matrix scale, leaving fontSize=0
     // on every span. Without a fallback the threshold collapses to 0 and
