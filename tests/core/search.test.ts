@@ -472,6 +472,72 @@ describe('processDocument search', () => {
     });
   });
 
+  it('does not insert OCR search spaces between CJK word boxes', async () => {
+    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const compiled = compileSearch('東京大学', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const matches = searchPage(
+      undefined,
+      {
+        text: '東京大学',
+        confidence: 0.92,
+        lang: 'jpn',
+        words: [
+          { text: '東京', confidence: 0.9, x: 10, y: 20, width: 30, height: 12 },
+          { text: '大学', confidence: 0.9, x: 42, y: 20, width: 30, height: 12 },
+        ],
+      },
+      1,
+      612,
+      792,
+      compiled,
+    );
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      page: 1,
+      query: '東京大学',
+      bbox: { x: 10, y: 20, width: 62, height: 12 },
+      boxes: [
+        { x: 10, y: 20, width: 30, height: 12 },
+        { x: 42, y: 20, width: 30, height: 12 },
+      ],
+      text: '東京大学',
+      source: 'ocr',
+    });
+  });
+
+  it('falls back to OCR text when word-level reconstruction misses the query', async () => {
+    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const compiled = compileSearch('HelloWorld', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const matches = searchPage(
+      undefined,
+      {
+        text: 'HelloWorld',
+        confidence: 0.92,
+        lang: 'eng',
+        words: [
+          { text: 'Hello', confidence: 0.9, x: 10, y: 20, width: 30, height: 12 },
+          { text: 'World', confidence: 0.9, x: 45, y: 20, width: 35, height: 12 },
+        ],
+      },
+      1,
+      612,
+      792,
+      compiled,
+    );
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      page: 1,
+      query: 'HelloWorld',
+      bbox: { x: 0, y: 0, width: 612, height: 792 },
+      boxes: [],
+      text: 'HelloWorld',
+      source: 'ocr',
+      context: 'HelloWorld',
+    });
+  });
+
   it('suppresses OCR duplicates when native and OCR search passes run separately', async () => {
     // processDocument searches native spans before OCR exists, then
     // searches OCR text later. Keep the separate-pass path equivalent

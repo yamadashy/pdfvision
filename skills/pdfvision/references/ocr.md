@@ -64,7 +64,7 @@ interface OcrWord {
 }
 ```
 
-`pages[].text` (pdfjs-derived) is **never overwritten** by OCR — both signals coexist on the same page object so the agent can diff and decide. A scanned PDF typically shows empty `text` with populated `ocr.text`; a mixed-content PDF shows native text in `text` and an alternative OCR-derived reading in `ocr.text` (useful sanity check for ambiguous glyphs). `ocr.words[]` is optional because tesseract may occasionally omit layout blocks, but when present it lets `--search` return OCR word-level bboxes instead of a page-level fallback.
+`pages[].text` (pdfjs-derived) is **never overwritten** by OCR — both signals coexist on the same page object so the agent can diff and decide. A scanned PDF typically shows empty `text` with populated `ocr.text`; a mixed-content PDF shows native text in `text` and an alternative OCR-derived reading in `ocr.text` (useful sanity check for ambiguous glyphs). `ocr.words[]` is optional because tesseract may occasionally omit layout blocks, but when present it lets `--search` return OCR word-level bboxes. If word-level reconstruction misses a query that exists in full `ocr.text` (for example OCR line-boundary or spacing differences), search falls back to `ocr.text` with a page-level bbox instead of dropping the hit.
 
 In XML output, OCR without word boxes surfaces as `<ocr lang="..." confidence="...">...</ocr>`. When word boxes are present, the OCR element contains `<text>` and `<words><word .../></words>` children. Self-closing `<ocr lang="..." confidence="0"/>` means OCR ran and produced no text — distinct from the tag being absent (OCR wasn't requested).
 

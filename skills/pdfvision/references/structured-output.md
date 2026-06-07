@@ -420,7 +420,7 @@ interface OcrWord {
 }
 ```
 
-`lang` echoes the caller's `--ocr-lang` after whitespace normalization but preserves token order. `eng+jpn` and `jpn+eng` produce different recognisers (tesseract treats the first language as primary) and therefore land in different cache slots and different `lang` echoes. `words[]` is optional because older cache entries or unusual tesseract output can lack block/line/word layout; when present, search can return OCR word-level bboxes instead of a page-level fallback.
+`lang` echoes the caller's `--ocr-lang` after whitespace normalization but preserves token order. `eng+jpn` and `jpn+eng` produce different recognisers (tesseract treats the first language as primary) and therefore land in different cache slots and different `lang` echoes. `words[]` is optional because older cache entries or unusual tesseract output can lack block/line/word layout; when present, search can return OCR word-level bboxes. If word-level reconstruction misses a query that exists in full `ocr.text` (for example OCR line-boundary or spacing differences), search falls back to `ocr.text` with a page-level bbox.
 
 ## Coordinate system
 
@@ -515,7 +515,7 @@ pdfvision doc.pdf -p <m.page> --render --render-region <m.bbox.x>,<m.bbox.y>,<m.
 - **Regex queries are NOT normalized** — NFKC can turn compatibility punctuation into regex metacharacters (silent overmatch or syntax break). Regex users get the literal codepoints they typed against the normalized document text and own the asymmetry.
 - **Multi-query** via repeating `--search` (or `search: string[]` in library). Each match carries `queryIndex` so the agent can demultiplex which query produced it.
 - **Native text is searched at reconstructed line level**. A query can cross pdf.js span / font-run boundaries on the same line (e.g. `"Hello World"` split into `Hello` + `World`) and returns a union `bbox` plus per-span `boxes[]`. Multi-line phrase stitching is intentionally not modelled yet because the resulting region is usually too broad for visual zoom.
-- **OCR text is searched too when `--ocr` is on**. OCR-derived matches come back with `source: 'ocr'`; when `ocr.words[]` is present, `bbox`/`boxes[]` use OCR word geometry in the same page-point coordinate system as native spans, otherwise pdfvision falls back to a page-level bbox. If native text already produced the same query/text hit on that page, the duplicate OCR hit is suppressed so the precise native bbox wins; OCR-only extra hits are still emitted.
+- **OCR text is searched too when `--ocr` is on**. OCR-derived matches come back with `source: 'ocr'`; when `ocr.words[]` is present, `bbox`/`boxes[]` use OCR word geometry in the same page-point coordinate system as native spans. If word-level reconstruction misses the query, pdfvision falls back to full `ocr.text` with a page-level bbox so no-space scripts and OCR line-boundary differences still remain searchable. If native text already produced the same query/text hit on that page, the duplicate OCR hit is suppressed so the precise native bbox wins; OCR-only extra hits are still emitted.
 
 `pages[].matches` is **present-with-`[]`** when `--search` ran but the page had no hits — distinct from the field being absent entirely (search wasn't requested). The same posture extends to the overview, which gains a `matchCount` mirror field with the same present-with-`0` semantics.
 

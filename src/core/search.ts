@@ -275,16 +275,23 @@ function buildOcrSearchLines(words: readonly OcrWord[] | undefined, normalize: b
     const xSorted = [...group].sort((a, b) => a.x - b.x);
     let text = '';
     const owners: (SearchOwner | undefined)[] = [];
+    let previousWordText = '';
     for (const word of xSorted) {
       const wordText = normalize ? nfkc(word.text) : word.text;
       if (wordText.length === 0) continue;
       const owner = wordText === word.text ? word : { ...word, text: wordText };
-      if (text.length > 0 && !/\s$/.test(text) && !/^\s/.test(wordText)) {
+      if (
+        text.length > 0 &&
+        !/\s$/.test(text) &&
+        !/^\s/.test(wordText) &&
+        !(isCjkLeading(previousWordText) && isCjkLeading(wordText))
+      ) {
         text += ' ';
         owners.push(undefined);
       }
       text += wordText;
       for (let i = 0; i < wordText.length; i++) owners.push(owner);
+      previousWordText = wordText;
     }
     if (text.length > 0) lines.push({ text, owners });
   }
@@ -452,48 +459,53 @@ export function searchPage(
   // to the post-trim OCR text with a page-level bbox for older cache
   // entries or tesseract runs that did not return layout blocks.
   if (ocr?.text) {
-    const ocrLines = buildOcrSearchLines(ocr.words, compiled.normalize);
-    const ocrSearchLines =
-      ocrLines.length > 0 ? ocrLines : [{ text: compiled.normalize ? nfkc(ocr.text) : ocr.text, owners: [] }];
+    const ocrWordLines = buildOcrSearchLines(ocr.words, compiled.normalize);
+    const ocrTextLine: SearchLine = { text: compiled.normalize ? nfkc(ocr.text) : ocr.text, owners: [] };
     const pageBox = { x: 0, y: 0, width: round2(pageWidth), height: round2(pageHeight) };
     for (const m of compiled.matchers) {
       let count = 0;
       let capped = false;
-      for (const line of ocrSearchLines) {
-        const ocrHaystack = line.text;
-        m.regex.lastIndex = 0;
-        while (true) {
-          const hit = m.regex.exec(ocrHaystack);
-          if (hit === null) break;
-          if (hit[0].length === 0) {
-            m.regex.lastIndex++;
-            continue;
+      const searchLines = (lines: readonly SearchLine[]) => {
+        for (const line of lines) {
+          const ocrHaystack = line.text;
+          m.regex.lastIndex = 0;
+          while (true) {
+            const hit = m.regex.exec(ocrHaystack);
+            if (hit === null) break;
+            if (hit[0].length === 0) {
+              m.regex.lastIndex++;
+              continue;
+            }
+            // Surface a short context around the hit so the consumer can
+            // pick out which OCR'd paragraph it sits in even without bbox
+            // precision. ±60 chars matches a single line of typical text;
+            // larger windows clutter JSON output.
+            const start = Math.max(0, hit.index - 60);
+            const end = Math.min(ocrHaystack.length, hit.index + hit[0].length + 60);
+            const context = ocrHaystack.slice(start, end).replace(/\s+/g, ' ').trim();
+            const hitBoxes = contributingBoxes(line, hit.index, hit.index + hit[0].length);
+            ocrMatches.push({
+              page: pageNum,
+              query: m.query,
+              ...(m.queryIndex !== undefined && { queryIndex: m.queryIndex }),
+              bbox: hitBoxes.length > 0 ? unionBoxes(hitBoxes) : pageBox,
+              boxes: hitBoxes,
+              text: hit[0],
+              source: 'ocr',
+              context,
+            });
+            count++;
+            if (count >= MAX_MATCHES_PER_QUERY_PER_PAGE) {
+              capped = true;
+              break;
+            }
           }
-          // Surface a short context around the hit so the consumer can
-          // pick out which OCR'd paragraph it sits in even without bbox
-          // precision. ±60 chars matches a single line of typical text;
-          // larger windows clutter JSON output.
-          const start = Math.max(0, hit.index - 60);
-          const end = Math.min(ocrHaystack.length, hit.index + hit[0].length + 60);
-          const context = ocrHaystack.slice(start, end).replace(/\s+/g, ' ').trim();
-          const hitBoxes = contributingBoxes(line, hit.index, hit.index + hit[0].length);
-          ocrMatches.push({
-            page: pageNum,
-            query: m.query,
-            ...(m.queryIndex !== undefined && { queryIndex: m.queryIndex }),
-            bbox: hitBoxes.length > 0 ? unionBoxes(hitBoxes) : pageBox,
-            boxes: hitBoxes,
-            text: hit[0],
-            source: 'ocr',
-            context,
-          });
-          count++;
-          if (count >= MAX_MATCHES_PER_QUERY_PER_PAGE) {
-            capped = true;
-            break;
-          }
+          if (capped) break;
         }
-        if (capped) break;
+      };
+      searchLines(ocrWordLines);
+      if (!capped && count === 0) {
+        searchLines([ocrTextLine]);
       }
       if (capped) {
         onWarning?.(

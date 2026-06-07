@@ -111,7 +111,9 @@ export interface ProcessDocumentOptions {
    * and the public `pages[].layout` still requires `layout`. OCR text
    * is also searched when {@link ocr} is on — those matches come back
    * with `source: 'ocr'` and use OCR word boxes when available, with a
-   * page-level bbox fallback for OCR output that lacks word layout.
+   * page-level bbox fallback when OCR output lacks word layout or
+   * word-level reconstruction misses a query that exists in full
+   * `ocr.text`.
    */
   search?: string | string[];
   /** Treat each {@link search} query as a JavaScript regular expression
@@ -1100,7 +1102,8 @@ export interface SearchMatch {
   text: string;
   /** Where the match came from. `'native'` = pdf.js text stream
    *  (precise bbox via spans). `'ocr'` = `pages[].ocr.text` (word-level bbox
-   *  when `pages[].ocr.words` exists, otherwise page-level fallback). */
+   *  when `pages[].ocr.words` exists and matches, otherwise page-level
+   *  fallback). */
   source: 'native' | 'ocr';
   /** Optional surrounding-line text (typically ±N characters from the
    *  match) for human / LLM readability. Trimmed and de-newlined. */
