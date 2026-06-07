@@ -40,6 +40,7 @@ export type {
   LayoutTable,
   LayoutTableCell,
   LayoutTableRow,
+  OcrWord,
   OutputFormat,
   PageAnnotation,
   PageAnnotationBox,

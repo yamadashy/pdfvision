@@ -398,9 +398,8 @@ describe('processDocument search', () => {
 
   it('suppresses OCR search duplicates already covered by precise native matches', async () => {
     // Scan-with-hidden-text-layer case: --ocr can find the same word as
-    // the native text layer, but OCR currently has only page-level bbox.
-    // Emitting both makes find-then-zoom ambiguous, so the precise
-    // native match wins.
+    // the native text layer. Emitting both makes find-then-zoom
+    // ambiguous, so the precise native match wins.
     const { compileSearch, searchPage } = await import('../../src/core/search.js');
     const compiled = compileSearch('Switzerland', {});
     if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
@@ -420,7 +419,8 @@ describe('processDocument search', () => {
   it('keeps OCR-only extra search hits after native duplicate suppression', async () => {
     // Suppression is counted, not all-or-nothing. If OCR sees another
     // occurrence that the native layer did not expose, keep it for
-    // recall even though the bbox is page-level.
+    // recall. Older OCR cache entries without word boxes still fall
+    // back to a page-level bbox.
     const { compileSearch, searchPage } = await import('../../src/core/search.js');
     const compiled = compileSearch('Switzerland', {});
     if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
@@ -435,6 +435,41 @@ describe('processDocument search', () => {
     expect(matches).toHaveLength(2);
     expect(matches.map((m) => m.source)).toEqual(['native', 'ocr']);
     expect(matches[1].bbox).toEqual({ x: 0, y: 0, width: 612, height: 792 });
+  });
+
+  it('uses OCR word boxes for OCR-only search hits when available', async () => {
+    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const compiled = compileSearch('near Geneva', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const matches = searchPage(
+      undefined,
+      {
+        text: 'Switzerland near Geneva.',
+        confidence: 0.92,
+        lang: 'eng',
+        words: [
+          { text: 'Switzerland', confidence: 0.9, x: 10, y: 20, width: 60, height: 12 },
+          { text: 'near', confidence: 0.9, x: 80, y: 20, width: 24, height: 12 },
+          { text: 'Geneva.', confidence: 0.9, x: 112, y: 20, width: 42, height: 12 },
+        ],
+      },
+      1,
+      612,
+      792,
+      compiled,
+    );
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      page: 1,
+      query: 'near Geneva',
+      bbox: { x: 80, y: 20, width: 68, height: 12 },
+      boxes: [
+        { x: 80, y: 20, width: 24, height: 12 },
+        { x: 112, y: 20, width: 36, height: 12 },
+      ],
+      text: 'near Geneva',
+      source: 'ocr',
+    });
   });
 
   it('suppresses OCR duplicates when native and OCR search passes run separately', async () => {

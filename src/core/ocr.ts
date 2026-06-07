@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
-import type { PageOcr } from '../types/index.js';
+import type { OcrWord, PageOcr } from '../types/index.js';
 import { ensurePrivateDir, getCacheRoot } from './cache.js';
 import { type RenderRegion, renderPageToBuffer } from './renderer.js';
 
@@ -13,12 +13,98 @@ import { type RenderRegion, renderPageToBuffer } from './renderer.js';
  * page throws.
  */
 export interface OcrSession {
-  recognize(png: Buffer): Promise<{ text: string; confidence: number }>;
+  recognize(png: Buffer, transform: OcrWordTransform): Promise<{ text: string; confidence: number; words?: OcrWord[] }>;
   terminate(): Promise<void>;
 }
 
 /** Lower bound of "this looks like a usable lang code" — letters only, 1+ chars. */
 const LANG_TOKEN = /^[A-Za-z_]+$/;
+const DEFAULT_RENDER_SCALE = 2;
+
+interface OcrWordTransform {
+  scale: number;
+  region?: RenderRegion;
+}
+
+interface RawOcrBbox {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+interface RawOcrWord {
+  text?: unknown;
+  confidence?: unknown;
+  bbox?: RawOcrBbox;
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+function round3(n: number): number {
+  return Math.round(n * 1000) / 1000;
+}
+
+function normaliseConfidence(value: unknown): number {
+  const raw = typeof value === 'number' ? value : 0;
+  return round3(Math.max(0, Math.min(1, raw / 100)));
+}
+
+function isUsableRawBbox(bbox: RawOcrBbox | undefined): bbox is RawOcrBbox {
+  return (
+    bbox !== undefined &&
+    Number.isFinite(bbox.x0) &&
+    Number.isFinite(bbox.y0) &&
+    Number.isFinite(bbox.x1) &&
+    Number.isFinite(bbox.y1) &&
+    bbox.x1 > bbox.x0 &&
+    bbox.y1 > bbox.y0
+  );
+}
+
+function arrayProperty(value: unknown, key: string): unknown[] {
+  if (typeof value !== 'object' || value === null) return [];
+  const property = (value as Record<string, unknown>)[key];
+  return Array.isArray(property) ? property : [];
+}
+
+function collectRawWords(page: { blocks?: unknown }): RawOcrWord[] {
+  const out: RawOcrWord[] = [];
+  const blocks = arrayProperty(page, 'blocks');
+  for (const block of blocks) {
+    const paragraphs = arrayProperty(block, 'paragraphs');
+    for (const paragraph of paragraphs) {
+      const lines = arrayProperty(paragraph, 'lines');
+      for (const line of lines) {
+        const words = arrayProperty(line, 'words');
+        for (const word of words) out.push(word as RawOcrWord);
+      }
+    }
+  }
+  return out;
+}
+
+function transformOcrWords(page: { blocks?: unknown }, transform: OcrWordTransform): OcrWord[] {
+  const offsetX = transform.region?.x ?? 0;
+  const offsetY = transform.region?.y ?? 0;
+  const scale = transform.scale > 0 ? transform.scale : DEFAULT_RENDER_SCALE;
+  const words: OcrWord[] = [];
+  for (const raw of collectRawWords(page)) {
+    const text = typeof raw.text === 'string' ? raw.text.trim() : '';
+    if (text.length === 0 || !isUsableRawBbox(raw.bbox)) continue;
+    words.push({
+      text,
+      confidence: normaliseConfidence(raw.confidence),
+      x: round2(offsetX + raw.bbox.x0 / scale),
+      y: round2(offsetY + raw.bbox.y0 / scale),
+      width: round2((raw.bbox.x1 - raw.bbox.x0) / scale),
+      height: round2((raw.bbox.y1 - raw.bbox.y0) / scale),
+    });
+  }
+  return words;
+}
 
 /**
  * Parse a tesseract-style language string ("eng" / "eng+jpn" / "jpn+chi_sim")
@@ -90,14 +176,15 @@ export async function createOcrSession(lang: string): Promise<OcrSession> {
   });
 
   return {
-    async recognize(png: Buffer) {
-      const { data } = await worker.recognize(png);
+    async recognize(png: Buffer, transform: OcrWordTransform) {
+      const { data } = await worker.recognize(png, {}, { text: true, blocks: true });
       // tesseract reports confidence as 0..100; normalise to 0..1 so it
       // matches the existing `textCoverage` convention. Round to 3dp.
-      const conf = typeof data?.confidence === 'number' ? data.confidence / 100 : 0;
+      const words = transformOcrWords(data ?? {}, transform);
       return {
         text: typeof data?.text === 'string' ? data.text.trim() : '',
-        confidence: Math.round(Math.max(0, Math.min(1, conf)) * 1000) / 1000,
+        confidence: normaliseConfidence(data?.confidence),
+        ...(words.length > 0 && { words }),
       };
     },
     async terminate() {
@@ -154,8 +241,13 @@ export async function attachOcr(
         png = rasterised.buffer;
         contentRatio = rasterised.contentRatio;
       }
-      const result = await session.recognize(png);
-      pages[i].ocr = { text: result.text, confidence: result.confidence, lang: normalisedLang };
+      const result = await session.recognize(png, { scale: scale ?? DEFAULT_RENDER_SCALE, region });
+      pages[i].ocr = {
+        text: result.text,
+        confidence: result.confidence,
+        lang: normalisedLang,
+        ...(result.words !== undefined && { words: result.words }),
+      };
       // `--render` may have already populated this from its own raster;
       // don't clobber that. When both flags are on the values match
       // anyway (same scale, same pdfjs raster), but skipping the

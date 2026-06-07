@@ -110,8 +110,8 @@ export interface ProcessDocumentOptions {
    * available; the public `pages[].spans` still requires `geometry`,
    * and the public `pages[].layout` still requires `layout`. OCR text
    * is also searched when {@link ocr} is on — those matches come back
-   * with `source: 'ocr'` and a page-level bbox (V1 limitation: no
-   * per-word OCR bbox yet).
+   * with `source: 'ocr'` and use OCR word boxes when available, with a
+   * page-level bbox fallback for OCR output that lacks word layout.
    */
   search?: string | string[];
   /** Treat each {@link search} query as a JavaScript regular expression
@@ -375,6 +375,20 @@ export interface PageOcr {
   confidence: number;
   /** Language string passed in (e.g. `eng`, `eng+jpn`), echoed verbatim. */
   lang: string;
+  /**
+   * OCR word boxes in page coordinates, present when tesseract.js returns
+   * block/line/word layout. Useful for precise search hits on scanned pages.
+   */
+  words?: OcrWord[];
+}
+
+export interface OcrWord {
+  text: string;
+  confidence: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 /**
@@ -1083,8 +1097,8 @@ export interface SearchMatch {
    *  bbox offsets — V1 doesn't dual-emit per match. */
   text: string;
   /** Where the match came from. `'native'` = pdf.js text stream
-   *  (precise bbox via spans). `'ocr'` = `pages[].ocr.text` (page-level
-   *  bbox — V1 limitation, no per-word OCR bbox yet). */
+   *  (precise bbox via spans). `'ocr'` = `pages[].ocr.text` (word-level bbox
+   *  when `pages[].ocr.words` exists, otherwise page-level fallback). */
   source: 'native' | 'ocr';
   /** Optional surrounding-line text (typically ±N characters from the
    *  match) for human / LLM readability. Trimmed and de-newlined. */

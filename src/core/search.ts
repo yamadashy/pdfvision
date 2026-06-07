@@ -1,4 +1,4 @@
-import type { PageOcr, SearchMatch, TextSpan } from '../types/index.js';
+import type { OcrWord, PageOcr, SearchMatch, TextSpan } from '../types/index.js';
 import { CJK_TIGHT_GAP_RATIO, isCjkLeading } from './cjkJoin.js';
 import { shouldInsertSemanticSpace } from './spacing.js';
 
@@ -135,7 +135,7 @@ const SEARCH_SEGMENT_MIN_GAP_PT = 14;
 
 interface SearchLine {
   text: string;
-  owners: (TextSpan | undefined)[];
+  owners: (SearchOwner | undefined)[];
 }
 
 interface Box {
@@ -143,6 +143,10 @@ interface Box {
   y: number;
   width: number;
   height: number;
+}
+
+interface SearchOwner extends Box {
+  text: string;
 }
 
 function duplicateKey(queryIndex: number | undefined, query: string, text: string, ignoreCase: boolean): string {
@@ -217,7 +221,7 @@ function buildSearchLines(spans: readonly TextSpan[] | undefined): SearchLine[] 
   for (const group of groups) {
     const xSorted = [...group].sort((a, b) => a.x - b.x);
     let text = '';
-    const owners: (TextSpan | undefined)[] = [];
+    const owners: (SearchOwner | undefined)[] = [];
     const pushLine = (): void => {
       if (text.length === 0) return;
       lines.push({ text, owners: [...owners] });
@@ -248,6 +252,41 @@ function buildSearchLines(spans: readonly TextSpan[] | undefined): SearchLine[] 
       for (let j = 0; j < span.text.length; j++) owners.push(span);
     }
     pushLine();
+  }
+  return lines;
+}
+
+function buildOcrSearchLines(words: readonly OcrWord[] | undefined, normalize: boolean): SearchLine[] {
+  if (!words || words.length === 0) return [];
+  const sorted = [...words].sort((a, b) => a.y - b.y || a.x - b.x);
+  const groups: OcrWord[][] = [];
+  for (const word of sorted) {
+    const last = groups[groups.length - 1];
+    const tolerance = Math.max(word.height, 1) * 0.75;
+    if (last && Math.abs(word.y - last[0].y) < tolerance) {
+      last.push(word);
+    } else {
+      groups.push([word]);
+    }
+  }
+
+  const lines: SearchLine[] = [];
+  for (const group of groups) {
+    const xSorted = [...group].sort((a, b) => a.x - b.x);
+    let text = '';
+    const owners: (SearchOwner | undefined)[] = [];
+    for (const word of xSorted) {
+      const wordText = normalize ? nfkc(word.text) : word.text;
+      if (wordText.length === 0) continue;
+      const owner = wordText === word.text ? word : { ...word, text: wordText };
+      if (text.length > 0 && !/\s$/.test(text) && !/^\s/.test(wordText)) {
+        text += ' ';
+        owners.push(undefined);
+      }
+      text += wordText;
+      for (let i = 0; i < wordText.length; i++) owners.push(owner);
+    }
+    if (text.length > 0) lines.push({ text, owners });
   }
   return lines;
 }
@@ -296,14 +335,14 @@ function contributingBoxes(line: SearchLine, start: number, end: number): Box[] 
   return out;
 }
 
-function firstOwnerIndex(line: SearchLine, span: TextSpan): number {
+function firstOwnerIndex(line: SearchLine, span: SearchOwner): number {
   for (let i = 0; i < line.owners.length; i++) {
     if (line.owners[i] === span) return i;
   }
   return -1;
 }
 
-function sliceSpanBox(span: TextSpan, start: number, end: number): Box {
+function sliceSpanBox(span: SearchOwner, start: number, end: number): Box {
   const textLength = span.text.length;
   const clampedStart = Math.max(0, Math.min(textLength, start));
   const clampedEnd = Math.max(clampedStart, Math.min(textLength, end));
@@ -332,10 +371,9 @@ function sliceSpanBox(span: TextSpan, start: number, end: number): Box {
  * are intentionally not stitched together yet; returning one giant
  * cross-line region is usually too imprecise for renderRegion zoom.
  *
- * OCR matches don't carry per-word bbox today (tesseract.js exposes
- * `data.words[]` but we don't currently plumb that through), so OCR
- * matches come back with a page-level bbox. Marked `source: 'ocr'`
- * so the consumer can tell them apart from precise native matches.
+ * OCR matches use `pages[].ocr.words[]` when present and fall back to a
+ * page-level bbox otherwise. Marked `source: 'ocr'` so the consumer can
+ * tell them apart from native text-stream matches.
  */
 export function searchPage(
   spans: readonly TextSpan[] | undefined,
@@ -410,44 +448,52 @@ export function searchPage(
     }
   }
 
-  // OCR pass — runs against the post-trim OCR text. Page-level bbox
-  // because we don't have per-word OCR bbox plumbed yet.
+  // OCR pass — prefer word-level OCR geometry when available. Fall back
+  // to the post-trim OCR text with a page-level bbox for older cache
+  // entries or tesseract runs that did not return layout blocks.
   if (ocr?.text) {
-    const ocrHaystack = compiled.normalize ? nfkc(ocr.text) : ocr.text;
+    const ocrLines = buildOcrSearchLines(ocr.words, compiled.normalize);
+    const ocrSearchLines =
+      ocrLines.length > 0 ? ocrLines : [{ text: compiled.normalize ? nfkc(ocr.text) : ocr.text, owners: [] }];
     const pageBox = { x: 0, y: 0, width: round2(pageWidth), height: round2(pageHeight) };
     for (const m of compiled.matchers) {
-      m.regex.lastIndex = 0;
       let count = 0;
       let capped = false;
-      while (true) {
-        const hit = m.regex.exec(ocrHaystack);
-        if (hit === null) break;
-        if (hit[0].length === 0) {
-          m.regex.lastIndex++;
-          continue;
+      for (const line of ocrSearchLines) {
+        const ocrHaystack = line.text;
+        m.regex.lastIndex = 0;
+        while (true) {
+          const hit = m.regex.exec(ocrHaystack);
+          if (hit === null) break;
+          if (hit[0].length === 0) {
+            m.regex.lastIndex++;
+            continue;
+          }
+          // Surface a short context around the hit so the consumer can
+          // pick out which OCR'd paragraph it sits in even without bbox
+          // precision. ±60 chars matches a single line of typical text;
+          // larger windows clutter JSON output.
+          const start = Math.max(0, hit.index - 60);
+          const end = Math.min(ocrHaystack.length, hit.index + hit[0].length + 60);
+          const context = ocrHaystack.slice(start, end).replace(/\s+/g, ' ').trim();
+          const hitBoxes = contributingBoxes(line, hit.index, hit.index + hit[0].length);
+          ocrMatches.push({
+            page: pageNum,
+            query: m.query,
+            ...(m.queryIndex !== undefined && { queryIndex: m.queryIndex }),
+            bbox: hitBoxes.length > 0 ? unionBoxes(hitBoxes) : pageBox,
+            boxes: hitBoxes,
+            text: hit[0],
+            source: 'ocr',
+            context,
+          });
+          count++;
+          if (count >= MAX_MATCHES_PER_QUERY_PER_PAGE) {
+            capped = true;
+            break;
+          }
         }
-        // Surface a short context around the hit so the consumer can
-        // pick out which OCR'd paragraph it sits in even without bbox
-        // precision. ±60 chars matches a single line of typical text;
-        // larger windows clutter JSON output.
-        const start = Math.max(0, hit.index - 60);
-        const end = Math.min(ocrHaystack.length, hit.index + hit[0].length + 60);
-        const context = ocrHaystack.slice(start, end).replace(/\s+/g, ' ').trim();
-        ocrMatches.push({
-          page: pageNum,
-          query: m.query,
-          ...(m.queryIndex !== undefined && { queryIndex: m.queryIndex }),
-          bbox: pageBox,
-          boxes: [],
-          text: hit[0],
-          source: 'ocr',
-          context,
-        });
-        count++;
-        if (count >= MAX_MATCHES_PER_QUERY_PER_PAGE) {
-          capped = true;
-          break;
-        }
+        if (capped) break;
       }
       if (capped) {
         onWarning?.(

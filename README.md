@@ -31,7 +31,7 @@ Every page reports `charCount`, `imageCount`, `vectorCount`, `textCoverage`, and
 
 ### Look at the page, not just the text
 
-`--render` hands PNG paths straight to a vision model and `--ocr` attaches per-page OCR alongside the native text, so an agent can read a page visually when the text layer falls short.
+`--render` hands PNG paths straight to a vision model and `--ocr` attaches per-page OCR text plus word boxes alongside the native text, so an agent can read and locate scanned-page content when the text layer falls short.
 
 ### Preserve layout and visual structure
 
@@ -205,7 +205,7 @@ for (const page of result.pages) {
 
 `processFile()` returns the same string output the CLI prints (`markdown` / `json` / `xml` / `toon`).
 
-Exports: `processDocument`, `processFile`, `parsePageRange`, plus full type definitions for `DocumentResult` / `DocumentMetadata` / `DocumentAttachment` / `DocumentLayerGroup` / `DocumentLayerOrderItem` / `DocumentLayers` / `DocumentLayerUsage` / `DocumentOutlineItem` / `DocumentOutlineTargetType` / `PageResult` / `PageOverview` / `PageQuality` / `PageWarning` / `SearchMatch` / `LayoutBlock` / `LayoutLine` / `LayoutTable` / `LayoutTableRow` / `LayoutTableCell` / `PageLayout` / `ImageBox` / `PageLink` / `PageLinkType` / `PageAnnotation` / `PageAnnotationBox` / `PageStructureContent` / `PageStructureItem` / `PageStructureNode` / `VisualRegion` / `VisualRegionAssociatedText` / `VisualRegionAssociatedTextRelation` / `VisualRegionKind` / `VisualRegionSource` / `VisualRegionSourceType` / `FormField` / `FormFieldLabel` / `FormFieldLabelRelation` / `FormFieldType` / `PageOcr` / `RenderRegion` / `TextSpan` / `VectorBox` / `OutputFormat` / `ProcessDocumentOptions` / `ProcessOptions`.
+Exports: `processDocument`, `processFile`, `parsePageRange`, plus full type definitions for `DocumentResult` / `DocumentMetadata` / `DocumentAttachment` / `DocumentLayerGroup` / `DocumentLayerOrderItem` / `DocumentLayers` / `DocumentLayerUsage` / `DocumentOutlineItem` / `DocumentOutlineTargetType` / `PageResult` / `PageOverview` / `PageQuality` / `PageWarning` / `SearchMatch` / `LayoutBlock` / `LayoutLine` / `LayoutTable` / `LayoutTableRow` / `LayoutTableCell` / `PageLayout` / `ImageBox` / `PageLink` / `PageLinkType` / `PageAnnotation` / `PageAnnotationBox` / `PageStructureContent` / `PageStructureItem` / `PageStructureNode` / `VisualRegion` / `VisualRegionAssociatedText` / `VisualRegionAssociatedTextRelation` / `VisualRegionKind` / `VisualRegionSource` / `VisualRegionSourceType` / `FormField` / `FormFieldLabel` / `FormFieldLabelRelation` / `FormFieldType` / `PageOcr` / `OcrWord` / `RenderRegion` / `TextSpan` / `VectorBox` / `OutputFormat` / `ProcessDocumentOptions` / `ProcessOptions`.
 
 ## 💾 Caching
 

@@ -547,7 +547,20 @@ export function formatXml(result: DocumentResult): string {
     }
     if (page.ocr) {
       const ocrAttrs = `lang="${escapeAttr(page.ocr.lang)}" confidence="${page.ocr.confidence}"`;
-      if (page.ocr.text) {
+      if ((page.ocr.words?.length ?? 0) > 0) {
+        out.push(`<ocr ${ocrAttrs}>`);
+        if (page.ocr.text) {
+          out.push(`<text>\n${escapeText(page.ocr.text)}\n</text>`);
+        }
+        out.push('<words>');
+        for (const word of page.ocr.words ?? []) {
+          out.push(
+            `<word text="${escapeAttr(word.text)}" confidence="${word.confidence}" x="${word.x}" y="${word.y}" width="${word.width}" height="${word.height}"/>`,
+          );
+        }
+        out.push('</words>');
+        out.push('</ocr>');
+      } else if (page.ocr.text) {
         out.push(`<ocr ${ocrAttrs}>\n${escapeText(page.ocr.text)}\n</ocr>`);
       } else {
         // Self-closing keeps "OCR ran but found nothing" distinct from

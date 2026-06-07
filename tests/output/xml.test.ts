@@ -934,6 +934,30 @@ describe('formatXml', () => {
     expect(out).toMatch(/<ocr lang="eng\+jpn" confidence="0\.91">\nHello world\n<\/ocr>/);
   });
 
+  it('emits OCR word boxes when they are present', () => {
+    const out = formatXml(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: '',
+            charCount: 0,
+            ocr: {
+              text: 'Hello <world>',
+              confidence: 0.91,
+              lang: 'eng',
+              words: [{ text: 'Hello & world', confidence: 0.88, x: 10, y: 20, width: 80, height: 12 }],
+            },
+          }),
+        ],
+      }),
+    );
+    expect(out).toContain('<ocr lang="eng" confidence="0.91">');
+    expect(out).toContain('<text>\nHello &lt;world&gt;\n</text>');
+    expect(out).toContain('<words>');
+    expect(out).toContain('<word text="Hello &amp; world" confidence="0.88" x="10" y="20" width="80" height="12"/>');
+  });
+
   it('emits a self-closing <ocr/> when OCR ran but found no text', () => {
     // Mirrors the <imageBoxes/> empty-tag pattern: distinguishes "OCR ran
     // and produced nothing" from "OCR was not requested" (omits tag).

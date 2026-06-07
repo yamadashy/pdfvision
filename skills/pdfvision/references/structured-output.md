@@ -408,10 +408,17 @@ interface PageOcr {
   text: string;              // OCR-derived text, trimmed
   confidence: number;        // 0..1 (rounded to 3dp). Tesseract reports 0..100 internally; pdfvision normalises.
   lang: string;              // canonicalised lang spec — whitespace-trimmed, order preserved
+  words?: OcrWord[];         // OCR word boxes in page coordinates, when tesseract returns layout
+}
+
+interface OcrWord {
+  text: string;
+  confidence: number;        // 0..1 (rounded to 3dp)
+  x: number; y: number; width: number; height: number;
 }
 ```
 
-`lang` echoes the caller's `--ocr-lang` after whitespace normalization but preserves token order. `eng+jpn` and `jpn+eng` produce different recognisers (tesseract treats the first language as primary) and therefore land in different cache slots and different `lang` echoes.
+`lang` echoes the caller's `--ocr-lang` after whitespace normalization but preserves token order. `eng+jpn` and `jpn+eng` produce different recognisers (tesseract treats the first language as primary) and therefore land in different cache slots and different `lang` echoes. `words[]` is optional because older cache entries or unusual tesseract output can lack block/line/word layout; when present, search can return OCR word-level bboxes instead of a page-level fallback.
 
 ## Coordinate system
 
@@ -483,7 +490,7 @@ interface SearchMatch {
   bbox: { x, y, width, height }; // union bbox of contributing spans; feed straight into --render-region
   boxes: { x, y, width, height }[]; // per-span bboxes; phrase matches across spans carry multiple boxes
   text: string;                // matched substring in the same form as pages[].text (NFKC when normalize is on)
-  source: 'native' | 'ocr';    // native = precise span bbox; ocr = page-level bbox (V1 limit)
+  source: 'native' | 'ocr';    // native = span bbox; ocr = word bbox when available, page-level fallback otherwise
   context?: string;            // surrounding line text for human / LLM readability
 }
 ```
@@ -506,7 +513,7 @@ pdfvision doc.pdf -p <m.page> --render --render-region <m.bbox.x>,<m.bbox.y>,<m.
 - **Regex queries are NOT normalized** — NFKC can turn compatibility punctuation into regex metacharacters (silent overmatch or syntax break). Regex users get the literal codepoints they typed against the normalized document text and own the asymmetry.
 - **Multi-query** via repeating `--search` (or `search: string[]` in library). Each match carries `queryIndex` so the agent can demultiplex which query produced it.
 - **Native text is searched at reconstructed line level**. A query can cross pdf.js span / font-run boundaries on the same line (e.g. `"Hello World"` split into `Hello` + `World`) and returns a union `bbox` plus per-span `boxes[]`. Multi-line phrase stitching is intentionally not modelled yet because the resulting region is usually too broad for visual zoom.
-- **OCR text is searched too when `--ocr` is on**. OCR-derived matches come back with `source: 'ocr'` and a page-level `bbox` (V1: per-word OCR bbox from tesseract `data.words[]` not plumbed yet — the source-tag lets consumers disambiguate from precise native matches). If native text already produced the same query/text hit on that page, the duplicate OCR hit is suppressed so the precise native bbox wins; OCR-only extra hits are still emitted.
+- **OCR text is searched too when `--ocr` is on**. OCR-derived matches come back with `source: 'ocr'`; when `ocr.words[]` is present, `bbox`/`boxes[]` use OCR word geometry in the same page-point coordinate system as native spans, otherwise pdfvision falls back to a page-level bbox. If native text already produced the same query/text hit on that page, the duplicate OCR hit is suppressed so the precise native bbox wins; OCR-only extra hits are still emitted.
 
 `pages[].matches` is **present-with-`[]`** when `--search` ran but the page had no hits — distinct from the field being absent entirely (search wasn't requested). The same posture extends to the overview, which gains a `matchCount` mirror field with the same present-with-`0` semantics.
 
@@ -552,7 +559,13 @@ pdfvision doc.pdf -p <m.page> --render --render-region <m.bbox.x>,<m.bbox.y>,<m.
 ...pre-normalization text, when normalization changed it...
       </rawText>
       <ocr lang="eng" confidence="0.91">
+        <text>
 ...OCR text...
+        </text>
+        <words>
+          <word text="..." confidence="..." x="..." y="..." width="..." height="..."/>
+          ...
+        </words>
       </ocr>
     </page>
     ...
@@ -619,4 +632,4 @@ for (const page of result.pages) {
 
 `processFile()` returns the formatted string output (`markdown` / `json` / `xml` / `toon`). `processDocument()` returns the structured object directly.
 
-Exported types: `DocumentResult`, `DocumentMetadata`, `DocumentAttachment`, `DocumentLayerGroup`, `DocumentLayerOrderItem`, `DocumentLayers`, `DocumentLayerUsage`, `DocumentOutlineItem`, `DocumentOutlineTargetType`, `DocumentViewerState`, `DocumentOpenAction`, `DocumentPermissions`, `DocumentPermission`, `DocumentMarkInfo`, `JsonScalar`, `JsonValue`, `PageOverview`, `PageResult`, `PageQuality`, `PageWarning`, `SearchMatch`, `LayoutBlock`, `LayoutLine`, `LayoutTable`, `LayoutTableRow`, `LayoutTableCell`, `PageLayout`, `ImageBox`, `PageLink`, `PageLinkType`, `PageAnnotation`, `PageAnnotationBox`, `PageStructureContent`, `PageStructureItem`, `PageStructureNode`, `VisualRegion`, `VisualRegionAssociatedText`, `VisualRegionAssociatedTextRelation`, `VisualRegionKind`, `VisualRegionSource`, `VisualRegionSourceType`, `RenderRegion`, `TextSpan`, `PageOcr`, `OutputFormat`, `ProcessDocumentOptions`, `ProcessOptions`.
+Exported types: `DocumentResult`, `DocumentMetadata`, `DocumentAttachment`, `DocumentLayerGroup`, `DocumentLayerOrderItem`, `DocumentLayers`, `DocumentLayerUsage`, `DocumentOutlineItem`, `DocumentOutlineTargetType`, `DocumentViewerState`, `DocumentOpenAction`, `DocumentPermissions`, `DocumentPermission`, `DocumentMarkInfo`, `JsonScalar`, `JsonValue`, `PageOverview`, `PageResult`, `PageQuality`, `PageWarning`, `SearchMatch`, `LayoutBlock`, `LayoutLine`, `LayoutTable`, `LayoutTableRow`, `LayoutTableCell`, `PageLayout`, `ImageBox`, `PageLink`, `PageLinkType`, `PageAnnotation`, `PageAnnotationBox`, `PageStructureContent`, `PageStructureItem`, `PageStructureNode`, `VisualRegion`, `VisualRegionAssociatedText`, `VisualRegionAssociatedTextRelation`, `VisualRegionKind`, `VisualRegionSource`, `VisualRegionSourceType`, `RenderRegion`, `TextSpan`, `PageOcr`, `OcrWord`, `OutputFormat`, `ProcessDocumentOptions`, `ProcessOptions`.
