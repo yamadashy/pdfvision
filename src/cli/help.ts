@@ -46,7 +46,8 @@ Options
                           Only takes effect with -f json / -f xml / -f toon.
       --layout            Reconstruct \`pages[].layout\` (lines, blocks, vertical CJK stacks,
                           and numeric-table hints
-                          in approximate reading order) from the same span data. Only -f json / -f xml / -f toon.
+                          in approximate reading order) from the same span data. Structured layout fields
+                          appear in -f json / -f xml / -f toon; Markdown uses recovered vertical text blocks.
                           Also enables layout warnings: overlapping text, off-page bboxes,
                           body crowded against repeated chrome, or flattened numeric tables
                           in \`pages[].warnings\`.

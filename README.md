@@ -106,7 +106,8 @@ Options:
       --render-scale <n>  Rasterisation multiplier (default 2; bounds (0, 4]). Requires --render or --ocr.
       --geometry          Emit per-text-item bbox + font size in pages[].spans (json/xml/toon)
       --layout            Reconstruct lines + blocks + numeric-table hints in pages[].layout;
-                          detects CJK vertical text stacks as writingMode='vertical';
+                          detects CJK vertical text stacks as writingMode='vertical'
+                          and uses those recovered blocks in Markdown text;
                           also enables layout warnings (text_overlap / near_bottom_edge /
                           body_near_repeated_chrome / off_page / tabular_numeric_layout)
       --image-boxes       Emit per-image bbox in pages[].imageBoxes;

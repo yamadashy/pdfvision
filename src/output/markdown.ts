@@ -32,11 +32,23 @@ function formatBox(field: NonNullable<PageResult['formFields']>[number]): string
   return `${field.x},${field.y},${field.width},${field.height}`;
 }
 
+function layoutBody(page: PageResult, filterRepeated: boolean): string {
+  return (page.layout?.blocks ?? [])
+    .filter((b) => !filterRepeated || !b.repeated)
+    .map((b) => b.text)
+    .join('\n\n');
+}
+
 /** Body text for a page: either the pdf.js-derived `page.text` (default),
- *  or — when `stripRepeated` is on — a layout-driven rebuild that filters
- *  out the blocks the cross-page pass tagged as repeated chrome. */
+ *  or a layout-driven rebuild when repeated chrome must be stripped or
+ *  when vertical CJK stacks are present. The latter avoids Markdown
+ *  showing `縦\n書\nき` even though the layout pass has already recovered
+ *  the human-readable `縦書き` block. */
 function pageBody(page: PageResult, options: MarkdownOptions): string {
-  if (!options.stripRepeated) return page.text;
+  if (!options.stripRepeated) {
+    if (page.layout?.blocks.some((b) => b.writingMode === 'vertical')) return layoutBody(page, false);
+    return page.text;
+  }
   if (!page.layout) {
     // Caller asked to strip repeated chrome but the document carries no
     // layout — `repeated: true` is only set during the cross-page
@@ -48,10 +60,7 @@ function pageBody(page: PageResult, options: MarkdownOptions): string {
   // separators so consecutive paragraphs / heading + body don't run
   // together when their original spacing came from layout gaps rather
   // than literal newlines.
-  return page.layout.blocks
-    .filter((b) => !b.repeated)
-    .map((b) => b.text)
-    .join('\n\n');
+  return layoutBody(page, true);
 }
 
 /**

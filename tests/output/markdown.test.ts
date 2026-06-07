@@ -606,6 +606,42 @@ describe('formatMarkdown', () => {
     expect(out).toContain('© Footer');
   });
 
+  it('uses layout text for Markdown body when vertical CJK blocks are present', async () => {
+    // pdf.js native text streams often expose vertical Japanese as one
+    // glyph per line. When --layout already recovered the top-to-bottom
+    // stack, Markdown should show that human-readable block instead of
+    // the raw glyph stream.
+    const out = formatMarkdown(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: '縦\n書\nき',
+            charCount: 3,
+            layout: {
+              blocks: [
+                {
+                  text: '縦書き',
+                  x: 36,
+                  y: 194,
+                  width: 88,
+                  height: 299,
+                  writingMode: 'vertical',
+                  lines: [
+                    { text: '縦書き', x: 36, y: 194, width: 88, height: 299, fontSize: 88, writingMode: 'vertical' },
+                  ],
+                },
+              ],
+            },
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toMatch(/\n縦書き$/);
+    expect(out).not.toContain('縦\n書\nき');
+  });
+
   it('throws when stripRepeated is requested but the page carries no layout', async () => {
     // `repeated: true` only exists after the cross-page layout pass, so
     // stripping without a layout payload is a misconfigured call. Fail
