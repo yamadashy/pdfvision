@@ -5,7 +5,7 @@ description: "Extract text, metadata, per-page density signals, structural layou
 
 # pdfvision
 
-[pdfvision](https://github.com/yamadashy/pdfvision) extracts text + metadata + per-page density signals from any PDF, with opt-in OCR (`--ocr`), layout reconstruction (`--layout`), page anomaly warnings (`pages[].warnings[]` from layout geometry, glyph-noise, scan/OCR-layer, and image-box signals), raster image bounding boxes (`--image-boxes`), vector drawing counts (`vectorCount`), per-text-item geometry (`--geometry`), PNG rendering (`--render`, optionally sized with `--render-scale` and cropped with `--render-region`), and per-page text search with bbox (`--search`, hits ride into `--render-region` for one-pipeline find-then-zoom). Cached by content hash, so the second read of the same PDF returns in ~30 ms.
+[pdfvision](https://github.com/yamadashy/pdfvision) extracts text + metadata + per-page density signals from any PDF, with opt-in OCR (`--ocr`), layout reconstruction (`--layout`), page anomaly warnings (`pages[].warnings[]` from layout geometry, glyph-noise, numeric-table, scan/OCR-layer, and image-box signals), raster image bounding boxes (`--image-boxes`), vector drawing counts (`vectorCount`), per-text-item geometry (`--geometry`), PNG rendering (`--render`, optionally sized with `--render-scale` and cropped with `--render-region`), and per-page text search with bbox (`--search`, hits ride into `--render-region` for one-pipeline find-then-zoom). Cached by content hash, so the second read of the same PDF returns in ~30 ms.
 
 ## Prerequisite
 
@@ -117,6 +117,7 @@ pdfvision deliberately stops at observation: it does **not** recommend an action
 - Geometry warnings (`text_overlap`, `near_bottom_edge`, `body_near_repeated_chrome`, `off_page`) require `--layout`.
 - `localized_glyph_noise` uses always-on text-quality signals and fires when multiple non-printable code points appear below the mixed-glyph ratio threshold, or when a CJK page contains isolated Latin-extended mojibake characters. Common cases: formulas, bullet symbols, dotted leaders, or custom icon fonts that render fine but extract as control characters or stray printable glyphs.
 - `dense_vector_graphics` uses the always-on `vectorCount` signal and fires on pages dominated by vector drawing operations. Common cases: forms, checkboxes, table rules, chart paths, and diagrams whose visible structure is not represented by native text.
+- `tabular_numeric_layout` requires `--layout` and fires when many short numeric lines form multiple aligned columns. Common cases: financial statements and dense numeric tables whose row/column relationships are visually obvious but can be flattened in plain native text.
 - `raster_backed_text_layer` can appear without `--layout` or `--image-boxes`. It means native text appears to be an OCR/text layer over a full-page raster scan. Treat the text as potentially useful, but don't assume `spans` / `layout.blocks` line up exactly with the pixels a human sees.
 - `large_raster_low_text_overlap` requires `--image-boxes` plus `--layout` or `--geometry`, and fires when a large raster image has little native text overlapping it, including sparse-text visual pages. Treat it as "labels, chart text, map text, or screenshot text inside this image may need `--render` / `--render-region` / OCR."
 

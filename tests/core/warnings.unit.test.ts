@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { detectPageWarnings } from '../../src/core/warnings.js';
-import type { LayoutBlock, PageResult } from '../../src/types/index.js';
+import type { LayoutBlock, LayoutLine, PageResult } from '../../src/types/index.js';
 
 /** Build a layout block with sensible defaults the rules don't read.
  *  All four numeric coordinates are required because the rules
@@ -15,6 +15,10 @@ function block(x: number, y: number, width: number, height: number, extras: Part
     lines: extras.lines ?? [],
     ...extras,
   };
+}
+
+function line(text: string, x: number, y: number, width = 30, height = 8): LayoutLine {
+  return { text, x, y, width, height, fontSize: 8 };
 }
 
 /** Build a PageResult shaped for the detector — only `layout`,
@@ -193,6 +197,87 @@ describe('detectPageWarnings', () => {
       quality: { nativeTextStatus: 'ok' },
     });
     expect(out.filter((w) => w.code === 'dense_vector_graphics')).toEqual([]);
+  });
+
+  it('flags dense aligned numeric tables that native text can flatten', () => {
+    // Apple 10-K gross-margin-page-shaped case: the text is native and
+    // readable, but multiple right-aligned numeric columns are visually
+    // a table whose row/column relationships matter.
+    const out = detectPageWarnings(
+      page([
+        block(40, 80, 200, 120, {
+          text: 'labels',
+          lines: [
+            line('Gross margin', 40, 80, 120),
+            line('Products', 70, 100, 60),
+            line('Services', 70, 112, 60),
+            line('Total gross margin', 70, 124, 120),
+            line('Products', 70, 148, 60),
+            line('Services', 70, 160, 60),
+            line('Total gross margin percentage', 70, 172, 160),
+          ],
+        }),
+        block(300, 80, 50, 120, {
+          text: '2023\n108,803\n60,345\n169,148\n36.5 %\n70.8 %\n44.1 %',
+          lines: [
+            line('2023', 318, 80, 20),
+            line('108,803', 300, 100, 38),
+            line('60,345', 307, 112, 31),
+            line('169,148', 300, 124, 38),
+            line('36.5 %', 306, 148, 32),
+            line('70.8 %', 306, 160, 32),
+            line('44.1 %', 306, 172, 32),
+          ],
+        }),
+        block(390, 80, 50, 120, {
+          text: '2022\n114,728\n56,054\n170,782\n36.3 %\n71.7 %\n43.3 %',
+          lines: [
+            line('2022', 408, 80, 20),
+            line('114,728', 390, 100, 38),
+            line('56,054', 397, 112, 31),
+            line('170,782', 390, 124, 38),
+            line('36.3 %', 396, 148, 32),
+            line('71.7 %', 396, 160, 32),
+            line('43.3 %', 396, 172, 32),
+          ],
+        }),
+      ]),
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'tabular_numeric_layout', severity: 'warning' });
+    expect(out[0].message).toContain('aligned columns');
+  });
+
+  it('does not flag a single aligned numeric list as a table', () => {
+    const out = detectPageWarnings(
+      page([
+        block(300, 80, 50, 180, {
+          text: 'numeric list',
+          lines: Array.from({ length: 12 }, (_, i) => line(`${2020 + i}`, 300, 80 + i * 12, 24)),
+        }),
+      ]),
+    );
+    expect(out.filter((w) => w.code === 'tabular_numeric_layout')).toEqual([]);
+  });
+
+  it('does not flag ordinary prose with occasional numeric-only lines', () => {
+    const out = detectPageWarnings(
+      page([
+        block(40, 80, 500, 300, {
+          text: 'body',
+          lines: [
+            line('The study covers the 2023 reporting period.', 40, 80, 220),
+            line('It compares earlier reports from 2022 and 2021.', 40, 94, 260),
+            line('2023', 40, 120, 20),
+            line('2022', 40, 134, 20),
+            line('2021', 40, 148, 20),
+            line('The rest of the page is prose, not a numeric table.', 40, 176, 280),
+            line('A figure caption mentions 95 % agreement inline.', 40, 190, 250),
+          ],
+        }),
+      ]),
+    );
+    expect(out.filter((w) => w.code === 'tabular_numeric_layout')).toEqual([]);
   });
 
   it('does not duplicate localized glyph warnings when the page is already classified as mixed glyph indices', () => {

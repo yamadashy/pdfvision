@@ -45,7 +45,7 @@ The agent picks which signals matter; pdfvision doesn't bake one answer.
 
 ### Spot anomalies a human would notice
 
-Each page can carry `pages[].warnings` — overlapping text, body running off the page, collisions with running headers/footers, localized glyph noise (including printable mojibake in CJK text), dense vector graphics such as form boxes or chart paths, OCR/text layers over full-page scans, or large raster regions whose internal labels will not appear in native text — the "this looks off" cues a text-only extractor silently drops.
+Each page can carry `pages[].warnings` — overlapping text, body running off the page, collisions with running headers/footers, localized glyph noise (including printable mojibake in CJK text), dense vector graphics such as form boxes or chart paths, numeric tables whose row/column relationships may be flattened, OCR/text layers over full-page scans, or large raster regions whose internal labels will not appear in native text — the "this looks off" cues a text-only extractor silently drops.
 
 ### Keep raw evidence available
 
@@ -104,8 +104,8 @@ Options:
       --render-scale <n>  Rasterisation multiplier (default 2; bounds (0, 4]). Requires --render or --ocr.
       --geometry          Emit per-text-item bbox + font size in pages[].spans (json/xml/toon)
       --layout            Reconstruct lines + blocks (with role / repeated flags) in pages[].layout;
-                          also enables geometry warnings (text_overlap / near_bottom_edge /
-                          body_near_repeated_chrome / off_page)
+                          also enables layout warnings (text_overlap / near_bottom_edge /
+                          body_near_repeated_chrome / off_page / tabular_numeric_layout)
       --image-boxes       Emit per-image bbox in pages[].imageBoxes;
                           enables large-raster warnings with --layout or --geometry
       --ocr               Run tesseract.js OCR; attach pages[].ocr (text/confidence/lang)

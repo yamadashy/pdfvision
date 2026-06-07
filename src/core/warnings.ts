@@ -1,4 +1,4 @@
-import type { LayoutBlock, PageResult, PageWarning } from '../types/index.js';
+import type { LayoutBlock, LayoutLine, PageResult, PageWarning } from '../types/index.js';
 import { detectTextOverlap, horizontalOverlap } from './warningTextOverlap.js';
 
 /** Context flags the orchestrator passes to the detector so the
@@ -54,6 +54,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
 
   detectOffPage(blocks, page.width, page.height, warnings);
   detectTextOverlap(blocks, warnings);
+  detectTabularNumericLayout(blocks, warnings);
   // `near_bottom_edge` only distinguishes body from chrome via the
   // `repeated` flag, which is meaningless when chrome detection
   // didn't run reliably (single-page extraction, or every layout
@@ -76,6 +77,11 @@ const CJK_MOJIBAKE_RATIO_THRESHOLD = 0.05;
 const DENSE_VECTOR_GRAPHICS_COUNT_THRESHOLD = 250;
 const LARGE_RASTER_AREA_RATIO_THRESHOLD = 0.2;
 const LARGE_RASTER_TEXT_OVERLAP_RATIO_THRESHOLD = 0.01;
+const TABULAR_NUMERIC_MIN_LINES = 12;
+const TABULAR_NUMERIC_MIN_LINE_RATIO = 0.25;
+const TABULAR_NUMERIC_MIN_ALIGNED_COLUMNS = 2;
+const TABULAR_NUMERIC_MIN_LINES_PER_COLUMN = 3;
+const TABULAR_NUMERIC_COLUMN_TOLERANCE_PT = 10;
 
 function sortWarnings(warnings: PageWarning[]): void {
   // Stable sort by (severity error first, then code, then blockIndex)
@@ -191,6 +197,52 @@ function detectLargeRasterLowTextOverlap(page: PageResult, out: PageWarning[]): 
     });
     warnedImages.push(image);
   }
+}
+
+function detectTabularNumericLayout(blocks: LayoutBlock[], out: PageWarning[]): void {
+  const allLines = blocks.flatMap((block) => block.lines);
+  if (allLines.length === 0) return;
+
+  const numericLines = allLines.filter(isTabularNumericLine);
+  if (numericLines.length < TABULAR_NUMERIC_MIN_LINES) return;
+  if (numericLines.length / allLines.length < TABULAR_NUMERIC_MIN_LINE_RATIO) return;
+
+  const alignedColumns = clusterNumericLines(numericLines).filter(
+    (cluster) => cluster.lines.length >= TABULAR_NUMERIC_MIN_LINES_PER_COLUMN,
+  );
+  if (alignedColumns.length < TABULAR_NUMERIC_MIN_ALIGNED_COLUMNS) return;
+
+  out.push({
+    code: 'tabular_numeric_layout',
+    severity: 'warning',
+    message: `page contains ${numericLines.length} short numeric lines in ${alignedColumns.length} aligned columns — table rows/columns may be flattened in native text; inspect the render or geometry when values matter`,
+  });
+}
+
+function isTabularNumericLine(line: LayoutLine): boolean {
+  const text = line.text.trim();
+  if (text.length === 0 || text.length > 80) return false;
+  if (!/\d/u.test(text)) return false;
+  const nonNumeric = text.replace(/[0-9.,()%$¥€£+\-\s]/gu, '');
+  return nonNumeric.length === 0;
+}
+
+function clusterNumericLines(lines: LayoutLine[]): { right: number; lines: LayoutLine[] }[] {
+  const clusters: { right: number; lines: LayoutLine[] }[] = [];
+  const sorted = [...lines].sort((a, b) => a.x + a.width - (b.x + b.width));
+  for (const line of sorted) {
+    const right = line.x + line.width;
+    const cluster = clusters.find(
+      (candidate) => Math.abs(candidate.right - right) <= TABULAR_NUMERIC_COLUMN_TOLERANCE_PT,
+    );
+    if (cluster) {
+      cluster.lines.push(line);
+      cluster.right = (cluster.right * (cluster.lines.length - 1) + right) / cluster.lines.length;
+    } else {
+      clusters.push({ right, lines: [line] });
+    }
+  }
+  return clusters;
 }
 
 function canCompareNativeTextAgainstRaster(status: PageResult['quality']['nativeTextStatus']): boolean {

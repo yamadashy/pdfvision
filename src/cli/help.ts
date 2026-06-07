@@ -46,8 +46,9 @@ Options
                           Only takes effect with -f json / -f xml / -f toon.
       --layout            Reconstruct \`pages[].layout\` (lines + blocks in approximate
                           reading order) from the same span data. Only -f json / -f xml / -f toon.
-                          Also enables geometry warnings: overlapping text, off-page bboxes,
-                          or body crowded against repeated chrome in \`pages[].warnings\`.
+                          Also enables layout warnings: overlapping text, off-page bboxes,
+                          body crowded against repeated chrome, or flattened numeric tables
+                          in \`pages[].warnings\`.
       --image-boxes       Emit \`pages[].imageBoxes\` — bounding box of every raster image
                           draw on the page. Enables large-raster warnings with --layout or
                           --geometry. Only -f json / -f xml / -f toon.
