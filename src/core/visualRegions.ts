@@ -164,6 +164,25 @@ function isLikelySideChrome(box: BoxLike, pageWidth: number, pageHeight: number)
   );
 }
 
+function denseVectorItems(input: BuildVisualRegionsInput): { box: VectorBox; index: number }[] {
+  return (input.vectorBoxes ?? [])
+    .map((box, index) => ({ box, index }))
+    .filter(
+      ({ box }) =>
+        isUsefulDenseVectorBox(box) &&
+        !isNearFullPageBox(box, input.pageWidth, input.pageHeight) &&
+        !isLikelySideChrome(box, input.pageWidth, input.pageHeight),
+    );
+}
+
+function hasDenseVectorStructure(input: BuildVisualRegionsInput): boolean {
+  const useful = denseVectorItems(input);
+  if (useful.length < MIN_DENSE_VECTOR_BOXES) return false;
+
+  const box = useful.slice(1).reduce<BoxLike>((acc, item) => unionBox(acc, item.box), useful[0].box);
+  return areaRatio(box, pageArea(input)) >= MIN_DENSE_VECTOR_UNION_AREA_RATIO;
+}
+
 function sourceKey(source: VisualRegionSource): string {
   return `${source.type}:${source.index}`;
 }
@@ -272,7 +291,8 @@ function clusterVectorBoxes(
 function addVectorCandidates(input: BuildVisualRegionsInput, candidates: Candidate[]): void {
   if (!input.vectorBoxes || input.vectorBoxes.length === 0) return;
   const totalArea = pageArea(input);
-  const skipBackgroundBoxes = hasNonBackgroundBox(input.vectorBoxes, input.pageWidth, input.pageHeight);
+  const skipBackgroundBoxes =
+    hasNonBackgroundBox(input.vectorBoxes, input.pageWidth, input.pageHeight) || hasDenseVectorStructure(input);
   for (const cluster of clusterVectorBoxes(input.vectorBoxes, input.pageWidth, input.pageHeight, skipBackgroundBoxes)) {
     const ratio = areaRatio(cluster, totalArea);
     if (cluster.sources.length < MIN_VECTOR_CLUSTER_SOURCES && ratio < MIN_VECTOR_CLUSTER_AREA_RATIO) continue;
@@ -285,16 +305,8 @@ function addVectorCandidates(input: BuildVisualRegionsInput, candidates: Candida
 }
 
 function addDenseVectorUnionCandidate(input: BuildVisualRegionsInput, candidates: Candidate[]): void {
-  const vectorBoxes = input.vectorBoxes ?? [];
-  if (vectorBoxes.length < MIN_DENSE_VECTOR_BOXES) return;
-  const useful = vectorBoxes
-    .map((box, index) => ({ box, index }))
-    .filter(
-      ({ box }) =>
-        isUsefulDenseVectorBox(box) &&
-        !isNearFullPageBox(box, input.pageWidth, input.pageHeight) &&
-        !isLikelySideChrome(box, input.pageWidth, input.pageHeight),
-    );
+  if ((input.vectorBoxes ?? []).length < MIN_DENSE_VECTOR_BOXES) return;
+  const useful = denseVectorItems(input);
   if (useful.length < MIN_DENSE_VECTOR_BOXES) return;
 
   const box = useful.slice(1).reduce<BoxLike>((acc, item) => unionBox(acc, item.box), useful[0].box);
