@@ -15,7 +15,10 @@ npx pdfvision --version
 
 Requires Node.js >= 22.13. Install globally with `npm install -g pdfvision` if used repeatedly.
 
-**Always run `npx pdfvision --help` once before reaching for non-obvious flags** — the flag set evolves (OCR, remote URLs, layout, geometry, image-boxes, render output) and the help text is the source of truth for what the installed version supports.
+**Always run help once before reaching for non-obvious flags** — the flag set evolves (OCR, remote URLs, layout, geometry, image-boxes, render output) and the help text is the source of truth for what the installed version supports.
+
+- Outside the pdfvision repository, use `npx pdfvision --help`.
+- Inside the pdfvision repository during development, use `node --run pdfvision -- --help` or `node dist/bin/pdfvision.mjs --help` after `npm run build`. Avoid `npx pdfvision` / `npm exec pdfvision` there; npm can try to resolve the package against itself and exhaust the Node heap before the CLI starts.
 
 ## Quick reference
 
