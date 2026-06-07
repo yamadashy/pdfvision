@@ -318,6 +318,28 @@ describe('processDocument search', () => {
     expect(matches).toEqual([]);
   });
 
+  it('does not stitch nearby magazine columns into one search line', async () => {
+    // JICA report page 50-shaped case: two body columns can sit on the
+    // same baseline with only ~23pt of gutter. A human reads these as
+    // separate columns, so search context and phrase matching should
+    // not join the left line to the right line.
+    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const compiled = compileSearch('domestic investors', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const matches = searchPage(
+      [
+        { text: 'domestic', x: 66, y: 204, width: 220, height: 10, fontSize: 10 },
+        { text: 'investors', x: 309, y: 204, width: 80, height: 10, fontSize: 10 },
+      ],
+      undefined,
+      1,
+      612,
+      792,
+      compiled,
+    );
+    expect(matches).toEqual([]);
+  });
+
   it('caps matches per page per query at MAX_MATCHES_PER_QUERY_PER_PAGE and surfaces a warning', async () => {
     // Defence-in-depth against a degenerate regex (or a bad literal
     // query that happens to match every span). Test directly against
