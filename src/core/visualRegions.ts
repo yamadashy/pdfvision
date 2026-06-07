@@ -55,7 +55,7 @@ const MAX_ASSOCIATED_TEXT = 3;
 const CAPTION_NUMBER_PATTERN =
   '[\\p{L}\\p{N}０-９一二三四五六七八九十ivxlcdm]+(?:[.-][\\p{L}\\p{N}０-９一二三四五六七八九十ivxlcdm]+)*\\.?';
 const CAPTION_PATTERN = new RegExp(
-  `^\\s*(?:fig(?:ure)?\\.?|table|図|表)\\s*(${CAPTION_NUMBER_PATTERN})(?=\\s|[:：．、-]|$)`,
+  `^\\s*(?:fig(?:ure)?\\.?|table|図表|図|表)\\s*(${CAPTION_NUMBER_PATTERN})(?=\\s|[:：．、-]|$)`,
   'iu',
 );
 const CAPTION_NUMBERISH_PATTERN = /[0-9０-９一二三四五六七八九十ivxlcdm]/iu;

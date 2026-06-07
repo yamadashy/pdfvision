@@ -538,6 +538,38 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('attaches Japanese combined figure-table captions', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 400,
+      pageHeight: 300,
+      imageBoxes: [{ x: 80, y: 100, width: 180, height: 70 }],
+      layout: {
+        blocks: [
+          {
+            text: '図表 1-14 DXの具体的な取組項目',
+            x: 95,
+            y: 82,
+            width: 160,
+            height: 12,
+            lines: [{ text: '図表 1-14 DXの具体的な取組項目', x: 95, y: 82, width: 160, height: 12, fontSize: 10 }],
+          },
+        ],
+      },
+    });
+
+    expect(regions[0].associatedText).toEqual([
+      {
+        text: '図表 1-14 DXの具体的な取組項目',
+        relation: 'caption',
+        x: 95,
+        y: 82,
+        width: 160,
+        height: 12,
+        blockIndex: 0,
+      },
+    ]);
+  });
+
   it('drops contained same-kind regions after caption expansion', () => {
     const regions = buildVisualRegions({
       pageWidth: 300,
