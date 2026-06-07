@@ -171,6 +171,51 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('suppresses side chrome regions when a foreground visual region exists', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 600,
+      pageHeight: 800,
+      imageBoxes: [
+        { x: 0, y: 120, width: 36, height: 420 },
+        { x: 120, y: 160, width: 220, height: 180 },
+      ],
+      vectorBoxes: [{ x: 2, y: 122, width: 30, height: 416 }],
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'raster',
+        x: 112,
+        y: 152,
+        width: 236,
+        height: 196,
+        areaRatio: 0.096,
+        sourceCount: 1,
+        sources: [{ type: 'imageBox', index: 1 }],
+        reason: 'raster image covers 8.3% of the page',
+      },
+    ]);
+  });
+
+  it('keeps side chrome when it is the only visual evidence', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 600,
+      pageHeight: 800,
+      imageBoxes: [{ x: 0, y: 120, width: 36, height: 420 }],
+      vectorBoxes: [{ x: 2, y: 122, width: 30, height: 416 }],
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0]).toMatchObject({
+      kind: 'mixed',
+      x: 0,
+      y: 112,
+      width: 44,
+      height: 436,
+      sourceCount: 2,
+    });
+  });
+
   it('deduplicates overlapping table and vector candidates into a mixed region', () => {
     const regions = buildVisualRegions({
       pageWidth: 300,

@@ -465,6 +465,12 @@ function dedupeCandidates(candidates: Candidate[]): Candidate[] {
   return deduped;
 }
 
+function suppressSideChromeCandidates(candidates: Candidate[], pageWidth: number, pageHeight: number): Candidate[] {
+  const hasForegroundRegion = candidates.some((candidate) => !isLikelySideChrome(candidate, pageWidth, pageHeight));
+  if (!hasForegroundRegion) return candidates;
+  return candidates.filter((candidate) => !isLikelySideChrome(candidate, pageWidth, pageHeight));
+}
+
 export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion[] {
   if (input.pageWidth <= 0 || input.pageHeight <= 0) return [];
 
@@ -475,7 +481,8 @@ export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion
   addFormCandidate(input.formFields, candidates);
 
   const totalArea = pageArea(input);
-  return attachCaptionText(dedupeCandidates(candidates), input.layout)
+  const deduped = suppressSideChromeCandidates(dedupeCandidates(candidates), input.pageWidth, input.pageHeight);
+  return attachCaptionText(deduped, input.layout)
     .filter((candidate) => isUsableBox(candidate))
     .sort((a, b) => visualScore(b, totalArea) - visualScore(a, totalArea))
     .slice(0, MAX_REGIONS)
