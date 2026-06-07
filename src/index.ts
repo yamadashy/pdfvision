@@ -58,4 +58,8 @@ export type {
   SearchMatch,
   TextSpan,
   VectorBox,
+  VisualRegion,
+  VisualRegionKind,
+  VisualRegionSource,
+  VisualRegionSourceType,
 } from './types/index.js';

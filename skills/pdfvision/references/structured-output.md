@@ -40,6 +40,7 @@ interface PageOverview {
   warningCount?: number;          // mirror of pages[N].warnings.length, omitted when no rule fired
   matchCount?: number;            // mirror of pages[N].matches.length; present-with-0 means "search ran, no hit"
   vectorBoxCount?: number;        // mirror of pages[N].vectorBoxes.length; present iff --vector-boxes
+  visualRegionCount?: number;     // mirror of pages[N].visualRegions.length; present iff --visual-regions
   formFieldCount?: number;        // mirror of pages[N].formFields.length; present iff --form-fields
   linkCount?: number;             // mirror of pages[N].links.length; present iff --links
   annotationCount?: number;       // mirror of pages[N].annotations.length; present iff --annotations
@@ -82,6 +83,7 @@ interface PageResult {
   layout?: PageLayout;           // present iff --layout
   imageBoxes?: ImageBox[];       // present iff --image-boxes
   vectorBoxes?: VectorBox[];     // present iff --vector-boxes
+  visualRegions?: VisualRegion[]; // present iff --visual-regions
   formFields?: FormField[];      // present iff --form-fields
   links?: PageLink[];            // present iff --links
   annotations?: PageAnnotation[]; // present iff --annotations
@@ -346,6 +348,27 @@ interface VectorBox {
 
 One entry per painted vector path where pdf.js reports a path bbox. This is useful for maps, symbol tables, charts, diagrams, table rules, form boxes, and slide shapes: content a human sees, but that is neither native text nor a raster image. Horizontal/vertical strokes are expanded to at least 0.5pt in the degenerate dimension so their boxes can feed `--render-region`. `vectorCount` remains the broad density signal for all vector drawing operations; `vectorBoxes[]` is the opt-in location signal and can be shorter than `vectorCount` when a low-level op has no bbox.
 
+## Visual regions (`--visual-regions`)
+
+```ts
+interface VisualRegion {
+  id?: string;              // stable page-local id, e.g. "p3-vr0", present in extracted PageResult
+  kind: 'raster' | 'vector' | 'table' | 'form' | 'mixed';
+  x: number; y: number; width: number; height: number;
+  areaRatio: number;        // region area / page area, rounded to 3dp
+  sourceCount: number;      // total source geometry items represented
+  sources: VisualRegionSource[]; // representative refs, capped for large vector clusters
+  reason: string;           // short explanation for why this is worth inspecting
+}
+
+interface VisualRegionSource {
+  type: 'imageBox' | 'vectorBox' | 'layoutTable' | 'formField';
+  index: number;            // 0-based index into that page-level source collection
+}
+```
+
+`visualRegions[]` is a dispatch layer for human-like PDF vision. It groups existing geometry into padded, page-clamped bboxes for important raster images, vector drawing clusters, `layout.tables[]` hints, and form-field clusters. Agents can feed a region directly into `--render-region <x,y,width,height>` to inspect the figure/chart/table/form visually without first clustering raw `imageBoxes[]` or hundreds of `vectorBoxes[]`. `sourceCount` is the full number of source items represented; `sources[]` is capped to keep vector-heavy pages compact. Rotated pages currently return `[]` because `--render-region` V1 also rejects rotated pages.
+
 ## Spans (`--geometry`)
 
 ```ts
@@ -374,7 +397,7 @@ interface PageOcr {
 
 ## Coordinate system
 
-All coordinates (spans, layout blocks, image boxes, vector boxes, form fields, `renderRegion`) use a **top-down origin** in PDF user-space points: `(0, 0)` at the top-left of the page, `y` grows downward. This matches the rendered PNG convention, so a consumer can overlay any of the geometry signals onto `image` (when `--render` is on) without flipping.
+All coordinates (spans, layout blocks, image boxes, vector boxes, visual regions, form fields, `renderRegion`) use a **top-down origin** in PDF user-space points: `(0, 0)` at the top-left of the page, `y` grows downward. This matches the rendered PNG convention, so a consumer can overlay any of the geometry signals onto `image` (when `--render` is on) without flipping.
 
 To map PDF points onto rendered PNG pixels:
 
@@ -518,7 +541,7 @@ pdfvision doc.pdf -p <m.page> --render --render-region <m.bbox.x>,<m.bbox.y>,<m.
 </document>
 ```
 
-Empty `<pageLabels/>`, `<attachments/>`, `<outline/>`, `<viewer/>`, `<layers/>`, `<layout/>`, `<imageBoxes/>`, `<vectorBoxes/>`, `<formFields/>`, `<links/>`, `<annotations/>`, `<structure/>`, and `<ocr/>` (self-closing) mean "the pass ran and found nothing", which is distinct from the tag being absent (the pass wasn't requested).
+Empty `<pageLabels/>`, `<attachments/>`, `<outline/>`, `<viewer/>`, `<layers/>`, `<layout/>`, `<imageBoxes/>`, `<vectorBoxes/>`, `<visualRegions/>`, `<formFields/>`, `<links/>`, `<annotations/>`, `<structure/>`, and `<ocr/>` (self-closing) mean "the pass ran and found nothing", which is distinct from the tag being absent (the pass wasn't requested).
 
 ## TOON output shape
 
@@ -577,4 +600,4 @@ for (const page of result.pages) {
 
 `processFile()` returns the formatted string output (`markdown` / `json` / `xml` / `toon`). `processDocument()` returns the structured object directly.
 
-Exported types: `DocumentResult`, `DocumentMetadata`, `DocumentAttachment`, `DocumentLayerGroup`, `DocumentLayerOrderItem`, `DocumentLayers`, `DocumentLayerUsage`, `DocumentOutlineItem`, `DocumentOutlineTargetType`, `DocumentViewerState`, `DocumentOpenAction`, `DocumentPermissions`, `DocumentPermission`, `DocumentMarkInfo`, `JsonScalar`, `JsonValue`, `PageOverview`, `PageResult`, `PageQuality`, `PageWarning`, `SearchMatch`, `LayoutBlock`, `LayoutLine`, `LayoutTable`, `LayoutTableRow`, `LayoutTableCell`, `PageLayout`, `ImageBox`, `PageLink`, `PageLinkType`, `PageAnnotation`, `PageAnnotationBox`, `PageStructureContent`, `PageStructureItem`, `PageStructureNode`, `RenderRegion`, `TextSpan`, `PageOcr`, `OutputFormat`, `ProcessDocumentOptions`, `ProcessOptions`.
+Exported types: `DocumentResult`, `DocumentMetadata`, `DocumentAttachment`, `DocumentLayerGroup`, `DocumentLayerOrderItem`, `DocumentLayers`, `DocumentLayerUsage`, `DocumentOutlineItem`, `DocumentOutlineTargetType`, `DocumentViewerState`, `DocumentOpenAction`, `DocumentPermissions`, `DocumentPermission`, `DocumentMarkInfo`, `JsonScalar`, `JsonValue`, `PageOverview`, `PageResult`, `PageQuality`, `PageWarning`, `SearchMatch`, `LayoutBlock`, `LayoutLine`, `LayoutTable`, `LayoutTableRow`, `LayoutTableCell`, `PageLayout`, `ImageBox`, `PageLink`, `PageLinkType`, `PageAnnotation`, `PageAnnotationBox`, `PageStructureContent`, `PageStructureItem`, `PageStructureNode`, `VisualRegion`, `VisualRegionKind`, `VisualRegionSource`, `VisualRegionSourceType`, `RenderRegion`, `TextSpan`, `PageOcr`, `OutputFormat`, `ProcessDocumentOptions`, `ProcessOptions`.

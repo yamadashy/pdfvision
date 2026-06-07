@@ -197,6 +197,7 @@ export function formatXml(result: DocumentResult): string {
       if (p.warningCount !== undefined) ovAttrs.push(`warningCount="${p.warningCount}"`);
       if (p.matchCount !== undefined) ovAttrs.push(`matchCount="${p.matchCount}"`);
       if (p.vectorBoxCount !== undefined) ovAttrs.push(`vectorBoxCount="${p.vectorBoxCount}"`);
+      if (p.visualRegionCount !== undefined) ovAttrs.push(`visualRegionCount="${p.visualRegionCount}"`);
       if (p.formFieldCount !== undefined) ovAttrs.push(`formFieldCount="${p.formFieldCount}"`);
       if (p.linkCount !== undefined) ovAttrs.push(`linkCount="${p.linkCount}"`);
       if (p.annotationCount !== undefined) ovAttrs.push(`annotationCount="${p.annotationCount}"`);
@@ -336,6 +337,37 @@ export function formatXml(result: DocumentResult): string {
           out.push(`<vectorBox x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}"/>`);
         }
         out.push('</vectorBoxes>');
+      }
+    }
+
+    if (page.visualRegions) {
+      if (page.visualRegions.length === 0) {
+        out.push('<visualRegions/>');
+      } else {
+        out.push('<visualRegions>');
+        for (const region of page.visualRegions) {
+          const attrs = [
+            ...(region.id !== undefined ? [`id="${escapeAttr(region.id)}"`] : []),
+            `kind="${region.kind}"`,
+            `x="${region.x}"`,
+            `y="${region.y}"`,
+            `width="${region.width}"`,
+            `height="${region.height}"`,
+            `areaRatio="${region.areaRatio}"`,
+            `sourceCount="${region.sourceCount}"`,
+            `reason="${escapeAttr(region.reason)}"`,
+          ];
+          if (region.sources.length === 0) {
+            out.push(`<region ${attrs.join(' ')}/>`);
+          } else {
+            out.push(`<region ${attrs.join(' ')}>`);
+            for (const source of region.sources) {
+              out.push(`<source type="${source.type}" index="${source.index}"/>`);
+            }
+            out.push('</region>');
+          }
+        }
+        out.push('</visualRegions>');
       }
     }
 

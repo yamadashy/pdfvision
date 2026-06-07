@@ -26,6 +26,7 @@ import type {
   RenderRegion,
   TextSpan,
   VectorBox,
+  VisualRegion,
 } from '../types/index.js';
 import { buildAnnotations } from './annotations.js';
 import { buildAttachments } from './attachments.js';
@@ -48,6 +49,7 @@ import { textMatrixFontSize, textRunGeometryFromTransform } from './textGeometry
 import { buildVectorBoxes } from './vectorBoxes.js';
 import { countVectorPaintOps } from './vectorOps.js';
 import { buildViewerState } from './viewer.js';
+import { buildVisualRegions } from './visualRegions.js';
 import { detectPageWarnings } from './warnings.js';
 
 /** Inputs that determine which cached entry a request maps to. */
@@ -62,6 +64,7 @@ interface CacheKeyInput {
   layout?: boolean;
   imageBoxes?: boolean;
   vectorBoxes?: boolean;
+  visualRegions?: boolean;
   formFields?: boolean;
   links?: boolean;
   annotations?: boolean;
@@ -171,7 +174,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v61',
+    format: 'structured-v62',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -196,6 +199,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     layout: !!input.layout,
     imageBoxes: !!input.imageBoxes,
     vectorBoxes: !!input.vectorBoxes,
+    visualRegions: !!input.visualRegions,
     formFields: !!input.formFields,
     links: !!input.links,
     annotations: !!input.annotations,
@@ -282,6 +286,7 @@ interface PageData {
   layout?: PageLayout;
   imageBoxes?: ImageBox[];
   vectorBoxes?: VectorBox[];
+  visualRegions?: VisualRegion[];
   formFields?: FormField[];
   links?: PageLink[];
   annotations?: PageAnnotation[];
@@ -294,6 +299,7 @@ interface PageFlags {
   layout: boolean;
   imageBoxes: boolean;
   vectorBoxes: boolean;
+  visualRegions: boolean;
   formFields: boolean;
   links: boolean;
   annotations: boolean;
@@ -333,7 +339,7 @@ async function extractPageData(
   // computation, so we build them whenever any of those needs is set —
   // even though we may only expose them on PageResult when `geometry`
   // is on.
-  const wantSpans = flags.geometry || flags.layout || flags.needSpansForSearch;
+  const wantSpans = flags.geometry || flags.layout || flags.visualRegions || flags.needSpansForSearch;
 
   // Collect typed items for the CJK-aware page-text joiner. We can't
   // build the final string in this loop because the join decision for
@@ -407,12 +413,18 @@ async function extractPageData(
   const imageCount = allBoxes.length;
   const imageBoxes = flags.imageBoxes ? allBoxes : undefined;
   const vectorCount = countVectorPaintOps(opList.fnArray, opList.argsArray as unknown[][], ops);
-  const vectorBoxes = flags.vectorBoxes
-    ? buildVectorBoxes(opList.fnArray, opList.argsArray as unknown[][], ops, height, xMin, yMin)
-    : undefined;
+  const allVectorBoxes =
+    flags.vectorBoxes || flags.visualRegions
+      ? buildVectorBoxes(opList.fnArray, opList.argsArray as unknown[][], ops, height, xMin, yMin)
+      : undefined;
+  const vectorBoxes = flags.vectorBoxes ? allVectorBoxes : undefined;
   const annotations =
-    flags.formFields || flags.links || flags.annotations ? await page.getAnnotations({ intent: 'display' }) : undefined;
-  const formFields = flags.formFields ? buildFormFields(annotations ?? [], height, xMin, yMin) : undefined;
+    flags.formFields || flags.links || flags.annotations || flags.visualRegions
+      ? await page.getAnnotations({ intent: 'display' })
+      : undefined;
+  const allFormFields =
+    flags.formFields || flags.visualRegions ? buildFormFields(annotations ?? [], height, xMin, yMin) : undefined;
+  const formFields = flags.formFields ? allFormFields : undefined;
   const links = flags.links ? buildLinks(annotations ?? [], height, xMin, yMin) : undefined;
   const pageAnnotations = flags.annotations
     ? buildAnnotations(annotations ?? [], height, xMin, yMin, {
@@ -438,7 +450,20 @@ async function extractPageData(
   });
 
   // Build layout last so it always sees the final span list (post normalize).
-  const layout = flags.layout ? buildLayout(spans, round2(width)) : undefined;
+  const internalLayout = flags.layout || flags.visualRegions ? buildLayout(spans, round2(width)) : undefined;
+  const layout = flags.layout ? internalLayout : undefined;
+  const visualRegions = flags.visualRegions
+    ? page.rotate === 0
+      ? buildVisualRegions({
+          pageWidth: round2(width),
+          pageHeight: round2(height),
+          imageBoxes: allBoxes,
+          vectorBoxes: allVectorBoxes,
+          layout: internalLayout,
+          formFields: allFormFields,
+        }).map((region, index) => ({ ...region, id: `p${pageNum}-vr${index}` }))
+      : []
+    : undefined;
 
   // Measured on the text we actually return (post-normalize) so the
   // count + ratio match what an agent sees in `text`. Cheap (one
@@ -475,6 +500,7 @@ async function extractPageData(
     ...(layout !== undefined && { layout }),
     ...(imageBoxes !== undefined && { imageBoxes }),
     ...(vectorBoxes !== undefined && { vectorBoxes }),
+    ...(visualRegions !== undefined && { visualRegions }),
     ...(formFields !== undefined && { formFields }),
     ...(links !== undefined && { links }),
     ...(pageAnnotations !== undefined && { annotations: pageAnnotations }),
@@ -909,6 +935,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       layout: !!options.layout,
       imageBoxes: !!options.imageBoxes,
       vectorBoxes: !!options.vectorBoxes,
+      visualRegions: !!options.visualRegions,
       formFields: !!options.formFields,
       links: !!options.links,
       annotations: !!options.annotations,
@@ -966,6 +993,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
         ...(data.layout !== undefined && { layout: data.layout }),
         ...(data.imageBoxes !== undefined && { imageBoxes: data.imageBoxes }),
         ...(data.vectorBoxes !== undefined && { vectorBoxes: data.vectorBoxes }),
+        ...(data.visualRegions !== undefined && { visualRegions: data.visualRegions }),
         ...(data.formFields !== undefined && { formFields: data.formFields }),
         ...(data.links !== undefined && { links: data.links }),
         ...(data.annotations !== undefined && { annotations: data.annotations }),
@@ -1094,6 +1122,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
             // clean for the default extraction.
             ...(compiledSearch !== undefined && { matchCount: p.matches?.length ?? 0 }),
             ...(p.vectorBoxes !== undefined && { vectorBoxCount: p.vectorBoxes.length }),
+            ...(p.visualRegions !== undefined && { visualRegionCount: p.visualRegions.length }),
             ...(p.formFields !== undefined && { formFieldCount: p.formFields.length }),
             ...(p.links !== undefined && { linkCount: p.links.length }),
             ...(p.annotations !== undefined && { annotationCount: p.annotations.length }),
@@ -1170,6 +1199,7 @@ export async function processFile(filePath: string, options: ProcessOptions): Pr
     layout: options.layout,
     imageBoxes: options.imageBoxes,
     vectorBoxes: options.vectorBoxes,
+    visualRegions: options.visualRegions,
     formFields: options.formFields,
     links: options.links,
     annotations: options.annotations,

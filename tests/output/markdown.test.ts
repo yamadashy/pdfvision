@@ -191,6 +191,48 @@ describe('formatMarkdown', () => {
     expect(out).not.toContain('215.21,39.48');
   });
 
+  it('adds visual-region counts and crop-ready region tables in Markdown', () => {
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 2,
+        pages: [
+          makePage({
+            page: 1,
+            text: 'figure page',
+            charCount: 11,
+            visualRegions: [
+              {
+                id: 'p1-vr0',
+                kind: 'raster',
+                x: 36,
+                y: 72,
+                width: 240,
+                height: 180,
+                areaRatio: 0.089,
+                sourceCount: 18,
+                sources: [
+                  { type: 'imageBox', index: 0 },
+                  { type: 'vectorBox', index: 2 },
+                ],
+                reason: 'raster image covers 8.9% of the page',
+              },
+            ],
+          }),
+          makePage({ page: 2, text: 'plain', charCount: 5, visualRegions: [] }),
+        ],
+      }),
+    );
+
+    expect(out).toMatch(/\| Page \| Chars \| Images \| Coverage \| Size \(pt\) \| VisualRegions \|/);
+    expect(out).toMatch(/\| 1 \| 11 \| 0 \| 0% \| 612×792 \| 1 \|/);
+    expect(out).toContain('visualRegions: 1');
+    expect(out).toContain('### Visual regions');
+    expect(out).toContain(
+      '| p1-vr0 | raster | 36,72,240,180 | 8.9% | imageBox[0], vectorBox[2], +16 more | raster image covers 8.9% of the page |',
+    );
+    expect(out).toContain('_No crop-ready visual regions found._');
+  });
+
   it('adds form field counts and a form-field table when form fields are present', () => {
     const out = formatMarkdown(
       makeResult({

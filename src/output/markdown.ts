@@ -48,6 +48,13 @@ function annotationColor(annotation: NonNullable<PageResult['annotations']>[numb
   return annotation.color ? annotation.color.join(',') : '';
 }
 
+function visualRegionSources(region: NonNullable<PageResult['visualRegions']>[number]): string {
+  const refs = region.sources.map((source) => `${source.type}[${source.index}]`);
+  const hiddenCount = region.sourceCount - region.sources.length;
+  if (hiddenCount > 0) refs.push(`+${hiddenCount} more`);
+  return refs.join(', ');
+}
+
 function formatBox(box: { x: number; y: number; width: number; height: number }): string {
   return `${box.x},${box.y},${box.width},${box.height}`;
 }
@@ -284,6 +291,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     const showLinks = result.pages.some((p) => p.links !== undefined);
     const showAnnotations = result.pages.some((p) => p.annotations !== undefined);
     const showStructure = result.pages.some((p) => p.structure !== undefined);
+    const showVisualRegions = result.pages.some((p) => p.visualRegions !== undefined);
     const showPageLabels = result.pages.some((p) => p.pageLabel !== undefined);
     // The Warnings column appears only when at least one page carries
     // a non-empty `warnings` array. Like NonPrint / Render, the column
@@ -300,10 +308,10 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     lines.push('## Overview');
     lines.push('');
     lines.push(
-      `| Page |${showPageLabels ? ' Label |' : ''} Chars | Images | Coverage |${showNonPrint ? ' NonPrint |' : ''}${showRender ? ' Render |' : ''} Size (pt) |${showVectors ? ' Vectors |' : ''}${showVectorBoxes ? ' VectorBoxes |' : ''}${showBlocks ? ' Blocks |' : ''}${showWarnings ? ' Warnings |' : ''}${showMatches ? ' Matches |' : ''}${showFormFields ? ' FormFields |' : ''}${showLinks ? ' Links |' : ''}${showAnnotations ? ' Annotations |' : ''}${showStructure ? ' Structure |' : ''}`,
+      `| Page |${showPageLabels ? ' Label |' : ''} Chars | Images | Coverage |${showNonPrint ? ' NonPrint |' : ''}${showRender ? ' Render |' : ''} Size (pt) |${showVectors ? ' Vectors |' : ''}${showVectorBoxes ? ' VectorBoxes |' : ''}${showVisualRegions ? ' VisualRegions |' : ''}${showBlocks ? ' Blocks |' : ''}${showWarnings ? ' Warnings |' : ''}${showMatches ? ' Matches |' : ''}${showFormFields ? ' FormFields |' : ''}${showLinks ? ' Links |' : ''}${showAnnotations ? ' Annotations |' : ''}${showStructure ? ' Structure |' : ''}`,
     );
     lines.push(
-      `| ---: |${showPageLabels ? ' --- |' : ''} ---: | ---: | ---: |${showNonPrint ? ' ---: |' : ''}${showRender ? ' ---: |' : ''} ---: |${showVectors ? ' ---: |' : ''}${showVectorBoxes ? ' ---: |' : ''}${showBlocks ? ' ---: |' : ''}${showWarnings ? ' ---: |' : ''}${showMatches ? ' ---: |' : ''}${showFormFields ? ' ---: |' : ''}${showLinks ? ' ---: |' : ''}${showAnnotations ? ' ---: |' : ''}${showStructure ? ' ---: |' : ''}`,
+      `| ---: |${showPageLabels ? ' --- |' : ''} ---: | ---: | ---: |${showNonPrint ? ' ---: |' : ''}${showRender ? ' ---: |' : ''} ---: |${showVectors ? ' ---: |' : ''}${showVectorBoxes ? ' ---: |' : ''}${showVisualRegions ? ' ---: |' : ''}${showBlocks ? ' ---: |' : ''}${showWarnings ? ' ---: |' : ''}${showMatches ? ' ---: |' : ''}${showFormFields ? ' ---: |' : ''}${showLinks ? ' ---: |' : ''}${showAnnotations ? ' ---: |' : ''}${showStructure ? ' ---: |' : ''}`,
     );
     for (const page of result.pages) {
       const coveragePct = Math.round(page.textCoverage * 100);
@@ -324,6 +332,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
         : '';
       const vectorsCell = showVectors ? ` ${page.vectorCount} |` : '';
       const vectorBoxesCell = showVectorBoxes ? ` ${page.vectorBoxes?.length ?? 0} |` : '';
+      const visualRegionsCell = showVisualRegions ? ` ${page.visualRegions?.length ?? 0} |` : '';
       const blocksCell = showBlocks ? ` ${page.layout?.blocks.length ?? 0} |` : '';
       const warningsCell = showWarnings ? ` ${page.warnings?.length ?? 0} |` : '';
       const matchesCell = showMatches ? ` ${page.matches?.length ?? 0} |` : '';
@@ -332,7 +341,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
       const annotationsCell = showAnnotations ? ` ${page.annotations?.length ?? 0} |` : '';
       const structureCell = showStructure ? ` ${structureNodeCount(page.structure)} |` : '';
       lines.push(
-        `| ${page.page} |${pageLabelCell} ${page.charCount} | ${page.imageCount} | ${coveragePct}% |${nonPrintCell}${renderCell} ${formatSize(page)} |${vectorsCell}${vectorBoxesCell}${blocksCell}${warningsCell}${matchesCell}${formFieldsCell}${linksCell}${annotationsCell}${structureCell}`,
+        `| ${page.page} |${pageLabelCell} ${page.charCount} | ${page.imageCount} | ${coveragePct}% |${nonPrintCell}${renderCell} ${formatSize(page)} |${vectorsCell}${vectorBoxesCell}${visualRegionsCell}${blocksCell}${warningsCell}${matchesCell}${formFieldsCell}${linksCell}${annotationsCell}${structureCell}`,
       );
     }
   }
@@ -361,6 +370,8 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
       page.renderContentRatio !== undefined ? ` · render: ${(page.renderContentRatio * 100).toFixed(2)}%` : '';
     const vectorsFragment = page.vectorCount > 0 ? ` · vectors: ${page.vectorCount}` : '';
     const vectorBoxesFragment = page.vectorBoxes !== undefined ? ` · vectorBoxes: ${page.vectorBoxes.length}` : '';
+    const visualRegionsFragment =
+      page.visualRegions !== undefined ? ` · visualRegions: ${page.visualRegions.length}` : '';
     const formFieldsFragment = page.formFields !== undefined ? ` · formFields: ${page.formFields.length}` : '';
     const linksFragment = page.links !== undefined ? ` · links: ${page.links.length}` : '';
     const annotationsFragment = page.annotations !== undefined ? ` · annotations: ${page.annotations.length}` : '';
@@ -386,7 +397,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     // because no search ran. Mirrors the overview Matches column.
     const matchesFragment = page.matches !== undefined ? ` · matches: ${page.matches.length}` : '';
     lines.push(
-      `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${pageLabelFragment}${nonPrintFragment}${renderFragment}${vectorsFragment}${vectorBoxesFragment}${formFieldsFragment}${linksFragment}${annotationsFragment}${structureFragment}${nativeFragment}${visualFragment}${warningsFragment}${matchesFragment} · size: ${formatSize(page)}pt_`,
+      `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${pageLabelFragment}${nonPrintFragment}${renderFragment}${vectorsFragment}${vectorBoxesFragment}${visualRegionsFragment}${formFieldsFragment}${linksFragment}${annotationsFragment}${structureFragment}${nativeFragment}${visualFragment}${warningsFragment}${matchesFragment} · size: ${formatSize(page)}pt_`,
     );
     const body = pageBody(page, options);
     if (body) {
@@ -401,6 +412,23 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
         lines.push('_No tagged PDF structure tree found._');
       } else {
         appendStructureItem(lines, page.structure);
+      }
+    }
+    if (page.visualRegions) {
+      lines.push('');
+      lines.push('### Visual regions');
+      if (page.visualRegions.length === 0) {
+        lines.push('');
+        lines.push('_No crop-ready visual regions found._');
+      } else {
+        lines.push('');
+        lines.push('| ID | Kind | BBox | Area | Sources | Reason |');
+        lines.push('| --- | --- | --- | ---: | --- | --- |');
+        for (const region of page.visualRegions) {
+          lines.push(
+            `| ${escapeTableCell(region.id ?? '')} | ${region.kind} | ${formatBox(region)} | ${(region.areaRatio * 100).toFixed(1)}% | ${escapeTableCell(visualRegionSources(region))} | ${escapeTableCell(region.reason)} |`,
+          );
+        }
       }
     }
     if (page.formFields) {

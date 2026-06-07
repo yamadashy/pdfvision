@@ -238,6 +238,35 @@ describe('formatToon', () => {
     expect(decoded).toEqual(result);
   });
 
+  it('round-trips visual regions through the TOON data model', () => {
+    const result = makeResult({
+      pages: [
+        makePage({
+          page: 1,
+          text: 'figure',
+          charCount: 6,
+          visualRegions: [
+            {
+              id: 'p1-vr0',
+              kind: 'raster',
+              x: 36,
+              y: 72,
+              width: 240,
+              height: 180,
+              areaRatio: 0.089,
+              sourceCount: 1,
+              sources: [{ type: 'imageBox', index: 0 }],
+              reason: 'raster image covers 8.9% of the page',
+            },
+          ],
+        }),
+      ],
+    });
+
+    const decoded = decode(formatToon(result));
+    expect(decoded).toEqual(result);
+  });
+
   it('omits optional fields that are undefined instead of emitting them as null', () => {
     // The TOON encoder renders an `undefined` property value as an explicit
     // `null`, while the json formatter (JSON.stringify) drops it. A fresh

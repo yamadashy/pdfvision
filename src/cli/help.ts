@@ -59,6 +59,10 @@ Options
       --vector-boxes      Emit \`pages[].vectorBoxes\` — bounding boxes of painted vector
                           paths such as map symbols, chart paths, table rules, form
                           boxes, and slide shapes. Only -f json / -f xml / -f toon.
+      --visual-regions    Emit \`pages[].visualRegions\` — padded, crop-ready bboxes
+                          for important figures, charts, diagrams, tables, forms, and
+                          raster/vector clusters. Feed x,y,width,height directly into
+                          --render-region for a visual zoom.
       --form-fields       Emit \`pages[].formFields\` — interactive PDF widget fields
                           such as text boxes, checkboxes, radio buttons, choices, and
                           signatures with values and bboxes. Useful for government forms.

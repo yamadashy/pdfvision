@@ -446,6 +446,66 @@ describe('formatXml', () => {
     expect(out).toContain('<vectorBoxes/>');
   });
 
+  it('emits visual regions with overview counts and source refs', () => {
+    const out = formatXml(
+      makeResult({
+        totalPages: 2,
+        overview: [
+          {
+            page: 1,
+            charCount: 1,
+            imageCount: 0,
+            vectorCount: 10,
+            textCoverage: 0.1,
+            nonPrintableRatio: 0,
+            nonPrintableCount: 0,
+            quality: { nativeTextStatus: 'ok' },
+            visualRegionCount: 1,
+            width: 612,
+            height: 792,
+          },
+        ],
+        pages: [
+          makePage({
+            page: 1,
+            text: 't',
+            charCount: 1,
+            visualRegions: [
+              {
+                id: 'p1-vr0',
+                kind: 'mixed',
+                x: 36,
+                y: 72,
+                width: 240,
+                height: 180,
+                areaRatio: 0.089,
+                sourceCount: 2,
+                sources: [
+                  { type: 'imageBox', index: 0 },
+                  { type: 'vectorBox', index: 3 },
+                ],
+                reason: 'raster & vector <cluster>',
+              },
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toContain('visualRegionCount="1"');
+    expect(out).toContain('<visualRegions>');
+    expect(out).toContain(
+      '<region id="p1-vr0" kind="mixed" x="36" y="72" width="240" height="180" areaRatio="0.089" sourceCount="2" reason="raster &amp; vector &lt;cluster&gt;">',
+    );
+    expect(out).toContain('<source type="imageBox" index="0"/>');
+    expect(out).toContain('<source type="vectorBox" index="3"/>');
+  });
+
+  it('emits self-closing <visualRegions/> when extraction ran but found no visual regions', () => {
+    const out = formatXml(makeResult({ pages: [makePage({ page: 1, text: 't', charCount: 1, visualRegions: [] })] }));
+    expect(out).toContain('<visualRegions/>');
+  });
+
   it('emits interactive form fields with values and bboxes', () => {
     const out = formatXml(
       makeResult({

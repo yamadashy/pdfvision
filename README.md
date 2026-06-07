@@ -38,6 +38,7 @@ Every page reports `charCount`, `imageCount`, `vectorCount`, `textCoverage`, and
 - **`--layout`** returns blocks with `role: 'heading'`, `repeated: true` for running headers and footers, multi-column reading order (including narrow repeated gutters and drop caps), `writingMode: 'vertical'` for detected CJK vertical text stacks, and row-major `layout.tables[]` hints for aligned numeric tables.
 - **`--image-boxes`** reports where each raster draw lands.
 - **`--vector-boxes`** reports where painted vector paths land, useful for maps, symbols, chart paths, form boxes, table rules, and slide shapes that are visible but not raster images.
+- **`--visual-regions`** groups important raster/vector/table/form geometry into padded, crop-ready bboxes that can be fed straight into `--render-region`.
 - **`--form-fields`** reports interactive PDF widget fields such as text boxes, checkboxes, radio buttons, choices, and signatures with values and bboxes.
 - **`--links`** reports clickable PDF link annotations such as citation jumps, table-of-contents destinations, and external URLs with bboxes.
 - **`--annotations`** reports non-link PDF annotations such as comments, sticky notes, highlights, underlines, strikeouts, stamps, and other markup with bboxes and comment text.
@@ -120,6 +121,9 @@ Options:
                           body_near_repeated_chrome / off_page / tabular_numeric_layout)
       --image-boxes       Emit per-image bbox in pages[].imageBoxes;
                           enables large-raster warnings with --layout or --geometry
+      --vector-boxes      Emit painted vector path bboxes in pages[].vectorBoxes
+      --visual-regions    Emit crop-ready figure/chart/table/form regions in pages[].visualRegions
+      --form-fields       Emit interactive PDF widget fields in pages[].formFields
       --links             Emit clickable link annotations in pages[].links with bboxes
       --annotations       Emit non-link PDF annotations in pages[].annotations
       --structure         Emit tagged-PDF structure trees in pages[].structure
@@ -196,7 +200,7 @@ for (const page of result.pages) {
 
 `processFile()` returns the same string output the CLI prints (`markdown` / `json` / `xml` / `toon`).
 
-Exports: `processDocument`, `processFile`, `parsePageRange`, plus full type definitions for `DocumentResult` / `DocumentMetadata` / `DocumentAttachment` / `DocumentLayerGroup` / `DocumentLayerOrderItem` / `DocumentLayers` / `DocumentLayerUsage` / `DocumentOutlineItem` / `DocumentOutlineTargetType` / `PageResult` / `PageOverview` / `PageQuality` / `PageWarning` / `SearchMatch` / `LayoutBlock` / `LayoutLine` / `LayoutTable` / `LayoutTableRow` / `LayoutTableCell` / `PageLayout` / `ImageBox` / `PageLink` / `PageLinkType` / `PageAnnotation` / `PageAnnotationBox` / `PageStructureContent` / `PageStructureItem` / `PageStructureNode` / `FormField` / `FormFieldType` / `PageOcr` / `RenderRegion` / `TextSpan` / `VectorBox` / `OutputFormat` / `ProcessDocumentOptions` / `ProcessOptions`.
+Exports: `processDocument`, `processFile`, `parsePageRange`, plus full type definitions for `DocumentResult` / `DocumentMetadata` / `DocumentAttachment` / `DocumentLayerGroup` / `DocumentLayerOrderItem` / `DocumentLayers` / `DocumentLayerUsage` / `DocumentOutlineItem` / `DocumentOutlineTargetType` / `PageResult` / `PageOverview` / `PageQuality` / `PageWarning` / `SearchMatch` / `LayoutBlock` / `LayoutLine` / `LayoutTable` / `LayoutTableRow` / `LayoutTableCell` / `PageLayout` / `ImageBox` / `PageLink` / `PageLinkType` / `PageAnnotation` / `PageAnnotationBox` / `PageStructureContent` / `PageStructureItem` / `PageStructureNode` / `VisualRegion` / `VisualRegionKind` / `VisualRegionSource` / `VisualRegionSourceType` / `FormField` / `FormFieldType` / `PageOcr` / `RenderRegion` / `TextSpan` / `VectorBox` / `OutputFormat` / `ProcessDocumentOptions` / `ProcessOptions`.
 
 ## 💾 Caching
 

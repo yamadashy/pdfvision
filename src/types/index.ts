@@ -185,6 +185,13 @@ export interface ProcessDocumentOptions {
    */
   vectorBoxes?: boolean;
   /**
+   * Emit crop-ready visual regions in `pages[].visualRegions`. These
+   * regions group existing image/vector/table/form geometry into larger
+   * human-meaningful areas so agents can choose `renderRegion` crops
+   * without manually clustering raw drawing operations.
+   */
+  visualRegions?: boolean;
+  /**
    * Emit interactive PDF form/widget fields in `pages[].formFields`.
    * Useful for government forms and applications where blank text boxes,
    * checkboxes, radio buttons, signatures, and choice fields are part of
@@ -297,6 +304,8 @@ export interface ProcessOptions {
   imageBoxes?: boolean;
   /** See {@link ProcessDocumentOptions.vectorBoxes}. */
   vectorBoxes?: boolean;
+  /** See {@link ProcessDocumentOptions.visualRegions}. */
+  visualRegions?: boolean;
   /** See {@link ProcessDocumentOptions.formFields}. */
   formFields?: boolean;
   /** See {@link ProcessDocumentOptions.links}. */
@@ -551,6 +560,41 @@ export interface VectorBox {
   y: number;
   width: number;
   height: number;
+}
+
+export type VisualRegionKind = 'raster' | 'vector' | 'table' | 'form' | 'mixed';
+export type VisualRegionSourceType = 'imageBox' | 'vectorBox' | 'layoutTable' | 'formField';
+
+export interface VisualRegionSource {
+  /** Source geometry collection this region was derived from. */
+  type: VisualRegionSourceType;
+  /** 0-based index into the source collection on the same page. */
+  index: number;
+}
+
+/**
+ * Human-meaningful visual region that can be passed directly to
+ * `--render-region x,y,width,height` for a high-detail crop. Regions are
+ * derived from existing page geometry (raster image boxes, vector path
+ * clusters, layout table hints, and form widgets), padded and clamped to
+ * page bounds.
+ */
+export interface VisualRegion {
+  /** Stable page-local identifier such as `p3-vr0`, present in extracted page results. */
+  id?: string;
+  kind: VisualRegionKind;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** Region area divided by page area, rounded to 3 decimals. */
+  areaRatio: number;
+  /** Total number of source geometry items represented by this region. */
+  sourceCount: number;
+  /** Representative source refs; large vector clusters are intentionally capped. */
+  sources: VisualRegionSource[];
+  /** Short human-readable reason for why the region is worth inspecting. */
+  reason: string;
 }
 
 export type FormFieldType = 'text' | 'checkbox' | 'radio' | 'choice' | 'signature' | 'button' | 'unknown';
@@ -877,6 +921,13 @@ export interface PageResult {
    */
   vectorBoxes?: VectorBox[];
   /**
+   * Crop-ready visual regions, only present when `visualRegions: true`
+   * was passed. These are padded/clamped PDF-point bboxes intended for
+   * direct use with `renderRegion` when an agent needs to inspect the
+   * figure, chart, diagram, table, or form area visually.
+   */
+  visualRegions?: VisualRegion[];
+  /**
    * Interactive PDF form/widget fields, only present when
    * `formFields: true` was passed. Coordinates use the same top-left
    * PDF-point system as `spans`, `layout.blocks`, and `imageBoxes`.
@@ -1171,6 +1222,13 @@ export interface PageOverview {
    * were available.
    */
   vectorBoxCount?: number;
+  /**
+   * Count of crop-ready visual regions on the page (mirror of
+   * `pages[].visualRegions.length`). Omitted when `visualRegions` was
+   * not requested; present-with-`0` when extraction ran but no candidate
+   * visual region was found.
+   */
+  visualRegionCount?: number;
   /**
    * Count of interactive form fields on the page (mirror of
    * `pages[].formFields.length`). Omitted when `formFields` was not

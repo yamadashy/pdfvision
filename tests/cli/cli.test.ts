@@ -201,6 +201,13 @@ describe('cli', () => {
     expect(parsed.pages[0].vectorBoxes).toEqual([]);
   });
 
+  it('passes --visual-regions through to JSON output', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--json', '--visual-regions', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    const parsed = JSON.parse(r.stdout.join('\n'));
+    expect(parsed.pages[0].visualRegions).toEqual([]);
+  });
+
   it('accepts the --xml shortcut as an alias for --format xml', async () => {
     const r = await captureRun([SAMPLE_PDF, '--xml', '--no-cache']);
     expect(r.exitCode).toBeNull();
