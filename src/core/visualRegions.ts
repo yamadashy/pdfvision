@@ -326,7 +326,7 @@ function addFormCandidate(formFields: readonly FormField[] | undefined, candidat
 }
 
 function associatedTextKey(text: VisualRegionAssociatedText): string {
-  return `${text.relation}:${text.blockIndex ?? ''}:${text.fieldIndex ?? ''}:${text.text}`;
+  return `${text.relation}:${text.x}:${text.y}:${text.width}:${text.height}:${text.text}`;
 }
 
 function mergeAssociatedText(items: readonly VisualRegionAssociatedText[]): VisualRegionAssociatedText[] {

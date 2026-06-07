@@ -272,4 +272,38 @@ describe('buildVisualRegions', () => {
       },
     ]);
   });
+
+  it('deduplicates repeated form labels in associated visual-region text', () => {
+    const sharedLabel = {
+      text: 'Shared taxpayer label',
+      relation: 'above' as const,
+      x: 40,
+      y: 60,
+      width: 140,
+      height: 12,
+    };
+    const regions = buildVisualRegions({
+      pageWidth: 240,
+      pageHeight: 200,
+      imageBoxes: [],
+      formFields: [
+        { name: 'first', type: 'text', x: 60, y: 80, width: 60, height: 20, label: sharedLabel },
+        { name: 'second', type: 'text', x: 130, y: 80, width: 60, height: 20, label: sharedLabel },
+      ],
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0].sourceCount).toBe(2);
+    expect(regions[0].associatedText).toEqual([
+      {
+        text: 'Shared taxpayer label',
+        relation: 'label',
+        x: 40,
+        y: 60,
+        width: 140,
+        height: 12,
+        fieldIndex: 0,
+      },
+    ]);
+  });
 });

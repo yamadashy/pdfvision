@@ -224,7 +224,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v66',
+    format: 'structured-v67',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -487,7 +487,16 @@ async function extractPageData(
           xMin,
           yMin,
           flags.formFields || flags.visualRegions
-            ? (internalLayout?.blocks.flatMap((block) => [block, ...block.lines]) ?? [])
+            ? (internalLayout?.blocks.flatMap((block) =>
+                (block.lines.length > 0 ? block.lines : [block]).map((item) => ({
+                  text: item.text,
+                  x: item.x,
+                  y: item.y,
+                  width: item.width,
+                  height: item.height,
+                  ...('fontSize' in item && item.fontSize !== undefined && { fontSize: item.fontSize }),
+                })),
+              ) ?? [])
             : [],
         )
       : undefined;
