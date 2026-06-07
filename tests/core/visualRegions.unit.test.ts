@@ -24,6 +24,60 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('keeps a full-page raster region when it is the only visual evidence', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 100,
+      pageHeight: 100,
+      imageBoxes: [{ x: 0, y: 0, width: 100, height: 100 }],
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'raster',
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100,
+        areaRatio: 1,
+        sourceCount: 1,
+        sources: [{ type: 'imageBox', index: 0 }],
+        reason: 'raster image covers 100.0% of the page',
+      },
+    ]);
+  });
+
+  it('ignores full-page background boxes when foreground visual boxes are present', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 100,
+      pageHeight: 100,
+      imageBoxes: [
+        { x: 0, y: 0, width: 100, height: 100 },
+        { x: 30, y: 20, width: 40, height: 35 },
+      ],
+      vectorBoxes: [
+        { x: 0, y: 0, width: 100, height: 100 },
+        { x: 32, y: 22, width: 36, height: 31 },
+      ],
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'mixed',
+        x: 22,
+        y: 12,
+        width: 56,
+        height: 51,
+        areaRatio: 0.286,
+        sourceCount: 2,
+        sources: [
+          { type: 'imageBox', index: 1 },
+          { type: 'vectorBox', index: 1 },
+        ],
+        reason: 'raster image covers 14.0% of the page; 1 nearby vector drawing operations',
+      },
+    ]);
+  });
+
   it('clusters nearby vector boxes and caps representative source refs', () => {
     const vectorBoxes = Array.from({ length: 20 }, (_, index) => ({
       x: 10 + index * 8,

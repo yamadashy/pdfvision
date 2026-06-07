@@ -41,6 +41,8 @@ const MIN_REGION_DIMENSION_PT = 18;
 const MIN_IMAGE_AREA_RATIO = 0.015;
 const MIN_VECTOR_CLUSTER_SOURCES = 6;
 const MIN_VECTOR_CLUSTER_AREA_RATIO = 0.01;
+const BACKGROUND_BOX_AREA_RATIO = 0.9;
+const BACKGROUND_BOX_SPAN_RATIO = 0.95;
 const CAPTION_MAX_GAP_PT = 54;
 const CAPTION_MIN_HORIZONTAL_OVERLAP_RATIO = 0.2;
 const MAX_ASSOCIATED_TEXT = 3;
@@ -60,6 +62,10 @@ function area(box: BoxLike): number {
 
 function pageArea(input: { pageWidth: number; pageHeight: number }): number {
   return Math.max(0, input.pageWidth) * Math.max(0, input.pageHeight);
+}
+
+function areaRatio(box: BoxLike, totalArea: number): number {
+  return totalArea > 0 ? area(box) / totalArea : 0;
 }
 
 function isUsableBox(box: BoxLike): boolean {
@@ -131,6 +137,18 @@ function overlapOfSmaller(a: BoxLike, b: BoxLike): number {
   return smaller > 0 ? overlapArea(a, b) / smaller : 0;
 }
 
+function isNearFullPageBox(box: BoxLike, pageWidth: number, pageHeight: number): boolean {
+  const totalArea = pageWidth * pageHeight;
+  return (
+    areaRatio(box, totalArea) >= BACKGROUND_BOX_AREA_RATIO ||
+    (box.width >= pageWidth * BACKGROUND_BOX_SPAN_RATIO && box.height >= pageHeight * BACKGROUND_BOX_SPAN_RATIO)
+  );
+}
+
+function hasNonBackgroundBox(boxes: readonly BoxLike[], pageWidth: number, pageHeight: number): boolean {
+  return boxes.some((box) => isUsableBox(box) && !isNearFullPageBox(box, pageWidth, pageHeight));
+}
+
 function sourceKey(source: VisualRegionSource): string {
   return `${source.type}:${source.index}`;
 }
@@ -184,9 +202,11 @@ function finalizeCandidate(candidate: Candidate, pageWidth: number, pageHeight: 
 
 function addRasterCandidates(input: BuildVisualRegionsInput, candidates: Candidate[]): void {
   const totalArea = pageArea(input);
+  const hasForegroundRaster = hasNonBackgroundBox(input.imageBoxes, input.pageWidth, input.pageHeight);
   for (const [index, box] of input.imageBoxes.entries()) {
     if (!isUsableBox(box)) continue;
-    const ratio = totalArea > 0 ? area(box) / totalArea : 0;
+    const ratio = areaRatio(box, totalArea);
+    if (hasForegroundRaster && isNearFullPageBox(box, input.pageWidth, input.pageHeight)) continue;
     const spansWidePage = box.width >= input.pageWidth * 0.3 || box.height >= input.pageHeight * 0.3;
     if (ratio < MIN_IMAGE_AREA_RATIO && !spansWidePage) continue;
     candidates.push({
@@ -199,10 +219,16 @@ function addRasterCandidates(input: BuildVisualRegionsInput, candidates: Candida
   }
 }
 
-function clusterVectorBoxes(vectorBoxes: readonly VectorBox[]): Candidate[] {
+function clusterVectorBoxes(
+  vectorBoxes: readonly VectorBox[],
+  pageWidth: number,
+  pageHeight: number,
+  skipBackgroundBoxes: boolean,
+): Candidate[] {
   const clusters: Candidate[] = [];
   for (const [index, box] of vectorBoxes.entries()) {
     if (!isUsableBox(box)) continue;
+    if (skipBackgroundBoxes && isNearFullPageBox(box, pageWidth, pageHeight)) continue;
     const matches: number[] = [];
     for (let i = 0; i < clusters.length; i++) {
       if (touches(clusters[i], box, CLUSTER_GAP_PT)) matches.push(i);
@@ -231,8 +257,9 @@ function clusterVectorBoxes(vectorBoxes: readonly VectorBox[]): Candidate[] {
 function addVectorCandidates(input: BuildVisualRegionsInput, candidates: Candidate[]): void {
   if (!input.vectorBoxes || input.vectorBoxes.length === 0) return;
   const totalArea = pageArea(input);
-  for (const cluster of clusterVectorBoxes(input.vectorBoxes)) {
-    const ratio = totalArea > 0 ? area(cluster) / totalArea : 0;
+  const skipBackgroundBoxes = hasNonBackgroundBox(input.vectorBoxes, input.pageWidth, input.pageHeight);
+  for (const cluster of clusterVectorBoxes(input.vectorBoxes, input.pageWidth, input.pageHeight, skipBackgroundBoxes)) {
+    const ratio = areaRatio(cluster, totalArea);
     if (cluster.sources.length < MIN_VECTOR_CLUSTER_SOURCES && ratio < MIN_VECTOR_CLUSTER_AREA_RATIO) continue;
     candidates.push({
       ...cluster,
