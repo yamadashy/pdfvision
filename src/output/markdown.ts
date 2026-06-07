@@ -1,4 +1,4 @@
-import type { DocumentResult, PageResult } from '../types/index.js';
+import type { DocumentResult, PageResult, PageStructureItem, PageStructureNode } from '../types/index.js';
 
 /** Options that influence the Markdown rendering without changing the
  *  underlying `DocumentResult`. JSON / XML formatters don't need them
@@ -24,7 +24,19 @@ function escapeTableCell(value: string): string {
 }
 
 function escapeInline(value: string): string {
-  return value.replaceAll('\\', '\\\\').replaceAll('\n', ' ').replaceAll('[', '\\[').replaceAll(']', '\\]');
+  return value
+    .replaceAll('\\', '\\\\')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('\n', ' ')
+    .replaceAll('\r', ' ')
+    .replaceAll('`', '\\`')
+    .replaceAll('*', '\\*')
+    .replaceAll('_', '\\_')
+    .replaceAll('[', '\\[')
+    .replaceAll(']', '\\]')
+    .replaceAll('|', '\\|');
 }
 
 function fieldValue(field: NonNullable<PageResult['formFields']>[number]): string {
@@ -38,6 +50,10 @@ function annotationColor(annotation: NonNullable<PageResult['annotations']>[numb
 
 function formatBox(box: { x: number; y: number; width: number; height: number }): string {
   return `${box.x},${box.y},${box.width},${box.height}`;
+}
+
+function formatBbox(box: number[]): string {
+  return box.join(',');
 }
 
 function layoutBody(page: PageResult, filterRepeated: boolean): string {
@@ -125,6 +141,33 @@ function appendLayers(lines: string[], layers: NonNullable<DocumentResult['layer
     lines.push(
       `| ${escapeTableCell(layer.id)} | ${escapeTableCell(layer.name ?? '')} | ${layer.visible ? 'yes' : 'no'} | ${escapeTableCell(layer.intent?.join(', ') ?? '')} | ${escapeTableCell(layer.usage?.viewState ?? '')} | ${escapeTableCell(layer.usage?.printState ?? '')} |${rbGroupsCell}`,
     );
+  }
+}
+
+function structureNodeCount(structure: PageStructureNode | null | undefined): number {
+  if (!structure) return 0;
+  return (
+    1 +
+    structure.children.reduce((sum, child) => {
+      return 'role' in child ? sum + structureNodeCount(child) : sum;
+    }, 0)
+  );
+}
+
+function structureLabel(item: PageStructureItem): string {
+  if (!('role' in item)) return `${escapeInline(item.type)} ${escapeInline(item.id)}`;
+  const parts = [escapeInline(item.role)];
+  if (item.lang) parts.push(`lang=${escapeInline(item.lang)}`);
+  if (item.bbox) parts.push(`bbox=${formatBbox(item.bbox)}`);
+  if (item.alt) parts.push(`alt=${escapeInline(item.alt)}`);
+  if (item.mathML) parts.push(`mathML=${escapeInline(item.mathML)}`);
+  return parts.join(' · ');
+}
+
+function appendStructureItem(lines: string[], item: PageStructureItem, depth = 0): void {
+  lines.push(`${'  '.repeat(depth)}- ${structureLabel(item)}`);
+  if ('role' in item) {
+    for (const child of item.children) appendStructureItem(lines, child, depth + 1);
   }
 }
 
@@ -240,6 +283,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     const showFormFields = result.pages.some((p) => p.formFields !== undefined);
     const showLinks = result.pages.some((p) => p.links !== undefined);
     const showAnnotations = result.pages.some((p) => p.annotations !== undefined);
+    const showStructure = result.pages.some((p) => p.structure !== undefined);
     const showPageLabels = result.pages.some((p) => p.pageLabel !== undefined);
     // The Warnings column appears only when at least one page carries
     // a non-empty `warnings` array. Like NonPrint / Render, the column
@@ -256,10 +300,10 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     lines.push('## Overview');
     lines.push('');
     lines.push(
-      `| Page |${showPageLabels ? ' Label |' : ''} Chars | Images | Coverage |${showNonPrint ? ' NonPrint |' : ''}${showRender ? ' Render |' : ''} Size (pt) |${showVectors ? ' Vectors |' : ''}${showVectorBoxes ? ' VectorBoxes |' : ''}${showBlocks ? ' Blocks |' : ''}${showWarnings ? ' Warnings |' : ''}${showMatches ? ' Matches |' : ''}${showFormFields ? ' FormFields |' : ''}${showLinks ? ' Links |' : ''}${showAnnotations ? ' Annotations |' : ''}`,
+      `| Page |${showPageLabels ? ' Label |' : ''} Chars | Images | Coverage |${showNonPrint ? ' NonPrint |' : ''}${showRender ? ' Render |' : ''} Size (pt) |${showVectors ? ' Vectors |' : ''}${showVectorBoxes ? ' VectorBoxes |' : ''}${showBlocks ? ' Blocks |' : ''}${showWarnings ? ' Warnings |' : ''}${showMatches ? ' Matches |' : ''}${showFormFields ? ' FormFields |' : ''}${showLinks ? ' Links |' : ''}${showAnnotations ? ' Annotations |' : ''}${showStructure ? ' Structure |' : ''}`,
     );
     lines.push(
-      `| ---: |${showPageLabels ? ' --- |' : ''} ---: | ---: | ---: |${showNonPrint ? ' ---: |' : ''}${showRender ? ' ---: |' : ''} ---: |${showVectors ? ' ---: |' : ''}${showVectorBoxes ? ' ---: |' : ''}${showBlocks ? ' ---: |' : ''}${showWarnings ? ' ---: |' : ''}${showMatches ? ' ---: |' : ''}${showFormFields ? ' ---: |' : ''}${showLinks ? ' ---: |' : ''}${showAnnotations ? ' ---: |' : ''}`,
+      `| ---: |${showPageLabels ? ' --- |' : ''} ---: | ---: | ---: |${showNonPrint ? ' ---: |' : ''}${showRender ? ' ---: |' : ''} ---: |${showVectors ? ' ---: |' : ''}${showVectorBoxes ? ' ---: |' : ''}${showBlocks ? ' ---: |' : ''}${showWarnings ? ' ---: |' : ''}${showMatches ? ' ---: |' : ''}${showFormFields ? ' ---: |' : ''}${showLinks ? ' ---: |' : ''}${showAnnotations ? ' ---: |' : ''}${showStructure ? ' ---: |' : ''}`,
     );
     for (const page of result.pages) {
       const coveragePct = Math.round(page.textCoverage * 100);
@@ -286,8 +330,9 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
       const formFieldsCell = showFormFields ? ` ${page.formFields?.length ?? 0} |` : '';
       const linksCell = showLinks ? ` ${page.links?.length ?? 0} |` : '';
       const annotationsCell = showAnnotations ? ` ${page.annotations?.length ?? 0} |` : '';
+      const structureCell = showStructure ? ` ${structureNodeCount(page.structure)} |` : '';
       lines.push(
-        `| ${page.page} |${pageLabelCell} ${page.charCount} | ${page.imageCount} | ${coveragePct}% |${nonPrintCell}${renderCell} ${formatSize(page)} |${vectorsCell}${vectorBoxesCell}${blocksCell}${warningsCell}${matchesCell}${formFieldsCell}${linksCell}${annotationsCell}`,
+        `| ${page.page} |${pageLabelCell} ${page.charCount} | ${page.imageCount} | ${coveragePct}% |${nonPrintCell}${renderCell} ${formatSize(page)} |${vectorsCell}${vectorBoxesCell}${blocksCell}${warningsCell}${matchesCell}${formFieldsCell}${linksCell}${annotationsCell}${structureCell}`,
       );
     }
   }
@@ -319,6 +364,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     const formFieldsFragment = page.formFields !== undefined ? ` · formFields: ${page.formFields.length}` : '';
     const linksFragment = page.links !== undefined ? ` · links: ${page.links.length}` : '';
     const annotationsFragment = page.annotations !== undefined ? ` · annotations: ${page.annotations.length}` : '';
+    const structureFragment = page.structure !== undefined ? ` · structure: ${structureNodeCount(page.structure)}` : '';
     // Surface the derived quality classification when it's abnormal so
     // the LLM-facing markdown carries the same dispatch signal that
     // JSON / XML expose. `nativeTextStatus === 'ok'` and an `'empty'`
@@ -340,12 +386,22 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     // because no search ran. Mirrors the overview Matches column.
     const matchesFragment = page.matches !== undefined ? ` · matches: ${page.matches.length}` : '';
     lines.push(
-      `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${pageLabelFragment}${nonPrintFragment}${renderFragment}${vectorsFragment}${vectorBoxesFragment}${formFieldsFragment}${linksFragment}${annotationsFragment}${nativeFragment}${visualFragment}${warningsFragment}${matchesFragment} · size: ${formatSize(page)}pt_`,
+      `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${pageLabelFragment}${nonPrintFragment}${renderFragment}${vectorsFragment}${vectorBoxesFragment}${formFieldsFragment}${linksFragment}${annotationsFragment}${structureFragment}${nativeFragment}${visualFragment}${warningsFragment}${matchesFragment} · size: ${formatSize(page)}pt_`,
     );
     const body = pageBody(page, options);
     if (body) {
       lines.push('');
       lines.push(body);
+    }
+    if (page.structure !== undefined) {
+      lines.push('');
+      lines.push('### Structure');
+      lines.push('');
+      if (page.structure === null) {
+        lines.push('_No tagged PDF structure tree found._');
+      } else {
+        appendStructureItem(lines, page.structure);
+      }
     }
     if (page.formFields) {
       lines.push('');

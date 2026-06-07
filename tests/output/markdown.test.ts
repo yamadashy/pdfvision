@@ -356,6 +356,97 @@ describe('formatMarkdown', () => {
     expect(out).toContain('_chars: 5 · images: 0 · coverage: 0% · label: i · size: 612×792pt_');
   });
 
+  it('adds a Structure column to the Overview table when structure extraction ran', () => {
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 2,
+        pages: [
+          makePage({
+            page: 1,
+            text: 'tagged',
+            charCount: 6,
+            structure: {
+              role: 'Root',
+              children: [{ role: 'Document', children: [{ type: 'content', id: 'p1_mc0' }] }],
+            },
+          }),
+          makePage({ page: 2, text: 'plain', charCount: 5, structure: null }),
+        ],
+      }),
+    );
+
+    expect(out).toMatch(/\| Page \| Chars \| Images \| Coverage \| Size \(pt\) \| Structure \|/);
+    expect(out).toMatch(/\| ---: \| ---: \| ---: \| ---: \| ---: \| ---: \|/);
+    expect(out).toMatch(/\| 1 \| 6 \| 0 \| 0% \| 612×792 \| 2 \|/);
+    expect(out).toMatch(/\| 2 \| 5 \| 0 \| 0% \| 612×792 \| 0 \|/);
+  });
+
+  it('renders tagged PDF structure trees with alternate text', () => {
+    const out = formatMarkdown(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 'hello',
+            charCount: 5,
+            structure: {
+              role: 'Root',
+              children: [
+                {
+                  role: 'Figure',
+                  alt: 'A compass on the cover',
+                  lang: 'en-US',
+                  bbox: [36.5, 60, 575, 774],
+                  children: [{ type: 'content', id: 'p1_mc0' }],
+                },
+              ],
+            },
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toContain('_chars: 5 · images: 0 · coverage: 0% · structure: 2 · size: 612×792pt_');
+    expect(out).toContain('### Structure');
+    expect(out).toContain('- Root');
+    expect(out).toContain('  - Figure · lang=en-US · bbox=36.5,60,575,774 · alt=A compass on the cover');
+    expect(out).toContain('    - content p1\\_mc0');
+  });
+
+  it('escapes tagged PDF structure labels and emits MathML', () => {
+    const out = formatMarkdown(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            structure: {
+              role: 'Root',
+              children: [
+                {
+                  role: 'Formula',
+                  alt: 'A < B & C *D* _E_ `F` [G]',
+                  mathML: '<math><mi>x</mi></math>',
+                  children: [{ type: 'annotation', id: 'annot_p3R_1' }],
+                },
+              ],
+            },
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toContain(
+      '  - Formula · alt=A &lt; B &amp; C \\*D\\* \\_E\\_ \\`F\\` \\[G\\] · mathML=&lt;math&gt;&lt;mi&gt;x&lt;/mi&gt;&lt;/math&gt;',
+    );
+    expect(out).toContain('    - annotation annot\\_p3R\\_1');
+  });
+
+  it('renders an explicit empty structure message when the structure pass found no tree', () => {
+    const out = formatMarkdown(makeResult({ pages: [makePage({ page: 1, structure: null })] }));
+    expect(out).toContain('### Structure');
+    expect(out).toContain('_No tagged PDF structure tree found._');
+  });
+
   it('renders an explicit empty page-label message when extraction found no labels', () => {
     const out = formatMarkdown(makeResult({ pageLabels: [] }));
     expect(out).toContain('## Page Labels');

@@ -43,6 +43,7 @@ interface PageOverview {
   formFieldCount?: number;        // mirror of pages[N].formFields.length; present iff --form-fields
   linkCount?: number;             // mirror of pages[N].links.length; present iff --links
   annotationCount?: number;       // mirror of pages[N].annotations.length; present iff --annotations
+  structureNodeCount?: number;    // count of tagged-PDF structure nodes; present iff --structure
   width: number;                  // PDF user-space points
   height: number;
 }
@@ -84,6 +85,7 @@ interface PageResult {
   formFields?: FormField[];      // present iff --form-fields
   links?: PageLink[];            // present iff --links
   annotations?: PageAnnotation[]; // present iff --annotations
+  structure?: PageStructureNode | null; // present iff --structure; null means no page structure tree
   ocr?: PageOcr;                 // present iff --ocr
   warnings?: PageWarning[];      // omitted when no rule fired on the page
   matches?: SearchMatch[];       // present iff --search; empty array means "search ran, no hit on this page"
@@ -200,6 +202,28 @@ interface PageAnnotation {
 ```
 
 `annotations[]` surfaces non-link, non-widget PDF annotations: sticky notes, comments, highlights, underlines, strikeouts, stamps, free text, ink, and other markup. `Link`, `Widget`, and `Popup` annotations are intentionally excluded because links and form widgets have dedicated outputs and popups usually duplicate their parent annotation. Coordinates use the same top-left PDF-point system as `spans`, `layout.blocks`, and `imageBoxes`; `quadBoxes[]` gives precise markup regions when the PDF provides QuadPoints.
+
+## Structure (`--structure`)
+
+```ts
+interface PageStructureNode {
+  role: string;                 // tagged-PDF role, role-map-resolved by pdf.js when possible
+  alt?: string;                 // alternate text, often figure/formula descriptions
+  mathML?: string;              // MathML for Formula nodes when pdf.js exposes it
+  lang?: string;                // language hint for this structure node
+  bbox?: number[];              // bbox when pdf.js exposes one
+  children: PageStructureItem[];
+}
+
+type PageStructureItem = PageStructureNode | PageStructureContent;
+
+interface PageStructureContent {
+  type: string;                 // usually "content", "object", or "annotation"
+  id: string;                   // pdf.js id that maps to marked content, an object, or an annotation
+}
+```
+
+`pages[].structure` surfaces the tagged-PDF structure tree a human reader may reach through a PDF viewer's accessibility layer. This is especially useful for accessible government PDFs, manuals, reports, and forms where figure `alt` text describes a visual region better than native text extraction. IRS instructions, for example, can expose a cover figure's full human-written description through `alt` even though the native text stream only lists fragments. `structure: null` means the pass ran and pdf.js found no page structure tree; absent `structure` means `--structure` was not requested. `overview[].structureNodeCount` mirrors the number of structure nodes so multi-page consumers can find tagged pages before walking every tree.
 
 ## Page labels (`--page-labels`)
 
@@ -494,7 +518,7 @@ pdfvision doc.pdf -p <m.page> --render --render-region <m.bbox.x>,<m.bbox.y>,<m.
 </document>
 ```
 
-Empty `<pageLabels/>`, `<attachments/>`, `<outline/>`, `<viewer/>`, `<layers/>`, `<layout/>`, `<imageBoxes/>`, `<vectorBoxes/>`, `<formFields/>`, `<links/>`, `<annotations/>`, and `<ocr/>` (self-closing) mean "the pass ran and found nothing", which is distinct from the tag being absent (the pass wasn't requested).
+Empty `<pageLabels/>`, `<attachments/>`, `<outline/>`, `<viewer/>`, `<layers/>`, `<layout/>`, `<imageBoxes/>`, `<vectorBoxes/>`, `<formFields/>`, `<links/>`, `<annotations/>`, `<structure/>`, and `<ocr/>` (self-closing) mean "the pass ran and found nothing", which is distinct from the tag being absent (the pass wasn't requested).
 
 ## TOON output shape
 
@@ -553,4 +577,4 @@ for (const page of result.pages) {
 
 `processFile()` returns the formatted string output (`markdown` / `json` / `xml` / `toon`). `processDocument()` returns the structured object directly.
 
-Exported types: `DocumentResult`, `DocumentMetadata`, `DocumentAttachment`, `DocumentLayerGroup`, `DocumentLayerOrderItem`, `DocumentLayers`, `DocumentLayerUsage`, `DocumentOutlineItem`, `DocumentOutlineTargetType`, `DocumentViewerState`, `DocumentOpenAction`, `DocumentPermissions`, `DocumentPermission`, `DocumentMarkInfo`, `JsonScalar`, `JsonValue`, `PageOverview`, `PageResult`, `PageQuality`, `PageWarning`, `SearchMatch`, `LayoutBlock`, `LayoutLine`, `LayoutTable`, `LayoutTableRow`, `LayoutTableCell`, `PageLayout`, `ImageBox`, `PageLink`, `PageLinkType`, `PageAnnotation`, `PageAnnotationBox`, `RenderRegion`, `TextSpan`, `PageOcr`, `OutputFormat`, `ProcessDocumentOptions`, `ProcessOptions`.
+Exported types: `DocumentResult`, `DocumentMetadata`, `DocumentAttachment`, `DocumentLayerGroup`, `DocumentLayerOrderItem`, `DocumentLayers`, `DocumentLayerUsage`, `DocumentOutlineItem`, `DocumentOutlineTargetType`, `DocumentViewerState`, `DocumentOpenAction`, `DocumentPermissions`, `DocumentPermission`, `DocumentMarkInfo`, `JsonScalar`, `JsonValue`, `PageOverview`, `PageResult`, `PageQuality`, `PageWarning`, `SearchMatch`, `LayoutBlock`, `LayoutLine`, `LayoutTable`, `LayoutTableRow`, `LayoutTableCell`, `PageLayout`, `ImageBox`, `PageLink`, `PageLinkType`, `PageAnnotation`, `PageAnnotationBox`, `PageStructureContent`, `PageStructureItem`, `PageStructureNode`, `RenderRegion`, `TextSpan`, `PageOcr`, `OutputFormat`, `ProcessDocumentOptions`, `ProcessOptions`.

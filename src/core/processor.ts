@@ -20,6 +20,7 @@ import type {
   PageLayout,
   PageLink,
   PageResult,
+  PageStructureNode,
   ProcessDocumentOptions,
   ProcessOptions,
   RenderRegion,
@@ -42,6 +43,7 @@ import { parsePageRangeWithSkipped } from './pageRange.js';
 import { runParallel } from './parallel.js';
 import { isRasterBackedTextLayer } from './rasterBackedTextLayer.js';
 import { type CompiledSearch, compileSearch, searchPage, suppressDuplicateOcrMatches } from './search.js';
+import { buildPageStructure, countStructureNodes } from './structure.js';
 import { textMatrixFontSize, textRunGeometryFromTransform } from './textGeometry.js';
 import { buildVectorBoxes } from './vectorBoxes.js';
 import { countVectorPaintOps } from './vectorOps.js';
@@ -63,6 +65,7 @@ interface CacheKeyInput {
   formFields?: boolean;
   links?: boolean;
   annotations?: boolean;
+  structure?: boolean;
   pageLabels?: boolean;
   attachments?: boolean;
   attachmentOutput?: string;
@@ -168,7 +171,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v60',
+    format: 'structured-v61',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -196,6 +199,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     formFields: !!input.formFields,
     links: !!input.links,
     annotations: !!input.annotations,
+    structure: !!input.structure,
     pageLabels: !!input.pageLabels,
     attachments: !!input.attachments,
     attachmentOutput: input.attachmentOutput ? resolve(input.attachmentOutput) : null,
@@ -281,6 +285,7 @@ interface PageData {
   formFields?: FormField[];
   links?: PageLink[];
   annotations?: PageAnnotation[];
+  structure?: PageStructureNode | null;
 }
 
 interface PageFlags {
@@ -292,6 +297,7 @@ interface PageFlags {
   formFields: boolean;
   links: boolean;
   annotations: boolean;
+  structure: boolean;
   /** Build spans internally even when neither `geometry` nor `layout`
    *  was requested. Search needs them for per-match bbox; the public
    *  `pages[].spans` payload still requires `geometry`. */
@@ -413,6 +419,11 @@ async function extractPageData(
         normalizeText: flags.normalize ? normalizeText : undefined,
       })
     : undefined;
+  const structure = flags.structure
+    ? buildPageStructure(await page.getStructTree(), {
+        normalizeText: flags.normalize ? normalizeText : undefined,
+      })
+    : undefined;
 
   const pageArea = width * height;
   const rawCoverage = pageArea > 0 ? textArea / pageArea : 0;
@@ -467,6 +478,7 @@ async function extractPageData(
     ...(formFields !== undefined && { formFields }),
     ...(links !== undefined && { links }),
     ...(pageAnnotations !== undefined && { annotations: pageAnnotations }),
+    ...(structure !== undefined && { structure }),
   };
 }
 
@@ -900,6 +912,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       formFields: !!options.formFields,
       links: !!options.links,
       annotations: !!options.annotations,
+      structure: !!options.structure,
       // Search needs span-level bbox to populate `matches[*].bbox`;
       // build spans internally even if the caller didn't ask for the
       // full `pages[].spans` payload via --geometry.
@@ -956,6 +969,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
         ...(data.formFields !== undefined && { formFields: data.formFields }),
         ...(data.links !== undefined && { links: data.links }),
         ...(data.annotations !== undefined && { annotations: data.annotations }),
+        ...(data.structure !== undefined && { structure: data.structure }),
         // Initial classification using whatever signals we have so far.
         // OCR may attach a renderContentRatio below; the post-OCR pass
         // overwrites this with the final classification.
@@ -1083,6 +1097,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
             ...(p.formFields !== undefined && { formFieldCount: p.formFields.length }),
             ...(p.links !== undefined && { linkCount: p.links.length }),
             ...(p.annotations !== undefined && { annotationCount: p.annotations.length }),
+            ...(p.structure !== undefined && { structureNodeCount: countStructureNodes(p.structure) }),
             width: p.width,
             height: p.height,
           }))
@@ -1158,6 +1173,7 @@ export async function processFile(filePath: string, options: ProcessOptions): Pr
     formFields: options.formFields,
     links: options.links,
     annotations: options.annotations,
+    structure: options.structure,
     pageLabels: options.pageLabels,
     attachments: options.attachments,
     attachmentOutput: options.attachmentOutput,

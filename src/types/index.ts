@@ -204,6 +204,13 @@ export interface ProcessDocumentOptions {
    */
   annotations?: boolean;
   /**
+   * Emit tagged-PDF structure trees in `pages[].structure`. Useful for
+   * accessible PDFs whose viewer/accessibility layer contains roles,
+   * figure alt text, language hints, or structural grouping that native
+   * text and visual layout alone do not reveal.
+   */
+  structure?: boolean;
+  /**
    * Emit viewer page labels in `pageLabels` and `pages[].pageLabel`.
    * Useful when the PDF viewer shows roman front matter, section prefixes,
    * or restarted numbering that differs from the physical page number.
@@ -296,6 +303,8 @@ export interface ProcessOptions {
   links?: boolean;
   /** See {@link ProcessDocumentOptions.annotations}. */
   annotations?: boolean;
+  /** See {@link ProcessDocumentOptions.structure}. */
+  structure?: boolean;
   /** See {@link ProcessDocumentOptions.pageLabels}. */
   pageLabels?: boolean;
   /** See {@link ProcessDocumentOptions.attachments}. */
@@ -718,6 +727,30 @@ export interface PageAnnotation {
   quadBoxes?: PageAnnotationBox[];
 }
 
+export interface PageStructureContent {
+  /** pdf.js structure reference type, usually `content`, `object`, or `annotation`. */
+  type: string;
+  /** Unique pdf.js id that maps this structure item to marked content, an object, or an annotation. */
+  id: string;
+}
+
+export type PageStructureItem = PageStructureNode | PageStructureContent;
+
+export interface PageStructureNode {
+  /** Tagged-PDF role, already role-map-resolved by pdf.js when possible. */
+  role: string;
+  /** Alternate text, commonly used for figures or formula descriptions. */
+  alt?: string;
+  /** MathML emitted by pdf.js for tagged Formula nodes when available. */
+  mathML?: string;
+  /** Language hint for this structure node. */
+  lang?: string;
+  /** Optional bbox emitted by pdf.js for structure nodes that carry one. */
+  bbox?: number[];
+  /** Nested structure nodes or marked-content/object references. */
+  children: PageStructureItem[];
+}
+
 export interface PageResult {
   page: number;
   /**
@@ -861,6 +894,12 @@ export interface PageResult {
    * PDF-point system as `spans`, `layout.blocks`, and `imageBoxes`.
    */
   annotations?: PageAnnotation[];
+  /**
+   * Tagged-PDF structure tree for this page, present when `structure: true`
+   * was passed. `null` means the pass ran and pdf.js found no page
+   * structure tree; absent means structure extraction was not requested.
+   */
+  structure?: PageStructureNode | null;
   /**
    * OCR-derived text + confidence + language, only present when
    * `ocr: true` was passed. The pdfjs-derived `text` field is preserved
@@ -1152,6 +1191,12 @@ export interface PageOverview {
    * markup annotations exist.
    */
   annotationCount?: number;
+  /**
+   * Count of tagged-PDF structure nodes on the page. Omitted when
+   * `structure` was not requested; present-with-`0` when extraction ran
+   * but no page structure tree exists.
+   */
+  structureNodeCount?: number;
   width: number;
   height: number;
 }

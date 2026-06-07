@@ -778,6 +778,61 @@ describe('formatXml', () => {
     expect(out).toContain('<attachments/>');
   });
 
+  it('emits tagged PDF structure trees with alternate text', () => {
+    const out = formatXml(
+      makeResult({
+        overview: [
+          {
+            page: 1,
+            charCount: 5,
+            imageCount: 0,
+            vectorCount: 0,
+            textCoverage: 0.01,
+            nonPrintableRatio: 0,
+            nonPrintableCount: 0,
+            quality: { nativeTextStatus: 'ok' },
+            structureNodeCount: 2,
+            width: 612,
+            height: 792,
+          },
+        ],
+        pages: [
+          makePage({
+            page: 1,
+            text: 'hello',
+            charCount: 5,
+            structure: {
+              role: 'Root',
+              children: [
+                {
+                  role: 'Figure',
+                  alt: 'A compass on the cover',
+                  mathML: '<math><mi>x</mi></math>',
+                  lang: 'en-US',
+                  bbox: [36.5, 60, 575, 774],
+                  children: [{ type: 'content', id: 'p1_mc0' }],
+                },
+              ],
+            },
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toContain('structureNodeCount="2"');
+    expect(out).toContain('<structure>');
+    expect(out).toContain(
+      '<node role="Figure" alt="A compass on the cover" mathML="&lt;math&gt;&lt;mi&gt;x&lt;/mi&gt;&lt;/math&gt;" lang="en-US" bbox="36.5,60,575,774">',
+    );
+    expect(out).toContain('<content type="content" id="p1_mc0"/>');
+    expect(out).toContain('</structure>');
+  });
+
+  it('emits self-closing <structure/> when extraction ran but found no structure tree', () => {
+    const out = formatXml(makeResult({ pages: [makePage({ page: 1, structure: null })] }));
+    expect(out).toContain('<structure/>');
+  });
+
   it('emits an <ocr> element with lang + confidence attributes when ocr is present', () => {
     const out = formatXml(
       makeResult({

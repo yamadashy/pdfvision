@@ -1,4 +1,4 @@
-import type { DocumentResult } from '../types/index.js';
+import type { DocumentResult, PageStructureItem } from '../types/index.js';
 
 /**
  * XML-flavoured output. Not strictly conformant XML — there's no `<?xml`
@@ -41,6 +41,25 @@ function viewerValue(value: unknown): string {
   if (typeof value === 'string') return value;
   if (typeof value === 'number' || typeof value === 'boolean' || value === null) return String(value);
   return JSON.stringify(value);
+}
+
+function appendStructureItem(out: string[], item: PageStructureItem): void {
+  if (!('role' in item)) {
+    out.push(`<content type="${escapeAttr(item.type)}" id="${escapeAttr(item.id)}"/>`);
+    return;
+  }
+  const attrs = [`role="${escapeAttr(item.role)}"`];
+  if (item.alt !== undefined) attrs.push(`alt="${escapeAttr(item.alt)}"`);
+  if (item.mathML !== undefined) attrs.push(`mathML="${escapeAttr(item.mathML)}"`);
+  if (item.lang !== undefined) attrs.push(`lang="${escapeAttr(item.lang)}"`);
+  if (item.bbox !== undefined) attrs.push(`bbox="${escapeAttr(item.bbox.join(','))}"`);
+  if (item.children.length === 0) {
+    out.push(`<node ${attrs.join(' ')}/>`);
+    return;
+  }
+  out.push(`<node ${attrs.join(' ')}>`);
+  for (const child of item.children) appendStructureItem(out, child);
+  out.push('</node>');
 }
 
 export function formatXml(result: DocumentResult): string {
@@ -181,6 +200,7 @@ export function formatXml(result: DocumentResult): string {
       if (p.formFieldCount !== undefined) ovAttrs.push(`formFieldCount="${p.formFieldCount}"`);
       if (p.linkCount !== undefined) ovAttrs.push(`linkCount="${p.linkCount}"`);
       if (p.annotationCount !== undefined) ovAttrs.push(`annotationCount="${p.annotationCount}"`);
+      if (p.structureNodeCount !== undefined) ovAttrs.push(`structureNodeCount="${p.structureNodeCount}"`);
       ovAttrs.push(`width="${p.width}"`, `height="${p.height}"`);
       out.push(`<page ${ovAttrs.join(' ')}/>`);
     }
@@ -425,6 +445,16 @@ export function formatXml(result: DocumentResult): string {
           out.push('</match>');
         }
         out.push('</matches>');
+      }
+    }
+
+    if (page.structure !== undefined) {
+      if (page.structure === null) {
+        out.push('<structure/>');
+      } else {
+        out.push('<structure>');
+        appendStructureItem(out, page.structure);
+        out.push('</structure>');
       }
     }
 

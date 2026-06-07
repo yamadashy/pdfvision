@@ -4,6 +4,7 @@ import { basename, dirname, resolve } from 'node:path';
 import PDFDocument from 'pdfkit';
 import { describe, expect, it } from 'vitest';
 import { processDocument, processFile } from '../../src/core/processor.js';
+import { buildPageStructure } from '../../src/core/structure.js';
 
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
 const SAMPLE_JA_PDF = resolve(__dirname, '../fixtures/sample-ja.pdf');
@@ -116,6 +117,22 @@ function buildPdfWithLayers(): Uint8Array {
     '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> >>',
     '<< /Type /OCG /Name (Visible layer) /Intent [/View] /Usage << /View << /ViewState /ON >> /Print << /PrintState /ON >> >> >>',
     '<< /Type /OCG /Name (Hidden layer) /Intent [/View /Design] /Usage << /View << /ViewState /OFF >> /Print << /PrintState /OFF >> >> >>',
+  ]);
+}
+
+function buildPdfWithStructure(): Uint8Array {
+  const stream = 'BT /F1 12 Tf 72 720 Td /P <</MCID 0>> BDC (Hello tagged) Tj EMC ET';
+  const length = Buffer.byteLength(stream, 'binary');
+  return buildRawPdf([
+    '<< /Type /Catalog /Pages 2 0 R /MarkInfo << /Marked true >> /StructTreeRoot 6 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /StructParents 0 /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>',
+    `<< /Length ${length} >>\nstream\n${stream}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    '<< /Type /StructTreeRoot /K [7 0 R] /ParentTree 8 0 R /ParentTreeNextKey 1 >>',
+    '<< /Type /StructElem /S /Document /P 6 0 R /K [9 0 R] /Lang (en-US) >>',
+    '<< /Nums [0 [9 0 R]] >>',
+    '<< /Type /StructElem /S /P /P 7 0 R /Alt (Paragraph alt) /Lang (en-US) /K << /Type /MCR /Pg 3 0 R /MCID 0 >> >>',
   ]);
 }
 
@@ -327,6 +344,88 @@ describe('processDocument', () => {
 
       expect(withoutLayers.layers).toBeUndefined();
       expect(withLayers.layers?.groups).toHaveLength(2);
+    } finally {
+      if (originalCache === undefined) delete process.env.PDFVISION_CACHE_DIR;
+      else process.env.PDFVISION_CACHE_DIR = originalCache;
+      rmSync(cacheRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('extracts tagged PDF structure trees with alternate text', async () => {
+    const result = await processDocument('memory://structure.pdf', {
+      sourceData: buildPdfWithStructure(),
+      noCache: true,
+      structure: true,
+    });
+
+    expect(result.pages[0].text).toContain('Hello tagged');
+    expect(result.pages[0].structure).toEqual({
+      role: 'Root',
+      children: [
+        {
+          role: 'Document',
+          lang: 'en-US',
+          children: [
+            {
+              role: 'P',
+              alt: 'Paragraph alt',
+              lang: 'en-US',
+              children: [{ type: 'content', id: 'p3R_mc0' }],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('preserves Formula MathML while normalizing tagged structure trees', () => {
+    const structure = buildPageStructure({
+      role: 'Root',
+      children: [
+        {
+          role: 'Formula',
+          alt: 'x equals y',
+          mathML: '<math><mi>x</mi><mo>=</mo><mi>y</mi></math>',
+          children: [{ type: 'annotation', id: 'annot_p3R_1' }],
+        },
+      ],
+    });
+
+    expect(structure).toEqual({
+      role: 'Root',
+      children: [
+        {
+          role: 'Formula',
+          alt: 'x equals y',
+          mathML: '<math><mi>x</mi><mo>=</mo><mi>y</mi></math>',
+          children: [{ type: 'annotation', id: 'annot_p3R_1' }],
+        },
+      ],
+    });
+  });
+
+  it('emits null structure when structure extraction ran but found no tree', async () => {
+    const result = await processDocument(SAMPLE_PDF, { noCache: true, structure: true });
+
+    expect(result.pages[0].structure).toBeNull();
+  });
+
+  it('keeps cache entries with vs without structure separate', async () => {
+    const cacheRoot = mkdtempSync(resolve(tmpdir(), 'pdfvision-structure-cache-'));
+    const originalCache = process.env.PDFVISION_CACHE_DIR;
+    process.env.PDFVISION_CACHE_DIR = cacheRoot;
+    try {
+      const sourceData = buildPdfWithStructure();
+      const withoutStructure = await processDocument('memory://structure-cache.pdf', {
+        sourceData,
+      });
+      const withStructure = await processDocument('memory://structure-cache.pdf', {
+        sourceData,
+        structure: true,
+      });
+
+      expect(withoutStructure.pages[0].structure).toBeUndefined();
+      expect(withStructure.pages[0].structure?.role).toBe('Root');
     } finally {
       if (originalCache === undefined) delete process.env.PDFVISION_CACHE_DIR;
       else process.env.PDFVISION_CACHE_DIR = originalCache;

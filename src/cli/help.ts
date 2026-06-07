@@ -69,6 +69,9 @@ Options
       --annotations       Emit \`pages[].annotations\` — non-link PDF annotations such as
                           comments, sticky notes, highlights, underlines, strikeouts, stamps,
                           and other markup with bboxes and comment text.
+      --structure         Emit tagged-PDF structure trees in \`pages[].structure\`,
+                          including role hierarchy, figure alt text, language hints,
+                          bboxes, and marked-content ids when the PDF provides them.
       --page-labels       Emit viewer page labels in \`pageLabels\` and \`pages[].pageLabel\`;
                           useful when front matter uses roman numerals or page numbering
                           restarts apart from the physical page number.
