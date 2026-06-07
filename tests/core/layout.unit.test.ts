@@ -80,6 +80,24 @@ describe('buildLayout — heading classification', () => {
     expect(handle?.role).toBeUndefined();
   });
 
+  it('promotes top-of-page paper titles in the legacy heading band to level 1', () => {
+    // BERT / ACL paper-shaped case: title is around 1.3x body, not the
+    // 1.4x poster-title band, but visually it is the document title.
+    const bodyLines: TextSpan[] = [];
+    for (let i = 0; i < 20; i++) {
+      bodyLines.push(span('Body text line that establishes the paper body median.', 72, 220 + i * 12, 10.9));
+    }
+    const spans: TextSpan[] = [
+      span('BERT: Pre-training of Deep Bidirectional Transformers for', 116, 68, 14.3, 360),
+      span('Language Understanding', 160, 84, 14.3, 180),
+      ...bodyLines,
+    ];
+    const layout = buildLayout(spans);
+    const title = layout.blocks.find((b) => b.text.includes('BERT:'));
+    expect(title?.role).toBe('heading');
+    expect(title?.level).toBe(1);
+  });
+
   it('flags arxiv-style 1.20× section headings (12pt over 10pt body) at level 2', () => {
     // The most common LaTeX article layout: 10pt body with 12pt section
     // headings. Ratio 1.20 sits in the 1.15–1.25 band, so the block must

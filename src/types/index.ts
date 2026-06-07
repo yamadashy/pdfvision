@@ -317,7 +317,8 @@ export interface LayoutBlock {
   role?: 'heading';
   /**
    * Approximate heading hierarchy, present only when `role === 'heading'`:
-   *   - `1` — major title (fontSize ≥ 1.40× body median).
+   *   - `1` — major title (fontSize ≥ 1.40× body median, or a
+   *           top-of-page document title in the 1.25× band).
    *   - `2` — section heading (≥ 1.15× body, or ≥ 1.25× under the legacy
    *           rule). For the 1.15–1.25 band the block must also be short
    *           and either standalone or locally larger than its neighbours.

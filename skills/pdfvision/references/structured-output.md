@@ -122,7 +122,7 @@ Multi-column reading order: `blocks[]` reads top-to-bottom of the left column be
 
 `role` is set when a block is classified as a heading; `level` ranks the visual hierarchy:
 
-- `level: 1` — paper / page title (fontSize ≥ 1.40× body median).
+- `level: 1` — paper / page title (fontSize ≥ 1.40× body median, or top-of-page document title in the ≥ 1.25× band).
 - `level: 2` — section heading (≥ 1.25× under the legacy rule, or ≥ 1.15× with structural support: short and either standalone or locally larger than neighbours). Catches the typical LaTeX 12pt-over-10pt section style.
 - `level: 3` — subsection candidate (≥ 1.08×, single short line, locally larger than same-column neighbours). Lower confidence; the kind of heading ResNet's `3.1.` and `3.4.` use.
 

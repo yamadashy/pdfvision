@@ -136,6 +136,9 @@ function canShareLine(a: TextSpan, b: TextSpan): boolean {
  *  get level 1 headings, so a uniform-large page doesn't end up tagged as
  *  "all headings". Empirically ~100 chars is one short paragraph. */
 const MIN_BODY_CHARS_FOR_LOW_TIER = 100;
+const TOP_TITLE_MAX_Y = 120;
+const TOP_TITLE_MIN_WIDTH = 180;
+const TOP_TITLE_MIN_CHARS = 25;
 
 /** Tolerance around the body fontSize used when counting how many chars sit
  *  at the body font class. PDFs from LaTeX commonly drift by ±0.5pt between
@@ -154,6 +157,13 @@ function isHeadingCandidateText(text: string): boolean {
   return !/^[•●◦▪■‣]\s*/u.test(trimmed);
 }
 
+function isTopTitleCandidate(block: LayoutBlock, ratio: number, lineCount: number, nonWsChars: number): boolean {
+  if (ratio < 1.25) return false;
+  if (block.y > TOP_TITLE_MAX_Y) return false;
+  if (block.width < TOP_TITLE_MIN_WIDTH) return false;
+  return lineCount > 1 || nonWsChars >= TOP_TITLE_MIN_CHARS;
+}
+
 /**
  * Classify each block as a heading (with a tiered confidence `level`) or
  * leave it as body. Body fontSize is the char-weighted median of every
@@ -161,8 +171,9 @@ function isHeadingCandidateText(text: string): boolean {
  * against a 12pt body.
  *
  * Three tiers, all driven by `ratio = block.lines[0].fontSize / bodyFs`:
- *   - level 1 (`ratio ≥ 1.40`): paper / page titles. Fires unconditionally
- *     so a one-block slide or poster keeps a recognisable title.
+ *   - level 1 (`ratio ≥ 1.40`, or top-of-page document titles in the
+ *     `ratio ≥ 1.25` band): paper / page titles. The 1.40 band fires
+ *     unconditionally so a one-block slide or poster keeps a recognisable title.
  *   - level 2 (`ratio ≥ 1.25`): preserves the legacy threshold for full-
  *     confidence headings, gated only by the page having enough body text
  *     to make "heading vs body" a meaningful distinction.
@@ -261,6 +272,7 @@ function classifyHeadings(blocks: LayoutBlock[]): void {
     const nonWsChars = b.lines.reduce((acc, l) => acc + l.text.replace(/\s/g, '').length, 0);
     const isShort = nonWsChars <= MAX_HEADING_CHARS;
     const lineCount = b.lines.length;
+    const topTitle = isTopTitleCandidate(b, ratio, lineCount, nonWsChars);
 
     // "Above" / "below" must be the candidate's same-column neighbours,
     // not just the y-adjacent blocks. On multi-column pages a subheading
@@ -312,7 +324,7 @@ function classifyHeadings(blocks: LayoutBlock[]): void {
       // demote so a uniform-large page doesn't tag every block.
       if (!hasCredibleBody) continue;
       b.role = 'heading';
-      b.level = 2;
+      b.level = topTitle ? 1 : 2;
       b.roleConfidence = computeRoleConfidence(ratio, isShort, standalone, locallyLarger, singleLine);
     } else if (ratio >= 1.15) {
       // Level 2 (structural band). Catches arxiv-style 12pt section
