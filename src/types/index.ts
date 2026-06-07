@@ -192,6 +192,12 @@ export interface ProcessDocumentOptions {
    */
   formFields?: boolean;
   /**
+   * Emit clickable PDF link annotations in `pages[].links`. Useful for
+   * papers, reports, and manuals where citation jumps, table-of-contents
+   * entries, and external URLs are part of how a human navigates the PDF.
+   */
+  links?: boolean;
+  /**
    * Run OCR on each selected page and attach the result as `pages[].ocr`.
    * Off by default — OCR pulls in the optional `tesseract.js` dependency
    * (~30MB worker bundle) and is slow even on small documents. The
@@ -242,6 +248,8 @@ export interface ProcessOptions {
   vectorBoxes?: boolean;
   /** See {@link ProcessDocumentOptions.formFields}. */
   formFields?: boolean;
+  /** See {@link ProcessDocumentOptions.links}. */
+  links?: boolean;
   ocr?: boolean;
   ocrLang?: string;
   /**
@@ -494,6 +502,22 @@ export interface FormField {
   multiline?: boolean;
 }
 
+export type PageLinkType = 'url' | 'destination';
+
+export interface PageLink {
+  /**
+   * `url` for external links, `destination` for named/internal PDF
+   * destinations such as citation jumps or table-of-contents anchors.
+   */
+  type: PageLinkType;
+  /** URL or destination name. */
+  target: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface PageResult {
   page: number;
   /**
@@ -618,6 +642,12 @@ export interface PageResult {
    * PDF-point system as `spans`, `layout.blocks`, and `imageBoxes`.
    */
   formFields?: FormField[];
+  /**
+   * Clickable PDF link annotations, only present when `links: true` was
+   * passed. Coordinates use the same top-left PDF-point system as
+   * `spans`, `layout.blocks`, and `imageBoxes`.
+   */
+  links?: PageLink[];
   /**
    * OCR-derived text + confidence + language, only present when
    * `ocr: true` was passed. The pdfjs-derived `text` field is preserved
@@ -891,6 +921,12 @@ export interface PageOverview {
    * widget fields.
    */
   formFieldCount?: number;
+  /**
+   * Count of clickable PDF links on the page (mirror of
+   * `pages[].links.length`). Omitted when `links` was not requested;
+   * present-with-`0` when extraction ran but no link annotations exist.
+   */
+  linkCount?: number;
   width: number;
   height: number;
 }

@@ -23,6 +23,8 @@ export type {
   LayoutLine,
   OutputFormat,
   PageLayout,
+  PageLink,
+  PageLinkType,
   PageOcr,
   PageOverview,
   PageQuality,

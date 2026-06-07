@@ -511,6 +511,66 @@ describe('formatXml', () => {
     expect(out).toContain('<formFields/>');
   });
 
+  it('emits clickable PDF links with escaped targets and overview counts', () => {
+    const out = formatXml(
+      makeResult({
+        totalPages: 2,
+        overview: [
+          {
+            page: 1,
+            charCount: 1,
+            imageCount: 0,
+            vectorCount: 0,
+            textCoverage: 0.1,
+            nonPrintableRatio: 0,
+            nonPrintableCount: 0,
+            quality: { nativeTextStatus: 'ok' },
+            linkCount: 2,
+            width: 612,
+            height: 792,
+          },
+        ],
+        pages: [
+          makePage({
+            page: 1,
+            text: 't',
+            charCount: 1,
+            links: [
+              {
+                type: 'url',
+                target: 'https://example.com?q=a&title="PDF"',
+                x: 100,
+                y: 72,
+                width: 60,
+                height: 20,
+              },
+              {
+                type: 'destination',
+                target: 'cite.transformer',
+                x: 40,
+                y: 180,
+                width: 40,
+                height: 12,
+              },
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toContain('linkCount="2"');
+    expect(out).toContain('<links>');
+    expect(out).toContain(
+      '<link type="url" target="https://example.com?q=a&amp;title=&quot;PDF&quot;" x="100" y="72" width="60" height="20"/>',
+    );
+    expect(out).toContain('<link type="destination" target="cite.transformer" x="40" y="180" width="40" height="12"/>');
+  });
+
+  it('emits self-closing <links/> when extraction ran but found no links', () => {
+    const out = formatXml(makeResult({ pages: [makePage({ page: 1, text: 't', charCount: 1, links: [] })] }));
+    expect(out).toContain('<links/>');
+  });
+
   it('emits an <ocr> element with lang + confidence attributes when ocr is present', () => {
     const out = formatXml(
       makeResult({

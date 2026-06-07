@@ -70,6 +70,7 @@ export function formatXml(result: DocumentResult): string {
       if (p.matchCount !== undefined) ovAttrs.push(`matchCount="${p.matchCount}"`);
       if (p.vectorBoxCount !== undefined) ovAttrs.push(`vectorBoxCount="${p.vectorBoxCount}"`);
       if (p.formFieldCount !== undefined) ovAttrs.push(`formFieldCount="${p.formFieldCount}"`);
+      if (p.linkCount !== undefined) ovAttrs.push(`linkCount="${p.linkCount}"`);
       ovAttrs.push(`width="${p.width}"`, `height="${p.height}"`);
       out.push(`<page ${ovAttrs.join(' ')}/>`);
     }
@@ -229,6 +230,20 @@ export function formatXml(result: DocumentResult): string {
           out.push(`<field ${fieldAttrs.join(' ')}/>`);
         }
         out.push('</formFields>');
+      }
+    }
+
+    if (page.links) {
+      if (page.links.length === 0) {
+        out.push('<links/>');
+      } else {
+        out.push('<links>');
+        for (const link of page.links) {
+          out.push(
+            `<link type="${link.type}" target="${escapeAttr(link.target)}" x="${link.x}" y="${link.y}" width="${link.width}" height="${link.height}"/>`,
+          );
+        }
+        out.push('</links>');
       }
     }
 

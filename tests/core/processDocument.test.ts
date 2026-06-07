@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import PDFDocument from 'pdfkit';
 import { describe, expect, it } from 'vitest';
 import { processDocument, processFile } from '../../src/core/processor.js';
 
@@ -7,6 +8,22 @@ const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
 const SAMPLE_JA_PDF = resolve(__dirname, '../fixtures/sample-ja.pdf');
 const SAMPLE_WITH_IMAGE_PDF = resolve(__dirname, '../fixtures/sample-with-image.pdf');
 const SAMPLE_TILED_PDF = resolve(__dirname, '../fixtures/sample-tiled.pdf');
+
+async function buildPdfWithLink(): Promise<Uint8Array> {
+  const chunks: Buffer[] = [];
+  const doc = new PDFDocument({ size: [612, 792], margin: 0 });
+  doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+  const done = new Promise<void>((resolveDone) => doc.on('end', resolveDone));
+
+  doc.text('Example link', 100, 72);
+  doc.link(100, 72, 120, 20, 'https://example.com/path?q=1');
+  doc.addPage({ size: [612, 792], margin: 0 });
+  doc.text('Plain page', 100, 72);
+  doc.end();
+
+  await done;
+  return new Uint8Array(Buffer.concat(chunks));
+}
 
 describe('processDocument', () => {
   it('returns a structured DocumentResult, no JSON parsing required', async () => {
@@ -88,6 +105,38 @@ describe('processDocument', () => {
   it('emits an empty formFields array when form-field extraction runs on a non-form PDF', async () => {
     const result = await processDocument(SAMPLE_PDF, { noCache: true, formFields: true });
     expect(result.pages[0].formFields).toEqual([]);
+  });
+
+  it('emits an empty links array when link extraction runs on a PDF with no link annotations', async () => {
+    const result = await processDocument(SAMPLE_PDF, { noCache: true, links: true });
+    expect(result.pages[0].links).toEqual([]);
+  });
+
+  it('extracts link annotations from a real pdfjs page with top-left bboxes', async () => {
+    const result = await processDocument('memory://links.pdf', {
+      sourceData: await buildPdfWithLink(),
+      noCache: true,
+      links: true,
+    });
+
+    expect(result.pages[0].links).toEqual([
+      {
+        type: 'url',
+        target: 'https://example.com/path?q=1',
+        x: 100,
+        y: 72,
+        width: 120,
+        height: 20,
+      },
+    ]);
+    expect(result.pages[1].links).toEqual([]);
+    expect(result.overview?.map((o) => o.linkCount)).toEqual([1, 0]);
+  });
+
+  it('mirrors linkCount on the overview when link extraction runs on a multi-page PDF', async () => {
+    const result = await processDocument(SAMPLE_JA_PDF, { noCache: true, links: true });
+    expect(result.overview).toBeDefined();
+    expect(result.overview?.every((o) => o.linkCount !== undefined)).toBe(true);
   });
 
   it('emits an empty vectorBoxes array when vector-box extraction runs on a text-only PDF', async () => {

@@ -28,8 +28,8 @@ function fieldValue(field: NonNullable<PageResult['formFields']>[number]): strin
   return field.value ?? '';
 }
 
-function formatBox(field: NonNullable<PageResult['formFields']>[number]): string {
-  return `${field.x},${field.y},${field.width},${field.height}`;
+function formatBox(box: { x: number; y: number; width: number; height: number }): string {
+  return `${box.x},${box.y},${box.width},${box.height}`;
 }
 
 function layoutBody(page: PageResult, filterRepeated: boolean): string {
@@ -103,6 +103,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     const showVectors = result.pages.some((p) => p.vectorCount > 0);
     const showVectorBoxes = result.pages.some((p) => p.vectorBoxes !== undefined);
     const showFormFields = result.pages.some((p) => p.formFields !== undefined);
+    const showLinks = result.pages.some((p) => p.links !== undefined);
     // The Warnings column appears only when at least one page carries
     // a non-empty `warnings` array. Like NonPrint / Render, the column
     // only shows up when there's actual signal — otherwise the table
@@ -118,10 +119,10 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     lines.push('## Overview');
     lines.push('');
     lines.push(
-      `| Page | Chars | Images | Coverage |${showNonPrint ? ' NonPrint |' : ''}${showRender ? ' Render |' : ''} Size (pt) |${showVectors ? ' Vectors |' : ''}${showVectorBoxes ? ' VectorBoxes |' : ''}${showBlocks ? ' Blocks |' : ''}${showWarnings ? ' Warnings |' : ''}${showMatches ? ' Matches |' : ''}${showFormFields ? ' FormFields |' : ''}`,
+      `| Page | Chars | Images | Coverage |${showNonPrint ? ' NonPrint |' : ''}${showRender ? ' Render |' : ''} Size (pt) |${showVectors ? ' Vectors |' : ''}${showVectorBoxes ? ' VectorBoxes |' : ''}${showBlocks ? ' Blocks |' : ''}${showWarnings ? ' Warnings |' : ''}${showMatches ? ' Matches |' : ''}${showFormFields ? ' FormFields |' : ''}${showLinks ? ' Links |' : ''}`,
     );
     lines.push(
-      `| ---: | ---: | ---: | ---: |${showNonPrint ? ' ---: |' : ''}${showRender ? ' ---: |' : ''} ---: |${showVectors ? ' ---: |' : ''}${showVectorBoxes ? ' ---: |' : ''}${showBlocks ? ' ---: |' : ''}${showWarnings ? ' ---: |' : ''}${showMatches ? ' ---: |' : ''}${showFormFields ? ' ---: |' : ''}`,
+      `| ---: | ---: | ---: | ---: |${showNonPrint ? ' ---: |' : ''}${showRender ? ' ---: |' : ''} ---: |${showVectors ? ' ---: |' : ''}${showVectorBoxes ? ' ---: |' : ''}${showBlocks ? ' ---: |' : ''}${showWarnings ? ' ---: |' : ''}${showMatches ? ' ---: |' : ''}${showFormFields ? ' ---: |' : ''}${showLinks ? ' ---: |' : ''}`,
     );
     for (const page of result.pages) {
       const coveragePct = Math.round(page.textCoverage * 100);
@@ -145,8 +146,9 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
       const warningsCell = showWarnings ? ` ${page.warnings?.length ?? 0} |` : '';
       const matchesCell = showMatches ? ` ${page.matches?.length ?? 0} |` : '';
       const formFieldsCell = showFormFields ? ` ${page.formFields?.length ?? 0} |` : '';
+      const linksCell = showLinks ? ` ${page.links?.length ?? 0} |` : '';
       lines.push(
-        `| ${page.page} | ${page.charCount} | ${page.imageCount} | ${coveragePct}% |${nonPrintCell}${renderCell} ${formatSize(page)} |${vectorsCell}${vectorBoxesCell}${blocksCell}${warningsCell}${matchesCell}${formFieldsCell}`,
+        `| ${page.page} | ${page.charCount} | ${page.imageCount} | ${coveragePct}% |${nonPrintCell}${renderCell} ${formatSize(page)} |${vectorsCell}${vectorBoxesCell}${blocksCell}${warningsCell}${matchesCell}${formFieldsCell}${linksCell}`,
       );
     }
   }
@@ -175,6 +177,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     const vectorsFragment = page.vectorCount > 0 ? ` · vectors: ${page.vectorCount}` : '';
     const vectorBoxesFragment = page.vectorBoxes !== undefined ? ` · vectorBoxes: ${page.vectorBoxes.length}` : '';
     const formFieldsFragment = page.formFields !== undefined ? ` · formFields: ${page.formFields.length}` : '';
+    const linksFragment = page.links !== undefined ? ` · links: ${page.links.length}` : '';
     // Surface the derived quality classification when it's abnormal so
     // the LLM-facing markdown carries the same dispatch signal that
     // JSON / XML expose. `nativeTextStatus === 'ok'` and an `'empty'`
@@ -196,7 +199,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     // because no search ran. Mirrors the overview Matches column.
     const matchesFragment = page.matches !== undefined ? ` · matches: ${page.matches.length}` : '';
     lines.push(
-      `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${nonPrintFragment}${renderFragment}${vectorsFragment}${vectorBoxesFragment}${formFieldsFragment}${nativeFragment}${visualFragment}${warningsFragment}${matchesFragment} · size: ${formatSize(page)}pt_`,
+      `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${nonPrintFragment}${renderFragment}${vectorsFragment}${vectorBoxesFragment}${formFieldsFragment}${linksFragment}${nativeFragment}${visualFragment}${warningsFragment}${matchesFragment} · size: ${formatSize(page)}pt_`,
     );
     const body = pageBody(page, options);
     if (body) {
@@ -217,6 +220,21 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
           lines.push(
             `| ${field.type} | ${escapeTableCell(field.name)} | ${escapeTableCell(fieldValue(field))} | ${formatBox(field)} |`,
           );
+        }
+      }
+    }
+    if (page.links) {
+      lines.push('');
+      lines.push('### Links');
+      if (page.links.length === 0) {
+        lines.push('');
+        lines.push('_No clickable links found._');
+      } else {
+        lines.push('');
+        lines.push('| Type | Target | BBox |');
+        lines.push('| --- | --- | --- |');
+        for (const link of page.links) {
+          lines.push(`| ${link.type} | ${escapeTableCell(link.target)} | ${formatBox(link)} |`);
         }
       }
     }

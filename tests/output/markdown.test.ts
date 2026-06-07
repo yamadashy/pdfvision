@@ -234,6 +234,48 @@ describe('formatMarkdown', () => {
     expect(out).toContain('_No interactive form fields found._');
   });
 
+  it('adds link counts and a links table when clickable links are present', () => {
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 2,
+        pages: [
+          makePage({
+            page: 1,
+            text: 'linked page',
+            charCount: 11,
+            links: [
+              {
+                type: 'url',
+                target: 'https://example.com?q=a|b',
+                x: 100,
+                y: 72,
+                width: 60,
+                height: 20,
+              },
+              {
+                type: 'destination',
+                target: 'cite.transformer',
+                x: 40,
+                y: 180,
+                width: 40,
+                height: 12,
+              },
+            ],
+          }),
+          makePage({ page: 2, text: 'plain', charCount: 5, links: [] }),
+        ],
+      }),
+    );
+
+    expect(out).toMatch(/\| Page \| Chars \| Images \| Coverage \| Size \(pt\) \| Links \|/);
+    expect(out).toMatch(/\| 1 \| 11 \| 0 \| 0% \| 612×792 \| 2 \|/);
+    expect(out).toMatch(/links: 2/);
+    expect(out).toContain('### Links');
+    expect(out).toContain('| url | https://example.com?q=a\\|b | 100,72,60,20 |');
+    expect(out).toContain('| destination | cite.transformer | 40,180,40,12 |');
+    expect(out).toContain('_No clickable links found._');
+  });
+
   it('adds a Blocks column to the Overview table when --layout populated pages[].layout', () => {
     // With layout on, agents can scan the Blocks count alongside the
     // density signals to spot pages that decompose differently — a

@@ -71,6 +71,7 @@ The default extraction is enough for most native-text PDFs (papers, exports from
 | Know where images sit on the page | `--image-boxes` | Bbox overlay on rendered PNG, figure detection |
 | Know where vector marks sit on the page | `--vector-boxes` | Maps, symbol tables, diagrams, chart paths, form boxes, table rules, slide shapes, and PDFs where visible structure is vector-drawn rather than raster images |
 | Read form controls and blank fields | `--form-fields` | Government forms, applications, tax forms, questionnaires, and any PDF where checkboxes, radio buttons, signatures, text boxes, or choice widgets are part of the visible meaning |
+| Capture clickable navigation | `--links` | Papers and manuals with citation links, table-of-contents jumps, cross-references, and external URLs whose clickable regions matter to a human PDF reader |
 | Per-glyph bbox + fontSize | `--geometry` | Heading detection by font-size, custom layout heuristics |
 | Page is an image or native text is glyph-corrupted — get text from pixels | `--ocr` + `--ocr-lang` | `coverage: 0%` in the Overview, or `nonPrintableRatio >= 0.05` (native text includes glyph-index garbage; see below). **For non-English text, language order matters** — primary language goes first (`jpn+eng` for Japanese-dominant, `eng+jpn` for English-dominant). Full lang combinations and confidence semantics in `references/ocr.md`. |
 | Hand the page to a vision model | `--render` + `--render-output <dir>` | Multimodal flows. Density Overview already flagged the page as low-text |
