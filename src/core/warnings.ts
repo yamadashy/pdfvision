@@ -69,7 +69,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
 }
 
 const LOCALIZED_GLYPH_NOISE_RATIO_THRESHOLD = 0.05;
-const LOCALIZED_GLYPH_NOISE_COUNT_THRESHOLD = 3;
+const LOCALIZED_GLYPH_NOISE_COUNT_THRESHOLD = 2;
 const CJK_MOJIBAKE_MIN_CJK_COUNT = 50;
 const CJK_MOJIBAKE_COUNT_THRESHOLD = 5;
 const CJK_MOJIBAKE_RATIO_THRESHOLD = 0.05;
@@ -101,7 +101,7 @@ function detectLocalizedGlyphNoise(page: PageResult, out: PageWarning[]): void {
     out.push({
       code: 'localized_glyph_noise',
       severity: 'warning',
-      message: `native text contains ${page.nonPrintableCount} non-printable code points below the glyph-garbage ratio threshold — likely localized glyph noise such as bullets or symbols; inspect the render if exact text matters`,
+      message: `native text contains ${page.nonPrintableCount} non-printable code points below the glyph-garbage ratio threshold — likely localized glyph noise such as formulas, bullets, or symbols; inspect the render if exact text matters`,
     });
   }
 

@@ -78,6 +78,45 @@ describe('detectPageWarnings', () => {
     expect(out[0].message).toContain('18 non-printable');
   });
 
+  it('flags two localized non-printable glyphs when exact symbols may matter', () => {
+    // ResNet figure-equation-shaped case: only two control characters,
+    // but they sit inside a visible formula (`F(x)+x`) where exact
+    // symbols matter.
+    const out = detectPageWarnings({
+      page: 1,
+      text: 'F(x)\x01+\x01x',
+      charCount: 10,
+      imageCount: 0,
+      vectorCount: 12,
+      textCoverage: 0.02,
+      nonPrintableRatio: 0.002,
+      nonPrintableCount: 2,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok' },
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'localized_glyph_noise', severity: 'warning' });
+    expect(out[0].message).toContain('2 non-printable');
+  });
+
+  it('does not flag a single isolated non-printable glyph as localized glyph noise', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: 'mostly clean text\x01',
+      charCount: 18,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.05,
+      nonPrintableRatio: 0.001,
+      nonPrintableCount: 1,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok' },
+    });
+    expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
+  });
+
   it('flags isolated Latin-extended glyph noise inside CJK text', () => {
     // Aozora PDF-shaped case: dotted TOC leaders visually render as
     // horizontal rules, but the text stream maps each small leader mark
