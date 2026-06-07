@@ -269,6 +269,29 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('does not merge a full-page vector background into a foreground raster crop', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 600,
+      pageHeight: 400,
+      imageBoxes: [{ x: 180, y: 120, width: 220, height: 140 }],
+      vectorBoxes: [{ x: 0, y: 0, width: 600, height: 400 }],
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'raster',
+        x: 172,
+        y: 112,
+        width: 236,
+        height: 156,
+        areaRatio: 0.153,
+        sourceCount: 1,
+        sources: [{ type: 'imageBox', index: 0 }],
+        reason: 'raster image covers 12.8% of the page',
+      },
+    ]);
+  });
+
   it('deduplicates overlapping table and vector candidates into a mixed region', () => {
     const regions = buildVisualRegions({
       pageWidth: 300,

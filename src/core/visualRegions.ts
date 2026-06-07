@@ -515,7 +515,12 @@ export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion
   addFormCandidate(input.formFields, candidates);
 
   const totalArea = pageArea(input);
-  const deduped = suppressBackgroundLikeCandidates(dedupeCandidates(candidates), input.pageWidth, input.pageHeight);
+  const foregroundCandidates = suppressBackgroundLikeCandidates(candidates, input.pageWidth, input.pageHeight);
+  const deduped = suppressBackgroundLikeCandidates(
+    dedupeCandidates(foregroundCandidates),
+    input.pageWidth,
+    input.pageHeight,
+  );
   return attachCaptionText(deduped, input.layout)
     .filter((candidate) => isUsableBox(candidate))
     .sort((a, b) => visualScore(b, totalArea) - visualScore(a, totalArea))
