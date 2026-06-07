@@ -172,6 +172,8 @@ const CHROME_TOO_CLOSE_GAP_PT = 6;
 
 const OFF_PAGE_REL_TOLERANCE = 0.006;
 const OFF_PAGE_MAX_TOLERANCE_PT = 6;
+const MINOR_TOP_BLEED_BLOCK_RATIO = 0.1;
+const MINOR_TOP_BLEED_MAX_PT = 12;
 
 function detectOffPage(blocks: LayoutBlock[], pageWidth: number, pageHeight: number, out: PageWarning[]): void {
   // pageWidth / pageHeight come from the MediaBox; cropbox / trim
@@ -185,7 +187,7 @@ function detectOffPage(blocks: LayoutBlock[], pageWidth: number, pageHeight: num
     const right = b.x + b.width;
     const bottom = b.y + b.height;
     const offLeft = left < -tolerance;
-    const offTop = top < -tolerance;
+    const offTop = top < -tolerance && !isMinorFontMetricTopBleed(b, tolerance);
     const offRight = right > pageWidth + tolerance;
     const offBottom = bottom > pageHeight + tolerance;
     if (!offLeft && !offTop && !offRight && !offBottom) continue;
@@ -201,6 +203,14 @@ function detectOffPage(blocks: LayoutBlock[], pageWidth: number, pageHeight: num
       blockIndex: i,
     });
   }
+}
+
+function isMinorFontMetricTopBleed(block: LayoutBlock, tolerance: number): boolean {
+  const bleed = -block.y;
+  if (bleed <= tolerance) return true;
+  if (block.height <= 0) return false;
+  const allowed = Math.max(tolerance, Math.min(MINOR_TOP_BLEED_MAX_PT, block.height * MINOR_TOP_BLEED_BLOCK_RATIO));
+  return bleed <= allowed;
 }
 
 function detectNearBottomEdge(blocks: LayoutBlock[], pageHeight: number, out: PageWarning[]): void {

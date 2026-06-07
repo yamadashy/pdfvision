@@ -178,6 +178,15 @@ describe('detectPageWarnings', () => {
       expect(out.filter((w) => w.code === 'off_page')).toEqual([]);
     });
 
+    it('does not flag minor top bleed from a large cover-title font bbox', () => {
+      // IRS 1040 instructions cover-shaped case: the visible title is
+      // fully on page, but pdf.js reports a tall font bbox whose ascender
+      // starts slightly above y=0. That is font-metric bleed, not a
+      // broken page extraction.
+      const out = detectPageWarnings(page([block(120.45, -9.7, 413.72, 114.63, { text: '1040(and' })], 612, 792));
+      expect(out.filter((w) => w.code === 'off_page')).toEqual([]);
+    });
+
     it('still flags substantial off-page bleed on a large slide page', () => {
       const out = detectPageWarnings(page([block(260, -20, 1400, 67)], 1920, 1080));
       expect(out.some((w) => w.code === 'off_page' && w.message.includes('top'))).toBe(true);
