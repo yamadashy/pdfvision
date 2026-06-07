@@ -171,8 +171,10 @@ function detectLargeRasterLowTextOverlap(page: PageResult, out: PageWarning[]): 
 
   const textBoxes = page.layout?.blocks ?? page.spans ?? [];
   if (textBoxes.length === 0) return;
+  const warnedImages: BoxLike[] = [];
   for (let i = 0; i < page.imageBoxes.length; i++) {
     const image = page.imageBoxes[i];
+    if (warnedImages.some((warned) => overlapRatio(image, warned) >= 0.95)) continue;
     const imageArea = clippedArea(image, { x: 0, y: 0, width: page.width, height: page.height });
     const imageAreaRatio = imageArea / pageArea;
     if (imageAreaRatio < LARGE_RASTER_AREA_RATIO_THRESHOLD) continue;
@@ -187,6 +189,7 @@ function detectLargeRasterLowTextOverlap(page: PageResult, out: PageWarning[]): 
       message: `large raster image covers ${(imageAreaRatio * 100).toFixed(1)}% of the page with little native-text overlap (${(textOverlapRatio * 100).toFixed(2)}%) — labels, chart text, or map text inside the image will not appear in native text`,
       imageBoxIndex: i,
     });
+    warnedImages.push(image);
   }
 }
 
@@ -207,6 +210,14 @@ function clippedArea(a: BoxLike, b: BoxLike): number {
   const right = Math.min(a.x + a.width, b.x + b.width);
   const bottom = Math.min(a.y + a.height, b.y + b.height);
   return Math.max(0, right - left) * Math.max(0, bottom - top);
+}
+
+function overlapRatio(a: BoxLike, b: BoxLike): number {
+  const areaA = Math.max(0, a.width) * Math.max(0, a.height);
+  const areaB = Math.max(0, b.width) * Math.max(0, b.height);
+  const denominator = Math.min(areaA, areaB);
+  if (denominator <= 0) return 0;
+  return clippedArea(a, b) / denominator;
 }
 
 /** Tolerance for off-page detection. PDFs commonly have sub-point

@@ -191,6 +191,38 @@ describe('detectPageWarnings', () => {
     expect(out[0].message).toContain('36.0%');
   });
 
+  it('deduplicates large-raster warnings for repeated full-page image boxes', () => {
+    // Scanned books can expose the same page-sized image through
+    // multiple XObject draws. One warning is enough for an agent.
+    const out = detectPageWarnings({
+      ...page([block(20, 20, 10, 10, { text: 'noise' })], 1000, 1000),
+      imageCount: 2,
+      imageBoxes: [
+        { x: 0, y: 0, width: 1000, height: 1000 },
+        { x: 0.3, y: 0.2, width: 999.4, height: 999.6 },
+      ],
+      quality: { nativeTextStatus: 'sparse_text_with_visual_content' },
+    });
+    const warnings = out.filter((w) => w.code === 'large_raster_low_text_overlap');
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0].imageBoxIndex).toBe(0);
+  });
+
+  it('keeps large-raster warnings for distinct image regions', () => {
+    const out = detectPageWarnings({
+      ...page([block(480, 480, 10, 10, { text: 'caption' })], 1000, 1000),
+      imageCount: 2,
+      imageBoxes: [
+        { x: 0, y: 0, width: 500, height: 500 },
+        { x: 500, y: 500, width: 500, height: 500 },
+      ],
+      quality: { nativeTextStatus: 'ok' },
+    });
+    const warnings = out.filter((w) => w.code === 'large_raster_low_text_overlap');
+    expect(warnings).toHaveLength(2);
+    expect(warnings.map((w) => w.imageBoxIndex)).toEqual([0, 1]);
+  });
+
   it('flags large raster images on sparse visual pages with only a little native text', () => {
     // SpeakerDeck screenshot slide-shaped case: the title remains as
     // native text, but the rest of the visual slide is a full-page
