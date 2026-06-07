@@ -98,6 +98,30 @@ describe('buildLayout — heading classification', () => {
     expect(title?.level).toBe(1);
   });
 
+  it('demotes person-name bylines directly under a document title', () => {
+    // ResNet / CVPR paper-shaped case: author names sit below the title
+    // at section-heading font size, but they are byline metadata, not
+    // section anchors.
+    const bodyLines: TextSpan[] = [];
+    for (let i = 0; i < 18; i++) {
+      bodyLines.push(span('Body text line that establishes the paper body median.', 50, 250 + i * 12, 9.96));
+    }
+    const spans: TextSpan[] = [
+      span('Deep Residual Learning for Image Recognition', 150, 100, 14.35, 290),
+      span('Kaiming He', 136, 150, 11.96, 60),
+      span('Jian Sun', 418, 150, 11.96, 42),
+      span('1. Introduction', 50, 530, 11.96, 76),
+      ...bodyLines,
+    ];
+    const layout = buildLayout(spans);
+    const title = layout.blocks.find((b) => b.text.includes('Deep Residual'));
+    const author = layout.blocks.find((b) => b.text.includes('Kaiming He'));
+    const section = layout.blocks.find((b) => b.text.includes('Introduction'));
+    expect(title?.level).toBe(1);
+    expect(author?.role).toBeUndefined();
+    expect(section?.role).toBe('heading');
+  });
+
   it('flags arxiv-style 1.20× section headings (12pt over 10pt body) at level 2', () => {
     // The most common LaTeX article layout: 10pt body with 12pt section
     // headings. Ratio 1.20 sits in the 1.15–1.25 band, so the block must

@@ -139,6 +139,7 @@ const MIN_BODY_CHARS_FOR_LOW_TIER = 100;
 const TOP_TITLE_MAX_Y = 120;
 const TOP_TITLE_MIN_WIDTH = 180;
 const TOP_TITLE_MIN_CHARS = 25;
+const TOP_BYLINE_MAX_GAP = 120;
 
 /** Tolerance around the body fontSize used when counting how many chars sit
  *  at the body font class. PDFs from LaTeX commonly drift by ±0.5pt between
@@ -162,6 +163,29 @@ function isTopTitleCandidate(block: LayoutBlock, ratio: number, lineCount: numbe
   if (block.y > TOP_TITLE_MAX_Y) return false;
   if (block.width < TOP_TITLE_MIN_WIDTH) return false;
   return lineCount > 1 || nonWsChars >= TOP_TITLE_MIN_CHARS;
+}
+
+function isPersonBylineText(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed.length > 80) return false;
+  if (/[0-9@{}[\]/\\:;,]/u.test(trimmed)) return false;
+  const words = trimmed.split(/\s+/u);
+  if (words.length < 2 || words.length > 4) return false;
+  return words.every((word) => /^[A-Z][\p{L}.'-]*$/u.test(word) || /^[A-Z]\.$/u.test(word));
+}
+
+function demoteTopBylineHeadings(blocks: LayoutBlock[]): void {
+  const topTitle = blocks.find((b) => b.role === 'heading' && b.level === 1 && b.y <= TOP_TITLE_MAX_Y);
+  if (!topTitle) return;
+  const titleBottom = topTitle.y + topTitle.height;
+  for (const b of blocks) {
+    if (b.role !== 'heading') continue;
+    if (b.y <= titleBottom || b.y > titleBottom + TOP_BYLINE_MAX_GAP) continue;
+    if (!isPersonBylineText(b.text)) continue;
+    b.role = undefined;
+    b.level = undefined;
+    b.roleConfidence = undefined;
+  }
 }
 
 /**
@@ -356,6 +380,7 @@ function classifyHeadings(blocks: LayoutBlock[]): void {
       b.roleConfidence = computeRoleConfidence(ratio, isShort, standalone, locallyLarger, singleLine);
     }
   }
+  demoteTopBylineHeadings(blocks);
 }
 
 /**
