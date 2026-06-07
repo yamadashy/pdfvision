@@ -42,7 +42,7 @@ Every page reports `charCount`, `imageCount`, `vectorCount`, `textCoverage`, and
 - **`--links`** reports clickable PDF link annotations such as citation jumps, table-of-contents destinations, and external URLs with bboxes.
 - **`--annotations`** reports non-link PDF annotations such as comments, sticky notes, highlights, underlines, strikeouts, stamps, and other markup with bboxes and comment text.
 - **`--page-labels`** reports viewer page labels such as roman front matter (`i`, `ii`) or restarted section numbering that differs from physical page numbers.
-- **`--attachments`** reports document-level embedded file attachments with filename, description, and byte size, without dumping attachment bytes into the agent context.
+- **`--attachments`** reports document-level embedded file attachments with filename, description, and byte size, without dumping attachment bytes into the agent context. Add `--attachment-output <dir>` to save the embedded files and include paths in `attachments[].path`.
 - **`--outline`** reports document outline/bookmark sidebar entries, preserving hierarchy and resolving destination pages when possible.
 - **`--geometry`** emits per-text-item `bbox` + `fontSize` so callers can reconstruct visual hierarchy themselves.
 
@@ -121,6 +121,8 @@ Options:
       --annotations       Emit non-link PDF annotations in pages[].annotations
       --page-labels       Emit viewer page labels in pageLabels and pages[].pageLabel
       --attachments       Emit embedded file attachment metadata in attachments
+      --attachment-output <dir>
+                          Write embedded attachment files and include attachments[].path
       --outline           Emit document outline/bookmarks in outline
       --ocr               Run tesseract.js OCR; attach pages[].ocr (text/confidence/lang)
       --ocr-lang <lang>   Tesseract lang(s), plus-separated (e.g. eng+jpn). Default: eng

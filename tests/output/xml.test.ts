@@ -693,13 +693,21 @@ describe('formatXml', () => {
   it('emits document attachment metadata without content bytes', () => {
     const out = formatXml(
       makeResult({
-        attachments: [{ name: 'supplement & data.txt', rawName: 'raw.txt', description: 'Extra <file>', size: 123 }],
+        attachments: [
+          {
+            name: 'supplement & data.txt',
+            rawName: 'raw.txt',
+            description: 'Extra <file>',
+            size: 123,
+            path: '/tmp/supplement.txt',
+          },
+        ],
       }),
     );
 
     expect(out).toContain('<attachments>');
     expect(out).toContain(
-      '<attachment name="supplement &amp; data.txt" size="123" rawName="raw.txt" description="Extra &lt;file&gt;"/>',
+      '<attachment name="supplement &amp; data.txt" size="123" rawName="raw.txt" description="Extra &lt;file&gt;" path="/tmp/supplement.txt"/>',
     );
   });
 

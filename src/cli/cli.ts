@@ -55,6 +55,7 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
         annotations: { type: 'boolean' },
         'page-labels': { type: 'boolean' },
         attachments: { type: 'boolean' },
+        'attachment-output': { type: 'string' },
         outline: { type: 'boolean' },
         'strip-repeated': { type: 'boolean' },
         remote: { type: 'string' },
@@ -204,6 +205,12 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
   }
 
   const layout = (values.layout as boolean | undefined) ?? false;
+  const attachments = (values.attachments as boolean | undefined) ?? false;
+  const attachmentOutput = values['attachment-output'] as string | undefined;
+  if (attachmentOutput && !attachments) {
+    exitWithError('--attachment-output requires --attachments');
+  }
+
   const stripRepeated = (values['strip-repeated'] as boolean | undefined) ?? false;
   if (stripRepeated && !layout) {
     // `repeated: true` is only emitted by the cross-page layout pass,
@@ -290,7 +297,8 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
       links: (values.links as boolean | undefined) ?? false,
       annotations: (values.annotations as boolean | undefined) ?? false,
       pageLabels: (values['page-labels'] as boolean | undefined) ?? false,
-      attachments: (values.attachments as boolean | undefined) ?? false,
+      attachments,
+      attachmentOutput,
       outline: (values.outline as boolean | undefined) ?? false,
       stripRepeated,
       ocr: (values.ocr as boolean | undefined) ?? false,

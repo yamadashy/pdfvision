@@ -167,6 +167,12 @@ describe('cli', () => {
     expect(parsed.attachments).toEqual([]);
   });
 
+  it('rejects --attachment-output without --attachments', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--attachment-output', '/tmp/whatever']);
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr.join('\n')).toMatch(/--attachment-output requires --attachments/);
+  });
+
   it('passes --vector-boxes through to JSON output', async () => {
     const r = await captureRun([SAMPLE_PDF, '--json', '--vector-boxes', '--no-cache']);
     expect(r.exitCode).toBeNull();

@@ -1,5 +1,6 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, mkdtempSync, readFileSync, rmSync, unlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { basename, dirname, resolve } from 'node:path';
 import PDFDocument from 'pdfkit';
 import { describe, expect, it } from 'vitest';
 import { processDocument, processFile } from '../../src/core/processor.js';
@@ -230,6 +231,58 @@ describe('processDocument', () => {
 
     expect(result.attachments).toEqual([{ name: 'hello.txt', description: 'Supplement file', size: 16 }]);
     expect(JSON.stringify(result.attachments)).not.toContain('hello attachment');
+  });
+
+  it('writes embedded attachments into a per-PDF output subdirectory', async () => {
+    const baseDir = mkdtempSync(resolve(tmpdir(), 'pdfvision-attachment-output-'));
+    try {
+      const result = await processDocument('memory://attachment-output.pdf', {
+        sourceData: buildPdfWithAttachment(),
+        noCache: true,
+        attachments: true,
+        attachmentOutput: baseDir,
+      });
+
+      const attachment = result.attachments?.[0];
+      expect(attachment?.path).toBeDefined();
+      expect(dirname(attachment?.path as string)).not.toBe(baseDir);
+      expect(dirname(dirname(attachment?.path as string))).toBe(baseDir);
+      expect(basename(attachment?.path as string)).toBe('hello.txt');
+      expect(readFileSync(attachment?.path as string, 'utf8')).toBe('hello attachment');
+    } finally {
+      rmSync(baseDir, { recursive: true, force: true });
+    }
+  });
+
+  it('drops cached attachment output when a saved attachment file has gone missing', async () => {
+    const cacheRoot = mkdtempSync(resolve(tmpdir(), 'pdfvision-attachment-cache-'));
+    const baseDir = mkdtempSync(resolve(tmpdir(), 'pdfvision-attachment-cache-out-'));
+    const originalCache = process.env.PDFVISION_CACHE_DIR;
+    process.env.PDFVISION_CACHE_DIR = cacheRoot;
+    try {
+      const sourceData = buildPdfWithAttachment();
+      const first = await processDocument('memory://attachment-cache.pdf', {
+        sourceData,
+        attachments: true,
+        attachmentOutput: baseDir,
+      });
+      const path = first.attachments?.[0].path as string;
+      expect(existsSync(path)).toBe(true);
+      unlinkSync(path);
+
+      const recovered = await processDocument('memory://attachment-cache.pdf', {
+        sourceData,
+        attachments: true,
+        attachmentOutput: baseDir,
+      });
+      expect(recovered.attachments?.[0].path).toBe(path);
+      expect(readFileSync(path, 'utf8')).toBe('hello attachment');
+    } finally {
+      if (originalCache === undefined) delete process.env.PDFVISION_CACHE_DIR;
+      else process.env.PDFVISION_CACHE_DIR = originalCache;
+      rmSync(cacheRoot, { recursive: true, force: true });
+      rmSync(baseDir, { recursive: true, force: true });
+    }
   });
 
   it('emits an empty attachments array when attachment extraction ran but found none', async () => {

@@ -74,6 +74,9 @@ Options
                           restarts apart from the physical page number.
       --attachments       Emit document-level embedded file attachment metadata in
                           \`attachments\` without embedding attachment bytes in output.
+      --attachment-output <dir>
+                          Directory to write embedded attachment files into. Requires
+                          --attachments; files land under a per-PDF fingerprint subdir.
       --outline           Emit top-level \`outline\` document bookmarks, preserving hierarchy
                           and resolving destination pages when possible. Markdown also renders
                           an outline section.

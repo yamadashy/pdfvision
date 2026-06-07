@@ -216,6 +216,12 @@ export interface ProcessDocumentOptions {
    */
   attachments?: boolean;
   /**
+   * Directory for writing embedded attachment files. Requires
+   * `attachments: true`. Files are written under a per-PDF fingerprint
+   * subdirectory and `attachments[].path` points at the saved file.
+   */
+  attachmentOutput?: string;
+  /**
    * Emit the document outline / bookmarks in `outline`. Useful for long
    * reports, manuals, and papers where a human PDF viewer exposes section
    * navigation in the sidebar. Named destinations are resolved to page
@@ -281,6 +287,8 @@ export interface ProcessOptions {
   pageLabels?: boolean;
   /** See {@link ProcessDocumentOptions.attachments}. */
   attachments?: boolean;
+  /** See {@link ProcessDocumentOptions.attachmentOutput}. */
+  attachmentOutput?: string;
   /** See {@link ProcessDocumentOptions.outline}. */
   outline?: boolean;
   ocr?: boolean;
@@ -577,6 +585,8 @@ export interface DocumentAttachment {
   description?: string;
   /** Embedded file byte length. Attachment bytes are intentionally not emitted. */
   size: number;
+  /** Saved attachment path, present when `attachmentOutput` was provided. */
+  path?: string;
 }
 
 export interface PageAnnotationBox {

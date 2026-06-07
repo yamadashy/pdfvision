@@ -74,6 +74,7 @@ export function formatXml(result: DocumentResult): string {
         if (attachment.description !== undefined) {
           attrs.push(`description="${escapeAttr(attachment.description)}"`);
         }
+        if (attachment.path !== undefined) attrs.push(`path="${escapeAttr(attachment.path)}"`);
         out.push(`<attachment ${attrs.join(' ')}/>`);
       }
       out.push('</attachments>');

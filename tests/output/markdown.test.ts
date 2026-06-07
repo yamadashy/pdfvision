@@ -365,12 +365,13 @@ describe('formatMarkdown', () => {
   it('renders document attachment metadata without content bytes', () => {
     const out = formatMarkdown(
       makeResult({
-        attachments: [{ name: 'supplement|data.txt', description: 'Extra file', size: 123 }],
+        attachments: [{ name: 'supplement|data.txt', description: 'Extra file', size: 123, path: '/tmp/a|b.txt' }],
       }),
     );
 
     expect(out).toContain('## Attachments');
-    expect(out).toContain('| supplement\\|data.txt | Extra file | 123 |');
+    expect(out).toContain('| Name | Description | Size (bytes) | Path |');
+    expect(out).toContain('| supplement\\|data.txt | Extra file | 123 | /tmp/a\\|b.txt |');
   });
 
   it('renders an explicit empty attachments message when extraction found no embedded files', () => {

@@ -120,12 +120,14 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
       lines.push('');
       lines.push('_No embedded file attachments found._');
     } else {
+      const showPaths = result.attachments.some((attachment) => attachment.path !== undefined);
       lines.push('');
-      lines.push('| Name | Description | Size (bytes) |');
-      lines.push('| --- | --- | ---: |');
+      lines.push(`| Name | Description | Size (bytes) |${showPaths ? ' Path |' : ''}`);
+      lines.push(`| --- | --- | ---: |${showPaths ? ' --- |' : ''}`);
       for (const attachment of result.attachments) {
+        const pathCell = showPaths ? ` ${escapeTableCell(attachment.path ?? '')} |` : '';
         lines.push(
-          `| ${escapeTableCell(attachment.name)} | ${escapeTableCell(attachment.description ?? '')} | ${attachment.size} |`,
+          `| ${escapeTableCell(attachment.name)} | ${escapeTableCell(attachment.description ?? '')} | ${attachment.size} |${pathCell}`,
         );
       }
     }

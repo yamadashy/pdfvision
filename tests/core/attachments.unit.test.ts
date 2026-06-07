@@ -1,3 +1,6 @@
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { basename, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { buildAttachments } from '../../src/core/attachments.js';
 
@@ -28,5 +31,46 @@ describe('buildAttachments', () => {
 
   it('returns an empty array when the PDF has no embedded file attachments', () => {
     expect(buildAttachments(null)).toEqual([]);
+  });
+
+  it('writes attachment bytes to sanitized filenames when an output directory is provided', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pdfvision-attachments-unit-'));
+    try {
+      const attachments = buildAttachments(
+        {
+          first: { filename: '../report.txt', content: new Uint8Array([65, 66]) },
+          second: { filename: '../report.txt', content: new Uint8Array([67]) },
+        },
+        { outputDir: dir },
+      );
+
+      expect(attachments.map((attachment) => basename(attachment.path as string))).toEqual([
+        '.._report.txt',
+        '.._report.txt-2',
+      ]);
+      expect(readFileSync(attachments[0].path as string, 'utf8')).toBe('AB');
+      expect(readFileSync(attachments[1].path as string, 'utf8')).toBe('C');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps saved filenames unique on case-insensitive filesystems', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pdfvision-attachments-case-unit-'));
+    try {
+      const attachments = buildAttachments(
+        {
+          first: { filename: 'Report.txt', content: new Uint8Array([65]) },
+          second: { filename: 'report.txt', content: new Uint8Array([66]) },
+        },
+        { outputDir: dir },
+      );
+      const byName = new Map(attachments.map((attachment) => [attachment.name, basename(attachment.path as string)]));
+
+      expect(byName.get('Report.txt')).toBe('Report.txt');
+      expect(byName.get('report.txt')).toBe('report.txt-2');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

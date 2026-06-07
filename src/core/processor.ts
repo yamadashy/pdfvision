@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { lstatSync, mkdirSync, mkdtempSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, dirname as pathDirname, resolve } from 'node:path';
+import { join, dirname as pathDirname, isAbsolute as pathIsAbsolute, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { formatJson } from '../output/json.js';
@@ -61,6 +61,7 @@ interface CacheKeyInput {
   annotations?: boolean;
   pageLabels?: boolean;
   attachments?: boolean;
+  attachmentOutput?: string;
   outline?: boolean;
   ocr?: boolean;
   ocrLang?: string;
@@ -161,7 +162,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v57',
+    format: 'structured-v58',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -191,6 +192,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     annotations: !!input.annotations,
     pageLabels: !!input.pageLabels,
     attachments: !!input.attachments,
+    attachmentOutput: input.attachmentOutput ? resolve(input.attachmentOutput) : null,
     outline: !!input.outline,
     // OCR is expensive (tens of seconds for a multi-page scan); always cache
     // it. The lang string is part of the key (whitespace-normalised, order
@@ -492,6 +494,30 @@ function isUsableImage(path: string | undefined): boolean {
   }
 }
 
+function areUsableAttachments(attachments: DocumentAttachment[] | undefined, outputDir: string | undefined): boolean {
+  if (!outputDir) return true;
+  if (!attachments) return false;
+  return attachments.every((attachment) => isUsableAttachment(attachment, outputDir));
+}
+
+function isUsableAttachment(attachment: DocumentAttachment, outputDir: string): boolean {
+  if (!attachment.path) return false;
+  const resolvedPath = resolve(attachment.path);
+  if (!isPathInsideDir(resolvedPath, outputDir)) return false;
+  try {
+    const lstat = lstatSync(resolvedPath);
+    if (lstat.isSymbolicLink() || !lstat.isFile()) return false;
+    return statSync(resolvedPath).size === attachment.size;
+  } catch {
+    return false;
+  }
+}
+
+function isPathInsideDir(path: string, dir: string): boolean {
+  const rel = relative(resolve(dir), resolve(path));
+  return rel !== '' && rel !== '..' && !rel.startsWith(`..${sep}`) && !pathIsAbsolute(rel);
+}
+
 /**
  * Drop a cache entry without ever throwing. Cache eviction failures
  * (permissions, race with another process, etc.) must not abort the
@@ -556,9 +582,16 @@ export async function processDocument(filePath: string, options: ProcessDocument
   // the most expensive sync step in this function, so do it once and
   // share — the cache layer accepts a precomputed fingerprint to avoid
   // re-reading the same file.
-  const needFingerprint = !options.noCache || !!(options.render && options.renderOutput);
+  const needFingerprint =
+    !options.noCache ||
+    !!(options.render && options.renderOutput) ||
+    !!(options.attachments && options.attachmentOutput);
   const fingerprint = needFingerprint ? (pdfData ? fingerprintData(pdfData) : pdfFingerprint(filePath)) : null;
   const cacheDir = options.noCache ? null : getCacheDir(filePath, fingerprint ?? undefined);
+  const attachmentOutputDir =
+    options.attachments && options.attachmentOutput
+      ? join(resolve(options.attachmentOutput), fingerprint as string)
+      : undefined;
 
   const cacheKey = buildCacheKey({ ...cacheRelevantOptions, renderScale, renderRegion });
   if (cacheDir) {
@@ -569,7 +602,11 @@ export async function processDocument(filePath: string, options: ProcessDocument
         // For --render, ensure each referenced PNG is a regular non-empty
         // file (not a symlink, not a partial write left from a crash).
         const imagesUsable = !options.render || result.pages.every((p) => isUsableImage(p.image));
-        if (imagesUsable) {
+        // For --attachment-output, ensure each referenced file is still
+        // present and matches the embedded-file byte length before returning
+        // a cached path instead of re-saving the attachment bytes.
+        const attachmentsUsable = areUsableAttachments(result.attachments, attachmentOutputDir);
+        if (imagesUsable && attachmentsUsable) {
           // The cached payload is keyed by content hash, so the same bytes
           // at a different path would otherwise return the original `file`
           // value. Patch in the current invocation's path before returning.
@@ -728,6 +765,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     const attachments: DocumentAttachment[] | undefined = options.attachments
       ? buildAttachments(await doc.getAttachments(), {
           normalizeText: options.normalize !== false ? normalizeText : undefined,
+          outputDir: attachmentOutputDir,
         })
       : undefined;
     const outline: DocumentOutlineItem[] | undefined = options.outline
@@ -1102,6 +1140,7 @@ export async function processFile(filePath: string, options: ProcessOptions): Pr
     annotations: options.annotations,
     pageLabels: options.pageLabels,
     attachments: options.attachments,
+    attachmentOutput: options.attachmentOutput,
     outline: options.outline,
     ocr: options.ocr,
     ocrLang: options.ocrLang,
