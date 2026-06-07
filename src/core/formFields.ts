@@ -182,7 +182,7 @@ function verticalLabelCandidate(
   if (overlap < MIN_HORIZONTAL_OVERLAP_RATIO && fieldCoverage < MIN_HORIZONTAL_OVERLAP_RATIO && !nearEdge) {
     return undefined;
   }
-  const alignment = fieldCoverage;
+  const alignment = Math.max(fieldCoverage, overlap);
 
   return {
     label: makeLabel(line, text, relation),

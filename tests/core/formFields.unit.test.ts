@@ -109,4 +109,26 @@ describe('buildFormFields', () => {
       height: 8,
     });
   });
+
+  it('prefers a close above label over a side section heading', () => {
+    const fields = buildFormFields(
+      [{ subtype: 'Widget', fieldName: 'address', fieldType: 'Tx', rect: [94.6, 660, 474.45, 674] }],
+      792,
+      0,
+      0,
+      [
+        { text: 'Information', x: 36, y: 124.14, width: 53.5, height: 10, fontSize: 10 },
+        { text: 'Address', x: 97.6, y: 108, width: 25.93, height: 7, fontSize: 7 },
+      ],
+    );
+
+    expect(fields[0].label).toEqual({
+      text: 'Address',
+      relation: 'above',
+      x: 97.6,
+      y: 108,
+      width: 25.93,
+      height: 7,
+    });
+  });
 });
