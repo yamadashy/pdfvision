@@ -38,7 +38,7 @@ Every page reports `charCount`, `imageCount`, `vectorCount`, `textCoverage`, and
 - **`--layout`** returns blocks with `role: 'heading'`, `repeated: true` for running headers and footers, multi-column reading order (including narrow repeated gutters and drop caps), `writingMode: 'vertical'` for detected CJK vertical text stacks, and row-major `layout.tables[]` hints for aligned numeric tables.
 - **`--image-boxes`** reports where each raster draw lands.
 - **`--vector-boxes`** reports where painted vector paths land, useful for maps, symbols, chart paths, form boxes, table rules, and slide shapes that are visible but not raster images.
-- **`--visual-regions`** groups important raster/vector/table/form geometry into padded, crop-ready bboxes that can be fed straight into `--render-region`.
+- **`--visual-regions`** groups important raster/vector/table/form geometry into padded, crop-ready bboxes that can be fed straight into `--render-region`; **`--render-visual-regions`** renders those suggested crops directly.
 - **`--form-fields`** reports interactive PDF widget fields such as text boxes, checkboxes, radio buttons, choices, and signatures with values, bboxes, and nearby visible labels.
 - **`--links`** reports clickable PDF link annotations such as citation jumps, table-of-contents destinations, and external URLs with bboxes.
 - **`--annotations`** reports non-link PDF annotations such as comments, sticky notes, highlights, underlines, strikeouts, stamps, and other markup with bboxes and comment text.
@@ -123,6 +123,8 @@ Options:
                           enables large-raster warnings with --layout or --geometry
       --vector-boxes      Emit painted vector path bboxes in pages[].vectorBoxes
       --visual-regions    Emit crop-ready figure/chart/table/form regions in pages[].visualRegions
+      --render-visual-regions
+                          Render visual region crops to PNG and attach paths
       --form-fields       Emit interactive PDF widget fields and nearby labels in pages[].formFields
       --links             Emit clickable link annotations in pages[].links with bboxes
       --annotations       Emit non-link PDF annotations in pages[].annotations
@@ -170,6 +172,9 @@ pdfvision document.pdf -r --render-output ./images
 # images whose labels may need vision.
 # Pages also expose vectorCount for form boxes, chart paths, and shapes.
 pdfvision document.pdf --layout --image-boxes -f json
+
+# Suggested visual crops as PNGs, without rendering every full page
+pdfvision document.pdf --render-visual-regions --render-output ./regions -f json
 
 # Per-text-item geometry (bbox + fontSize per glyph run)
 pdfvision document.pdf -f json --geometry

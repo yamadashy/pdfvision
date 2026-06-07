@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import PDFDocument from 'pdfkit';
 import { describe, expect, it } from 'vitest';
@@ -63,5 +64,25 @@ describe('processDocument visualRegions: true', () => {
     expect(page.vectorBoxes).toBeUndefined();
     expect(page.layout).toBeUndefined();
     expect(page.formFields).toBeUndefined();
+  });
+
+  it('renders visual region crops without rendering full pages', async () => {
+    const result = await processDocument('memory://large-image-render-regions.pdf', {
+      sourceData: await buildPdfWithLargeImage(),
+      noCache: true,
+      renderVisualRegions: true,
+    });
+    const page = result.pages[0];
+    const region = page.visualRegions?.[0];
+
+    expect(page.image).toBeUndefined();
+    expect(region).toBeDefined();
+    if (!region) return;
+    expect(region.image).toBeDefined();
+    expect(region.image).toMatch(/page-1_x/);
+    expect(region.image && existsSync(region.image)).toBe(true);
+    expect(region.renderContentRatio).toBeTypeOf('number');
+    expect(page.imageBoxes).toBeUndefined();
+    expect(page.layout).toBeUndefined();
   });
 });

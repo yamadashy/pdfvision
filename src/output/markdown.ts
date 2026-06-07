@@ -426,11 +426,19 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
         lines.push('_No crop-ready visual regions found._');
       } else {
         lines.push('');
-        lines.push('| ID | Kind | BBox | Area | Sources | Reason |');
-        lines.push('| --- | --- | --- | ---: | --- | --- |');
+        const showRegionImages = page.visualRegions.some((region) => region.image !== undefined);
+        const imageHeader = showRegionImages ? ' Image | Render |' : '';
+        const imageSep = showRegionImages ? ' --- | ---: |' : '';
+        lines.push(`| ID | Kind | BBox | Area |${imageHeader} Sources | Reason |`);
+        lines.push(`| --- | --- | --- | ---: |${imageSep} --- | --- |`);
         for (const region of page.visualRegions) {
+          const imageCells = showRegionImages
+            ? ` ${escapeTableCell(region.image ?? '')} | ${
+                region.renderContentRatio !== undefined ? `${(region.renderContentRatio * 100).toFixed(2)}%` : ''
+              } |`
+            : '';
           lines.push(
-            `| ${escapeTableCell(region.id ?? '')} | ${region.kind} | ${formatBox(region)} | ${(region.areaRatio * 100).toFixed(1)}% | ${escapeTableCell(visualRegionSources(region))} | ${escapeTableCell(region.reason)} |`,
+            `| ${escapeTableCell(region.id ?? '')} | ${region.kind} | ${formatBox(region)} | ${(region.areaRatio * 100).toFixed(1)}% |${imageCells} ${escapeTableCell(visualRegionSources(region))} | ${escapeTableCell(region.reason)} |`,
           );
         }
       }

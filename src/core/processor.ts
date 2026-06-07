@@ -59,6 +59,7 @@ interface CacheKeyInput {
   renderOutput?: string;
   renderScale?: number;
   renderRegion?: RenderRegion;
+  renderVisualRegions?: boolean;
   normalize?: boolean;
   geometry?: boolean;
   layout?: boolean;
@@ -124,6 +125,54 @@ function scaleDirSuffix(scale: number): string {
   return `s${scale.toString()}`;
 }
 
+interface RenderImagesDirInput {
+  renderOutput?: string;
+  cacheDir: string | null;
+  fingerprint: string | null;
+  renderScale?: number;
+}
+
+function assertSafeRenderDir(dir: string): void {
+  const stat = lstatSync(dir);
+  if (stat.isSymbolicLink()) {
+    throw new Error(`Refusing to render into ${dir}: path is a symlink`);
+  }
+  if (!stat.isDirectory()) {
+    throw new Error(`Refusing to render into ${dir}: path exists but is not a directory`);
+  }
+}
+
+function prepareRenderImagesDir(input: RenderImagesDirInput): string {
+  const effectiveScale = input.renderScale ?? DEFAULT_RENDER_SCALE;
+  const scaleSubdir = effectiveScale === DEFAULT_RENDER_SCALE ? null : scaleDirSuffix(effectiveScale);
+  if (input.renderOutput) {
+    if (!input.fingerprint) {
+      throw new Error('renderOutput requires a PDF fingerprint');
+    }
+    const fingerprintDir = join(resolve(input.renderOutput), input.fingerprint);
+    mkdirSync(fingerprintDir, { recursive: true });
+    assertSafeRenderDir(fingerprintDir);
+    if (!scaleSubdir) return fingerprintDir;
+
+    const scaledDir = join(fingerprintDir, scaleSubdir);
+    mkdirSync(scaledDir, { recursive: true });
+    assertSafeRenderDir(scaledDir);
+    return scaledDir;
+  }
+
+  if (input.cacheDir) {
+    const baseImagesDir = join(input.cacheDir, 'images');
+    ensurePrivateDir(baseImagesDir);
+    if (!scaleSubdir) return baseImagesDir;
+
+    const scaledDir = join(baseImagesDir, scaleSubdir);
+    ensurePrivateDir(scaledDir);
+    return scaledDir;
+  }
+
+  return mkdtempSync(join(tmpdir(), 'pdfvision-render-'));
+}
+
 /**
  * Validate and canonicalise the user-supplied `renderRegion`. Surface
  * shape errors (non-finite, negative, zero-area) before any page is
@@ -170,11 +219,12 @@ function validateRenderRegion(region: RenderRegion | undefined): RenderRegion | 
  * vs json-only callers reuse the same cached payload.
  */
 function buildCacheKey(input: CacheKeyInput): string {
+  const rasterizes = !!input.render || !!input.ocr || !!input.renderVisualRegions;
   const payload = JSON.stringify({
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v63',
+    format: 'structured-v64',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -184,7 +234,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     // separately so a 1.5× run doesn't return a cached 2.0× payload.
     // `null` for the off path so non-render extractions still hit a
     // shared slot regardless of the value the caller passed.
-    renderScale: input.render || input.ocr ? (input.renderScale ?? DEFAULT_RENDER_SCALE) : null,
+    renderScale: rasterizes ? (input.renderScale ?? DEFAULT_RENDER_SCALE) : null,
     // `renderRegion` changes both the PNG content and `renderContentRatio`
     // (cropped pixels → different histogram). Key on the xywh tuple so
     // two regions on the same page get distinct cache entries.
@@ -199,7 +249,8 @@ function buildCacheKey(input: CacheKeyInput): string {
     layout: !!input.layout,
     imageBoxes: !!input.imageBoxes,
     vectorBoxes: !!input.vectorBoxes,
-    visualRegions: !!input.visualRegions,
+    visualRegions: !!input.visualRegions || !!input.renderVisualRegions,
+    renderVisualRegions: !!input.renderVisualRegions,
     formFields: !!input.formFields,
     links: !!input.links,
     annotations: !!input.annotations,
@@ -551,6 +602,10 @@ function isUsableImage(path: string | undefined): boolean {
   }
 }
 
+function areUsableVisualRegionImages(result: DocumentResult): boolean {
+  return result.pages.every((page) => (page.visualRegions ?? []).every((region) => isUsableImage(region.image)));
+}
+
 function areUsableAttachments(attachments: DocumentAttachment[] | undefined, outputDir: string | undefined): boolean {
   if (!outputDir) return true;
   if (!attachments) return false;
@@ -634,6 +689,8 @@ export async function processDocument(filePath: string, options: ProcessDocument
   if (renderRegion && !options.render && !options.ocr) {
     throw new Error('renderRegion requires render: true or ocr: true');
   }
+  const renderVisualRegions = !!options.renderVisualRegions;
+  const wantsVisualRegions = !!options.visualRegions || renderVisualRegions;
   // Compute the per-PDF fingerprint up front when any code path below
   // needs it (caching, or render output isolation). Hashing the file is
   // the most expensive sync step in this function, so do it once and
@@ -642,6 +699,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
   const needFingerprint =
     !options.noCache ||
     !!(options.render && options.renderOutput) ||
+    !!(renderVisualRegions && options.renderOutput) ||
     !!(options.attachments && options.attachmentOutput);
   const fingerprint = needFingerprint ? (pdfData ? fingerprintData(pdfData) : pdfFingerprint(filePath)) : null;
   const cacheDir = options.noCache ? null : getCacheDir(filePath, fingerprint ?? undefined);
@@ -658,7 +716,9 @@ export async function processDocument(filePath: string, options: ProcessDocument
         const result = JSON.parse(cached) as DocumentResult;
         // For --render, ensure each referenced PNG is a regular non-empty
         // file (not a symlink, not a partial write left from a crash).
-        const imagesUsable = !options.render || result.pages.every((p) => isUsableImage(p.image));
+        const imagesUsable =
+          (!options.render || result.pages.every((p) => isUsableImage(p.image))) &&
+          (!renderVisualRegions || areUsableVisualRegionImages(result));
         // For --attachment-output, ensure each referenced file is still
         // present and matches the embedded-file byte length before returning
         // a cached path instead of re-saving the attachment bytes.
@@ -847,95 +907,20 @@ export async function processDocument(filePath: string, options: ProcessDocument
     // PageResult so an agent can spot blank-rendered pages directly from
     // the structured output instead of inferring from "OCR confidence 0".
     let renderRatios: (number | undefined)[] = [];
+    const imagesDir =
+      options.render || renderVisualRegions
+        ? prepareRenderImagesDir({
+            renderOutput: options.renderOutput,
+            cacheDir,
+            fingerprint,
+            renderScale,
+          })
+        : null;
     if (options.render) {
-      let imagesDir: string;
-      // Non-default scales sit in their own subdir so different scales
-      // don't share `page-N.png` filenames and stomp each other's bytes.
-      // Keeping the default (2.0) on the legacy path preserves existing
-      // user paths under `--render-output ./images/<fp>/page-N.png`.
-      const effectiveScale = renderScale ?? DEFAULT_RENDER_SCALE;
-      const scaleSubdir = effectiveScale === DEFAULT_RENDER_SCALE ? null : scaleDirSuffix(effectiveScale);
-      if (options.renderOutput) {
-        // User-supplied path: don't enforce 0o700 here — the caller owns
-        // their output directory and may need it readable for downstream
-        // consumers. We do create it if missing.
-        //
-        // Always namespace by the PDF fingerprint: two different PDFs
-        // sharing the same `--render-output ./images` used to overwrite
-        // each other's `page-N.png` and the renderer's PNG-reuse check
-        // happily handed the survivor back as both documents' image.
-        // A per-fingerprint subdir makes collisions structurally
-        // impossible while keeping the inner filename (`page-N.png`)
-        // stable for downstream consumers.
-        const baseDir = resolve(options.renderOutput);
-        // `needFingerprint` above forces a hash whenever
-        // `render && renderOutput`, so `fingerprint` is non-null on
-        // this branch — assert rather than re-hash.
-        // The fingerprint subdir name is deterministic (same PDF →
-        // same name) and now sits inside a user-controlled directory
-        // we explicitly do NOT lock down to 0700. In a shared writable
-        // parent (CI runners, multi-user hosts) another process could
-        // pre-create that subdir as a symlink to elsewhere; mkdir
-        // -p would silently accept it and the renderer would then
-        // write `page-N.png` through the redirect. Refuse to keep
-        // going if the path is a symlink or somehow not a directory,
-        // matching the same posture `ensurePrivateDir` enforces for
-        // the cache hierarchy.
-        //
-        // When `scaleSubdir` is set we also have to check the
-        // *intermediate* fingerprint dir: a planted symlink there
-        // would otherwise be followed by `mkdirSync({recursive:true})`
-        // for the scale subdir, leaving the final lstat on a real
-        // directory at the symlink's target and bypassing the check.
-        // So: assert the fingerprint dir first, then create + assert
-        // the scale subdir on top.
-        const fingerprintDir = join(baseDir, fingerprint as string);
-        // `recursive: true` creates baseDir too if missing, so the
-        // separate `mkdirSync(baseDir)` would be redundant.
-        mkdirSync(fingerprintDir, { recursive: true });
-        const assertSafeDir = (dir: string): void => {
-          const stat = lstatSync(dir);
-          if (stat.isSymbolicLink()) {
-            throw new Error(`Refusing to render into ${dir}: path is a symlink`);
-          }
-          if (!stat.isDirectory()) {
-            throw new Error(`Refusing to render into ${dir}: path exists but is not a directory`);
-          }
-        };
-        assertSafeDir(fingerprintDir);
-        if (scaleSubdir) {
-          imagesDir = join(fingerprintDir, scaleSubdir);
-          mkdirSync(imagesDir, { recursive: true });
-          assertSafeDir(imagesDir);
-        } else {
-          imagesDir = fingerprintDir;
-        }
-      } else if (cacheDir) {
-        // Lock down the intermediate `images/` first, then the scale
-        // subdir (when present), matching the per-level pattern in
-        // ocr.ts. mkdirSync({recursive:true}) only applies the
-        // requested mode to the leaf — without an explicit
-        // ensurePrivateDir on the parent the `images/` perms would
-        // fall back to umask defaults (0755) even though the rest of
-        // the cache hierarchy is 0700.
-        const baseImagesDir = join(cacheDir, 'images');
-        ensurePrivateDir(baseImagesDir);
-        if (scaleSubdir) {
-          imagesDir = join(baseImagesDir, scaleSubdir);
-          ensurePrivateDir(imagesDir);
-        } else {
-          imagesDir = baseImagesDir;
-        }
-      } else {
-        // mkdtemp creates with 0o700 by default and never reuses an existing
-        // path, so it sidesteps the symlink/ownership concerns for the
-        // no-cache fallback.
-        imagesDir = mkdtempSync(join(tmpdir(), 'pdfvision-render-'));
-      }
       // renderer pulls in @napi-rs/canvas (native binding); only load it
       // when --render is requested.
       const { renderPagesWithStats } = await import('./renderer.js');
-      const rendered = await renderPagesWithStats(doc, pageNumbers, imagesDir, renderScale, renderRegion);
+      const rendered = await renderPagesWithStats(doc, pageNumbers, imagesDir as string, renderScale, renderRegion);
       imagePaths = rendered.map((r) => r.path);
       renderRatios = rendered.map((r) => r.contentRatio);
     }
@@ -946,7 +931,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       layout: !!options.layout,
       imageBoxes: !!options.imageBoxes,
       vectorBoxes: !!options.vectorBoxes,
-      visualRegions: !!options.visualRegions,
+      visualRegions: wantsVisualRegions,
       formFields: !!options.formFields,
       links: !!options.links,
       annotations: !!options.annotations,
@@ -1033,6 +1018,18 @@ export async function processDocument(filePath: string, options: ProcessDocument
       }
       return page;
     });
+
+    if (renderVisualRegions) {
+      const jobs = pages.flatMap((page) => (page.visualRegions ?? []).map((region) => ({ page, region })));
+      if (jobs.length > 0) {
+        const { renderPageWithStats } = await import('./renderer.js');
+        await runParallel(jobs, async ({ page, region }) => {
+          const rendered = await renderPageWithStats(doc, page.page, imagesDir as string, renderScale, region);
+          region.image = rendered.path;
+          region.renderContentRatio = rendered.contentRatio;
+        });
+      }
+    }
 
     // Repeated-chrome detection has to wait until every selected page is
     // populated, since a single page can't tell its own chrome from its
@@ -1211,6 +1208,7 @@ export async function processFile(filePath: string, options: ProcessOptions): Pr
     imageBoxes: options.imageBoxes,
     vectorBoxes: options.vectorBoxes,
     visualRegions: options.visualRegions,
+    renderVisualRegions: options.renderVisualRegions,
     formFields: options.formFields,
     links: options.links,
     annotations: options.annotations,

@@ -366,6 +366,8 @@ interface VisualRegion {
   sourceCount: number;      // total source geometry items represented
   sources: VisualRegionSource[]; // representative refs, capped for large vector clusters
   reason: string;           // short explanation for why this is worth inspecting
+  image?: string;           // cropped PNG path, present iff --render-visual-regions rendered this region
+  renderContentRatio?: number; // content ratio measured from the cropped PNG
 }
 
 interface VisualRegionSource {
@@ -374,7 +376,7 @@ interface VisualRegionSource {
 }
 ```
 
-`visualRegions[]` is a dispatch layer for human-like PDF vision. It groups existing geometry into padded, page-clamped bboxes for important raster images, vector drawing clusters, `layout.tables[]` hints, and form-field clusters. Agents can feed a region directly into `--render-region <x,y,width,height>` to inspect the figure/chart/table/form visually without first clustering raw `imageBoxes[]` or hundreds of `vectorBoxes[]`. `sourceCount` is the full number of source items represented; `sources[]` is capped to keep vector-heavy pages compact. Rotated pages currently return `[]` because `--render-region` V1 also rejects rotated pages.
+`visualRegions[]` is a dispatch layer for human-like PDF vision. It groups existing geometry into padded, page-clamped bboxes for important raster images, vector drawing clusters, `layout.tables[]` hints, and form-field clusters. Agents can feed a region directly into `--render-region <x,y,width,height>` to inspect the figure/chart/table/form visually without first clustering raw `imageBoxes[]` or hundreds of `vectorBoxes[]`. `--render-visual-regions` skips the manual second call and renders each suggested crop directly into `visualRegions[].image`; it implies `--visual-regions` but does not require full-page `--render`. `sourceCount` is the full number of source items represented; `sources[]` is capped to keep vector-heavy pages compact. Rotated pages currently return `[]` because `--render-region` V1 also rejects rotated pages.
 
 ## Spans (`--geometry`)
 
@@ -420,6 +422,7 @@ Both flags only have effect when `--render` (or `--ocr`, which internally raster
 
 - **`--render-scale <n>`**: multiplier in pixels-per-point. Default `2` (≈144 DPI on a letter page). Bounds `(0, 4]`. Smaller values shrink the vision-model payload; larger values capture finer detail (chart labels, small typography).
 - **`--render-region <x,y,w,h>`**: render only the given sub-rectangle of one page instead of the full page. PDF points, top-left origin, same coord system as `imageBoxes` / `layout.blocks`. Composes orthogonally with `--render-scale`: a 400×300pt region at scale 3 produces a 1200×900px PNG. V1 is strictly single-page (errors if `--pages` resolves to anything but exactly one page), rejects regions that fall outside the page bounds, and rejects rotated pages (`page.rotate !== 0` — pdfvision's existing geometry is in unrotated MediaBox coordinates and the rotation fix is a multi-file refactor still pending). The xywh tuple is part of the cache key and the on-disk filename (`page-N_x<x>_y<y>_w<w>_h<h>.png`), so multiple regions per page coexist. Echoed back on `PageResult.renderRegion` so consumers can tell a cropped image from a full-page one without inspecting the filename.
+- **`--render-visual-regions`**: render every `visualRegions[]` crop and attach `image` / `renderContentRatio` on each region. This uses the same output directory, `--render-scale`, cache image validation, and safe per-PDF subdirectory rules as full-page `--render`, but leaves `pages[].image` absent unless `--render` was also requested.
 
 Typical agent flow: extract with `--layout`, find a suspect block in `layout.blocks[i]` (or get its index out of `warnings[i].blockIndex`), then re-run with `--pages <N> --render --render-region <x,y,w,h>` using `blocks[i]`'s bbox to zoom in.
 

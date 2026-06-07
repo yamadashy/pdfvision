@@ -34,24 +34,27 @@ export interface ProcessDocumentOptions {
   /** Skip the on-disk cache, always re-extract. Defaults to `false`. */
   noCache?: boolean;
   /**
-   * Directory to write rendered PNGs into. Only used when `render` is true.
-   * If unset, pdfvision picks a path under the cache (or OS tmp) directory.
-   * The directory is created if it doesn't already exist.
+   * Directory to write rendered PNGs into. Used when `render` or
+   * `renderVisualRegions` is true. If unset, pdfvision picks a path under
+   * the cache (or OS tmp) directory. The directory is created if it
+   * doesn't already exist.
    */
   renderOutput?: string;
   /**
    * Multiplier applied to the PDF's intrinsic page size when rasterising
-   * (`--render` and `--ocr`). `2` (the default) renders a 612×792 letter
-   * page at 1224×1584 — readable by vision models without losing detail.
+   * (`--render`, `--render-visual-regions`, and `--ocr`). `2` (the default)
+   * renders a 612×792 letter page at 1224×1584 — readable by vision models
+   * without losing detail.
    * Smaller values trade fidelity for payload size (a 1.0× page is roughly
    * a quarter the bytes of the 2.0× default and is sufficient for most
    * agentic-vision dispatch tasks). Values outside (0, 4] throw — 4× is
    * 16× the pixel count and a soft ceiling against accidental OOM.
    *
-   * Affects both `pages[].image` (the on-disk PNG) and `renderContentRatio`
-   * (the same raster is what the ratio scan runs on). Different scales
-   * cache separately and write to distinct directories so back-to-back
-   * runs at different scales don't clobber each other.
+   * Affects rendered page PNGs, visual-region crop PNGs, and their
+   * `renderContentRatio` measurements (the same raster is what the ratio
+   * scan runs on). Different scales cache separately and write to distinct
+   * directories so back-to-back runs at different scales don't clobber
+   * each other.
    */
   renderScale?: number;
   /**
@@ -192,6 +195,13 @@ export interface ProcessDocumentOptions {
    */
   visualRegions?: boolean;
   /**
+   * Render each emitted visual region to a cropped PNG and attach the
+   * path plus render-content ratio on `pages[].visualRegions[].image`.
+   * Implies {@link visualRegions}; it does not require full-page
+   * `render`, so agents can get only the suggested crops.
+   */
+  renderVisualRegions?: boolean;
+  /**
    * Emit interactive PDF form/widget fields in `pages[].formFields`.
    * Useful for government forms and applications where blank text boxes,
    * checkboxes, radio buttons, signatures, and choice fields are part of
@@ -306,6 +316,8 @@ export interface ProcessOptions {
   vectorBoxes?: boolean;
   /** See {@link ProcessDocumentOptions.visualRegions}. */
   visualRegions?: boolean;
+  /** See {@link ProcessDocumentOptions.renderVisualRegions}. */
+  renderVisualRegions?: boolean;
   /** See {@link ProcessDocumentOptions.formFields}. */
   formFields?: boolean;
   /** See {@link ProcessDocumentOptions.links}. */
@@ -595,6 +607,10 @@ export interface VisualRegion {
   sources: VisualRegionSource[];
   /** Short human-readable reason for why the region is worth inspecting. */
   reason: string;
+  /** Cropped PNG path for this region when `renderVisualRegions` was requested. */
+  image?: string;
+  /** Content ratio measured from the cropped region PNG when rendered. */
+  renderContentRatio?: number;
 }
 
 export type FormFieldType = 'text' | 'checkbox' | 'radio' | 'choice' | 'signature' | 'button' | 'unknown';

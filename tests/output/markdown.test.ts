@@ -215,6 +215,8 @@ describe('formatMarkdown', () => {
                   { type: 'vectorBox', index: 2 },
                 ],
                 reason: 'raster image covers 8.9% of the page',
+                image: '/tmp/region|crop.png',
+                renderContentRatio: 0.1234,
               },
             ],
           }),
@@ -227,8 +229,9 @@ describe('formatMarkdown', () => {
     expect(out).toMatch(/\| 1 \| 11 \| 0 \| 0% \| 612×792 \| 1 \|/);
     expect(out).toContain('visualRegions: 1');
     expect(out).toContain('### Visual regions');
+    expect(out).toContain('| ID | Kind | BBox | Area | Image | Render | Sources | Reason |');
     expect(out).toContain(
-      '| p1-vr0 | raster | 36,72,240,180 | 8.9% | imageBox[0], vectorBox[2], +16 more | raster image covers 8.9% of the page |',
+      '| p1-vr0 | raster | 36,72,240,180 | 8.9% | /tmp/region\\|crop.png | 12.34% | imageBox[0], vectorBox[2], +16 more | raster image covers 8.9% of the page |',
     );
     expect(out).toContain('_No crop-ready visual regions found._');
   });

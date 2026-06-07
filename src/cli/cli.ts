@@ -51,6 +51,7 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
         'image-boxes': { type: 'boolean' },
         'vector-boxes': { type: 'boolean' },
         'visual-regions': { type: 'boolean' },
+        'render-visual-regions': { type: 'boolean' },
         'form-fields': { type: 'boolean' },
         links: { type: 'boolean' },
         annotations: { type: 'boolean' },
@@ -151,10 +152,11 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
 
   const renderOutput = values['render-output'] as string | undefined;
   const render = (values.render as boolean | undefined) ?? false;
-  if (renderOutput && !render) {
-    // --render-output only does something if pages are actually rendered.
+  const renderVisualRegions = (values['render-visual-regions'] as boolean | undefined) ?? false;
+  if (renderOutput && !render && !renderVisualRegions) {
+    // --render-output only does something if page or visual-region crops are actually rendered.
     // Failing fast is friendlier than silently writing nothing to the dir.
-    exitWithError('--render-output requires --render');
+    exitWithError('--render-output requires --render or --render-visual-regions');
   }
 
   // --render-scale parses as a number with explicit error messaging so
@@ -165,10 +167,10 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
   const renderScaleRaw = values['render-scale'] as string | undefined;
   let renderScale: number | undefined;
   if (renderScaleRaw !== undefined) {
-    if (!render && !(values.ocr as boolean | undefined)) {
+    if (!render && !renderVisualRegions && !(values.ocr as boolean | undefined)) {
       // No rasterisation will actually happen; the flag silently does
       // nothing. Failing loudly mirrors the --render-output relationship.
-      exitWithError('--render-scale requires --render or --ocr');
+      exitWithError('--render-scale requires --render, --render-visual-regions, or --ocr');
     }
     const parsed = Number(renderScaleRaw);
     if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 4) {
@@ -297,7 +299,8 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
       layout,
       imageBoxes: (values['image-boxes'] as boolean | undefined) ?? false,
       vectorBoxes: (values['vector-boxes'] as boolean | undefined) ?? false,
-      visualRegions: (values['visual-regions'] as boolean | undefined) ?? false,
+      visualRegions: ((values['visual-regions'] as boolean | undefined) ?? false) || renderVisualRegions,
+      renderVisualRegions,
       formFields: (values['form-fields'] as boolean | undefined) ?? false,
       links: (values.links as boolean | undefined) ?? false,
       annotations: (values.annotations as boolean | undefined) ?? false,

@@ -71,6 +71,7 @@ The default extraction is enough for most native-text PDFs (papers, exports from
 | Know where images sit on the page | `--image-boxes` | Bbox overlay on rendered PNG, figure detection |
 | Know where vector marks sit on the page | `--vector-boxes` | Maps, symbol tables, diagrams, chart paths, form boxes, table rules, slide shapes, and PDFs where visible structure is vector-drawn rather than raster images |
 | Get crop-ready visual regions | `--visual-regions` | Figure/chart/diagram/table/form pages where an agent needs suggested `--render-region` bboxes instead of manually clustering raw image/vector/layout/form coordinates |
+| Render suggested visual crops | `--render-visual-regions` | Same cases as `--visual-regions`, when the next step is a vision-model pass and the agent wants `visualRegions[].image` without rendering every full page |
 | Read form controls and blank fields | `--form-fields` | Government forms, applications, tax forms, questionnaires, and any PDF where checkboxes, radio buttons, signatures, text boxes, choice widgets, or their nearby visible labels are part of the meaning |
 | Capture clickable navigation | `--links` | Papers and manuals with citation links, table-of-contents jumps, cross-references, and external URLs whose clickable regions matter to a human PDF reader |
 | Capture comments and markup | `--annotations` | Reviewed PDFs, annotated drafts, PDFs with sticky notes, highlights, underlines, strikeouts, stamps, or other non-link annotation markup |

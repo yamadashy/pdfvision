@@ -357,6 +357,10 @@ export function formatXml(result: DocumentResult): string {
             `sourceCount="${region.sourceCount}"`,
             `reason="${escapeAttr(region.reason)}"`,
           ];
+          if (region.image !== undefined) attrs.push(`image="${escapeAttr(region.image)}"`);
+          if (region.renderContentRatio !== undefined) {
+            attrs.push(`renderContentRatio="${region.renderContentRatio}"`);
+          }
           if (region.sources.length === 0) {
             out.push(`<region ${attrs.join(' ')}/>`);
           } else {

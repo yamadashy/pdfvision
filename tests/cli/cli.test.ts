@@ -208,6 +208,14 @@ describe('cli', () => {
     expect(parsed.pages[0].visualRegions).toEqual([]);
   });
 
+  it('accepts --render-visual-regions and implies --visual-regions', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--json', '--render-visual-regions', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    const parsed = JSON.parse(r.stdout.join('\n'));
+    expect(parsed.pages[0].visualRegions).toEqual([]);
+    expect(parsed.pages[0].image).toBeUndefined();
+  });
+
   it('accepts the --xml shortcut as an alias for --format xml', async () => {
     const r = await captureRun([SAMPLE_PDF, '--xml', '--no-cache']);
     expect(r.exitCode).toBeNull();
@@ -262,21 +270,21 @@ describe('cli', () => {
     expect(r.stderr.join('\n')).toMatch(/--strip-repeated only applies to markdown/);
   });
 
-  it('rejects --render-output without --render', async () => {
-    // --render-output only meaningfully writes when --render is requested.
-    // Silent no-op would leave the user's empty directory looking like a
-    // tooling bug.
+  it('rejects --render-output without --render or --render-visual-regions', async () => {
+    // --render-output only meaningfully writes when page or region crops
+    // are requested. Silent no-op would leave the user's empty directory
+    // looking like a tooling bug.
     const r = await captureRun([SAMPLE_PDF, '--render-output', '/tmp/whatever']);
     expect(r.exitCode).toBe(1);
-    expect(r.stderr.join('\n')).toMatch(/--render-output requires --render/);
+    expect(r.stderr.join('\n')).toMatch(/--render-output requires --render or --render-visual-regions/);
   });
 
-  it('rejects --render-scale without --render or --ocr', async () => {
+  it('rejects --render-scale without --render, --render-visual-regions, or --ocr', async () => {
     // Same posture as --render-output: silently ignoring a flag the user
     // explicitly passed would hide misconfiguration.
     const r = await captureRun([SAMPLE_PDF, '--render-scale', '1.5']);
     expect(r.exitCode).toBe(1);
-    expect(r.stderr.join('\n')).toMatch(/--render-scale requires --render or --ocr/);
+    expect(r.stderr.join('\n')).toMatch(/--render-scale requires --render, --render-visual-regions, or --ocr/);
   });
 
   it('rejects --render-scale outside (0, 4]', async () => {

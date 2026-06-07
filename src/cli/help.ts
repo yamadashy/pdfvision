@@ -63,6 +63,10 @@ Options
                           for important figures, charts, diagrams, tables, forms, and
                           raster/vector clusters. Feed x,y,width,height directly into
                           --render-region for a visual zoom.
+      --render-visual-regions
+                          Render each visual region crop to PNG and attach
+                          \`visualRegions[].image\` / \`renderContentRatio\`.
+                          Implies --visual-regions and does not require --render.
       --form-fields       Emit \`pages[].formFields\` — interactive PDF widget fields
                           such as text boxes, checkboxes, radio buttons, choices, and
                           signatures with values, bboxes, and nearby visible labels.

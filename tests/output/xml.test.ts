@@ -485,6 +485,8 @@ describe('formatXml', () => {
                   { type: 'vectorBox', index: 3 },
                 ],
                 reason: 'raster & vector <cluster>',
+                image: '/tmp/region&crop.png',
+                renderContentRatio: 0.1234,
               },
             ],
           }),
@@ -495,7 +497,7 @@ describe('formatXml', () => {
     expect(out).toContain('visualRegionCount="1"');
     expect(out).toContain('<visualRegions>');
     expect(out).toContain(
-      '<region id="p1-vr0" kind="mixed" x="36" y="72" width="240" height="180" areaRatio="0.089" sourceCount="2" reason="raster &amp; vector &lt;cluster&gt;">',
+      '<region id="p1-vr0" kind="mixed" x="36" y="72" width="240" height="180" areaRatio="0.089" sourceCount="2" reason="raster &amp; vector &lt;cluster&gt;" image="/tmp/region&amp;crop.png" renderContentRatio="0.1234">',
     );
     expect(out).toContain('<source type="imageBox" index="0"/>');
     expect(out).toContain('<source type="vectorBox" index="3"/>');
