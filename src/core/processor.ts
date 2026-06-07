@@ -57,6 +57,7 @@ interface CacheKeyInput {
   formFields?: boolean;
   links?: boolean;
   annotations?: boolean;
+  pageLabels?: boolean;
   outline?: boolean;
   ocr?: boolean;
   ocrLang?: string;
@@ -157,7 +158,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v55',
+    format: 'structured-v56',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -185,6 +186,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     formFields: !!input.formFields,
     links: !!input.links,
     annotations: !!input.annotations,
+    pageLabels: !!input.pageLabels,
     outline: !!input.outline,
     // OCR is expensive (tens of seconds for a multi-page scan); always cache
     // it. The lang string is part of the key (whitespace-normalised, order
@@ -714,6 +716,11 @@ export async function processDocument(filePath: string, options: ProcessDocument
 
     const metadata = await doc.getMetadata();
     const info = metadata.info as Record<string, unknown> | null;
+    const rawPageLabels = options.pageLabels ? await doc.getPageLabels() : undefined;
+    const pageLabels =
+      rawPageLabels === undefined
+        ? undefined
+        : (rawPageLabels ?? []).map((label) => (options.normalize !== false ? normalizeText(label) : label));
     const outline: DocumentOutlineItem[] | undefined = options.outline
       ? await buildOutline(await doc.getOutline(), doc, {
           normalizeText: options.normalize !== false ? normalizeText : undefined,
@@ -863,6 +870,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       const renderRatio = renderRatios[i];
       const page: PageResult = {
         page: pageNum,
+        ...(pageLabels?.[pageNum - 1] !== undefined && { pageLabel: pageLabels[pageNum - 1] }),
         ...(renderRegion !== undefined && { renderRegion }),
         text: data.text,
         ...(data.rawText !== undefined && { rawText: data.rawText }),
@@ -983,6 +991,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       pages.length > 1
         ? pages.map((p) => ({
             page: p.page,
+            ...(p.pageLabel !== undefined && { pageLabel: p.pageLabel }),
             charCount: p.charCount,
             imageCount: p.imageCount,
             vectorCount: p.vectorCount,
@@ -1023,6 +1032,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
         subject: metaString(info?.Subject),
         creator: metaString(info?.Creator),
       },
+      ...(pageLabels !== undefined && { pageLabels }),
       ...(outline !== undefined && { outline }),
       ...(overview && { overview }),
       pages,
@@ -1080,6 +1090,7 @@ export async function processFile(filePath: string, options: ProcessOptions): Pr
     formFields: options.formFields,
     links: options.links,
     annotations: options.annotations,
+    pageLabels: options.pageLabels,
     outline: options.outline,
     ocr: options.ocr,
     ocrLang: options.ocrLang,

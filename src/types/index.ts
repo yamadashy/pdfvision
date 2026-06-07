@@ -204,6 +204,12 @@ export interface ProcessDocumentOptions {
    */
   annotations?: boolean;
   /**
+   * Emit viewer page labels in `pageLabels` and `pages[].pageLabel`.
+   * Useful when the PDF viewer shows roman front matter, section prefixes,
+   * or restarted numbering that differs from the physical page number.
+   */
+  pageLabels?: boolean;
+  /**
    * Emit the document outline / bookmarks in `outline`. Useful for long
    * reports, manuals, and papers where a human PDF viewer exposes section
    * navigation in the sidebar. Named destinations are resolved to page
@@ -265,6 +271,8 @@ export interface ProcessOptions {
   links?: boolean;
   /** See {@link ProcessDocumentOptions.annotations}. */
   annotations?: boolean;
+  /** See {@link ProcessDocumentOptions.pageLabels}. */
+  pageLabels?: boolean;
   /** See {@link ProcessDocumentOptions.outline}. */
   outline?: boolean;
   ocr?: boolean;
@@ -582,6 +590,13 @@ export interface PageAnnotation {
 
 export interface PageResult {
   page: number;
+  /**
+   * Viewer-visible page label for this page, only present when
+   * `pageLabels: true` was passed and the PDF defines page labels.
+   * Examples: `i`, `ii`, `A-1`, or `1`. This can differ from the
+   * physical `page` number used by the CLI page selector.
+   */
+  pageLabel?: string;
   /**
    * Rendered region echoed back when `renderRegion` was passed to the
    * extraction call. Lets consumers tell whether `pages[].image` is the
@@ -928,6 +943,11 @@ export interface DocumentMetadata {
  */
 export interface PageOverview {
   page: number;
+  /**
+   * Viewer-visible page label for this page, present iff `pageLabels` was
+   * requested and the PDF defines labels.
+   */
+  pageLabel?: string;
   charCount: number;
   imageCount: number;
   /**
@@ -1010,6 +1030,12 @@ export interface DocumentResult {
   file: string;
   totalPages: number;
   metadata: DocumentMetadata;
+  /**
+   * Full document page-label array, 0-indexed by physical page number,
+   * present iff page-label extraction was requested. Empty array means the
+   * pass ran and the PDF has no custom page labels.
+   */
+  pageLabels?: string[];
   /**
    * Document outline / bookmarks, present iff outline extraction was
    * requested. Empty array means the pass ran and the PDF has no outline.

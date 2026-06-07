@@ -654,6 +654,42 @@ describe('formatXml', () => {
     expect(out).toContain('<outline/>');
   });
 
+  it('emits document page labels and mirrors them on page attributes', () => {
+    const out = formatXml(
+      makeResult({
+        totalPages: 2,
+        pageLabels: ['i', '1'],
+        overview: [
+          {
+            page: 1,
+            pageLabel: 'i',
+            charCount: 1,
+            imageCount: 0,
+            vectorCount: 0,
+            textCoverage: 0.01,
+            nonPrintableRatio: 0,
+            nonPrintableCount: 0,
+            quality: { nativeTextStatus: 'ok' },
+            width: 612,
+            height: 792,
+          },
+        ],
+        pages: [makePage({ page: 1, pageLabel: 'i', text: 't', charCount: 1 })],
+      }),
+    );
+
+    expect(out).toContain('<pageLabels>');
+    expect(out).toContain('<pageLabel page="1" label="i"/>');
+    expect(out).toContain('<pageLabel page="2" label="1"/>');
+    expect(out).toContain('<page no="1" charCount="1" imageCount="0" vectorCount="0" textCoverage="0.01"');
+    expect(out).toContain('label="i"');
+  });
+
+  it('emits self-closing <pageLabels/> when extraction ran but found no labels', () => {
+    const out = formatXml(makeResult({ pageLabels: [] }));
+    expect(out).toContain('<pageLabels/>');
+  });
+
   it('emits an <ocr> element with lang + confidence attributes when ocr is present', () => {
     const out = formatXml(
       makeResult({

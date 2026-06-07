@@ -11,6 +11,7 @@ interface DocumentResult {
   file: string;                // path the CLI was invoked with (or cache path for --remote)
   totalPages: number;          // total in the source PDF, not in the selection
   metadata: DocumentMetadata;  // title / author / subject / creator (all string | null)
+  pageLabels?: string[];       // full 0-indexed viewer page-label array; present iff --page-labels
   outline?: DocumentOutlineItem[]; // document bookmarks; present iff --outline
   overview?: PageOverview[];   // per-page density summary; present iff pages.length > 1
   pages: PageResult[];         // one entry per selected page, in page-number order
@@ -24,6 +25,7 @@ interface DocumentResult {
 ```ts
 interface PageOverview {
   page: number;
+  pageLabel?: string;             // viewer-visible page label; present iff --page-labels and labels exist
   charCount: number;
   imageCount: number;             // raster image draws (XObject + inline + mask), per drawn instance
   vectorCount: number;            // vector drawing ops (paths / shadings), e.g. form boxes, chart rules, slide shapes
@@ -57,6 +59,7 @@ interface PageOverview {
 ```ts
 interface PageResult {
   page: number;
+  pageLabel?: string;           // viewer-visible label such as i, ii, A-1, 1; present iff --page-labels and labels exist
   text: string;                  // NFKC-normalized unless --no-normalize
   rawText?: string;              // pre-normalization text — only present when normalization changed it
   charCount: number;
@@ -194,6 +197,10 @@ interface PageAnnotation {
 ```
 
 `annotations[]` surfaces non-link, non-widget PDF annotations: sticky notes, comments, highlights, underlines, strikeouts, stamps, free text, ink, and other markup. `Link`, `Widget`, and `Popup` annotations are intentionally excluded because links and form widgets have dedicated outputs and popups usually duplicate their parent annotation. Coordinates use the same top-left PDF-point system as `spans`, `layout.blocks`, and `imageBoxes`; `quadBoxes[]` gives precise markup regions when the PDF provides QuadPoints.
+
+## Page labels (`--page-labels`)
+
+`pageLabels[]` is the full viewer page-label array for the source PDF, indexed from physical page 1 at array index 0. `pages[].pageLabel` and `overview[].pageLabel` mirror the selected page's entry when the PDF defines labels. Use this when a PDF viewer shows front matter as `i`, `ii`, ... and restarts body numbering at `1`, or when sections use prefixes such as `A-1`. The CLI page selector still uses physical page numbers; `pageLabel` tells the agent what a human sees in the viewer chrome.
 
 ## Outline (`--outline`)
 
@@ -416,7 +423,7 @@ pdfvision doc.pdf -p <m.page> --render --render-region <m.bbox.x>,<m.bbox.y>,<m.
 </document>
 ```
 
-Empty `<outline/>`, `<layout/>`, `<imageBoxes/>`, `<vectorBoxes/>`, `<formFields/>`, `<links/>`, `<annotations/>`, and `<ocr/>` (self-closing) mean "the pass ran and found nothing", which is distinct from the tag being absent (the pass wasn't requested).
+Empty `<pageLabels/>`, `<outline/>`, `<layout/>`, `<imageBoxes/>`, `<vectorBoxes/>`, `<formFields/>`, `<links/>`, `<annotations/>`, and `<ocr/>` (self-closing) mean "the pass ran and found nothing", which is distinct from the tag being absent (the pass wasn't requested).
 
 ## TOON output shape
 

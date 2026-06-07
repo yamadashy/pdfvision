@@ -51,6 +51,18 @@ export function formatXml(result: DocumentResult): string {
     out.push('</metadata>');
   }
 
+  if (result.pageLabels) {
+    if (result.pageLabels.length === 0) {
+      out.push('<pageLabels/>');
+    } else {
+      out.push('<pageLabels>');
+      result.pageLabels.forEach((label, index) => {
+        out.push(`<pageLabel page="${index + 1}" label="${escapeAttr(label)}"/>`);
+      });
+      out.push('</pageLabels>');
+    }
+  }
+
   if (result.outline) {
     if (result.outline.length === 0) {
       out.push('<outline/>');
@@ -73,6 +85,7 @@ export function formatXml(result: DocumentResult): string {
         `nonPrintableRatio="${p.nonPrintableRatio}"`,
         `nonPrintableCount="${p.nonPrintableCount}"`,
       ];
+      if (p.pageLabel !== undefined) ovAttrs.push(`label="${escapeAttr(p.pageLabel)}"`);
       if (p.renderContentRatio !== undefined) ovAttrs.push(`renderContentRatio="${p.renderContentRatio}"`);
       ovAttrs.push(`nativeTextStatus="${p.quality.nativeTextStatus}"`);
       if (p.quality.visualStatus !== undefined) ovAttrs.push(`visualStatus="${p.quality.visualStatus}"`);
@@ -99,6 +112,7 @@ export function formatXml(result: DocumentResult): string {
       `nonPrintableRatio="${page.nonPrintableRatio}"`,
       `nonPrintableCount="${page.nonPrintableCount}"`,
     ];
+    if (page.pageLabel !== undefined) attrs.push(`label="${escapeAttr(page.pageLabel)}"`);
     if (page.renderContentRatio !== undefined) attrs.push(`renderContentRatio="${page.renderContentRatio}"`);
     attrs.push(`nativeTextStatus="${page.quality.nativeTextStatus}"`);
     if (page.quality.visualStatus !== undefined) attrs.push(`visualStatus="${page.quality.visualStatus}"`);

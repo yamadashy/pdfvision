@@ -59,6 +59,33 @@ async function buildPdfWithAnnotations(): Promise<Uint8Array> {
   return new Uint8Array(Buffer.concat(chunks));
 }
 
+function buildPdfWithPageLabels(): Uint8Array {
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R /PageLabels << /Nums [ 0 << /S /r >> 2 << /S /D /St 1 >> ] >> >>',
+    '<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R] /Count 3 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> >>',
+  ];
+
+  let body = '%PDF-1.7\n';
+  const offsets: number[] = [0];
+  for (const [index, object] of objects.entries()) {
+    offsets[index + 1] = Buffer.byteLength(body, 'binary');
+    body += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  }
+
+  const xrefOffset = Buffer.byteLength(body, 'binary');
+  body += `xref\n0 ${objects.length + 1}\n`;
+  body += '0000000000 65535 f \n';
+  for (let i = 1; i <= objects.length; i++) {
+    body += `${String(offsets[i]).padStart(10, '0')} 00000 n \n`;
+  }
+  body += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
+
+  return new Uint8Array(Buffer.from(body, 'binary'));
+}
+
 describe('processDocument', () => {
   it('returns a structured DocumentResult, no JSON parsing required', async () => {
     const result = await processDocument(SAMPLE_PDF, { noCache: true });
@@ -126,6 +153,58 @@ describe('processDocument', () => {
     expect(first.page).toBe(result.pages[0].page);
     expect(first.charCount).toBe(result.pages[0].charCount);
     expect(first.width).toBe(result.pages[0].width);
+  });
+
+  it('extracts real viewer page labels and mirrors them on selected pages', async () => {
+    const result = await processDocument('memory://page-labels.pdf', {
+      sourceData: buildPdfWithPageLabels(),
+      noCache: true,
+      pageLabels: true,
+    });
+
+    expect(result.pageLabels).toEqual(['i', 'ii', '1']);
+    expect(result.pages.map((page) => page.pageLabel)).toEqual(['i', 'ii', '1']);
+    expect(result.overview?.map((page) => page.pageLabel)).toEqual(['i', 'ii', '1']);
+  });
+
+  it('uses physical page selection while preserving viewer labels from the full document', async () => {
+    const result = await processDocument('memory://page-labels-selected.pdf', {
+      sourceData: buildPdfWithPageLabels(),
+      pages: '2',
+      noCache: true,
+      pageLabels: true,
+    });
+
+    expect(result.pageLabels).toEqual(['i', 'ii', '1']);
+    expect(result.pages).toHaveLength(1);
+    expect(result.pages[0].page).toBe(2);
+    expect(result.pages[0].pageLabel).toBe('ii');
+    expect(result.overview).toBeUndefined();
+  });
+
+  it('keeps cache entries with vs without page labels separate', async () => {
+    const sourceData = buildPdfWithPageLabels();
+    const noLabels = await processDocument('memory://page-labels-cache.pdf', {
+      sourceData,
+      noCache: false,
+    });
+    const withLabels = await processDocument('memory://page-labels-cache.pdf', {
+      sourceData,
+      noCache: false,
+      pageLabels: true,
+    });
+
+    expect(noLabels.pageLabels).toBeUndefined();
+    expect(noLabels.pages[0].pageLabel).toBeUndefined();
+    expect(withLabels.pageLabels).toEqual(['i', 'ii', '1']);
+    expect(withLabels.pages[0].pageLabel).toBe('i');
+  });
+
+  it('emits an empty pageLabels array when page-label extraction ran but found none', async () => {
+    const result = await processDocument(SAMPLE_PDF, { noCache: true, pageLabels: true });
+
+    expect(result.pageLabels).toEqual([]);
+    expect(result.pages[0].pageLabel).toBeUndefined();
   });
 
   it('counts embedded raster images in imageCount', async () => {

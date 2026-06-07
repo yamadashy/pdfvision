@@ -106,6 +106,13 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
   if (result.metadata.subject) lines.push(`- **Subject:** ${result.metadata.subject}`);
   if (result.metadata.creator) lines.push(`- **Creator:** ${result.metadata.creator}`);
 
+  if (result.pageLabels && result.pageLabels.length === 0) {
+    lines.push('');
+    lines.push('## Page Labels');
+    lines.push('');
+    lines.push('_No custom page labels found._');
+  }
+
   if (result.outline) {
     lines.push('');
     lines.push('## Outline');
@@ -142,6 +149,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     const showFormFields = result.pages.some((p) => p.formFields !== undefined);
     const showLinks = result.pages.some((p) => p.links !== undefined);
     const showAnnotations = result.pages.some((p) => p.annotations !== undefined);
+    const showPageLabels = result.pages.some((p) => p.pageLabel !== undefined);
     // The Warnings column appears only when at least one page carries
     // a non-empty `warnings` array. Like NonPrint / Render, the column
     // only shows up when there's actual signal — otherwise the table
@@ -157,13 +165,14 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     lines.push('## Overview');
     lines.push('');
     lines.push(
-      `| Page | Chars | Images | Coverage |${showNonPrint ? ' NonPrint |' : ''}${showRender ? ' Render |' : ''} Size (pt) |${showVectors ? ' Vectors |' : ''}${showVectorBoxes ? ' VectorBoxes |' : ''}${showBlocks ? ' Blocks |' : ''}${showWarnings ? ' Warnings |' : ''}${showMatches ? ' Matches |' : ''}${showFormFields ? ' FormFields |' : ''}${showLinks ? ' Links |' : ''}${showAnnotations ? ' Annotations |' : ''}`,
+      `| Page |${showPageLabels ? ' Label |' : ''} Chars | Images | Coverage |${showNonPrint ? ' NonPrint |' : ''}${showRender ? ' Render |' : ''} Size (pt) |${showVectors ? ' Vectors |' : ''}${showVectorBoxes ? ' VectorBoxes |' : ''}${showBlocks ? ' Blocks |' : ''}${showWarnings ? ' Warnings |' : ''}${showMatches ? ' Matches |' : ''}${showFormFields ? ' FormFields |' : ''}${showLinks ? ' Links |' : ''}${showAnnotations ? ' Annotations |' : ''}`,
     );
     lines.push(
-      `| ---: | ---: | ---: | ---: |${showNonPrint ? ' ---: |' : ''}${showRender ? ' ---: |' : ''} ---: |${showVectors ? ' ---: |' : ''}${showVectorBoxes ? ' ---: |' : ''}${showBlocks ? ' ---: |' : ''}${showWarnings ? ' ---: |' : ''}${showMatches ? ' ---: |' : ''}${showFormFields ? ' ---: |' : ''}${showLinks ? ' ---: |' : ''}${showAnnotations ? ' ---: |' : ''}`,
+      `| ---: |${showPageLabels ? ' --- |' : ''} ---: | ---: | ---: |${showNonPrint ? ' ---: |' : ''}${showRender ? ' ---: |' : ''} ---: |${showVectors ? ' ---: |' : ''}${showVectorBoxes ? ' ---: |' : ''}${showBlocks ? ' ---: |' : ''}${showWarnings ? ' ---: |' : ''}${showMatches ? ' ---: |' : ''}${showFormFields ? ' ---: |' : ''}${showLinks ? ' ---: |' : ''}${showAnnotations ? ' ---: |' : ''}`,
     );
     for (const page of result.pages) {
       const coveragePct = Math.round(page.textCoverage * 100);
+      const pageLabelCell = showPageLabels ? ` ${escapeTableCell(page.pageLabel ?? '')} |` : '';
       // Use `<1%` (instead of the rounded `0%`) when the page has *any*
       // non-printable chars — otherwise sparse occurrences like 2 bad
       // codepoints in a 5000-char body page silently render as `0%` and
@@ -187,7 +196,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
       const linksCell = showLinks ? ` ${page.links?.length ?? 0} |` : '';
       const annotationsCell = showAnnotations ? ` ${page.annotations?.length ?? 0} |` : '';
       lines.push(
-        `| ${page.page} | ${page.charCount} | ${page.imageCount} | ${coveragePct}% |${nonPrintCell}${renderCell} ${formatSize(page)} |${vectorsCell}${vectorBoxesCell}${blocksCell}${warningsCell}${matchesCell}${formFieldsCell}${linksCell}${annotationsCell}`,
+        `| ${page.page} |${pageLabelCell} ${page.charCount} | ${page.imageCount} | ${coveragePct}% |${nonPrintCell}${renderCell} ${formatSize(page)} |${vectorsCell}${vectorBoxesCell}${blocksCell}${warningsCell}${matchesCell}${formFieldsCell}${linksCell}${annotationsCell}`,
       );
     }
   }
@@ -197,7 +206,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     lines.push('');
     lines.push('---');
     lines.push('');
-    lines.push(`## Page ${page.page}`);
+    lines.push(`## Page ${page.page}${page.pageLabel !== undefined ? ` (${escapeInline(page.pageLabel)})` : ''}`);
     lines.push('');
     // Inline the nonPrint signal only when the page actually has any
     // non-printable code points (count > 0). Renders the rounded
@@ -208,6 +217,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     const npPct = Math.round(page.nonPrintableRatio * 100);
     const nonPrintFragment =
       page.nonPrintableCount > 0 ? ` · nonPrint: ${npPct === 0 ? '<1%' : `${npPct}%`} (${page.nonPrintableCount})` : '';
+    const pageLabelFragment = page.pageLabel !== undefined ? ` · label: ${escapeInline(page.pageLabel)}` : '';
     // Inline the render-content ratio (when rasterised) so a single-page
     // run still surfaces it without the overview table. Two decimal
     // places match the column format above.
@@ -239,7 +249,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     // because no search ran. Mirrors the overview Matches column.
     const matchesFragment = page.matches !== undefined ? ` · matches: ${page.matches.length}` : '';
     lines.push(
-      `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${nonPrintFragment}${renderFragment}${vectorsFragment}${vectorBoxesFragment}${formFieldsFragment}${linksFragment}${annotationsFragment}${nativeFragment}${visualFragment}${warningsFragment}${matchesFragment} · size: ${formatSize(page)}pt_`,
+      `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${pageLabelFragment}${nonPrintFragment}${renderFragment}${vectorsFragment}${vectorBoxesFragment}${formFieldsFragment}${linksFragment}${annotationsFragment}${nativeFragment}${visualFragment}${warningsFragment}${matchesFragment} · size: ${formatSize(page)}pt_`,
     );
     const body = pageBody(page, options);
     if (body) {

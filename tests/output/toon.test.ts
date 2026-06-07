@@ -145,6 +145,31 @@ describe('formatToon', () => {
     expect(out).toMatch(/overview\[2\]/);
   });
 
+  it('round-trips document and page labels through the TOON data model', () => {
+    const result = makeResult({
+      pageLabels: ['i', '1'],
+      overview: [
+        {
+          page: 1,
+          pageLabel: 'i',
+          charCount: 11,
+          imageCount: 0,
+          vectorCount: 0,
+          textCoverage: 0.01,
+          nonPrintableRatio: 0,
+          nonPrintableCount: 0,
+          quality: { nativeTextStatus: 'ok' },
+          width: 612,
+          height: 792,
+        },
+      ],
+      pages: [makePage({ page: 1, pageLabel: 'i', text: 'hello world', charCount: 11, textCoverage: 0.01 })],
+    });
+
+    const decoded = decode(formatToon(result));
+    expect(decoded).toEqual(result);
+  });
+
   it('omits optional fields that are undefined instead of emitting them as null', () => {
     // The TOON encoder renders an `undefined` property value as an explicit
     // `null`, while the json formatter (JSON.stringify) drops it. A fresh

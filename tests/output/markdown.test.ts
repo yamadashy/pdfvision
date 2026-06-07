@@ -338,6 +338,30 @@ describe('formatMarkdown', () => {
     expect(out).toContain('_No document outline found._');
   });
 
+  it('renders viewer page labels in overview and page sections', () => {
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 2,
+        pageLabels: ['i', '1'],
+        pages: [
+          makePage({ page: 1, pageLabel: 'i', text: 'front', charCount: 5 }),
+          makePage({ page: 2, pageLabel: '1', text: 'body', charCount: 4 }),
+        ],
+      }),
+    );
+
+    expect(out).toMatch(/\| Page \| Label \| Chars \| Images \| Coverage \| Size \(pt\) \|/);
+    expect(out).toMatch(/\| 1 \| i \| 5 \| 0 \| 0% \| 612×792 \|/);
+    expect(out).toContain('## Page 1 (i)');
+    expect(out).toContain('_chars: 5 · images: 0 · coverage: 0% · label: i · size: 612×792pt_');
+  });
+
+  it('renders an explicit empty page-label message when extraction found no labels', () => {
+    const out = formatMarkdown(makeResult({ pageLabels: [] }));
+    expect(out).toContain('## Page Labels');
+    expect(out).toContain('_No custom page labels found._');
+  });
+
   it('adds a Blocks column to the Overview table when --layout populated pages[].layout', () => {
     // With layout on, agents can scan the Blocks count alongside the
     // density signals to spot pages that decompose differently — a

@@ -153,6 +153,13 @@ describe('cli', () => {
     expect(parsed.outline).toEqual([]);
   });
 
+  it('passes --page-labels through to JSON output', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--json', '--page-labels', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    const parsed = JSON.parse(r.stdout.join('\n'));
+    expect(parsed.pageLabels).toEqual([]);
+  });
+
   it('passes --vector-boxes through to JSON output', async () => {
     const r = await captureRun([SAMPLE_PDF, '--json', '--vector-boxes', '--no-cache']);
     expect(r.exitCode).toBeNull();
