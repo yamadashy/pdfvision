@@ -15,6 +15,8 @@ export { parsePageRange } from './core/pageRange.js';
 export { processDocument, processFile } from './core/processor.js';
 export type {
   DocumentMetadata,
+  DocumentOutlineItem,
+  DocumentOutlineTargetType,
   DocumentResult,
   FormField,
   FormFieldType,

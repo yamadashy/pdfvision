@@ -25,6 +25,24 @@ async function buildPdfWithLink(): Promise<Uint8Array> {
   return new Uint8Array(Buffer.concat(chunks));
 }
 
+async function buildPdfWithOutline(): Promise<Uint8Array> {
+  const chunks: Buffer[] = [];
+  const doc = new PDFDocument({ size: [612, 792], margin: 0 });
+  doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+  const done = new Promise<void>((resolveDone) => doc.on('end', resolveDone));
+
+  doc.text('Intro', 100, 72);
+  const intro = doc.outline.addItem('Intro');
+  intro.addItem('Intro child');
+  doc.addPage({ size: [612, 792], margin: 0 });
+  doc.text('Details', 100, 72);
+  doc.outline.addItem('Details');
+  doc.end();
+
+  await done;
+  return new Uint8Array(Buffer.concat(chunks));
+}
+
 describe('processDocument', () => {
   it('returns a structured DocumentResult, no JSON parsing required', async () => {
     const result = await processDocument(SAMPLE_PDF, { noCache: true });
@@ -131,6 +149,24 @@ describe('processDocument', () => {
     ]);
     expect(result.pages[1].links).toEqual([]);
     expect(result.overview?.map((o) => o.linkCount)).toEqual([1, 0]);
+  });
+
+  it('extracts a real document outline with nested items and resolved pages', async () => {
+    const result = await processDocument('memory://outline.pdf', {
+      sourceData: await buildPdfWithOutline(),
+      noCache: true,
+      outline: true,
+    });
+
+    expect(result.outline).toEqual([
+      expect.objectContaining({
+        title: 'Intro',
+        type: 'destination',
+        page: 1,
+        items: [expect.objectContaining({ title: 'Intro child', type: 'destination', page: 1 })],
+      }),
+      expect.objectContaining({ title: 'Details', type: 'destination', page: 2 }),
+    ]);
   });
 
   it('mirrors linkCount on the overview when link extraction runs on a multi-page PDF', async () => {

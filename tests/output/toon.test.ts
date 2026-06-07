@@ -72,6 +72,15 @@ describe('formatToon', () => {
         }),
         makePage({ page: 2, imageCount: 3, quality: { nativeTextStatus: 'empty_but_visual_content' } }),
       ],
+      outline: [
+        {
+          title: 'Intro',
+          type: 'destination',
+          target: 'section.1',
+          page: 1,
+          items: [{ title: 'Website', type: 'url', target: 'https://example.com' }],
+        },
+      ],
     });
     const decoded = decode(formatToon(result));
     expect(decoded).toEqual(result);

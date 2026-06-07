@@ -9,6 +9,7 @@ import { formatMarkdown } from '../output/markdown.js';
 import { formatToon } from '../output/toon.js';
 import { formatXml } from '../output/xml.js';
 import type {
+  DocumentOutlineItem,
   DocumentResult,
   FormField,
   ImageBox,
@@ -28,6 +29,7 @@ import { buildImageBoxes, type ImageOps } from './imageBoxes.js';
 import { buildLayout, markRepeatedBlocks } from './layout.js';
 import { buildLinks } from './links.js';
 import { nonPrintableStats } from './nonPrintable.js';
+import { buildOutline } from './outline.js';
 import { derivePageQuality } from './pageQuality.js';
 import { parsePageRangeWithSkipped } from './pageRange.js';
 import { runParallel } from './parallel.js';
@@ -52,6 +54,7 @@ interface CacheKeyInput {
   vectorBoxes?: boolean;
   formFields?: boolean;
   links?: boolean;
+  outline?: boolean;
   ocr?: boolean;
   ocrLang?: string;
   search?: string | string[];
@@ -151,7 +154,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v53',
+    format: 'structured-v54',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -178,6 +181,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     vectorBoxes: !!input.vectorBoxes,
     formFields: !!input.formFields,
     links: !!input.links,
+    outline: !!input.outline,
     // OCR is expensive (tens of seconds for a multi-page scan); always cache
     // it. The lang string is part of the key (whitespace-normalised, order
     // preserved — tesseract treats the first language as primary) so that
@@ -697,6 +701,11 @@ export async function processDocument(filePath: string, options: ProcessDocument
 
     const metadata = await doc.getMetadata();
     const info = metadata.info as Record<string, unknown> | null;
+    const outline: DocumentOutlineItem[] | undefined = options.outline
+      ? await buildOutline(await doc.getOutline(), doc, {
+          normalizeText: options.normalize !== false ? normalizeText : undefined,
+        })
+      : undefined;
 
     let imagePaths: string[] | null = null;
     // Parallel array to imagePaths: renderContentRatio for each rendered
@@ -998,6 +1007,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
         subject: metaString(info?.Subject),
         creator: metaString(info?.Creator),
       },
+      ...(outline !== undefined && { outline }),
       ...(overview && { overview }),
       pages,
     };
@@ -1053,6 +1063,7 @@ export async function processFile(filePath: string, options: ProcessOptions): Pr
     vectorBoxes: options.vectorBoxes,
     formFields: options.formFields,
     links: options.links,
+    outline: options.outline,
     ocr: options.ocr,
     ocrLang: options.ocrLang,
     onWarning: options.onWarning,

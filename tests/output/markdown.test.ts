@@ -276,6 +276,32 @@ describe('formatMarkdown', () => {
     expect(out).toContain('_No clickable links found._');
   });
 
+  it('renders the document outline when outline extraction was requested', () => {
+    const out = formatMarkdown(
+      makeResult({
+        outline: [
+          {
+            title: 'Intro [draft]',
+            type: 'destination',
+            target: 'section.1',
+            page: 1,
+            items: [{ title: 'Website', type: 'url', target: 'https://example.com' }],
+          },
+        ],
+      }),
+    );
+
+    expect(out).toContain('## Outline');
+    expect(out).toContain('- Intro \\[draft\\] (p. 1 · destination · section.1)');
+    expect(out).toContain('  - Website (url · https://example.com)');
+  });
+
+  it('renders an explicit empty outline message when the outline pass found no bookmarks', () => {
+    const out = formatMarkdown(makeResult({ outline: [] }));
+    expect(out).toContain('## Outline');
+    expect(out).toContain('_No document outline found._');
+  });
+
   it('adds a Blocks column to the Overview table when --layout populated pages[].layout', () => {
     // With layout on, agents can scan the Blocks count alongside the
     // density signals to spot pages that decompose differently — a

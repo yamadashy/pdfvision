@@ -198,6 +198,13 @@ export interface ProcessDocumentOptions {
    */
   links?: boolean;
   /**
+   * Emit the document outline / bookmarks in `outline`. Useful for long
+   * reports, manuals, and papers where a human PDF viewer exposes section
+   * navigation in the sidebar. Named destinations are resolved to page
+   * numbers when pdf.js can map them.
+   */
+  outline?: boolean;
+  /**
    * Run OCR on each selected page and attach the result as `pages[].ocr`.
    * Off by default — OCR pulls in the optional `tesseract.js` dependency
    * (~30MB worker bundle) and is slow even on small documents. The
@@ -250,6 +257,8 @@ export interface ProcessOptions {
   formFields?: boolean;
   /** See {@link ProcessDocumentOptions.links}. */
   links?: boolean;
+  /** See {@link ProcessDocumentOptions.outline}. */
+  outline?: boolean;
   ocr?: boolean;
   ocrLang?: string;
   /**
@@ -516,6 +525,23 @@ export interface PageLink {
   y: number;
   width: number;
   height: number;
+}
+
+export type DocumentOutlineTargetType = 'destination' | 'url';
+
+export interface DocumentOutlineItem {
+  title: string;
+  /**
+   * `url` for external outline links, `destination` for named/internal PDF
+   * destinations. Omitted when an outline node is only a parent label.
+   */
+  type?: DocumentOutlineTargetType;
+  /** URL or destination identifier / explicit-destination JSON string. */
+  target?: string;
+  /** 1-based page number resolved from `target` when pdf.js can map it. */
+  page?: number;
+  /** Nested outline children, preserving the PDF sidebar hierarchy. */
+  items?: DocumentOutlineItem[];
 }
 
 export interface PageResult {
@@ -935,6 +961,11 @@ export interface DocumentResult {
   file: string;
   totalPages: number;
   metadata: DocumentMetadata;
+  /**
+   * Document outline / bookmarks, present iff outline extraction was
+   * requested. Empty array means the pass ran and the PDF has no outline.
+   */
+  outline?: DocumentOutlineItem[];
   /**
    * Top-level density summary across the selected pages. Present when
    * more than one page was extracted; omitted for single-page outputs

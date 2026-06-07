@@ -23,6 +23,10 @@ function escapeTableCell(value: string): string {
   return value.replaceAll('\\', '\\\\').replaceAll('|', '\\|').replaceAll('\n', ' ');
 }
 
+function escapeInline(value: string): string {
+  return value.replaceAll('\\', '\\\\').replaceAll('\n', ' ').replaceAll('[', '\\[').replaceAll(']', '\\]');
+}
+
 function fieldValue(field: NonNullable<PageResult['formFields']>[number]): string {
   if (field.checked !== undefined) return field.checked ? 'checked' : 'unchecked';
   return field.value ?? '';
@@ -37,6 +41,24 @@ function layoutBody(page: PageResult, filterRepeated: boolean): string {
     .filter((b) => !filterRepeated || !b.repeated)
     .map((b) => b.text)
     .join('\n\n');
+}
+
+function outlineLabel(item: NonNullable<DocumentResult['outline']>[number]): string {
+  const parts: string[] = [];
+  if (item.page !== undefined) parts.push(`p. ${item.page}`);
+  if (item.type) parts.push(item.type);
+  if (item.target) parts.push(item.target);
+  return parts.length > 0
+    ? `${escapeInline(item.title)} (${escapeInline(parts.join(' · '))})`
+    : escapeInline(item.title);
+}
+
+function appendOutline(lines: string[], items: NonNullable<DocumentResult['outline']>, depth = 0): void {
+  const indent = '  '.repeat(depth);
+  for (const item of items) {
+    lines.push(`${indent}- ${outlineLabel(item)}`);
+    if (item.items) appendOutline(lines, item.items, depth + 1);
+  }
 }
 
 /** Body text for a page: either the pdf.js-derived `page.text` (default),
@@ -79,6 +101,17 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
   if (result.metadata.author) lines.push(`- **Author:** ${result.metadata.author}`);
   if (result.metadata.subject) lines.push(`- **Subject:** ${result.metadata.subject}`);
   if (result.metadata.creator) lines.push(`- **Creator:** ${result.metadata.creator}`);
+
+  if (result.outline) {
+    lines.push('');
+    lines.push('## Outline');
+    lines.push('');
+    if (result.outline.length === 0) {
+      lines.push('_No document outline found._');
+    } else {
+      appendOutline(lines, result.outline);
+    }
+  }
 
   // Overview table: density signal aggregation across the selected pages.
   // Lets an agent eyeball outliers (image-flattened slides, blank pages,

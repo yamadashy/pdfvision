@@ -66,6 +66,9 @@ Options
       --links             Emit \`pages[].links\` — clickable PDF link annotations such as
                           external URLs, citation jumps, and table-of-contents destinations
                           with bboxes. Markdown also renders a links table.
+      --outline           Emit top-level \`outline\` document bookmarks, preserving hierarchy
+                          and resolving destination pages when possible. Markdown also renders
+                          an outline section.
       --strip-repeated    Drop running headers / footers / page numbers (blocks the layout
                           pass tagged as \`repeated\`) from the rendered Markdown body so
                           LLM readers don't have to wade through the same footer N times.

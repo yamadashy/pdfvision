@@ -571,6 +571,32 @@ describe('formatXml', () => {
     expect(out).toContain('<links/>');
   });
 
+  it('emits document outline items with nested children', () => {
+    const out = formatXml(
+      makeResult({
+        outline: [
+          {
+            title: 'Intro & Setup',
+            type: 'destination',
+            target: 'section.1',
+            page: 1,
+            items: [{ title: 'Website', type: 'url', target: 'https://example.com?q=1&b=2' }],
+          },
+        ],
+      }),
+    );
+
+    expect(out).toContain('<outline>');
+    expect(out).toContain('<item title="Intro &amp; Setup" type="destination" target="section.1" page="1">');
+    expect(out).toContain('<item title="Website" type="url" target="https://example.com?q=1&amp;b=2"/>');
+    expect(out).toContain('</outline>');
+  });
+
+  it('emits self-closing <outline/> when outline extraction ran but found no bookmarks', () => {
+    const out = formatXml(makeResult({ outline: [] }));
+    expect(out).toContain('<outline/>');
+  });
+
   it('emits an <ocr> element with lang + confidence attributes when ocr is present', () => {
     const out = formatXml(
       makeResult({

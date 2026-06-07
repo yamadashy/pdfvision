@@ -11,6 +11,7 @@ interface DocumentResult {
   file: string;                // path the CLI was invoked with (or cache path for --remote)
   totalPages: number;          // total in the source PDF, not in the selection
   metadata: DocumentMetadata;  // title / author / subject / creator (all string | null)
+  outline?: DocumentOutlineItem[]; // document bookmarks; present iff --outline
   overview?: PageOverview[];   // per-page density summary; present iff pages.length > 1
   pages: PageResult[];         // one entry per selected page, in page-number order
 }
@@ -174,6 +175,20 @@ interface PageLink {
 ```
 
 `links[]` surfaces clickable PDF link annotations: external URLs, citation jumps, table-of-contents destinations, and cross-reference targets. Coordinates use the same top-left PDF-point system as `spans`, `layout.blocks`, and `imageBoxes`, so a link bbox can feed directly into `--render-region`.
+
+## Outline (`--outline`)
+
+```ts
+interface DocumentOutlineItem {
+  title: string;
+  type?: 'destination' | 'url';
+  target?: string;              // named/internal destination, explicit-destination JSON, or URL
+  page?: number;                // 1-based, resolved when pdf.js can map the destination
+  items?: DocumentOutlineItem[];
+}
+```
+
+`outline[]` surfaces the document outline / bookmarks shown in a human PDF viewer sidebar. It preserves nesting and resolves named or explicit PDF destinations to 1-based page numbers when possible. Empty `outline: []` means the pass ran and the PDF has no outline; absent `outline` means `--outline` was not requested.
 
 ### Heading levels (`role === 'heading'`)
 
@@ -382,7 +397,7 @@ pdfvision doc.pdf -p <m.page> --render --render-region <m.bbox.x>,<m.bbox.y>,<m.
 </document>
 ```
 
-Empty `<layout/>`, `<imageBoxes/>`, `<vectorBoxes/>`, `<formFields/>`, `<links/>`, and `<ocr/>` (self-closing) mean "the pass ran and found nothing", which is distinct from the tag being absent (the pass wasn't requested).
+Empty `<outline/>`, `<layout/>`, `<imageBoxes/>`, `<vectorBoxes/>`, `<formFields/>`, `<links/>`, and `<ocr/>` (self-closing) mean "the pass ran and found nothing", which is distinct from the tag being absent (the pass wasn't requested).
 
 ## TOON output shape
 
@@ -441,4 +456,4 @@ for (const page of result.pages) {
 
 `processFile()` returns the formatted string output (`markdown` / `json` / `xml` / `toon`). `processDocument()` returns the structured object directly.
 
-Exported types: `DocumentResult`, `DocumentMetadata`, `PageOverview`, `PageResult`, `PageQuality`, `PageWarning`, `SearchMatch`, `LayoutBlock`, `LayoutLine`, `LayoutTable`, `LayoutTableRow`, `LayoutTableCell`, `PageLayout`, `ImageBox`, `PageLink`, `PageLinkType`, `RenderRegion`, `TextSpan`, `PageOcr`, `OutputFormat`, `ProcessDocumentOptions`, `ProcessOptions`.
+Exported types: `DocumentResult`, `DocumentMetadata`, `DocumentOutlineItem`, `DocumentOutlineTargetType`, `PageOverview`, `PageResult`, `PageQuality`, `PageWarning`, `SearchMatch`, `LayoutBlock`, `LayoutLine`, `LayoutTable`, `LayoutTableRow`, `LayoutTableCell`, `PageLayout`, `ImageBox`, `PageLink`, `PageLinkType`, `RenderRegion`, `TextSpan`, `PageOcr`, `OutputFormat`, `ProcessDocumentOptions`, `ProcessOptions`.

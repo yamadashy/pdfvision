@@ -40,6 +40,7 @@ Every page reports `charCount`, `imageCount`, `vectorCount`, `textCoverage`, and
 - **`--vector-boxes`** reports where painted vector paths land, useful for maps, symbols, chart paths, form boxes, table rules, and slide shapes that are visible but not raster images.
 - **`--form-fields`** reports interactive PDF widget fields such as text boxes, checkboxes, radio buttons, choices, and signatures with values and bboxes.
 - **`--links`** reports clickable PDF link annotations such as citation jumps, table-of-contents destinations, and external URLs with bboxes.
+- **`--outline`** reports document outline/bookmark sidebar entries, preserving hierarchy and resolving destination pages when possible.
 - **`--geometry`** emits per-text-item `bbox` + `fontSize` so callers can reconstruct visual hierarchy themselves.
 
 Every page always includes `vectorCount` — the number of non-text vector drawing operations such as rules, form boxes, chart paths, and slide shapes.
@@ -114,6 +115,7 @@ Options:
       --image-boxes       Emit per-image bbox in pages[].imageBoxes;
                           enables large-raster warnings with --layout or --geometry
       --links             Emit clickable link annotations in pages[].links with bboxes
+      --outline           Emit document outline/bookmarks in outline
       --ocr               Run tesseract.js OCR; attach pages[].ocr (text/confidence/lang)
       --ocr-lang <lang>   Tesseract lang(s), plus-separated (e.g. eng+jpn). Default: eng
       --remote <url>      Download an http(s) PDF into the cache, validate the PDF header, then extract

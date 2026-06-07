@@ -51,6 +51,16 @@ export function formatXml(result: DocumentResult): string {
     out.push('</metadata>');
   }
 
+  if (result.outline) {
+    if (result.outline.length === 0) {
+      out.push('<outline/>');
+    } else {
+      out.push('<outline>');
+      appendOutline(out, result.outline);
+      out.push('</outline>');
+    }
+  }
+
   if (result.overview) {
     out.push('<overview>');
     for (const p of result.overview) {
@@ -325,4 +335,20 @@ export function formatXml(result: DocumentResult): string {
   out.push('</document>');
 
   return out.join('\n');
+}
+
+function appendOutline(out: string[], items: NonNullable<DocumentResult['outline']>): void {
+  for (const item of items) {
+    const attrs = [`title="${escapeAttr(item.title)}"`];
+    if (item.type) attrs.push(`type="${item.type}"`);
+    if (item.target) attrs.push(`target="${escapeAttr(item.target)}"`);
+    if (item.page !== undefined) attrs.push(`page="${item.page}"`);
+    if (item.items && item.items.length > 0) {
+      out.push(`<item ${attrs.join(' ')}>`);
+      appendOutline(out, item.items);
+      out.push('</item>');
+    } else {
+      out.push(`<item ${attrs.join(' ')}/>`);
+    }
+  }
 }
