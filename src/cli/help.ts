@@ -71,7 +71,8 @@ Options
                           by default; case-insensitive; NFKC-aware (matches
                           compatibility codepoints like \`ﬁ\` (U+FB01 ligature) for
                           \`fi\`). Also searches OCR text when --ocr is on
-                          (marked source:'ocr').
+                          (marked source:'ocr'); duplicate OCR hits already
+                          covered by native matches are suppressed.
       --search-regex      Treat each --search query as a JavaScript regular expression
                           (default: literal substring).
       --search-case-sensitive

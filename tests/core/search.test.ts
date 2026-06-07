@@ -340,6 +340,75 @@ describe('processDocument search', () => {
     expect(matches).toEqual([]);
   });
 
+  it('suppresses OCR search duplicates already covered by precise native matches', async () => {
+    // Scan-with-hidden-text-layer case: --ocr can find the same word as
+    // the native text layer, but OCR currently has only page-level bbox.
+    // Emitting both makes find-then-zoom ambiguous, so the precise
+    // native match wins.
+    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const compiled = compileSearch('Switzerland', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const matches = searchPage(
+      [{ text: 'Switzerland', x: 120, y: 220, width: 70, height: 12, fontSize: 12 }],
+      { text: 'Switzerland', confidence: 0.94, lang: 'eng' },
+      1,
+      612,
+      792,
+      compiled,
+    );
+    expect(matches).toHaveLength(1);
+    expect(matches[0].source).toBe('native');
+    expect(matches[0].bbox).toEqual({ x: 120, y: 220, width: 70, height: 12 });
+  });
+
+  it('keeps OCR-only extra search hits after native duplicate suppression', async () => {
+    // Suppression is counted, not all-or-nothing. If OCR sees another
+    // occurrence that the native layer did not expose, keep it for
+    // recall even though the bbox is page-level.
+    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const compiled = compileSearch('Switzerland', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const matches = searchPage(
+      [{ text: 'Switzerland', x: 120, y: 220, width: 70, height: 12, fontSize: 12 }],
+      { text: 'Switzerland near Geneva. Switzerland near Zurich.', confidence: 0.92, lang: 'eng' },
+      1,
+      612,
+      792,
+      compiled,
+    );
+    expect(matches).toHaveLength(2);
+    expect(matches.map((m) => m.source)).toEqual(['native', 'ocr']);
+    expect(matches[1].bbox).toEqual({ x: 0, y: 0, width: 612, height: 792 });
+  });
+
+  it('suppresses OCR duplicates when native and OCR search passes run separately', async () => {
+    // processDocument searches native spans before OCR exists, then
+    // searches OCR text later. Keep the separate-pass path equivalent
+    // to a single searchPage(spans, ocr, ...) call.
+    const { compileSearch, searchPage, suppressDuplicateOcrMatches } = await import('../../src/core/search.js');
+    const compiled = compileSearch('Switzerland', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const nativeMatches = searchPage(
+      [{ text: 'Switzerland', x: 120, y: 220, width: 70, height: 12, fontSize: 12 }],
+      undefined,
+      1,
+      612,
+      792,
+      compiled,
+    );
+    const ocrMatches = searchPage(
+      undefined,
+      { text: 'Switzerland', confidence: 0.94, lang: 'eng' },
+      1,
+      612,
+      792,
+      compiled,
+    );
+    const merged = nativeMatches.concat(suppressDuplicateOcrMatches(nativeMatches, ocrMatches, compiled));
+    expect(merged).toHaveLength(1);
+    expect(merged[0].source).toBe('native');
+  });
+
   it('caps matches per page per query at MAX_MATCHES_PER_QUERY_PER_PAGE and surfaces a warning', async () => {
     // Defence-in-depth against a degenerate regex (or a bad literal
     // query that happens to match every span). Test directly against

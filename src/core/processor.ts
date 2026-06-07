@@ -27,7 +27,7 @@ import { derivePageQuality } from './pageQuality.js';
 import { parsePageRangeWithSkipped } from './pageRange.js';
 import { runParallel } from './parallel.js';
 import { isRasterBackedTextLayer } from './rasterBackedTextLayer.js';
-import { type CompiledSearch, compileSearch, searchPage } from './search.js';
+import { type CompiledSearch, compileSearch, searchPage, suppressDuplicateOcrMatches } from './search.js';
 import { textMatrixFontSize, textRunGeometryFromTransform } from './textGeometry.js';
 import { countVectorPaintOps } from './vectorOps.js';
 import { detectPageWarnings } from './warnings.js';
@@ -142,7 +142,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v34',
+    format: 'structured-v35',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -903,7 +903,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       for (const p of pages) {
         if (!p.ocr) continue;
         const ocrMatches = searchPage(undefined, p.ocr, p.page, p.width, p.height, compiledSearch, options.onWarning);
-        p.matches = (p.matches ?? []).concat(ocrMatches);
+        p.matches = (p.matches ?? []).concat(suppressDuplicateOcrMatches(p.matches, ocrMatches, compiledSearch));
       }
     }
 

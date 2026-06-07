@@ -144,6 +144,60 @@ interface Box {
   height: number;
 }
 
+function duplicateKey(queryIndex: number | undefined, query: string, text: string, ignoreCase: boolean): string {
+  const queryKey = queryIndex === undefined ? query : String(queryIndex);
+  const textKey = ignoreCase ? text.toLowerCase() : text;
+  return `${queryKey}\u0000${textKey}`;
+}
+
+function matcherForMatch(compiled: CompiledSearch, match: SearchMatch): { regex: RegExp } | undefined {
+  if (match.queryIndex !== undefined) {
+    return compiled.matchers.find((m) => m.queryIndex === match.queryIndex && m.query === match.query);
+  }
+  return compiled.matchers.find((m) => m.query === match.query);
+}
+
+function duplicateKeyForMatch(compiled: CompiledSearch, match: SearchMatch): string {
+  const matcher = matcherForMatch(compiled, match);
+  return duplicateKey(match.queryIndex, match.query, match.text, matcher?.regex.ignoreCase ?? false);
+}
+
+function nativeDuplicateBudget(
+  nativeMatches: readonly SearchMatch[] | undefined,
+  compiled: CompiledSearch,
+): Map<string, number> {
+  const budget = new Map<string, number>();
+  for (const match of nativeMatches ?? []) {
+    if (match.source !== 'native') continue;
+    const key = duplicateKeyForMatch(compiled, match);
+    budget.set(key, (budget.get(key) ?? 0) + 1);
+  }
+  return budget;
+}
+
+export function suppressDuplicateOcrMatches(
+  nativeMatches: readonly SearchMatch[] | undefined,
+  ocrMatches: readonly SearchMatch[],
+  compiled: CompiledSearch,
+): SearchMatch[] {
+  const budget = nativeDuplicateBudget(nativeMatches, compiled);
+  const out: SearchMatch[] = [];
+  for (const match of ocrMatches) {
+    if (match.source !== 'ocr') {
+      out.push(match);
+      continue;
+    }
+    const key = duplicateKeyForMatch(compiled, match);
+    const remaining = budget.get(key) ?? 0;
+    if (remaining > 0) {
+      budget.set(key, remaining - 1);
+      continue;
+    }
+    out.push(match);
+  }
+  return out;
+}
+
 function buildSearchLines(spans: readonly TextSpan[] | undefined): SearchLine[] {
   if (!spans || spans.length === 0) return [];
   const sorted = [...spans].sort((a, b) => a.y - b.y || a.x - b.x);
@@ -293,6 +347,7 @@ export function searchPage(
   // index so multi-query searches don't share a budget.
   const nativeCount = new Map<number, number>();
   const nativeCapped = new Set<number>();
+  const ocrMatches: SearchMatch[] = [];
 
   // Native pass — line-level literal/regex match. Span text is already
   // NFKC-normalised when `--normalize` is on (matches what we put in
@@ -372,7 +427,7 @@ export function searchPage(
         const start = Math.max(0, hit.index - 60);
         const end = Math.min(ocrHaystack.length, hit.index + hit[0].length + 60);
         const context = ocrHaystack.slice(start, end).replace(/\s+/g, ' ').trim();
-        matches.push({
+        ocrMatches.push({
           page: pageNum,
           query: m.query,
           ...(m.queryIndex !== undefined && { queryIndex: m.queryIndex }),
@@ -396,5 +451,6 @@ export function searchPage(
     }
   }
 
+  matches.push(...suppressDuplicateOcrMatches(matches, ocrMatches, compiled));
   return matches;
 }
