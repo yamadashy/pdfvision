@@ -64,6 +64,22 @@ describe('buildLayout — heading classification', () => {
     expect(layout.blocks[0].level).toBe(1);
   });
 
+  it('does not classify a standalone social handle as a heading', () => {
+    // SpeakerDeck title-slide-shaped case: a large @handle is author
+    // metadata / byline, not a section anchor an agent should chunk on.
+    const spans: TextSpan[] = [
+      span('OSS title', 80, 80, 40, 220),
+      span('@yamadashy', 120, 160, 28, 160),
+      span('Small body line for median weighting.', 80, 230, 11),
+      span('Another body line keeps the page from being title-only.', 80, 245, 11),
+    ];
+    const layout = buildLayout(spans);
+    const title = layout.blocks.find((b) => b.text.includes('OSS title'));
+    const handle = layout.blocks.find((b) => b.text.includes('@yamadashy'));
+    expect(title?.role).toBe('heading');
+    expect(handle?.role).toBeUndefined();
+  });
+
   it('flags arxiv-style 1.20× section headings (12pt over 10pt body) at level 2', () => {
     // The most common LaTeX article layout: 10pt body with 12pt section
     // headings. Ratio 1.20 sits in the 1.15–1.25 band, so the block must

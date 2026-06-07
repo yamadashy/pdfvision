@@ -150,6 +150,7 @@ const MAX_HEADING_CHARS = 100;
 function isHeadingCandidateText(text: string): boolean {
   const trimmed = text.trim();
   if (!/[\p{L}\p{N}]/u.test(trimmed)) return false;
+  if (/^@[A-Za-z0-9_.-]{2,}$/u.test(trimmed)) return false;
   return !/^[•●◦▪■‣]\s*/u.test(trimmed);
 }
 
