@@ -18,6 +18,7 @@ import type {
   ProcessOptions,
   RenderRegion,
   TextSpan,
+  VectorBox,
 } from '../types/index.js';
 import { dropCached, ensurePrivateDir, getCacheDir, getCached, pdfFingerprint, setCache } from './cache.js';
 import { type JoinItem, joinPageText } from './cjkJoin.js';
@@ -31,6 +32,7 @@ import { runParallel } from './parallel.js';
 import { isRasterBackedTextLayer } from './rasterBackedTextLayer.js';
 import { type CompiledSearch, compileSearch, searchPage, suppressDuplicateOcrMatches } from './search.js';
 import { textMatrixFontSize, textRunGeometryFromTransform } from './textGeometry.js';
+import { buildVectorBoxes } from './vectorBoxes.js';
 import { countVectorPaintOps } from './vectorOps.js';
 import { detectPageWarnings } from './warnings.js';
 
@@ -45,6 +47,7 @@ interface CacheKeyInput {
   geometry?: boolean;
   layout?: boolean;
   imageBoxes?: boolean;
+  vectorBoxes?: boolean;
   formFields?: boolean;
   ocr?: boolean;
   ocrLang?: string;
@@ -145,7 +148,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v50',
+    format: 'structured-v51',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -169,6 +172,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     geometry: !!input.geometry,
     layout: !!input.layout,
     imageBoxes: !!input.imageBoxes,
+    vectorBoxes: !!input.vectorBoxes,
     formFields: !!input.formFields,
     // OCR is expensive (tens of seconds for a multi-page scan); always cache
     // it. The lang string is part of the key (whitespace-normalised, order
@@ -245,6 +249,7 @@ interface PageData {
   _internalSpans?: TextSpan[];
   layout?: PageLayout;
   imageBoxes?: ImageBox[];
+  vectorBoxes?: VectorBox[];
   formFields?: FormField[];
 }
 
@@ -253,6 +258,7 @@ interface PageFlags {
   geometry: boolean;
   layout: boolean;
   imageBoxes: boolean;
+  vectorBoxes: boolean;
   formFields: boolean;
   /** Build spans internally even when neither `geometry` nor `layout`
    *  was requested. Search needs them for per-match bbox; the public
@@ -363,6 +369,9 @@ async function extractPageData(
   const imageCount = allBoxes.length;
   const imageBoxes = flags.imageBoxes ? allBoxes : undefined;
   const vectorCount = countVectorPaintOps(opList.fnArray, opList.argsArray as unknown[][], ops);
+  const vectorBoxes = flags.vectorBoxes
+    ? buildVectorBoxes(opList.fnArray, opList.argsArray as unknown[][], ops, height, xMin, yMin)
+    : undefined;
   const formFields = flags.formFields
     ? buildFormFields(await page.getAnnotations({ intent: 'display' }), height, xMin, yMin)
     : undefined;
@@ -416,6 +425,7 @@ async function extractPageData(
     ...(flags.needSpansForSearch && { _internalSpans: spans }),
     ...(layout !== undefined && { layout }),
     ...(imageBoxes !== undefined && { imageBoxes }),
+    ...(vectorBoxes !== undefined && { vectorBoxes }),
     ...(formFields !== undefined && { formFields }),
   };
 }
@@ -779,6 +789,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       geometry: !!options.geometry,
       layout: !!options.layout,
       imageBoxes: !!options.imageBoxes,
+      vectorBoxes: !!options.vectorBoxes,
       formFields: !!options.formFields,
       // Search needs span-level bbox to populate `matches[*].bbox`;
       // build spans internally even if the caller didn't ask for the
@@ -831,6 +842,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
         ...(data.spans !== undefined && { spans: data.spans }),
         ...(data.layout !== undefined && { layout: data.layout }),
         ...(data.imageBoxes !== undefined && { imageBoxes: data.imageBoxes }),
+        ...(data.vectorBoxes !== undefined && { vectorBoxes: data.vectorBoxes }),
         ...(data.formFields !== undefined && { formFields: data.formFields }),
         // Initial classification using whatever signals we have so far.
         // OCR may attach a renderContentRatio below; the post-OCR pass
@@ -954,6 +966,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
             // `search` wasn't requested at all so the overview stays
             // clean for the default extraction.
             ...(compiledSearch !== undefined && { matchCount: p.matches?.length ?? 0 }),
+            ...(p.vectorBoxes !== undefined && { vectorBoxCount: p.vectorBoxes.length }),
             ...(p.formFields !== undefined && { formFieldCount: p.formFields.length }),
             width: p.width,
             height: p.height,
@@ -1020,6 +1033,7 @@ export async function processFile(filePath: string, options: ProcessOptions): Pr
     geometry: options.geometry,
     layout: options.layout,
     imageBoxes: options.imageBoxes,
+    vectorBoxes: options.vectorBoxes,
     formFields: options.formFields,
     ocr: options.ocr,
     ocrLang: options.ocrLang,

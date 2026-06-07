@@ -360,6 +360,50 @@ describe('formatXml', () => {
     expect(out).toContain('<imageBoxes/>');
   });
 
+  it('emits vector path boxes with overview counts', () => {
+    const out = formatXml(
+      makeResult({
+        totalPages: 2,
+        overview: [
+          {
+            page: 1,
+            charCount: 1,
+            imageCount: 0,
+            vectorCount: 10,
+            textCoverage: 0.1,
+            nonPrintableRatio: 0,
+            nonPrintableCount: 0,
+            quality: { nativeTextStatus: 'ok' },
+            vectorBoxCount: 2,
+            width: 612,
+            height: 792,
+          },
+        ],
+        pages: [
+          makePage({
+            page: 1,
+            text: 't',
+            charCount: 1,
+            vectorBoxes: [
+              { x: 215.21, y: 39.48, width: 31.57, height: 20.69 },
+              { x: 246.11, y: 40.07, width: 0.72, height: 0.72 },
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toContain('vectorBoxCount="2"');
+    expect(out).toContain('<vectorBoxes>');
+    expect(out).toContain('<vectorBox x="215.21" y="39.48" width="31.57" height="20.69"/>');
+    expect(out).toContain('<vectorBox x="246.11" y="40.07" width="0.72" height="0.72"/>');
+  });
+
+  it('emits self-closing <vectorBoxes/> when extraction ran but found no path bboxes', () => {
+    const out = formatXml(makeResult({ pages: [makePage({ page: 1, text: 't', charCount: 1, vectorBoxes: [] })] }));
+    expect(out).toContain('<vectorBoxes/>');
+  });
+
   it('emits interactive form fields with values and bboxes', () => {
     const out = formatXml(
       makeResult({

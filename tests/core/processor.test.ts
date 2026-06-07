@@ -65,6 +65,16 @@ describe('processFile', () => {
     expect(parsed.pages[0].formFields).toEqual([]);
   });
 
+  it('passes vector-box extraction through to processDocument', async () => {
+    const result = await processFile(SAMPLE_PDF, {
+      format: 'json',
+      vectorBoxes: true,
+      noCache: true,
+    });
+    const parsed = JSON.parse(result);
+    expect(parsed.pages[0].vectorBoxes).toEqual([]);
+  });
+
   it('renders pages even when cache is disabled', async () => {
     const result = await processFile(SAMPLE_PDF, {
       format: 'json',

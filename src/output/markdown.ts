@@ -92,6 +92,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     // overview with empty cells for the default text-only flow.
     const showRender = result.pages.some((p) => p.renderContentRatio !== undefined);
     const showVectors = result.pages.some((p) => p.vectorCount > 0);
+    const showVectorBoxes = result.pages.some((p) => p.vectorBoxes !== undefined);
     const showFormFields = result.pages.some((p) => p.formFields !== undefined);
     // The Warnings column appears only when at least one page carries
     // a non-empty `warnings` array. Like NonPrint / Render, the column
@@ -108,10 +109,10 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     lines.push('## Overview');
     lines.push('');
     lines.push(
-      `| Page | Chars | Images | Coverage |${showNonPrint ? ' NonPrint |' : ''}${showRender ? ' Render |' : ''} Size (pt) |${showVectors ? ' Vectors |' : ''}${showBlocks ? ' Blocks |' : ''}${showWarnings ? ' Warnings |' : ''}${showMatches ? ' Matches |' : ''}${showFormFields ? ' FormFields |' : ''}`,
+      `| Page | Chars | Images | Coverage |${showNonPrint ? ' NonPrint |' : ''}${showRender ? ' Render |' : ''} Size (pt) |${showVectors ? ' Vectors |' : ''}${showVectorBoxes ? ' VectorBoxes |' : ''}${showBlocks ? ' Blocks |' : ''}${showWarnings ? ' Warnings |' : ''}${showMatches ? ' Matches |' : ''}${showFormFields ? ' FormFields |' : ''}`,
     );
     lines.push(
-      `| ---: | ---: | ---: | ---: |${showNonPrint ? ' ---: |' : ''}${showRender ? ' ---: |' : ''} ---: |${showVectors ? ' ---: |' : ''}${showBlocks ? ' ---: |' : ''}${showWarnings ? ' ---: |' : ''}${showMatches ? ' ---: |' : ''}${showFormFields ? ' ---: |' : ''}`,
+      `| ---: | ---: | ---: | ---: |${showNonPrint ? ' ---: |' : ''}${showRender ? ' ---: |' : ''} ---: |${showVectors ? ' ---: |' : ''}${showVectorBoxes ? ' ---: |' : ''}${showBlocks ? ' ---: |' : ''}${showWarnings ? ' ---: |' : ''}${showMatches ? ' ---: |' : ''}${showFormFields ? ' ---: |' : ''}`,
     );
     for (const page of result.pages) {
       const coveragePct = Math.round(page.textCoverage * 100);
@@ -130,12 +131,13 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
           ` ${page.renderContentRatio !== undefined ? `${(page.renderContentRatio * 100).toFixed(2)}%` : '—'} |`
         : '';
       const vectorsCell = showVectors ? ` ${page.vectorCount} |` : '';
+      const vectorBoxesCell = showVectorBoxes ? ` ${page.vectorBoxes?.length ?? 0} |` : '';
       const blocksCell = showBlocks ? ` ${page.layout?.blocks.length ?? 0} |` : '';
       const warningsCell = showWarnings ? ` ${page.warnings?.length ?? 0} |` : '';
       const matchesCell = showMatches ? ` ${page.matches?.length ?? 0} |` : '';
       const formFieldsCell = showFormFields ? ` ${page.formFields?.length ?? 0} |` : '';
       lines.push(
-        `| ${page.page} | ${page.charCount} | ${page.imageCount} | ${coveragePct}% |${nonPrintCell}${renderCell} ${formatSize(page)} |${vectorsCell}${blocksCell}${warningsCell}${matchesCell}${formFieldsCell}`,
+        `| ${page.page} | ${page.charCount} | ${page.imageCount} | ${coveragePct}% |${nonPrintCell}${renderCell} ${formatSize(page)} |${vectorsCell}${vectorBoxesCell}${blocksCell}${warningsCell}${matchesCell}${formFieldsCell}`,
       );
     }
   }
@@ -162,6 +164,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     const renderFragment =
       page.renderContentRatio !== undefined ? ` · render: ${(page.renderContentRatio * 100).toFixed(2)}%` : '';
     const vectorsFragment = page.vectorCount > 0 ? ` · vectors: ${page.vectorCount}` : '';
+    const vectorBoxesFragment = page.vectorBoxes !== undefined ? ` · vectorBoxes: ${page.vectorBoxes.length}` : '';
     const formFieldsFragment = page.formFields !== undefined ? ` · formFields: ${page.formFields.length}` : '';
     // Surface the derived quality classification when it's abnormal so
     // the LLM-facing markdown carries the same dispatch signal that
@@ -184,7 +187,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     // because no search ran. Mirrors the overview Matches column.
     const matchesFragment = page.matches !== undefined ? ` · matches: ${page.matches.length}` : '';
     lines.push(
-      `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${nonPrintFragment}${renderFragment}${vectorsFragment}${formFieldsFragment}${nativeFragment}${visualFragment}${warningsFragment}${matchesFragment} · size: ${formatSize(page)}pt_`,
+      `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${nonPrintFragment}${renderFragment}${vectorsFragment}${vectorBoxesFragment}${formFieldsFragment}${nativeFragment}${visualFragment}${warningsFragment}${matchesFragment} · size: ${formatSize(page)}pt_`,
     );
     const body = pageBody(page, options);
     if (body) {

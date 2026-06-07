@@ -80,6 +80,11 @@ describe('processDocument', () => {
     expect(result.pages[0].formFields).toEqual([]);
   });
 
+  it('emits an empty vectorBoxes array when vector-box extraction runs on a text-only PDF', async () => {
+    const result = await processDocument(SAMPLE_PDF, { noCache: true, vectorBoxes: true });
+    expect(result.pages[0].vectorBoxes).toEqual([]);
+  });
+
   it('flags sparse native text on visually populated pages', async () => {
     // A page with only a tiny label plus raster content should not be
     // classified as fully OK; agents need to know the visible page is

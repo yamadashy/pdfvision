@@ -165,6 +165,32 @@ describe('formatMarkdown', () => {
     expect(out).toMatch(/vectors: 12/);
   });
 
+  it('adds vector-box counts without rendering a large bbox table in Markdown', () => {
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 2,
+        pages: [
+          makePage({ page: 1, text: 'plain', charCount: 5, vectorBoxes: [] }),
+          makePage({
+            page: 2,
+            text: 'symbols',
+            charCount: 7,
+            vectorCount: 12,
+            vectorBoxes: [
+              { x: 215.21, y: 39.48, width: 31.57, height: 20.69 },
+              { x: 246.11, y: 40.07, width: 0.72, height: 0.72 },
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toMatch(/\| Page \| Chars \| Images \| Coverage \| Size \(pt\) \| Vectors \| VectorBoxes \|/);
+    expect(out).toMatch(/\| 2 \| 7 \| 0 \| 0% \| 612×792 \| 12 \| 2 \|/);
+    expect(out).toContain('vectorBoxes: 2');
+    expect(out).not.toContain('215.21,39.48');
+  });
+
   it('adds form field counts and a form-field table when form fields are present', () => {
     const out = formatMarkdown(
       makeResult({

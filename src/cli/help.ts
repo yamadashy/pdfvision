@@ -54,6 +54,9 @@ Options
                           --geometry. Only -f json / -f xml / -f toon.
                           Full-page scan/OCR-layer and dense-vector warnings can appear
                           even without this flag.
+      --vector-boxes      Emit \`pages[].vectorBoxes\` — bounding boxes of painted vector
+                          paths such as map symbols, chart paths, table rules, form
+                          boxes, and slide shapes. Only -f json / -f xml / -f toon.
       --form-fields       Emit \`pages[].formFields\` — interactive PDF widget fields
                           such as text boxes, checkboxes, radio buttons, choices, and
                           signatures with values and bboxes. Useful for government forms.

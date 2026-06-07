@@ -68,6 +68,7 @@ export function formatXml(result: DocumentResult): string {
       if (p.quality.visualStatus !== undefined) ovAttrs.push(`visualStatus="${p.quality.visualStatus}"`);
       if (p.warningCount !== undefined) ovAttrs.push(`warningCount="${p.warningCount}"`);
       if (p.matchCount !== undefined) ovAttrs.push(`matchCount="${p.matchCount}"`);
+      if (p.vectorBoxCount !== undefined) ovAttrs.push(`vectorBoxCount="${p.vectorBoxCount}"`);
       if (p.formFieldCount !== undefined) ovAttrs.push(`formFieldCount="${p.formFieldCount}"`);
       ovAttrs.push(`width="${p.width}"`, `height="${p.height}"`);
       out.push(`<page ${ovAttrs.join(' ')}/>`);
@@ -184,6 +185,18 @@ export function formatXml(result: DocumentResult): string {
           out.push(`<imageBox x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}"/>`);
         }
         out.push('</imageBoxes>');
+      }
+    }
+
+    if (page.vectorBoxes) {
+      if (page.vectorBoxes.length === 0) {
+        out.push('<vectorBoxes/>');
+      } else {
+        out.push('<vectorBoxes>');
+        for (const box of page.vectorBoxes) {
+          out.push(`<vectorBox x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}"/>`);
+        }
+        out.push('</vectorBoxes>');
       }
     }
 

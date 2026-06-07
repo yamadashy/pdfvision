@@ -171,6 +171,13 @@ export interface ProcessDocumentOptions {
    */
   imageBoxes?: boolean;
   /**
+   * Emit bounding boxes for painted vector paths in `pages[].vectorBoxes`.
+   * Useful for maps, diagrams, chart paths, table rules, slide shapes, and
+   * other non-raster visual marks that are visible to humans but absent
+   * from native text.
+   */
+  vectorBoxes?: boolean;
+  /**
    * Emit interactive PDF form/widget fields in `pages[].formFields`.
    * Useful for government forms and applications where blank text boxes,
    * checkboxes, radio buttons, signatures, and choice fields are part of
@@ -222,6 +229,8 @@ export interface ProcessOptions {
   geometry?: boolean;
   layout?: boolean;
   imageBoxes?: boolean;
+  /** See {@link ProcessDocumentOptions.vectorBoxes}. */
+  vectorBoxes?: boolean;
   /** See {@link ProcessDocumentOptions.formFields}. */
   formFields?: boolean;
   ocr?: boolean;
@@ -441,6 +450,13 @@ export interface ImageBox {
   height: number;
 }
 
+export interface VectorBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export type FormFieldType = 'text' | 'checkbox' | 'radio' | 'choice' | 'signature' | 'button' | 'unknown';
 
 export interface FormField {
@@ -568,6 +584,13 @@ export interface PageResult {
    * hero image yields multiple entries).
    */
   imageBoxes?: ImageBox[];
+  /**
+   * Bounding boxes of painted vector paths on the page, only present when
+   * `vectorBoxes: true` was passed. One entry per path paint operation
+   * where pdf.js reports a path bbox. Coordinates use the same top-left
+   * PDF-point system as `spans`, `layout.blocks`, and `imageBoxes`.
+   */
+  vectorBoxes?: VectorBox[];
   /**
    * Interactive PDF form/widget fields, only present when
    * `formFields: true` was passed. Coordinates use the same top-left
@@ -833,6 +856,13 @@ export interface PageOverview {
    * hits so consumers can tell "ran, found none" from "didn't run".
    */
   matchCount?: number;
+  /**
+   * Count of emitted vector path boxes on the page (mirror of
+   * `pages[].vectorBoxes.length`). Omitted when `vectorBoxes` was not
+   * requested; present-with-`0` when extraction ran but no path bboxes
+   * were available.
+   */
+  vectorBoxCount?: number;
   /**
    * Count of interactive form fields on the page (mirror of
    * `pages[].formFields.length`). Omitted when `formFields` was not

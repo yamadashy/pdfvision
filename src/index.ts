@@ -16,6 +16,8 @@ export { processDocument, processFile } from './core/processor.js';
 export type {
   DocumentMetadata,
   DocumentResult,
+  FormField,
+  FormFieldType,
   ImageBox,
   LayoutBlock,
   LayoutLine,
@@ -31,4 +33,5 @@ export type {
   RenderRegion,
   SearchMatch,
   TextSpan,
+  VectorBox,
 } from './types/index.js';

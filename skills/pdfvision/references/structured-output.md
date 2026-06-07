@@ -33,6 +33,7 @@ interface PageOverview {
   quality: PageQuality;           // derived classification — see below
   warningCount?: number;          // mirror of pages[N].warnings.length, omitted when no rule fired
   matchCount?: number;            // mirror of pages[N].matches.length; present-with-0 means "search ran, no hit"
+  vectorBoxCount?: number;        // mirror of pages[N].vectorBoxes.length; present iff --vector-boxes
   width: number;                  // PDF user-space points
   height: number;
 }
@@ -69,6 +70,8 @@ interface PageResult {
   spans?: TextSpan[];            // present iff --geometry
   layout?: PageLayout;           // present iff --layout
   imageBoxes?: ImageBox[];       // present iff --image-boxes
+  vectorBoxes?: VectorBox[];     // present iff --vector-boxes
+  formFields?: FormField[];      // present iff --form-fields
   ocr?: PageOcr;                 // present iff --ocr
   warnings?: PageWarning[];      // omitted when no rule fired on the page
   matches?: SearchMatch[];       // present iff --search; empty array means "search ran, no hit on this page"
@@ -180,6 +183,16 @@ interface ImageBox {
 
 One entry per drawn instance — a tiled hero image yields multiple entries. `imageCount === imageBoxes.length` is an invariant on every page. Form XObject CTM tracking ensures images drawn inside a form land at the correct page-space position.
 
+## Vector boxes (`--vector-boxes`)
+
+```ts
+interface VectorBox {
+  x: number; y: number; width: number; height: number;
+}
+```
+
+One entry per painted vector path where pdf.js reports a path bbox. This is useful for maps, symbol tables, charts, diagrams, table rules, form boxes, and slide shapes: content a human sees, but that is neither native text nor a raster image. Horizontal/vertical strokes are expanded to at least 0.5pt in the degenerate dimension so their boxes can feed `--render-region`. `vectorCount` remains the broad density signal for all vector drawing operations; `vectorBoxes[]` is the opt-in location signal and can be shorter than `vectorCount` when a low-level op has no bbox.
+
 ## Spans (`--geometry`)
 
 ```ts
@@ -208,7 +221,7 @@ interface PageOcr {
 
 ## Coordinate system
 
-All coordinates (spans, layout blocks, image boxes, `renderRegion`) use a **top-down origin** in PDF user-space points: `(0, 0)` at the top-left of the page, `y` grows downward. This matches the rendered PNG convention, so a consumer can overlay any of the geometry signals onto `image` (when `--render` is on) without flipping.
+All coordinates (spans, layout blocks, image boxes, vector boxes, form fields, `renderRegion`) use a **top-down origin** in PDF user-space points: `(0, 0)` at the top-left of the page, `y` grows downward. This matches the rendered PNG convention, so a consumer can overlay any of the geometry signals onto `image` (when `--render` is on) without flipping.
 
 To map PDF points onto rendered PNG pixels:
 
@@ -333,6 +346,10 @@ pdfvision doc.pdf -p <m.page> --render --render-region <m.bbox.x>,<m.bbox.y>,<m.
         <imageBox x="..." y="..." width="..." height="..."/>
         ...
       </imageBoxes>
+      <vectorBoxes>
+        <vectorBox x="..." y="..." width="..." height="..."/>
+        ...
+      </vectorBoxes>
       <text>
 ...page text body...
       </text>
@@ -348,7 +365,7 @@ pdfvision doc.pdf -p <m.page> --render --render-region <m.bbox.x>,<m.bbox.y>,<m.
 </document>
 ```
 
-Empty `<layout/>`, `<imageBoxes/>`, and `<ocr/>` (self-closing) mean "the pass ran and found nothing", which is distinct from the tag being absent (the pass wasn't requested).
+Empty `<layout/>`, `<imageBoxes/>`, `<vectorBoxes/>`, `<formFields/>`, and `<ocr/>` (self-closing) mean "the pass ran and found nothing", which is distinct from the tag being absent (the pass wasn't requested).
 
 ## TOON output shape
 
@@ -382,7 +399,7 @@ pages[2]:
             ...
 ```
 
-Decode back to the `DocumentResult` data model with the `@toon-format/toon` package (`decode(toonString)`). Where the win lands: `spans[]` (`--geometry`), `overview[]`, `imageBoxes[]`, per-block `lines[]`, and `layout.tables[].rows[].cells[]` all tabularize, so geometry/span-dense output is ~40–48% fewer tokens than the pretty-printed JSON. Free text bodies and the non-uniform `layout.blocks[]` (optional `role` / `level` / `repeated` per block) do **not** tabularize — for layout-dominant output `-f xml` is usually more compact than `toon`.
+Decode back to the `DocumentResult` data model with the `@toon-format/toon` package (`decode(toonString)`). Where the win lands: `spans[]` (`--geometry`), `overview[]`, `imageBoxes[]`, `vectorBoxes[]`, per-block `lines[]`, and `layout.tables[].rows[].cells[]` all tabularize, so geometry/span-dense output is ~40–48% fewer tokens than the pretty-printed JSON. Free text bodies and the non-uniform `layout.blocks[]` (optional `role` / `level` / `repeated` per block) do **not** tabularize — for layout-dominant output `-f xml` is usually more compact than `toon`.
 
 ## Library API (Node.js consumers)
 
