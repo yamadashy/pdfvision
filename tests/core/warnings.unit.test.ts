@@ -118,6 +118,44 @@ describe('detectPageWarnings', () => {
     expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
   });
 
+  it('flags dense vector graphics that may carry form or chart structure outside text', () => {
+    // IRS Form 1040-shaped case: text extraction is healthy, but the
+    // checkbox/table/form geometry is mostly vector drawing operations.
+    const out = detectPageWarnings({
+      page: 1,
+      text: 'Form 1040 U.S. Individual Income Tax Return',
+      charCount: 5337,
+      imageCount: 0,
+      vectorCount: 502,
+      textCoverage: 0.277,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok' },
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'dense_vector_graphics', severity: 'warning' });
+    expect(out[0].message).toContain('502 vector drawing operations');
+  });
+
+  it('does not flag ordinary low-count vector decorations as dense vector graphics', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: 'ordinary page with a few rules',
+      charCount: 500,
+      imageCount: 0,
+      vectorCount: 24,
+      textCoverage: 0.2,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok' },
+    });
+    expect(out.filter((w) => w.code === 'dense_vector_graphics')).toEqual([]);
+  });
+
   it('does not duplicate localized glyph warnings when the page is already classified as mixed glyph indices', () => {
     const out = detectPageWarnings({
       page: 1,

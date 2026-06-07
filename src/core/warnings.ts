@@ -39,6 +39,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
 
   detectLocalizedGlyphNoise(page, warnings);
   detectRasterBackedTextLayer(page, context, warnings);
+  detectDenseVectorGraphics(page, warnings);
   detectLargeRasterLowTextOverlap(page, warnings);
 
   if (!page.layout || page.layout.blocks.length === 0 || context.rasterBackedTextLayer) {
@@ -72,6 +73,7 @@ const LOCALIZED_GLYPH_NOISE_COUNT_THRESHOLD = 3;
 const CJK_MOJIBAKE_MIN_CJK_COUNT = 50;
 const CJK_MOJIBAKE_COUNT_THRESHOLD = 5;
 const CJK_MOJIBAKE_RATIO_THRESHOLD = 0.05;
+const DENSE_VECTOR_GRAPHICS_COUNT_THRESHOLD = 250;
 const LARGE_RASTER_AREA_RATIO_THRESHOLD = 0.2;
 const LARGE_RASTER_TEXT_OVERLAP_RATIO_THRESHOLD = 0.01;
 
@@ -149,6 +151,15 @@ function detectRasterBackedTextLayer(page: PageResult, context: PageWarningConte
     code: 'raster_backed_text_layer',
     severity: 'warning',
     message: `native text appears to be an OCR/text layer over a full-page raster image (textCoverage ${(page.textCoverage * 100).toFixed(1)}%, imageCount ${page.imageCount}) — text may be usable, but bboxes and layout can drift from the pixels a human sees`,
+  });
+}
+
+function detectDenseVectorGraphics(page: PageResult, out: PageWarning[]): void {
+  if (page.vectorCount < DENSE_VECTOR_GRAPHICS_COUNT_THRESHOLD) return;
+  out.push({
+    code: 'dense_vector_graphics',
+    severity: 'warning',
+    message: `page contains ${page.vectorCount} vector drawing operations — form fields, table rules, chart paths, or diagrams may not be represented in native text; inspect the render if visual structure matters`,
   });
 }
 

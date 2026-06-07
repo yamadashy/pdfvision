@@ -604,6 +604,7 @@ export interface SearchMatch {
  * Page anomaly surfaced so agents can spot extraction or visual risks
  * that raw text alone hides: overlapping layout blocks, bodies crowded
  * against chrome, off-page bboxes, localized glyph noise / CJK mojibake,
+ * dense vector graphics whose form fields or chart paths are not text,
  * large image regions whose internal labels will not appear in native text,
  * OCR-backed scan layers whose bboxes may drift from pixels, etc.
  */
@@ -615,6 +616,7 @@ export interface PageWarning {
     | 'body_near_repeated_chrome'
     | 'off_page'
     | 'localized_glyph_noise'
+    | 'dense_vector_graphics'
     | 'raster_backed_text_layer'
     | 'large_raster_low_text_overlap';
   /**
