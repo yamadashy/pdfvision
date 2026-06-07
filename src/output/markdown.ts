@@ -113,6 +113,24 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     lines.push('_No custom page labels found._');
   }
 
+  if (result.attachments) {
+    lines.push('');
+    lines.push('## Attachments');
+    if (result.attachments.length === 0) {
+      lines.push('');
+      lines.push('_No embedded file attachments found._');
+    } else {
+      lines.push('');
+      lines.push('| Name | Description | Size (bytes) |');
+      lines.push('| --- | --- | ---: |');
+      for (const attachment of result.attachments) {
+        lines.push(
+          `| ${escapeTableCell(attachment.name)} | ${escapeTableCell(attachment.description ?? '')} | ${attachment.size} |`,
+        );
+      }
+    }
+  }
+
   if (result.outline) {
     lines.push('');
     lines.push('## Outline');

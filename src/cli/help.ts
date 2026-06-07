@@ -72,6 +72,8 @@ Options
       --page-labels       Emit viewer page labels in \`pageLabels\` and \`pages[].pageLabel\`;
                           useful when front matter uses roman numerals or page numbering
                           restarts apart from the physical page number.
+      --attachments       Emit document-level embedded file attachment metadata in
+                          \`attachments\` without embedding attachment bytes in output.
       --outline           Emit top-level \`outline\` document bookmarks, preserving hierarchy
                           and resolving destination pages when possible. Markdown also renders
                           an outline section.

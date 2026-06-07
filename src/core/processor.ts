@@ -9,6 +9,7 @@ import { formatMarkdown } from '../output/markdown.js';
 import { formatToon } from '../output/toon.js';
 import { formatXml } from '../output/xml.js';
 import type {
+  DocumentAttachment,
   DocumentOutlineItem,
   DocumentResult,
   FormField,
@@ -24,6 +25,7 @@ import type {
   VectorBox,
 } from '../types/index.js';
 import { buildAnnotations } from './annotations.js';
+import { buildAttachments } from './attachments.js';
 import { dropCached, ensurePrivateDir, getCacheDir, getCached, pdfFingerprint, setCache } from './cache.js';
 import { type JoinItem, joinPageText } from './cjkJoin.js';
 import { buildFormFields } from './formFields.js';
@@ -58,6 +60,7 @@ interface CacheKeyInput {
   links?: boolean;
   annotations?: boolean;
   pageLabels?: boolean;
+  attachments?: boolean;
   outline?: boolean;
   ocr?: boolean;
   ocrLang?: string;
@@ -158,7 +161,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v56',
+    format: 'structured-v57',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -187,6 +190,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     links: !!input.links,
     annotations: !!input.annotations,
     pageLabels: !!input.pageLabels,
+    attachments: !!input.attachments,
     outline: !!input.outline,
     // OCR is expensive (tens of seconds for a multi-page scan); always cache
     // it. The lang string is part of the key (whitespace-normalised, order
@@ -721,6 +725,11 @@ export async function processDocument(filePath: string, options: ProcessDocument
       rawPageLabels === undefined
         ? undefined
         : (rawPageLabels ?? []).map((label) => (options.normalize !== false ? normalizeText(label) : label));
+    const attachments: DocumentAttachment[] | undefined = options.attachments
+      ? buildAttachments(await doc.getAttachments(), {
+          normalizeText: options.normalize !== false ? normalizeText : undefined,
+        })
+      : undefined;
     const outline: DocumentOutlineItem[] | undefined = options.outline
       ? await buildOutline(await doc.getOutline(), doc, {
           normalizeText: options.normalize !== false ? normalizeText : undefined,
@@ -1033,6 +1042,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
         creator: metaString(info?.Creator),
       },
       ...(pageLabels !== undefined && { pageLabels }),
+      ...(attachments !== undefined && { attachments }),
       ...(outline !== undefined && { outline }),
       ...(overview && { overview }),
       pages,
@@ -1091,6 +1101,7 @@ export async function processFile(filePath: string, options: ProcessOptions): Pr
     links: options.links,
     annotations: options.annotations,
     pageLabels: options.pageLabels,
+    attachments: options.attachments,
     outline: options.outline,
     ocr: options.ocr,
     ocrLang: options.ocrLang,

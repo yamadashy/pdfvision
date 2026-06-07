@@ -690,6 +690,24 @@ describe('formatXml', () => {
     expect(out).toContain('<pageLabels/>');
   });
 
+  it('emits document attachment metadata without content bytes', () => {
+    const out = formatXml(
+      makeResult({
+        attachments: [{ name: 'supplement & data.txt', rawName: 'raw.txt', description: 'Extra <file>', size: 123 }],
+      }),
+    );
+
+    expect(out).toContain('<attachments>');
+    expect(out).toContain(
+      '<attachment name="supplement &amp; data.txt" size="123" rawName="raw.txt" description="Extra &lt;file&gt;"/>',
+    );
+  });
+
+  it('emits self-closing <attachments/> when extraction ran but found no embedded files', () => {
+    const out = formatXml(makeResult({ attachments: [] }));
+    expect(out).toContain('<attachments/>');
+  });
+
   it('emits an <ocr> element with lang + confidence attributes when ocr is present', () => {
     const out = formatXml(
       makeResult({

@@ -63,6 +63,23 @@ export function formatXml(result: DocumentResult): string {
     }
   }
 
+  if (result.attachments) {
+    if (result.attachments.length === 0) {
+      out.push('<attachments/>');
+    } else {
+      out.push('<attachments>');
+      for (const attachment of result.attachments) {
+        const attrs = [`name="${escapeAttr(attachment.name)}"`, `size="${attachment.size}"`];
+        if (attachment.rawName !== undefined) attrs.push(`rawName="${escapeAttr(attachment.rawName)}"`);
+        if (attachment.description !== undefined) {
+          attrs.push(`description="${escapeAttr(attachment.description)}"`);
+        }
+        out.push(`<attachment ${attrs.join(' ')}/>`);
+      }
+      out.push('</attachments>');
+    }
+  }
+
   if (result.outline) {
     if (result.outline.length === 0) {
       out.push('<outline/>');

@@ -14,6 +14,7 @@
 export { parsePageRange } from './core/pageRange.js';
 export { processDocument, processFile } from './core/processor.js';
 export type {
+  DocumentAttachment,
   DocumentMetadata,
   DocumentOutlineItem,
   DocumentOutlineTargetType,
@@ -23,6 +24,9 @@ export type {
   ImageBox,
   LayoutBlock,
   LayoutLine,
+  LayoutTable,
+  LayoutTableCell,
+  LayoutTableRow,
   OutputFormat,
   PageAnnotation,
   PageAnnotationBox,

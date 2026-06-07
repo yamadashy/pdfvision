@@ -210,6 +210,12 @@ export interface ProcessDocumentOptions {
    */
   pageLabels?: boolean;
   /**
+   * Emit document-level embedded file attachment metadata in `attachments`.
+   * Useful for PDFs whose viewer attachment pane exposes supplemental files.
+   * The attachment bytes are not embedded in the structured output.
+   */
+  attachments?: boolean;
+  /**
    * Emit the document outline / bookmarks in `outline`. Useful for long
    * reports, manuals, and papers where a human PDF viewer exposes section
    * navigation in the sidebar. Named destinations are resolved to page
@@ -273,6 +279,8 @@ export interface ProcessOptions {
   annotations?: boolean;
   /** See {@link ProcessDocumentOptions.pageLabels}. */
   pageLabels?: boolean;
+  /** See {@link ProcessDocumentOptions.attachments}. */
+  attachments?: boolean;
   /** See {@link ProcessDocumentOptions.outline}. */
   outline?: boolean;
   ocr?: boolean;
@@ -558,6 +566,17 @@ export interface DocumentOutlineItem {
   page?: number;
   /** Nested outline children, preserving the PDF sidebar hierarchy. */
   items?: DocumentOutlineItem[];
+}
+
+export interface DocumentAttachment {
+  /** Decoded attachment filename shown by a PDF viewer. */
+  name: string;
+  /** Raw PDF attachment filename when it differs from the decoded name. */
+  rawName?: string;
+  /** Optional attachment description from the PDF file specification. */
+  description?: string;
+  /** Embedded file byte length. Attachment bytes are intentionally not emitted. */
+  size: number;
 }
 
 export interface PageAnnotationBox {
@@ -1036,6 +1055,12 @@ export interface DocumentResult {
    * pass ran and the PDF has no custom page labels.
    */
   pageLabels?: string[];
+  /**
+   * Document-level embedded file attachment metadata, present iff
+   * attachment extraction was requested. Empty array means the pass ran
+   * and the PDF has no embedded file attachments.
+   */
+  attachments?: DocumentAttachment[];
   /**
    * Document outline / bookmarks, present iff outline extraction was
    * requested. Empty array means the pass ran and the PDF has no outline.

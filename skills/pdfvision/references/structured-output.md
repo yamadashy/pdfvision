@@ -12,6 +12,7 @@ interface DocumentResult {
   totalPages: number;          // total in the source PDF, not in the selection
   metadata: DocumentMetadata;  // title / author / subject / creator (all string | null)
   pageLabels?: string[];       // full 0-indexed viewer page-label array; present iff --page-labels
+  attachments?: DocumentAttachment[]; // embedded file metadata; present iff --attachments
   outline?: DocumentOutlineItem[]; // document bookmarks; present iff --outline
   overview?: PageOverview[];   // per-page density summary; present iff pages.length > 1
   pages: PageResult[];         // one entry per selected page, in page-number order
@@ -201,6 +202,19 @@ interface PageAnnotation {
 ## Page labels (`--page-labels`)
 
 `pageLabels[]` is the full viewer page-label array for the source PDF, indexed from physical page 1 at array index 0. `pages[].pageLabel` and `overview[].pageLabel` mirror the selected page's entry when the PDF defines labels. Use this when a PDF viewer shows front matter as `i`, `ii`, ... and restarts body numbering at `1`, or when sections use prefixes such as `A-1`. The CLI page selector still uses physical page numbers; `pageLabel` tells the agent what a human sees in the viewer chrome.
+
+## Attachments (`--attachments`)
+
+```ts
+interface DocumentAttachment {
+  name: string;          // decoded filename shown by the PDF viewer
+  rawName?: string;      // raw PDF filename when it differs from name
+  description?: string;  // file-spec description when present
+  size: number;          // embedded file byte length
+}
+```
+
+`attachments[]` surfaces document-level embedded file attachments that a human PDF viewer exposes in its attachment pane. The attachment bytes are intentionally not included in JSON/XML/Markdown/TOON output; use the metadata as a signal that the PDF contains supplemental files without flooding agent context with arbitrary binary content.
 
 ## Outline (`--outline`)
 
@@ -423,7 +437,7 @@ pdfvision doc.pdf -p <m.page> --render --render-region <m.bbox.x>,<m.bbox.y>,<m.
 </document>
 ```
 
-Empty `<pageLabels/>`, `<outline/>`, `<layout/>`, `<imageBoxes/>`, `<vectorBoxes/>`, `<formFields/>`, `<links/>`, `<annotations/>`, and `<ocr/>` (self-closing) mean "the pass ran and found nothing", which is distinct from the tag being absent (the pass wasn't requested).
+Empty `<pageLabels/>`, `<attachments/>`, `<outline/>`, `<layout/>`, `<imageBoxes/>`, `<vectorBoxes/>`, `<formFields/>`, `<links/>`, `<annotations/>`, and `<ocr/>` (self-closing) mean "the pass ran and found nothing", which is distinct from the tag being absent (the pass wasn't requested).
 
 ## TOON output shape
 
@@ -482,4 +496,4 @@ for (const page of result.pages) {
 
 `processFile()` returns the formatted string output (`markdown` / `json` / `xml` / `toon`). `processDocument()` returns the structured object directly.
 
-Exported types: `DocumentResult`, `DocumentMetadata`, `DocumentOutlineItem`, `DocumentOutlineTargetType`, `PageOverview`, `PageResult`, `PageQuality`, `PageWarning`, `SearchMatch`, `LayoutBlock`, `LayoutLine`, `LayoutTable`, `LayoutTableRow`, `LayoutTableCell`, `PageLayout`, `ImageBox`, `PageLink`, `PageLinkType`, `PageAnnotation`, `PageAnnotationBox`, `RenderRegion`, `TextSpan`, `PageOcr`, `OutputFormat`, `ProcessDocumentOptions`, `ProcessOptions`.
+Exported types: `DocumentResult`, `DocumentMetadata`, `DocumentAttachment`, `DocumentOutlineItem`, `DocumentOutlineTargetType`, `PageOverview`, `PageResult`, `PageQuality`, `PageWarning`, `SearchMatch`, `LayoutBlock`, `LayoutLine`, `LayoutTable`, `LayoutTableRow`, `LayoutTableCell`, `PageLayout`, `ImageBox`, `PageLink`, `PageLinkType`, `PageAnnotation`, `PageAnnotationBox`, `RenderRegion`, `TextSpan`, `PageOcr`, `OutputFormat`, `ProcessDocumentOptions`, `ProcessOptions`.

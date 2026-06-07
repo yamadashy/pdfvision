@@ -59,15 +59,7 @@ async function buildPdfWithAnnotations(): Promise<Uint8Array> {
   return new Uint8Array(Buffer.concat(chunks));
 }
 
-function buildPdfWithPageLabels(): Uint8Array {
-  const objects = [
-    '<< /Type /Catalog /Pages 2 0 R /PageLabels << /Nums [ 0 << /S /r >> 2 << /S /D /St 1 >> ] >> >>',
-    '<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R] /Count 3 >>',
-    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> >>',
-    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> >>',
-    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> >>',
-  ];
-
+function buildRawPdf(objects: string[]): Uint8Array {
   let body = '%PDF-1.7\n';
   const offsets: number[] = [0];
   for (const [index, object] of objects.entries()) {
@@ -84,6 +76,28 @@ function buildPdfWithPageLabels(): Uint8Array {
   body += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
 
   return new Uint8Array(Buffer.from(body, 'binary'));
+}
+
+function buildPdfWithPageLabels(): Uint8Array {
+  return buildRawPdf([
+    '<< /Type /Catalog /Pages 2 0 R /PageLabels << /Nums [ 0 << /S /r >> 2 << /S /D /St 1 >> ] >> >>',
+    '<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R] /Count 3 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> >>',
+  ]);
+}
+
+function buildPdfWithAttachment(): Uint8Array {
+  const content = 'hello attachment';
+  const size = Buffer.byteLength(content, 'binary');
+  return buildRawPdf([
+    '<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles << /Names [(hello.txt) 4 0 R] >> >> >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> >>',
+    '<< /Type /Filespec /F (hello.txt) /UF (hello.txt) /Desc (Supplement file) /EF << /F 5 0 R /UF 5 0 R >> >>',
+    `<< /Type /EmbeddedFile /Subtype /text#2Fplain /Length ${size} /Params << /Size ${size} >> >>\nstream\n${content}\nendstream`,
+  ]);
 }
 
 describe('processDocument', () => {
@@ -205,6 +219,23 @@ describe('processDocument', () => {
 
     expect(result.pageLabels).toEqual([]);
     expect(result.pages[0].pageLabel).toBeUndefined();
+  });
+
+  it('extracts embedded attachment metadata without embedding attachment bytes', async () => {
+    const result = await processDocument('memory://attachment.pdf', {
+      sourceData: buildPdfWithAttachment(),
+      noCache: true,
+      attachments: true,
+    });
+
+    expect(result.attachments).toEqual([{ name: 'hello.txt', description: 'Supplement file', size: 16 }]);
+    expect(JSON.stringify(result.attachments)).not.toContain('hello attachment');
+  });
+
+  it('emits an empty attachments array when attachment extraction ran but found none', async () => {
+    const result = await processDocument(SAMPLE_PDF, { noCache: true, attachments: true });
+
+    expect(result.attachments).toEqual([]);
   });
 
   it('counts embedded raster images in imageCount', async () => {

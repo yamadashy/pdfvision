@@ -362,6 +362,23 @@ describe('formatMarkdown', () => {
     expect(out).toContain('_No custom page labels found._');
   });
 
+  it('renders document attachment metadata without content bytes', () => {
+    const out = formatMarkdown(
+      makeResult({
+        attachments: [{ name: 'supplement|data.txt', description: 'Extra file', size: 123 }],
+      }),
+    );
+
+    expect(out).toContain('## Attachments');
+    expect(out).toContain('| supplement\\|data.txt | Extra file | 123 |');
+  });
+
+  it('renders an explicit empty attachments message when extraction found no embedded files', () => {
+    const out = formatMarkdown(makeResult({ attachments: [] }));
+    expect(out).toContain('## Attachments');
+    expect(out).toContain('_No embedded file attachments found._');
+  });
+
   it('adds a Blocks column to the Overview table when --layout populated pages[].layout', () => {
     // With layout on, agents can scan the Blocks count alongside the
     // density signals to spot pages that decompose differently — a

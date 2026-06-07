@@ -160,6 +160,13 @@ describe('cli', () => {
     expect(parsed.pageLabels).toEqual([]);
   });
 
+  it('passes --attachments through to JSON output', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--json', '--attachments', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    const parsed = JSON.parse(r.stdout.join('\n'));
+    expect(parsed.attachments).toEqual([]);
+  });
+
   it('passes --vector-boxes through to JSON output', async () => {
     const r = await captureRun([SAMPLE_PDF, '--json', '--vector-boxes', '--no-cache']);
     expect(r.exitCode).toBeNull();

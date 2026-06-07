@@ -42,6 +42,7 @@ Every page reports `charCount`, `imageCount`, `vectorCount`, `textCoverage`, and
 - **`--links`** reports clickable PDF link annotations such as citation jumps, table-of-contents destinations, and external URLs with bboxes.
 - **`--annotations`** reports non-link PDF annotations such as comments, sticky notes, highlights, underlines, strikeouts, stamps, and other markup with bboxes and comment text.
 - **`--page-labels`** reports viewer page labels such as roman front matter (`i`, `ii`) or restarted section numbering that differs from physical page numbers.
+- **`--attachments`** reports document-level embedded file attachments with filename, description, and byte size, without dumping attachment bytes into the agent context.
 - **`--outline`** reports document outline/bookmark sidebar entries, preserving hierarchy and resolving destination pages when possible.
 - **`--geometry`** emits per-text-item `bbox` + `fontSize` so callers can reconstruct visual hierarchy themselves.
 
@@ -119,6 +120,7 @@ Options:
       --links             Emit clickable link annotations in pages[].links with bboxes
       --annotations       Emit non-link PDF annotations in pages[].annotations
       --page-labels       Emit viewer page labels in pageLabels and pages[].pageLabel
+      --attachments       Emit embedded file attachment metadata in attachments
       --outline           Emit document outline/bookmarks in outline
       --ocr               Run tesseract.js OCR; attach pages[].ocr (text/confidence/lang)
       --ocr-lang <lang>   Tesseract lang(s), plus-separated (e.g. eng+jpn). Default: eng
@@ -186,7 +188,7 @@ for (const page of result.pages) {
 
 `processFile()` returns the same string output the CLI prints (`markdown` / `json` / `xml` / `toon`).
 
-Exports: `processDocument`, `processFile`, `parsePageRange`, plus full type definitions for `DocumentResult` / `PageResult` / `PageOverview` / `PageQuality` / `DocumentMetadata` / `ProcessDocumentOptions` / `ProcessOptions` / `OutputFormat` / `TextSpan` / `LayoutBlock` / `LayoutLine` / `LayoutTable` / `LayoutTableRow` / `LayoutTableCell` / `PageLayout` / `ImageBox` / `PageOcr` / `PageWarning`.
+Exports: `processDocument`, `processFile`, `parsePageRange`, plus full type definitions for `DocumentResult` / `DocumentMetadata` / `DocumentAttachment` / `DocumentOutlineItem` / `DocumentOutlineTargetType` / `PageResult` / `PageOverview` / `PageQuality` / `PageWarning` / `SearchMatch` / `LayoutBlock` / `LayoutLine` / `LayoutTable` / `LayoutTableRow` / `LayoutTableCell` / `PageLayout` / `ImageBox` / `PageLink` / `PageLinkType` / `PageAnnotation` / `PageAnnotationBox` / `FormField` / `FormFieldType` / `PageOcr` / `RenderRegion` / `TextSpan` / `VectorBox` / `OutputFormat` / `ProcessDocumentOptions` / `ProcessOptions`.
 
 ## 💾 Caching
 
