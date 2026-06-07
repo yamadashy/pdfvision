@@ -80,6 +80,8 @@ Options
       --outline           Emit top-level \`outline\` document bookmarks, preserving hierarchy
                           and resolving destination pages when possible. Markdown also renders
                           an outline section.
+      --viewer            Emit top-level \`viewer\` settings: initial page mode/layout,
+                          viewer preferences, open action, permissions, and MarkInfo.
       --strip-repeated    Drop running headers / footers / page numbers (blocks the layout
                           pass tagged as \`repeated\`) from the rendered Markdown body so
                           LLM readers don't have to wade through the same footer N times.

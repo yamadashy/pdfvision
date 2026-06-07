@@ -14,6 +14,7 @@ interface DocumentResult {
   pageLabels?: string[];       // full 0-indexed viewer page-label array; present iff --page-labels
   attachments?: DocumentAttachment[]; // embedded file metadata; present iff --attachments
   outline?: DocumentOutlineItem[]; // document bookmarks; present iff --outline
+  viewer?: DocumentViewerState; // viewer settings; present iff --viewer
   overview?: PageOverview[];   // per-page density summary; present iff pages.length > 1
   pages: PageResult[];         // one entry per selected page, in page-number order
 }
@@ -231,6 +232,33 @@ interface DocumentOutlineItem {
 
 `outline[]` surfaces the document outline / bookmarks shown in a human PDF viewer sidebar. It preserves nesting and resolves named or explicit PDF destinations to 1-based page numbers when possible. Empty `outline: []` means the pass ran and the PDF has no outline; absent `outline` means `--outline` was not requested.
 
+## Viewer state (`--viewer`)
+
+```ts
+interface DocumentViewerState {
+  pageLayout?: string;          // initial layout such as TwoColumnLeft
+  pageMode?: string;            // initial mode such as UseOutlines or UseThumbs
+  viewerPreferences?: Record<string, JsonValue>;
+  openAction?: {
+    type: 'destination' | 'action';
+    target?: string;            // destination JSON/name when type is destination
+    page?: number;              // 1-based, resolved when possible
+    action?: string;            // PDF action name for non-destination actions
+  };
+  permissions?: {
+    flags: number[];            // raw PDF permission flags
+    allowed: string[];          // decoded names; empty means permissions were present but none matched
+  };
+  markInfo?: {
+    marked: boolean;            // tagged-PDF / structure presence signal
+    userProperties: boolean;
+    suspects: boolean;
+  };
+}
+```
+
+`viewer` surfaces document-level state a human PDF viewer uses before reading page text: sidebar/page mode, page layout, preferences such as `DisplayDocTitle`, catalog `OpenAction`, permission flags, and tagged-PDF `MarkInfo`. Use it on specs, manuals, papers, forms, and long reports where opening position, bookmark/sidebar mode, copy/print permissions, or tagged-PDF structure affects navigation or accessibility. Empty `viewer: {}` means the pass ran and no viewer-level settings were present; absent `viewer` means `--viewer` was not requested.
+
 ### Heading levels (`role === 'heading'`)
 
 `role` is set when a block is classified as a heading; `level` ranks the visual hierarchy:
@@ -438,7 +466,7 @@ pdfvision doc.pdf -p <m.page> --render --render-region <m.bbox.x>,<m.bbox.y>,<m.
 </document>
 ```
 
-Empty `<pageLabels/>`, `<attachments/>`, `<outline/>`, `<layout/>`, `<imageBoxes/>`, `<vectorBoxes/>`, `<formFields/>`, `<links/>`, `<annotations/>`, and `<ocr/>` (self-closing) mean "the pass ran and found nothing", which is distinct from the tag being absent (the pass wasn't requested).
+Empty `<pageLabels/>`, `<attachments/>`, `<outline/>`, `<viewer/>`, `<layout/>`, `<imageBoxes/>`, `<vectorBoxes/>`, `<formFields/>`, `<links/>`, `<annotations/>`, and `<ocr/>` (self-closing) mean "the pass ran and found nothing", which is distinct from the tag being absent (the pass wasn't requested).
 
 ## TOON output shape
 
@@ -497,4 +525,4 @@ for (const page of result.pages) {
 
 `processFile()` returns the formatted string output (`markdown` / `json` / `xml` / `toon`). `processDocument()` returns the structured object directly.
 
-Exported types: `DocumentResult`, `DocumentMetadata`, `DocumentAttachment`, `DocumentOutlineItem`, `DocumentOutlineTargetType`, `PageOverview`, `PageResult`, `PageQuality`, `PageWarning`, `SearchMatch`, `LayoutBlock`, `LayoutLine`, `LayoutTable`, `LayoutTableRow`, `LayoutTableCell`, `PageLayout`, `ImageBox`, `PageLink`, `PageLinkType`, `PageAnnotation`, `PageAnnotationBox`, `RenderRegion`, `TextSpan`, `PageOcr`, `OutputFormat`, `ProcessDocumentOptions`, `ProcessOptions`.
+Exported types: `DocumentResult`, `DocumentMetadata`, `DocumentAttachment`, `DocumentOutlineItem`, `DocumentOutlineTargetType`, `DocumentViewerState`, `DocumentOpenAction`, `DocumentPermissions`, `DocumentPermission`, `DocumentMarkInfo`, `JsonScalar`, `JsonValue`, `PageOverview`, `PageResult`, `PageQuality`, `PageWarning`, `SearchMatch`, `LayoutBlock`, `LayoutLine`, `LayoutTable`, `LayoutTableRow`, `LayoutTableCell`, `PageLayout`, `ImageBox`, `PageLink`, `PageLinkType`, `PageAnnotation`, `PageAnnotationBox`, `RenderRegion`, `TextSpan`, `PageOcr`, `OutputFormat`, `ProcessDocumentOptions`, `ProcessOptions`.

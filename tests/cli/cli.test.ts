@@ -167,6 +167,13 @@ describe('cli', () => {
     expect(parsed.attachments).toEqual([]);
   });
 
+  it('passes --viewer through to JSON output', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--json', '--viewer', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    const parsed = JSON.parse(r.stdout.join('\n'));
+    expect(parsed.viewer).toBeDefined();
+  });
+
   it('rejects --attachment-output without --attachments', async () => {
     const r = await captureRun([SAMPLE_PDF, '--attachment-output', '/tmp/whatever']);
     expect(r.exitCode).toBe(1);

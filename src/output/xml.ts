@@ -37,6 +37,12 @@ function escapeText(value: string): string {
   return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 }
 
+function viewerValue(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean' || value === null) return String(value);
+  return JSON.stringify(value);
+}
+
 export function formatXml(result: DocumentResult): string {
   const out: string[] = [];
   out.push(`<document file="${escapeAttr(result.file)}" totalPages="${result.totalPages}">`);
@@ -60,6 +66,46 @@ export function formatXml(result: DocumentResult): string {
         out.push(`<pageLabel page="${index + 1}" label="${escapeAttr(label)}"/>`);
       });
       out.push('</pageLabels>');
+    }
+  }
+
+  if (result.viewer) {
+    const attrs: string[] = [];
+    if (result.viewer.pageMode !== undefined) attrs.push(`pageMode="${escapeAttr(result.viewer.pageMode)}"`);
+    if (result.viewer.pageLayout !== undefined) attrs.push(`pageLayout="${escapeAttr(result.viewer.pageLayout)}"`);
+    if (attrs.length === 0 && Object.keys(result.viewer).length === 0) {
+      out.push('<viewer/>');
+    } else {
+      out.push(`<viewer${attrs.length > 0 ? ` ${attrs.join(' ')}` : ''}>`);
+      if (result.viewer.openAction) {
+        const actionAttrs = [`type="${result.viewer.openAction.type}"`];
+        if (result.viewer.openAction.page !== undefined) actionAttrs.push(`page="${result.viewer.openAction.page}"`);
+        if (result.viewer.openAction.action !== undefined) {
+          actionAttrs.push(`action="${escapeAttr(result.viewer.openAction.action)}"`);
+        }
+        if (result.viewer.openAction.target !== undefined) {
+          actionAttrs.push(`target="${escapeAttr(result.viewer.openAction.target)}"`);
+        }
+        out.push(`<openAction ${actionAttrs.join(' ')}/>`);
+      }
+      if (result.viewer.permissions) {
+        out.push(
+          `<permissions flags="${escapeAttr(result.viewer.permissions.flags.join(','))}" allowed="${escapeAttr(result.viewer.permissions.allowed.join(','))}"/>`,
+        );
+      }
+      if (result.viewer.markInfo) {
+        out.push(
+          `<markInfo marked="${result.viewer.markInfo.marked}" userProperties="${result.viewer.markInfo.userProperties}" suspects="${result.viewer.markInfo.suspects}"/>`,
+        );
+      }
+      if (result.viewer.viewerPreferences) {
+        out.push('<viewerPreferences>');
+        for (const [key, value] of Object.entries(result.viewer.viewerPreferences)) {
+          out.push(`<preference name="${escapeAttr(key)}" value="${escapeAttr(viewerValue(value))}"/>`);
+        }
+        out.push('</viewerPreferences>');
+      }
+      out.push('</viewer>');
     }
   }
 

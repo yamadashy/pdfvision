@@ -229,6 +229,13 @@ export interface ProcessDocumentOptions {
    */
   outline?: boolean;
   /**
+   * Emit viewer-level document settings in `viewer`, including initial page
+   * mode/layout, viewer preferences, open action, permissions, and MarkInfo.
+   * Useful when the way a human PDF viewer opens or navigates the document is
+   * itself part of the reading context.
+   */
+  viewer?: boolean;
+  /**
    * Run OCR on each selected page and attach the result as `pages[].ocr`.
    * Off by default — OCR pulls in the optional `tesseract.js` dependency
    * (~30MB worker bundle) and is slow even on small documents. The
@@ -291,6 +298,8 @@ export interface ProcessOptions {
   attachmentOutput?: string;
   /** See {@link ProcessDocumentOptions.outline}. */
   outline?: boolean;
+  /** See {@link ProcessDocumentOptions.viewer}. */
+  viewer?: boolean;
   ocr?: boolean;
   ocrLang?: string;
   /**
@@ -574,6 +583,57 @@ export interface DocumentOutlineItem {
   page?: number;
   /** Nested outline children, preserving the PDF sidebar hierarchy. */
   items?: DocumentOutlineItem[];
+}
+
+export type DocumentPermission =
+  | 'print'
+  | 'modifyContents'
+  | 'copy'
+  | 'modifyAnnotations'
+  | 'fillInteractiveForms'
+  | 'copyForAccessibility'
+  | 'assemble'
+  | 'printHighQuality';
+
+export interface DocumentPermissions {
+  /** Raw PDF permission flag values returned by pdf.js. */
+  flags: number[];
+  /** Human-readable allowed permissions decoded from `flags`. */
+  allowed: DocumentPermission[];
+}
+
+export type JsonScalar = string | number | boolean | null;
+export type JsonValue = JsonScalar | JsonValue[] | { [key: string]: JsonValue };
+
+export interface DocumentOpenAction {
+  type: 'destination' | 'action';
+  /** Destination name or explicit-destination JSON when `type` is `destination`. */
+  target?: string;
+  /** 1-based page number when a PDF destination could be resolved. */
+  page?: number;
+  /** PDF action name when the open action is not a plain destination. */
+  action?: string;
+}
+
+export interface DocumentMarkInfo {
+  marked: boolean;
+  userProperties: boolean;
+  suspects: boolean;
+}
+
+export interface DocumentViewerState {
+  /** Initial page layout requested by the PDF catalog, e.g. `TwoColumnLeft`. */
+  pageLayout?: string;
+  /** Initial page mode requested by the PDF catalog, e.g. `UseOutlines`. */
+  pageMode?: string;
+  /** Viewer preferences such as DisplayDocTitle, Direction, or PrintScaling. */
+  viewerPreferences?: Record<string, JsonValue>;
+  /** Catalog OpenAction resolved to a page when possible. */
+  openAction?: DocumentOpenAction;
+  /** Document permission flags when the PDF defines them. */
+  permissions?: DocumentPermissions;
+  /** Tagged-PDF MarkInfo flags when present. */
+  markInfo?: DocumentMarkInfo;
 }
 
 export interface DocumentAttachment {
@@ -1076,6 +1136,12 @@ export interface DocumentResult {
    * requested. Empty array means the pass ran and the PDF has no outline.
    */
   outline?: DocumentOutlineItem[];
+  /**
+   * Viewer-level document settings, present iff viewer extraction was
+   * requested. Empty object means the pass ran and no viewer settings were
+   * present.
+   */
+  viewer?: DocumentViewerState;
   /**
    * Top-level density summary across the selected pages. Present when
    * more than one page was extracted; omitted for single-page outputs

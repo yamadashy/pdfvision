@@ -44,6 +44,7 @@ Every page reports `charCount`, `imageCount`, `vectorCount`, `textCoverage`, and
 - **`--page-labels`** reports viewer page labels such as roman front matter (`i`, `ii`) or restarted section numbering that differs from physical page numbers.
 - **`--attachments`** reports document-level embedded file attachments with filename, description, and byte size, without dumping attachment bytes into the agent context. Add `--attachment-output <dir>` to save the embedded files and include paths in `attachments[].path`.
 - **`--outline`** reports document outline/bookmark sidebar entries, preserving hierarchy and resolving destination pages when possible.
+- **`--viewer`** reports viewer-level document settings such as initial page mode/layout, viewer preferences, open action, permissions, and tagged-PDF MarkInfo.
 - **`--geometry`** emits per-text-item `bbox` + `fontSize` so callers can reconstruct visual hierarchy themselves.
 
 Every page always includes `vectorCount` — the number of non-text vector drawing operations such as rules, form boxes, chart paths, and slide shapes.
@@ -124,6 +125,7 @@ Options:
       --attachment-output <dir>
                           Write embedded attachment files and include attachments[].path
       --outline           Emit document outline/bookmarks in outline
+      --viewer            Emit viewer settings in viewer
       --ocr               Run tesseract.js OCR; attach pages[].ocr (text/confidence/lang)
       --ocr-lang <lang>   Tesseract lang(s), plus-separated (e.g. eng+jpn). Default: eng
       --remote <url>      Download an http(s) PDF into the cache, validate the PDF header, then extract

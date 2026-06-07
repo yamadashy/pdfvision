@@ -690,6 +690,33 @@ describe('formatXml', () => {
     expect(out).toContain('<pageLabels/>');
   });
 
+  it('emits viewer-level document settings', () => {
+    const out = formatXml(
+      makeResult({
+        viewer: {
+          pageMode: 'UseOutlines',
+          pageLayout: 'TwoColumnLeft',
+          viewerPreferences: { DisplayDocTitle: true, PrintPageRange: [1, 2] },
+          openAction: { type: 'destination', page: 3, target: '[{"name":"Fit"}]' },
+          permissions: { flags: [4, 16], allowed: ['print', 'copy'] },
+          markInfo: { marked: true, userProperties: false, suspects: false },
+        },
+      }),
+    );
+
+    expect(out).toContain('<viewer pageMode="UseOutlines" pageLayout="TwoColumnLeft">');
+    expect(out).toContain('<openAction type="destination" page="3" target="[{&quot;name&quot;:&quot;Fit&quot;}]"/>');
+    expect(out).toContain('<permissions flags="4,16" allowed="print,copy"/>');
+    expect(out).toContain('<markInfo marked="true" userProperties="false" suspects="false"/>');
+    expect(out).toContain('<preference name="DisplayDocTitle" value="true"/>');
+    expect(out).toContain('<preference name="PrintPageRange" value="[1,2]"/>');
+  });
+
+  it('emits self-closing <viewer/> when extraction ran but found no viewer settings', () => {
+    const out = formatXml(makeResult({ viewer: {} }));
+    expect(out).toContain('<viewer/>');
+  });
+
   it('emits document attachment metadata without content bytes', () => {
     const out = formatXml(
       makeResult({

@@ -362,6 +362,35 @@ describe('formatMarkdown', () => {
     expect(out).toContain('_No custom page labels found._');
   });
 
+  it('renders viewer-level document settings', () => {
+    const out = formatMarkdown(
+      makeResult({
+        viewer: {
+          pageMode: 'UseOutlines',
+          pageLayout: 'TwoColumnLeft',
+          viewerPreferences: { DisplayDocTitle: true, PrintPageRange: [1, 2] },
+          openAction: { type: 'destination', page: 3, target: '[{"name":"Fit"}]' },
+          permissions: { flags: [4, 16], allowed: ['print', 'copy'] },
+          markInfo: { marked: true, userProperties: false, suspects: false },
+        },
+      }),
+    );
+
+    expect(out).toContain('## Viewer');
+    expect(out).toContain('- **Page mode:** UseOutlines');
+    expect(out).toContain('- **Page layout:** TwoColumnLeft');
+    expect(out).toContain('- **Open action:** destination · p. 3 · \\[{"name":"Fit"}\\]');
+    expect(out).toContain('- **Permissions:** print, copy');
+    expect(out).toContain('- **Mark info:** marked=true, userProperties=false, suspects=false');
+    expect(out).toContain('- **Preferences:** DisplayDocTitle=true; PrintPageRange=\\[1,2\\]');
+  });
+
+  it('renders an explicit empty viewer message when the viewer pass found no settings', () => {
+    const out = formatMarkdown(makeResult({ viewer: {} }));
+    expect(out).toContain('## Viewer');
+    expect(out).toContain('_No viewer settings found._');
+  });
+
   it('renders document attachment metadata without content bytes', () => {
     const out = formatMarkdown(
       makeResult({

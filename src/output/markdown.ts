@@ -65,6 +65,46 @@ function appendOutline(lines: string[], items: NonNullable<DocumentResult['outli
   }
 }
 
+function formatViewerValue(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean' || value === null) return String(value);
+  return JSON.stringify(value);
+}
+
+function appendViewer(lines: string[], viewer: NonNullable<DocumentResult['viewer']>): void {
+  lines.push('');
+  lines.push('## Viewer');
+  lines.push('');
+  if (Object.keys(viewer).length === 0) {
+    lines.push('_No viewer settings found._');
+    return;
+  }
+  if (viewer.pageMode) lines.push(`- **Page mode:** ${escapeInline(viewer.pageMode)}`);
+  if (viewer.pageLayout) lines.push(`- **Page layout:** ${escapeInline(viewer.pageLayout)}`);
+  if (viewer.openAction) {
+    const parts: string[] = [viewer.openAction.type];
+    if (viewer.openAction.page !== undefined) parts.push(`p. ${viewer.openAction.page}`);
+    if (viewer.openAction.action) parts.push(viewer.openAction.action);
+    if (viewer.openAction.target) parts.push(viewer.openAction.target);
+    lines.push(`- **Open action:** ${escapeInline(parts.join(' · '))}`);
+  }
+  if (viewer.permissions) {
+    const allowed = viewer.permissions.allowed.length > 0 ? viewer.permissions.allowed.join(', ') : '(none)';
+    lines.push(`- **Permissions:** ${escapeInline(allowed)}`);
+  }
+  if (viewer.markInfo) {
+    lines.push(
+      `- **Mark info:** marked=${viewer.markInfo.marked}, userProperties=${viewer.markInfo.userProperties}, suspects=${viewer.markInfo.suspects}`,
+    );
+  }
+  if (viewer.viewerPreferences) {
+    const prefs = Object.entries(viewer.viewerPreferences)
+      .map(([key, value]) => `${key}=${formatViewerValue(value)}`)
+      .join('; ');
+    lines.push(`- **Preferences:** ${escapeInline(prefs)}`);
+  }
+}
+
 /** Body text for a page: either the pdf.js-derived `page.text` (default),
  *  or a layout-driven rebuild when repeated chrome must be stripped or
  *  when vertical CJK stacks are present. The latter avoids Markdown
@@ -111,6 +151,10 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     lines.push('## Page Labels');
     lines.push('');
     lines.push('_No custom page labels found._');
+  }
+
+  if (result.viewer) {
+    appendViewer(lines, result.viewer);
   }
 
   if (result.attachments) {

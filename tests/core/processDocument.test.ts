@@ -101,6 +101,14 @@ function buildPdfWithAttachment(): Uint8Array {
   ]);
 }
 
+function buildPdfWithViewerState(): Uint8Array {
+  return buildRawPdf([
+    '<< /Type /Catalog /Pages 2 0 R /PageMode /UseOutlines /PageLayout /TwoColumnLeft /ViewerPreferences << /DisplayDocTitle true /Direction /R2L >> /OpenAction [3 0 R /FitH 700] /MarkInfo << /Marked true /UserProperties false /Suspects false >> >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> >>',
+  ]);
+}
+
 describe('processDocument', () => {
   it('returns a structured DocumentResult, no JSON parsing required', async () => {
     const result = await processDocument(SAMPLE_PDF, { noCache: true });
@@ -220,6 +228,39 @@ describe('processDocument', () => {
 
     expect(result.pageLabels).toEqual([]);
     expect(result.pages[0].pageLabel).toBeUndefined();
+  });
+
+  it('extracts viewer-level document settings and resolves the open action page', async () => {
+    const result = await processDocument('memory://viewer.pdf', {
+      sourceData: buildPdfWithViewerState(),
+      noCache: true,
+      viewer: true,
+    });
+
+    expect(result.viewer).toMatchObject({
+      pageLayout: 'TwoColumnLeft',
+      pageMode: 'UseOutlines',
+      viewerPreferences: {
+        DisplayDocTitle: true,
+        Direction: 'R2L',
+      },
+      openAction: {
+        type: 'destination',
+        page: 1,
+      },
+      markInfo: {
+        marked: true,
+        userProperties: false,
+        suspects: false,
+      },
+    });
+    expect(result.viewer?.openAction?.target).toContain('FitH');
+  });
+
+  it('emits an empty viewer object when viewer extraction ran but found no explicit settings', async () => {
+    const result = await processDocument(SAMPLE_PDF, { noCache: true, viewer: true });
+
+    expect(result.viewer).toEqual({});
   });
 
   it('extracts embedded attachment metadata without embedding attachment bytes', async () => {

@@ -12,6 +12,7 @@ import type {
   DocumentAttachment,
   DocumentOutlineItem,
   DocumentResult,
+  DocumentViewerState,
   FormField,
   ImageBox,
   PageAnnotation,
@@ -42,6 +43,7 @@ import { type CompiledSearch, compileSearch, searchPage, suppressDuplicateOcrMat
 import { textMatrixFontSize, textRunGeometryFromTransform } from './textGeometry.js';
 import { buildVectorBoxes } from './vectorBoxes.js';
 import { countVectorPaintOps } from './vectorOps.js';
+import { buildViewerState } from './viewer.js';
 import { detectPageWarnings } from './warnings.js';
 
 /** Inputs that determine which cached entry a request maps to. */
@@ -63,6 +65,7 @@ interface CacheKeyInput {
   attachments?: boolean;
   attachmentOutput?: string;
   outline?: boolean;
+  viewer?: boolean;
   ocr?: boolean;
   ocrLang?: string;
   search?: string | string[];
@@ -162,7 +165,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v58',
+    format: 'structured-v59',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -194,6 +197,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     attachments: !!input.attachments,
     attachmentOutput: input.attachmentOutput ? resolve(input.attachmentOutput) : null,
     outline: !!input.outline,
+    viewer: !!input.viewer,
     // OCR is expensive (tens of seconds for a multi-page scan); always cache
     // it. The lang string is part of the key (whitespace-normalised, order
     // preserved — tesseract treats the first language as primary) so that
@@ -773,6 +777,11 @@ export async function processDocument(filePath: string, options: ProcessDocument
           normalizeText: options.normalize !== false ? normalizeText : undefined,
         })
       : undefined;
+    const viewer: DocumentViewerState | undefined = options.viewer
+      ? await buildViewerState(doc, {
+          normalizeText: options.normalize !== false ? normalizeText : undefined,
+        })
+      : undefined;
 
     let imagePaths: string[] | null = null;
     // Parallel array to imagePaths: renderContentRatio for each rendered
@@ -1082,6 +1091,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       ...(pageLabels !== undefined && { pageLabels }),
       ...(attachments !== undefined && { attachments }),
       ...(outline !== undefined && { outline }),
+      ...(viewer !== undefined && { viewer }),
       ...(overview && { overview }),
       pages,
     };
@@ -1142,6 +1152,7 @@ export async function processFile(filePath: string, options: ProcessOptions): Pr
     attachments: options.attachments,
     attachmentOutput: options.attachmentOutput,
     outline: options.outline,
+    viewer: options.viewer,
     ocr: options.ocr,
     ocrLang: options.ocrLang,
     onWarning: options.onWarning,
