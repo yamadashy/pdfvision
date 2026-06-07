@@ -140,11 +140,25 @@ function overlapOfSmaller(a: BoxLike, b: BoxLike): number {
   return smaller > 0 ? overlapArea(a, b) / smaller : 0;
 }
 
+function visiblePageBox(box: BoxLike, pageWidth: number, pageHeight: number): BoxLike {
+  const left = Math.max(0, box.x);
+  const top = Math.max(0, box.y);
+  const right = Math.min(pageWidth, box.x + box.width);
+  const bottom = Math.min(pageHeight, box.y + box.height);
+  return {
+    x: left,
+    y: top,
+    width: Math.max(0, right - left),
+    height: Math.max(0, bottom - top),
+  };
+}
+
 function isNearFullPageBox(box: BoxLike, pageWidth: number, pageHeight: number): boolean {
+  const visible = visiblePageBox(box, pageWidth, pageHeight);
   const totalArea = pageWidth * pageHeight;
   return (
-    areaRatio(box, totalArea) >= BACKGROUND_BOX_AREA_RATIO ||
-    (box.width >= pageWidth * BACKGROUND_BOX_SPAN_RATIO && box.height >= pageHeight * BACKGROUND_BOX_SPAN_RATIO)
+    areaRatio(visible, totalArea) >= BACKGROUND_BOX_AREA_RATIO ||
+    (visible.width >= pageWidth * BACKGROUND_BOX_SPAN_RATIO && visible.height >= pageHeight * BACKGROUND_BOX_SPAN_RATIO)
   );
 }
 
@@ -157,10 +171,28 @@ function isUsefulDenseVectorBox(box: BoxLike): boolean {
 }
 
 function isLikelySideChrome(box: BoxLike, pageWidth: number, pageHeight: number): boolean {
+  const visible = visiblePageBox(box, pageWidth, pageHeight);
   return (
-    box.height >= pageHeight * 0.3 &&
-    box.width <= pageWidth * 0.08 &&
-    (box.x <= pageWidth * 0.1 || box.x + box.width >= pageWidth * 0.9)
+    visible.height >= pageHeight * 0.3 &&
+    visible.width <= pageWidth * 0.08 &&
+    (visible.x <= pageWidth * 0.1 || visible.x + visible.width >= pageWidth * 0.9)
+  );
+}
+
+function isLikelyHorizontalChrome(box: BoxLike, pageWidth: number, pageHeight: number): boolean {
+  const visible = visiblePageBox(box, pageWidth, pageHeight);
+  return (
+    visible.width >= pageWidth * 0.9 &&
+    visible.height <= pageHeight * 0.08 &&
+    (visible.y <= pageHeight * 0.1 || visible.y + visible.height >= pageHeight * 0.9)
+  );
+}
+
+function isBackgroundLikeCandidate(box: BoxLike, pageWidth: number, pageHeight: number): boolean {
+  return (
+    isNearFullPageBox(box, pageWidth, pageHeight) ||
+    isLikelySideChrome(box, pageWidth, pageHeight) ||
+    isLikelyHorizontalChrome(box, pageWidth, pageHeight)
   );
 }
 
@@ -465,10 +497,12 @@ function dedupeCandidates(candidates: Candidate[]): Candidate[] {
   return deduped;
 }
 
-function suppressSideChromeCandidates(candidates: Candidate[], pageWidth: number, pageHeight: number): Candidate[] {
-  const hasForegroundRegion = candidates.some((candidate) => !isLikelySideChrome(candidate, pageWidth, pageHeight));
+function suppressBackgroundLikeCandidates(candidates: Candidate[], pageWidth: number, pageHeight: number): Candidate[] {
+  const hasForegroundRegion = candidates.some(
+    (candidate) => !isBackgroundLikeCandidate(candidate, pageWidth, pageHeight),
+  );
   if (!hasForegroundRegion) return candidates;
-  return candidates.filter((candidate) => !isLikelySideChrome(candidate, pageWidth, pageHeight));
+  return candidates.filter((candidate) => !isBackgroundLikeCandidate(candidate, pageWidth, pageHeight));
 }
 
 export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion[] {
@@ -481,7 +515,7 @@ export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion
   addFormCandidate(input.formFields, candidates);
 
   const totalArea = pageArea(input);
-  const deduped = suppressSideChromeCandidates(dedupeCandidates(candidates), input.pageWidth, input.pageHeight);
+  const deduped = suppressBackgroundLikeCandidates(dedupeCandidates(candidates), input.pageWidth, input.pageHeight);
   return attachCaptionText(deduped, input.layout)
     .filter((candidate) => isUsableBox(candidate))
     .sort((a, b) => visualScore(b, totalArea) - visualScore(a, totalArea))

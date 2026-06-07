@@ -216,6 +216,59 @@ describe('buildVisualRegions', () => {
     });
   });
 
+  it('suppresses full-page candidates when a crop-sized foreground region exists', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 600,
+      pageHeight: 800,
+      imageBoxes: [],
+      vectorBoxes: [
+        { x: 0, y: 0, width: 600, height: 800 },
+        ...Array.from({ length: 6 }, (_, index) => ({
+          x: 120 + index * 8,
+          y: 160,
+          width: 40,
+          height: 30,
+        })),
+      ],
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0]).toMatchObject({
+      kind: 'vector',
+      x: 112,
+      y: 152,
+      width: 96,
+      height: 46,
+      sourceCount: 6,
+    });
+  });
+
+  it('suppresses top and bottom chrome regions when a foreground visual region exists', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 600,
+      pageHeight: 800,
+      imageBoxes: [{ x: 120, y: 160, width: 220, height: 180 }],
+      vectorBoxes: [
+        { x: 40, y: -35, width: 560, height: 75 },
+        { x: 0, y: 760, width: 600, height: 40 },
+      ],
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'raster',
+        x: 112,
+        y: 152,
+        width: 236,
+        height: 196,
+        areaRatio: 0.096,
+        sourceCount: 1,
+        sources: [{ type: 'imageBox', index: 0 }],
+        reason: 'raster image covers 8.3% of the page',
+      },
+    ]);
+  });
+
   it('deduplicates overlapping table and vector candidates into a mixed region', () => {
     const regions = buildVisualRegions({
       pageWidth: 300,
