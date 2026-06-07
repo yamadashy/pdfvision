@@ -41,6 +41,9 @@ const MIN_REGION_DIMENSION_PT = 18;
 const MIN_IMAGE_AREA_RATIO = 0.015;
 const MIN_VECTOR_CLUSTER_SOURCES = 6;
 const MIN_VECTOR_CLUSTER_AREA_RATIO = 0.01;
+const MIN_DENSE_VECTOR_BOXES = 40;
+const MIN_DENSE_VECTOR_UNION_AREA_RATIO = 0.03;
+const MIN_DENSE_VECTOR_LINE_LENGTH_PT = 18;
 const BACKGROUND_BOX_AREA_RATIO = 0.9;
 const BACKGROUND_BOX_SPAN_RATIO = 0.95;
 const CAPTION_MAX_GAP_PT = 54;
@@ -147,6 +150,18 @@ function isNearFullPageBox(box: BoxLike, pageWidth: number, pageHeight: number):
 
 function hasNonBackgroundBox(boxes: readonly BoxLike[], pageWidth: number, pageHeight: number): boolean {
   return boxes.some((box) => isUsableBox(box) && !isNearFullPageBox(box, pageWidth, pageHeight));
+}
+
+function isUsefulDenseVectorBox(box: BoxLike): boolean {
+  return isFinitePositiveBox(box) && Math.max(box.width, box.height) >= MIN_DENSE_VECTOR_LINE_LENGTH_PT;
+}
+
+function isLikelySideChrome(box: BoxLike, pageWidth: number, pageHeight: number): boolean {
+  return (
+    box.height >= pageHeight * 0.3 &&
+    box.width <= pageWidth * 0.08 &&
+    (box.x <= pageWidth * 0.1 || box.x + box.width >= pageWidth * 0.9)
+  );
 }
 
 function sourceKey(source: VisualRegionSource): string {
@@ -266,6 +281,33 @@ function addVectorCandidates(input: BuildVisualRegionsInput, candidates: Candida
       reason: `${cluster.sources.length} nearby vector drawing operations`,
     });
   }
+  addDenseVectorUnionCandidate(input, candidates);
+}
+
+function addDenseVectorUnionCandidate(input: BuildVisualRegionsInput, candidates: Candidate[]): void {
+  const vectorBoxes = input.vectorBoxes ?? [];
+  if (vectorBoxes.length < MIN_DENSE_VECTOR_BOXES) return;
+  const useful = vectorBoxes
+    .map((box, index) => ({ box, index }))
+    .filter(
+      ({ box }) =>
+        isUsefulDenseVectorBox(box) &&
+        !isNearFullPageBox(box, input.pageWidth, input.pageHeight) &&
+        !isLikelySideChrome(box, input.pageWidth, input.pageHeight),
+    );
+  if (useful.length < MIN_DENSE_VECTOR_BOXES) return;
+
+  const box = useful.slice(1).reduce<BoxLike>((acc, item) => unionBox(acc, item.box), useful[0].box);
+  const ratio = areaRatio(box, pageArea(input));
+  if (ratio < MIN_DENSE_VECTOR_UNION_AREA_RATIO) return;
+
+  candidates.push({
+    ...box,
+    kind: 'vector',
+    priority: 2,
+    reason: `${useful.length} vector drawing boxes across dense page structure`,
+    sources: useful.map(({ index }) => ({ type: 'vectorBox', index })),
+  });
 }
 
 function addTableCandidates(layout: PageLayout | undefined, candidates: Candidate[]): void {
