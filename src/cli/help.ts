@@ -82,6 +82,9 @@ Options
                           an outline section.
       --viewer            Emit top-level \`viewer\` settings: initial page mode/layout,
                           viewer preferences, open action, permissions, and MarkInfo.
+      --layers            Emit top-level \`layers\` from PDF optional content groups:
+                          layer names, visibility, usage states, radio groups, and
+                          viewer panel order for maps, CAD/design PDFs, and variants.
       --strip-repeated    Drop running headers / footers / page numbers (blocks the layout
                           pass tagged as \`repeated\`) from the rendered Markdown body so
                           LLM readers don't have to wade through the same footer N times.

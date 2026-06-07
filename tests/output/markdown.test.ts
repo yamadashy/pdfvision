@@ -391,6 +391,48 @@ describe('formatMarkdown', () => {
     expect(out).toContain('_No viewer settings found._');
   });
 
+  it('renders PDF layers with visibility and usage states', () => {
+    const out = formatMarkdown(
+      makeResult({
+        layers: {
+          name: 'Layer config',
+          creator: 'pdfvision test',
+          order: ['4R', { name: 'Nested group', order: ['5R'] }],
+          groups: [
+            {
+              id: '4R',
+              name: 'Visible layer',
+              visible: true,
+              intent: ['View'],
+              usage: { viewState: 'ON', printState: 'ON' },
+              rbGroups: [['4R', '5R']],
+            },
+            {
+              id: '5R',
+              name: 'Hidden layer',
+              visible: false,
+              intent: ['View', 'Design'],
+              usage: { viewState: 'OFF', printState: 'OFF' },
+            },
+          ],
+        },
+      }),
+    );
+
+    expect(out).toContain('## Layers');
+    expect(out).toContain('- **Config:** Layer config');
+    expect(out).toContain('- **Panel order:** \\["4R",{"name":"Nested group","order":\\["5R"\\]}\\]');
+    expect(out).toContain('| ID | Name | Visible | Intent | View | Print | Radio groups |');
+    expect(out).toContain('| 4R | Visible layer | yes | View | ON | ON | [["4R","5R"]] |');
+    expect(out).toContain('| 5R | Hidden layer | no | View, Design | OFF | OFF | [] |');
+  });
+
+  it('renders an explicit empty layers message when the layer pass found no groups', () => {
+    const out = formatMarkdown(makeResult({ layers: { groups: [] } }));
+    expect(out).toContain('## Layers');
+    expect(out).toContain('_No PDF layers found._');
+  });
+
   it('renders document attachment metadata without content bytes', () => {
     const out = formatMarkdown(
       makeResult({

@@ -15,6 +15,7 @@ interface DocumentResult {
   attachments?: DocumentAttachment[]; // embedded file metadata; present iff --attachments
   outline?: DocumentOutlineItem[]; // document bookmarks; present iff --outline
   viewer?: DocumentViewerState; // viewer settings; present iff --viewer
+  layers?: DocumentLayers;       // optional content groups; present iff --layers
   overview?: PageOverview[];   // per-page density summary; present iff pages.length > 1
   pages: PageResult[];         // one entry per selected page, in page-number order
 }
@@ -259,6 +260,33 @@ interface DocumentViewerState {
 
 `viewer` surfaces document-level state a human PDF viewer uses before reading page text: sidebar/page mode, page layout, preferences such as `DisplayDocTitle`, catalog `OpenAction`, permission flags, and tagged-PDF `MarkInfo`. Use it on specs, manuals, papers, forms, and long reports where opening position, bookmark/sidebar mode, copy/print permissions, or tagged-PDF structure affects navigation or accessibility. Empty `viewer: {}` means the pass ran and no viewer-level settings were present; absent `viewer` means `--viewer` was not requested.
 
+## Layers (`--layers`)
+
+```ts
+interface DocumentLayers {
+  name?: string;                 // optional-content configuration name
+  creator?: string;              // optional-content configuration creator
+  order?: DocumentLayerOrderItem[]; // viewer layer-panel order, including nested groups
+  groups: DocumentLayerGroup[];
+}
+
+type DocumentLayerOrderItem = string | { name?: string; order: DocumentLayerOrderItem[] };
+
+interface DocumentLayerGroup {
+  id: string;                    // PDF optional-content group id, e.g. "4R"
+  name?: string;                 // layer name shown by PDF viewers
+  visible: boolean;              // display-intent visibility after the default config is applied
+  intent?: string[];             // OCG intent names such as View or Design
+  usage?: {
+    viewState?: 'ON' | 'OFF';
+    printState?: 'ON' | 'OFF';
+  };
+  rbGroups?: string[][];         // mutually exclusive radio-button layer groups
+}
+```
+
+`layers` surfaces PDF optional content groups, the layer panel a human PDF viewer can expose for maps, CAD/design files, multilingual variants, and overlay-heavy documents. Use it when visible content may depend on a toggled layer or when a map/design page looks incomplete from text, vectors, and images alone. `groups[].visible` reflects pdf.js display-intent visibility after the document's default optional-content configuration is applied. Empty `layers: { groups: [] }` means the pass ran and the PDF has no optional content groups; absent `layers` means `--layers` was not requested.
+
 ### Heading levels (`role === 'heading'`)
 
 `role` is set when a block is classified as a heading; `level` ranks the visual hierarchy:
@@ -466,7 +494,7 @@ pdfvision doc.pdf -p <m.page> --render --render-region <m.bbox.x>,<m.bbox.y>,<m.
 </document>
 ```
 
-Empty `<pageLabels/>`, `<attachments/>`, `<outline/>`, `<viewer/>`, `<layout/>`, `<imageBoxes/>`, `<vectorBoxes/>`, `<formFields/>`, `<links/>`, `<annotations/>`, and `<ocr/>` (self-closing) mean "the pass ran and found nothing", which is distinct from the tag being absent (the pass wasn't requested).
+Empty `<pageLabels/>`, `<attachments/>`, `<outline/>`, `<viewer/>`, `<layers/>`, `<layout/>`, `<imageBoxes/>`, `<vectorBoxes/>`, `<formFields/>`, `<links/>`, `<annotations/>`, and `<ocr/>` (self-closing) mean "the pass ran and found nothing", which is distinct from the tag being absent (the pass wasn't requested).
 
 ## TOON output shape
 
@@ -525,4 +553,4 @@ for (const page of result.pages) {
 
 `processFile()` returns the formatted string output (`markdown` / `json` / `xml` / `toon`). `processDocument()` returns the structured object directly.
 
-Exported types: `DocumentResult`, `DocumentMetadata`, `DocumentAttachment`, `DocumentOutlineItem`, `DocumentOutlineTargetType`, `DocumentViewerState`, `DocumentOpenAction`, `DocumentPermissions`, `DocumentPermission`, `DocumentMarkInfo`, `JsonScalar`, `JsonValue`, `PageOverview`, `PageResult`, `PageQuality`, `PageWarning`, `SearchMatch`, `LayoutBlock`, `LayoutLine`, `LayoutTable`, `LayoutTableRow`, `LayoutTableCell`, `PageLayout`, `ImageBox`, `PageLink`, `PageLinkType`, `PageAnnotation`, `PageAnnotationBox`, `RenderRegion`, `TextSpan`, `PageOcr`, `OutputFormat`, `ProcessDocumentOptions`, `ProcessOptions`.
+Exported types: `DocumentResult`, `DocumentMetadata`, `DocumentAttachment`, `DocumentLayerGroup`, `DocumentLayerOrderItem`, `DocumentLayers`, `DocumentLayerUsage`, `DocumentOutlineItem`, `DocumentOutlineTargetType`, `DocumentViewerState`, `DocumentOpenAction`, `DocumentPermissions`, `DocumentPermission`, `DocumentMarkInfo`, `JsonScalar`, `JsonValue`, `PageOverview`, `PageResult`, `PageQuality`, `PageWarning`, `SearchMatch`, `LayoutBlock`, `LayoutLine`, `LayoutTable`, `LayoutTableRow`, `LayoutTableCell`, `PageLayout`, `ImageBox`, `PageLink`, `PageLinkType`, `PageAnnotation`, `PageAnnotationBox`, `RenderRegion`, `TextSpan`, `PageOcr`, `OutputFormat`, `ProcessDocumentOptions`, `ProcessOptions`.

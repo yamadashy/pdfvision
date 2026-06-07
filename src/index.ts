@@ -15,6 +15,10 @@ export { parsePageRange } from './core/pageRange.js';
 export { processDocument, processFile } from './core/processor.js';
 export type {
   DocumentAttachment,
+  DocumentLayerGroup,
+  DocumentLayerOrderItem,
+  DocumentLayers,
+  DocumentLayerUsage,
   DocumentMarkInfo,
   DocumentMetadata,
   DocumentOpenAction,

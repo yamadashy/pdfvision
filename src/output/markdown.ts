@@ -105,6 +105,29 @@ function appendViewer(lines: string[], viewer: NonNullable<DocumentResult['viewe
   }
 }
 
+function appendLayers(lines: string[], layers: NonNullable<DocumentResult['layers']>): void {
+  lines.push('');
+  lines.push('## Layers');
+  lines.push('');
+  if (layers.name) lines.push(`- **Config:** ${escapeInline(layers.name)}`);
+  if (layers.creator) lines.push(`- **Creator:** ${escapeInline(layers.creator)}`);
+  if (layers.order) lines.push(`- **Panel order:** ${escapeInline(JSON.stringify(layers.order))}`);
+  if (layers.groups.length === 0) {
+    lines.push('_No PDF layers found._');
+    return;
+  }
+  const showRbGroups = layers.groups.some((layer) => layer.rbGroups !== undefined);
+  lines.push('');
+  lines.push(`| ID | Name | Visible | Intent | View | Print |${showRbGroups ? ' Radio groups |' : ''}`);
+  lines.push(`| --- | --- | --- | --- | --- | --- |${showRbGroups ? ' --- |' : ''}`);
+  for (const layer of layers.groups) {
+    const rbGroupsCell = showRbGroups ? ` ${escapeTableCell(JSON.stringify(layer.rbGroups ?? []))} |` : '';
+    lines.push(
+      `| ${escapeTableCell(layer.id)} | ${escapeTableCell(layer.name ?? '')} | ${layer.visible ? 'yes' : 'no'} | ${escapeTableCell(layer.intent?.join(', ') ?? '')} | ${escapeTableCell(layer.usage?.viewState ?? '')} | ${escapeTableCell(layer.usage?.printState ?? '')} |${rbGroupsCell}`,
+    );
+  }
+}
+
 /** Body text for a page: either the pdf.js-derived `page.text` (default),
  *  or a layout-driven rebuild when repeated chrome must be stripped or
  *  when vertical CJK stacks are present. The latter avoids Markdown
@@ -155,6 +178,10 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
 
   if (result.viewer) {
     appendViewer(lines, result.viewer);
+  }
+
+  if (result.layers) {
+    appendLayers(lines, result.layers);
   }
 
   if (result.attachments) {

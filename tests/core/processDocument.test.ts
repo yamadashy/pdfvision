@@ -109,6 +109,16 @@ function buildPdfWithViewerState(): Uint8Array {
   ]);
 }
 
+function buildPdfWithLayers(): Uint8Array {
+  return buildRawPdf([
+    '<< /Type /Catalog /Pages 2 0 R /PageMode /UseOC /OCProperties << /OCGs [4 0 R 5 0 R] /D << /Name (Layer config) /Creator (pdfvision test) /BaseState /ON /OFF [5 0 R] /Order [4 0 R [(Nested group) 5 0 R]] /RBGroups [[4 0 R 5 0 R]] >> >> >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> >>',
+    '<< /Type /OCG /Name (Visible layer) /Intent [/View] /Usage << /View << /ViewState /ON >> /Print << /PrintState /ON >> >> >>',
+    '<< /Type /OCG /Name (Hidden layer) /Intent [/View /Design] /Usage << /View << /ViewState /OFF >> /Print << /PrintState /OFF >> >> >>',
+  ]);
+}
+
 describe('processDocument', () => {
   it('returns a structured DocumentResult, no JSON parsing required', async () => {
     const result = await processDocument(SAMPLE_PDF, { noCache: true });
@@ -261,6 +271,67 @@ describe('processDocument', () => {
     const result = await processDocument(SAMPLE_PDF, { noCache: true, viewer: true });
 
     expect(result.viewer).toEqual({});
+  });
+
+  it('extracts PDF optional content groups as viewer layers', async () => {
+    const result = await processDocument('memory://layers.pdf', {
+      sourceData: buildPdfWithLayers(),
+      noCache: true,
+      layers: true,
+    });
+
+    expect(result.layers).toMatchObject({
+      name: 'Layer config',
+      creator: 'pdfvision test',
+      order: ['4R', { name: 'Nested group', order: ['5R'] }],
+      groups: [
+        {
+          id: '4R',
+          name: 'Visible layer',
+          visible: true,
+          intent: ['View'],
+          usage: { viewState: 'ON', printState: 'ON' },
+          rbGroups: [['4R', '5R']],
+        },
+        {
+          id: '5R',
+          name: 'Hidden layer',
+          visible: false,
+          intent: ['View', 'Design'],
+          usage: { viewState: 'OFF', printState: 'OFF' },
+          rbGroups: [['4R', '5R']],
+        },
+      ],
+    });
+  });
+
+  it('emits an empty layers group list when layer extraction ran but found none', async () => {
+    const result = await processDocument(SAMPLE_PDF, { noCache: true, layers: true });
+
+    expect(result.layers).toEqual({ groups: [] });
+  });
+
+  it('keeps cache entries with vs without layers separate', async () => {
+    const cacheRoot = mkdtempSync(resolve(tmpdir(), 'pdfvision-layers-cache-'));
+    const originalCache = process.env.PDFVISION_CACHE_DIR;
+    process.env.PDFVISION_CACHE_DIR = cacheRoot;
+    try {
+      const sourceData = buildPdfWithLayers();
+      const withoutLayers = await processDocument('memory://layers-cache.pdf', {
+        sourceData,
+      });
+      const withLayers = await processDocument('memory://layers-cache.pdf', {
+        sourceData,
+        layers: true,
+      });
+
+      expect(withoutLayers.layers).toBeUndefined();
+      expect(withLayers.layers?.groups).toHaveLength(2);
+    } finally {
+      if (originalCache === undefined) delete process.env.PDFVISION_CACHE_DIR;
+      else process.env.PDFVISION_CACHE_DIR = originalCache;
+      rmSync(cacheRoot, { recursive: true, force: true });
+    }
   });
 
   it('extracts embedded attachment metadata without embedding attachment bytes', async () => {

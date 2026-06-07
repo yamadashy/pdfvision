@@ -109,6 +109,28 @@ export function formatXml(result: DocumentResult): string {
     }
   }
 
+  if (result.layers) {
+    const attrs: string[] = [];
+    if (result.layers.name !== undefined) attrs.push(`name="${escapeAttr(result.layers.name)}"`);
+    if (result.layers.creator !== undefined) attrs.push(`creator="${escapeAttr(result.layers.creator)}"`);
+    if (result.layers.order !== undefined) attrs.push(`order="${escapeAttr(JSON.stringify(result.layers.order))}"`);
+    if (result.layers.groups.length === 0) {
+      out.push(`<layers${attrs.length > 0 ? ` ${attrs.join(' ')}` : ''}/>`);
+    } else {
+      out.push(`<layers${attrs.length > 0 ? ` ${attrs.join(' ')}` : ''}>`);
+      for (const layer of result.layers.groups) {
+        const layerAttrs = [`id="${escapeAttr(layer.id)}"`, `visible="${layer.visible}"`];
+        if (layer.name !== undefined) layerAttrs.push(`name="${escapeAttr(layer.name)}"`);
+        if (layer.intent !== undefined) layerAttrs.push(`intent="${escapeAttr(layer.intent.join(','))}"`);
+        if (layer.usage?.viewState !== undefined) layerAttrs.push(`viewState="${layer.usage.viewState}"`);
+        if (layer.usage?.printState !== undefined) layerAttrs.push(`printState="${layer.usage.printState}"`);
+        if (layer.rbGroups !== undefined) layerAttrs.push(`rbGroups="${escapeAttr(JSON.stringify(layer.rbGroups))}"`);
+        out.push(`<layer ${layerAttrs.join(' ')}/>`);
+      }
+      out.push('</layers>');
+    }
+  }
+
   if (result.attachments) {
     if (result.attachments.length === 0) {
       out.push('<attachments/>');

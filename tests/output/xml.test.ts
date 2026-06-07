@@ -717,6 +717,41 @@ describe('formatXml', () => {
     expect(out).toContain('<viewer/>');
   });
 
+  it('emits PDF layers with visibility and usage states', () => {
+    const out = formatXml(
+      makeResult({
+        layers: {
+          name: 'Layer config',
+          creator: 'pdfvision test',
+          order: ['4R', { name: 'Nested group', order: ['5R'] }],
+          groups: [
+            {
+              id: '4R',
+              name: 'Visible layer',
+              visible: true,
+              intent: ['View'],
+              usage: { viewState: 'ON', printState: 'ON' },
+              rbGroups: [['4R', '5R']],
+            },
+          ],
+        },
+      }),
+    );
+
+    expect(out).toContain(
+      '<layers name="Layer config" creator="pdfvision test" order="[&quot;4R&quot;,{&quot;name&quot;:&quot;Nested group&quot;,&quot;order&quot;:[&quot;5R&quot;]}]">',
+    );
+    expect(out).toContain(
+      '<layer id="4R" visible="true" name="Visible layer" intent="View" viewState="ON" printState="ON" rbGroups="[[&quot;4R&quot;,&quot;5R&quot;]]"/>',
+    );
+    expect(out).toContain('</layers>');
+  });
+
+  it('emits self-closing <layers/> when extraction ran but found no layers', () => {
+    const out = formatXml(makeResult({ layers: { groups: [] } }));
+    expect(out).toContain('<layers/>');
+  });
+
   it('emits document attachment metadata without content bytes', () => {
     const out = formatXml(
       makeResult({

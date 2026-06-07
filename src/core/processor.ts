@@ -10,6 +10,7 @@ import { formatToon } from '../output/toon.js';
 import { formatXml } from '../output/xml.js';
 import type {
   DocumentAttachment,
+  DocumentLayers,
   DocumentOutlineItem,
   DocumentResult,
   DocumentViewerState,
@@ -31,6 +32,7 @@ import { dropCached, ensurePrivateDir, getCacheDir, getCached, pdfFingerprint, s
 import { type JoinItem, joinPageText } from './cjkJoin.js';
 import { buildFormFields } from './formFields.js';
 import { buildImageBoxes, type ImageOps } from './imageBoxes.js';
+import { buildLayers } from './layers.js';
 import { buildLayout, markRepeatedBlocks } from './layout.js';
 import { buildLinks } from './links.js';
 import { nonPrintableStats } from './nonPrintable.js';
@@ -66,6 +68,7 @@ interface CacheKeyInput {
   attachmentOutput?: string;
   outline?: boolean;
   viewer?: boolean;
+  layers?: boolean;
   ocr?: boolean;
   ocrLang?: string;
   search?: string | string[];
@@ -165,7 +168,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v59',
+    format: 'structured-v60',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -198,6 +201,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     attachmentOutput: input.attachmentOutput ? resolve(input.attachmentOutput) : null,
     outline: !!input.outline,
     viewer: !!input.viewer,
+    layers: !!input.layers,
     // OCR is expensive (tens of seconds for a multi-page scan); always cache
     // it. The lang string is part of the key (whitespace-normalised, order
     // preserved — tesseract treats the first language as primary) so that
@@ -782,6 +786,11 @@ export async function processDocument(filePath: string, options: ProcessDocument
           normalizeText: options.normalize !== false ? normalizeText : undefined,
         })
       : undefined;
+    const layers: DocumentLayers | undefined = options.layers
+      ? await buildLayers(doc, {
+          normalizeText: options.normalize !== false ? normalizeText : undefined,
+        })
+      : undefined;
 
     let imagePaths: string[] | null = null;
     // Parallel array to imagePaths: renderContentRatio for each rendered
@@ -1092,6 +1101,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       ...(attachments !== undefined && { attachments }),
       ...(outline !== undefined && { outline }),
       ...(viewer !== undefined && { viewer }),
+      ...(layers !== undefined && { layers }),
       ...(overview && { overview }),
       pages,
     };
@@ -1153,6 +1163,7 @@ export async function processFile(filePath: string, options: ProcessOptions): Pr
     attachmentOutput: options.attachmentOutput,
     outline: options.outline,
     viewer: options.viewer,
+    layers: options.layers,
     ocr: options.ocr,
     ocrLang: options.ocrLang,
     onWarning: options.onWarning,

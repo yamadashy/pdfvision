@@ -236,6 +236,12 @@ export interface ProcessDocumentOptions {
    */
   viewer?: boolean;
   /**
+   * Emit PDF optional content groups (viewer "layers") in `layers`. Useful for
+   * CAD drawings, maps, design files, and multilingual/variant documents where
+   * a human can toggle visible content in a layers panel.
+   */
+  layers?: boolean;
+  /**
    * Run OCR on each selected page and attach the result as `pages[].ocr`.
    * Off by default — OCR pulls in the optional `tesseract.js` dependency
    * (~30MB worker bundle) and is slow even on small documents. The
@@ -300,6 +306,8 @@ export interface ProcessOptions {
   outline?: boolean;
   /** See {@link ProcessDocumentOptions.viewer}. */
   viewer?: boolean;
+  /** See {@link ProcessDocumentOptions.layers}. */
+  layers?: boolean;
   ocr?: boolean;
   ocrLang?: string;
   /**
@@ -634,6 +642,39 @@ export interface DocumentViewerState {
   permissions?: DocumentPermissions;
   /** Tagged-PDF MarkInfo flags when present. */
   markInfo?: DocumentMarkInfo;
+}
+
+export interface DocumentLayerUsage {
+  viewState?: 'ON' | 'OFF';
+  printState?: 'ON' | 'OFF';
+}
+
+export interface DocumentLayerGroup {
+  /** PDF optional-content group id, e.g. `4R`. */
+  id: string;
+  /** Layer name shown by PDF viewers when present. */
+  name?: string;
+  /** Visibility for the display intent after the default config is applied. */
+  visible: boolean;
+  /** OCG intent names such as `View` or `Design`. */
+  intent?: string[];
+  /** View/print usage states when the PDF defines them. */
+  usage?: DocumentLayerUsage;
+  /** Radio-button group ids that make this layer mutually exclusive. */
+  rbGroups?: string[][];
+}
+
+export type DocumentLayerOrderItem = string | { name?: string; order: DocumentLayerOrderItem[] };
+
+export interface DocumentLayers {
+  /** Optional-content configuration name. */
+  name?: string;
+  /** Optional-content configuration creator. */
+  creator?: string;
+  /** Layer panel order, including nested groups, when provided. */
+  order?: DocumentLayerOrderItem[];
+  /** All optional-content groups known to the document. */
+  groups: DocumentLayerGroup[];
 }
 
 export interface DocumentAttachment {
@@ -1142,6 +1183,11 @@ export interface DocumentResult {
    * present.
    */
   viewer?: DocumentViewerState;
+  /**
+   * PDF optional content groups / layers, present iff layer extraction was
+   * requested. `groups: []` means the pass ran and the PDF has no layers.
+   */
+  layers?: DocumentLayers;
   /**
    * Top-level density summary across the selected pages. Present when
    * more than one page was extracted; omitted for single-page outputs
