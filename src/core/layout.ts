@@ -1,4 +1,4 @@
-import type { LayoutBlock, LayoutLine, PageLayout, PageResult, TextSpan } from '../types/index.js';
+import type { LayoutBlock, LayoutLine, LayoutTable, PageLayout, PageResult, TextSpan } from '../types/index.js';
 import { CJK_TIGHT_GAP_RATIO, isCjkLeading } from './cjkJoin.js';
 
 interface BBox {
@@ -84,6 +84,11 @@ const LAYOUT_SEGMENT_GAP_RATIO = 1.5;
 const LAYOUT_SEGMENT_MIN_GAP_PT = 16;
 const LINE_TOP_ALIGNMENT_RATIO = 0.5;
 const LINE_VERTICAL_OVERLAP_RATIO = 0.35;
+const TABLE_ROW_MIN_CELLS = 3;
+const TABLE_ROW_MIN_NUMERIC_CELLS = 2;
+const TABLE_GROUP_MAX_ROW_GAP_PT = 48;
+const REPEATED_CHROME_EDGE_RATIO = 0.1;
+const REPEATED_CHROME_MIN_EDGE_PT = 60;
 /** VERTICAL_SPAN_ASPECT_RATIO and VERTICAL_SPAN_MIN_FONT_MULTIPLIER
  *  were tuned against tall side labels and version annotations in sample
  *  PDFs. The ratio admits narrow vertical runs, while the font-size
@@ -134,6 +139,13 @@ function canShareLine(a: TextSpan, b: TextSpan): boolean {
 
 function canShareTextLine(a: TextSpan, b: TextSpan): boolean {
   if (!canShareLine(a, b)) return false;
+  const minHeight = Math.max(Math.min(a.height, b.height), 1);
+  if (Math.abs(a.y - b.y) < minHeight * LINE_TOP_ALIGNMENT_RATIO) return true;
+  const overlap = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+  return overlap >= minHeight * LINE_VERTICAL_OVERLAP_RATIO;
+}
+
+function canShareTableRow(a: LayoutLine, b: LayoutLine): boolean {
   const minHeight = Math.max(Math.min(a.height, b.height), 1);
   if (Math.abs(a.y - b.y) < minHeight * LINE_TOP_ALIGNMENT_RATIO) return true;
   const overlap = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
@@ -567,6 +579,78 @@ function canMergeAdjacentBodyBlocks(a: LayoutBlock, b: LayoutBlock): boolean {
   return sizeRatio <= 1.3;
 }
 
+function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefined {
+  const rowGroups = groupLinesByTableRow(lines)
+    .map((row) => row.sort((a, b) => a.x - b.x))
+    .filter(isLikelyTableRow);
+  if (rowGroups.length < 2) return undefined;
+
+  const tables: LayoutLine[][][] = [];
+  for (const row of rowGroups) {
+    const prevTable = tables.at(-1);
+    const prevRow = prevTable?.at(-1);
+    if (prevRow && rowY(row) - rowBottom(prevRow) <= TABLE_GROUP_MAX_ROW_GAP_PT) {
+      prevTable?.push(row);
+    } else {
+      tables.push([row]);
+    }
+  }
+
+  const result = tables.filter((table) => table.length >= 2).map(toLayoutTable);
+  return result.length > 0 ? result : undefined;
+}
+
+function groupLinesByTableRow(lines: LayoutLine[]): LayoutLine[][] {
+  const rows: LayoutLine[][] = [];
+  for (const line of [...lines].sort((a, b) => a.y - b.y || a.x - b.x)) {
+    const row = rows.find((candidate) => canShareTableRow(line, candidate[0]));
+    if (row) row.push(line);
+    else rows.push([line]);
+  }
+  return rows;
+}
+
+function isLikelyTableRow(row: LayoutLine[]): boolean {
+  if (row.length < TABLE_ROW_MIN_CELLS) return false;
+  const numericCells = row.filter((line) => isTableNumericCell(line.text)).length;
+  return numericCells >= TABLE_ROW_MIN_NUMERIC_CELLS;
+}
+
+function isTableNumericCell(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed.length === 0 || !/\d/u.test(trimmed)) return false;
+  return trimmed.replace(/[0-9.,()%$¥€£+\-\s]/gu, '').length === 0;
+}
+
+function rowY(row: LayoutLine[]): number {
+  return Math.min(...row.map((line) => line.y));
+}
+
+function rowBottom(row: LayoutLine[]): number {
+  return Math.max(...row.map((line) => line.y + line.height));
+}
+
+function toLayoutTable(rows: LayoutLine[][]): LayoutTable {
+  const cells = rows.flat();
+  const box = unionBox(cells);
+  return {
+    ...box,
+    rowCount: rows.length,
+    columnCount: Math.max(...rows.map((row) => row.length)),
+    rows: rows.map((row) => ({
+      y: round2(rowY(row)),
+      height: round2(rowBottom(row) - rowY(row)),
+      cells: row.map((cell) => ({
+        text: cell.text,
+        x: cell.x,
+        y: cell.y,
+        width: cell.width,
+        height: cell.height,
+      })),
+    })),
+  };
+}
+
 /**
  * Group `spans` into lines (by y proximity) and lines into blocks (by
  * vertical-gap and font-size similarity), then classify headings and
@@ -632,6 +716,7 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0): PageLayout {
       fontSize: round2(mode(sub.map((s) => s.fontSize))),
     }));
   });
+  const tables = detectLayoutTables(lines);
 
   // Cluster lines into blocks. Splits when:
   //   - vertical gap > 1× prev line height (paragraph break / section break)
@@ -687,9 +772,10 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0): PageLayout {
 
   classifyHeadings(blocks);
   const ordered = pageWidth > 0 ? reorderForColumns(blocks, pageWidth) : blocks;
-  if (ordered !== blocks) return { blocks: mergeAdjacentColumnBlocks(ordered) };
+  if (ordered !== blocks)
+    return { blocks: mergeAdjacentColumnBlocks(ordered), ...(tables !== undefined && { tables }) };
 
-  return { blocks: ordered };
+  return { blocks: ordered, ...(tables !== undefined && { tables }) };
 }
 
 /**
@@ -717,6 +803,7 @@ export function markRepeatedBlocks(pages: PageResult[]): void {
     const blocks = page.layout?.blocks ?? [];
     for (let bi = 0; bi < blocks.length; bi++) {
       const b = blocks[bi];
+      if (!isRepeatedChromeCandidate(page, b)) continue;
       const text = b.text.replace(/\s+/g, ' ').trim();
       if (text.length === 0) continue;
       const key = `${Math.round(b.y / 5) * 5}\t${text}`;
@@ -752,4 +839,9 @@ export function markRepeatedBlocks(pages: PageResult[]): void {
       }
     }
   }
+}
+
+function isRepeatedChromeCandidate(page: PageResult, block: LayoutBlock): boolean {
+  const edgeBand = Math.max(REPEATED_CHROME_MIN_EDGE_PT, page.height * REPEATED_CHROME_EDGE_RATIO);
+  return block.y <= edgeBand || block.y + block.height >= page.height - edgeBand;
 }

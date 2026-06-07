@@ -59,7 +59,7 @@ npx pdfvision --clear-cache
 
 Format choice (`markdown` / `json` / `xml` / `toon`) does **not** change the cache slot — the structured payload is shared and only re-formatted on output.
 
-`toon` ([Token-Oriented Object Notation](https://toonformat.dev)) is a lossless, schema-aware re-encoding of the same `DocumentResult` as `-f json`, tuned for tight LLM token budgets. Its win is concentrated in **uniform-array-heavy output**: `--geometry` (spans) drops ~40–48% of tokens versus the pretty-printed JSON because spans collapse into a CSV-like tabular form that names fields once. On plain text-body extraction the saving is negligible (free text doesn't compress), and on `--layout` (nested, non-uniform blocks) `-f xml` is usually more compact than `toon`. Reach for `toon` specifically when handing span/geometry-dense output to an LLM; otherwise `json` / `xml` remain the defaults. Decode back to the JSON data model with the `@toon-format/toon` package, so programmatic consumers lose nothing.
+`toon` ([Token-Oriented Object Notation](https://toonformat.dev)) is a lossless, schema-aware re-encoding of the same `DocumentResult` as `-f json`, tuned for tight LLM token budgets. Its win is concentrated in **uniform-array-heavy output**: `--geometry` (spans) drops ~40–48% of tokens versus the pretty-printed JSON because spans collapse into a CSV-like tabular form that names fields once. `layout.tables[].rows[].cells[]` also tabularizes well; plain text bodies and non-uniform `layout.blocks[]` compress less, so `-f xml` can still be more compact for block-heavy layout output. Reach for `toon` specifically when handing span/geometry-dense output to an LLM; otherwise `json` / `xml` remain the defaults. Decode back to the JSON data model with the `@toon-format/toon` package, so programmatic consumers lose nothing.
 
 ## Picking the right flags
 
@@ -67,7 +67,7 @@ The default extraction is enough for most native-text PDFs (papers, exports from
 
 | Goal | Flag | When to reach for it |
 |---|---|---|
-| Reconstruct reading order, find headings | `--layout` | Multi-column papers, slides where the agent must process blocks in order |
+| Reconstruct reading order, find headings, preserve table rows | `--layout` | Multi-column papers, slides where the agent must process blocks in order; table-heavy financial/government PDFs where `layout.tables[]` row-major hints preserve numeric row/cell relationships better than raw blocks |
 | Know where images sit on the page | `--image-boxes` | Bbox overlay on rendered PNG, figure detection |
 | Per-glyph bbox + fontSize | `--geometry` | Heading detection by font-size, custom layout heuristics |
 | Page is an image or native text is glyph-corrupted — get text from pixels | `--ocr` + `--ocr-lang` | `coverage: 0%` in the Overview, or `nonPrintableRatio >= 0.05` (native text includes glyph-index garbage; see below). **For non-English text, language order matters** — primary language goes first (`jpn+eng` for Japanese-dominant, `eng+jpn` for English-dominant). Full lang combinations and confidence semantics in `references/ocr.md`. |

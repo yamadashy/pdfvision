@@ -98,6 +98,7 @@ interface PageQuality {
 ```ts
 interface PageLayout {
   blocks: LayoutBlock[];     // in approximate reading order (multi-column aware)
+  tables?: LayoutTable[];    // row-major hints for aligned numeric tables
 }
 
 interface LayoutBlock {
@@ -114,9 +115,28 @@ interface LayoutLine {
   x: number; y: number; width: number; height: number;
   fontSize: number;          // most common fontSize across the spans in this line
 }
+
+interface LayoutTable {
+  x: number; y: number; width: number; height: number;
+  rowCount: number;
+  columnCount: number;       // maximum cells in any row
+  rows: LayoutTableRow[];
+}
+
+interface LayoutTableRow {
+  y: number; height: number;
+  cells: LayoutTableCell[];  // sorted left-to-right
+}
+
+interface LayoutTableCell {
+  text: string;
+  x: number; y: number; width: number; height: number;
+}
 ```
 
 Multi-column reading order: `blocks[]` reads top-to-bottom of the left column before the right column. Standalone level-1 / level-2 headings act as column separators; level-3 candidates stay inside their column so subsection breaks don't scramble reading order. Block clustering is still heuristic — table cells may merge into a single block.
+
+`tables[]` is a conservative row-major hint for aligned numeric tables. It appears when multiple rows have several cells and at least two numeric cells, a common shape in financial statements and government statistical tables. Treat it as a visual-structure aid, not a complete table parser: merged headers, standalone currency symbols, and footnotes can still require `--render` / `--render-region`, but `rows[].cells[]` preserves the row/cell order that `blocks[]` often loses when a table is split into label and numeric columns.
 
 ### Heading levels (`role === 'heading'`)
 
@@ -345,7 +365,7 @@ pages[2]:
             ...
 ```
 
-Decode back to the `DocumentResult` data model with the `@toon-format/toon` package (`decode(toonString)`). Where the win lands: `spans[]` (`--geometry`), `overview[]`, `imageBoxes[]`, and per-block `lines[]` all tabularize, so geometry/span-dense output is ~40–48% fewer tokens than the pretty-printed JSON. Free text bodies and the non-uniform `layout.blocks[]` (optional `role` / `level` / `repeated` per block) do **not** tabularize — for layout-dominant output `-f xml` is usually more compact than `toon`.
+Decode back to the `DocumentResult` data model with the `@toon-format/toon` package (`decode(toonString)`). Where the win lands: `spans[]` (`--geometry`), `overview[]`, `imageBoxes[]`, per-block `lines[]`, and `layout.tables[].rows[].cells[]` all tabularize, so geometry/span-dense output is ~40–48% fewer tokens than the pretty-printed JSON. Free text bodies and the non-uniform `layout.blocks[]` (optional `role` / `level` / `repeated` per block) do **not** tabularize — for layout-dominant output `-f xml` is usually more compact than `toon`.
 
 ## Library API (Node.js consumers)
 
@@ -370,4 +390,4 @@ for (const page of result.pages) {
 
 `processFile()` returns the formatted string output (`markdown` / `json` / `xml` / `toon`). `processDocument()` returns the structured object directly.
 
-Exported types: `DocumentResult`, `DocumentMetadata`, `PageOverview`, `PageResult`, `PageQuality`, `PageWarning`, `SearchMatch`, `LayoutBlock`, `LayoutLine`, `PageLayout`, `ImageBox`, `RenderRegion`, `TextSpan`, `PageOcr`, `OutputFormat`, `ProcessDocumentOptions`, `ProcessOptions`.
+Exported types: `DocumentResult`, `DocumentMetadata`, `PageOverview`, `PageResult`, `PageQuality`, `PageWarning`, `SearchMatch`, `LayoutBlock`, `LayoutLine`, `LayoutTable`, `LayoutTableRow`, `LayoutTableCell`, `PageLayout`, `ImageBox`, `RenderRegion`, `TextSpan`, `PageOcr`, `OutputFormat`, `ProcessDocumentOptions`, `ProcessOptions`.

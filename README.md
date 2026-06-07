@@ -35,7 +35,7 @@ Every page reports `charCount`, `imageCount`, `vectorCount`, `textCoverage`, and
 
 ### Preserve layout and visual structure
 
-- **`--layout`** returns blocks with `role: 'heading'`, `repeated: true` for running headers and footers, and multi-column reading order.
+- **`--layout`** returns blocks with `role: 'heading'`, `repeated: true` for running headers and footers, multi-column reading order, and row-major `layout.tables[]` hints for aligned numeric tables.
 - **`--image-boxes`** reports where each raster draw lands.
 - **`--geometry`** emits per-text-item `bbox` + `fontSize` so callers can reconstruct visual hierarchy themselves.
 
@@ -103,7 +103,7 @@ Options:
                           Directory for rendered PNGs (requires --render)
       --render-scale <n>  Rasterisation multiplier (default 2; bounds (0, 4]). Requires --render or --ocr.
       --geometry          Emit per-text-item bbox + font size in pages[].spans (json/xml/toon)
-      --layout            Reconstruct lines + blocks (with role / repeated flags) in pages[].layout;
+      --layout            Reconstruct lines + blocks + numeric-table hints in pages[].layout;
                           also enables layout warnings (text_overlap / near_bottom_edge /
                           body_near_repeated_chrome / off_page / tabular_numeric_layout)
       --image-boxes       Emit per-image bbox in pages[].imageBoxes;
@@ -174,7 +174,7 @@ for (const page of result.pages) {
 
 `processFile()` returns the same string output the CLI prints (`markdown` / `json` / `xml` / `toon`).
 
-Exports: `processDocument`, `processFile`, `parsePageRange`, plus full type definitions for `DocumentResult` / `PageResult` / `PageOverview` / `PageQuality` / `DocumentMetadata` / `ProcessDocumentOptions` / `ProcessOptions` / `OutputFormat` / `TextSpan` / `LayoutBlock` / `LayoutLine` / `PageLayout` / `ImageBox` / `PageOcr` / `PageWarning`.
+Exports: `processDocument`, `processFile`, `parsePageRange`, plus full type definitions for `DocumentResult` / `PageResult` / `PageOverview` / `PageQuality` / `DocumentMetadata` / `ProcessDocumentOptions` / `ProcessOptions` / `OutputFormat` / `TextSpan` / `LayoutBlock` / `LayoutLine` / `LayoutTable` / `LayoutTableRow` / `LayoutTableCell` / `PageLayout` / `ImageBox` / `PageOcr` / `PageWarning`.
 
 ## 💾 Caching
 

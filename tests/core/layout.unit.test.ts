@@ -487,6 +487,50 @@ describe('buildLayout — multi-column reading order', () => {
     }
   });
 
+  it('does not mark repeated table headers in the page body as chrome', () => {
+    // Annual-report tables can repeat the same year/change header at
+    // the same y on adjacent pages. That is table structure, not a
+    // running page header or footer.
+    function makePage(pageNum: number): PageResult {
+      const tableHeader: LayoutBlock = {
+        text: '2023 Change 2022 Change 2021',
+        x: 240,
+        y: 130,
+        width: 260,
+        height: 10,
+        lines: [{ text: '2023 Change 2022 Change 2021', x: 240, y: 130, width: 260, height: 10, fontSize: 8 }],
+      };
+      const bodyBlock: LayoutBlock = {
+        text: `Products page ${pageNum}`,
+        x: 50,
+        y: 150,
+        width: 300,
+        height: 10,
+        lines: [{ text: `Products page ${pageNum}`, x: 50, y: 150, width: 300, height: 10, fontSize: 8 }],
+      };
+      return {
+        page: pageNum,
+        text: `${tableHeader.text}\n${bodyBlock.text}`,
+        charCount: 50,
+        imageCount: 0,
+        vectorCount: 0,
+        textCoverage: 0.1,
+        nonPrintableRatio: 0,
+        nonPrintableCount: 0,
+        width: 612,
+        height: 792,
+        quality: { nativeTextStatus: 'ok' },
+        layout: { blocks: [tableHeader, bodyBlock] },
+      };
+    }
+
+    const pages = [makePage(1), makePage(2), makePage(3)];
+    markRepeatedBlocks(pages);
+    for (const page of pages) {
+      expect(page.layout?.blocks[0].repeated).toBeUndefined();
+    }
+  });
+
   it('concatenates consecutive CJK glyph spans without synthetic whitespace', () => {
     // Chinese UDHR-shaped input: per-character spans whose gap reflects
     // the real PDF (~0.28 × fontSize between consecutive glyphs, the
@@ -543,6 +587,35 @@ describe('buildLayout — multi-column reading order', () => {
     const layout = buildLayout(spans);
     const lines = layout.blocks.flatMap((block) => block.lines.map((line) => line.text));
     expect(lines).toEqual(['国⺠の75%', '9,308万枚']);
+  });
+
+  it('emits row-major table hints for aligned numeric statement rows', () => {
+    // Financial statement-shaped case: layout blocks can be column-major,
+    // but table hints should preserve row/cell order for value lookup.
+    const spans: TextSpan[] = [
+      span('Products', 50, 100, 8, 36),
+      span('$', 180, 100, 8, 4),
+      span('298,085', 210, 100, 8, 32),
+      span('316,199', 290, 100, 8, 32),
+      span('297,392', 370, 100, 8, 32),
+      span('Services', 50, 112, 8, 34),
+      span('85,200', 210, 112, 8, 28),
+      span('78,129', 290, 112, 8, 28),
+      span('68,425', 370, 112, 8, 28),
+      span('Total net sales', 50, 124, 8, 70),
+      span('383,285', 210, 124, 8, 32),
+      span('394,328', 290, 124, 8, 32),
+      span('365,817', 370, 124, 8, 32),
+    ];
+    const layout = buildLayout(spans, 612);
+    expect(layout.tables).toHaveLength(1);
+    expect(layout.tables?.[0].rowCount).toBe(3);
+    expect(layout.tables?.[0].columnCount).toBe(5);
+    expect(layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text))).toEqual([
+      ['Products', '$', '298,085', '316,199', '297,392'],
+      ['Services', '85,200', '78,129', '68,425'],
+      ['Total net sales', '383,285', '394,328', '365,817'],
+    ]);
   });
 
   it('does not fragment text when spans report fontSize 0 (broken PDF guard)', () => {

@@ -280,6 +280,58 @@ describe('formatXml', () => {
     expect(out).toMatch(/<line x="10" y="20" width="30" height="12" fontSize="12">Hi<\/line>/);
   });
 
+  it('emits detected layout tables as row-major XML cells', () => {
+    const out = formatXml(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 'table',
+            charCount: 5,
+            layout: {
+              blocks: [],
+              tables: [
+                {
+                  x: 10,
+                  y: 20,
+                  width: 200,
+                  height: 24,
+                  rowCount: 2,
+                  columnCount: 3,
+                  rows: [
+                    {
+                      y: 20,
+                      height: 10,
+                      cells: [
+                        { text: 'Products', x: 10, y: 20, width: 40, height: 10 },
+                        { text: '298,085', x: 100, y: 20, width: 40, height: 10 },
+                        { text: '316,199', x: 160, y: 20, width: 40, height: 10 },
+                      ],
+                    },
+                    {
+                      y: 34,
+                      height: 10,
+                      cells: [
+                        { text: 'Services', x: 10, y: 34, width: 40, height: 10 },
+                        { text: '85,200', x: 100, y: 34, width: 40, height: 10 },
+                        { text: '78,129', x: 160, y: 34, width: 40, height: 10 },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          }),
+        ],
+      }),
+    );
+    expect(out).toContain('<tables>');
+    expect(out).toContain('<table x="10" y="20" width="200" height="24" rowCount="2" columnCount="3">');
+    expect(out).toContain('<row y="20" height="10">');
+    expect(out).toContain('<cell x="10" y="20" width="40" height="10">Products</cell>');
+    expect(out).toContain('<cell x="160" y="34" width="40" height="10">78,129</cell>');
+  });
+
   it('emits an <imageBoxes> block with one <imageBox/> per box', () => {
     const out = formatXml(
       makeResult({

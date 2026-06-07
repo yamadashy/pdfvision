@@ -157,12 +157,11 @@ export interface ProcessDocumentOptions {
   geometry?: boolean;
   /**
    * Emit a per-page semantic layout in `pages[].layout` — text spans
-   * grouped into lines (by y proximity) and lines grouped into blocks
-   * (by vertical-gap and font-size similarity). The block array is in
-   * approximate reading order (top-down, left-right). Layout is computed
-   * from the same span data that powers `--geometry`, so enabling
-   * `layout` alone keeps the spans internal and only exposes the
-   * higher-level structure.
+   * grouped into lines and blocks, plus conservative row-major table
+   * hints for aligned numeric tables. The block array is in approximate
+   * reading order (top-down, left-right). Layout is computed from the
+   * same span data that powers `--geometry`, so enabling `layout` alone
+   * keeps the spans internal and only exposes the higher-level structure.
    */
   layout?: boolean;
   /**
@@ -378,6 +377,39 @@ export interface LayoutBlock {
  */
 export interface PageLayout {
   blocks: LayoutBlock[];
+  /**
+   * Row-major table hints reconstructed from aligned layout lines. Present
+   * only when pdfvision finds repeated rows with multiple numeric cells.
+   * This is deliberately a hint, not a full PDF table model: merged cells,
+   * currency symbols, and multi-line headers can still require visual
+   * confirmation, but row/cell order is much closer to what a human sees
+   * than the column-oriented `blocks` that table-heavy PDFs often produce.
+   */
+  tables?: LayoutTable[];
+}
+
+export interface LayoutTable {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rowCount: number;
+  columnCount: number;
+  rows: LayoutTableRow[];
+}
+
+export interface LayoutTableRow {
+  y: number;
+  height: number;
+  cells: LayoutTableCell[];
+}
+
+export interface LayoutTableCell {
+  text: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 /**
@@ -501,7 +533,8 @@ export interface PageResult {
   spans?: TextSpan[];
   /**
    * Reconstructed semantic layout, only present when `layout: true` was
-   * passed. Blocks are in approximate reading order.
+   * passed. Blocks are in approximate reading order; `tables[]` adds
+   * row-major hints for aligned numeric tables when detected.
    */
   layout?: PageLayout;
   /**
