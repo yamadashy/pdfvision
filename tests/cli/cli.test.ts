@@ -139,6 +139,13 @@ describe('cli', () => {
     expect(parsed.pages[0].links).toEqual([]);
   });
 
+  it('passes --annotations through to JSON output', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--json', '--annotations', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    const parsed = JSON.parse(r.stdout.join('\n'));
+    expect(parsed.pages[0].annotations).toEqual([]);
+  });
+
   it('passes --outline through to JSON output', async () => {
     const r = await captureRun([SAMPLE_PDF, '--json', '--outline', '--no-cache']);
     expect(r.exitCode).toBeNull();

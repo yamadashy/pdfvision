@@ -37,6 +37,7 @@ interface PageOverview {
   vectorBoxCount?: number;        // mirror of pages[N].vectorBoxes.length; present iff --vector-boxes
   formFieldCount?: number;        // mirror of pages[N].formFields.length; present iff --form-fields
   linkCount?: number;             // mirror of pages[N].links.length; present iff --links
+  annotationCount?: number;       // mirror of pages[N].annotations.length; present iff --annotations
   width: number;                  // PDF user-space points
   height: number;
 }
@@ -76,6 +77,7 @@ interface PageResult {
   vectorBoxes?: VectorBox[];     // present iff --vector-boxes
   formFields?: FormField[];      // present iff --form-fields
   links?: PageLink[];            // present iff --links
+  annotations?: PageAnnotation[]; // present iff --annotations
   ocr?: PageOcr;                 // present iff --ocr
   warnings?: PageWarning[];      // omitted when no rule fired on the page
   matches?: SearchMatch[];       // present iff --search; empty array means "search ran, no hit on this page"
@@ -175,6 +177,23 @@ interface PageLink {
 ```
 
 `links[]` surfaces clickable PDF link annotations: external URLs, citation jumps, table-of-contents destinations, and cross-reference targets. Coordinates use the same top-left PDF-point system as `spans`, `layout.blocks`, and `imageBoxes`, so a link bbox can feed directly into `--render-region`.
+
+## Annotations (`--annotations`)
+
+```ts
+interface PageAnnotation {
+  subtype: string;              // Text, Highlight, Underline, StrikeOut, FreeText, Stamp, Ink, ...
+  contents?: string;            // comment / markup contents
+  title?: string;               // author/title label
+  color?: [number, number, number];
+  modified?: string;            // PDF date string
+  hasAppearance?: boolean;
+  x: number; y: number; width: number; height: number;
+  quadBoxes?: { x: number; y: number; width: number; height: number }[];
+}
+```
+
+`annotations[]` surfaces non-link, non-widget PDF annotations: sticky notes, comments, highlights, underlines, strikeouts, stamps, free text, ink, and other markup. `Link`, `Widget`, and `Popup` annotations are intentionally excluded because links and form widgets have dedicated outputs and popups usually duplicate their parent annotation. Coordinates use the same top-left PDF-point system as `spans`, `layout.blocks`, and `imageBoxes`; `quadBoxes[]` gives precise markup regions when the PDF provides QuadPoints.
 
 ## Outline (`--outline`)
 
@@ -397,7 +416,7 @@ pdfvision doc.pdf -p <m.page> --render --render-region <m.bbox.x>,<m.bbox.y>,<m.
 </document>
 ```
 
-Empty `<outline/>`, `<layout/>`, `<imageBoxes/>`, `<vectorBoxes/>`, `<formFields/>`, `<links/>`, and `<ocr/>` (self-closing) mean "the pass ran and found nothing", which is distinct from the tag being absent (the pass wasn't requested).
+Empty `<outline/>`, `<layout/>`, `<imageBoxes/>`, `<vectorBoxes/>`, `<formFields/>`, `<links/>`, `<annotations/>`, and `<ocr/>` (self-closing) mean "the pass ran and found nothing", which is distinct from the tag being absent (the pass wasn't requested).
 
 ## TOON output shape
 
@@ -456,4 +475,4 @@ for (const page of result.pages) {
 
 `processFile()` returns the formatted string output (`markdown` / `json` / `xml` / `toon`). `processDocument()` returns the structured object directly.
 
-Exported types: `DocumentResult`, `DocumentMetadata`, `DocumentOutlineItem`, `DocumentOutlineTargetType`, `PageOverview`, `PageResult`, `PageQuality`, `PageWarning`, `SearchMatch`, `LayoutBlock`, `LayoutLine`, `LayoutTable`, `LayoutTableRow`, `LayoutTableCell`, `PageLayout`, `ImageBox`, `PageLink`, `PageLinkType`, `RenderRegion`, `TextSpan`, `PageOcr`, `OutputFormat`, `ProcessDocumentOptions`, `ProcessOptions`.
+Exported types: `DocumentResult`, `DocumentMetadata`, `DocumentOutlineItem`, `DocumentOutlineTargetType`, `PageOverview`, `PageResult`, `PageQuality`, `PageWarning`, `SearchMatch`, `LayoutBlock`, `LayoutLine`, `LayoutTable`, `LayoutTableRow`, `LayoutTableCell`, `PageLayout`, `ImageBox`, `PageLink`, `PageLinkType`, `PageAnnotation`, `PageAnnotationBox`, `RenderRegion`, `TextSpan`, `PageOcr`, `OutputFormat`, `ProcessDocumentOptions`, `ProcessOptions`.

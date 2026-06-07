@@ -81,6 +81,7 @@ export function formatXml(result: DocumentResult): string {
       if (p.vectorBoxCount !== undefined) ovAttrs.push(`vectorBoxCount="${p.vectorBoxCount}"`);
       if (p.formFieldCount !== undefined) ovAttrs.push(`formFieldCount="${p.formFieldCount}"`);
       if (p.linkCount !== undefined) ovAttrs.push(`linkCount="${p.linkCount}"`);
+      if (p.annotationCount !== undefined) ovAttrs.push(`annotationCount="${p.annotationCount}"`);
       ovAttrs.push(`width="${p.width}"`, `height="${p.height}"`);
       out.push(`<page ${ovAttrs.join(' ')}/>`);
     }
@@ -254,6 +255,40 @@ export function formatXml(result: DocumentResult): string {
           );
         }
         out.push('</links>');
+      }
+    }
+
+    if (page.annotations) {
+      if (page.annotations.length === 0) {
+        out.push('<annotations/>');
+      } else {
+        out.push('<annotations>');
+        for (const annotation of page.annotations) {
+          const annotationAttrs = [
+            `subtype="${escapeAttr(annotation.subtype)}"`,
+            `x="${annotation.x}"`,
+            `y="${annotation.y}"`,
+            `width="${annotation.width}"`,
+            `height="${annotation.height}"`,
+          ];
+          if (annotation.contents !== undefined) annotationAttrs.push(`contents="${escapeAttr(annotation.contents)}"`);
+          if (annotation.title !== undefined) annotationAttrs.push(`title="${escapeAttr(annotation.title)}"`);
+          if (annotation.color !== undefined) annotationAttrs.push(`color="${annotation.color.join(',')}"`);
+          if (annotation.modified !== undefined) annotationAttrs.push(`modified="${escapeAttr(annotation.modified)}"`);
+          if (annotation.hasAppearance !== undefined) {
+            annotationAttrs.push(`hasAppearance="${annotation.hasAppearance}"`);
+          }
+          if (annotation.quadBoxes && annotation.quadBoxes.length > 0) {
+            out.push(`<annotation ${annotationAttrs.join(' ')}>`);
+            for (const box of annotation.quadBoxes) {
+              out.push(`<quadBox x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}"/>`);
+            }
+            out.push('</annotation>');
+          } else {
+            out.push(`<annotation ${annotationAttrs.join(' ')}/>`);
+          }
+        }
+        out.push('</annotations>');
       }
     }
 

@@ -198,6 +198,12 @@ export interface ProcessDocumentOptions {
    */
   links?: boolean;
   /**
+   * Emit non-link, non-widget PDF annotations in `pages[].annotations`.
+   * Useful for comments, sticky notes, highlights, underlines, strikeouts,
+   * stamps, and other annotation markup a human PDF reader can see.
+   */
+  annotations?: boolean;
+  /**
    * Emit the document outline / bookmarks in `outline`. Useful for long
    * reports, manuals, and papers where a human PDF viewer exposes section
    * navigation in the sidebar. Named destinations are resolved to page
@@ -257,6 +263,8 @@ export interface ProcessOptions {
   formFields?: boolean;
   /** See {@link ProcessDocumentOptions.links}. */
   links?: boolean;
+  /** See {@link ProcessDocumentOptions.annotations}. */
+  annotations?: boolean;
   /** See {@link ProcessDocumentOptions.outline}. */
   outline?: boolean;
   ocr?: boolean;
@@ -544,6 +552,34 @@ export interface DocumentOutlineItem {
   items?: DocumentOutlineItem[];
 }
 
+export interface PageAnnotationBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface PageAnnotation {
+  /** PDF annotation subtype such as Text, Highlight, Underline, StrikeOut, FreeText, Stamp, or Ink. */
+  subtype: string;
+  /** Comment / markup contents when the PDF provides them. */
+  contents?: string;
+  /** Annotation title / author label when the PDF provides it. */
+  title?: string;
+  /** RGB annotation color, 0..255 per channel. */
+  color?: [number, number, number];
+  /** PDF modification date string when available. */
+  modified?: string;
+  /** Whether pdf.js reports an appearance stream for this annotation. */
+  hasAppearance?: boolean;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** Precise markup quadrilateral boxes, present when the PDF provides QuadPoints. */
+  quadBoxes?: PageAnnotationBox[];
+}
+
 export interface PageResult {
   page: number;
   /**
@@ -674,6 +710,12 @@ export interface PageResult {
    * `spans`, `layout.blocks`, and `imageBoxes`.
    */
   links?: PageLink[];
+  /**
+   * Non-link, non-widget PDF annotations, only present when
+   * `annotations: true` was passed. Coordinates use the same top-left
+   * PDF-point system as `spans`, `layout.blocks`, and `imageBoxes`.
+   */
+  annotations?: PageAnnotation[];
   /**
    * OCR-derived text + confidence + language, only present when
    * `ocr: true` was passed. The pdfjs-derived `text` field is preserved
@@ -953,6 +995,13 @@ export interface PageOverview {
    * present-with-`0` when extraction ran but no link annotations exist.
    */
   linkCount?: number;
+  /**
+   * Count of non-link PDF annotations on the page (mirror of
+   * `pages[].annotations.length`). Omitted when `annotations` was not
+   * requested; present-with-`0` when extraction ran but no comments /
+   * markup annotations exist.
+   */
+  annotationCount?: number;
   width: number;
   height: number;
 }

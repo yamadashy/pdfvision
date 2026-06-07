@@ -43,6 +43,22 @@ async function buildPdfWithOutline(): Promise<Uint8Array> {
   return new Uint8Array(Buffer.concat(chunks));
 }
 
+async function buildPdfWithAnnotations(): Promise<Uint8Array> {
+  const chunks: Buffer[] = [];
+  const doc = new PDFDocument({ size: [612, 792], margin: 0 });
+  doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+  const done = new Promise<void>((resolveDone) => doc.on('end', resolveDone));
+
+  doc.text('Annotated text', 100, 72);
+  doc.note(100, 72, 22, 22, 'Ｎｏｔｅ text', { color: [255, 255, 0] as never });
+  doc.highlight(100, 120, 80, 12, { color: [255, 0, 0] as never });
+  doc.link(100, 160, 80, 12, 'https://example.com');
+  doc.end();
+
+  await done;
+  return new Uint8Array(Buffer.concat(chunks));
+}
+
 describe('processDocument', () => {
   it('returns a structured DocumentResult, no JSON parsing required', async () => {
     const result = await processDocument(SAMPLE_PDF, { noCache: true });
@@ -167,6 +183,37 @@ describe('processDocument', () => {
       }),
       expect.objectContaining({ title: 'Details', type: 'destination', page: 2 }),
     ]);
+  });
+
+  it('extracts real non-link annotations with top-left bboxes and excludes links', async () => {
+    const result = await processDocument('memory://annotations.pdf', {
+      sourceData: await buildPdfWithAnnotations(),
+      noCache: true,
+      annotations: true,
+      links: true,
+    });
+
+    expect(result.pages[0].annotations).toEqual([
+      expect.objectContaining({
+        subtype: 'Text',
+        contents: 'Note text',
+        color: [255, 255, 0],
+        x: 100,
+        y: 72,
+        width: 22,
+        height: 22,
+      }),
+      expect.objectContaining({
+        subtype: 'Highlight',
+        color: [255, 0, 0],
+        x: 100,
+        y: 120,
+        width: 80,
+        height: 12,
+        quadBoxes: [expect.objectContaining({ x: 100, y: 120, width: 80, height: 12 })],
+      }),
+    ]);
+    expect(result.pages[0].links).toHaveLength(1);
   });
 
   it('mirrors linkCount on the overview when link extraction runs on a multi-page PDF', async () => {

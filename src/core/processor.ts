@@ -13,6 +13,7 @@ import type {
   DocumentResult,
   FormField,
   ImageBox,
+  PageAnnotation,
   PageLayout,
   PageLink,
   PageResult,
@@ -22,6 +23,7 @@ import type {
   TextSpan,
   VectorBox,
 } from '../types/index.js';
+import { buildAnnotations } from './annotations.js';
 import { dropCached, ensurePrivateDir, getCacheDir, getCached, pdfFingerprint, setCache } from './cache.js';
 import { type JoinItem, joinPageText } from './cjkJoin.js';
 import { buildFormFields } from './formFields.js';
@@ -54,6 +56,7 @@ interface CacheKeyInput {
   vectorBoxes?: boolean;
   formFields?: boolean;
   links?: boolean;
+  annotations?: boolean;
   outline?: boolean;
   ocr?: boolean;
   ocrLang?: string;
@@ -154,7 +157,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v54',
+    format: 'structured-v55',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -181,6 +184,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     vectorBoxes: !!input.vectorBoxes,
     formFields: !!input.formFields,
     links: !!input.links,
+    annotations: !!input.annotations,
     outline: !!input.outline,
     // OCR is expensive (tens of seconds for a multi-page scan); always cache
     // it. The lang string is part of the key (whitespace-normalised, order
@@ -260,6 +264,7 @@ interface PageData {
   vectorBoxes?: VectorBox[];
   formFields?: FormField[];
   links?: PageLink[];
+  annotations?: PageAnnotation[];
 }
 
 interface PageFlags {
@@ -270,6 +275,7 @@ interface PageFlags {
   vectorBoxes: boolean;
   formFields: boolean;
   links: boolean;
+  annotations: boolean;
   /** Build spans internally even when neither `geometry` nor `layout`
    *  was requested. Search needs them for per-match bbox; the public
    *  `pages[].spans` payload still requires `geometry`. */
@@ -382,9 +388,15 @@ async function extractPageData(
   const vectorBoxes = flags.vectorBoxes
     ? buildVectorBoxes(opList.fnArray, opList.argsArray as unknown[][], ops, height, xMin, yMin)
     : undefined;
-  const annotations = flags.formFields || flags.links ? await page.getAnnotations({ intent: 'display' }) : undefined;
+  const annotations =
+    flags.formFields || flags.links || flags.annotations ? await page.getAnnotations({ intent: 'display' }) : undefined;
   const formFields = flags.formFields ? buildFormFields(annotations ?? [], height, xMin, yMin) : undefined;
   const links = flags.links ? buildLinks(annotations ?? [], height, xMin, yMin) : undefined;
+  const pageAnnotations = flags.annotations
+    ? buildAnnotations(annotations ?? [], height, xMin, yMin, {
+        normalizeText: flags.normalize ? normalizeText : undefined,
+      })
+    : undefined;
 
   const pageArea = width * height;
   const rawCoverage = pageArea > 0 ? textArea / pageArea : 0;
@@ -438,6 +450,7 @@ async function extractPageData(
     ...(vectorBoxes !== undefined && { vectorBoxes }),
     ...(formFields !== undefined && { formFields }),
     ...(links !== undefined && { links }),
+    ...(pageAnnotations !== undefined && { annotations: pageAnnotations }),
   };
 }
 
@@ -814,6 +827,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       vectorBoxes: !!options.vectorBoxes,
       formFields: !!options.formFields,
       links: !!options.links,
+      annotations: !!options.annotations,
       // Search needs span-level bbox to populate `matches[*].bbox`;
       // build spans internally even if the caller didn't ask for the
       // full `pages[].spans` payload via --geometry.
@@ -868,6 +882,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
         ...(data.vectorBoxes !== undefined && { vectorBoxes: data.vectorBoxes }),
         ...(data.formFields !== undefined && { formFields: data.formFields }),
         ...(data.links !== undefined && { links: data.links }),
+        ...(data.annotations !== undefined && { annotations: data.annotations }),
         // Initial classification using whatever signals we have so far.
         // OCR may attach a renderContentRatio below; the post-OCR pass
         // overwrites this with the final classification.
@@ -993,6 +1008,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
             ...(p.vectorBoxes !== undefined && { vectorBoxCount: p.vectorBoxes.length }),
             ...(p.formFields !== undefined && { formFieldCount: p.formFields.length }),
             ...(p.links !== undefined && { linkCount: p.links.length }),
+            ...(p.annotations !== undefined && { annotationCount: p.annotations.length }),
             width: p.width,
             height: p.height,
           }))
@@ -1063,6 +1079,7 @@ export async function processFile(filePath: string, options: ProcessOptions): Pr
     vectorBoxes: options.vectorBoxes,
     formFields: options.formFields,
     links: options.links,
+    annotations: options.annotations,
     outline: options.outline,
     ocr: options.ocr,
     ocrLang: options.ocrLang,

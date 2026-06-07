@@ -66,6 +66,9 @@ Options
       --links             Emit \`pages[].links\` — clickable PDF link annotations such as
                           external URLs, citation jumps, and table-of-contents destinations
                           with bboxes. Markdown also renders a links table.
+      --annotations       Emit \`pages[].annotations\` — non-link PDF annotations such as
+                          comments, sticky notes, highlights, underlines, strikeouts, stamps,
+                          and other markup with bboxes and comment text.
       --outline           Emit top-level \`outline\` document bookmarks, preserving hierarchy
                           and resolving destination pages when possible. Markdown also renders
                           an outline section.

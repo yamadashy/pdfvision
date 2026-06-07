@@ -32,6 +32,10 @@ function fieldValue(field: NonNullable<PageResult['formFields']>[number]): strin
   return field.value ?? '';
 }
 
+function annotationColor(annotation: NonNullable<PageResult['annotations']>[number]): string {
+  return annotation.color ? annotation.color.join(',') : '';
+}
+
 function formatBox(box: { x: number; y: number; width: number; height: number }): string {
   return `${box.x},${box.y},${box.width},${box.height}`;
 }
@@ -137,6 +141,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     const showVectorBoxes = result.pages.some((p) => p.vectorBoxes !== undefined);
     const showFormFields = result.pages.some((p) => p.formFields !== undefined);
     const showLinks = result.pages.some((p) => p.links !== undefined);
+    const showAnnotations = result.pages.some((p) => p.annotations !== undefined);
     // The Warnings column appears only when at least one page carries
     // a non-empty `warnings` array. Like NonPrint / Render, the column
     // only shows up when there's actual signal — otherwise the table
@@ -152,10 +157,10 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     lines.push('## Overview');
     lines.push('');
     lines.push(
-      `| Page | Chars | Images | Coverage |${showNonPrint ? ' NonPrint |' : ''}${showRender ? ' Render |' : ''} Size (pt) |${showVectors ? ' Vectors |' : ''}${showVectorBoxes ? ' VectorBoxes |' : ''}${showBlocks ? ' Blocks |' : ''}${showWarnings ? ' Warnings |' : ''}${showMatches ? ' Matches |' : ''}${showFormFields ? ' FormFields |' : ''}${showLinks ? ' Links |' : ''}`,
+      `| Page | Chars | Images | Coverage |${showNonPrint ? ' NonPrint |' : ''}${showRender ? ' Render |' : ''} Size (pt) |${showVectors ? ' Vectors |' : ''}${showVectorBoxes ? ' VectorBoxes |' : ''}${showBlocks ? ' Blocks |' : ''}${showWarnings ? ' Warnings |' : ''}${showMatches ? ' Matches |' : ''}${showFormFields ? ' FormFields |' : ''}${showLinks ? ' Links |' : ''}${showAnnotations ? ' Annotations |' : ''}`,
     );
     lines.push(
-      `| ---: | ---: | ---: | ---: |${showNonPrint ? ' ---: |' : ''}${showRender ? ' ---: |' : ''} ---: |${showVectors ? ' ---: |' : ''}${showVectorBoxes ? ' ---: |' : ''}${showBlocks ? ' ---: |' : ''}${showWarnings ? ' ---: |' : ''}${showMatches ? ' ---: |' : ''}${showFormFields ? ' ---: |' : ''}${showLinks ? ' ---: |' : ''}`,
+      `| ---: | ---: | ---: | ---: |${showNonPrint ? ' ---: |' : ''}${showRender ? ' ---: |' : ''} ---: |${showVectors ? ' ---: |' : ''}${showVectorBoxes ? ' ---: |' : ''}${showBlocks ? ' ---: |' : ''}${showWarnings ? ' ---: |' : ''}${showMatches ? ' ---: |' : ''}${showFormFields ? ' ---: |' : ''}${showLinks ? ' ---: |' : ''}${showAnnotations ? ' ---: |' : ''}`,
     );
     for (const page of result.pages) {
       const coveragePct = Math.round(page.textCoverage * 100);
@@ -180,8 +185,9 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
       const matchesCell = showMatches ? ` ${page.matches?.length ?? 0} |` : '';
       const formFieldsCell = showFormFields ? ` ${page.formFields?.length ?? 0} |` : '';
       const linksCell = showLinks ? ` ${page.links?.length ?? 0} |` : '';
+      const annotationsCell = showAnnotations ? ` ${page.annotations?.length ?? 0} |` : '';
       lines.push(
-        `| ${page.page} | ${page.charCount} | ${page.imageCount} | ${coveragePct}% |${nonPrintCell}${renderCell} ${formatSize(page)} |${vectorsCell}${vectorBoxesCell}${blocksCell}${warningsCell}${matchesCell}${formFieldsCell}${linksCell}`,
+        `| ${page.page} | ${page.charCount} | ${page.imageCount} | ${coveragePct}% |${nonPrintCell}${renderCell} ${formatSize(page)} |${vectorsCell}${vectorBoxesCell}${blocksCell}${warningsCell}${matchesCell}${formFieldsCell}${linksCell}${annotationsCell}`,
       );
     }
   }
@@ -211,6 +217,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     const vectorBoxesFragment = page.vectorBoxes !== undefined ? ` · vectorBoxes: ${page.vectorBoxes.length}` : '';
     const formFieldsFragment = page.formFields !== undefined ? ` · formFields: ${page.formFields.length}` : '';
     const linksFragment = page.links !== undefined ? ` · links: ${page.links.length}` : '';
+    const annotationsFragment = page.annotations !== undefined ? ` · annotations: ${page.annotations.length}` : '';
     // Surface the derived quality classification when it's abnormal so
     // the LLM-facing markdown carries the same dispatch signal that
     // JSON / XML expose. `nativeTextStatus === 'ok'` and an `'empty'`
@@ -232,7 +239,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     // because no search ran. Mirrors the overview Matches column.
     const matchesFragment = page.matches !== undefined ? ` · matches: ${page.matches.length}` : '';
     lines.push(
-      `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${nonPrintFragment}${renderFragment}${vectorsFragment}${vectorBoxesFragment}${formFieldsFragment}${linksFragment}${nativeFragment}${visualFragment}${warningsFragment}${matchesFragment} · size: ${formatSize(page)}pt_`,
+      `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${nonPrintFragment}${renderFragment}${vectorsFragment}${vectorBoxesFragment}${formFieldsFragment}${linksFragment}${annotationsFragment}${nativeFragment}${visualFragment}${warningsFragment}${matchesFragment} · size: ${formatSize(page)}pt_`,
     );
     const body = pageBody(page, options);
     if (body) {
@@ -268,6 +275,23 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
         lines.push('| --- | --- | --- |');
         for (const link of page.links) {
           lines.push(`| ${link.type} | ${escapeTableCell(link.target)} | ${formatBox(link)} |`);
+        }
+      }
+    }
+    if (page.annotations) {
+      lines.push('');
+      lines.push('### Annotations');
+      if (page.annotations.length === 0) {
+        lines.push('');
+        lines.push('_No non-link annotations found._');
+      } else {
+        lines.push('');
+        lines.push('| Type | Contents | Title | BBox | Color | QuadBoxes |');
+        lines.push('| --- | --- | --- | --- | --- | ---: |');
+        for (const annotation of page.annotations) {
+          lines.push(
+            `| ${escapeTableCell(annotation.subtype)} | ${escapeTableCell(annotation.contents ?? '')} | ${escapeTableCell(annotation.title ?? '')} | ${formatBox(annotation)} | ${annotationColor(annotation)} | ${annotation.quadBoxes?.length ?? 0} |`,
+          );
         }
       }
     }

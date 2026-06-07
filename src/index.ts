@@ -24,6 +24,8 @@ export type {
   LayoutBlock,
   LayoutLine,
   OutputFormat,
+  PageAnnotation,
+  PageAnnotationBox,
   PageLayout,
   PageLink,
   PageLinkType,

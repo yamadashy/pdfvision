@@ -571,6 +571,63 @@ describe('formatXml', () => {
     expect(out).toContain('<links/>');
   });
 
+  it('emits non-link annotations with quad boxes and overview counts', () => {
+    const out = formatXml(
+      makeResult({
+        totalPages: 2,
+        overview: [
+          {
+            page: 1,
+            charCount: 1,
+            imageCount: 0,
+            vectorCount: 0,
+            textCoverage: 0.1,
+            nonPrintableRatio: 0,
+            nonPrintableCount: 0,
+            quality: { nativeTextStatus: 'ok' },
+            annotationCount: 1,
+            width: 612,
+            height: 792,
+          },
+        ],
+        pages: [
+          makePage({
+            page: 1,
+            text: 't',
+            charCount: 1,
+            annotations: [
+              {
+                subtype: 'Highlight',
+                contents: 'A & B',
+                title: 'Markup',
+                color: [255, 255, 11],
+                modified: "D:20140401161700+02'00'",
+                hasAppearance: false,
+                x: 100,
+                y: 80,
+                width: 80,
+                height: 12,
+                quadBoxes: [{ x: 100, y: 80, width: 80, height: 12 }],
+              },
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toContain('annotationCount="1"');
+    expect(out).toContain('<annotations>');
+    expect(out).toContain(
+      '<annotation subtype="Highlight" x="100" y="80" width="80" height="12" contents="A &amp; B" title="Markup" color="255,255,11" modified="D:20140401161700+02\'00\'" hasAppearance="false">',
+    );
+    expect(out).toContain('<quadBox x="100" y="80" width="80" height="12"/>');
+  });
+
+  it('emits self-closing <annotations/> when extraction ran but found no non-link annotations', () => {
+    const out = formatXml(makeResult({ pages: [makePage({ page: 1, text: 't', charCount: 1, annotations: [] })] }));
+    expect(out).toContain('<annotations/>');
+  });
+
   it('emits document outline items with nested children', () => {
     const out = formatXml(
       makeResult({

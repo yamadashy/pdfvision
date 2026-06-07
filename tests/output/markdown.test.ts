@@ -276,6 +276,42 @@ describe('formatMarkdown', () => {
     expect(out).toContain('_No clickable links found._');
   });
 
+  it('adds annotation counts and an annotations table when comments or markup are present', () => {
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 2,
+        pages: [
+          makePage({
+            page: 1,
+            text: 'annotated',
+            charCount: 9,
+            annotations: [
+              {
+                subtype: 'Highlight',
+                contents: 'important|note',
+                title: 'Markup',
+                color: [255, 255, 11],
+                x: 100,
+                y: 80,
+                width: 80,
+                height: 12,
+                quadBoxes: [{ x: 100, y: 80, width: 80, height: 12 }],
+              },
+            ],
+          }),
+          makePage({ page: 2, text: 'plain', charCount: 5, annotations: [] }),
+        ],
+      }),
+    );
+
+    expect(out).toMatch(/\| Page \| Chars \| Images \| Coverage \| Size \(pt\) \| Annotations \|/);
+    expect(out).toMatch(/\| 1 \| 9 \| 0 \| 0% \| 612×792 \| 1 \|/);
+    expect(out).toMatch(/annotations: 1/);
+    expect(out).toContain('### Annotations');
+    expect(out).toContain('| Highlight | important\\|note | Markup | 100,80,80,12 | 255,255,11 | 1 |');
+    expect(out).toContain('_No non-link annotations found._');
+  });
+
   it('renders the document outline when outline extraction was requested', () => {
     const out = formatMarkdown(
       makeResult({
