@@ -340,6 +340,27 @@ describe('processDocument search', () => {
     expect(matches).toEqual([]);
   });
 
+  it('does not stitch ACL-style two-column body lines across narrow gutters', async () => {
+    // BERT / ACL paper-shaped case: same-baseline left and right body
+    // columns can have only ~17pt of gutter. Search context should not
+    // join the left column tail to the right column hit.
+    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const compiled = compileSearch('inference approaches', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const matches = searchPage(
+      [
+        { text: 'natural language inference', x: 72, y: 643, width: 218, height: 10.91, fontSize: 10.91 },
+        { text: 'approaches', x: 307, y: 643, width: 49, height: 10.91, fontSize: 10.91 },
+      ],
+      undefined,
+      1,
+      612,
+      792,
+      compiled,
+    );
+    expect(matches).toEqual([]);
+  });
+
   it('suppresses OCR search duplicates already covered by precise native matches', async () => {
     // Scan-with-hidden-text-layer case: --ocr can find the same word as
     // the native text layer, but OCR currently has only page-level bbox.
