@@ -165,6 +165,49 @@ describe('formatMarkdown', () => {
     expect(out).toMatch(/vectors: 12/);
   });
 
+  it('adds form field counts and a form-field table when form fields are present', () => {
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 2,
+        pages: [
+          makePage({
+            page: 1,
+            text: 'form page',
+            charCount: 9,
+            formFields: [
+              {
+                name: 'topmostSubform[0].Page1[0].f1_01[0]',
+                type: 'text',
+                x: 228.8,
+                y: 48.5,
+                width: 88,
+                height: 11,
+              },
+              {
+                name: 'agree|box',
+                type: 'checkbox',
+                x: 36,
+                y: 62,
+                width: 8,
+                height: 8,
+                value: 'Off',
+                checked: false,
+              },
+            ],
+          }),
+          makePage({ page: 2, text: 'plain', charCount: 5, formFields: [] }),
+        ],
+      }),
+    );
+
+    expect(out).toMatch(/\| Page \| Chars \| Images \| Coverage \| Size \(pt\) \| FormFields \|/);
+    expect(out).toMatch(/\| 1 \| 9 \| 0 \| 0% \| 612×792 \| 2 \|/);
+    expect(out).toMatch(/formFields: 2/);
+    expect(out).toContain('### Form fields');
+    expect(out).toContain('| checkbox | agree\\|box | unchecked | 36,62,8,8 |');
+    expect(out).toContain('_No interactive form fields found._');
+  });
+
   it('adds a Blocks column to the Overview table when --layout populated pages[].layout', () => {
     // With layout on, agents can scan the Blocks count alongside the
     // density signals to spot pages that decompose differently — a

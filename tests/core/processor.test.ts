@@ -55,6 +55,16 @@ describe('processFile', () => {
     expect(parsed.pages[0].page).toBe(1);
   });
 
+  it('passes form-field extraction through to processDocument', async () => {
+    const result = await processFile(SAMPLE_PDF, {
+      format: 'json',
+      formFields: true,
+      noCache: true,
+    });
+    const parsed = JSON.parse(result);
+    expect(parsed.pages[0].formFields).toEqual([]);
+  });
+
   it('renders pages even when cache is disabled', async () => {
     const result = await processFile(SAMPLE_PDF, {
       format: 'json',

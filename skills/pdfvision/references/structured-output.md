@@ -138,6 +138,23 @@ Multi-column reading order: `blocks[]` reads top-to-bottom of the left column be
 
 `tables[]` is a conservative row-major hint for aligned numeric tables. It appears when multiple rows have several cells and at least two numeric cells, a common shape in financial statements and government statistical tables. Treat it as a visual-structure aid, not a complete table parser: merged headers, standalone currency symbols, and footnotes can still require `--render` / `--render-region`, but `rows[].cells[]` preserves the row/cell order that `blocks[]` often loses when a table is split into label and numeric columns.
 
+## Form Fields (`--form-fields`)
+
+```ts
+interface FormField {
+  name: string;              // PDF field name
+  type: 'text' | 'checkbox' | 'radio' | 'choice' | 'signature' | 'button' | 'unknown';
+  x: number; y: number; width: number; height: number;
+  value?: string;            // current value when present
+  checked?: boolean;         // checkbox/radio state when applicable
+  readOnly?: boolean;
+  required?: boolean;
+  multiline?: boolean;
+}
+```
+
+`formFields[]` surfaces interactive PDF widget annotations: blank text inputs, checkboxes, radio buttons, choice fields, and signatures. It is especially useful for government and tax forms where native text extraction can read the labels but not the fillable boxes a human sees. Coordinates use the same top-left PDF-point system as `spans`, `layout.blocks`, and `imageBoxes`, so a field bbox can feed directly into `--render-region`.
+
 ### Heading levels (`role === 'heading'`)
 
 `role` is set when a block is classified as a heading; `level` ranks the visual hierarchy:

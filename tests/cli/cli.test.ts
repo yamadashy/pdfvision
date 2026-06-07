@@ -125,6 +125,13 @@ describe('cli', () => {
     expect(parsed.totalPages).toBe(1);
   });
 
+  it('passes --form-fields through to JSON output', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--json', '--form-fields', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    const parsed = JSON.parse(r.stdout.join('\n'));
+    expect(parsed.pages[0].formFields).toEqual([]);
+  });
+
   it('accepts the --xml shortcut as an alias for --format xml', async () => {
     const r = await captureRun([SAMPLE_PDF, '--xml', '--no-cache']);
     expect(r.exitCode).toBeNull();

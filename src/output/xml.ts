@@ -68,6 +68,7 @@ export function formatXml(result: DocumentResult): string {
       if (p.quality.visualStatus !== undefined) ovAttrs.push(`visualStatus="${p.quality.visualStatus}"`);
       if (p.warningCount !== undefined) ovAttrs.push(`warningCount="${p.warningCount}"`);
       if (p.matchCount !== undefined) ovAttrs.push(`matchCount="${p.matchCount}"`);
+      if (p.formFieldCount !== undefined) ovAttrs.push(`formFieldCount="${p.formFieldCount}"`);
       ovAttrs.push(`width="${p.width}"`, `height="${p.height}"`);
       out.push(`<page ${ovAttrs.join(' ')}/>`);
     }
@@ -183,6 +184,31 @@ export function formatXml(result: DocumentResult): string {
           out.push(`<imageBox x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}"/>`);
         }
         out.push('</imageBoxes>');
+      }
+    }
+
+    if (page.formFields) {
+      if (page.formFields.length === 0) {
+        out.push('<formFields/>');
+      } else {
+        out.push('<formFields>');
+        for (const field of page.formFields) {
+          const fieldAttrs = [
+            `name="${escapeAttr(field.name)}"`,
+            `type="${field.type}"`,
+            `x="${field.x}"`,
+            `y="${field.y}"`,
+            `width="${field.width}"`,
+            `height="${field.height}"`,
+          ];
+          if (field.value !== undefined) fieldAttrs.push(`value="${escapeAttr(field.value)}"`);
+          if (field.checked !== undefined) fieldAttrs.push(`checked="${field.checked}"`);
+          if (field.readOnly !== undefined) fieldAttrs.push(`readOnly="${field.readOnly}"`);
+          if (field.required !== undefined) fieldAttrs.push(`required="${field.required}"`);
+          if (field.multiline !== undefined) fieldAttrs.push(`multiline="${field.multiline}"`);
+          out.push(`<field ${fieldAttrs.join(' ')}/>`);
+        }
+        out.push('</formFields>');
       }
     }
 

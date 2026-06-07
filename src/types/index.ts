@@ -171,6 +171,13 @@ export interface ProcessDocumentOptions {
    */
   imageBoxes?: boolean;
   /**
+   * Emit interactive PDF form/widget fields in `pages[].formFields`.
+   * Useful for government forms and applications where blank text boxes,
+   * checkboxes, radio buttons, signatures, and choice fields are part of
+   * the human-visible document even when native text extraction succeeds.
+   */
+  formFields?: boolean;
+  /**
    * Run OCR on each selected page and attach the result as `pages[].ocr`.
    * Off by default — OCR pulls in the optional `tesseract.js` dependency
    * (~30MB worker bundle) and is slow even on small documents. The
@@ -215,6 +222,8 @@ export interface ProcessOptions {
   geometry?: boolean;
   layout?: boolean;
   imageBoxes?: boolean;
+  /** See {@link ProcessDocumentOptions.formFields}. */
+  formFields?: boolean;
   ocr?: boolean;
   ocrLang?: string;
   /**
@@ -432,6 +441,22 @@ export interface ImageBox {
   height: number;
 }
 
+export type FormFieldType = 'text' | 'checkbox' | 'radio' | 'choice' | 'signature' | 'button' | 'unknown';
+
+export interface FormField {
+  name: string;
+  type: FormFieldType;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  value?: string;
+  checked?: boolean;
+  readOnly?: boolean;
+  required?: boolean;
+  multiline?: boolean;
+}
+
 export interface PageResult {
   page: number;
   /**
@@ -543,6 +568,12 @@ export interface PageResult {
    * hero image yields multiple entries).
    */
   imageBoxes?: ImageBox[];
+  /**
+   * Interactive PDF form/widget fields, only present when
+   * `formFields: true` was passed. Coordinates use the same top-left
+   * PDF-point system as `spans`, `layout.blocks`, and `imageBoxes`.
+   */
+  formFields?: FormField[];
   /**
    * OCR-derived text + confidence + language, only present when
    * `ocr: true` was passed. The pdfjs-derived `text` field is preserved
@@ -802,6 +833,13 @@ export interface PageOverview {
    * hits so consumers can tell "ran, found none" from "didn't run".
    */
   matchCount?: number;
+  /**
+   * Count of interactive form fields on the page (mirror of
+   * `pages[].formFields.length`). Omitted when `formFields` was not
+   * requested; present-with-`0` when extraction ran but the page has no
+   * widget fields.
+   */
+  formFieldCount?: number;
   width: number;
   height: number;
 }

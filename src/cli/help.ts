@@ -54,6 +54,10 @@ Options
                           --geometry. Only -f json / -f xml / -f toon.
                           Full-page scan/OCR-layer and dense-vector warnings can appear
                           even without this flag.
+      --form-fields       Emit \`pages[].formFields\` — interactive PDF widget fields
+                          such as text boxes, checkboxes, radio buttons, choices, and
+                          signatures with values and bboxes. Useful for government forms.
+                          Markdown also renders a form-field table.
       --strip-repeated    Drop running headers / footers / page numbers (blocks the layout
                           pass tagged as \`repeated\`) from the rendered Markdown body so
                           LLM readers don't have to wade through the same footer N times.

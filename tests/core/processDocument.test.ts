@@ -75,6 +75,11 @@ describe('processDocument', () => {
     expect(result.pages[0].imageCount).toBeGreaterThanOrEqual(2);
   });
 
+  it('emits an empty formFields array when form-field extraction runs on a non-form PDF', async () => {
+    const result = await processDocument(SAMPLE_PDF, { noCache: true, formFields: true });
+    expect(result.pages[0].formFields).toEqual([]);
+  });
+
   it('flags sparse native text on visually populated pages', async () => {
     // A page with only a tiny label plus raster content should not be
     // classified as fully OK; agents need to know the visible page is

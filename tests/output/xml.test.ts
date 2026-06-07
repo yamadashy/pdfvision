@@ -360,6 +360,71 @@ describe('formatXml', () => {
     expect(out).toContain('<imageBoxes/>');
   });
 
+  it('emits interactive form fields with values and bboxes', () => {
+    const out = formatXml(
+      makeResult({
+        totalPages: 2,
+        overview: [
+          {
+            page: 1,
+            charCount: 1,
+            imageCount: 0,
+            vectorCount: 10,
+            textCoverage: 0.1,
+            nonPrintableRatio: 0,
+            nonPrintableCount: 0,
+            quality: { nativeTextStatus: 'ok' },
+            formFieldCount: 2,
+            width: 612,
+            height: 792,
+          },
+        ],
+        pages: [
+          makePage({
+            page: 1,
+            text: 't',
+            charCount: 1,
+            formFields: [
+              {
+                name: 'name|field',
+                type: 'text',
+                x: 10,
+                y: 20,
+                width: 100,
+                height: 12,
+                value: 'Alice & Bob',
+              },
+              {
+                name: 'agree',
+                type: 'checkbox',
+                x: 10,
+                y: 40,
+                width: 8,
+                height: 8,
+                value: 'Off',
+                checked: false,
+              },
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toContain('formFieldCount="2"');
+    expect(out).toContain('<formFields>');
+    expect(out).toContain(
+      '<field name="name|field" type="text" x="10" y="20" width="100" height="12" value="Alice &amp; Bob"/>',
+    );
+    expect(out).toContain(
+      '<field name="agree" type="checkbox" x="10" y="40" width="8" height="8" value="Off" checked="false"/>',
+    );
+  });
+
+  it('emits self-closing <formFields/> when extraction ran but found no widgets', () => {
+    const out = formatXml(makeResult({ pages: [makePage({ page: 1, text: 't', charCount: 1, formFields: [] })] }));
+    expect(out).toContain('<formFields/>');
+  });
+
   it('emits an <ocr> element with lang + confidence attributes when ocr is present', () => {
     const out = formatXml(
       makeResult({
