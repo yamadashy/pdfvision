@@ -540,8 +540,9 @@ export interface PageResult {
    * Page anomalies detected from layout geometry, text-quality signals,
    * or image boxes. Layout-specific warnings require `layout: true`;
    * image-region warnings require `imageBoxes: true` plus `layout: true`
-   * or `geometry: true`; localized glyph noise can surface from the
-   * always-on non-printable counters. Empty array is omitted; a populated
+   * or `geometry: true`; localized glyph noise can surface from
+   * always-on text-quality signals such as non-printable counters or
+   * isolated mojibake in CJK text. Empty array is omitted; a populated
    * array means at least one rule fired.
    *
    * Same observational stance as {@link PageQuality}: the warning
@@ -602,9 +603,9 @@ export interface SearchMatch {
 /**
  * Page anomaly surfaced so agents can spot extraction or visual risks
  * that raw text alone hides: overlapping layout blocks, bodies crowded
- * against chrome, off-page bboxes, localized glyph noise, large image
- * regions whose internal labels will not appear in native text, OCR-backed
- * scan layers whose bboxes may drift from pixels, etc.
+ * against chrome, off-page bboxes, localized glyph noise / CJK mojibake,
+ * large image regions whose internal labels will not appear in native text,
+ * OCR-backed scan layers whose bboxes may drift from pixels, etc.
  */
 export interface PageWarning {
   /** Machine-readable rule identifier. */

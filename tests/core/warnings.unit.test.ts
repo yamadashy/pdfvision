@@ -78,6 +78,46 @@ describe('detectPageWarnings', () => {
     expect(out[0].message).toContain('18 non-printable');
   });
 
+  it('flags isolated Latin-extended glyph noise inside CJK text', () => {
+    // Aozora PDF-shaped case: dotted TOC leaders visually render as
+    // horizontal rules, but the text stream maps each small leader mark
+    // to U+1EDE LATIN CAPITAL LETTER O WITH HORN AND HOOK ABOVE.
+    const out = detectPageWarnings({
+      page: 1,
+      text: `${'青空文庫の説明です。'.repeat(20)}サイトを選ぶỞ Ở2\n作品を読むỞ Ở2\n入力ミスを指摘するỞ Ở5`,
+      charCount: 250,
+      imageCount: 1,
+      vectorCount: 17,
+      textCoverage: 0.137,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 595.2,
+      height: 841.8,
+      quality: { nativeTextStatus: 'ok' },
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'localized_glyph_noise', severity: 'warning' });
+    expect(out[0].message).toContain('isolated Latin-extended glyphs inside CJK text');
+    expect(out[0].message).toContain('"Ở"');
+  });
+
+  it('does not flag Latin-extended glyphs that are part of Latin words', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: `${'日本語の本文です。'.repeat(20)} Cafe São Paulo and Nguyễn Văn A are cited here.`,
+      charCount: 260,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.1,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok' },
+    });
+    expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
+  });
+
   it('does not duplicate localized glyph warnings when the page is already classified as mixed glyph indices', () => {
     const out = detectPageWarnings({
       page: 1,

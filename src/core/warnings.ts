@@ -69,6 +69,9 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
 
 const LOCALIZED_GLYPH_NOISE_RATIO_THRESHOLD = 0.05;
 const LOCALIZED_GLYPH_NOISE_COUNT_THRESHOLD = 3;
+const CJK_MOJIBAKE_MIN_CJK_COUNT = 50;
+const CJK_MOJIBAKE_COUNT_THRESHOLD = 5;
+const CJK_MOJIBAKE_RATIO_THRESHOLD = 0.05;
 const LARGE_RASTER_AREA_RATIO_THRESHOLD = 0.2;
 const LARGE_RASTER_TEXT_OVERLAP_RATIO_THRESHOLD = 0.01;
 
@@ -89,13 +92,55 @@ function sortWarnings(warnings: PageWarning[]): void {
 }
 
 function detectLocalizedGlyphNoise(page: PageResult, out: PageWarning[]): void {
-  if (page.nonPrintableCount < LOCALIZED_GLYPH_NOISE_COUNT_THRESHOLD) return;
-  if (page.nonPrintableRatio >= LOCALIZED_GLYPH_NOISE_RATIO_THRESHOLD) return;
-  out.push({
-    code: 'localized_glyph_noise',
-    severity: 'warning',
-    message: `native text contains ${page.nonPrintableCount} non-printable code points below the glyph-garbage ratio threshold — likely localized glyph noise such as bullets or symbols; inspect the render if exact text matters`,
-  });
+  if (
+    page.nonPrintableCount >= LOCALIZED_GLYPH_NOISE_COUNT_THRESHOLD &&
+    page.nonPrintableRatio < LOCALIZED_GLYPH_NOISE_RATIO_THRESHOLD
+  ) {
+    out.push({
+      code: 'localized_glyph_noise',
+      severity: 'warning',
+      message: `native text contains ${page.nonPrintableCount} non-printable code points below the glyph-garbage ratio threshold — likely localized glyph noise such as bullets or symbols; inspect the render if exact text matters`,
+    });
+  }
+
+  const cjkMojibake = detectCjkMojibakeGlyphNoise(page.text);
+  if (cjkMojibake) {
+    out.push({
+      code: 'localized_glyph_noise',
+      severity: 'warning',
+      message: `native text contains ${cjkMojibake.count} isolated Latin-extended glyphs inside CJK text (e.g. ${cjkMojibake.samples.map((s) => JSON.stringify(s)).join(', ')}) — likely localized character-map noise such as leader dots or symbols; inspect the render if exact text matters`,
+    });
+  }
+}
+
+function detectCjkMojibakeGlyphNoise(text: string): { count: number; samples: string[] } | undefined {
+  const chars = Array.from(text);
+  const cjkCount = chars.filter(isCjkTextChar).length;
+  if (cjkCount < CJK_MOJIBAKE_MIN_CJK_COUNT) return undefined;
+
+  const suspicious: string[] = [];
+  for (let i = 0; i < chars.length; i++) {
+    const ch = chars[i];
+    if (!isLatinExtendedChar(ch)) continue;
+    if (isLatinTextChar(chars[i - 1]) || isLatinTextChar(chars[i + 1])) continue;
+    suspicious.push(ch);
+  }
+  const ratio = chars.length > 0 ? suspicious.length / chars.length : 0;
+  if (suspicious.length < CJK_MOJIBAKE_COUNT_THRESHOLD) return undefined;
+  if (ratio >= CJK_MOJIBAKE_RATIO_THRESHOLD) return undefined;
+  return { count: suspicious.length, samples: [...new Set(suspicious)].slice(0, 3) };
+}
+
+function isCjkTextChar(ch: string | undefined): boolean {
+  return ch !== undefined && /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(ch);
+}
+
+function isLatinTextChar(ch: string | undefined): boolean {
+  return ch !== undefined && /\p{Script=Latin}/u.test(ch);
+}
+
+function isLatinExtendedChar(ch: string | undefined): boolean {
+  return ch !== undefined && /[\u0100-\u024f\u1e00-\u1eff]/u.test(ch);
 }
 
 function detectRasterBackedTextLayer(page: PageResult, context: PageWarningContext, out: PageWarning[]): void {
