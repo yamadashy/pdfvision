@@ -1,5 +1,6 @@
 import type { LayoutBlock, LayoutLine, LayoutTable, PageLayout, PageResult, TextSpan } from '../types/index.js';
 import { CJK_TIGHT_GAP_RATIO, isCjkLeading } from './cjkJoin.js';
+import { shouldInsertSemanticSpace } from './spacing.js';
 
 interface BBox {
   x: number;
@@ -127,7 +128,7 @@ function joinLineSpans(xSorted: TextSpan[]): string {
     // into a synthesized space.
     const fontSize = cur.fontSize || prev.fontSize || FONT_SIZE_FALLBACK_PT;
     const threshold = fontSize * (bothCjk ? CJK_TIGHT_GAP_RATIO : DEFAULT_SPACE_GAP_RATIO);
-    out += gap > threshold ? ` ${cur.text}` : cur.text;
+    out += gap > threshold || shouldInsertSemanticSpace(prev.text, cur.text, gap, fontSize) ? ` ${cur.text}` : cur.text;
   }
   return out;
 }

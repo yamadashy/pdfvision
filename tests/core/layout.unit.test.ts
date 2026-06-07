@@ -631,6 +631,19 @@ describe('buildLayout — multi-column reading order', () => {
     expect(layout.blocks[0].lines[0].text).toBe('序文 第一条');
   });
 
+  it('keeps a semantic space before a URL when the visual gap is narrowly below the default threshold', () => {
+    // ACL-style font-run boundary: the gap before the URL is just below
+    // 0.25x fontSize, but the token is visually and semantically
+    // separated ("at https://..."), not `athttps://...`.
+    const spans: TextSpan[] = [
+      span('els are available at', 82.91, 451.93, 10.91, 80.3),
+      span('https://github.com/', 165.9, 451.93, 10.91, 124.36),
+    ];
+    const layout = buildLayout(spans);
+
+    expect(layout.blocks[0].lines[0].text).toBe('els are available at https://github.com/');
+  });
+
   it('splits large numeric callouts from small annotation lines while keeping the unit', () => {
     // Japanese infographic-shaped case: a small "75%" annotation sits
     // above a large "9,308万枚" KPI. The large number's tall bbox used

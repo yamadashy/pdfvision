@@ -1,6 +1,8 @@
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { processDocument } from '../../src/core/processor.js';
+import { compileSearch, searchPage } from '../../src/core/search.js';
+import type { TextSpan } from '../../src/types/index.js';
 
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
 const SAMPLE_JA_PDF = resolve(__dirname, '../fixtures/sample-ja.pdf');
@@ -36,6 +38,39 @@ describe('processDocument search', () => {
     });
     expect(result.pages[0].matches).toBeDefined();
     expect(result.pages[0].matches?.length).toBe(0);
+  });
+
+  it('matches across a tight URL font-run boundary with a semantic space', () => {
+    const spans: TextSpan[] = [
+      {
+        text: 'els are available at',
+        x: 82.91,
+        y: 451.93,
+        width: 80.3,
+        height: 10.91,
+        fontSize: 10.91,
+      },
+      {
+        text: 'https://github.com/',
+        x: 165.9,
+        y: 451.93,
+        width: 124.36,
+        height: 10.91,
+        fontSize: 10.91,
+      },
+    ];
+    const compiled = compileSearch('at https://github.com/', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 595, 842, compiled);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'at https://github.com/',
+      source: 'native',
+      page: 1,
+    });
+    expect(matches[0].boxes.length).toBeGreaterThanOrEqual(2);
   });
 
   it('omits matches[] entirely when no search was requested', async () => {

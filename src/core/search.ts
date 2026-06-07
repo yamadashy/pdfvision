@@ -1,5 +1,6 @@
 import type { PageOcr, SearchMatch, TextSpan } from '../types/index.js';
 import { CJK_TIGHT_GAP_RATIO, isCjkLeading } from './cjkJoin.js';
+import { shouldInsertSemanticSpace } from './spacing.js';
 
 /**
  * Inputs the processor builds once per request, then passes to
@@ -233,7 +234,12 @@ function buildSearchLines(spans: readonly TextSpan[] | undefined): SearchLine[] 
         const segmentGap = Math.max(fontSize * SEARCH_SEGMENT_GAP_RATIO, SEARCH_SEGMENT_MIN_GAP_PT);
         if (gap > segmentGap) {
           pushLine();
-        } else if (gap > spaceGapThreshold(prev, span, fontSize) && !/\s$/.test(text) && !/^\s/.test(span.text)) {
+        } else if (
+          (gap > spaceGapThreshold(prev, span, fontSize) ||
+            shouldInsertSemanticSpace(prev.text, span.text, gap, fontSize)) &&
+          !/\s$/.test(text) &&
+          !/^\s/.test(span.text)
+        ) {
           text += ' ';
           owners.push(undefined);
         }
