@@ -24,7 +24,7 @@ interface Candidate extends BoxLike {
   associatedText?: VisualRegionAssociatedText[];
 }
 
-interface BuildVisualRegionsInput {
+export interface BuildVisualRegionsInput {
   pageWidth: number;
   pageHeight: number;
   imageBoxes: readonly ImageBox[];

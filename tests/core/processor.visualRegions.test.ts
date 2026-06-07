@@ -25,6 +25,28 @@ async function buildPdfWithLargeImage(): Promise<Uint8Array> {
   return new Uint8Array(Buffer.concat(chunks));
 }
 
+async function buildPdfWithRepeatedCaptionLikeHeader(): Promise<Uint8Array> {
+  const chunks: Buffer[] = [];
+  const doc = new PDFDocument({ size: [300, 300], margin: 0 });
+  doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+  const done = new Promise<void>((resolveDone) => doc.on('end', resolveDone));
+
+  const png = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=',
+    'base64',
+  );
+  for (let page = 1; page <= 2; page++) {
+    if (page > 1) doc.addPage();
+    doc.fontSize(10).text('Figure 1. Running header', 60, 40);
+    doc.fontSize(12).text(`Body of page ${page}`, 60, 220);
+    doc.image(png, 70, 70, { width: 80, height: 60 });
+  }
+  doc.end();
+
+  await done;
+  return new Uint8Array(Buffer.concat(chunks));
+}
+
 describe('processDocument visualRegions: true', () => {
   it('omits visualRegions by default', async () => {
     const result = await processDocument(SAMPLE_WITH_IMAGE_PDF, { noCache: true });
@@ -84,5 +106,21 @@ describe('processDocument visualRegions: true', () => {
     expect(region.renderContentRatio).toBeTypeOf('number');
     expect(page.imageBoxes).toBeUndefined();
     expect(page.layout).toBeUndefined();
+  });
+
+  it('suppresses repeated caption-like chrome without exposing layout', async () => {
+    const result = await processDocument('memory://repeated-caption-like-header.pdf', {
+      sourceData: await buildPdfWithRepeatedCaptionLikeHeader(),
+      noCache: true,
+      visualRegions: true,
+    });
+
+    expect(result.pages).toHaveLength(2);
+    for (const page of result.pages) {
+      const region = page.visualRegions?.[0];
+      expect(page.layout).toBeUndefined();
+      expect(region).toBeDefined();
+      expect(region?.associatedText).toBeUndefined();
+    }
   });
 });

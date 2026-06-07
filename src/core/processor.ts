@@ -26,7 +26,6 @@ import type {
   RenderRegion,
   TextSpan,
   VectorBox,
-  VisualRegion,
 } from '../types/index.js';
 import { buildAnnotations } from './annotations.js';
 import { buildAttachments } from './attachments.js';
@@ -49,7 +48,7 @@ import { textMatrixFontSize, textRunGeometryFromTransform } from './textGeometry
 import { buildVectorBoxes } from './vectorBoxes.js';
 import { countVectorPaintOps } from './vectorOps.js';
 import { buildViewerState } from './viewer.js';
-import { buildVisualRegions } from './visualRegions.js';
+import { type BuildVisualRegionsInput, buildVisualRegions } from './visualRegions.js';
 import { detectPageWarnings } from './warnings.js';
 
 /** Inputs that determine which cached entry a request maps to. */
@@ -337,7 +336,7 @@ interface PageData {
   layout?: PageLayout;
   imageBoxes?: ImageBox[];
   vectorBoxes?: VectorBox[];
-  visualRegions?: VisualRegion[];
+  _visualRegionInput?: BuildVisualRegionsInput;
   formFields?: FormField[];
   links?: PageLink[];
   annotations?: PageAnnotation[];
@@ -525,18 +524,17 @@ async function extractPageData(
     pageHeight: height,
   });
 
-  const visualRegions = flags.visualRegions
-    ? page.rotate === 0
-      ? buildVisualRegions({
+  const visualRegionInput =
+    flags.visualRegions && page.rotate === 0
+      ? {
           pageWidth: round2(width),
           pageHeight: round2(height),
           imageBoxes: allBoxes,
           vectorBoxes: allVectorBoxes,
           layout: internalLayout,
           formFields: allFormFields,
-        }).map((region, index) => ({ ...region, id: `p${pageNum}-vr${index}` }))
-      : []
-    : undefined;
+        }
+      : undefined;
 
   // Measured on the text we actually return (post-normalize) so the
   // count + ratio match what an agent sees in `text`. Cheap (one
@@ -573,7 +571,7 @@ async function extractPageData(
     ...(layout !== undefined && { layout }),
     ...(imageBoxes !== undefined && { imageBoxes }),
     ...(vectorBoxes !== undefined && { vectorBoxes }),
-    ...(visualRegions !== undefined && { visualRegions }),
+    ...(visualRegionInput !== undefined && { _visualRegionInput: visualRegionInput }),
     ...(formFields !== undefined && { formFields }),
     ...(links !== undefined && { links }),
     ...(pageAnnotations !== undefined && { annotations: pageAnnotations }),
@@ -955,6 +953,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     const ocrEnabled = !!options.ocr;
     const ocrLang = options.ocrLang ?? 'eng';
     const rasterBackedTextLayerByPage = new Map<number, boolean>();
+    const visualRegionInputsByPage = new Map<number, BuildVisualRegionsInput>();
     const imageOps: ImageOps = {
       save: OPS.save,
       restore: OPS.restore,
@@ -979,6 +978,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     const pages: PageResult[] = await runParallel(pageNumbers, async (pageNum, i) => {
       const data = await extractPageData(doc, pageNum, imageOps, flags);
       rasterBackedTextLayerByPage.set(pageNum, data.rasterBackedTextLayer);
+      if (data._visualRegionInput) visualRegionInputsByPage.set(pageNum, data._visualRegionInput);
       const renderRatio = renderRatios[i];
       const page: PageResult = {
         page: pageNum,
@@ -1000,7 +1000,6 @@ export async function processDocument(filePath: string, options: ProcessDocument
         ...(data.layout !== undefined && { layout: data.layout }),
         ...(data.imageBoxes !== undefined && { imageBoxes: data.imageBoxes }),
         ...(data.vectorBoxes !== undefined && { vectorBoxes: data.vectorBoxes }),
-        ...(data.visualRegions !== undefined && { visualRegions: data.visualRegions }),
         ...(data.formFields !== undefined && { formFields: data.formFields }),
         ...(data.links !== undefined && { links: data.links }),
         ...(data.annotations !== undefined && { annotations: data.annotations }),
@@ -1030,6 +1029,29 @@ export async function processDocument(filePath: string, options: ProcessDocument
       return page;
     });
 
+    // Repeated-chrome detection has to wait until every selected page is
+    // populated, since a single page can't tell its own chrome from its
+    // body. Run it on public layout when --layout is on and on the
+    // internal layout used by visualRegions otherwise, so
+    // caption association can suppress repeated header/footer text
+    // without exposing pages[].layout.
+    if (flags.layout || flags.visualRegions) {
+      const pagesForRepeated = pages.map((page) => {
+        const layout = page.layout ?? visualRegionInputsByPage.get(page.page)?.layout;
+        return layout ? { ...page, layout } : page;
+      });
+      markRepeatedBlocks(pagesForRepeated);
+    }
+
+    if (flags.visualRegions) {
+      for (const page of pages) {
+        const input = visualRegionInputsByPage.get(page.page);
+        page.visualRegions = input
+          ? buildVisualRegions(input).map((region, index) => ({ ...region, id: `p${page.page}-vr${index}` }))
+          : [];
+      }
+    }
+
     if (renderVisualRegions) {
       const jobs = pages.flatMap((page) => (page.visualRegions ?? []).map((region) => ({ page, region })));
       if (jobs.length > 0) {
@@ -1040,15 +1062,6 @@ export async function processDocument(filePath: string, options: ProcessDocument
           region.renderContentRatio = rendered.contentRatio;
         });
       }
-    }
-
-    // Repeated-chrome detection has to wait until every selected page is
-    // populated, since a single page can't tell its own chrome from its
-    // body. Skipped when --layout was off, but page-level warnings still
-    // run below so non-layout signals (glyph noise, large raster regions)
-    // can surface.
-    if (flags.layout) {
-      markRepeatedBlocks(pages);
     }
     // Warning detection runs after `markRepeatedBlocks` so geometry
     // rules can route on `block.repeated`. It also includes page-level
