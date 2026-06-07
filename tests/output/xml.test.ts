@@ -539,6 +539,14 @@ describe('formatXml', () => {
                 width: 100,
                 height: 12,
                 value: 'Alice & Bob',
+                label: {
+                  text: 'Legal <name>',
+                  relation: 'above',
+                  x: 10,
+                  y: 8,
+                  width: 80,
+                  height: 10,
+                },
               },
               {
                 name: 'agree',
@@ -559,7 +567,7 @@ describe('formatXml', () => {
     expect(out).toContain('formFieldCount="2"');
     expect(out).toContain('<formFields>');
     expect(out).toContain(
-      '<field name="name|field" type="text" x="10" y="20" width="100" height="12" value="Alice &amp; Bob"/>',
+      '<field name="name|field" type="text" x="10" y="20" width="100" height="12" value="Alice &amp; Bob" label="Legal &lt;name&gt;" labelRelation="above" labelX="10" labelY="8" labelWidth="80" labelHeight="10"/>',
     );
     expect(out).toContain(
       '<field name="agree" type="checkbox" x="10" y="40" width="8" height="8" value="Off" checked="false"/>',

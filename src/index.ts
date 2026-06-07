@@ -29,6 +29,8 @@ export type {
   DocumentResult,
   DocumentViewerState,
   FormField,
+  FormFieldLabel,
+  FormFieldLabelRelation,
   FormFieldType,
   ImageBox,
   JsonScalar,

@@ -598,6 +598,16 @@ export interface VisualRegion {
 }
 
 export type FormFieldType = 'text' | 'checkbox' | 'radio' | 'choice' | 'signature' | 'button' | 'unknown';
+export type FormFieldLabelRelation = 'left' | 'right' | 'above' | 'below';
+
+export interface FormFieldLabel {
+  text: string;
+  relation: FormFieldLabelRelation;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 
 export interface FormField {
   name: string;
@@ -611,6 +621,13 @@ export interface FormField {
   readOnly?: boolean;
   required?: boolean;
   multiline?: boolean;
+  /**
+   * Nearby visible text that likely labels this field, reconstructed from
+   * layout lines when `--form-fields` is enabled. This helps agents map
+   * anonymous AcroForm names such as `f1_01[0]` or checkbox arrays to the
+   * human-readable prompt a person sees next to or above the widget.
+   */
+  label?: FormFieldLabel;
 }
 
 export type PageLinkType = 'url' | 'destination';

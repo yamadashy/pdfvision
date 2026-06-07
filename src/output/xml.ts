@@ -390,6 +390,14 @@ export function formatXml(result: DocumentResult): string {
           if (field.readOnly !== undefined) fieldAttrs.push(`readOnly="${field.readOnly}"`);
           if (field.required !== undefined) fieldAttrs.push(`required="${field.required}"`);
           if (field.multiline !== undefined) fieldAttrs.push(`multiline="${field.multiline}"`);
+          if (field.label !== undefined) {
+            fieldAttrs.push(`label="${escapeAttr(field.label.text)}"`);
+            fieldAttrs.push(`labelRelation="${field.label.relation}"`);
+            fieldAttrs.push(`labelX="${field.label.x}"`);
+            fieldAttrs.push(`labelY="${field.label.y}"`);
+            fieldAttrs.push(`labelWidth="${field.label.width}"`);
+            fieldAttrs.push(`labelHeight="${field.label.height}"`);
+          }
           out.push(`<field ${fieldAttrs.join(' ')}/>`);
         }
         out.push('</formFields>');

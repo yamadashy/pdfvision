@@ -171,10 +171,17 @@ interface FormField {
   readOnly?: boolean;
   required?: boolean;
   multiline?: boolean;
+  label?: FormFieldLabel;    // nearby visible label, when the layout heuristic finds one
+}
+
+interface FormFieldLabel {
+  text: string;
+  relation: 'left' | 'right' | 'above' | 'below';
+  x: number; y: number; width: number; height: number;
 }
 ```
 
-`formFields[]` surfaces interactive PDF widget annotations: blank text inputs, checkboxes, radio buttons, choice fields, and signatures. It is especially useful for government and tax forms where native text extraction can read the labels but not the fillable boxes a human sees. Coordinates use the same top-left PDF-point system as `spans`, `layout.blocks`, and `imageBoxes`, so a field bbox can feed directly into `--render-region`.
+`formFields[]` surfaces interactive PDF widget annotations: blank text inputs, checkboxes, radio buttons, choice fields, and signatures. It is especially useful for government and tax forms where native text extraction can read the labels but not the fillable boxes a human sees. `label` is a conservative nearest-line hint reconstructed from visible layout text; checkbox/radio widgets prefer same-line labels to the right/left, while text inputs prefer labels immediately above or to the left. Coordinates use the same top-left PDF-point system as `spans`, `layout.blocks`, and `imageBoxes`, so a field or label bbox can feed directly into `--render-region`.
 
 ## Links (`--links`)
 

@@ -174,7 +174,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v62',
+    format: 'structured-v63',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -339,7 +339,8 @@ async function extractPageData(
   // computation, so we build them whenever any of those needs is set —
   // even though we may only expose them on PageResult when `geometry`
   // is on.
-  const wantSpans = flags.geometry || flags.layout || flags.visualRegions || flags.needSpansForSearch;
+  const wantSpans =
+    flags.geometry || flags.layout || flags.visualRegions || flags.formFields || flags.needSpansForSearch;
 
   // Collect typed items for the CJK-aware page-text joiner. We can't
   // build the final string in this loop because the join decision for
@@ -418,12 +419,25 @@ async function extractPageData(
       ? buildVectorBoxes(opList.fnArray, opList.argsArray as unknown[][], ops, height, xMin, yMin)
       : undefined;
   const vectorBoxes = flags.vectorBoxes ? allVectorBoxes : undefined;
+  // Build layout internally for form-field labels and visual-region table
+  // hints, but only expose pages[].layout when --layout is explicitly on.
+  const internalLayout =
+    flags.layout || flags.visualRegions || flags.formFields ? buildLayout(spans, round2(width)) : undefined;
+  const layout = flags.layout ? internalLayout : undefined;
   const annotations =
     flags.formFields || flags.links || flags.annotations || flags.visualRegions
       ? await page.getAnnotations({ intent: 'display' })
       : undefined;
   const allFormFields =
-    flags.formFields || flags.visualRegions ? buildFormFields(annotations ?? [], height, xMin, yMin) : undefined;
+    flags.formFields || flags.visualRegions
+      ? buildFormFields(
+          annotations ?? [],
+          height,
+          xMin,
+          yMin,
+          flags.formFields ? (internalLayout?.blocks.flatMap((block) => [block, ...block.lines]) ?? []) : [],
+        )
+      : undefined;
   const formFields = flags.formFields ? allFormFields : undefined;
   const links = flags.links ? buildLinks(annotations ?? [], height, xMin, yMin) : undefined;
   const pageAnnotations = flags.annotations
@@ -449,9 +463,6 @@ async function extractPageData(
     pageHeight: height,
   });
 
-  // Build layout last so it always sees the final span list (post normalize).
-  const internalLayout = flags.layout || flags.visualRegions ? buildLayout(spans, round2(width)) : undefined;
-  const layout = flags.layout ? internalLayout : undefined;
   const visualRegions = flags.visualRegions
     ? page.rotate === 0
       ? buildVisualRegions({

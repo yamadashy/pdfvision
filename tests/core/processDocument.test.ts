@@ -513,6 +513,8 @@ describe('processDocument', () => {
   it('emits an empty formFields array when form-field extraction runs on a non-form PDF', async () => {
     const result = await processDocument(SAMPLE_PDF, { noCache: true, formFields: true });
     expect(result.pages[0].formFields).toEqual([]);
+    expect(result.pages[0].layout).toBeUndefined();
+    expect(result.pages[0].spans).toBeUndefined();
   });
 
   it('emits an empty links array when link extraction runs on a PDF with no link annotations', async () => {

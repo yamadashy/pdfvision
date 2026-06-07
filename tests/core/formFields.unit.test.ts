@@ -68,4 +68,45 @@ describe('buildFormFields', () => {
 
     expect(fields.map((field) => field.name)).toEqual(['top', 'a', 'b']);
   });
+
+  it('attaches nearby visible labels from layout lines', () => {
+    const fields = buildFormFields(
+      [
+        { subtype: 'Widget', fieldName: 'name', fieldType: 'Tx', rect: [50, 670, 250, 682] },
+        {
+          subtype: 'Widget',
+          fieldName: 'agree',
+          fieldType: 'Btn',
+          checkBox: true,
+          radioButton: false,
+          rect: [50, 650, 58, 658],
+          fieldValue: 'Off',
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        { text: 'Full legal name', x: 50, y: 94, width: 115, height: 10, fontSize: 10 },
+        { text: 'I agree to the certification', x: 65, y: 134, width: 160, height: 8, fontSize: 8 },
+      ],
+    );
+
+    expect(fields[0].label).toEqual({
+      text: 'Full legal name',
+      relation: 'above',
+      x: 50,
+      y: 94,
+      width: 115,
+      height: 10,
+    });
+    expect(fields[1].label).toEqual({
+      text: 'I agree to the certification',
+      relation: 'right',
+      x: 65,
+      y: 134,
+      width: 160,
+      height: 8,
+    });
+  });
 });

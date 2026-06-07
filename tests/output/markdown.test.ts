@@ -260,6 +260,14 @@ describe('formatMarkdown', () => {
                 height: 8,
                 value: 'Off',
                 checked: false,
+                label: {
+                  text: 'Agree | certify',
+                  relation: 'right',
+                  x: 48,
+                  y: 61,
+                  width: 80,
+                  height: 10,
+                },
               },
             ],
           }),
@@ -272,7 +280,8 @@ describe('formatMarkdown', () => {
     expect(out).toMatch(/\| 1 \| 9 \| 0 \| 0% \| 612×792 \| 2 \|/);
     expect(out).toMatch(/formFields: 2/);
     expect(out).toContain('### Form fields');
-    expect(out).toContain('| checkbox | agree\\|box | unchecked | 36,62,8,8 |');
+    expect(out).toContain('| Type | Name | Label | Value | BBox |');
+    expect(out).toContain('| checkbox | agree\\|box | Agree \\| certify (right) | unchecked | 36,62,8,8 |');
     expect(out).toContain('_No interactive form fields found._');
   });
 

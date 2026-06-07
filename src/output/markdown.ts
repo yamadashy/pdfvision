@@ -44,6 +44,10 @@ function fieldValue(field: NonNullable<PageResult['formFields']>[number]): strin
   return field.value ?? '';
 }
 
+function fieldLabel(field: NonNullable<PageResult['formFields']>[number]): string {
+  return field.label ? `${field.label.text} (${field.label.relation})` : '';
+}
+
 function annotationColor(annotation: NonNullable<PageResult['annotations']>[number]): string {
   return annotation.color ? annotation.color.join(',') : '';
 }
@@ -439,11 +443,11 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
         lines.push('_No interactive form fields found._');
       } else {
         lines.push('');
-        lines.push('| Type | Name | Value | BBox |');
-        lines.push('| --- | --- | --- | --- |');
+        lines.push('| Type | Name | Label | Value | BBox |');
+        lines.push('| --- | --- | --- | --- | --- |');
         for (const field of page.formFields) {
           lines.push(
-            `| ${field.type} | ${escapeTableCell(field.name)} | ${escapeTableCell(fieldValue(field))} | ${formatBox(field)} |`,
+            `| ${field.type} | ${escapeTableCell(field.name)} | ${escapeTableCell(fieldLabel(field))} | ${escapeTableCell(fieldValue(field))} | ${formatBox(field)} |`,
           );
         }
       }
