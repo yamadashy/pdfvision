@@ -67,7 +67,7 @@ The default extraction is enough for most native-text PDFs (papers, exports from
 
 | Goal | Flag | When to reach for it |
 |---|---|---|
-| Reconstruct reading order, find headings, preserve table rows | `--layout` | Multi-column papers, slides where the agent must process blocks in order; table-heavy financial/government PDFs where `layout.tables[]` row-major hints preserve numeric row/cell relationships better than raw blocks |
+| Reconstruct reading order, find headings, preserve table rows | `--layout` | Multi-column papers, including dense journal layouts with narrow repeated gutters or drop caps; slides where the agent must process blocks in order; table-heavy financial/government PDFs where `layout.tables[]` row-major hints preserve numeric row/cell relationships better than raw blocks |
 | Know where images sit on the page | `--image-boxes` | Bbox overlay on rendered PNG, figure detection |
 | Per-glyph bbox + fontSize | `--geometry` | Heading detection by font-size, custom layout heuristics |
 | Page is an image or native text is glyph-corrupted — get text from pixels | `--ocr` + `--ocr-lang` | `coverage: 0%` in the Overview, or `nonPrintableRatio >= 0.05` (native text includes glyph-index garbage; see below). **For non-English text, language order matters** — primary language goes first (`jpn+eng` for Japanese-dominant, `eng+jpn` for English-dominant). Full lang combinations and confidence semantics in `references/ocr.md`. |

@@ -82,6 +82,12 @@ const FONT_SIZE_FALLBACK_PT = 12;
  *  much wider than a word gap, but well below the old 5× font-size rule. */
 const LAYOUT_SEGMENT_GAP_RATIO = 1.5;
 const LAYOUT_SEGMENT_MIN_GAP_PT = 16;
+const RECURRING_GUTTER_GAP_RATIO = 1.05;
+const RECURRING_GUTTER_MIN_GAP_PT = 9;
+const RECURRING_GUTTER_WIDE_ROW_RATIO = 0.7;
+const RECURRING_GUTTER_SIDE_MIN_RATIO = 0.25;
+const RECURRING_GUTTER_BIN_PT = 5;
+const RECURRING_GUTTER_MIN_ROWS = 3;
 const LINE_TOP_ALIGNMENT_RATIO = 0.5;
 const LINE_VERTICAL_OVERLAP_RATIO = 0.35;
 const TABLE_ROW_MIN_CELLS = 3;
@@ -143,6 +149,21 @@ function canShareTextLine(a: TextSpan, b: TextSpan): boolean {
   if (Math.abs(a.y - b.y) < minHeight * LINE_TOP_ALIGNMENT_RATIO) return true;
   const overlap = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
   return overlap >= minHeight * LINE_VERTICAL_OVERLAP_RATIO;
+}
+
+function lineGroupAnchor(group: TextSpan[]): TextSpan {
+  const candidates = group.filter((span) => !hasVerticalTextShape(span));
+  const usable = candidates.length > 0 ? candidates : group;
+  const medianHeight = median(usable.map((span) => span.height || span.fontSize || FONT_SIZE_FALLBACK_PT));
+  return usable.reduce((best, span) => {
+    const bestHeight = best.height || best.fontSize || FONT_SIZE_FALLBACK_PT;
+    const height = span.height || span.fontSize || FONT_SIZE_FALLBACK_PT;
+    const bestDistance = Math.abs(bestHeight - medianHeight);
+    const distance = Math.abs(height - medianHeight);
+    if (distance < bestDistance) return span;
+    if (distance === bestDistance && height < bestHeight) return span;
+    return best;
+  });
 }
 
 function canShareTableRow(a: LayoutLine, b: LayoutLine): boolean {
@@ -622,6 +643,91 @@ function isTableNumericCell(text: string): boolean {
   return trimmed.replace(/[0-9.,()%$¥€£+\-\s]/gu, '').length === 0;
 }
 
+function gutterBin(prev: BBox, cur: BBox): number {
+  const gap = cur.x - (prev.x + prev.width);
+  const center = prev.x + prev.width + gap / 2;
+  return Math.round(center / RECURRING_GUTTER_BIN_PT) * RECURRING_GUTTER_BIN_PT;
+}
+
+function isRecurringGutterCandidate(
+  groupBox: BBox,
+  prev: TextSpan,
+  cur: TextSpan,
+  gap: number,
+  fontSize: number,
+  pageWidth: number,
+): boolean {
+  if (pageWidth <= 0) return false;
+  if (groupBox.width < pageWidth * RECURRING_GUTTER_WIDE_ROW_RATIO) return false;
+  if (gap < Math.max(fontSize * RECURRING_GUTTER_GAP_RATIO, RECURRING_GUTTER_MIN_GAP_PT)) return false;
+
+  const leftWidth = prev.x + prev.width - groupBox.x;
+  const rightWidth = groupBox.x + groupBox.width - cur.x;
+  return (
+    leftWidth >= pageWidth * RECURRING_GUTTER_SIDE_MIN_RATIO &&
+    rightWidth >= pageWidth * RECURRING_GUTTER_SIDE_MIN_RATIO
+  );
+}
+
+function isRecurringGutterSplitCandidate(
+  groupBox: BBox,
+  prev: TextSpan,
+  cur: TextSpan,
+  gap: number,
+  fontSize: number,
+  pageWidth: number,
+): boolean {
+  if (pageWidth <= 0) return false;
+  if (groupBox.width < pageWidth * 0.4) return false;
+  if (gap < Math.max(fontSize * RECURRING_GUTTER_GAP_RATIO, RECURRING_GUTTER_MIN_GAP_PT)) return false;
+
+  const leftWidth = prev.x + prev.width - groupBox.x;
+  const rightWidth = groupBox.x + groupBox.width - cur.x;
+  return (
+    leftWidth >= pageWidth * RECURRING_GUTTER_SIDE_MIN_RATIO ||
+    rightWidth >= pageWidth * RECURRING_GUTTER_SIDE_MIN_RATIO
+  );
+}
+
+function detectRecurringGutterBins(lineGroups: TextSpan[][], pageWidth: number): Set<number> {
+  if (pageWidth <= 0) return new Set();
+
+  const counts = new Map<number, number>();
+  for (const group of lineGroups) {
+    if (group.length < 2) continue;
+    const xSorted = [...group].sort((a, b) => a.x - b.x);
+    const groupBox = unionBox(xSorted);
+    const binsInRow = new Set<number>();
+    for (let i = 1; i < xSorted.length; i++) {
+      const prev = xSorted[i - 1];
+      const cur = xSorted[i];
+      const gap = cur.x - (prev.x + prev.width);
+      const prevFontSize = prev.fontSize || FONT_SIZE_FALLBACK_PT;
+      const curFontSize = cur.fontSize || FONT_SIZE_FALLBACK_PT;
+      const fontSize = Math.min(prevFontSize, curFontSize);
+      if (isRecurringGutterCandidate(groupBox, prev, cur, gap, fontSize, pageWidth)) {
+        binsInRow.add(gutterBin(prev, cur));
+      }
+    }
+    for (const bin of binsInRow) counts.set(bin, (counts.get(bin) ?? 0) + 1);
+  }
+
+  const recurring = new Set<number>();
+  for (const [bin, count] of counts) {
+    if (count >= RECURRING_GUTTER_MIN_ROWS) recurring.add(bin);
+  }
+  return recurring;
+}
+
+function hasRecurringGutter(recurringGutterBins: Set<number>, prev: TextSpan, cur: TextSpan): boolean {
+  if (recurringGutterBins.size === 0) return false;
+  const bin = gutterBin(prev, cur);
+  for (const recurringBin of recurringGutterBins) {
+    if (Math.abs(recurringBin - bin) <= RECURRING_GUTTER_BIN_PT) return true;
+  }
+  return false;
+}
+
 function rowY(row: LayoutLine[]): number {
   return Math.min(...row.map((line) => line.y));
 }
@@ -679,7 +785,7 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0): PageLayout {
   const lineGroups: TextSpan[][] = [];
   for (const s of sorted) {
     const last = lineGroups[lineGroups.length - 1];
-    if (last && canShareTextLine(s, last[0])) {
+    if (last && canShareTextLine(s, lineGroupAnchor(last))) {
       last.push(s);
     } else {
       lineGroups.push([s]);
@@ -690,8 +796,13 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0): PageLayout {
   // max(1.5×fontSize, 16pt) is a strong column/table gutter signal:
   // ordinary inter-word gaps are well under 1× fontSize, while narrow
   // three-column instruction pages can use only ~18pt between columns.
+  // Some dense journals use ~12pt two-column gutters, too close to wide
+  // justified word spaces to trust per-row. Those split only when the
+  // same gutter position recurs on several page-wide y-rows.
+  const recurringGutterBins = detectRecurringGutterBins(lineGroups, pageWidth);
   const lines: LayoutLine[] = lineGroups.flatMap((group) => {
     const xSorted = [...group].sort((a, b) => a.x - b.x);
+    const groupBox = unionBox(xSorted);
     const subLines: TextSpan[][] = [[xSorted[0]]];
     for (let i = 1; i < xSorted.length; i++) {
       const prev = xSorted[i - 1];
@@ -704,7 +815,10 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0): PageLayout {
       const curFontSize = cur.fontSize || FONT_SIZE_FALLBACK_PT;
       const fontSize = Math.min(prevFontSize, curFontSize);
       const segmentGap = Math.max(fontSize * LAYOUT_SEGMENT_GAP_RATIO, LAYOUT_SEGMENT_MIN_GAP_PT);
-      if (gap > segmentGap) {
+      const recurringGutter =
+        hasRecurringGutter(recurringGutterBins, prev, cur) &&
+        isRecurringGutterSplitCandidate(groupBox, prev, cur, gap, fontSize, pageWidth);
+      if (gap > segmentGap || recurringGutter) {
         subLines.push([cur]);
       } else {
         subLines[subLines.length - 1].push(cur);

@@ -270,6 +270,63 @@ describe('buildLayout — heading classification', () => {
 });
 
 describe('buildLayout — multi-column reading order', () => {
+  it('does not let a tall drop cap absorb the following paragraph lines into one layout line', () => {
+    const spans: TextSpan[] = [
+      span('T', 50, 40, 40, 24),
+      span('he first visual line starts beside the drop cap.', 75, 50, 10, 210),
+      span('second visual line should stay separate.', 75, 62, 10, 190),
+      span('third visual line continues below.', 50, 74, 10, 180),
+    ];
+    const layout = buildLayout(spans, 595);
+    const lines = layout.blocks.flatMap((block) => block.lines.map((line) => line.text));
+
+    expect(lines).toEqual([
+      'The first visual line starts beside the drop cap.',
+      'second visual line should stay separate.',
+      'third visual line continues below.',
+    ]);
+  });
+
+  it('splits recurring narrow gutters in dense two-column journal text', () => {
+    // Nature-style two-column body rows can have only ~13pt between the
+    // left and right columns. That is below the default 16pt hard gutter,
+    // but the same page-wide gutter repeats row after row.
+    const spans: TextSpan[] = [
+      span('Left row one fills the first text column', 45, 50, 10, 245),
+      span('Right row one fills the second text column', 303, 50, 10, 245),
+      span('Left row two continues the same paragraph', 45, 62, 10, 245),
+      span('Right row two continues the right paragraph', 303, 62, 10, 245),
+      span('Left row three keeps the gutter recurring', 45, 74, 10, 245),
+      span('Right row three keeps the gutter recurring', 303, 74, 10, 245),
+      span('Left row four confirms the same gutter', 45, 86, 10, 245),
+      span('Right row four confirms the same gutter', 303, 86, 10, 245),
+      span('Left row five has a short opposite-column mate', 45, 98, 10, 245),
+      span('Right.', 303, 98, 10, 28),
+    ];
+    const layout = buildLayout(spans, 595);
+    const lineTexts = layout.blocks.flatMap((block) => block.lines.map((line) => line.text));
+
+    expect(lineTexts).not.toContain(
+      'Left row one fills the first text column Right row one fills the second text column',
+    );
+    expect(lineTexts).not.toContain('Left row five has a short opposite-column mate Right.');
+    expect(layout.blocks[0].text).toContain('Left row one');
+    expect(layout.blocks[0].text).toContain('Left row five');
+    expect(layout.blocks.at(-1)?.text).toContain('Right.');
+  });
+
+  it('keeps a one-off wide justified gap on the same line', () => {
+    const spans: TextSpan[] = [
+      span('Single column text before a wide justified space', 45, 50, 10, 245),
+      span('continues after the same wide space', 303, 50, 10, 245),
+    ];
+    const layout = buildLayout(spans, 595);
+
+    expect(layout.blocks[0].lines[0].text).toBe(
+      'Single column text before a wide justified space continues after the same wide space',
+    );
+  });
+
   it('reorders narrow blocks by (column, y) when two columns are detected', () => {
     // pageWidth 595 (A4). Two ~240pt columns at x=50 and x=320.
     const spans: TextSpan[] = [
