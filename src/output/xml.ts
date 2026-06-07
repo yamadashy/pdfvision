@@ -143,12 +143,19 @@ export function formatXml(result: DocumentResult): string {
             if (block.role) blockAttrs.push(`role="${block.role}"`);
             if (block.level !== undefined) blockAttrs.push(`level="${block.level}"`);
             if (block.roleConfidence !== undefined) blockAttrs.push(`roleConfidence="${block.roleConfidence}"`);
+            if (block.writingMode) blockAttrs.push(`writingMode="${block.writingMode}"`);
             if (block.repeated) blockAttrs.push('repeated="true"');
             out.push(`<block ${blockAttrs.join(' ')}>`);
             for (const line of block.lines) {
-              out.push(
-                `<line x="${line.x}" y="${line.y}" width="${line.width}" height="${line.height}" fontSize="${line.fontSize}">${escapeText(line.text)}</line>`,
-              );
+              const lineAttrs = [
+                `x="${line.x}"`,
+                `y="${line.y}"`,
+                `width="${line.width}"`,
+                `height="${line.height}"`,
+                `fontSize="${line.fontSize}"`,
+              ];
+              if (line.writingMode) lineAttrs.push(`writingMode="${line.writingMode}"`);
+              out.push(`<line ${lineAttrs.join(' ')}>${escapeText(line.text)}</line>`);
             }
             out.push('</block>');
           }

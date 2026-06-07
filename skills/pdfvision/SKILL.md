@@ -67,7 +67,7 @@ The default extraction is enough for most native-text PDFs (papers, exports from
 
 | Goal | Flag | When to reach for it |
 |---|---|---|
-| Reconstruct reading order, find headings, preserve table rows | `--layout` | Multi-column papers, including dense journal layouts with narrow repeated gutters or drop caps; slides where the agent must process blocks in order; table-heavy financial/government PDFs where `layout.tables[]` row-major hints preserve numeric row/cell relationships better than raw blocks |
+| Reconstruct reading order, find headings, preserve table rows | `--layout` | Multi-column papers, including dense journal layouts with narrow repeated gutters or drop caps; Japanese vertical-writing slides/docs where CJK stacks surface as `writingMode: "vertical"`; slides where the agent must process blocks in order; table-heavy financial/government PDFs where `layout.tables[]` row-major hints preserve numeric row/cell relationships better than raw blocks |
 | Know where images sit on the page | `--image-boxes` | Bbox overlay on rendered PNG, figure detection |
 | Know where vector marks sit on the page | `--vector-boxes` | Maps, symbol tables, diagrams, chart paths, form boxes, table rules, slide shapes, and PDFs where visible structure is vector-drawn rather than raster images |
 | Read form controls and blank fields | `--form-fields` | Government forms, applications, tax forms, questionnaires, and any PDF where checkboxes, radio buttons, signatures, text boxes, or choice widgets are part of the visible meaning |

@@ -35,7 +35,7 @@ Every page reports `charCount`, `imageCount`, `vectorCount`, `textCoverage`, and
 
 ### Preserve layout and visual structure
 
-- **`--layout`** returns blocks with `role: 'heading'`, `repeated: true` for running headers and footers, multi-column reading order (including narrow repeated gutters and drop caps), and row-major `layout.tables[]` hints for aligned numeric tables.
+- **`--layout`** returns blocks with `role: 'heading'`, `repeated: true` for running headers and footers, multi-column reading order (including narrow repeated gutters and drop caps), `writingMode: 'vertical'` for detected CJK vertical text stacks, and row-major `layout.tables[]` hints for aligned numeric tables.
 - **`--image-boxes`** reports where each raster draw lands.
 - **`--vector-boxes`** reports where painted vector paths land, useful for maps, symbols, chart paths, form boxes, table rules, and slide shapes that are visible but not raster images.
 - **`--form-fields`** reports interactive PDF widget fields such as text boxes, checkboxes, radio buttons, choices, and signatures with values and bboxes.
@@ -106,6 +106,7 @@ Options:
       --render-scale <n>  Rasterisation multiplier (default 2; bounds (0, 4]). Requires --render or --ocr.
       --geometry          Emit per-text-item bbox + font size in pages[].spans (json/xml/toon)
       --layout            Reconstruct lines + blocks + numeric-table hints in pages[].layout;
+                          detects CJK vertical text stacks as writingMode='vertical';
                           also enables layout warnings (text_overlap / near_bottom_edge /
                           body_near_repeated_chrome / off_page / tabular_numeric_layout)
       --image-boxes       Emit per-image bbox in pages[].imageBoxes;

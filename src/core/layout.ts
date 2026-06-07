@@ -102,6 +102,20 @@ const REPEATED_CHROME_MIN_EDGE_PT = 60;
  *  multiplier keeps short emphasis glyphs from being treated as vertical. */
 const VERTICAL_SPAN_ASPECT_RATIO = 2;
 const VERTICAL_SPAN_MIN_FONT_MULTIPLIER = 3;
+/** Detect display-sized CJK vertical stacks conservatively. Body/table
+ *  labels can align at the same x across rows, so small font sizes stay
+ *  in the normal horizontal layout pass. The horizontal-neighbour cap
+ *  keeps large vertical title columns from suppressing each other while
+ *  still preserving ordinary CJK glyph rows. */
+const VERTICAL_CJK_MAX_CHARS = 2;
+const VERTICAL_CJK_MIN_RUN_SPANS = 2;
+const VERTICAL_CJK_MIN_FONT_SIZE_PT = 20;
+const VERTICAL_CJK_X_TOLERANCE_RATIO = 0.45;
+const VERTICAL_CJK_X_TOLERANCE_MIN_PT = 4;
+const VERTICAL_CJK_STEP_RATIO = 1.8;
+const VERTICAL_CJK_HORIZONTAL_NEIGHBOUR_RATIO = 0.85;
+const VERTICAL_CJK_HORIZONTAL_NEIGHBOUR_MAX_PT = 32;
+const VERTICAL_CJK_MIN_HEIGHT_RATIO = 1.5;
 
 /**
  * Join the spans of a single layout line into a readable string. pdfjs
@@ -138,6 +152,132 @@ function hasVerticalTextShape(span: TextSpan): boolean {
   return (
     span.height > span.width * VERTICAL_SPAN_ASPECT_RATIO && span.height > fontSize * VERTICAL_SPAN_MIN_FONT_MULTIPLIER
   );
+}
+
+function centerX(span: TextSpan): number {
+  return span.x + span.width / 2;
+}
+
+function verticalCjkXTolerance(span: TextSpan): number {
+  const fontSize = span.fontSize || span.height || FONT_SIZE_FALLBACK_PT;
+  return Math.max(fontSize * VERTICAL_CJK_X_TOLERANCE_RATIO, VERTICAL_CJK_X_TOLERANCE_MIN_PT);
+}
+
+function isCompactCjkGlyph(span: TextSpan): boolean {
+  const text = span.text.trim();
+  if (!isCjkLeading(text)) return false;
+  const charCount = [...text].length;
+  if (charCount === 0 || charCount > VERTICAL_CJK_MAX_CHARS) return false;
+
+  const fontSize = span.fontSize || span.height || FONT_SIZE_FALLBACK_PT;
+  if (fontSize < VERTICAL_CJK_MIN_FONT_SIZE_PT) return false;
+  return span.width <= fontSize * 1.6 && span.height <= fontSize * 1.8;
+}
+
+function hasCloseHorizontalNeighbour(span: TextSpan, spans: readonly TextSpan[]): boolean {
+  const fontSize = span.fontSize || span.height || FONT_SIZE_FALLBACK_PT;
+  const maxGap = Math.min(fontSize * VERTICAL_CJK_HORIZONTAL_NEIGHBOUR_RATIO, VERTICAL_CJK_HORIZONTAL_NEIGHBOUR_MAX_PT);
+  for (const other of spans) {
+    if (other === span || other.text.trim().length === 0) continue;
+    const minHeight = Math.max(Math.min(span.height, other.height), 1);
+    const overlap = Math.min(span.y + span.height, other.y + other.height) - Math.max(span.y, other.y);
+    if (overlap < minHeight * LINE_VERTICAL_OVERLAP_RATIO) continue;
+
+    const rightGap = other.x - (span.x + span.width);
+    const leftGap = span.x - (other.x + other.width);
+    if ((rightGap >= 0 && rightGap <= maxGap) || (leftGap >= 0 && leftGap <= maxGap)) return true;
+  }
+  return false;
+}
+
+function canContinueVerticalCjkRun(prev: TextSpan, cur: TextSpan): boolean {
+  const fontSize = Math.max(prev.fontSize || prev.height || FONT_SIZE_FALLBACK_PT, cur.fontSize || cur.height || 0);
+  if (Math.abs(centerX(cur) - centerX(prev)) > Math.max(verticalCjkXTolerance(prev), verticalCjkXTolerance(cur))) {
+    return false;
+  }
+  const step = cur.y - prev.y;
+  return step > 0 && step <= fontSize * VERTICAL_CJK_STEP_RATIO;
+}
+
+function toVerticalBlock(run: TextSpan[]): LayoutBlock | undefined {
+  if (run.length < VERTICAL_CJK_MIN_RUN_SPANS) return undefined;
+  const ySorted = [...run].sort((a, b) => a.y - b.y || a.x - b.x);
+  const box = unionBox(ySorted);
+  const fontSize = round2(mode(ySorted.map((s) => s.fontSize)));
+  if (box.height < Math.max(box.width * VERTICAL_CJK_MIN_HEIGHT_RATIO, fontSize * VERTICAL_CJK_MIN_RUN_SPANS)) {
+    return undefined;
+  }
+
+  const line: LayoutLine = {
+    text: ySorted.map((span) => span.text).join(''),
+    ...box,
+    fontSize,
+    writingMode: 'vertical',
+  };
+  return {
+    text: line.text,
+    ...box,
+    lines: [line],
+    writingMode: 'vertical',
+  };
+}
+
+function extractVerticalCjkBlocks(spans: readonly TextSpan[]): {
+  blocks: LayoutBlock[];
+  remainingSpans: TextSpan[];
+} {
+  const candidates = spans
+    .filter((span) => isCompactCjkGlyph(span) && !hasCloseHorizontalNeighbour(span, spans))
+    .sort((a, b) => centerX(a) - centerX(b) || a.y - b.y);
+  if (candidates.length < VERTICAL_CJK_MIN_RUN_SPANS) return { blocks: [], remainingSpans: [...spans] };
+
+  const columns: TextSpan[][] = [];
+  for (const candidate of candidates) {
+    const last = columns.at(-1);
+    if (!last) {
+      columns.push([candidate]);
+      continue;
+    }
+    const anchor = last[0];
+    if (
+      Math.abs(centerX(candidate) - centerX(anchor)) <=
+      Math.max(verticalCjkXTolerance(candidate), verticalCjkXTolerance(anchor))
+    ) {
+      last.push(candidate);
+    } else {
+      columns.push([candidate]);
+    }
+  }
+
+  const used = new Set<TextSpan>();
+  const blocks: LayoutBlock[] = [];
+  for (const column of columns) {
+    const sortedColumn = [...column].sort((a, b) => a.y - b.y || a.x - b.x);
+    let run: TextSpan[] = [];
+    const flush = () => {
+      const block = toVerticalBlock(run);
+      if (block) {
+        blocks.push(block);
+        for (const span of run) used.add(span);
+      }
+      run = [];
+    };
+    for (const span of sortedColumn) {
+      const prev = run.at(-1);
+      if (!prev || canContinueVerticalCjkRun(prev, span)) {
+        run.push(span);
+      } else {
+        flush();
+        run.push(span);
+      }
+    }
+    flush();
+  }
+
+  return {
+    blocks,
+    remainingSpans: spans.filter((span) => !used.has(span)),
+  };
 }
 
 function canShareLine(a: TextSpan, b: TextSpan): boolean {
@@ -467,7 +607,7 @@ function reorderForColumns(blocks: LayoutBlock[], pageWidth: number): LayoutBloc
   const spanThreshold = pageWidth * 0.6;
   const xEpsilon = pageWidth * 0.05;
 
-  const narrow = blocks.filter((b) => b.width < spanThreshold);
+  const narrow = blocks.filter((b) => b.width < spanThreshold && b.writingMode !== 'vertical');
   if (narrow.length < 4) return blocks;
 
   // Cluster narrow blocks by left edge x. Sorted ascending so each new
@@ -586,6 +726,7 @@ function mergeAdjacentColumnBlocks(blocks: LayoutBlock[]): LayoutBlock[] {
 
 function canMergeAdjacentBodyBlocks(a: LayoutBlock, b: LayoutBlock): boolean {
   if (a.role || b.role) return false;
+  if (a.writingMode || b.writingMode) return false;
   const prevLine = a.lines.at(-1);
   const nextLine = b.lines[0];
   if (!prevLine || !nextLine) return false;
@@ -776,8 +917,10 @@ function toLayoutTable(rows: LayoutLine[][]): LayoutTable {
 export function buildLayout(spans: TextSpan[], pageWidth = 0): PageLayout {
   if (spans.length === 0) return { blocks: [] };
 
+  const vertical = extractVerticalCjkBlocks(spans);
+
   // Stable sort: primarily by y (top to bottom), then by x within a row.
-  const sorted = [...spans].sort((a, b) => a.y - b.y || a.x - b.x);
+  const sorted = [...vertical.remainingSpans].sort((a, b) => a.y - b.y || a.x - b.x);
 
   // Cluster spans into lines. The y comparison anchors on the first span
   // of the current group rather than the most recent one — chaining off
@@ -879,11 +1022,14 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0): PageLayout {
     }
   }
 
-  const blocks: LayoutBlock[] = blockGroups.map((group) => ({
-    text: group.map((l) => l.text).join('\n'),
-    ...unionBox(group),
-    lines: group,
-  }));
+  const blocks: LayoutBlock[] = [
+    ...blockGroups.map((group) => ({
+      text: group.map((l) => l.text).join('\n'),
+      ...unionBox(group),
+      lines: group,
+    })),
+    ...vertical.blocks,
+  ].sort((a, b) => a.y - b.y || a.x - b.x);
 
   classifyHeadings(blocks);
   const ordered = pageWidth > 0 ? reorderForColumns(blocks, pageWidth) : blocks;

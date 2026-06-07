@@ -280,6 +280,48 @@ describe('formatXml', () => {
     expect(out).toMatch(/<line x="10" y="20" width="30" height="12" fontSize="12">Hi<\/line>/);
   });
 
+  it('emits vertical writing mode attributes on layout blocks and lines', () => {
+    const out = formatXml(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: '縦書き',
+            charCount: 3,
+            layout: {
+              blocks: [
+                {
+                  text: '縦書き',
+                  x: 36,
+                  y: 194,
+                  width: 72,
+                  height: 283,
+                  writingMode: 'vertical',
+                  lines: [
+                    {
+                      text: '縦書き',
+                      x: 36,
+                      y: 194,
+                      width: 72,
+                      height: 283,
+                      fontSize: 76,
+                      writingMode: 'vertical',
+                    },
+                  ],
+                },
+              ],
+            },
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toMatch(/<block x="36" y="194" width="72" height="283" writingMode="vertical">/);
+    expect(out).toMatch(
+      /<line x="36" y="194" width="72" height="283" fontSize="76" writingMode="vertical">縦書き<\/line>/,
+    );
+  });
+
   it('emits detected layout tables as row-major XML cells', () => {
     const out = formatXml(
       makeResult({

@@ -44,7 +44,8 @@ Options
                           \`ﬁ\`) matters for downstream diff / forensics.
       --geometry          Emit per-text-item bbox + font size in \`pages[].spans\`.
                           Only takes effect with -f json / -f xml / -f toon.
-      --layout            Reconstruct \`pages[].layout\` (lines, blocks, and numeric-table hints
+      --layout            Reconstruct \`pages[].layout\` (lines, blocks, vertical CJK stacks,
+                          and numeric-table hints
                           in approximate reading order) from the same span data. Only -f json / -f xml / -f toon.
                           Also enables layout warnings: overlapping text, off-page bboxes,
                           body crowded against repeated chrome, or flattened numeric tables

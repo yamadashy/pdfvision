@@ -108,6 +108,7 @@ interface LayoutBlock {
   text: string;              // line texts joined with \n
   x: number; y: number; width: number; height: number;
   lines: LayoutLine[];
+  writingMode?: 'vertical';  // present for detected CJK top-to-bottom glyph stacks
   role?: 'heading';          // heuristic heading classification — see `level`
   level?: 1 | 2 | 3;         // present iff role === 'heading': 1=title, 2=section, 3=subsection candidate
   repeated?: boolean;        // chrome (running header / footer / page number / watermark) detected across pages
@@ -117,6 +118,7 @@ interface LayoutLine {
   text: string;
   x: number; y: number; width: number; height: number;
   fontSize: number;          // most common fontSize across the spans in this line
+  writingMode?: 'vertical';  // present for top-to-bottom CJK glyph stacks
 }
 
 interface LayoutTable {
@@ -137,7 +139,7 @@ interface LayoutTableCell {
 }
 ```
 
-Multi-column reading order: `blocks[]` reads top-to-bottom of the left column before the right column. The layout pass treats recurring narrow gutters as column breaks and avoids letting tall drop caps absorb following paragraph lines. Standalone level-1 / level-2 headings act as column separators; level-3 candidates stay inside their column so subsection breaks don't scramble reading order. Block clustering is still heuristic — table cells may merge into a single block.
+Multi-column reading order: `blocks[]` reads top-to-bottom of the left column before the right column. The layout pass treats recurring narrow gutters as column breaks and avoids letting tall drop caps absorb following paragraph lines. It also detects compact CJK glyph stacks that are visually vertical, joins them top-to-bottom as separate blocks, and marks those blocks/lines with `writingMode: "vertical"` so consumers do not mistake them for horizontal rows. Standalone level-1 / level-2 headings act as column separators; level-3 candidates stay inside their column so subsection breaks don't scramble reading order. Block clustering is still heuristic — table cells may merge into a single block.
 
 `tables[]` is a conservative row-major hint for aligned numeric tables. It appears when multiple rows have several cells and at least two numeric cells, a common shape in financial statements and government statistical tables. Treat it as a visual-structure aid, not a complete table parser: merged headers, standalone currency symbols, and footnotes can still require `--render` / `--render-region`, but `rows[].cells[]` preserves the row/cell order that `blocks[]` often loses when a table is split into label and numeric columns.
 

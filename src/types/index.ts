@@ -317,6 +317,12 @@ export interface LayoutLine {
   height: number;
   /** Most common fontSize across the spans in this line. */
   fontSize: number;
+  /**
+   * Visual writing direction for this reconstructed line. Omitted for the
+   * default horizontal case to keep JSON compact; `vertical` marks CJK
+   * glyph stacks that are meant to be read top-to-bottom.
+   */
+  writingMode?: 'vertical';
 }
 
 /**
@@ -331,6 +337,12 @@ export interface LayoutBlock {
   width: number;
   height: number;
   lines: LayoutLine[];
+  /**
+   * Visual writing direction for this reconstructed block. Omitted for
+   * horizontal text; `vertical` means the block text was assembled from a
+   * top-to-bottom CJK glyph stack rather than left-to-right baselines.
+   */
+  writingMode?: 'vertical';
   /**
    * Coarse semantic role. `'heading'` when the block's dominant fontSize
    * and surrounding shape look like a section anchor — see {@link level}

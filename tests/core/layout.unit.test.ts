@@ -631,6 +631,76 @@ describe('buildLayout — multi-column reading order', () => {
     expect(layout.blocks[0].lines[0].text).toBe('序文 第一条');
   });
 
+  it('keeps Japanese vertical glyph stacks as separate top-to-bottom blocks', () => {
+    // Japanese slide-title-shaped input from a public government PDF:
+    // pdf.js emits one square-ish glyph per span. A y-row-only layout pass
+    // used to merge the two vertical columns row-wise (`縦 書\n書 籍...`).
+    const spans: TextSpan[] = [
+      span('ネットの横書き', 290, 430, 32, 210),
+      span('縦', 36, 194, 76, 72),
+      span('書', 36, 299, 76, 72),
+      span('き', 36, 405, 76, 72),
+      span('書', 182, 97, 76, 72),
+      span('籍', 182, 202, 76, 72),
+      span('の', 182, 308, 76, 72),
+      span('と', 589, 137, 92, 86),
+    ];
+    const layout = buildLayout(spans, 720);
+    const verticalBlocks = layout.blocks.filter((block) => block.writingMode === 'vertical');
+
+    expect(verticalBlocks.map((block) => block.text)).toEqual(expect.arrayContaining(['縦書き', '書籍の']));
+    expect(verticalBlocks.every((block) => block.lines[0]?.writingMode === 'vertical')).toBe(true);
+    expect(layout.blocks.map((block) => block.text)).not.toContain('縦 書\n書 籍\nき の');
+  });
+
+  it('does not treat aligned first glyphs of horizontal CJK lines as vertical writing', () => {
+    const spans: TextSpan[] = [
+      span('日', 50, 50, 12, 12),
+      span('本', 63, 50, 12, 12),
+      span('語', 76, 50, 12, 12),
+      span('日', 50, 68, 12, 12),
+      span('本', 63, 68, 12, 12),
+      span('語', 76, 68, 12, 12),
+      span('日', 50, 86, 12, 12),
+      span('本', 63, 86, 12, 12),
+      span('語', 76, 86, 12, 12),
+    ];
+    const layout = buildLayout(spans);
+
+    expect(layout.blocks.some((block) => block.writingMode === 'vertical')).toBe(false);
+    expect(layout.blocks.flatMap((block) => block.lines.map((line) => line.text))).toEqual([
+      '日本語',
+      '日本語',
+      '日本語',
+    ]);
+  });
+
+  it('does not extract small horizontal CJK labels with wide spacing as vertical blocks', () => {
+    // Table/list-shaped Japanese text can repeat short labels at the same
+    // x across rows while using a deliberate full-width-ish gap inside
+    // each row. Those rows should stay horizontal, not get stripped into a
+    // top-to-bottom label.
+    const spans: TextSpan[] = [
+      span('序', 50, 50, 12, 12),
+      span('文', 66.64, 50, 12, 12), // gap ≈ 0.72 × fontSize
+      span('本', 90, 50, 12, 40),
+      span('序', 50, 68, 12, 12),
+      span('文', 66.64, 68, 12, 12),
+      span('本', 90, 68, 12, 40),
+      span('序', 50, 86, 12, 12),
+      span('文', 66.64, 86, 12, 12),
+      span('本', 90, 86, 12, 40),
+    ];
+    const layout = buildLayout(spans);
+
+    expect(layout.blocks.some((block) => block.writingMode === 'vertical')).toBe(false);
+    expect(layout.blocks.flatMap((block) => block.lines.map((line) => line.text))).toEqual([
+      '序 文 本',
+      '序 文 本',
+      '序 文 本',
+    ]);
+  });
+
   it('keeps a semantic space before a URL when the visual gap is narrowly below the default threshold', () => {
     // ACL-style font-run boundary: the gap before the URL is just below
     // 0.25x fontSize, but the token is visually and semantically
