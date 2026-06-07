@@ -86,9 +86,9 @@ Options
                           (default: literal substring).
       --search-case-sensitive
                           Match case exactly (default: insensitive).
-      --remote <url>      Download an http(s) PDF to the on-disk cache, validate the PDF header, and run extraction
-                          on it. Same URL → same cache slot; combine with --no-cache (or
-                          --clear-cache) to refresh.
+      --remote <url>      Download an http(s) PDF, validate the PDF header, and run extraction
+                          on it. Same URL → same cache slot unless --no-cache streams the
+                          bytes directly without writing the remote-PDF cache.
       --no-cache          Skip the on-disk cache (re-download / re-extract every run).
       --clear-cache       Remove every cached extraction, rendered PNG, and downloaded
                           remote PDF, then exit. No file argument required.

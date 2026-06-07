@@ -321,6 +321,9 @@ describe('cli', () => {
     // Spin up a one-off http server that serves the existing sample
     // fixture, point --remote at it, and assert the markdown body
     // matches what we'd get from running locally on the same bytes.
+    const { existsSync, mkdtempSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
     const fixtureBytes = await import('node:fs').then(({ readFileSync }) => readFileSync(SAMPLE_PDF));
     const server = createServer((_req, res) => {
       res.statusCode = 200;
@@ -329,11 +332,22 @@ describe('cli', () => {
     });
     await new Promise<void>((resolveListen) => server.listen(0, '127.0.0.1', resolveListen));
     const port = (server.address() as AddressInfo).port;
+    const prevCacheDir = process.env.PDFVISION_CACHE_DIR;
+    const cacheRoot = mkdtempSync(join(tmpdir(), 'pdfvision-cli-remote-'));
+    process.env.PDFVISION_CACHE_DIR = cacheRoot;
     try {
       const r = await captureRun(['--remote', `http://127.0.0.1:${port}/doc.pdf`, '--no-cache']);
       expect(r.exitCode).toBeNull();
       expect(r.stdout.join('\n')).toContain('Hello pdfvision');
+      expect(r.stdout.join('\n')).toMatch(/^# http:\/\/127\.0\.0\.1:/);
+      expect(existsSync(join(cacheRoot, 'remote'))).toBe(false);
     } finally {
+      if (prevCacheDir === undefined) {
+        delete process.env.PDFVISION_CACHE_DIR;
+      } else {
+        process.env.PDFVISION_CACHE_DIR = prevCacheDir;
+      }
+      rmSync(cacheRoot, { recursive: true, force: true });
       await new Promise<void>((resolveClose, reject) => server.close((err) => (err ? reject(err) : resolveClose())));
     }
   });

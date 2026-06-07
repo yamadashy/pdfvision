@@ -184,6 +184,8 @@ Results land under `<os-tmp>/pdfvision/<sha256-prefix>/` keyed by file content. 
 
 Remote downloads must actually return a PDF header. If a `.pdf` URL returns an HTML challenge, landing page, or other non-PDF body, pdfvision fails before caching it and reports the response content type instead of surfacing a later `Invalid PDF structure` parse error.
 
+When `--remote --no-cache` is set, the downloaded PDF is streamed directly into extraction and is not written to the remote-PDF cache.
+
 ## 🛠️ Requirements
 
 - Node.js >= 22.13.0

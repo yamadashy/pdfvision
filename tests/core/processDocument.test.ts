@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { processDocument, processFile } from '../../src/core/processor.js';
@@ -22,6 +22,16 @@ describe('processDocument', () => {
       creator: null,
     });
     expect(result.pages).toHaveLength(1);
+    expect(result.pages[0].text).toContain('Hello pdfvision');
+  });
+
+  it('can parse in-memory PDF bytes while preserving the caller-provided file label', async () => {
+    const result = await processDocument('memory://sample.pdf', {
+      sourceData: readFileSync(SAMPLE_PDF),
+      noCache: true,
+    });
+
+    expect(result.file).toBe('memory://sample.pdf');
     expect(result.pages[0].text).toContain('Hello pdfvision');
   });
 

@@ -230,10 +230,16 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
   const noCache = (values['no-cache'] as boolean | undefined) ?? false;
 
   let filePath: string;
+  let sourceData: Uint8Array | undefined;
   if (remoteUrl) {
     try {
-      const { downloadRemote } = await import('../core/remote.js');
-      filePath = await downloadRemote(remoteUrl, { noCache });
+      const { downloadRemote, downloadRemoteData } = await import('../core/remote.js');
+      if (noCache) {
+        sourceData = await downloadRemoteData(remoteUrl);
+        filePath = remoteUrl;
+      } else {
+        filePath = await downloadRemote(remoteUrl);
+      }
     } catch (error) {
       exitWithError(error instanceof Error ? error.message : String(error));
     }
@@ -253,6 +259,7 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
     const { processFile } = await import('../core/processor.js');
     const result = await processFile(filePath, {
       pages: values.pages as string | undefined,
+      sourceData,
       format,
       render,
       renderOutput,

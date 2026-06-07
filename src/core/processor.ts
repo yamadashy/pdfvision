@@ -475,6 +475,10 @@ function dropCachedSafe(cacheDir: string, cacheKey: string): void {
   }
 }
 
+function fingerprintData(data: Uint8Array): string {
+  return createHash('sha256').update(data).digest('hex').slice(0, 16);
+}
+
 /**
  * Extract a structured representation of a PDF.
  *
@@ -485,6 +489,8 @@ function dropCachedSafe(cacheDir: string, cacheKey: string): void {
  * For the formatted (string) variant used by the CLI, see {@link processFile}.
  */
 export async function processDocument(filePath: string, options: ProcessDocumentOptions = {}): Promise<DocumentResult> {
+  const { sourceData, ...cacheRelevantOptions } = options;
+  const pdfData = sourceData ? new Uint8Array(sourceData) : undefined;
   // Reject malformed renderScale up front — before fingerprint hashing
   // or pdfjs load — so callers see the error fast even when --render
   // isn't on (the validation is cheap and a leftover flag in a script
@@ -521,10 +527,10 @@ export async function processDocument(filePath: string, options: ProcessDocument
   // share — the cache layer accepts a precomputed fingerprint to avoid
   // re-reading the same file.
   const needFingerprint = !options.noCache || !!(options.render && options.renderOutput);
-  const fingerprint = needFingerprint ? pdfFingerprint(filePath) : null;
+  const fingerprint = needFingerprint ? (pdfData ? fingerprintData(pdfData) : pdfFingerprint(filePath)) : null;
   const cacheDir = options.noCache ? null : getCacheDir(filePath, fingerprint ?? undefined);
 
-  const cacheKey = buildCacheKey({ ...options, renderScale, renderRegion });
+  const cacheKey = buildCacheKey({ ...cacheRelevantOptions, renderScale, renderRegion });
   if (cacheDir) {
     const cached = getCached(cacheDir, cacheKey);
     if (cached) {
@@ -593,7 +599,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
   // pdfvisdn` on ubuntu CI). JPX decoding does not require ICC.
   // Best-effort: if pdfjs-dist resolution fails, fall back to pre-asset
   // behaviour rather than failing the whole extraction.
-  const docOptions: Record<string, unknown> = { url: filePath };
+  const docOptions: Record<string, unknown> = pdfData ? { data: pdfData } : { url: filePath };
   try {
     // `import.meta.resolve` is sync since Node 20.6 and returns a file://
     // URL for an installed package; convert to a plain directory path so
@@ -1021,6 +1027,7 @@ export async function processFile(filePath: string, options: ProcessOptions): Pr
   }
   const result = await processDocument(filePath, {
     pages: options.pages,
+    sourceData: options.sourceData,
     render: options.render,
     noCache: options.noCache,
     renderOutput: options.renderOutput,

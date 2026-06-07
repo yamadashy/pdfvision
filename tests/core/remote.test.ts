@@ -1,10 +1,10 @@
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { downloadRemote } from '../../src/core/remote.js';
+import { downloadRemote, downloadRemoteData } from '../../src/core/remote.js';
 
 /**
  * One process-wide HTTP server with per-test routing. Tests register a
@@ -52,6 +52,30 @@ describe('downloadRemote', () => {
     const path = await downloadRemote(`http://127.0.0.1:${port}/doc.pdf`);
     expect(existsSync(path)).toBe(true);
     expect(readFileSync(path)).toEqual(TINY_PDF);
+  });
+
+  it('downloads bytes without creating a remote cache entry', async () => {
+    setHandler((_req, res) => {
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/pdf');
+      res.end(TINY_PDF);
+    });
+
+    const prevCacheDir = process.env.PDFVISION_CACHE_DIR;
+    const cacheRoot = mkdtempSync(join(tmpdir(), 'pdfvision-remote-data-'));
+    process.env.PDFVISION_CACHE_DIR = cacheRoot;
+    try {
+      const data = await downloadRemoteData(`http://127.0.0.1:${port}/doc.pdf`);
+      expect(Buffer.from(data)).toEqual(TINY_PDF);
+      expect(existsSync(join(cacheRoot, 'remote'))).toBe(false);
+    } finally {
+      if (prevCacheDir === undefined) {
+        delete process.env.PDFVISION_CACHE_DIR;
+      } else {
+        process.env.PDFVISION_CACHE_DIR = prevCacheDir;
+      }
+      rmSync(cacheRoot, { recursive: true, force: true });
+    }
   });
 
   it('hits the cache on the second call (no network) for the same URL', async () => {

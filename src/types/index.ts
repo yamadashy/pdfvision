@@ -22,6 +22,13 @@ export interface RenderRegion {
 export interface ProcessDocumentOptions {
   /** Pages selector, e.g. "1-5", "3", "1,3,5". Omitted = all pages. */
   pages?: string;
+  /**
+   * In-memory PDF bytes. When provided, pdfvision parses these bytes
+   * instead of reading `filePath` from disk; `filePath` remains a label
+   * in the returned `DocumentResult.file`. Used by `--remote --no-cache`
+   * so the downloaded PDF does not have to be written to the remote cache.
+   */
+  sourceData?: Uint8Array;
   /** Render each selected page to PNG and include the path in `pages[].image`. */
   render?: boolean;
   /** Skip the on-disk cache, always re-extract. Defaults to `false`. */
@@ -211,6 +218,8 @@ export interface ProcessDocumentOptions {
 
 export interface ProcessOptions {
   pages?: string;
+  /** See {@link ProcessDocumentOptions.sourceData}. */
+  sourceData?: Uint8Array;
   format: OutputFormat;
   noCache: boolean;
   render?: boolean;

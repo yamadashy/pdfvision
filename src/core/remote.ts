@@ -81,20 +81,7 @@ function cachedFileHasPdfHeader(path: string): boolean {
   }
 }
 
-/**
- * Download a remote PDF and return the local path it was cached at.
- *
- * The cache directory is keyed by `sha256(url)` so the same URL always
- * resolves to the same on-disk file; subsequent calls without
- * `noCache: true` short-circuit and return the cached path. To pick up
- * an updated remote PDF, pass `noCache: true` or run
- * `pdfvision --clear-cache` to nuke the whole cache.
- *
- * Only `http:` and `https:` URLs are accepted — `file:`, `data:`,
- * `ftp:`, etc. are rejected up front so a stray scheme can't escape
- * the network-fetch path.
- */
-export async function downloadRemote(rawUrl: string, options: DownloadRemoteOptions = {}): Promise<string> {
+function parseRemoteUrl(rawUrl: string): URL {
   let url: URL;
   try {
     url = new URL(rawUrl);
@@ -104,33 +91,13 @@ export async function downloadRemote(rawUrl: string, options: DownloadRemoteOpti
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
     throw new Error(`Refusing to download non-http(s) URL: ${rawUrl}`);
   }
+  return url;
+}
 
-  const noCache = !!options.noCache;
+async function fetchRemotePdfBytes(rawUrl: string, options: DownloadRemoteOptions): Promise<Buffer> {
   const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const fetchImpl = options.fetchImpl ?? globalThis.fetch;
-
-  // sha256(url) keeps two URLs that differ only by query string in
-  // separate cache slots, since they often point at different PDFs
-  // (signed-URL CDNs, version pins). 16 hex chars = 64 bits of
-  // collision resistance; plenty for a per-user cache.
-  const urlHash = createHash('sha256').update(rawUrl).digest('hex').slice(0, 16);
-  const cacheDir = join(remoteCacheRoot(), urlHash);
-  const cachePath = join(cacheDir, safeBasenameFromUrl(url));
-
-  if (!noCache && existsSync(cachePath)) {
-    try {
-      if (statSync(cachePath).size > 0 && cachedFileHasPdfHeader(cachePath)) return cachePath;
-    } catch {
-      // fall through and re-download
-    }
-  }
-
-  // Lay down the directory structure with the same hardening the result
-  // cache uses (0o700, owner-checked, no symlink-redirect).
-  ensurePrivateDir(cacheRoot());
-  ensurePrivateDir(remoteCacheRoot());
-  ensurePrivateDir(cacheDir);
 
   const controller = new AbortController();
   const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs);
@@ -187,6 +154,55 @@ export async function downloadRemote(rawUrl: string, options: DownloadRemoteOpti
     const contentType = response.headers.get('content-type')?.trim() || 'unknown';
     throw new Error(`Remote URL did not return a PDF (content-type: ${contentType}, bytes: ${data.length}): ${rawUrl}`);
   }
+  return data;
+}
+
+export async function downloadRemoteData(rawUrl: string, options: DownloadRemoteOptions = {}): Promise<Uint8Array> {
+  parseRemoteUrl(rawUrl);
+  return fetchRemotePdfBytes(rawUrl, options);
+}
+
+/**
+ * Download a remote PDF and return the local path it was cached at.
+ *
+ * The cache directory is keyed by `sha256(url)` so the same URL always
+ * resolves to the same on-disk file; subsequent calls without
+ * `noCache: true` short-circuit and return the cached path. To pick up
+ * an updated remote PDF, pass `noCache: true` or run
+ * `pdfvision --clear-cache` to nuke the whole cache.
+ *
+ * Only `http:` and `https:` URLs are accepted — `file:`, `data:`,
+ * `ftp:`, etc. are rejected up front so a stray scheme can't escape
+ * the network-fetch path.
+ */
+export async function downloadRemote(rawUrl: string, options: DownloadRemoteOptions = {}): Promise<string> {
+  const url = parseRemoteUrl(rawUrl);
+
+  const noCache = !!options.noCache;
+
+  // sha256(url) keeps two URLs that differ only by query string in
+  // separate cache slots, since they often point at different PDFs
+  // (signed-URL CDNs, version pins). 16 hex chars = 64 bits of
+  // collision resistance; plenty for a per-user cache.
+  const urlHash = createHash('sha256').update(rawUrl).digest('hex').slice(0, 16);
+  const cacheDir = join(remoteCacheRoot(), urlHash);
+  const cachePath = join(cacheDir, safeBasenameFromUrl(url));
+
+  if (!noCache && existsSync(cachePath)) {
+    try {
+      if (statSync(cachePath).size > 0 && cachedFileHasPdfHeader(cachePath)) return cachePath;
+    } catch {
+      // fall through and re-download
+    }
+  }
+
+  // Lay down the directory structure with the same hardening the result
+  // cache uses (0o700, owner-checked, no symlink-redirect).
+  ensurePrivateDir(cacheRoot());
+  ensurePrivateDir(remoteCacheRoot());
+  ensurePrivateDir(cacheDir);
+
+  const data = await fetchRemotePdfBytes(rawUrl, options);
   // Defensive retry: another process running `--clear-cache` (or a
   // concurrent test worker rmSync-ing the cache root) can race the
   // ensurePrivateDir calls above and nuke the parent dir before we
