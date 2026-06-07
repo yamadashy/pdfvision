@@ -391,7 +391,10 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     // are the ones an agent reader needs to react to.
     const showNative = page.quality.nativeTextStatus !== 'ok' && page.quality.nativeTextStatus !== 'empty';
     const nativeFragment = showNative ? ` · native: ${page.quality.nativeTextStatus}` : '';
-    const visualFragment = page.quality.visualStatus === 'blank' ? ` · visual: blank` : '';
+    const visualFragment =
+      page.quality.visualStatus === 'blank' || page.quality.visualStatus === 'sparse'
+        ? ` · visual: ${page.quality.visualStatus}`
+        : '';
     // Inline the warnings count when the page has any. Mirrors the
     // nonPrint / render fragments — the per-page density line is the
     // first thing an agent sees inside a `## Page N` section, so

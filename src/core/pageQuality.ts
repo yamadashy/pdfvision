@@ -10,8 +10,26 @@ const MIXED_NPR_THRESHOLD = 0.05;
 const UNUSABLE_NPR_THRESHOLD = 0.3;
 /** Same blank threshold the skill doc publishes for `renderContentRatio`. */
 const BLANK_RENDER_THRESHOLD = 0.001;
+/**
+ * Sparse visible marks are not enough to call a page visually populated,
+ * but they also must not be collapsed into a render-pipeline blank.
+ */
+const TRACE_RENDER_THRESHOLD = 0.0005;
+const SPARSE_RENDER_THRESHOLD = 0.005;
 const SPARSE_VISUAL_TEXT_COVERAGE_THRESHOLD = 0.02;
 const SPARSE_VISUAL_TEXT_CHAR_THRESHOLD = 200;
+
+function deriveVisualStatus(p: PageResult): PageQuality['visualStatus'] {
+  if (p.renderContentRatio === undefined) return undefined;
+  if (p.renderContentRatio > SPARSE_RENDER_THRESHOLD) return 'ok';
+  if (p.renderContentRatio > BLANK_RENDER_THRESHOLD) return 'sparse';
+
+  const hasCorroboratingVisualObjects = p.imageCount > 0 || p.vectorCount > 0;
+  if (p.renderContentRatio >= TRACE_RENDER_THRESHOLD && hasCorroboratingVisualObjects) {
+    return 'sparse';
+  }
+  return 'blank';
+}
 
 /**
  * Derive PageQuality from the already-extracted signals. Pure function
@@ -19,8 +37,9 @@ const SPARSE_VISUAL_TEXT_CHAR_THRESHOLD = 200;
  * `renderContentRatio`.
  */
 export function derivePageQuality(p: PageResult): PageQuality {
-  const hasVisualRender = p.renderContentRatio !== undefined && p.renderContentRatio > BLANK_RENDER_THRESHOLD;
-  const hasBlankVisualRender = p.renderContentRatio !== undefined && p.renderContentRatio <= BLANK_RENDER_THRESHOLD;
+  const visualStatus = deriveVisualStatus(p);
+  const hasVisualRender = visualStatus === 'ok' || visualStatus === 'sparse';
+  const hasBlankVisualRender = visualStatus === 'blank';
   const hasNonTextVisualContent = p.imageCount > 0 || p.vectorCount > 0;
   const hasVisualContent = hasNonTextVisualContent || hasVisualRender;
   const hasSparseText =
@@ -46,8 +65,6 @@ export function derivePageQuality(p: PageResult): PageQuality {
   }
 
   const quality: PageQuality = { nativeTextStatus };
-  if (p.renderContentRatio !== undefined) {
-    quality.visualStatus = p.renderContentRatio > BLANK_RENDER_THRESHOLD ? 'ok' : 'blank';
-  }
+  if (visualStatus !== undefined) quality.visualStatus = visualStatus;
   return quality;
 }

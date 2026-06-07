@@ -946,8 +946,10 @@ export interface PageResult {
    * "OCR saw a blank page" from "OCR genuinely found no text".
    *
    * Rough thresholds (skill doc):
-   *   - ≤ 0.001 → effectively blank, likely a render failure
-   *   - 0.001 – 0.005 → ambiguous, sparse marks only
+   *   - ≤ 0.001 → effectively blank unless corroborated object geometry
+   *     shows a tiny visible trace
+   *   - 0.001 – 0.005, or a corroborated tiny trace below 0.001 →
+   *     sparse marks only
    *   - > 0.005 → renderer produced visible content
    */
   renderContentRatio?: number;
@@ -1199,15 +1201,18 @@ export interface PageQuality {
   /**
    * Rasterisation outcome, present only when `--render` or `--ocr`
    * actually rasterised the page:
-   *   - `ok` — `renderContentRatio > 0.001`. The renderer drew
-   *     meaningful content.
-   *   - `blank` — `renderContentRatio <= 0.001`. The page came out
+   *   - `ok` — `renderContentRatio > 0.005`. The renderer drew
+   *     clearly populated content.
+   *   - `sparse` — the renderer drew only sparse visible marks, either
+   *     `0.001 < renderContentRatio <= 0.005` or a tiny but corroborated
+   *     image/vector trace below the blank threshold.
+   *   - `blank` — the page came out
    *     effectively blank against its own dominant background;
    *     typically a render-pipeline failure (unsupported image format,
    *     missing fonts) or a genuinely blank page.
    * Absent when neither `--render` nor `--ocr` triggered a raster.
    */
-  visualStatus?: 'ok' | 'blank';
+  visualStatus?: 'ok' | 'sparse' | 'blank';
 }
 
 export interface DocumentMetadata {

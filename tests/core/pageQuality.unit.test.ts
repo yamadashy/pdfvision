@@ -104,6 +104,33 @@ describe('derivePageQuality', () => {
     });
   });
 
+  it('keeps tiny corroborated visual traces distinct from blank renders', () => {
+    const quality = derivePageQuality(
+      makePage({
+        vectorCount: 1,
+        renderContentRatio: 0.0008,
+      }),
+    );
+
+    expect(quality).toEqual({
+      nativeTextStatus: 'empty_but_visual_content',
+      visualStatus: 'sparse',
+    });
+  });
+
+  it('classifies low render ratios above the blank threshold as sparse', () => {
+    const quality = derivePageQuality(
+      makePage({
+        renderContentRatio: 0.002,
+      }),
+    );
+
+    expect(quality).toEqual({
+      nativeTextStatus: 'empty_but_visual_content',
+      visualStatus: 'sparse',
+    });
+  });
+
   it('keeps sparse visible-image pages distinct from blank renders', () => {
     const quality = derivePageQuality(
       makePage({

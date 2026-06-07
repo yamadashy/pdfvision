@@ -862,6 +862,26 @@ describe('formatMarkdown', () => {
     expect(out).toMatch(/visual: blank/);
   });
 
+  it('appends a visual: sparse badge when the rendered page has only tiny marks', () => {
+    const out = formatMarkdown(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: '',
+            charCount: 0,
+            vectorCount: 1,
+            renderContentRatio: 0.0008,
+            quality: { nativeTextStatus: 'empty_but_visual_content', visualStatus: 'sparse' },
+          }),
+        ],
+      }),
+    );
+    expect(out).toMatch(/render: 0\.08%/);
+    expect(out).toMatch(/native: empty_but_visual_content/);
+    expect(out).toMatch(/visual: sparse/);
+  });
+
   it('omits quality badges on healthy pages (nativeTextStatus=ok, no visualStatus)', () => {
     const out = formatMarkdown(
       makeResult({ pages: [makePage({ page: 1, text: 'ok', charCount: 2, quality: { nativeTextStatus: 'ok' } })] }),

@@ -53,11 +53,12 @@ interface PageOverview {
 `overview[]` is the first thing to inspect for silent-failure detection. The `quality` field gives a one-shot classification; the raw signals below let agents combine signals their own way:
 - `imageCount > 0 && textCoverage ≈ 0` → image-flattened page; the text stream is empty.
 - `imageCount > 0 || vectorCount > 0` plus very low `textCoverage` and a tiny `charCount` → the visible page is mostly outside native text (often just a page number over a slide/image). Maps to `quality.nativeTextStatus === 'sparse_text_with_visual_content'`.
-- Very low `textCoverage` and a tiny `charCount` plus `renderContentRatio <= 0.001` → sparse native text is not visible on the rasterised page. Maps to `quality.nativeTextStatus === 'sparse_text_on_blank_visual'`.
+- Very low `textCoverage` and a tiny `charCount` plus `quality.visualStatus === 'blank'` → sparse native text is not visible on the rasterised page. Maps to `quality.nativeTextStatus === 'sparse_text_on_blank_visual'`.
 - `vectorCount > 0 && textCoverage is low` → visible non-raster structure exists even when `imageCount` is zero; forms, charts, diagrams, and slide shapes may require `--render`.
 - `0.05 <= nonPrintableRatio < 0.3` → one or more fonts lack a usable ToUnicode CMap; native text contains readable fragments mixed with raw glyph indices. Native text is incomplete even if some words look usable. Maps to `quality.nativeTextStatus === 'mixed_glyph_indices'`.
 - `nonPrintableRatio >= 0.3` → ToUnicode CMap missing for most of the page; the text stream is mostly raw glyph indices (NUL + control chars) even though `textCoverage` looks fine. Native text is unusable; fall back to `--render` or `--ocr`. Maps to `quality.nativeTextStatus === 'unusable_glyph_indices'`.
-- `renderContentRatio <= 0.001` → rasterised page is effectively blank against its own dominant background (only meaningful when `--render` or `--ocr` was on). Background-aware so dark covers and beige scans don't false-trip it. Catches render-pipeline failures pdfvision can't otherwise surface: pdf.js + @napi-rs/canvas can't decode JPEG2000 image streams (common in Internet Archive scans), and PDFs whose fonts have no resolvable glyphs draw nothing. When OCR runs against this, `confidence: 0` is *not* an OCR miss — the input was a near-uniform image. Maps to `quality.visualStatus === 'blank'`.
+- `quality.visualStatus === 'sparse'` → rasterised page is not blank, but visible marks are sparse. This covers `0.001 < renderContentRatio <= 0.005` and tiny corroborated image/vector traces below the blank threshold; inspect geometry or render a crop before calling it a render failure.
+- `quality.visualStatus === 'blank'` → rasterised page is effectively blank against its own dominant background (only meaningful when `--render` or `--ocr` was on). Background-aware so dark covers and beige scans don't false-trip it. Catches render-pipeline failures pdfvision can't otherwise surface: pdf.js + @napi-rs/canvas can't decode JPEG2000 image streams (common in Internet Archive scans), and PDFs whose fonts have no resolvable glyphs draw nothing. When OCR runs against this, `confidence: 0` is *not* an OCR miss — the input was a near-uniform image.
 
 ## PageResult (per page)
 
@@ -103,8 +104,9 @@ interface PageQuality {
     | 'empty_but_visual_content' // no native text but the page has images / vectors / non-blank pixels
     | 'empty';                   // no text, no detected visual content
   visualStatus?:                 // present iff --render or --ocr triggered a raster
-    | 'ok'                       // renderContentRatio > 0.001 — renderer drew real content
-    | 'blank';                   // renderContentRatio <= 0.001 — effectively blank against the page's own background
+    | 'ok'                       // renderContentRatio > 0.005 — renderer drew clearly populated content
+    | 'sparse'                   // sparse marks: 0.001 < ratio <= 0.005, or corroborated tiny visual traces
+    | 'blank';                   // effectively blank against the page's own background
 }
 ```
 
