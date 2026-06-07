@@ -284,6 +284,47 @@ describe('detectPageWarnings', () => {
       expect(out.some((w) => w.code === 'text_overlap')).toBe(true);
     });
 
+    it('does not flag compact labels that share bbox slack with display numbers', () => {
+      // JICA report page 50-shaped case: the label and a large
+      // display number are visually separated, but the number block's
+      // bbox includes top slack for a small parenthetical note.
+      const label = block(359.38, 665.94, 70.17, 9.95, {
+        text: 'ESG債※発行総額',
+        lines: [{ text: 'ESG債※発行総額', x: 359.38, y: 665.94, width: 70.17, height: 9.95, fontSize: 9.21 }],
+      });
+      const value = block(394.54, 669.46, 94.36, 41.14, {
+        text: '4,850(2024年3月末現在)',
+        lines: [
+          {
+            text: '4,850(2024年3月末現在)',
+            x: 394.54,
+            y: 669.46,
+            width: 94.36,
+            height: 41.14,
+            fontSize: 5.95,
+          },
+        ],
+      });
+      const out = detectPageWarnings(page([label, value]));
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
+    it('does not flag CJK infographic labels that sit above display numbers', () => {
+      // JICA report page 13-shaped case: a short category label sits
+      // above a large numeric value in the same infographic card. The
+      // bboxes overlap, but the visible text is not colliding.
+      const label = block(141.97, 361.39, 73.18, 10.63, {
+        text: '無償資金協力 3',
+        lines: [{ text: '無償資金協力 3', x: 141.97, y: 361.39, width: 73.18, height: 10.63, fontSize: 10.63 }],
+      });
+      const value = block(131.28, 362.28, 82.69, 46.74, {
+        text: '1,553※',
+        lines: [{ text: '1,553※', x: 131.28, y: 362.28, width: 82.69, height: 46.74, fontSize: 34.02 }],
+      });
+      const out = detectPageWarnings(page([label, value]));
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
     it('does not flag an indented continuation line inside a loose bullet bbox', () => {
       const bullet = block(236, 458, 152, 25, {
         text: '! Specific rules apply to deter-',
