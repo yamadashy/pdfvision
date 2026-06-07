@@ -138,6 +138,55 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('splits dense thin vector grids into separate foreground regions', () => {
+    const vectorBoxes = [
+      ...Array.from({ length: 20 }, (_, index) => ({
+        x: 20,
+        y: 20 + index * 3,
+        width: 180,
+        height: 0.5,
+      })),
+      ...Array.from({ length: 20 }, (_, index) => ({
+        x: 20,
+        y: 160 + index * 3,
+        width: 180,
+        height: 0.5,
+      })),
+    ];
+
+    const regions = buildVisualRegions({
+      pageWidth: 250,
+      pageHeight: 300,
+      imageBoxes: [],
+      vectorBoxes,
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'vector',
+        x: 12,
+        y: 12,
+        width: 196,
+        height: 73.5,
+        areaRatio: 0.192,
+        sourceCount: 20,
+        sources: Array.from({ length: 16 }, (_, index) => ({ type: 'vectorBox' as const, index })),
+        reason: '20 vector drawing boxes across dense page structure',
+      },
+      {
+        kind: 'vector',
+        x: 12,
+        y: 152,
+        width: 196,
+        height: 73.5,
+        areaRatio: 0.192,
+        sourceCount: 20,
+        sources: Array.from({ length: 16 }, (_, index) => ({ type: 'vectorBox' as const, index: index + 20 })),
+        reason: '20 vector drawing boxes across dense page structure',
+      },
+    ]);
+  });
+
   it('does not let a full-page vector background swallow dense thin vector foregrounds', () => {
     const vectorBoxes = [
       { x: 0, y: 0, width: 250, height: 250 },
@@ -250,7 +299,7 @@ describe('buildVisualRegions', () => {
       imageBoxes: [{ x: 120, y: 160, width: 220, height: 180 }],
       vectorBoxes: [
         { x: 40, y: -35, width: 560, height: 75 },
-        { x: 0, y: 760, width: 600, height: 40 },
+        { x: 50, y: 760, width: 500, height: 40 },
       ],
     });
 
@@ -399,6 +448,55 @@ describe('buildVisualRegions', () => {
             y: 96,
             width: 90,
             height: 14,
+            blockIndex: 0,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('drops contained same-kind regions after caption expansion', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 300,
+      pageHeight: 300,
+      imageBoxes: [],
+      vectorBoxes: [
+        ...Array.from({ length: 6 }, (_, index) => ({ x: 100 + index * 10, y: 100, width: 30, height: 20 })),
+        ...Array.from({ length: 6 }, (_, index) => ({ x: 100 + index * 10, y: 60, width: 30, height: 20 })),
+      ],
+      layout: {
+        blocks: [
+          {
+            text: 'Figure 1. Example',
+            x: 100,
+            y: 40,
+            width: 100,
+            height: 10,
+            lines: [{ text: 'Figure 1. Example', x: 100, y: 40, width: 100, height: 10, fontSize: 10 }],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'vector',
+        x: 92,
+        y: 32,
+        width: 116,
+        height: 96,
+        areaRatio: 0.124,
+        sourceCount: 6,
+        sources: Array.from({ length: 6 }, (_, index) => ({ type: 'vectorBox' as const, index })),
+        reason: '6 nearby vector drawing operations',
+        associatedText: [
+          {
+            text: 'Figure 1. Example',
+            relation: 'caption',
+            x: 100,
+            y: 40,
+            width: 100,
+            height: 10,
             blockIndex: 0,
           },
         ],

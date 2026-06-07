@@ -42,10 +42,13 @@ const MIN_IMAGE_AREA_RATIO = 0.015;
 const MIN_VECTOR_CLUSTER_SOURCES = 6;
 const MIN_VECTOR_CLUSTER_AREA_RATIO = 0.01;
 const MIN_DENSE_VECTOR_BOXES = 40;
+const MIN_DENSE_VECTOR_CLUSTER_BOXES = 12;
 const MIN_DENSE_VECTOR_UNION_AREA_RATIO = 0.03;
 const MIN_DENSE_VECTOR_LINE_LENGTH_PT = 18;
+const DENSE_VECTOR_CLUSTER_GAP_PT = 24;
 const BACKGROUND_BOX_AREA_RATIO = 0.9;
 const BACKGROUND_BOX_SPAN_RATIO = 0.95;
+const PAGE_EDGE_CHROME_SPAN_RATIO = 0.8;
 const CAPTION_MAX_GAP_PT = 54;
 const CAPTION_MIN_HORIZONTAL_OVERLAP_RATIO = 0.2;
 const MAX_ASSOCIATED_TEXT = 3;
@@ -182,7 +185,7 @@ function isLikelySideChrome(box: BoxLike, pageWidth: number, pageHeight: number)
 function isLikelyHorizontalChrome(box: BoxLike, pageWidth: number, pageHeight: number): boolean {
   const visible = visiblePageBox(box, pageWidth, pageHeight);
   return (
-    visible.width >= pageWidth * 0.9 &&
+    visible.width >= pageWidth * PAGE_EDGE_CHROME_SPAN_RATIO &&
     visible.height <= pageHeight * 0.08 &&
     (visible.y <= pageHeight * 0.1 || visible.y + visible.height >= pageHeight * 0.9)
   );
@@ -207,12 +210,43 @@ function denseVectorItems(input: BuildVisualRegionsInput): { box: VectorBox; ind
     );
 }
 
+function denseVectorClusters<T extends { box: BoxLike }>(items: readonly T[]): { box: BoxLike; items: T[] }[] {
+  const clusters: { box: BoxLike; items: T[] }[] = [];
+  for (const item of items) {
+    const matches: number[] = [];
+    for (let i = 0; i < clusters.length; i++) {
+      if (touches(clusters[i].box, item.box, DENSE_VECTOR_CLUSTER_GAP_PT)) matches.push(i);
+    }
+    if (matches.length === 0) {
+      clusters.push({ box: item.box, items: [item] });
+      continue;
+    }
+
+    const first = matches[0];
+    clusters[first] = {
+      box: unionBox(clusters[first].box, item.box),
+      items: [...clusters[first].items, item],
+    };
+    for (let i = matches.length - 1; i >= 1; i--) {
+      clusters[first] = {
+        box: unionBox(clusters[first].box, clusters[matches[i]].box),
+        items: [...clusters[first].items, ...clusters[matches[i]].items],
+      };
+      clusters.splice(matches[i], 1);
+    }
+  }
+  return clusters;
+}
+
 function hasDenseVectorStructure(input: BuildVisualRegionsInput): boolean {
   const useful = denseVectorItems(input);
   if (useful.length < MIN_DENSE_VECTOR_BOXES) return false;
 
-  const box = useful.slice(1).reduce<BoxLike>((acc, item) => unionBox(acc, item.box), useful[0].box);
-  return areaRatio(box, pageArea(input)) >= MIN_DENSE_VECTOR_UNION_AREA_RATIO;
+  return denseVectorClusters(useful).some(
+    (cluster) =>
+      cluster.items.length >= MIN_DENSE_VECTOR_CLUSTER_BOXES &&
+      areaRatio(cluster.box, pageArea(input)) >= MIN_DENSE_VECTOR_UNION_AREA_RATIO,
+  );
 }
 
 function sourceKey(source: VisualRegionSource): string {
@@ -341,17 +375,19 @@ function addDenseVectorUnionCandidate(input: BuildVisualRegionsInput, candidates
   const useful = denseVectorItems(input);
   if (useful.length < MIN_DENSE_VECTOR_BOXES) return;
 
-  const box = useful.slice(1).reduce<BoxLike>((acc, item) => unionBox(acc, item.box), useful[0].box);
-  const ratio = areaRatio(box, pageArea(input));
-  if (ratio < MIN_DENSE_VECTOR_UNION_AREA_RATIO) return;
+  for (const cluster of denseVectorClusters(useful)) {
+    if (cluster.items.length < MIN_DENSE_VECTOR_CLUSTER_BOXES) continue;
+    const ratio = areaRatio(cluster.box, pageArea(input));
+    if (ratio < MIN_DENSE_VECTOR_UNION_AREA_RATIO) continue;
 
-  candidates.push({
-    ...box,
-    kind: 'vector',
-    priority: 2,
-    reason: `${useful.length} vector drawing boxes across dense page structure`,
-    sources: useful.map(({ index }) => ({ type: 'vectorBox', index })),
-  });
+    candidates.push({
+      ...cluster.box,
+      kind: 'vector',
+      priority: 2,
+      reason: `${cluster.items.length} vector drawing boxes across dense page structure`,
+      sources: cluster.items.map(({ index }) => ({ type: 'vectorBox', index })),
+    });
+  }
 }
 
 function addTableCandidates(layout: PageLayout | undefined, candidates: Candidate[]): void {
@@ -505,6 +541,20 @@ function suppressBackgroundLikeCandidates(candidates: Candidate[], pageWidth: nu
   return candidates.filter((candidate) => !isBackgroundLikeCandidate(candidate, pageWidth, pageHeight));
 }
 
+function suppressContainedCandidates(candidates: Candidate[]): Candidate[] {
+  return candidates.filter(
+    (candidate, index) =>
+      !candidates.some(
+        (other, otherIndex) =>
+          otherIndex !== index &&
+          other.kind === candidate.kind &&
+          area(other) > area(candidate) * 1.5 &&
+          other.sources.length >= candidate.sources.length &&
+          overlapOfSmaller(candidate, other) >= 0.9,
+      ),
+  );
+}
+
 export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion[] {
   if (input.pageWidth <= 0 || input.pageHeight <= 0) return [];
 
@@ -521,7 +571,8 @@ export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion
     input.pageWidth,
     input.pageHeight,
   );
-  return attachCaptionText(deduped, input.layout)
+  const withCaptions = attachCaptionText(suppressContainedCandidates(deduped), input.layout);
+  return suppressContainedCandidates(withCaptions)
     .filter((candidate) => isUsableBox(candidate))
     .sort((a, b) => visualScore(b, totalArea) - visualScore(a, totalArea))
     .slice(0, MAX_REGIONS)
