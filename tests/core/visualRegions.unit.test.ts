@@ -455,6 +455,89 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('prefers caption lines over the enclosing block text', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 200,
+      pageHeight: 200,
+      imageBoxes: [{ x: 40, y: 40, width: 80, height: 50 }],
+      layout: {
+        blocks: [
+          {
+            text: 'Table 1. Security controls\nSecurity controls',
+            x: 45,
+            y: 96,
+            width: 100,
+            height: 28,
+            lines: [
+              { text: 'Table 1. Security controls', x: 45, y: 96, width: 100, height: 12, fontSize: 10 },
+              { text: 'Security controls', x: 60, y: 112, width: 70, height: 12, fontSize: 10 },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions[0].associatedText).toEqual([
+      {
+        text: 'Table 1. Security controls',
+        relation: 'caption',
+        x: 45,
+        y: 96,
+        width: 100,
+        height: 12,
+        blockIndex: 0,
+      },
+    ]);
+  });
+
+  it('does not treat inline table references as captions', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 300,
+      pageHeight: 300,
+      imageBoxes: [{ x: 60, y: 60, width: 120, height: 70 }],
+      layout: {
+        blocks: [
+          {
+            text: '表 1.5 概要',
+            x: 70,
+            y: 40,
+            width: 90,
+            height: 12,
+            lines: [{ text: '表 1.5 概要', x: 70, y: 40, width: 90, height: 12, fontSize: 10 }],
+          },
+          {
+            text: '表 1.5の対策を以下で説明する。',
+            x: 70,
+            y: 140,
+            width: 140,
+            height: 12,
+            lines: [{ text: '表 1.5の対策を以下で説明する。', x: 70, y: 140, width: 140, height: 12, fontSize: 10 }],
+          },
+          {
+            text: '図せず変更された設定を直す',
+            x: 70,
+            y: 156,
+            width: 130,
+            height: 12,
+            lines: [{ text: '図せず変更された設定を直す', x: 70, y: 156, width: 130, height: 12, fontSize: 10 }],
+          },
+        ],
+      },
+    });
+
+    expect(regions[0].associatedText).toEqual([
+      {
+        text: '表 1.5 概要',
+        relation: 'caption',
+        x: 70,
+        y: 40,
+        width: 90,
+        height: 12,
+        blockIndex: 0,
+      },
+    ]);
+  });
+
   it('drops contained same-kind regions after caption expansion', () => {
     const regions = buildVisualRegions({
       pageWidth: 300,

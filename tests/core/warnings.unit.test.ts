@@ -260,6 +260,26 @@ describe('detectPageWarnings', () => {
     expect(out.filter((w) => w.code === 'tabular_numeric_layout')).toEqual([]);
   });
 
+  it('does not flag chart-axis labels without shared numeric rows', () => {
+    const out = detectPageWarnings(
+      page([
+        block(80, 100, 24, 220, {
+          text: 'y axis',
+          lines: Array.from({ length: 8 }, (_, i) => line(`${70 - i * 10}.0%`, 80, 100 + i * 30, 24)),
+        }),
+        block(250, 115, 30, 220, {
+          text: 'data labels',
+          lines: [line('64.7%', 250, 115, 30), line('56.8%', 250, 245, 30), line('31.2%', 250, 325, 30)],
+        }),
+        block(120, 360, 250, 8, {
+          text: 'x axis',
+          lines: Array.from({ length: 6 }, (_, i) => line(`${70 + i * 5}.0%`, 120 + i * 45, 360, 30)),
+        }),
+      ]),
+    );
+    expect(out.filter((w) => w.code === 'tabular_numeric_layout')).toEqual([]);
+  });
+
   it('does not flag ordinary prose with occasional numeric-only lines', () => {
     const out = detectPageWarnings(
       page([

@@ -82,6 +82,8 @@ const TABULAR_NUMERIC_MIN_LINE_RATIO = 0.25;
 const TABULAR_NUMERIC_MIN_ALIGNED_COLUMNS = 2;
 const TABULAR_NUMERIC_MIN_LINES_PER_COLUMN = 3;
 const TABULAR_NUMERIC_COLUMN_TOLERANCE_PT = 10;
+const TABULAR_NUMERIC_ROW_TOLERANCE_PT = 4;
+const TABULAR_NUMERIC_MIN_SHARED_ROWS = 3;
 
 function sortWarnings(warnings: PageWarning[]): void {
   // Stable sort by (severity error first, then code, then blockIndex)
@@ -211,11 +213,13 @@ function detectTabularNumericLayout(blocks: LayoutBlock[], out: PageWarning[]): 
     (cluster) => cluster.lines.length >= TABULAR_NUMERIC_MIN_LINES_PER_COLUMN,
   );
   if (alignedColumns.length < TABULAR_NUMERIC_MIN_ALIGNED_COLUMNS) return;
+  const sharedRows = countSharedNumericRows(alignedColumns);
+  if (sharedRows < TABULAR_NUMERIC_MIN_SHARED_ROWS) return;
 
   out.push({
     code: 'tabular_numeric_layout',
     severity: 'warning',
-    message: `page contains ${numericLines.length} short numeric lines in ${alignedColumns.length} aligned columns — table rows/columns may be flattened in native text; inspect the render or geometry when values matter`,
+    message: `page contains ${numericLines.length} short numeric lines in ${alignedColumns.length} aligned columns and ${sharedRows} shared numeric rows — table rows/columns may be flattened in native text; inspect the render or geometry when values matter`,
   });
 }
 
@@ -243,6 +247,26 @@ function clusterNumericLines(lines: LayoutLine[]): { right: number; lines: Layou
     }
   }
   return clusters;
+}
+
+function countSharedNumericRows(columns: { right: number; lines: LayoutLine[] }[]): number {
+  const rowClusters: { center: number; sampleCount: number; columnIndexes: Set<number> }[] = [];
+  for (let columnIndex = 0; columnIndex < columns.length; columnIndex++) {
+    for (const line of columns[columnIndex].lines) {
+      const center = line.y + line.height / 2;
+      const cluster = rowClusters.find(
+        (candidate) => Math.abs(candidate.center - center) <= TABULAR_NUMERIC_ROW_TOLERANCE_PT,
+      );
+      if (cluster) {
+        cluster.columnIndexes.add(columnIndex);
+        cluster.center = (cluster.center * cluster.sampleCount + center) / (cluster.sampleCount + 1);
+        cluster.sampleCount += 1;
+      } else {
+        rowClusters.push({ center, sampleCount: 1, columnIndexes: new Set([columnIndex]) });
+      }
+    }
+  }
+  return rowClusters.filter((cluster) => cluster.columnIndexes.size >= TABULAR_NUMERIC_MIN_ALIGNED_COLUMNS).length;
 }
 
 function canCompareNativeTextAgainstRaster(status: PageResult['quality']['nativeTextStatus']): boolean {

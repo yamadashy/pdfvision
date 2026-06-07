@@ -52,7 +52,13 @@ const PAGE_EDGE_CHROME_SPAN_RATIO = 0.8;
 const CAPTION_MAX_GAP_PT = 54;
 const CAPTION_MIN_HORIZONTAL_OVERLAP_RATIO = 0.2;
 const MAX_ASSOCIATED_TEXT = 3;
-const CAPTION_PATTERN = /^\s*(?:fig(?:ure)?\.?|table|図|表)\s*[\w\d０-９一二三四五六七八九十ivxlcdm]+[\s.:：．、-]/iu;
+const CAPTION_NUMBER_PATTERN =
+  '[\\p{L}\\p{N}０-９一二三四五六七八九十ivxlcdm]+(?:[.-][\\p{L}\\p{N}０-９一二三四五六七八九十ivxlcdm]+)*\\.?';
+const CAPTION_PATTERN = new RegExp(
+  `^\\s*(?:fig(?:ure)?\\.?|table|図|表)\\s*(${CAPTION_NUMBER_PATTERN})(?=\\s|[:：．、-]|$)`,
+  'iu',
+);
+const CAPTION_NUMBERISH_PATTERN = /[0-9０-９一二三四五六七八九十ivxlcdm]/iu;
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
@@ -467,6 +473,11 @@ function normalizeAssociatedText(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
 }
 
+function isCaptionText(text: string): boolean {
+  const match = CAPTION_PATTERN.exec(text);
+  return match !== null && CAPTION_NUMBERISH_PATTERN.test(match[1] ?? '');
+}
+
 function horizontalOverlapRatio(a: BoxLike, b: BoxLike): number {
   const overlap = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
   return Math.max(0, overlap) / Math.max(1, Math.min(a.width, b.width));
@@ -487,28 +498,52 @@ function captionScore(candidate: Candidate, textBox: BoxLike): number | undefine
   return gap + (1 - overlap) * 30 + belowBonus;
 }
 
+function captionTextsFromBlock(
+  block: NonNullable<PageLayout['blocks']>[number],
+  blockIndex: number,
+): VisualRegionAssociatedText[] {
+  const lineCaptions = block.lines
+    .map((line) => ({ line, text: normalizeAssociatedText(line.text) }))
+    .filter(({ text }) => isCaptionText(text))
+    .map(({ line, text }) => ({
+      text,
+      relation: 'caption' as const,
+      x: line.x,
+      y: line.y,
+      width: line.width,
+      height: line.height,
+      blockIndex,
+    }));
+  if (lineCaptions.length > 0) return lineCaptions;
+
+  const text = normalizeAssociatedText(block.text);
+  if (!isCaptionText(text)) return [];
+  return [
+    {
+      text,
+      relation: 'caption' as const,
+      x: block.x,
+      y: block.y,
+      width: block.width,
+      height: block.height,
+      blockIndex,
+    },
+  ];
+}
+
 function attachCaptionText(candidates: Candidate[], layout: PageLayout | undefined): Candidate[] {
   const blocks = layout?.blocks ?? [];
   if (blocks.length === 0) return candidates;
   return candidates.map((candidate) => {
     const captions = blocks
-      .map((block, index) => ({ block, index, text: normalizeAssociatedText(block.text) }))
-      .filter(({ block, text }) => !block.repeated && CAPTION_PATTERN.test(text))
-      .map(({ block, index, text }) => {
-        const associatedText: VisualRegionAssociatedText = {
-          text,
-          relation: 'caption' as const,
-          x: block.x,
-          y: block.y,
-          width: block.width,
-          height: block.height,
-          blockIndex: index,
-        };
-        return {
-          text: associatedText,
-          score: captionScore(candidate, block),
-        };
-      })
+      .flatMap((block, index) =>
+        block.repeated
+          ? []
+          : captionTextsFromBlock(block, index).map((associatedText) => ({
+              text: associatedText,
+              score: captionScore(candidate, associatedText),
+            })),
+      )
       .filter((item): item is { text: VisualRegionAssociatedText; score: number } => item.score !== undefined)
       .sort((a, b) => a.score - b.score)
       .slice(0, MAX_ASSOCIATED_TEXT);
