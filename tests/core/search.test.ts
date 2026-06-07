@@ -217,6 +217,53 @@ describe('processDocument search', () => {
     expect(matches[0].bbox).toEqual({ x: 10, y: 20, width: 71, height: 10 });
   });
 
+  it('narrows native match boxes to the matched substring inside a span', async () => {
+    // Search bboxes feed directly into --render-region. A substring
+    // match should not return the whole pdf.js span when only two
+    // characters inside that span matched.
+    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const compiled = compileSearch('cd', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const matches = searchPage(
+      [{ text: 'abcdef', x: 10, y: 20, width: 60, height: 10, fontSize: 10 }],
+      undefined,
+      1,
+      612,
+      792,
+      compiled,
+    );
+    expect(matches).toHaveLength(1);
+    expect(matches[0].boxes).toEqual([{ x: 30, y: 20, width: 20, height: 10 }]);
+    expect(matches[0].bbox).toEqual({ x: 30, y: 20, width: 20, height: 10 });
+  });
+
+  it('narrows only the matching slice of a span-boundary phrase', async () => {
+    // JICA report-shaped case: "JICA" is its own span and the CJK
+    // suffix starts a longer span. Searching "JICA債" should include
+    // only the first character of the second span, not the whole
+    // "債への投資家..." run.
+    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const compiled = compileSearch('JICA債', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const matches = searchPage(
+      [
+        { text: 'JICA', x: 100, y: 20, width: 40, height: 10, fontSize: 10 },
+        { text: '債への投資家', x: 142, y: 20, width: 60, height: 10, fontSize: 10 },
+      ],
+      undefined,
+      1,
+      612,
+      792,
+      compiled,
+    );
+    expect(matches).toHaveLength(1);
+    expect(matches[0].boxes).toEqual([
+      { x: 100, y: 20, width: 40, height: 10 },
+      { x: 142, y: 20, width: 10, height: 10 },
+    ]);
+    expect(matches[0].bbox).toEqual({ x: 100, y: 20, width: 52, height: 10 });
+  });
+
   it('does not double-insert a synthetic space when adjacent spans already carry whitespace', async () => {
     const { compileSearch, searchPage } = await import('../../src/core/search.js');
     const compiled = compileSearch('Hello World', {});

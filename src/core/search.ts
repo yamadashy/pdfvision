@@ -136,6 +136,13 @@ interface SearchLine {
   owners: (TextSpan | undefined)[];
 }
 
+interface Box {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 function buildSearchLines(spans: readonly TextSpan[] | undefined): SearchLine[] {
   if (!spans || spans.length === 0) return [];
   const sorted = [...spans].sort((a, b) => a.y - b.y || a.x - b.x);
@@ -189,16 +196,16 @@ function spaceGapThreshold(prev: TextSpan, cur: TextSpan, fontSize: number): num
   return fontSize * (bothCjk ? CJK_TIGHT_GAP_RATIO : DEFAULT_SPACE_GAP_RATIO);
 }
 
-function unionBoxes(spans: readonly TextSpan[]): { x: number; y: number; width: number; height: number } {
+function unionBoxes(boxes: readonly Box[]): Box {
   let minX = Number.POSITIVE_INFINITY;
   let minY = Number.POSITIVE_INFINITY;
   let maxX = Number.NEGATIVE_INFINITY;
   let maxY = Number.NEGATIVE_INFINITY;
-  for (const span of spans) {
-    minX = Math.min(minX, span.x);
-    minY = Math.min(minY, span.y);
-    maxX = Math.max(maxX, span.x + span.width);
-    maxY = Math.max(maxY, span.y + span.height);
+  for (const box of boxes) {
+    minX = Math.min(minX, box.x);
+    minY = Math.min(minY, box.y);
+    maxX = Math.max(maxX, box.x + box.width);
+    maxY = Math.max(maxY, box.y + box.height);
   }
   return {
     x: round2(minX),
@@ -208,16 +215,47 @@ function unionBoxes(spans: readonly TextSpan[]): { x: number; y: number; width: 
   };
 }
 
-function contributingSpans(line: SearchLine, start: number, end: number): TextSpan[] {
-  const out: TextSpan[] = [];
-  const seen = new Set<TextSpan>();
-  for (let i = start; i < end; i++) {
+function contributingBoxes(line: SearchLine, start: number, end: number): Box[] {
+  const out: Box[] = [];
+  let i = start;
+  while (i < end) {
     const span = line.owners[i];
-    if (!span || seen.has(span)) continue;
-    seen.add(span);
-    out.push(span);
+    if (!span) {
+      i++;
+      continue;
+    }
+    let j = i + 1;
+    while (j < end && line.owners[j] === span) j++;
+    const spanStart = firstOwnerIndex(line, span);
+    if (spanStart >= 0) {
+      out.push(sliceSpanBox(span, i - spanStart, j - spanStart));
+    }
+    i = j;
   }
   return out;
+}
+
+function firstOwnerIndex(line: SearchLine, span: TextSpan): number {
+  for (let i = 0; i < line.owners.length; i++) {
+    if (line.owners[i] === span) return i;
+  }
+  return -1;
+}
+
+function sliceSpanBox(span: TextSpan, start: number, end: number): Box {
+  const textLength = span.text.length;
+  const clampedStart = Math.max(0, Math.min(textLength, start));
+  const clampedEnd = Math.max(clampedStart, Math.min(textLength, end));
+  if (textLength === 0 || (clampedStart === 0 && clampedEnd === textLength) || span.width <= 0) {
+    return { x: round2(span.x), y: round2(span.y), width: round2(span.width), height: round2(span.height) };
+  }
+  const charWidth = span.width / textLength;
+  return {
+    x: round2(span.x + charWidth * clampedStart),
+    y: round2(span.y),
+    width: round2(charWidth * (clampedEnd - clampedStart)),
+    height: round2(span.height),
+  };
 }
 
 /**
@@ -278,20 +316,15 @@ export function searchPage(
           m.regex.lastIndex++;
           continue;
         }
-        const hitSpans = contributingSpans(line, hit.index, hit.index + hit[0].length);
-        if (hitSpans.length === 0) continue;
-        const box = unionBoxes(hitSpans);
+        const hitBoxes = contributingBoxes(line, hit.index, hit.index + hit[0].length);
+        if (hitBoxes.length === 0) continue;
+        const box = unionBoxes(hitBoxes);
         matches.push({
           page: pageNum,
           query: m.query,
           ...(m.queryIndex !== undefined && { queryIndex: m.queryIndex }),
           bbox: box,
-          boxes: hitSpans.map((span) => ({
-            x: round2(span.x),
-            y: round2(span.y),
-            width: round2(span.width),
-            height: round2(span.height),
-          })),
+          boxes: hitBoxes,
           // `hit[0]` is in the same form as the span text (NFKC when
           // normalize is on, raw under --no-normalize), matching the
           // documented `text` contract.
