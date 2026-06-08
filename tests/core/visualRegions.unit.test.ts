@@ -271,6 +271,45 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('does not let slide header and footer bands swallow dense vector diagrams', () => {
+    const vectorBoxes = [
+      { x: 0, y: 0, width: 400, height: 40 },
+      { x: 0, y: 260, width: 400, height: 40 },
+      ...Array.from({ length: 20 }, (_, index) => ({
+        x: 80 + index * 5,
+        y: 80,
+        width: 24,
+        height: 16,
+      })),
+      ...Array.from({ length: 20 }, (_, index) => ({
+        x: 80 + index * 5,
+        y: 104,
+        width: 24,
+        height: 16,
+      })),
+    ];
+
+    const regions = buildVisualRegions({
+      pageWidth: 400,
+      pageHeight: 300,
+      imageBoxes: [],
+      vectorBoxes,
+    });
+
+    const denseRegion = regions.find((region) =>
+      region.reason.includes('vector drawing boxes across dense page structure'),
+    );
+    expect(denseRegion).toMatchObject({
+      kind: 'vector',
+      x: 72,
+      y: 72,
+      width: 135,
+      height: 56,
+      sourceCount: 40,
+      reason: '40 vector drawing boxes across dense page structure',
+    });
+  });
+
   it('suppresses side chrome regions when a foreground visual region exists', () => {
     const regions = buildVisualRegions({
       pageWidth: 600,

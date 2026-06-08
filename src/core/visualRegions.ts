@@ -229,7 +229,8 @@ function denseVectorItems(input: BuildVisualRegionsInput): { box: VectorBox; ind
       ({ box }) =>
         isUsefulDenseVectorBox(box) &&
         !isNearFullPageBox(box, input.pageWidth, input.pageHeight) &&
-        !isLikelySideChrome(box, input.pageWidth, input.pageHeight),
+        !isLikelySideChrome(box, input.pageWidth, input.pageHeight) &&
+        !isLikelyHorizontalChrome(box, input.pageWidth, input.pageHeight),
     );
 }
 
