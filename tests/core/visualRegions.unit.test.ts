@@ -78,6 +78,35 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('keeps a full-page cover raster when the only foreground raster is a small logo', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [
+        { x: 0, y: -13.55, width: 611.98, height: 920.9 },
+        { x: 36, y: 695.9, width: 79.2, height: 79.2 },
+      ],
+      vectorBoxes: [{ x: 0, y: 679.55, width: 612, height: 112.45 }],
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'mixed',
+        x: 0,
+        y: 0,
+        width: 612,
+        height: 792,
+        areaRatio: 1,
+        sourceCount: 2,
+        sources: [
+          { type: 'imageBox', index: 0 },
+          { type: 'vectorBox', index: 0 },
+        ],
+        reason: 'raster image covers 100.0% of the page; 1 nearby vector drawing operations',
+      },
+    ]);
+  });
+
   it('clusters nearby vector boxes and caps representative source refs', () => {
     const vectorBoxes = Array.from({ length: 20 }, (_, index) => ({
       x: 10 + index * 8,

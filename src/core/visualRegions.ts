@@ -39,6 +39,7 @@ const MAX_REGIONS = 12;
 const MAX_SOURCE_REFS = 16;
 const MIN_REGION_DIMENSION_PT = 18;
 const MIN_IMAGE_AREA_RATIO = 0.015;
+const MIN_FOREGROUND_RASTER_AREA_RATIO = 0.015;
 const MIN_VECTOR_CLUSTER_SOURCES = 6;
 const MIN_VECTOR_CLUSTER_AREA_RATIO = 0.01;
 const MIN_DENSE_VECTOR_BOXES = 40;
@@ -55,6 +56,7 @@ const FORM_BACKPLANE_MIN_FORM_OVERLAPS = 2;
 const BACKGROUND_BOX_AREA_RATIO = 0.9;
 const BACKGROUND_BOX_SPAN_RATIO = 0.95;
 const PAGE_EDGE_CHROME_SPAN_RATIO = 0.8;
+const PAGE_EDGE_CHROME_THICKNESS_RATIO = 0.16;
 const CAPTION_MAX_GAP_PT = 54;
 const CAPTION_MIN_HORIZONTAL_OVERLAP_RATIO = 0.2;
 const MAX_ASSOCIATED_TEXT = 3;
@@ -181,6 +183,14 @@ function hasNonBackgroundBox(boxes: readonly BoxLike[], pageWidth: number, pageH
   return boxes.some((box) => isUsableBox(box) && !isNearFullPageBox(box, pageWidth, pageHeight));
 }
 
+function hasSubstantialForegroundRaster(boxes: readonly BoxLike[], pageWidth: number, pageHeight: number): boolean {
+  const totalArea = pageWidth * pageHeight;
+  return boxes.some((box) => {
+    if (!isUsableBox(box) || isNearFullPageBox(box, pageWidth, pageHeight)) return false;
+    return areaRatio(visiblePageBox(box, pageWidth, pageHeight), totalArea) >= MIN_FOREGROUND_RASTER_AREA_RATIO;
+  });
+}
+
 function isUsefulDenseVectorBox(box: BoxLike): boolean {
   return isFinitePositiveBox(box) && Math.max(box.width, box.height) >= MIN_DENSE_VECTOR_LINE_LENGTH_PT;
 }
@@ -198,7 +208,7 @@ function isLikelyHorizontalChrome(box: BoxLike, pageWidth: number, pageHeight: n
   const visible = visiblePageBox(box, pageWidth, pageHeight);
   return (
     visible.width >= pageWidth * PAGE_EDGE_CHROME_SPAN_RATIO &&
-    visible.height <= pageHeight * 0.08 &&
+    visible.height <= pageHeight * PAGE_EDGE_CHROME_THICKNESS_RATIO &&
     (visible.y <= pageHeight * 0.1 || visible.y + visible.height >= pageHeight * 0.9)
   );
 }
@@ -322,10 +332,10 @@ function isUsableFinalCandidate(candidate: Candidate, pageWidth: number, pageHei
 
 function addRasterCandidates(input: BuildVisualRegionsInput, candidates: Candidate[]): void {
   const totalArea = pageArea(input);
-  const hasForegroundRaster = hasNonBackgroundBox(input.imageBoxes, input.pageWidth, input.pageHeight);
+  const hasForegroundRaster = hasSubstantialForegroundRaster(input.imageBoxes, input.pageWidth, input.pageHeight);
   for (const [index, box] of input.imageBoxes.entries()) {
     if (!isUsableBox(box)) continue;
-    const ratio = areaRatio(box, totalArea);
+    const ratio = areaRatio(visiblePageBox(box, input.pageWidth, input.pageHeight), totalArea);
     if (hasForegroundRaster && isNearFullPageBox(box, input.pageWidth, input.pageHeight)) continue;
     const spansWidePage = box.width >= input.pageWidth * 0.3 || box.height >= input.pageHeight * 0.3;
     if (ratio < MIN_IMAGE_AREA_RATIO && !spansWidePage) continue;
