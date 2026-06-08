@@ -477,7 +477,7 @@ The current rule catalog:
 - `localized_glyph_noise` — multiple non-printable code points appear below the mixed-glyph threshold, or isolated Latin-extended mojibake appears inside CJK text; often broken formulas, bullets, dotted leaders, or icon-font symbols.
 - `dense_vector_graphics` — the page contains many vector drawing operations; often form boxes, table rules, chart paths, checkboxes, or diagrams whose visible structure is not represented by native text.
 - `tabular_numeric_layout` — many short numeric lines form multiple aligned columns with shared row positions; often financial statements or dense numeric tables whose row/column relationships are visually obvious but can be flattened in plain native text. Chart-axis tick labels without shared numeric rows are suppressed.
-- `raster_backed_text_layer` — native text appears to be an OCR/text layer over a full-page raster image; text may be useful, but bbox/layout geometry can drift from the pixels a human sees.
+- `raster_backed_text_layer` — native text appears to be an OCR/text layer over a full-page raster image, including sparse OCR layers on scanned covers; text may be useful, but bbox/layout geometry can drift from the pixels a human sees.
 - `large_raster_low_text_overlap` — bbox-enabled extraction found a large raster image with little overlapping native text, including sparse-text visual pages, so labels, chart text, map text, or screenshot text inside it will not appear in native text.
 
 Same observational posture as `quality`: pdfvision tells the agent what it saw; the agent decides whether to surface, re-OCR, or zoom in via `--render-region`.

@@ -1,6 +1,8 @@
 import type { ImageBox } from '../types/index.js';
 
 const RASTER_BACKED_TEXT_COVERAGE_THRESHOLD = 0.1;
+const RASTER_BACKED_SPARSE_TEXT_COVERAGE_THRESHOLD = 0.02;
+const RASTER_BACKED_SPARSE_TEXT_CHAR_THRESHOLD = 50;
 const FULL_PAGE_RASTER_COVERAGE_THRESHOLD = 0.9;
 export const RASTER_BACKED_TEXT_LAYER_MAX_VECTOR_OPS = 12;
 
@@ -8,16 +10,21 @@ interface RasterBackedTextLayerInput {
   imageCount: number;
   vectorCount: number;
   textCoverage: number;
+  charCount?: number;
   imageBoxes: readonly ImageBox[];
   pageWidth: number;
   pageHeight: number;
 }
 
 export function isRasterBackedTextLayer(input: RasterBackedTextLayerInput): boolean {
+  const hasEnoughText =
+    input.textCoverage >= RASTER_BACKED_TEXT_COVERAGE_THRESHOLD ||
+    (input.textCoverage >= RASTER_BACKED_SPARSE_TEXT_COVERAGE_THRESHOLD &&
+      (input.charCount ?? 0) >= RASTER_BACKED_SPARSE_TEXT_CHAR_THRESHOLD);
   return (
     input.imageCount > 0 &&
     input.vectorCount <= RASTER_BACKED_TEXT_LAYER_MAX_VECTOR_OPS &&
-    input.textCoverage >= RASTER_BACKED_TEXT_COVERAGE_THRESHOLD &&
+    hasEnoughText &&
     hasFullPageRasterBackdrop(input.imageBoxes, input.pageWidth, input.pageHeight)
   );
 }

@@ -519,6 +519,7 @@ async function extractPageData(
     imageCount,
     vectorCount,
     textCoverage,
+    charCount: text.length,
     imageBoxes: allBoxes,
     pageWidth: width,
     pageHeight: height,
