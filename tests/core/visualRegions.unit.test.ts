@@ -410,6 +410,166 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('splits distant form fields into section-sized regions', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 300,
+      pageHeight: 420,
+      imageBoxes: [],
+      formFields: [
+        { name: 'first', type: 'text', x: 40, y: 60, width: 120, height: 20 },
+        { name: 'last', type: 'text', x: 170, y: 60, width: 90, height: 20 },
+        { name: 'total', type: 'text', x: 170, y: 220, width: 90, height: 20 },
+        { name: 'sign', type: 'signature', x: 40, y: 340, width: 160, height: 20 },
+      ],
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'form',
+        x: 32,
+        y: 52,
+        width: 236,
+        height: 36,
+        areaRatio: 0.067,
+        sourceCount: 2,
+        sources: [
+          { type: 'formField', index: 0 },
+          { type: 'formField', index: 1 },
+        ],
+        reason: '2 interactive form fields in one page region',
+      },
+      {
+        kind: 'form',
+        x: 162,
+        y: 212,
+        width: 106,
+        height: 36,
+        areaRatio: 0.03,
+        sourceCount: 1,
+        sources: [{ type: 'formField', index: 2 }],
+        reason: '1 interactive form fields in one page region',
+      },
+      {
+        kind: 'form',
+        x: 32,
+        y: 332,
+        width: 176,
+        height: 36,
+        areaRatio: 0.05,
+        sourceCount: 1,
+        sources: [{ type: 'formField', index: 3 }],
+        reason: '1 interactive form fields in one page region',
+      },
+    ]);
+  });
+
+  it('suppresses a large vector form backplane when section form crops exist', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 300,
+      pageHeight: 420,
+      imageBoxes: [],
+      vectorBoxes: [{ x: 20, y: 40, width: 260, height: 360 }],
+      formFields: [
+        { name: 'first', type: 'text', x: 40, y: 60, width: 120, height: 20 },
+        { name: 'total', type: 'text', x: 170, y: 220, width: 90, height: 20 },
+        { name: 'sign', type: 'signature', x: 40, y: 340, width: 160, height: 20 },
+      ],
+    });
+
+    expect(regions.map((region) => region.kind)).toEqual(['form', 'form', 'form']);
+    expect(regions.every((region) => region.width < 220 && region.height < 80)).toBe(true);
+  });
+
+  it('keeps a thin checkbox row after crop padding makes it readable', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 300,
+      pageHeight: 200,
+      imageBoxes: [],
+      formFields: [
+        {
+          name: 'agree',
+          type: 'checkbox',
+          x: 240,
+          y: 80,
+          width: 8,
+          height: 8,
+          label: {
+            text: 'I agree to the certification',
+            relation: 'left',
+            x: 40,
+            y: 79,
+            width: 190,
+            height: 9,
+          },
+        },
+      ],
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'form',
+        x: 32,
+        y: 71,
+        width: 224,
+        height: 25,
+        areaRatio: 0.093,
+        sourceCount: 1,
+        sources: [{ type: 'formField', index: 0 }],
+        reason: '1 interactive form fields in one page region',
+        associatedText: [
+          {
+            text: 'I agree to the certification',
+            relation: 'label',
+            x: 40,
+            y: 79,
+            width: 190,
+            height: 9,
+            fieldIndex: 0,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('splits very dense form pages at major vertical bands', () => {
+    const formFields = [
+      ...Array.from({ length: 12 }, (_, index) => ({
+        name: `top-${index}`,
+        type: 'text' as const,
+        x: 40 + (index % 4) * 35,
+        y: 60 + Math.floor(index / 4) * 12,
+        width: 30,
+        height: 10,
+      })),
+      ...Array.from({ length: 12 }, (_, index) => ({
+        name: `middle-${index}`,
+        type: 'text' as const,
+        x: 40 + (index % 4) * 35,
+        y: 130 + Math.floor(index / 4) * 12,
+        width: 30,
+        height: 10,
+      })),
+      ...Array.from({ length: 12 }, (_, index) => ({
+        name: `bottom-${index}`,
+        type: 'text' as const,
+        x: 40 + (index % 4) * 35,
+        y: 230 + Math.floor(index / 4) * 12,
+        width: 30,
+        height: 10,
+      })),
+    ];
+    const regions = buildVisualRegions({
+      pageWidth: 300,
+      pageHeight: 360,
+      imageBoxes: [],
+      formFields,
+    });
+
+    expect(regions).toHaveLength(3);
+    expect(regions.map((region) => region.sourceCount)).toEqual([12, 12, 12]);
+    expect(regions.map((region) => region.y)).toEqual([52, 122, 222]);
+  });
+
   it('attaches nearby caption text and expands the crop box to include it', () => {
     const regions = buildVisualRegions({
       pageWidth: 200,

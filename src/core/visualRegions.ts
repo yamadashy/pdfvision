@@ -46,6 +46,12 @@ const MIN_DENSE_VECTOR_CLUSTER_BOXES = 12;
 const MIN_DENSE_VECTOR_UNION_AREA_RATIO = 0.03;
 const MIN_DENSE_VECTOR_LINE_LENGTH_PT = 18;
 const DENSE_VECTOR_CLUSTER_GAP_PT = 24;
+const FORM_CLUSTER_GAP_PT = 18;
+const FORM_LARGE_CLUSTER_MIN_FIELDS = 16;
+const FORM_LARGE_CLUSTER_SPLIT_GAP_PT = 13;
+const FORM_LARGE_CLUSTER_HEIGHT_RATIO = 0.35;
+const FORM_BACKPLANE_AREA_RATIO = 0.3;
+const FORM_BACKPLANE_MIN_FORM_OVERLAPS = 2;
 const BACKGROUND_BOX_AREA_RATIO = 0.9;
 const BACKGROUND_BOX_SPAN_RATIO = 0.95;
 const PAGE_EDGE_CHROME_SPAN_RATIO = 0.8;
@@ -259,6 +265,10 @@ function sourceKey(source: VisualRegionSource): string {
   return `${source.type}:${source.index}`;
 }
 
+function hasSourceType(candidate: Candidate, type: VisualRegionSource['type']): boolean {
+  return candidate.sources.some((source) => source.type === type);
+}
+
 function mergeSources(sources: readonly VisualRegionSource[]): VisualRegionSource[] {
   const seen = new Set<string>();
   const merged: VisualRegionSource[] = [];
@@ -304,6 +314,10 @@ function finalizeCandidate(candidate: Candidate, pageWidth: number, pageHeight: 
     reason: candidate.reason,
     ...(associatedText.length > 0 && { associatedText: associatedText.slice(0, MAX_ASSOCIATED_TEXT) }),
   };
+}
+
+function isUsableFinalCandidate(candidate: Candidate, pageWidth: number, pageHeight: number): boolean {
+  return isUsableBox(padAndClamp(candidate, pageWidth, pageHeight));
 }
 
 function addRasterCandidates(input: BuildVisualRegionsInput, candidates: Candidate[]): void {
@@ -412,44 +426,126 @@ function addTableCandidates(layout: PageLayout | undefined, candidates: Candidat
   }
 }
 
-function addFormCandidate(formFields: readonly FormField[] | undefined, candidates: Candidate[]): void {
+function addFormCandidate(
+  formFields: readonly FormField[] | undefined,
+  pageHeight: number,
+  candidates: Candidate[],
+): void {
   if (!formFields || formFields.length === 0) return;
   const usableFields = formFields
     .map((field, index) => ({ field, index }))
     .filter(({ field }) => isFinitePositiveBox(field));
   if (usableFields.length === 0) return;
-  const associatedText = usableFields.flatMap(({ field, index }) =>
-    field.label
-      ? [
-          {
-            text: field.label.text,
-            relation: 'label' as const,
-            x: field.label.x,
-            y: field.label.y,
-            width: field.label.width,
-            height: field.label.height,
-            fieldIndex: index,
-          },
-        ]
-      : [],
-  );
-  const boxes = [
-    ...usableFields.map(({ field }) => field),
-    ...associatedText.map((label) => ({
-      x: label.x,
-      y: label.y,
-      width: label.width,
-      height: label.height,
-    })),
-  ];
-  const box = boxes.slice(1).reduce<BoxLike>((acc, item) => unionBox(acc, item), boxes[0]);
-  candidates.push({
-    ...box,
-    kind: 'form',
-    priority: 3,
-    reason: `${usableFields.length} interactive form fields in one page region`,
-    sources: usableFields.map(({ index }) => ({ type: 'formField', index })),
-    ...(associatedText.length > 0 && { associatedText }),
+  for (const cluster of formFieldClusters(usableFields, pageHeight)) {
+    const associatedText = cluster.flatMap(({ field, index }) =>
+      field.label
+        ? [
+            {
+              text: field.label.text,
+              relation: 'label' as const,
+              x: field.label.x,
+              y: field.label.y,
+              width: field.label.width,
+              height: field.label.height,
+              fieldIndex: index,
+            },
+          ]
+        : [],
+    );
+    const boxes = [
+      ...cluster.map(({ field }) => field),
+      ...associatedText.map((label) => ({
+        x: label.x,
+        y: label.y,
+        width: label.width,
+        height: label.height,
+      })),
+    ];
+    const box = boxes.slice(1).reduce<BoxLike>((acc, item) => unionBox(acc, item), boxes[0]);
+    candidates.push({
+      ...box,
+      kind: 'form',
+      priority: 3,
+      reason: `${cluster.length} interactive form fields in one page region`,
+      sources: cluster.map(({ index }) => ({ type: 'formField', index })),
+      ...(associatedText.length > 0 && { associatedText }),
+    });
+  }
+}
+
+function formFieldBox(field: FormField): BoxLike {
+  return field.label ? unionBox(field, field.label) : field;
+}
+
+function formFieldClusters<T extends { field: FormField; index: number }>(
+  fields: readonly T[],
+  pageHeight: number,
+): T[][] {
+  const clusters: { box: BoxLike; fields: T[] }[] = [];
+  for (const item of fields) {
+    const box = formFieldBox(item.field);
+    const matches: number[] = [];
+    for (let i = 0; i < clusters.length; i++) {
+      if (touches(clusters[i].box, box, FORM_CLUSTER_GAP_PT)) matches.push(i);
+    }
+    if (matches.length === 0) {
+      clusters.push({ box, fields: [item] });
+      continue;
+    }
+
+    const first = matches[0];
+    clusters[first] = {
+      box: unionBox(clusters[first].box, box),
+      fields: [...clusters[first].fields, item],
+    };
+    for (let i = matches.length - 1; i >= 1; i--) {
+      clusters[first] = {
+        box: unionBox(clusters[first].box, clusters[matches[i]].box),
+        fields: [...clusters[first].fields, ...clusters[matches[i]].fields],
+      };
+      clusters.splice(matches[i], 1);
+    }
+  }
+  return clusters.flatMap((cluster) => splitLargeFormCluster(cluster.fields, pageHeight));
+}
+
+function splitLargeFormCluster<T extends { field: FormField; index: number }>(
+  fields: readonly T[],
+  pageHeight: number,
+): T[][] {
+  const sorted = [...fields].sort((a, b) => a.field.y - b.field.y || a.field.x - b.field.x);
+  if (sorted.length === 0) return [];
+  const box = sorted.slice(1).reduce<BoxLike>((acc, item) => unionBox(acc, item.field), sorted[0].field);
+  if (sorted.length < FORM_LARGE_CLUSTER_MIN_FIELDS && box.height < pageHeight * FORM_LARGE_CLUSTER_HEIGHT_RATIO) {
+    return [sorted];
+  }
+
+  const groups: T[][] = [];
+  let current: T[] = [];
+  let previousBottom = Number.NEGATIVE_INFINITY;
+  for (const item of sorted) {
+    const gap = item.field.y - previousBottom;
+    if (current.length > 0 && gap >= FORM_LARGE_CLUSTER_SPLIT_GAP_PT) {
+      groups.push(current);
+      current = [];
+    }
+    current.push(item);
+    previousBottom = Math.max(previousBottom, item.field.y + item.field.height);
+  }
+  if (current.length > 0) groups.push(current);
+  return groups;
+}
+
+function suppressFormBackplaneCandidates(candidates: Candidate[], totalArea: number): Candidate[] {
+  const formCandidates = candidates.filter((candidate) => hasSourceType(candidate, 'formField'));
+  if (formCandidates.length < FORM_BACKPLANE_MIN_FORM_OVERLAPS) return candidates;
+
+  return candidates.filter((candidate) => {
+    if (hasSourceType(candidate, 'formField')) return true;
+    if (candidate.kind !== 'vector') return true;
+    if (areaRatio(candidate, totalArea) < FORM_BACKPLANE_AREA_RATIO) return true;
+    const overlappingForms = formCandidates.filter((form) => overlapOfSmaller(form, candidate) >= 0.75).length;
+    return overlappingForms < FORM_BACKPLANE_MIN_FORM_OVERLAPS;
   });
 }
 
@@ -597,10 +693,11 @@ export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion
   addRasterCandidates(input, candidates);
   addVectorCandidates(input, candidates);
   addTableCandidates(input.layout, candidates);
-  addFormCandidate(input.formFields, candidates);
+  addFormCandidate(input.formFields, input.pageHeight, candidates);
 
   const totalArea = pageArea(input);
-  const foregroundCandidates = suppressBackgroundLikeCandidates(candidates, input.pageWidth, input.pageHeight);
+  const formAwareCandidates = suppressFormBackplaneCandidates(candidates, totalArea);
+  const foregroundCandidates = suppressBackgroundLikeCandidates(formAwareCandidates, input.pageWidth, input.pageHeight);
   const deduped = suppressBackgroundLikeCandidates(
     dedupeCandidates(foregroundCandidates),
     input.pageWidth,
@@ -608,7 +705,7 @@ export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion
   );
   const withCaptions = attachCaptionText(suppressContainedCandidates(deduped), input.layout);
   return suppressContainedCandidates(withCaptions)
-    .filter((candidate) => isUsableBox(candidate))
+    .filter((candidate) => isUsableFinalCandidate(candidate, input.pageWidth, input.pageHeight))
     .sort((a, b) => visualScore(b, totalArea) - visualScore(a, totalArea))
     .slice(0, MAX_REGIONS)
     .map((candidate) => finalizeCandidate(candidate, input.pageWidth, input.pageHeight))
