@@ -474,7 +474,7 @@ The current rule catalog:
 - `near_bottom_edge` — body text ends unusually close to the page bottom.
 - `body_near_repeated_chrome` — body text overlaps or nearly touches detected repeated header/footer chrome.
 - `off_page` — a layout block bbox extends beyond the page.
-- `localized_glyph_noise` — multiple non-printable code points appear below the mixed-glyph threshold, or isolated Latin-extended mojibake appears inside CJK text; often broken formulas, bullets, dotted leaders, or icon-font symbols.
+- `localized_glyph_noise` — multiple non-printable code points appear below the mixed-glyph threshold, Unicode replacement characters (`U+FFFD`) appear in otherwise usable native text, or isolated Latin-extended mojibake appears inside CJK text; often broken formulas, comparison symbols, bullets, dotted leaders, or icon-font symbols.
 - `dense_vector_graphics` — the page contains many vector drawing operations; often form boxes, table rules, chart paths, checkboxes, or diagrams whose visible structure is not represented by native text.
 - `tabular_numeric_layout` — many short numeric lines form multiple aligned columns with shared row positions; often financial statements or dense numeric tables whose row/column relationships are visually obvious but can be flattened in plain native text. Chart-axis tick labels without shared numeric rows are suppressed.
 - `raster_backed_text_layer` — native text appears to be an OCR/text layer over a full-page raster image, including sparse OCR layers on scanned covers; text may be useful, but bbox/layout geometry can drift from the pixels a human sees.

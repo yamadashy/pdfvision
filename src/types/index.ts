@@ -1113,7 +1113,8 @@ export interface SearchMatch {
 /**
  * Page anomaly surfaced so agents can spot extraction or visual risks
  * that raw text alone hides: overlapping layout blocks, bodies crowded
- * against chrome, off-page bboxes, localized glyph noise / CJK mojibake,
+ * against chrome, off-page bboxes, localized glyph noise / replacement
+ * characters / CJK mojibake,
  * dense vector graphics whose form fields or chart paths are not text,
  * numeric table-like layouts whose rows/columns may flatten into plain text,
  * large image regions whose internal labels will not appear in native text,

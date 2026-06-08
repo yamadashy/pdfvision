@@ -71,6 +71,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
 
 const LOCALIZED_GLYPH_NOISE_RATIO_THRESHOLD = 0.05;
 const LOCALIZED_GLYPH_NOISE_COUNT_THRESHOLD = 2;
+const REPLACEMENT_CHARACTER = '\uFFFD';
 const CJK_MOJIBAKE_MIN_CJK_COUNT = 50;
 const CJK_MOJIBAKE_COUNT_THRESHOLD = 5;
 const CJK_MOJIBAKE_RATIO_THRESHOLD = 0.05;
@@ -102,6 +103,19 @@ function sortWarnings(warnings: PageWarning[]): void {
 }
 
 function detectLocalizedGlyphNoise(page: PageResult, out: PageWarning[]): void {
+  const replacementCount = countReplacementCharacters(page.text);
+  if (
+    replacementCount > 0 &&
+    page.quality.nativeTextStatus !== 'mixed_glyph_indices' &&
+    page.quality.nativeTextStatus !== 'unusable_glyph_indices'
+  ) {
+    out.push({
+      code: 'localized_glyph_noise',
+      severity: 'warning',
+      message: `native text contains ${replacementCount} Unicode replacement character${replacementCount === 1 ? '' : 's'} (U+FFFD) — at least one visible glyph could not be decoded; inspect the render if exact symbols or punctuation matter`,
+    });
+  }
+
   if (
     page.nonPrintableCount >= LOCALIZED_GLYPH_NOISE_COUNT_THRESHOLD &&
     page.nonPrintableRatio < LOCALIZED_GLYPH_NOISE_RATIO_THRESHOLD
@@ -121,6 +135,14 @@ function detectLocalizedGlyphNoise(page: PageResult, out: PageWarning[]): void {
       message: `native text contains ${cjkMojibake.count} isolated Latin-extended glyphs inside CJK text (e.g. ${cjkMojibake.samples.map((s) => JSON.stringify(s)).join(', ')}) — likely localized character-map noise such as leader dots or symbols; inspect the render if exact text matters`,
     });
   }
+}
+
+function countReplacementCharacters(text: string): number {
+  let count = 0;
+  for (const ch of text) {
+    if (ch === REPLACEMENT_CHARACTER) count++;
+  }
+  return count;
 }
 
 function detectCjkMojibakeGlyphNoise(text: string): { count: number; samples: string[] } | undefined {

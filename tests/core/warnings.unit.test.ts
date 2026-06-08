@@ -121,6 +121,46 @@ describe('detectPageWarnings', () => {
     expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
   });
 
+  it('flags Unicode replacement characters as localized glyph noise', () => {
+    // PLOS article page-shaped case: a relation symbol visually renders,
+    // but the native text stream exposes U+FFFD in prose. The page is
+    // otherwise healthy, so density signals alone would hide the loss.
+    const out = detectPageWarnings({
+      page: 1,
+      text: 'white � 0.165, light grey 0.166-0.335',
+      charCount: 42,
+      imageCount: 0,
+      vectorCount: 10,
+      textCoverage: 0.04,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok' },
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'localized_glyph_noise', severity: 'warning' });
+    expect(out[0].message).toContain('1 Unicode replacement character');
+    expect(out[0].message).toContain('U+FFFD');
+  });
+
+  it('does not duplicate replacement-character warnings on glyph-garbage pages', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: 'mostly broken �\x01\x02',
+      charCount: 17,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.02,
+      nonPrintableRatio: 0.35,
+      nonPrintableCount: 2,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'unusable_glyph_indices' },
+    });
+    expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
+  });
+
   it('flags isolated Latin-extended glyph noise inside CJK text', () => {
     // Aozora PDF-shaped case: dotted TOC leaders visually render as
     // horizontal rules, but the text stream maps each small leader mark
