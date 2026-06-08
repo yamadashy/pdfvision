@@ -181,13 +181,13 @@ function isNearFullPageBox(box: BoxLike, pageWidth: number, pageHeight: number):
 }
 
 function hasNonBackgroundBox(boxes: readonly BoxLike[], pageWidth: number, pageHeight: number): boolean {
-  return boxes.some((box) => isUsableBox(box) && !isNearFullPageBox(box, pageWidth, pageHeight));
+  return boxes.some((box) => isUsableBox(box) && !isBackgroundLikeCandidate(box, pageWidth, pageHeight));
 }
 
 function hasSubstantialForegroundRaster(boxes: readonly BoxLike[], pageWidth: number, pageHeight: number): boolean {
   const totalArea = pageWidth * pageHeight;
   return boxes.some((box) => {
-    if (!isUsableBox(box) || isNearFullPageBox(box, pageWidth, pageHeight)) return false;
+    if (!isUsableBox(box) || isBackgroundLikeCandidate(box, pageWidth, pageHeight)) return false;
     return areaRatio(visiblePageBox(box, pageWidth, pageHeight), totalArea) >= MIN_FOREGROUND_RASTER_AREA_RATIO;
   });
 }
@@ -337,6 +337,8 @@ function addRasterCandidates(input: BuildVisualRegionsInput, candidates: Candida
   const hasForegroundRaster = hasSubstantialForegroundRaster(input.imageBoxes, input.pageWidth, input.pageHeight);
   for (const [index, box] of input.imageBoxes.entries()) {
     if (!isUsableBox(box)) continue;
+    if (isLikelySideChrome(box, input.pageWidth, input.pageHeight)) continue;
+    if (isLikelyHorizontalChrome(box, input.pageWidth, input.pageHeight)) continue;
     const ratio = areaRatio(visiblePageBox(box, input.pageWidth, input.pageHeight), totalArea);
     if (hasForegroundRaster && isNearFullPageBox(box, input.pageWidth, input.pageHeight)) continue;
     const spansWidePage = box.width >= input.pageWidth * 0.3 || box.height >= input.pageHeight * 0.3;
@@ -360,6 +362,8 @@ function clusterVectorBoxes(
   const clusters: Candidate[] = [];
   for (const [index, box] of vectorBoxes.entries()) {
     if (!isUsableBox(box)) continue;
+    if (isLikelySideChrome(box, pageWidth, pageHeight)) continue;
+    if (isLikelyHorizontalChrome(box, pageWidth, pageHeight)) continue;
     if (skipBackgroundBoxes && isNearFullPageBox(box, pageWidth, pageHeight)) continue;
     const matches: number[] = [];
     for (let i = 0; i < clusters.length; i++) {

@@ -113,18 +113,15 @@ describe('buildVisualRegions', () => {
 
     expect(regions).toEqual([
       {
-        kind: 'mixed',
+        kind: 'raster',
         x: 0,
         y: 0,
         width: 612,
         height: 792,
         areaRatio: 1,
-        sourceCount: 2,
-        sources: [
-          { type: 'imageBox', index: 0 },
-          { type: 'vectorBox', index: 0 },
-        ],
-        reason: 'raster image covers 100.0% of the page; 1 nearby vector drawing operations',
+        sourceCount: 1,
+        sources: [{ type: 'imageBox', index: 0 }],
+        reason: 'raster image covers 100.0% of the page',
       },
     ]);
   });
@@ -336,7 +333,7 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
-  it('keeps side chrome when it is the only visual evidence', () => {
+  it('suppresses side chrome even when it is the only visual evidence', () => {
     const regions = buildVisualRegions({
       pageWidth: 600,
       pageHeight: 800,
@@ -344,15 +341,7 @@ describe('buildVisualRegions', () => {
       vectorBoxes: [{ x: 2, y: 122, width: 30, height: 416 }],
     });
 
-    expect(regions).toHaveLength(1);
-    expect(regions[0]).toMatchObject({
-      kind: 'mixed',
-      x: 0,
-      y: 112,
-      width: 44,
-      height: 436,
-      sourceCount: 2,
-    });
+    expect(regions).toEqual([]);
   });
 
   it('suppresses full-page candidates when a crop-sized foreground region exists', () => {
