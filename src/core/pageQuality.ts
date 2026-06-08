@@ -25,7 +25,8 @@ function deriveVisualStatus(p: PageResult): PageQuality['visualStatus'] {
   if (p.renderContentRatio > BLANK_RENDER_THRESHOLD) return 'sparse';
 
   const hasCorroboratingVisualObjects = p.imageCount > 0 || p.vectorCount > 0;
-  if (p.renderContentRatio >= TRACE_RENDER_THRESHOLD && hasCorroboratingVisualObjects) {
+  const hasVisibleTextOnlyTrace = p.charCount > 0 && p.textCoverage > 0 && p.imageCount === 0 && p.vectorCount === 0;
+  if (p.renderContentRatio >= TRACE_RENDER_THRESHOLD && (hasCorroboratingVisualObjects || hasVisibleTextOnlyTrace)) {
     return 'sparse';
   }
   return 'blank';

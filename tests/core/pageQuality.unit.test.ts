@@ -118,6 +118,24 @@ describe('derivePageQuality', () => {
     });
   });
 
+  it('keeps near-threshold text-only render traces distinct from blank renders', () => {
+    const quality = derivePageQuality(
+      makePage({
+        text: 'This second part of the text is in Page 2',
+        charCount: 41,
+        textCoverage: 0.004,
+        imageCount: 0,
+        vectorCount: 0,
+        renderContentRatio: 0.000983,
+      }),
+    );
+
+    expect(quality).toEqual({
+      nativeTextStatus: 'ok',
+      visualStatus: 'sparse',
+    });
+  });
+
   it('classifies low render ratios above the blank threshold as sparse', () => {
     const quality = derivePageQuality(
       makePage({
