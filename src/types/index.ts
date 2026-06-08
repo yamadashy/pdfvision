@@ -531,10 +531,10 @@ export interface PageLayout {
   /**
    * Row-major table hints reconstructed from aligned layout lines. Present
    * only when pdfvision finds repeated rows with multiple numeric cells.
-   * This is deliberately a hint, not a full PDF table model: merged cells,
-   * currency symbols, and multi-line headers can still require visual
-   * confirmation, but row/cell order is much closer to what a human sees
-   * than the column-oriented `blocks` that table-heavy PDFs often produce.
+   * This is deliberately a hint, not a full PDF table model: merged cells
+   * and multi-line headers can still require visual confirmation, but
+   * detached currency symbols are folded into the following numeric cell
+   * when their row position makes the relationship clear.
    */
   tables?: LayoutTable[];
 }

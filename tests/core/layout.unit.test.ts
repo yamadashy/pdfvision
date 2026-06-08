@@ -750,11 +750,35 @@ describe('buildLayout — multi-column reading order', () => {
     const layout = buildLayout(spans, 612);
     expect(layout.tables).toHaveLength(1);
     expect(layout.tables?.[0].rowCount).toBe(3);
-    expect(layout.tables?.[0].columnCount).toBe(5);
+    expect(layout.tables?.[0].columnCount).toBe(4);
     expect(layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text))).toEqual([
-      ['Products', '$', '298,085', '316,199', '297,392'],
+      ['Products', '$ 298,085', '316,199', '297,392'],
       ['Services', '85,200', '78,129', '68,425'],
       ['Total net sales', '383,285', '394,328', '365,817'],
+    ]);
+  });
+
+  it('moves currency symbols that were joined onto the previous table value', () => {
+    const spans: TextSpan[] = [
+      span('Products', 50, 100, 8, 36),
+      span('$', 180, 100, 8, 4),
+      span('298,085', 210, 100, 8, 32),
+      span('$', 248, 100, 8, 4),
+      span('316,199', 290, 100, 8, 32),
+      span('$', 328, 100, 8, 4),
+      span('297,392', 370, 100, 8, 32),
+      span('Services', 50, 112, 8, 34),
+      span('85,200', 210, 112, 8, 28),
+      span('78,129', 290, 112, 8, 28),
+      span('68,425', 370, 112, 8, 28),
+    ];
+    const layout = buildLayout(spans, 612);
+
+    expect(layout.tables?.[0].rows[0].cells.map((cell) => cell.text)).toEqual([
+      'Products',
+      '$ 298,085',
+      '$ 316,199',
+      '$ 297,392',
     ]);
   });
 

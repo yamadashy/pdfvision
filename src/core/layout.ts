@@ -881,13 +881,14 @@ function rowBottom(row: LayoutLine[]): number {
 function toLayoutTable(rows: LayoutLine[][]): LayoutTable {
   const cells = rows.flat();
   const box = unionBox(cells);
+  const normalizedRows = rows.map(normalizeTableCurrencyCells);
   return {
     ...box,
     rowCount: rows.length,
-    columnCount: Math.max(...rows.map((row) => row.length)),
-    rows: rows.map((row) => ({
-      y: round2(rowY(row)),
-      height: round2(rowBottom(row) - rowY(row)),
+    columnCount: Math.max(...normalizedRows.map((row) => row.length)),
+    rows: normalizedRows.map((row, index) => ({
+      y: round2(rowY(rows[index])),
+      height: round2(rowBottom(rows[index]) - rowY(rows[index])),
       cells: row.map((cell) => ({
         text: cell.text,
         x: cell.x,
@@ -897,6 +898,47 @@ function toLayoutTable(rows: LayoutLine[][]): LayoutTable {
       })),
     })),
   };
+}
+
+function normalizeTableCurrencyCells(row: LayoutLine[]): LayoutLine[] {
+  const normalized: LayoutLine[] = [];
+  let pendingCurrency: string | undefined;
+  for (let i = 0; i < row.length; i++) {
+    const cell = row[i];
+    const text = cell.text.trim();
+    if (isCurrencyOnlyCell(text) && isTableNumericCell(row[i + 1]?.text ?? '')) {
+      pendingCurrency = text;
+      continue;
+    }
+
+    const trailing = trailingCurrencyForNextValue(text, row[i + 1]);
+    const textWithoutTrailing = trailing ? text.slice(0, -trailing.length).trimEnd() : text;
+    const nextText = pendingCurrency ? `${pendingCurrency} ${textWithoutTrailing}` : textWithoutTrailing;
+    normalized.push({ ...cell, text: nextText });
+    pendingCurrency = trailing;
+  }
+  if (pendingCurrency) {
+    normalized.push({
+      text: pendingCurrency,
+      x: row.at(-1)?.x ?? 0,
+      y: rowY(row),
+      width: 0,
+      height: rowBottom(row) - rowY(row),
+      fontSize: row.at(-1)?.fontSize ?? 0,
+    });
+  }
+  return normalized;
+}
+
+function isCurrencyOnlyCell(text: string): boolean {
+  return /^[$¥€£]$/u.test(text.trim());
+}
+
+function trailingCurrencyForNextValue(text: string, next: LayoutLine | undefined): string | undefined {
+  if (!next || !isTableNumericCell(next.text)) return undefined;
+  const match = /^(.+?)\s*([$¥€£])$/u.exec(text.trim());
+  if (!match) return undefined;
+  return isTableNumericCell(match[1]) ? match[2] : undefined;
 }
 
 /**
