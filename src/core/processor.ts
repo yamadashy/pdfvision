@@ -1036,7 +1036,10 @@ export async function processDocument(filePath: string, options: ProcessDocument
       for (const page of pages) {
         const input = visualRegionInputsByPage.get(page.page);
         page.visualRegions = input
-          ? buildVisualRegions(input).map((region, index) => ({ ...region, id: `p${page.page}-vr${index}` }))
+          ? buildVisualRegions({ ...input, visualStatus: page.quality.visualStatus }).map((region, index) => ({
+              ...region,
+              id: `p${page.page}-vr${index}`,
+            }))
           : [];
       }
     }

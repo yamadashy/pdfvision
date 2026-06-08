@@ -31,6 +31,7 @@ export interface BuildVisualRegionsInput {
   vectorBoxes?: readonly VectorBox[];
   layout?: PageLayout;
   formFields?: readonly FormField[];
+  visualStatus?: 'ok' | 'sparse' | 'blank';
 }
 
 const REGION_PADDING_PT = 8;
@@ -682,6 +683,16 @@ function suppressBackgroundLikeCandidates(candidates: Candidate[], pageWidth: nu
   return candidates.filter((candidate) => !isBackgroundLikeCandidate(candidate, pageWidth, pageHeight));
 }
 
+function suppressBlankFullPageCandidates(
+  candidates: Candidate[],
+  pageWidth: number,
+  pageHeight: number,
+  visualStatus: BuildVisualRegionsInput['visualStatus'],
+): Candidate[] {
+  if (visualStatus !== 'blank') return candidates;
+  return candidates.filter((candidate) => !isNearFullPageBox(candidate, pageWidth, pageHeight));
+}
+
 function suppressContainedCandidates(candidates: Candidate[]): Candidate[] {
   return candidates.filter(
     (candidate, index) =>
@@ -707,7 +718,17 @@ export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion
 
   const totalArea = pageArea(input);
   const formAwareCandidates = suppressFormBackplaneCandidates(candidates, totalArea);
-  const foregroundCandidates = suppressBackgroundLikeCandidates(formAwareCandidates, input.pageWidth, input.pageHeight);
+  const blankAwareCandidates = suppressBlankFullPageCandidates(
+    formAwareCandidates,
+    input.pageWidth,
+    input.pageHeight,
+    input.visualStatus,
+  );
+  const foregroundCandidates = suppressBackgroundLikeCandidates(
+    blankAwareCandidates,
+    input.pageWidth,
+    input.pageHeight,
+  );
   const deduped = suppressBackgroundLikeCandidates(
     dedupeCandidates(foregroundCandidates),
     input.pageWidth,

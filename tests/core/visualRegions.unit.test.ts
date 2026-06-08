@@ -46,6 +46,28 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('suppresses full-page raster regions when the rendered page is blank', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 100,
+      pageHeight: 100,
+      imageBoxes: [{ x: 0, y: 0, width: 100, height: 100 }],
+      visualStatus: 'blank',
+    });
+
+    expect(regions).toEqual([]);
+  });
+
+  it('keeps full-page raster regions without render evidence', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 100,
+      pageHeight: 100,
+      imageBoxes: [{ x: 0, y: 0, width: 100, height: 100 }],
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0]).toMatchObject({ kind: 'raster', areaRatio: 1 });
+  });
+
   it('ignores full-page background boxes when foreground visual boxes are present', () => {
     const regions = buildVisualRegions({
       pageWidth: 100,
