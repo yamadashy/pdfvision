@@ -524,17 +524,16 @@ async function extractPageData(
     pageHeight: height,
   });
 
-  const visualRegionInput =
-    flags.visualRegions && page.rotate === 0
-      ? {
-          pageWidth: round2(width),
-          pageHeight: round2(height),
-          imageBoxes: allBoxes,
-          vectorBoxes: allVectorBoxes,
-          layout: internalLayout,
-          formFields: allFormFields,
-        }
-      : undefined;
+  const visualRegionInput = flags.visualRegions
+    ? {
+        pageWidth: round2(width),
+        pageHeight: round2(height),
+        imageBoxes: allBoxes,
+        vectorBoxes: allVectorBoxes,
+        layout: internalLayout,
+        formFields: allFormFields,
+      }
+    : undefined;
 
   // Measured on the text we actually return (post-normalize) so the
   // count + ratio match what an agent sees in `text`. Cheap (one
@@ -849,23 +848,12 @@ export async function processDocument(filePath: string, options: ProcessDocument
         `renderRegion requires exactly 1 page (resolved ${pageNumbers.length} from pages selector ${options.pages ? `"${options.pages}"` : '(all pages)'})`,
       );
     }
-    // Bounds + rotation guards. V1 rejects pages with `page.rotate !== 0`
-    // because pdfvision's existing geometry (spans / imageBoxes /
-    // layout.blocks) is in unrotated MediaBox-derived coordinates, while
-    // pdf.js's render viewport applies rotation. The two coord systems
-    // disagree for /Rotate 90/180/270, so a user pulling a bbox from
-    // `imageBoxes` and feeding it as `renderRegion` would crop the
-    // wrong area on rotated pages. Fixing the underlying inconsistency
-    // is a multi-file refactor (renderer + spans + imageBoxes + layout);
-    // out of V1 scope. Reject loudly so the agent doesn't get a silently
-    // wrong PNG.
+    // Bounds are checked against the MediaBox coordinate system exposed
+    // by spans / imageBoxes / layout.blocks. The renderer maps that
+    // region through pdf.js's viewport, so rotated pages still crop the
+    // human-visible rotated page while callers keep one coordinate system.
     if (renderRegion && (options.render || options.ocr)) {
       const probePage = await doc.getPage(pageNumbers[0]);
-      if (probePage.rotate !== 0) {
-        throw new Error(
-          `renderRegion is not supported on rotated pages (page ${pageNumbers[0]} has rotate=${probePage.rotate}); the region coord system would not match imageBoxes / layout.blocks. V1 limitation.`,
-        );
-      }
       // Bounds against the page MediaBox dimensions — matches the
       // coordinate system pdfvision exposes via spans / imageBoxes
       // / layout.blocks, not the post-rotation viewport.

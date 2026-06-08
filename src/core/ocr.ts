@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { OcrWord, PageOcr } from '../types/index.js';
 import { ensurePrivateDir, getCacheRoot } from './cache.js';
-import { type RenderRegion, renderPageToBuffer } from './renderer.js';
+import { type RenderRegion, renderPageToBuffer, type ViewportCrop, viewportCropForRegion } from './renderer.js';
 
 /**
  * One OCR worker, reusable across many pages. Created once per
@@ -24,6 +24,20 @@ const DEFAULT_RENDER_SCALE = 2;
 interface OcrWordTransform {
   scale: number;
   region?: RenderRegion;
+  crop?: ViewportCrop;
+  pageView?: readonly number[];
+  viewport?: PageViewportLike;
+}
+
+interface PageViewportLike {
+  convertToPdfPoint(x: number, y: number): number[];
+}
+
+interface PageBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 interface RawOcrBbox {
@@ -86,21 +100,61 @@ function collectRawWords(page: { blocks?: unknown }): RawOcrWord[] {
   return out;
 }
 
-function transformOcrWords(page: { blocks?: unknown }, transform: OcrWordTransform): OcrWord[] {
-  const offsetX = transform.region?.x ?? 0;
-  const offsetY = transform.region?.y ?? 0;
+function ocrBboxToPageBox(bbox: RawOcrBbox, transform: OcrWordTransform): PageBox | undefined {
   const scale = transform.scale > 0 ? transform.scale : DEFAULT_RENDER_SCALE;
+  if (!transform.viewport || !transform.pageView) {
+    const offsetX = transform.region?.x ?? 0;
+    const offsetY = transform.region?.y ?? 0;
+    return {
+      x: round2(offsetX + bbox.x0 / scale),
+      y: round2(offsetY + bbox.y0 / scale),
+      width: round2((bbox.x1 - bbox.x0) / scale),
+      height: round2((bbox.y1 - bbox.y0) / scale),
+    };
+  }
+
+  const cropX = transform.crop?.x ?? 0;
+  const cropY = transform.crop?.y ?? 0;
+  const viewMinX = Math.min(transform.pageView[0] ?? 0, transform.pageView[2] ?? 0);
+  const viewMaxY = Math.max(transform.pageView[1] ?? 0, transform.pageView[3] ?? 0);
+  const points = [
+    [bbox.x0, bbox.y0],
+    [bbox.x1, bbox.y0],
+    [bbox.x0, bbox.y1],
+    [bbox.x1, bbox.y1],
+  ].map(([x, y]) => {
+    const [pdfX, pdfY] = transform.viewport?.convertToPdfPoint(cropX + x, cropY + y) ?? [0, 0];
+    return {
+      x: pdfX - viewMinX,
+      y: viewMaxY - pdfY,
+    };
+  });
+  const minX = Math.min(...points.map((point) => point.x));
+  const maxX = Math.max(...points.map((point) => point.x));
+  const minY = Math.min(...points.map((point) => point.y));
+  const maxY = Math.max(...points.map((point) => point.y));
+  return {
+    x: round2(minX),
+    y: round2(minY),
+    width: round2(maxX - minX),
+    height: round2(maxY - minY),
+  };
+}
+
+function transformOcrWords(page: { blocks?: unknown }, transform: OcrWordTransform): OcrWord[] {
   const words: OcrWord[] = [];
   for (const raw of collectRawWords(page)) {
     const text = typeof raw.text === 'string' ? raw.text.trim() : '';
     if (text.length === 0 || !isUsableRawBbox(raw.bbox)) continue;
+    const box = ocrBboxToPageBox(raw.bbox, transform);
+    if (!box) continue;
     words.push({
       text,
       confidence: normaliseConfidence(raw.confidence),
-      x: round2(offsetX + raw.bbox.x0 / scale),
-      y: round2(offsetY + raw.bbox.y0 / scale),
-      width: round2((raw.bbox.x1 - raw.bbox.x0) / scale),
-      height: round2((raw.bbox.y1 - raw.bbox.y0) / scale),
+      x: box.x,
+      y: box.y,
+      width: box.width,
+      height: box.height,
     });
   }
   return words;
@@ -234,6 +288,15 @@ export async function attachOcr(
       const cachedImage = imagePaths?.[i];
       let png: Buffer;
       let contentRatio: number | undefined;
+      const page = await doc.getPage(pageNumbers[i]);
+      const ocrScale = scale ?? DEFAULT_RENDER_SCALE;
+      const viewport = page.getViewport({ scale: ocrScale });
+      const transform: OcrWordTransform = {
+        scale: ocrScale,
+        ...(region && { region, crop: viewportCropForRegion(page, viewport, region) }),
+        pageView: page.view,
+        viewport,
+      };
       if (cachedImage) {
         png = await readFile(cachedImage);
       } else {
@@ -241,7 +304,7 @@ export async function attachOcr(
         png = rasterised.buffer;
         contentRatio = rasterised.contentRatio;
       }
-      const result = await session.recognize(png, { scale: scale ?? DEFAULT_RENDER_SCALE, region });
+      const result = await session.recognize(png, transform);
       pages[i].ocr = {
         text: result.text,
         confidence: result.confidence,

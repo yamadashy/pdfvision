@@ -45,6 +45,21 @@ async function buildPdfWithOutline(): Promise<Uint8Array> {
   return new Uint8Array(Buffer.concat(chunks));
 }
 
+async function buildRotatedPdf(): Promise<Uint8Array> {
+  const chunks: Buffer[] = [];
+  const doc = new PDFDocument({ size: [596, 842], margin: 0 });
+  doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+  const done = new Promise<void>((resolveDone) => doc.on('end', resolveDone));
+
+  (doc.page.dictionary.data as Record<string, unknown>).Rotate = 270;
+  doc.rect(0, 0, 596, 842).stroke();
+  doc.fontSize(28).text('ROTATED PAGE', 72, 72);
+  doc.end();
+
+  await done;
+  return new Uint8Array(Buffer.concat(chunks));
+}
+
 async function buildPdfWithAnnotations(): Promise<Uint8Array> {
   const chunks: Buffer[] = [];
   const doc = new PDFDocument({ size: [612, 792], margin: 0 });
@@ -728,12 +743,10 @@ describe('processDocument', () => {
   });
 
   it('actually crops to the requested (x, y) — not just (0, 0) with the right dimensions', async () => {
-    // Regression guard against a misreading of pdf.js's `transform` option
-    // (gemini PR #53 review claimed translation should be in PDF points
-    // with positive y; the actual semantics, per pdfjs-dist source, are
-    // pixel-space with the y flip already baked into viewport.transform,
-    // so `[1,0,0,1,-x*scale,-y*scale]` is the correct shift to put a
-    // top-down PDF region at canvas (0, 0)).
+    // Regression guard against a misreading of pdf.js's `transform` option.
+    // The transform is applied in viewport pixel space, so pdfvision first
+    // maps the requested top-down MediaBox region through the page viewport,
+    // then shifts that viewport crop to canvas (0, 0).
     //
     // Two same-sized regions at different (x, y) on the same page must
     // produce different PNG bytes. If the transform were wrong and both
@@ -760,7 +773,7 @@ describe('processDocument', () => {
     expect(hashUL).not.toBe(hashLR);
   });
 
-  it('composes renderRegion with renderScale (region size × scale = pixels)', async () => {
+  it('composes renderRegion with renderScale on non-rotated pages', async () => {
     // 200×100pt × scale 3 = 600×300px. Guards the multiplicative
     // contract documented on ProcessDocumentOptions.renderRegion.
     const { loadImage } = await import('@napi-rs/canvas');
@@ -868,26 +881,24 @@ describe('processDocument', () => {
     ).rejects.toThrow(/renderRegion requires render: true or ocr: true/);
   });
 
-  it('rejects renderRegion on rotated pages with a clear V1 limitation message', async () => {
-    // The fixture isn't rotated, so we synthesise the check by patching
-    // the probe-page rotation. Skipped instead of failing fast if no
-    // rotated fixture exists yet. The behaviour we guard: the error
-    // message must say "rotated" so the agent knows it's a V1 gap and
-    // not a coordinate-system bug they need to debug.
-    const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
-    const doc = await getDocument(SAMPLE_PDF).promise;
-    const page = await doc.getPage(1);
-    if (page.rotate !== 0) {
-      await expect(
-        processDocument(SAMPLE_PDF, {
-          render: true,
-          renderRegion: { x: 0, y: 0, width: 50, height: 50 },
-          noCache: true,
-        }),
-      ).rejects.toThrow(/rotated/);
-    }
-    // No rotated fixture available — the bounds-check + reject-on-
-    // rotate path is exercised on real data only when one's added.
+  it('renders renderRegion on rotated pages in the human-visible orientation', async () => {
+    const { loadImage } = await import('@napi-rs/canvas');
+    const result = await processDocument('memory://rotated-render-region.pdf', {
+      sourceData: await buildRotatedPdf(),
+      render: true,
+      renderRegion: { x: 0, y: 0, width: 596, height: 842 },
+      renderScale: 1,
+      noCache: true,
+    });
+
+    expect(result.pages[0]).toMatchObject({
+      width: 596,
+      height: 842,
+      renderRegion: { x: 0, y: 0, width: 596, height: 842 },
+    });
+    const img = await loadImage(result.pages[0].image as string);
+    expect(img.width).toBe(842);
+    expect(img.height).toBe(596);
   });
 
   it('keeps a sub-pixel region from collapsing the canvas to a zero dimension', async () => {

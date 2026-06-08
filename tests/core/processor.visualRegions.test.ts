@@ -25,6 +25,24 @@ async function buildPdfWithLargeImage(): Promise<Uint8Array> {
   return new Uint8Array(Buffer.concat(chunks));
 }
 
+async function buildRotatedPdfWithFullPageImage(): Promise<Uint8Array> {
+  const chunks: Buffer[] = [];
+  const doc = new PDFDocument({ size: [596, 842], margin: 0 });
+  doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+  const done = new Promise<void>((resolveDone) => doc.on('end', resolveDone));
+
+  const png = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=',
+    'base64',
+  );
+  (doc.page.dictionary.data as Record<string, unknown>).Rotate = 270;
+  doc.image(png, 0, 0, { width: 596, height: 842 });
+  doc.end();
+
+  await done;
+  return new Uint8Array(Buffer.concat(chunks));
+}
+
 async function buildPdfWithRepeatedCaptionLikeHeader(): Promise<Uint8Array> {
   const chunks: Buffer[] = [];
   const doc = new PDFDocument({ size: [300, 300], margin: 0 });
@@ -106,6 +124,34 @@ describe('processDocument visualRegions: true', () => {
     expect(region.renderContentRatio).toBeTypeOf('number');
     expect(page.imageBoxes).toBeUndefined();
     expect(page.layout).toBeUndefined();
+  });
+
+  it('emits and renders visual regions for rotated image-only pages', async () => {
+    const { loadImage } = await import('@napi-rs/canvas');
+    const result = await processDocument('memory://rotated-full-page-image.pdf', {
+      sourceData: await buildRotatedPdfWithFullPageImage(),
+      noCache: true,
+      renderVisualRegions: true,
+      renderScale: 1,
+    });
+    const page = result.pages[0];
+    const region = page.visualRegions?.[0];
+
+    expect(page).toMatchObject({ width: 596, height: 842 });
+    expect(page.image).toBeUndefined();
+    expect(region).toMatchObject({
+      id: 'p1-vr0',
+      kind: 'raster',
+      x: 0,
+      y: 0,
+      width: 596,
+      height: 842,
+      areaRatio: 1,
+    });
+    expect(region?.image).toBeDefined();
+    const img = await loadImage(region?.image as string);
+    expect(img.width).toBe(842);
+    expect(img.height).toBe(596);
   });
 
   it('suppresses repeated caption-like chrome without exposing layout', async () => {
