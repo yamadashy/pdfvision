@@ -61,6 +61,62 @@ describe('detectPageWarnings', () => {
     expect(detectPageWarnings(noLayout)).toEqual([]);
   });
 
+  it('flags low-confidence OCR when native extraction needs OCR', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '',
+      charCount: 0,
+      imageCount: 1,
+      vectorCount: 0,
+      textCoverage: 0,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 600,
+      height: 792,
+      quality: { nativeTextStatus: 'empty_but_visual_content', visualStatus: 'ok' },
+      ocr: { text: 'partial scanned form text', confidence: 0.38, lang: 'eng' },
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'ocr_low_confidence', severity: 'warning' });
+    expect(out[0].message).toContain('38.0%');
+  });
+
+  it('does not flag low-confidence OCR when native text is already usable', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: 'usable native text',
+      charCount: 18,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.2,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+      ocr: { text: 'usable native text', confidence: 0.31, lang: 'eng' },
+    });
+    expect(out.filter((w) => w.code === 'ocr_low_confidence')).toEqual([]);
+  });
+
+  it('does not flag low-confidence OCR on blank renders', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '',
+      charCount: 0,
+      imageCount: 1,
+      vectorCount: 0,
+      textCoverage: 0,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'empty_but_visual_content', visualStatus: 'blank' },
+      ocr: { text: '', confidence: 0, lang: 'eng' },
+    });
+    expect(out.filter((w) => w.code === 'ocr_low_confidence')).toEqual([]);
+  });
+
   it('flags localized non-printable glyph noise below the mixed-glyph ratio threshold', () => {
     // Heritage Financial slide p5-shaped case: native text is otherwise
     // usable, but bullet glyphs come through as C1 control code points.

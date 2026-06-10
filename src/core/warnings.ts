@@ -39,6 +39,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
 
   detectLocalizedGlyphNoise(page, warnings);
   detectRasterBackedTextLayer(page, context, warnings);
+  detectLowConfidenceOcr(page, warnings);
   detectDenseVectorGraphics(page, warnings);
   detectLargeRasterLowTextOverlap(page, warnings);
 
@@ -78,6 +79,7 @@ const CJK_MOJIBAKE_RATIO_THRESHOLD = 0.05;
 const DENSE_VECTOR_GRAPHICS_COUNT_THRESHOLD = 250;
 const LARGE_RASTER_AREA_RATIO_THRESHOLD = 0.2;
 const LARGE_RASTER_TEXT_OVERLAP_RATIO_THRESHOLD = 0.01;
+const LOW_CONFIDENCE_OCR_THRESHOLD = 0.5;
 const TABULAR_NUMERIC_MIN_LINES = 12;
 const TABULAR_NUMERIC_MIN_LINE_RATIO = 0.25;
 const TABULAR_NUMERIC_MIN_ALIGNED_COLUMNS = 2;
@@ -182,6 +184,28 @@ function detectRasterBackedTextLayer(page: PageResult, context: PageWarningConte
     severity: 'warning',
     message: `native text appears to be an OCR/text layer over a full-page raster image (textCoverage ${(page.textCoverage * 100).toFixed(1)}%, imageCount ${page.imageCount}) — text may be usable, but bboxes and layout can drift from the pixels a human sees`,
   });
+}
+
+function detectLowConfidenceOcr(page: PageResult, out: PageWarning[]): void {
+  if (!page.ocr) return;
+  if (page.ocr.confidence >= LOW_CONFIDENCE_OCR_THRESHOLD) return;
+  if (page.quality.visualStatus === 'blank') return;
+  if (!nativeExtractionNeedsOcr(page.quality.nativeTextStatus)) return;
+
+  out.push({
+    code: 'ocr_low_confidence',
+    severity: 'warning',
+    message: `OCR confidence is ${(page.ocr.confidence * 100).toFixed(1)}% while native text is ${page.quality.nativeTextStatus} — compare against the render before trusting recognized text or form labels`,
+  });
+}
+
+function nativeExtractionNeedsOcr(status: PageResult['quality']['nativeTextStatus']): boolean {
+  return (
+    status === 'empty_but_visual_content' ||
+    status === 'sparse_text_with_visual_content' ||
+    status === 'mixed_glyph_indices' ||
+    status === 'unusable_glyph_indices'
+  );
 }
 
 function detectDenseVectorGraphics(page: PageResult, out: PageWarning[]): void {

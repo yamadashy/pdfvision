@@ -56,7 +56,7 @@ The agent picks which signals matter; pdfvision doesn't bake one answer.
 
 ### Spot anomalies a human would notice
 
-Each page can carry `pages[].warnings` — overlapping text, body running off the page, collisions with running headers/footers, localized glyph noise (including printable mojibake in CJK text), dense vector graphics such as form boxes or chart paths, numeric tables whose row/column relationships may be flattened, OCR/text layers over full-page scans, or large raster regions whose internal labels will not appear in native text — the "this looks off" cues a text-only extractor silently drops.
+Each page can carry `pages[].warnings` — overlapping text, body running off the page, collisions with running headers/footers, localized glyph noise (including printable mojibake in CJK text), dense vector graphics such as form boxes or chart paths, numeric tables whose row/column relationships may be flattened, OCR/text layers over full-page scans, low-confidence OCR on scan-like pages, or large raster regions whose internal labels will not appear in native text — the "this looks off" cues a text-only extractor silently drops.
 
 ### Keep raw evidence available
 

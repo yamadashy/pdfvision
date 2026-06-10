@@ -1065,28 +1065,6 @@ export async function processDocument(filePath: string, options: ProcessDocument
         });
       }
     }
-    // Warning detection runs after `markRepeatedBlocks` so geometry
-    // rules can route on `block.repeated`. It also includes page-level
-    // quality signals that do not require layout. Empty arrays are
-    // omitted to keep the common "no warnings" page from carrying an
-    // empty field in JSON.
-    //
-    // `chromeDetectionReliable` tells the detector whether the upstream
-    // cross-page pass had enough material to produce meaningful `repeated`
-    // flags. On a single-page extraction (or one where every page came
-    // back with empty layout) every block stays unflagged-as-chrome, so
-    // rules that distinguish body from chrome on the `repeated` axis
-    // (`near_bottom_edge`) would mis-fire on what's really a running footer.
-    const pagesWithLayout = pages.filter((p) => p.layout && p.layout.blocks.length > 0).length;
-    const chromeDetectionReliable = pagesWithLayout >= 2;
-    for (const p of pages) {
-      const warnings = detectPageWarnings(p, {
-        chromeDetectionReliable,
-        rasterBackedTextLayer: rasterBackedTextLayerByPage.get(p.page),
-      });
-      if (warnings.length > 0) p.warnings = warnings;
-    }
-
     // OCR runs after the main pass so it can attach to already-built
     // PageResults. The pdfjs-derived `text` stays untouched — agents that
     // care about the difference can compare `text` vs `ocr.text` directly.
@@ -1104,6 +1082,29 @@ export async function processDocument(filePath: string, options: ProcessDocument
     // path's renderContentRatio participates in visual-status decisions.
     for (const p of pages) {
       p.quality = derivePageQuality(p);
+    }
+
+    // Warning detection runs after `markRepeatedBlocks` so geometry
+    // rules can route on `block.repeated`, and after OCR/quality so
+    // OCR-confidence rules see the final page signals. Empty arrays are
+    // omitted to keep the common "no warnings" page from carrying an
+    // empty field in JSON.
+    //
+    // `chromeDetectionReliable` tells the detector whether the upstream
+    // cross-page pass had enough material to produce meaningful `repeated`
+    // flags. On a single-page extraction (or one where every page came
+    // back with empty layout) every block stays unflagged-as-chrome, so
+    // rules that distinguish body from chrome on the `repeated` axis
+    // (`near_bottom_edge`) would mis-fire on what's really a running footer.
+    const pagesWithLayout = pages.filter((p) => p.layout && p.layout.blocks.length > 0).length;
+    const chromeDetectionReliable = pagesWithLayout >= 2;
+    for (const p of pages) {
+      const warnings = detectPageWarnings(p, {
+        chromeDetectionReliable,
+        rasterBackedTextLayer: rasterBackedTextLayerByPage.get(p.page),
+      });
+      if (warnings.length > 0) p.warnings = warnings;
+      else delete p.warnings;
     }
 
     // OCR search pass. The native pass ran in the per-page loop above

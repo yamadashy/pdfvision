@@ -43,7 +43,7 @@ Rough interpretation, treat as heuristic:
 
 - `>= 0.8` — high confidence, OCR text is usable as-is for most agent purposes
 - `0.5–0.8` — usable but verify on important entities (numbers, names, code identifiers)
-- `< 0.5` — partial recognition. Either wrong `--ocr-lang`, low-resolution scan, or stylised typography. Compare with the rendered PNG via `--render` before trusting the text.
+- `< 0.5` — partial recognition. Either wrong `--ocr-lang`, low-resolution scan, or stylised typography. On scan-like pages where native extraction is empty, sparse, or glyph-corrupted, this also appears as `pages[].warnings[].code === 'ocr_low_confidence'`. Compare with the rendered PNG via `--render` before trusting the text.
 
 A `confidence: 0` with an empty `ocr.text` usually means the rasterise step produced a blank page (see "Troubleshooting" below) rather than OCR genuinely finding nothing. **Check `pages[].quality.visualStatus` first**: when it is `blank`, the render came out blank and OCR had nothing to work with; when it is `sparse`, the page has tiny visible marks and should be inspected with geometry or a crop before reporting "no text".
 

@@ -1132,6 +1132,7 @@ export interface PageWarning {
     | 'dense_vector_graphics'
     | 'tabular_numeric_layout'
     | 'raster_backed_text_layer'
+    | 'ocr_low_confidence'
     | 'large_raster_low_text_overlap';
   /**
    * `'error'` means likely data-integrity issue (off-page bbox usually
