@@ -186,7 +186,7 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
-  it('creates a fallback region for dense small vector markers across multi-panel figures', () => {
+  it('creates a fallback region for dense small vector markers across a visual region', () => {
     const vectorBoxes = Array.from({ length: 240 }, (_, index) => {
       const panelColumn = Math.floor(index / 60) % 2;
       const panelRow = Math.floor(index / 120);
@@ -214,7 +214,7 @@ describe('buildVisualRegions', () => {
       width: 348,
       height: 310,
       sourceCount: 240,
-      reason: '240 dense small vector markers across multi-panel figure',
+      reason: '240 dense small vector markers across visual region',
     });
     expect(regions[0].sources).toHaveLength(16);
   });
@@ -749,6 +749,64 @@ describe('buildVisualRegions', () => {
             x: 45,
             y: 96,
             width: 90,
+            height: 14,
+            blockIndex: 0,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('attaches nearby heading labels to large unlabeled table regions', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 300,
+      pageHeight: 300,
+      imageBoxes: [],
+      layout: {
+        blocks: [
+          {
+            text: 'Lists of acceptable documents',
+            x: 50,
+            y: 50,
+            width: 190,
+            height: 14,
+            role: 'heading',
+            level: 1,
+            lines: [{ text: 'Lists of acceptable documents', x: 50, y: 50, width: 190, height: 14, fontSize: 14 }],
+          },
+        ],
+        tables: [
+          {
+            x: 40,
+            y: 100,
+            width: 220,
+            height: 130,
+            rowCount: 4,
+            columnCount: 3,
+            rows: [],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'table',
+        x: 32,
+        y: 42,
+        width: 236,
+        height: 196,
+        areaRatio: 0.514,
+        sourceCount: 1,
+        sources: [{ type: 'layoutTable', index: 0 }],
+        reason: 'layout table hint with 4 rows and 3 columns',
+        associatedText: [
+          {
+            text: 'Lists of acceptable documents',
+            relation: 'label',
+            x: 50,
+            y: 50,
+            width: 190,
             height: 14,
             blockIndex: 0,
           },

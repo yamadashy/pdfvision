@@ -64,6 +64,9 @@ const PAGE_EDGE_CHROME_SPAN_RATIO = 0.8;
 const PAGE_EDGE_CHROME_THICKNESS_RATIO = 0.16;
 const CAPTION_MAX_GAP_PT = 54;
 const CAPTION_MIN_HORIZONTAL_OVERLAP_RATIO = 0.2;
+const HEADING_LABEL_MAX_GAP_PT = 96;
+const HEADING_LABEL_MIN_REGION_AREA_RATIO = 0.08;
+const HEADING_LABEL_MAX_CHARS = 220;
 const MAX_ASSOCIATED_TEXT = 3;
 const CAPTION_NUMBER_PATTERN =
   '[\\p{L}\\p{N}０-９一二三四五六七八九十ivxlcdm]+(?:[.-][\\p{L}\\p{N}０-９一二三四五六七八九十ivxlcdm]+)*\\.?';
@@ -472,7 +475,7 @@ function addDenseMicroVectorUnionCandidate(input: BuildVisualRegionsInput, candi
     ...box,
     kind: 'vector',
     priority: 2,
-    reason: `${useful.length} dense small vector markers across multi-panel figure`,
+    reason: `${useful.length} dense small vector markers across visual region`,
     sources: useful.map(({ index }) => ({ type: 'vectorBox', index })),
   });
 }
@@ -737,6 +740,57 @@ function attachCaptionText(candidates: Candidate[], layout: PageLayout | undefin
   });
 }
 
+function headingLabelScore(
+  candidate: Candidate,
+  block: NonNullable<PageLayout['blocks']>[number],
+  totalArea: number,
+): number | undefined {
+  if (candidate.associatedText && candidate.associatedText.length > 0) return undefined;
+  if (areaRatio(candidate, totalArea) < HEADING_LABEL_MIN_REGION_AREA_RATIO) return undefined;
+  if (block.role !== 'heading' || block.repeated) return undefined;
+  const text = normalizeAssociatedText(block.text);
+  if (text.length === 0 || text.length > HEADING_LABEL_MAX_CHARS) return undefined;
+  const blockBottom = block.y + block.height;
+  const gap = candidate.y - blockBottom;
+  if (gap < -4 || gap > HEADING_LABEL_MAX_GAP_PT) return undefined;
+  const overlap = horizontalOverlapRatio(candidate, block);
+  if (overlap < CAPTION_MIN_HORIZONTAL_OVERLAP_RATIO) return undefined;
+  return gap + (1 - overlap) * 24;
+}
+
+function attachHeadingLabels(candidates: Candidate[], layout: PageLayout | undefined, totalArea: number): Candidate[] {
+  const blocks = layout?.blocks ?? [];
+  if (blocks.length === 0) return candidates;
+  return candidates.map((candidate) => {
+    const labels = blocks
+      .map((block, blockIndex) => ({
+        block,
+        blockIndex,
+        score: headingLabelScore(candidate, block, totalArea),
+      }))
+      .filter(
+        (item): item is { block: NonNullable<PageLayout['blocks']>[number]; blockIndex: number; score: number } =>
+          item.score !== undefined,
+      )
+      .sort((a, b) => a.score - b.score)
+      .slice(0, MAX_ASSOCIATED_TEXT)
+      .map(({ block, blockIndex }) => ({
+        text: normalizeAssociatedText(block.text),
+        relation: 'label' as const,
+        x: block.x,
+        y: block.y,
+        width: block.width,
+        height: block.height,
+        blockIndex,
+      }));
+    if (labels.length === 0) return candidate;
+
+    const associatedText = mergeAssociatedText([...(candidate.associatedText ?? []), ...labels]);
+    const box = labels.reduce<BoxLike>((acc, label) => unionBox(acc, label), candidate);
+    return { ...candidate, ...box, associatedText };
+  });
+}
+
 function dedupeCandidates(candidates: Candidate[]): Candidate[] {
   const deduped: Candidate[] = [];
   for (const candidate of candidates) {
@@ -807,7 +861,8 @@ export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion
     input.pageHeight,
   );
   const withCaptions = attachCaptionText(suppressContainedCandidates(deduped), input.layout);
-  return suppressContainedCandidates(withCaptions)
+  const withHeadingLabels = attachHeadingLabels(withCaptions, input.layout, totalArea);
+  return suppressContainedCandidates(withHeadingLabels)
     .filter((candidate) => isUsableFinalCandidate(candidate, input.pageWidth, input.pageHeight))
     .sort((a, b) => visualScore(b, totalArea) - visualScore(a, totalArea))
     .slice(0, MAX_REGIONS)
