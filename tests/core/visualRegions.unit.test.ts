@@ -809,6 +809,53 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('attaches global plate captions to distant multi-panel regions without expanding crops', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 400,
+      pageHeight: 400,
+      imageBoxes: [
+        { x: 40, y: 40, width: 100, height: 80 },
+        { x: 220, y: 40, width: 100, height: 80 },
+      ],
+      layout: {
+        blocks: [
+          {
+            text: 'Plate 2.1. NOAA map panels',
+            x: 220,
+            y: 300,
+            width: 150,
+            height: 12,
+            lines: [{ text: 'Plate 2.1. NOAA map panels', x: 220, y: 300, width: 150, height: 12, fontSize: 10 }],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toHaveLength(2);
+    expect(regions.map((region) => region.associatedText?.[0])).toEqual([
+      {
+        text: 'Plate 2.1. NOAA map panels',
+        relation: 'caption',
+        x: 220,
+        y: 300,
+        width: 150,
+        height: 12,
+        blockIndex: 0,
+      },
+      {
+        text: 'Plate 2.1. NOAA map panels',
+        relation: 'caption',
+        x: 220,
+        y: 300,
+        width: 150,
+        height: 12,
+        blockIndex: 0,
+      },
+    ]);
+    expect(regions[0]).toMatchObject({ x: 32, y: 32, width: 116, height: 96 });
+    expect(regions[1]).toMatchObject({ x: 212, y: 32, width: 116, height: 96 });
+  });
+
   it('drops contained same-kind regions after caption expansion', () => {
     const regions = buildVisualRegions({
       pageWidth: 300,

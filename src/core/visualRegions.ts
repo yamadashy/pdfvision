@@ -64,10 +64,11 @@ const MAX_ASSOCIATED_TEXT = 3;
 const CAPTION_NUMBER_PATTERN =
   '[\\p{L}\\p{N}０-９一二三四五六七八九十ivxlcdm]+(?:[.-][\\p{L}\\p{N}０-９一二三四五六七八九十ivxlcdm]+)*\\.?';
 const CAPTION_PATTERN = new RegExp(
-  `^\\s*(?:fig(?:ure)?\\.?|table|図表|図|表)\\s*(${CAPTION_NUMBER_PATTERN})(?=\\s|[:：．、-]|$)`,
+  `^\\s*(?:fig(?:ure)?\\.?|table|plate|図表|図|表)\\s*(${CAPTION_NUMBER_PATTERN})(?=\\s|[:：．、-]|$)`,
   'iu',
 );
 const CAPTION_NUMBERISH_PATTERN = /[0-9０-９一二三四五六七八九十ivxlcdm]/iu;
+const GLOBAL_CAPTION_PATTERN = /^\s*plate\s+/iu;
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
@@ -590,6 +591,10 @@ function isCaptionText(text: string): boolean {
   return match !== null && CAPTION_NUMBERISH_PATTERN.test(match[1] ?? '');
 }
 
+function isGlobalCaptionText(text: string): boolean {
+  return GLOBAL_CAPTION_PATTERN.test(text) && isCaptionText(text);
+}
+
 function horizontalOverlapRatio(a: BoxLike, b: BoxLike): number {
   const overlap = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
   return Math.max(0, overlap) / Math.max(1, Math.min(a.width, b.width));
@@ -646,20 +651,32 @@ function captionTextsFromBlock(
 function attachCaptionText(candidates: Candidate[], layout: PageLayout | undefined): Candidate[] {
   const blocks = layout?.blocks ?? [];
   if (blocks.length === 0) return candidates;
+  const captionItems = blocks.flatMap((block, index) =>
+    block.repeated
+      ? []
+      : captionTextsFromBlock(block, index).map((associatedText) => ({
+          text: associatedText,
+          global: isGlobalCaptionText(associatedText.text),
+        })),
+  );
+  const globalCaptions = captionItems.filter((item) => item.global).slice(0, MAX_ASSOCIATED_TEXT);
   return candidates.map((candidate) => {
-    const captions = blocks
-      .flatMap((block, index) =>
-        block.repeated
-          ? []
-          : captionTextsFromBlock(block, index).map((associatedText) => ({
-              text: associatedText,
-              score: captionScore(candidate, associatedText),
-            })),
-      )
+    const captions = captionItems
+      .map((item) => ({
+        text: item.text,
+        score: captionScore(candidate, item.text),
+      }))
       .filter((item): item is { text: VisualRegionAssociatedText; score: number } => item.score !== undefined)
       .sort((a, b) => a.score - b.score)
       .slice(0, MAX_ASSOCIATED_TEXT);
-    if (captions.length === 0) return candidate;
+    if (captions.length === 0) {
+      if (globalCaptions.length === 0) return candidate;
+      const associatedText = mergeAssociatedText([
+        ...(candidate.associatedText ?? []),
+        ...globalCaptions.map((caption) => caption.text),
+      ]);
+      return { ...candidate, associatedText };
+    }
 
     const associatedText = mergeAssociatedText([
       ...(candidate.associatedText ?? []),
