@@ -359,13 +359,51 @@ const BODY_FONT_TOLERANCE = 0.05;
 /** Max non-whitespace chars before a block is "long" — long blocks are body
  *  paragraphs even when their dominant fontSize lifts them off the median. */
 const MAX_HEADING_CHARS = 100;
+const COMPACT_LABEL_MAX_HEADING_CHARS = 4;
+const TALL_SIDE_LABEL_MIN_HEIGHT_PT = 80;
+const TALL_SIDE_LABEL_MAX_WIDTH_PT = 48;
+const TALL_SIDE_LABEL_MIN_ASPECT = 4;
 
 function isHeadingCandidateText(text: string): boolean {
   const trimmed = text.trim();
   if (!/[\p{L}\p{N}]/u.test(trimmed)) return false;
   if (/^[\p{N}\s.-]{1,12}$/u.test(trimmed)) return false;
   if (/^@[A-Za-z0-9_.-]{2,}$/u.test(trimmed)) return false;
+  if (isReferenceMetadataText(trimmed)) return false;
   return !/^[•●◦▪■‣]\s*/u.test(trimmed);
+}
+
+function isReferenceMetadataText(text: string): boolean {
+  return /\b(?:https?:\/\/|www\.|doi:|arxiv:)/iu.test(text) || /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/iu.test(text);
+}
+
+function isNumberedHeadingText(text: string): boolean {
+  return /^\s*\d+(?:\.\d+)*\.?\s+\S/u.test(text);
+}
+
+function isTallNarrowSideLabel(block: LayoutBlock, lineCount: number): boolean {
+  if (lineCount !== 1 || block.writingMode === 'vertical') return false;
+  if (block.width > TALL_SIDE_LABEL_MAX_WIDTH_PT || block.height < TALL_SIDE_LABEL_MIN_HEIGHT_PT) return false;
+  return block.height / Math.max(block.width, 1) >= TALL_SIDE_LABEL_MIN_ASPECT;
+}
+
+function isCompactDiagramLabelText(text: string, nonWsChars: number, ratio: number): boolean {
+  if (ratio >= 1.25) return false;
+  if (nonWsChars > COMPACT_LABEL_MAX_HEADING_CHARS) return false;
+  const trimmed = text.trim();
+  if (isNumberedHeadingText(trimmed)) return false;
+  return !/\s/u.test(trimmed);
+}
+
+function isLikelyBodyFragmentForLevel3(text: string): boolean {
+  const trimmed = text.trim();
+  if (isNumberedHeadingText(trimmed)) return false;
+  if (/^\p{Ll}/u.test(trimmed)) return true;
+  if (/\bet al\./iu.test(trimmed)) return true;
+  if (/[,;:]/u.test(trimmed)) return true;
+  if (/[\p{L}\p{N}]-$/u.test(trimmed)) return true;
+  if (/[.!?]$/u.test(trimmed)) return true;
+  return trimmed.split(/\s+/u).filter(Boolean).length > 7;
 }
 
 function isTopTitleCandidate(block: LayoutBlock, ratio: number, lineCount: number, nonWsChars: number): boolean {
@@ -376,11 +414,16 @@ function isTopTitleCandidate(block: LayoutBlock, ratio: number, lineCount: numbe
 }
 
 function isPersonBylineText(text: string): boolean {
-  const trimmed = text.trim();
+  const trimmed = text
+    .trim()
+    .replace(/[∗*†‡§¶]\d*/gu, '')
+    .replace(/\b\d+\b/gu, '')
+    .replace(/\s+/gu, ' ')
+    .trim();
   if (trimmed.length > 80) return false;
   if (/[0-9@{}[\]/\\:;,]/u.test(trimmed)) return false;
-  const words = trimmed.split(/\s+/u);
-  if (words.length < 2 || words.length > 4) return false;
+  const words = trimmed.split(/\s+/u).filter((word) => !/^(?:and|&)$/iu.test(word));
+  if (words.length < 2 || words.length > 8) return false;
   return words.every((word) => /^[A-Z][\p{L}.'-]*$/u.test(word) || /^[A-Z]\.$/u.test(word));
 }
 
@@ -507,6 +550,8 @@ function classifyHeadings(blocks: LayoutBlock[]): void {
     const isShort = nonWsChars <= MAX_HEADING_CHARS;
     const lineCount = b.lines.length;
     const topTitle = isTopTitleCandidate(b, ratio, lineCount, nonWsChars);
+    if (isTallNarrowSideLabel(b, lineCount)) continue;
+    if (isCompactDiagramLabelText(b.text, nonWsChars, ratio)) continue;
 
     // "Above" / "below" must be the candidate's same-column neighbours,
     // not just the y-adjacent blocks. On multi-column pages a subheading
@@ -585,6 +630,7 @@ function classifyHeadings(blocks: LayoutBlock[]): void {
       if (!isShort) continue;
       if (lineCount > 1) continue;
       if (!locallyLarger) continue;
+      if (isLikelyBodyFragmentForLevel3(b.text)) continue;
       b.role = 'heading';
       b.level = 3;
       b.roleConfidence = computeRoleConfidence(ratio, isShort, standalone, locallyLarger, singleLine);
@@ -683,10 +729,13 @@ function reorderForColumns(blocks: LayoutBlock[], pageWidth: number): LayoutBloc
   // Only stronger headings act as column separators. Level 3 candidates
   // (subsections like "3.1.") are typically embedded inside a column;
   // promoting them would break two-column reading order by treating every
-  // local subsection break as a page-wide flush.
+  // local subsection break as a page-wide flush. Numbered section headings
+  // in papers are also commonly column-local (`1 Introduction` at the top
+  // of the left column), so leave them in their column unless their width
+  // already made them a normal spanning block.
   const promoted = new Set<LayoutBlock>();
   for (const b of narrow) {
-    if (b.role === 'heading' && (b.level ?? 1) <= 2 && !hasParallelInOtherColumn(b)) {
+    if (b.role === 'heading' && (b.level ?? 1) <= 2 && !hasParallelInOtherColumn(b) && !isNumberedHeadingText(b.text)) {
       promoted.add(b);
     }
   }

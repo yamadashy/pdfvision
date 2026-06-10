@@ -249,6 +249,81 @@ describe('buildLayout — heading classification', () => {
     expect(pageLabel?.roleConfidence).toBeUndefined();
   });
 
+  it('does not classify arXiv side labels, email metadata, or footnoted bylines as headings', () => {
+    const bodyLines: TextSpan[] = [];
+    for (let i = 0; i < 20; i++) {
+      bodyLines.push(span('Body paragraph line that establishes the article font size.', 72, 250 + i * 12, 10, 420));
+    }
+    const spans: TextSpan[] = [
+      span('Mamba: Linear-Time Sequence Modeling with Selective State Spaces', 76, 90, 17.2, 482),
+      span('Albert Gu∗1 and Tri Dao∗2', 254, 130, 12, 124),
+      span('agu@cs.cmu.edu, tri@tridao.me', 235, 170, 12, 168),
+      {
+        text: 'arXiv:2312.00752v2 [cs.LG] 31 May 2024',
+        x: 12,
+        y: 206,
+        width: 20,
+        height: 354,
+        fontSize: 20,
+      },
+      ...bodyLines,
+    ];
+
+    const layout = buildLayout(spans, 612);
+    const title = layout.blocks.find((block) => block.text.includes('Mamba:'));
+    const byline = layout.blocks.find((block) => block.text.includes('Albert Gu'));
+    const email = layout.blocks.find((block) => block.text.includes('agu@cs.cmu.edu'));
+    const sideLabel = layout.blocks.find((block) => block.text.includes('arXiv:'));
+
+    expect(title?.role).toBe('heading');
+    expect(byline?.role).toBeUndefined();
+    expect(email?.role).toBeUndefined();
+    expect(sideLabel?.role).toBeUndefined();
+  });
+
+  it('does not classify compact diagram labels as headings', () => {
+    const bodyLines: TextSpan[] = [];
+    for (let i = 0; i < 20; i++) {
+      bodyLines.push(span('Body paragraph line that keeps the median near ten points.', 72, 320 + i * 12, 10, 420));
+    }
+    const spans: TextSpan[] = [
+      span('A', 315, 104, 11.8, 8),
+      span('B', 225, 199, 11.8, 8),
+      span('C', 400, 199, 11.8, 8),
+      span('h!"#', 87, 171, 11.8, 22),
+      span('h!', 527, 172, 11.8, 10),
+      span('y!', 478, 193, 11.8, 10),
+      ...bodyLines,
+    ];
+
+    const layout = buildLayout(spans, 612);
+    for (const text of ['A', 'B', 'C', 'h!"#', 'h!', 'y!']) {
+      const block = layout.blocks.find((candidate) => candidate.text === text);
+      expect(block?.role).toBeUndefined();
+      expect(block?.roleConfidence).toBeUndefined();
+    }
+  });
+
+  it('does not classify sentence fragments with small font jitter as level-3 headings', () => {
+    const bodyLines: TextSpan[] = [];
+    for (let i = 0; i < 20; i++) {
+      bodyLines.push(span('Body paragraph line that establishes the paper body median.', 70, 250 + i * 12, 10, 220));
+    }
+    const spans: TextSpan[] = [
+      span('so well from their mainly English training data to', 306, 100, 11, 218),
+      span('Intuitively, one way to achieve strong perfor-', 317, 130, 11, 209),
+      span('et al., 2023). Our guiding inquiry in this work is', 306, 160, 11, 218),
+      ...bodyLines,
+    ];
+
+    const layout = buildLayout(spans, 595);
+    for (const fragment of ['so well', 'Intuitively', 'et al.']) {
+      const block = layout.blocks.find((candidate) => candidate.text.includes(fragment));
+      expect(block?.role).toBeUndefined();
+      expect(block?.roleConfidence).toBeUndefined();
+    }
+  });
+
   it('does not classify bullet list items as headings only because the bullet glyph is large', () => {
     const spans: TextSpan[] = [
       span('• You have a valid social security number', 50, 50, 15, 220),
@@ -477,6 +552,26 @@ describe('buildLayout — multi-column reading order', () => {
     const layout = buildLayout(spans, 595);
     const texts = layout.blocks.map((b) => b.text);
     expect(texts).toEqual(['Left top', 'Right top', 'Section heading', 'Left bottom', 'Right bottom']);
+  });
+
+  it('keeps numbered column-local headings in their column order', () => {
+    const spans: TextSpan[] = [
+      span('Abstract body in the left column appears before the introduction.', 70, 100, 10, 220),
+      span('Figure 1: Right-column caption that should not precede Introduction.', 306, 130, 10, 220),
+      span('Right-column prose continues under the figure caption.', 306, 160, 10, 220),
+      span('1 Introduction', 70, 200, 12, 84),
+      span('Most modern large language models are trained on English text.', 70, 224, 10, 220),
+      span('More right-column prose belongs after the left column.', 306, 254, 10, 220),
+    ];
+
+    const layout = buildLayout(spans, 595);
+    const texts = layout.blocks.map((b) => b.text);
+    const introIndex = texts.findIndex((text) => text.includes('1 Introduction'));
+    const figureIndex = texts.findIndex((text) => text.includes('Figure 1:'));
+
+    expect(introIndex).toBeGreaterThan(-1);
+    expect(figureIndex).toBeGreaterThan(-1);
+    expect(introIndex).toBeLessThan(figureIndex);
   });
 
   it('leaves a single-column page in plain top-down order', () => {
