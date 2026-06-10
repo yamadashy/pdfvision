@@ -832,7 +832,7 @@ describe('buildLayout — multi-column reading order', () => {
       { label: 'Net change in open group measure', y: 255, values: ['(2.5)', '(0.7)', '(6.9)', '-', '(10.1)'] },
       { label: 'Open group measure, end of year', y: 270, values: ['(27.9)', '(3.3)', '(57.1)', '(0.1)', '(88.4)'] },
     ];
-    const valueXs = [260, 315, 370, 425, 480];
+    const valueXs = [310, 365, 420, 475, 530];
     const spans = rows.flatMap((row) => [
       span(row.label, 50, row.y, 9, Math.min(200, row.label.length * 4.5)),
       ...row.values.map((value, index) => span(value, valueXs[index], row.y + 1.2, 9, value.length * 4.5)),
@@ -850,6 +850,41 @@ describe('buildLayout — multi-column reading order', () => {
       '(0.1)',
       '(78.3)',
     ]);
+  });
+
+  it('attaches label-only continuation rows to the following table row label', () => {
+    const rows = [
+      {
+        label: 'over the next 75 years, beginning of the year',
+        y: 100,
+        values: ['(25.4)', '(2.6)', '(50.2)', '(0.1)', '(78.3)'],
+      },
+      { label: 'Changes in valuation period', y: 126, values: ['(0.8)', '(0.1)', '(1.7)', '-', '(2.6)'] },
+      { label: 'methods', y: 151, values: ['(0.1)', '0.3', '0.8', '-', '1.0'] },
+      { label: 'Changes in law or policy', y: 177, values: ['(1.1)', '-', '-', '-', '(1.1)'] },
+      { label: 'assumptions', y: 228, values: ['-', '(0.3)', '(4.5)', '-', '(4.8)'] },
+      { label: 'Change in projection base', y: 241, values: ['-', '(0.6)', '(1.5)', '-', '(2.1)'] },
+      { label: 'Net change in open group measure', y: 255, values: ['(2.5)', '(0.7)', '(6.9)', '-', '(10.1)'] },
+      { label: 'Open group measure, end of year', y: 270, values: ['(27.9)', '(3.3)', '(57.1)', '(0.1)', '(88.4)'] },
+    ];
+    const valueXs = [310, 365, 420, 475, 530];
+    const spans = [
+      span('NPV of future revenue less future expenditures', 50, 76, 9, 190),
+      span('for current and future participants (open group)', 57, 88, 9, 190),
+      span('Reasons for changes in the NPV during the year:', 57, 113, 9, 190),
+      ...rows.flatMap((row) => [
+        span(row.label, 57, row.y, 9, Math.min(200, row.label.length * 4.5)),
+        ...row.values.map((value, index) => span(value, valueXs[index], row.y + 1.2, 9, value.length * 4.5)),
+      ]),
+    ];
+    const layout = buildLayout(spans, 620);
+
+    const labels = (layout.tables ?? []).flatMap((table) => table.rows.map((row) => row.cells[0]?.text));
+    expect(labels).toContain(
+      'NPV of future revenue less future expenditures for current and future participants (open group) over the next 75 years, beginning of the year',
+    );
+    expect(labels).toContain('Changes in valuation period');
+    expect(labels.some((label) => label?.startsWith('Reasons for changes'))).toBe(false);
   });
 
   it('splits dense recurring numeric gutters inside table rows', () => {

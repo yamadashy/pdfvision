@@ -754,9 +754,11 @@ function canMergeAdjacentBodyBlocks(a: LayoutBlock, b: LayoutBlock): boolean {
 }
 
 function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefined {
-  const rowGroups = groupLinesByTableRow(lines)
-    .map((row) => row.sort((a, b) => a.x - b.x))
-    .filter(isLikelyTableRow);
+  const allRowGroups = groupLinesByTableRow(lines).map((row) => row.sort((a, b) => a.x - b.x));
+  const rowGroups = allRowGroups
+    .map((row, index) => ({ row, index }))
+    .filter(({ row }) => isLikelyTableRow(row))
+    .map(({ row, index }) => attachLabelContinuationRows(row, index, allRowGroups));
   if (rowGroups.length < 2) return undefined;
 
   const tables: LayoutLine[][][] = [];
@@ -791,6 +793,45 @@ function isLikelyTableRow(row: LayoutLine[]): boolean {
   if (row.length < TABLE_ROW_MIN_CELLS) return false;
   const numericCells = row.filter((line) => isTableNumericCell(line.text)).length;
   return numericCells >= TABLE_ROW_MIN_NUMERIC_CELLS;
+}
+
+function attachLabelContinuationRows(row: LayoutLine[], rowIndex: number, allRows: LayoutLine[][]): LayoutLine[] {
+  const label = row.find((line) => !isTableNumericCell(line.text) && /[\p{L}]/u.test(line.text));
+  if (!label) return row;
+
+  const continuations: LayoutLine[] = [];
+  let previousBottom = label.y;
+  for (let index = rowIndex - 1; index >= 0; index--) {
+    const candidate = allRows[index];
+    if (!isLabelContinuationRow(candidate, label, previousBottom)) break;
+    continuations.unshift(mergeLineTexts(candidate));
+    previousBottom = rowY(candidate);
+  }
+  if (continuations.length === 0) return row;
+
+  const mergedLabel = mergeLineTexts([...continuations, label]);
+  return row.map((line) => (line === label ? mergedLabel : line));
+}
+
+function isLabelContinuationRow(row: LayoutLine[], label: LayoutLine, nextTop: number): boolean {
+  if (row.length === 0 || row.length > 2) return false;
+  if (row.some((line) => isTableNumericCell(line.text))) return false;
+  const merged = mergeLineTexts(row);
+  if (merged.text.trim().endsWith(':')) return false;
+  if (!/[\p{L}]/u.test(merged.text)) return false;
+  if (Math.abs(merged.x - label.x) > Math.max(12, label.fontSize * 2)) return false;
+  const gap = nextTop - (merged.y + merged.height);
+  return gap >= -1 && gap <= Math.max(18, label.fontSize * 2.2);
+}
+
+function mergeLineTexts(lines: LayoutLine[]): LayoutLine {
+  const sorted = [...lines].sort((a, b) => a.y - b.y || a.x - b.x);
+  const box = unionBox(sorted);
+  return {
+    text: sorted.map((line) => line.text).join(' '),
+    ...box,
+    fontSize: round2(mode(sorted.map((line) => line.fontSize))),
+  };
 }
 
 function hasRegularTableRowCadence(rows: LayoutLine[][]): boolean {
