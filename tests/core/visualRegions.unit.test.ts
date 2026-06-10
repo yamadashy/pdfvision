@@ -905,6 +905,68 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('attaches short plain labels below raster images', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 200,
+      pageHeight: 200,
+      imageBoxes: [{ x: 40, y: 40, width: 80, height: 50 }],
+      layout: {
+        blocks: [
+          {
+            text: 'A white teddy bear',
+            x: 45,
+            y: 94,
+            width: 70,
+            height: 10,
+            lines: [{ text: 'A white teddy bear', x: 45, y: 94, width: 70, height: 10, fontSize: 10 }],
+          },
+          {
+            text: 'sitting in the grass',
+            x: 45,
+            y: 108,
+            width: 76,
+            height: 10,
+            lines: [{ text: 'sitting in the grass', x: 45, y: 108, width: 76, height: 10, fontSize: 10 }],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'raster',
+        x: 32,
+        y: 32,
+        width: 97,
+        height: 94,
+        areaRatio: 0.228,
+        sourceCount: 1,
+        sources: [{ type: 'imageBox', index: 0 }],
+        reason: 'raster image covers 10.0% of the page',
+        associatedText: [
+          {
+            text: 'A white teddy bear',
+            relation: 'label',
+            x: 45,
+            y: 94,
+            width: 70,
+            height: 10,
+            blockIndex: 0,
+          },
+          {
+            text: 'sitting in the grass',
+            relation: 'label',
+            x: 45,
+            y: 108,
+            width: 76,
+            height: 10,
+            blockIndex: 1,
+          },
+        ],
+      },
+    ]);
+  });
+
   it('prefers caption lines over the enclosing block text', () => {
     const regions = buildVisualRegions({
       pageWidth: 200,

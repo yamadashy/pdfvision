@@ -68,6 +68,9 @@ const CAPTION_MIN_HORIZONTAL_OVERLAP_RATIO = 0.2;
 const HEADING_LABEL_MAX_GAP_PT = 96;
 const HEADING_LABEL_MIN_REGION_AREA_RATIO = 0.08;
 const HEADING_LABEL_MAX_CHARS = 220;
+const PLAIN_IMAGE_LABEL_MAX_GAP_PT = 28;
+const PLAIN_IMAGE_LABEL_MIN_HORIZONTAL_OVERLAP_RATIO = 0.45;
+const PLAIN_IMAGE_LABEL_MAX_CHARS = 120;
 const EQUIVALENT_CANDIDATE_OVERLAP_RATIO = 0.98;
 const EQUIVALENT_CANDIDATE_AREA_RATIO = 0.98;
 const MAX_ASSOCIATED_TEXT = 3;
@@ -667,6 +670,14 @@ function isGlobalCaptionText(text: string): boolean {
   return GLOBAL_CAPTION_PATTERN.test(text) && isCaptionText(text);
 }
 
+function isPlainImageLabelText(text: string): boolean {
+  const normalized = normalizeAssociatedText(text);
+  if (normalized.length === 0 || normalized.length > PLAIN_IMAGE_LABEL_MAX_CHARS) return false;
+  if (isCaptionText(normalized)) return false;
+  if (/\b(?:copyright|licensed|cc\s+by|public domain|https?:\/\/|www\.)\b/iu.test(normalized)) return false;
+  return /[\p{L}\p{N}]/u.test(normalized);
+}
+
 function horizontalOverlapRatio(a: BoxLike, b: BoxLike): number {
   const overlap = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
   return Math.max(0, overlap) / Math.max(1, Math.min(a.width, b.width));
@@ -755,6 +766,56 @@ function attachCaptionText(candidates: Candidate[], layout: PageLayout | undefin
       ...captions.map((caption) => caption.text),
     ]);
     const box = captions.reduce<BoxLike>((acc, caption) => unionBox(acc, caption.text), candidate);
+    return { ...candidate, ...box, associatedText };
+  });
+}
+
+function plainImageLabelScore(
+  candidate: Candidate,
+  block: NonNullable<PageLayout['blocks']>[number],
+): number | undefined {
+  if (candidate.kind !== 'raster') return undefined;
+  if (candidate.associatedText && candidate.associatedText.length > 0) return undefined;
+  if (block.repeated) return undefined;
+  if (!isPlainImageLabelText(block.text)) return undefined;
+  const regionBottom = candidate.y + candidate.height;
+  const belowGap = block.y - regionBottom;
+  if (belowGap < -4 || belowGap > PLAIN_IMAGE_LABEL_MAX_GAP_PT) return undefined;
+
+  const overlap = horizontalOverlapRatio(candidate, block);
+  if (overlap < PLAIN_IMAGE_LABEL_MIN_HORIZONTAL_OVERLAP_RATIO) return undefined;
+  return Math.max(0, belowGap) + (1 - overlap) * 24;
+}
+
+function attachPlainImageLabels(candidates: Candidate[], layout: PageLayout | undefined): Candidate[] {
+  const blocks = layout?.blocks ?? [];
+  if (blocks.length === 0) return candidates;
+  return candidates.map((candidate) => {
+    const labels = blocks
+      .map((block, blockIndex) => ({
+        block,
+        blockIndex,
+        score: plainImageLabelScore(candidate, block),
+      }))
+      .filter(
+        (item): item is { block: NonNullable<PageLayout['blocks']>[number]; blockIndex: number; score: number } =>
+          item.score !== undefined,
+      )
+      .sort((a, b) => a.score - b.score)
+      .slice(0, MAX_ASSOCIATED_TEXT)
+      .map(({ block, blockIndex }) => ({
+        text: normalizeAssociatedText(block.text),
+        relation: 'label' as const,
+        x: block.x,
+        y: block.y,
+        width: block.width,
+        height: block.height,
+        blockIndex,
+      }));
+    if (labels.length === 0) return candidate;
+
+    const associatedText = mergeAssociatedText([...(candidate.associatedText ?? []), ...labels]);
+    const box = labels.reduce<BoxLike>((acc, label) => unionBox(acc, label), candidate);
     return { ...candidate, ...box, associatedText };
   });
 }
@@ -894,7 +955,8 @@ export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion
     input.pageHeight,
   );
   const withCaptions = attachCaptionText(suppressContainedCandidates(deduped), input.layout);
-  const withHeadingLabels = attachHeadingLabels(withCaptions, input.layout, totalArea);
+  const withPlainImageLabels = attachPlainImageLabels(withCaptions, input.layout);
+  const withHeadingLabels = attachHeadingLabels(withPlainImageLabels, input.layout, totalArea);
   const contextDeduped = dedupeEquivalentCandidates(withHeadingLabels);
   return suppressContainedCandidates(contextDeduped)
     .filter((candidate) => isUsableFinalCandidate(candidate, input.pageWidth, input.pageHeight))
