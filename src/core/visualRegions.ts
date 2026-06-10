@@ -964,11 +964,21 @@ function suppressContainedCandidates(candidates: Candidate[]): Candidate[] {
       !candidates.some(
         (other, otherIndex) =>
           otherIndex !== index &&
-          other.kind === candidate.kind &&
+          canSuppressContainedCandidate(candidate, other) &&
           area(other) > area(candidate) * 1.5 &&
           other.sources.length >= candidate.sources.length &&
           overlapOfSmaller(candidate, other) >= 0.9,
       ),
+  );
+}
+
+function canSuppressContainedCandidate(candidate: Candidate, other: Candidate): boolean {
+  if (other.kind === candidate.kind) return true;
+  return (
+    candidate.kind === 'vector' &&
+    !hasSourceType(candidate, 'formField') &&
+    hasSourceType(other, 'formField') &&
+    (!candidate.associatedText || candidate.associatedText.length === 0)
   );
 }
 

@@ -747,6 +747,48 @@ describe('buildVisualRegions', () => {
     expect(regions.every((region) => region.width < 220 && region.height < 80)).toBe(true);
   });
 
+  it('suppresses vector-only regions contained inside a form region', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 300,
+      pageHeight: 240,
+      imageBoxes: [],
+      vectorBoxes: [
+        { x: 50, y: 70, width: 30, height: 30 },
+        { x: 190, y: 150, width: 30, height: 30 },
+      ],
+      formFields: [
+        {
+          name: 'section',
+          type: 'text',
+          x: 42,
+          y: 62,
+          width: 90,
+          height: 24,
+          label: {
+            text: 'Document section',
+            relation: 'above',
+            x: 30,
+            y: 50,
+            width: 220,
+            height: 150,
+          },
+        },
+      ],
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0]).toMatchObject({
+      kind: 'mixed',
+      sourceCount: 2,
+    });
+    expect(regions[0].sources).toEqual(
+      expect.arrayContaining([
+        { type: 'formField', index: 0 },
+        { type: 'vectorBox', index: 0 },
+      ]),
+    );
+  });
+
   it('keeps a thin checkbox row after crop padding makes it readable', () => {
     const regions = buildVisualRegions({
       pageWidth: 300,
