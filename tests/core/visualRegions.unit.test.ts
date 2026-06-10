@@ -68,6 +68,17 @@ describe('buildVisualRegions', () => {
     expect(regions[0]).toMatchObject({ kind: 'raster', areaRatio: 1 });
   });
 
+  it('suppresses lone full-page vector backplanes', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 100,
+      pageHeight: 100,
+      imageBoxes: [],
+      vectorBoxes: [{ x: 0, y: 0, width: 100, height: 100 }],
+    });
+
+    expect(regions).toEqual([]);
+  });
+
   it('ignores full-page background boxes when foreground visual boxes are present', () => {
     const regions = buildVisualRegions({
       pageWidth: 100,

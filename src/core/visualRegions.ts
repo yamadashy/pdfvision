@@ -913,6 +913,22 @@ function suppressBlankFullPageCandidates(
   return candidates.filter((candidate) => !isNearFullPageBox(candidate, pageWidth, pageHeight));
 }
 
+function suppressLoneFullPageVectorBackplanes(
+  candidates: Candidate[],
+  pageWidth: number,
+  pageHeight: number,
+): Candidate[] {
+  return candidates.filter(
+    (candidate) =>
+      !(
+        candidate.kind === 'vector' &&
+        candidate.sources.length === 1 &&
+        hasSourceType(candidate, 'vectorBox') &&
+        isNearFullPageBox(candidate, pageWidth, pageHeight)
+      ),
+  );
+}
+
 function suppressContainedCandidates(candidates: Candidate[]): Candidate[] {
   return candidates.filter(
     (candidate, index) =>
@@ -944,8 +960,13 @@ export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion
     input.pageHeight,
     input.visualStatus,
   );
-  const foregroundCandidates = suppressBackgroundLikeCandidates(
+  const backplaneAwareCandidates = suppressLoneFullPageVectorBackplanes(
     blankAwareCandidates,
+    input.pageWidth,
+    input.pageHeight,
+  );
+  const foregroundCandidates = suppressBackgroundLikeCandidates(
+    backplaneAwareCandidates,
     input.pageWidth,
     input.pageHeight,
   );
