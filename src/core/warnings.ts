@@ -188,7 +188,7 @@ function detectRasterBackedTextLayer(page: PageResult, context: PageWarningConte
   out.push({
     code: 'raster_backed_text_layer',
     severity: 'warning',
-    message: `native text appears to be an OCR/text layer over a full-page raster image (textCoverage ${(page.textCoverage * 100).toFixed(1)}%, imageCount ${page.imageCount}) — text may be usable, but bboxes and layout can drift from the pixels a human sees`,
+    message: `native text appears to be an OCR/text layer over a full-page raster image (textCoverage ${(page.textCoverage * 100).toFixed(1)}%, imageCount ${page.imageCount}) — text may be useful, but may contain OCR recognition errors, and bboxes/layout can drift from the pixels a human sees`,
   });
 }
 
