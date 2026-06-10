@@ -104,6 +104,9 @@ interface BoxLike {
 interface LabelCandidate {
   label: FormFieldLabel;
   score: number;
+  line: LabelLine;
+  text: string;
+  relation: FormFieldLabelRelation;
 }
 
 const LABEL_MAX_CHARS = 220;
@@ -111,6 +114,9 @@ const SIDE_LABEL_MAX_GAP_PT = 80;
 const ABOVE_LABEL_MAX_GAP_PT = 42;
 const BELOW_LABEL_MAX_GAP_PT = 24;
 const MIN_HORIZONTAL_OVERLAP_RATIO = 0.18;
+const STACKED_LABEL_MAX_GAP_PT = 4;
+const STACKED_LABEL_X_TOLERANCE_PT = 5;
+const STACKED_LABEL_FONT_TOLERANCE_PT = 2;
 
 function findFieldLabel(field: FormField, lines: readonly LabelLine[]): FormFieldLabel | undefined {
   if (lines.length === 0) return undefined;
@@ -123,7 +129,7 @@ function findFieldLabel(field: FormField, lines: readonly LabelLine[]): FormFiel
     if (!candidate) continue;
     if (!best || candidate.score < best.score) best = candidate;
   }
-  return best?.label;
+  return best ? expandStackedLabel(field, best, lines) : undefined;
 }
 
 function scoreLabelCandidate(field: FormField, line: LabelLine, text: string): LabelCandidate | undefined {
@@ -155,6 +161,9 @@ function sideLabelCandidate(
 
   return {
     label: makeLabel(line, text, relation),
+    line,
+    text,
+    relation,
     score: baseScore + Math.max(0, gap) * 1.4 + centerDelta * 2 + lengthPenalty(text),
   };
 }
@@ -186,8 +195,81 @@ function verticalLabelCandidate(
 
   return {
     label: makeLabel(line, text, relation),
+    line,
+    text,
+    relation,
     score: baseScore + Math.max(0, gap) * 2 + (1 - alignment) * 32 + centerDelta * 0.04 + lengthPenalty(text),
   };
+}
+
+function expandStackedLabel(field: FormField, candidate: LabelCandidate, lines: readonly LabelLine[]): FormFieldLabel {
+  if (candidate.relation !== 'above' && candidate.relation !== 'below') return candidate.label;
+
+  const stack = collectStackedLabelLines(field, candidate, lines);
+  if (stack.length <= 1) return candidate.label;
+
+  const sorted = stack.sort((a, b) => a.line.y - b.line.y || a.line.x - b.line.x);
+  const labelBox = sorted.slice(1).reduce<BoxLike>((box, item) => unionBox(box, item.line), sorted[0].line);
+  const text = sorted.map((item) => item.text).join(' ');
+  if (!isUsableLabelText(text)) return candidate.label;
+
+  return {
+    text,
+    relation: candidate.relation,
+    x: round2(labelBox.x),
+    y: round2(labelBox.y),
+    width: round2(labelBox.width),
+    height: round2(labelBox.height),
+  };
+}
+
+function collectStackedLabelLines(
+  field: FormField,
+  candidate: LabelCandidate,
+  lines: readonly LabelLine[],
+): { line: LabelLine; text: string }[] {
+  const stack = [{ line: candidate.line, text: candidate.text }];
+  let bounds: BoxLike = candidate.line;
+
+  for (;;) {
+    const next = findAdjacentStackLine(field, candidate, bounds, stack, lines);
+    if (!next) return stack;
+    stack.push(next);
+    bounds = unionBox(bounds, next.line);
+  }
+}
+
+function findAdjacentStackLine(
+  field: FormField,
+  candidate: LabelCandidate,
+  bounds: BoxLike,
+  stack: readonly { line: LabelLine; text: string }[],
+  lines: readonly LabelLine[],
+): { line: LabelLine; text: string } | undefined {
+  let best: { line: LabelLine; text: string; gap: number } | undefined;
+  for (const line of lines) {
+    if (stack.some((item) => item.line === line)) continue;
+    const text = normalizeLabelText(line.text);
+    if (!isUsableLabelText(text)) continue;
+    if (overlapRatio(field, line) >= 0.35) continue;
+    if (!isStackCompatibleLine(candidate.line, bounds, line)) continue;
+
+    const gap =
+      candidate.relation === 'above' ? bounds.y - (line.y + line.height) : line.y - (bounds.y + bounds.height);
+    if (gap < -1 || gap > STACKED_LABEL_MAX_GAP_PT) continue;
+    if (!best || gap < best.gap || (gap === best.gap && line.y < best.line.y)) {
+      best = { line, text, gap };
+    }
+  }
+  return best ? { line: best.line, text: best.text } : undefined;
+}
+
+function isStackCompatibleLine(anchor: LabelLine, bounds: BoxLike, line: LabelLine): boolean {
+  const fontDelta = Math.abs((line.fontSize ?? anchor.fontSize ?? 0) - (anchor.fontSize ?? line.fontSize ?? 0));
+  if (fontDelta > STACKED_LABEL_FONT_TOLERANCE_PT) return false;
+  const leftAligned = Math.abs(line.x - anchor.x) <= STACKED_LABEL_X_TOLERANCE_PT;
+  const overlapsExisting = horizontalOverlapRatio(bounds, line) >= MIN_HORIZONTAL_OVERLAP_RATIO;
+  return leftAligned || overlapsExisting;
 }
 
 function makeLabel(line: LabelLine, text: string, relation: FormFieldLabelRelation): FormFieldLabel {
@@ -199,6 +281,14 @@ function makeLabel(line: LabelLine, text: string, relation: FormFieldLabelRelati
     width: line.width,
     height: line.height,
   };
+}
+
+function unionBox(a: BoxLike, b: BoxLike): BoxLike {
+  const left = Math.min(a.x, b.x);
+  const top = Math.min(a.y, b.y);
+  const right = Math.max(a.x + a.width, b.x + b.width);
+  const bottom = Math.max(a.y + a.height, b.y + b.height);
+  return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
 function normalizeLabelText(text: string): string {

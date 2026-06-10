@@ -486,16 +486,26 @@ async function extractPageData(
           xMin,
           yMin,
           flags.formFields || flags.visualRegions
-            ? (internalLayout?.blocks.flatMap((block) =>
-                (block.lines.length > 0 ? block.lines : [block]).map((item) => ({
-                  text: item.text,
-                  x: item.x,
-                  y: item.y,
-                  width: item.width,
-                  height: item.height,
-                  ...('fontSize' in item && item.fontSize !== undefined && { fontSize: item.fontSize }),
+            ? [
+                ...(internalLayout?.blocks.flatMap((block) =>
+                  (block.lines.length > 0 ? block.lines : [block]).map((item) => ({
+                    text: item.text,
+                    x: item.x,
+                    y: item.y,
+                    width: item.width,
+                    height: item.height,
+                    ...('fontSize' in item && item.fontSize !== undefined && { fontSize: item.fontSize }),
+                  })),
+                ) ?? []),
+                ...spans.map((span) => ({
+                  text: span.text,
+                  x: span.x,
+                  y: span.y,
+                  width: span.width,
+                  height: span.height,
+                  fontSize: span.fontSize,
                 })),
-              ) ?? [])
+              ]
             : [],
         )
       : undefined;

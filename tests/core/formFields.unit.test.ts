@@ -131,4 +131,47 @@ describe('buildFormFields', () => {
       height: 7,
     });
   });
+
+  it('merges stacked above-label lines for narrow form fields', () => {
+    const fields = buildFormFields(
+      [{ subtype: 'Widget', fieldName: 'ein', fieldType: 'Tx', rect: [100, 88, 180, 100] }],
+      200,
+      0,
+      0,
+      [
+        { text: 'Employer identification', x: 102, y: 72, width: 82, height: 8, fontSize: 8 },
+        { text: 'number (EIN)', x: 102, y: 81, width: 47, height: 8, fontSize: 8 },
+        { text: 'Unrelated adjacent label', x: 190, y: 72, width: 86, height: 8, fontSize: 8 },
+      ],
+    );
+
+    expect(fields[0].label).toEqual({
+      text: 'Employer identification number (EIN)',
+      relation: 'above',
+      x: 102,
+      y: 72,
+      width: 82,
+      height: 17,
+    });
+  });
+
+  it('prefers fine-grained label spans over merged adjacent label lines', () => {
+    const fields = buildFormFields(
+      [
+        { subtype: 'Widget', fieldName: 'middle', fieldType: 'Tx', rect: [100, 88, 150, 100] },
+        { subtype: 'Widget', fieldName: 'other', fieldType: 'Tx', rect: [160, 88, 260, 100] },
+      ],
+      200,
+      0,
+      0,
+      [
+        { text: 'Middle Initial Other Last Names Used', x: 100, y: 90, width: 160, height: 7, fontSize: 7 },
+        { text: 'Middle Initial', x: 100, y: 90, width: 48, height: 7, fontSize: 7 },
+        { text: 'Other Last Names Used', x: 160, y: 90, width: 82, height: 7, fontSize: 7 },
+      ],
+    );
+
+    expect(fields[0].label?.text).toBe('Middle Initial');
+    expect(fields[1].label?.text).toBe('Other Last Names Used');
+  });
 });
