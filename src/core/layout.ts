@@ -1265,6 +1265,8 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0): PageLayout {
  * between pages, while body text reflows). Edge-band blocks also contribute
  * long line-level keys so a stable footer line still marks its parent block
  * as repeated when an adjacent page-number line changes on every page.
+ * Numeric variants like "Lecture 5 - 18" also contribute a digit-normalized
+ * key, but only inside the page edge band.
  *
  * A block is marked `repeated: true` when it occurs on at least 2 pages
  * AND on at least half of the pages that have a layout. With the default
@@ -1286,17 +1288,21 @@ export function markRepeatedBlocks(pages: PageResult[]): void {
       const b = blocks[bi];
       if (!isRepeatedChromeCandidate(page, b)) continue;
       const text = b.text.replace(/\s+/g, ' ').trim();
-      if (text.length > 0) {
-        addRepeatedChromeGroup(groups, `block\t${Math.round(b.y / 5) * 5}\t${text}`, { pageIndex: pi, blockIndex: bi });
+      for (const keyText of repeatedChromeTextKeys(text, isDigitVariableChromeCandidate(page, b, text))) {
+        addRepeatedChromeGroup(groups, `block\t${Math.round(b.y / 5) * 5}\t${keyText}`, {
+          pageIndex: pi,
+          blockIndex: bi,
+        });
       }
       for (const line of b.lines) {
         if (!isRepeatedChromeLineCandidate(page, line)) continue;
         const lineText = line.text.replace(/\s+/g, ' ').trim();
-        if (lineText.length === 0) continue;
-        addRepeatedChromeGroup(groups, `line\t${Math.round(line.y / 5) * 5}\t${lineText}`, {
-          pageIndex: pi,
-          blockIndex: bi,
-        });
+        for (const keyText of repeatedChromeTextKeys(lineText, isDigitVariableChromeCandidate(page, line, lineText))) {
+          addRepeatedChromeGroup(groups, `line\t${Math.round(line.y / 5) * 5}\t${keyText}`, {
+            pageIndex: pi,
+            blockIndex: bi,
+          });
+        }
       }
     }
   }
@@ -1337,6 +1343,31 @@ function addRepeatedChromeGroup(
   const list = groups.get(key);
   if (list) list.push(ref);
   else groups.set(key, [ref]);
+}
+
+function repeatedChromeTextKeys(text: string, includeDigitNormalized: boolean): string[] {
+  if (text.length === 0) return [];
+  const keys = [text];
+  const variable = includeDigitNormalized ? digitNormalizedChromeText(text) : undefined;
+  if (variable && variable !== text) keys.push(variable);
+  return keys;
+}
+
+function isDigitVariableChromeCandidate(page: PageResult, box: BBox, text: string): boolean {
+  if (text.length > 80) return false;
+  if (/^[\p{N}\s.-]{1,12}$/u.test(text) && box.width <= page.width * 0.12) return true;
+  if (/^(?:page|p\.|slide|lecture)\b/iu.test(text)) return true;
+  return box.width <= page.width * 0.25 && /\b(?:page|p\.|slide|lecture)\b/iu.test(text);
+}
+
+function digitNormalizedChromeText(text: string): string | undefined {
+  if (!/\p{N}/u.test(text)) return undefined;
+  const compactDigitLabel = text.replace(/\s+/g, '');
+  if (/\s/u.test(text) && /^\p{N}{2,4}$/u.test(compactDigitLabel)) return '#page-number';
+  if (!/\p{L}/u.test(text)) return undefined;
+  const letterCount = [...text.matchAll(/\p{L}/gu)].length;
+  if (letterCount < 4) return undefined;
+  return text.replace(/\p{N}+/gu, '#');
 }
 
 function isRepeatedChromeCandidate(page: PageResult, block: LayoutBlock): boolean {

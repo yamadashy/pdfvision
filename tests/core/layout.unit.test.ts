@@ -596,6 +596,81 @@ describe('buildLayout — multi-column reading order', () => {
     }
   });
 
+  it('marks digit-varying edge footers as repeated chrome', () => {
+    function makePage(pageNum: number): PageResult {
+      const footer: LayoutBlock = {
+        text: `Lecture 5 - ${pageNum}`,
+        x: 402.58,
+        y: 378.88,
+        width: 124,
+        height: 20,
+        lines: [{ text: `Lecture 5 - ${pageNum}`, x: 402.58, y: 378.88, width: 124, height: 20, fontSize: 18 }],
+      };
+      return {
+        page: pageNum,
+        text: footer.text,
+        charCount: footer.text.length,
+        imageCount: 1,
+        vectorCount: 0,
+        textCoverage: 0.05,
+        nonPrintableRatio: 0,
+        nonPrintableCount: 0,
+        width: 720,
+        height: 405,
+        quality: { nativeTextStatus: 'ok' },
+        layout: { blocks: [footer] },
+      };
+    }
+
+    const pages = [makePage(5), makePage(18), makePage(36)];
+    markRepeatedBlocks(pages);
+
+    for (const page of pages) {
+      expect(page.layout?.blocks[0].repeated).toBe(true);
+      const warnings = detectPageWarnings(page, { chromeDetectionReliable: true });
+      expect(warnings.filter((w) => w.code === 'near_bottom_edge')).toEqual([]);
+    }
+  });
+
+  it('marks spaced digit-only edge page labels as repeated chrome', () => {
+    function makePage(pageNum: number, pageLabel: string): PageResult {
+      const footer: LayoutBlock = {
+        text: pageLabel,
+        x: 818,
+        y: 576,
+        width: pageLabel.length * 5,
+        height: 9,
+        lines: [{ text: pageLabel, x: 818, y: 576, width: pageLabel.length * 5, height: 9, fontSize: 9 }],
+      };
+      return {
+        page: pageNum,
+        text: footer.text,
+        charCount: footer.text.length,
+        imageCount: 0,
+        vectorCount: 0,
+        textCoverage: 0.01,
+        nonPrintableRatio: 0,
+        nonPrintableCount: 0,
+        width: 841.89,
+        height: 595.28,
+        quality: { nativeTextStatus: 'ok' },
+        layout: { blocks: [footer] },
+      };
+    }
+
+    const pages = [makePage(9, '8'), makePage(80, '7 9'), makePage(104, '1 0 3')];
+    markRepeatedBlocks(pages);
+
+    expect(pages[0].layout?.blocks[0].repeated).toBeUndefined();
+    expect(pages[1].layout?.blocks[0].repeated).toBe(true);
+    expect(pages[2].layout?.blocks[0].repeated).toBe(true);
+
+    for (const page of pages) {
+      const warnings = detectPageWarnings(page, { chromeDetectionReliable: true });
+      expect(warnings.filter((w) => w.code === 'near_bottom_edge')).toEqual([]);
+    }
+  });
+
   it('does not mark repeated table headers in the page body as chrome', () => {
     // Annual-report tables can repeat the same year/change header at
     // the same y on adjacent pages. That is table structure, not a
