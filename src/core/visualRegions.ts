@@ -48,6 +48,10 @@ const MIN_DENSE_VECTOR_CLUSTER_BOXES = 12;
 const MIN_DENSE_VECTOR_UNION_AREA_RATIO = 0.03;
 const MIN_DENSE_VECTOR_LINE_LENGTH_PT = 18;
 const DENSE_VECTOR_CLUSTER_GAP_PT = 24;
+const MIN_DENSE_MICRO_VECTOR_BOXES = 200;
+const MIN_DENSE_MICRO_VECTOR_UNION_AREA_RATIO = 0.08;
+const MAX_DENSE_MICRO_VECTOR_BOX_AREA_PT = 100;
+const MAX_DENSE_MICRO_VECTOR_DIMENSION_PT = 18;
 const FORM_CLUSTER_GAP_PT = 18;
 const FORM_LARGE_CLUSTER_MIN_FIELDS = 16;
 const FORM_LARGE_CLUSTER_SPLIT_GAP_PT = 13;
@@ -197,6 +201,14 @@ function isUsefulDenseVectorBox(box: BoxLike): boolean {
   return isFinitePositiveBox(box) && Math.max(box.width, box.height) >= MIN_DENSE_VECTOR_LINE_LENGTH_PT;
 }
 
+function isUsefulMicroVectorBox(box: BoxLike): boolean {
+  return (
+    isFinitePositiveBox(box) &&
+    area(box) <= MAX_DENSE_MICRO_VECTOR_BOX_AREA_PT &&
+    Math.max(box.width, box.height) <= MAX_DENSE_MICRO_VECTOR_DIMENSION_PT
+  );
+}
+
 function isLikelySideChrome(box: BoxLike, pageWidth: number, pageHeight: number): boolean {
   const visible = visiblePageBox(box, pageWidth, pageHeight);
   return (
@@ -229,6 +241,18 @@ function denseVectorItems(input: BuildVisualRegionsInput): { box: VectorBox; ind
     .filter(
       ({ box }) =>
         isUsefulDenseVectorBox(box) &&
+        !isNearFullPageBox(box, input.pageWidth, input.pageHeight) &&
+        !isLikelySideChrome(box, input.pageWidth, input.pageHeight) &&
+        !isLikelyHorizontalChrome(box, input.pageWidth, input.pageHeight),
+    );
+}
+
+function denseMicroVectorItems(input: BuildVisualRegionsInput): { box: VectorBox; index: number }[] {
+  return (input.vectorBoxes ?? [])
+    .map((box, index) => ({ box, index }))
+    .filter(
+      ({ box }) =>
+        isUsefulMicroVectorBox(box) &&
         !isNearFullPageBox(box, input.pageWidth, input.pageHeight) &&
         !isLikelySideChrome(box, input.pageWidth, input.pageHeight) &&
         !isLikelyHorizontalChrome(box, input.pageWidth, input.pageHeight),
@@ -405,6 +429,7 @@ function addVectorCandidates(input: BuildVisualRegionsInput, candidates: Candida
     });
   }
   addDenseVectorUnionCandidate(input, candidates);
+  addDenseMicroVectorUnionCandidate(input, candidates);
 }
 
 function addDenseVectorUnionCandidate(input: BuildVisualRegionsInput, candidates: Candidate[]): void {
@@ -425,6 +450,26 @@ function addDenseVectorUnionCandidate(input: BuildVisualRegionsInput, candidates
       sources: cluster.items.map(({ index }) => ({ type: 'vectorBox', index })),
     });
   }
+}
+
+function addDenseMicroVectorUnionCandidate(input: BuildVisualRegionsInput, candidates: Candidate[]): void {
+  if ((input.vectorBoxes ?? []).length < MIN_DENSE_MICRO_VECTOR_BOXES) return;
+  const useful = denseMicroVectorItems(input);
+  if (useful.length < MIN_DENSE_MICRO_VECTOR_BOXES) return;
+
+  const box = useful.reduce<BoxLike | undefined>((acc, item) => (acc ? unionBox(acc, item.box) : item.box), undefined);
+  if (!box) return;
+  const ratio = areaRatio(box, pageArea(input));
+  if (ratio < MIN_DENSE_MICRO_VECTOR_UNION_AREA_RATIO) return;
+  if (isNearFullPageBox(box, input.pageWidth, input.pageHeight)) return;
+
+  candidates.push({
+    ...box,
+    kind: 'vector',
+    priority: 2,
+    reason: `${useful.length} dense small vector markers across multi-panel figure`,
+    sources: useful.map(({ index }) => ({ type: 'vectorBox', index })),
+  });
 }
 
 function addTableCandidates(layout: PageLayout | undefined, candidates: Candidate[]): void {

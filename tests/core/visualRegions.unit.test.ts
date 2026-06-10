@@ -186,6 +186,39 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('creates a fallback region for dense small vector markers across multi-panel figures', () => {
+    const vectorBoxes = Array.from({ length: 240 }, (_, index) => {
+      const panelColumn = Math.floor(index / 60) % 2;
+      const panelRow = Math.floor(index / 120);
+      const point = index % 60;
+      return {
+        x: 60 + panelColumn * 220 + (point % 12) * 10,
+        y: 60 + panelRow * 220 + Math.floor(point / 12) * 18,
+        width: 2,
+        height: 2,
+      };
+    });
+
+    const regions = buildVisualRegions({
+      pageWidth: 560,
+      pageHeight: 620,
+      imageBoxes: [],
+      vectorBoxes,
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0]).toMatchObject({
+      kind: 'vector',
+      x: 52,
+      y: 52,
+      width: 348,
+      height: 310,
+      sourceCount: 240,
+      reason: '240 dense small vector markers across multi-panel figure',
+    });
+    expect(regions[0].sources).toHaveLength(16);
+  });
+
   it('splits dense thin vector grids into separate foreground regions', () => {
     const vectorBoxes = [
       ...Array.from({ length: 20 }, (_, index) => ({
