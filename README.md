@@ -35,7 +35,7 @@ Every page reports `charCount`, `imageCount`, `vectorCount`, `textCoverage`, and
 
 ### Preserve layout and visual structure
 
-- **`--layout`** returns blocks with `role: 'heading'`, `repeated: true` for running headers and footers, multi-column reading order (including narrow repeated gutters and drop caps), `writingMode: 'vertical'` for detected CJK vertical text stacks, and row-major `layout.tables[]` hints for aligned numeric tables.
+- **`--layout`** returns blocks with `role: 'heading'`, `repeated: true` for running headers and footers (splitting glued footer lines away from nearby body text when possible), multi-column reading order (including narrow repeated gutters and drop caps), `writingMode: 'vertical'` for detected CJK vertical text stacks, and row-major `layout.tables[]` hints for aligned numeric tables.
 - **`--image-boxes`** reports where each raster draw lands.
 - **`--vector-boxes`** reports where painted vector paths land, useful for maps, symbols, chart paths, form boxes, table rules, and slide shapes that are visible but not raster images.
 - **`--visual-regions`** groups important raster/vector/table/form geometry into padded, crop-ready bboxes, attaches nearby captions/form labels when found (including global Plate captions for multi-panel map/figure pages), and can be fed straight into `--render-region`; **`--render-visual-regions`** renders those suggested crops directly.

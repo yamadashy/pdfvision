@@ -105,6 +105,8 @@ const TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROW_RATIO = 0.6;
 const TABLE_RECURRING_NUMERIC_COLUMN_TOLERANCE_PT = 10;
 const REPEATED_CHROME_EDGE_RATIO = 0.1;
 const REPEATED_CHROME_MIN_EDGE_PT = 60;
+const REPEATED_CHROME_LINE_EDGE_RATIO = 0.04;
+const REPEATED_CHROME_LINE_MIN_EDGE_PT = 24;
 const REPEATED_CHROME_LINE_MIN_TEXT_LENGTH = 20;
 const REPEATED_CHROME_LINE_MIN_WIDTH_RATIO = 0.2;
 /** VERTICAL_SPAN_ASPECT_RATIO and VERTICAL_SPAN_MIN_FONT_MULTIPLIER
@@ -1329,8 +1331,8 @@ export function markRepeatedBlocks(pages: PageResult[]): void {
   const pagesWithLayout = pages.filter((p) => p.layout && p.layout.blocks.length > 0);
   if (pagesWithLayout.length < 2) return;
 
-  type BlockRef = { pageIndex: number; blockIndex: number };
-  const groups = new Map<string, BlockRef[]>();
+  type ChromeRef = { pageIndex: number; blockIndex: number; lineIndex?: number };
+  const groups = new Map<string, ChromeRef[]>();
   for (let pi = 0; pi < pagesWithLayout.length; pi++) {
     const page = pagesWithLayout[pi];
     const blocks = page.layout?.blocks ?? [];
@@ -1344,13 +1346,15 @@ export function markRepeatedBlocks(pages: PageResult[]): void {
           blockIndex: bi,
         });
       }
-      for (const line of b.lines) {
+      for (let li = 0; li < b.lines.length; li++) {
+        const line = b.lines[li];
         if (!isRepeatedChromeLineCandidate(page, line)) continue;
         const lineText = line.text.replace(/\s+/g, ' ').trim();
         for (const keyText of repeatedChromeTextKeys(lineText, isDigitVariableChromeCandidate(page, line, lineText))) {
           addRepeatedChromeGroup(groups, `line\t${Math.round(line.y / 5) * 5}\t${keyText}`, {
             pageIndex: pi,
             blockIndex: bi,
+            lineIndex: li,
           });
         }
       }
@@ -1358,41 +1362,137 @@ export function markRepeatedBlocks(pages: PageResult[]): void {
   }
 
   const minOccurrences = Math.max(2, Math.ceil(pagesWithLayout.length / 2));
+  const repeatedBlocks = new Map<number, Set<number>>();
+  const repeatedLines = new Map<number, Map<number, Set<number>>>();
   for (const refs of groups.values()) {
     if (refs.length < minOccurrences) continue;
     const seenPages = new Set(refs.map((r) => r.pageIndex));
     if (seenPages.size < minOccurrences) continue;
     for (const ref of refs) {
-      const block = pagesWithLayout[ref.pageIndex].layout?.blocks[ref.blockIndex];
-      if (!block) continue;
-      block.repeated = true;
-      // Demote chrome from heading. A running header / page-number /
-      // language-marker line that happens to be short and slightly
-      // larger than the body fontSize sails through the heading
-      // classifier (eu-ai-act surfaces "EN" as a level-1 heading on
-      // every page). Once we know the block is repeated chrome, the
-      // heading role is almost always wrong — and agents iterating
-      // `headings` then see "EN" once per page. Drop the role here.
-      // Consumers that genuinely want repeated headings (a doc title
-      // that only appears in the running header) can still recover it
-      // from `text` + `repeated: true` + size; the common case wins.
-      if (block.role === 'heading') {
-        block.role = undefined;
-        block.level = undefined;
-        block.roleConfidence = undefined;
+      if (ref.lineIndex === undefined) {
+        addIndexSetValue(repeatedBlocks, ref.pageIndex, ref.blockIndex);
+      } else {
+        addNestedIndexSetValue(repeatedLines, ref.pageIndex, ref.blockIndex, ref.lineIndex);
       }
+    }
+  }
+
+  for (const [pageIndex, blockIndexes] of repeatedBlocks) {
+    const blocks = pagesWithLayout[pageIndex].layout?.blocks ?? [];
+    for (const blockIndex of blockIndexes) {
+      const block = blocks[blockIndex];
+      if (!block) continue;
+      markBlockAsRepeatedChrome(block);
+    }
+  }
+
+  for (const [pageIndex, blockLines] of repeatedLines) {
+    const page = pagesWithLayout[pageIndex];
+    const wholeBlocks = repeatedBlocks.get(pageIndex) ?? new Set<number>();
+    for (const blockIndex of [...blockLines.keys()].sort((a, b) => b - a)) {
+      if (wholeBlocks.has(blockIndex)) continue;
+      splitRepeatedChromeLines(page, blockIndex, blockLines.get(blockIndex) ?? new Set<number>());
     }
   }
 }
 
 function addRepeatedChromeGroup(
-  groups: Map<string, { pageIndex: number; blockIndex: number }[]>,
+  groups: Map<string, { pageIndex: number; blockIndex: number; lineIndex?: number }[]>,
   key: string,
-  ref: { pageIndex: number; blockIndex: number },
+  ref: { pageIndex: number; blockIndex: number; lineIndex?: number },
 ): void {
   const list = groups.get(key);
   if (list) list.push(ref);
   else groups.set(key, [ref]);
+}
+
+function addIndexSetValue(map: Map<number, Set<number>>, key: number, value: number): void {
+  const set = map.get(key);
+  if (set) set.add(value);
+  else map.set(key, new Set([value]));
+}
+
+function addNestedIndexSetValue(
+  map: Map<number, Map<number, Set<number>>>,
+  outerKey: number,
+  innerKey: number,
+  value: number,
+): void {
+  let inner = map.get(outerKey);
+  if (!inner) {
+    inner = new Map<number, Set<number>>();
+    map.set(outerKey, inner);
+  }
+  addIndexSetValue(inner, innerKey, value);
+}
+
+function markBlockAsRepeatedChrome(block: LayoutBlock): void {
+  block.repeated = true;
+  // Demote chrome from heading. A running header / page-number /
+  // language-marker line that happens to be short and slightly
+  // larger than the body fontSize sails through the heading
+  // classifier (eu-ai-act surfaces "EN" as a level-1 heading on
+  // every page). Once we know the block is repeated chrome, the
+  // heading role is almost always wrong — and agents iterating
+  // `headings` then see "EN" once per page. Drop the role here.
+  // Consumers that genuinely want repeated headings (a doc title
+  // that only appears in the running header) can still recover it
+  // from `text` + `repeated: true` + size; the common case wins.
+  if (block.role === 'heading') {
+    block.role = undefined;
+    block.level = undefined;
+    block.roleConfidence = undefined;
+  }
+}
+
+function splitRepeatedChromeLines(page: PageResult, blockIndex: number, lineIndexes: Set<number>): void {
+  const blocks = page.layout?.blocks;
+  const block = blocks?.[blockIndex];
+  if (!blocks || !block || lineIndexes.size === 0 || block.lines.length === 0) return;
+
+  if (lineIndexes.size >= block.lines.length) {
+    markBlockAsRepeatedChrome(block);
+    return;
+  }
+
+  const replacement: LayoutBlock[] = [];
+  let run: LayoutLine[] = [];
+  let runRepeated = false;
+  const flush = () => {
+    if (run.length === 0) return;
+    const next = blockFromLineRun(block, run, runRepeated);
+    if (runRepeated) markBlockAsRepeatedChrome(next);
+    replacement.push(next);
+    run = [];
+  };
+
+  for (let i = 0; i < block.lines.length; i++) {
+    const repeated = lineIndexes.has(i);
+    if (run.length > 0 && repeated !== runRepeated) flush();
+    runRepeated = repeated;
+    run.push(block.lines[i]);
+  }
+  flush();
+
+  if (replacement.length > 1) {
+    blocks.splice(blockIndex, 1, ...replacement);
+  }
+}
+
+function blockFromLineRun(source: LayoutBlock, lines: LayoutLine[], repeated: boolean): LayoutBlock {
+  const box = unionBox(lines);
+  const block: LayoutBlock = {
+    text: lines.map((l) => l.text).join('\n'),
+    ...box,
+    lines,
+  };
+  if (!repeated) {
+    block.role = source.role;
+    block.level = source.level;
+    block.roleConfidence = source.roleConfidence;
+    block.writingMode = source.writingMode;
+  }
+  return block;
 }
 
 function repeatedChromeTextKeys(text: string, includeDigitNormalized: boolean): string[] {
@@ -1427,8 +1527,15 @@ function isRepeatedChromeCandidate(page: PageResult, block: LayoutBlock): boolea
 
 function isRepeatedChromeLineCandidate(page: PageResult, line: LayoutBlock['lines'][number]): boolean {
   const text = line.text.replace(/\s+/g, ' ').trim();
+  if (!isRepeatedChromeLineEdgeCandidate(page, line)) return false;
   return (
     text.length >= REPEATED_CHROME_LINE_MIN_TEXT_LENGTH ||
-    line.width >= page.width * REPEATED_CHROME_LINE_MIN_WIDTH_RATIO
+    line.width >= page.width * REPEATED_CHROME_LINE_MIN_WIDTH_RATIO ||
+    isDigitVariableChromeCandidate(page, line, text)
   );
+}
+
+function isRepeatedChromeLineEdgeCandidate(page: PageResult, line: LayoutBlock['lines'][number]): boolean {
+  const edgeBand = Math.max(REPEATED_CHROME_LINE_MIN_EDGE_PT, page.height * REPEATED_CHROME_LINE_EDGE_RATIO);
+  return line.y <= edgeBand || line.y + line.height >= page.height - edgeBand;
 }

@@ -742,6 +742,51 @@ describe('buildLayout — multi-column reading order', () => {
     }
   });
 
+  it('splits repeated footer lines away from adjacent body text in the same edge block', () => {
+    function makePage(pageNum: number): PageResult {
+      const block: LayoutBlock = {
+        text: `Stack activations to get a\n6x28x28 output image!\nLecture 5 - ${pageNum}`,
+        x: 420.6,
+        y: 317.2,
+        width: 277.66,
+        height: 82.02,
+        lines: [
+          { text: 'Stack activations to get a', x: 488.15, y: 317.2, width: 210.11, height: 20.28, fontSize: 20.27 },
+          { text: '6x28x28 output image!', x: 497.6, y: 341.25, width: 190.61, height: 20.27, fontSize: 20.27 },
+          { text: `Lecture 5 - ${pageNum}`, x: 420.6, y: 378.9, width: 105.16, height: 20.32, fontSize: 18.02 },
+        ],
+      };
+      return {
+        page: pageNum,
+        text: block.text,
+        charCount: block.text.length,
+        imageCount: 1,
+        vectorCount: 0,
+        textCoverage: 0.05,
+        nonPrintableRatio: 0,
+        nonPrintableCount: 0,
+        width: 720,
+        height: 405,
+        quality: { nativeTextStatus: 'ok' },
+        layout: { blocks: [block] },
+      };
+    }
+
+    const pages = [makePage(58), makePage(59), makePage(60)];
+    markRepeatedBlocks(pages);
+
+    for (const page of pages) {
+      expect(page.layout?.blocks).toHaveLength(2);
+      const [body, footer] = page.layout?.blocks ?? [];
+      expect(body?.text).toBe('Stack activations to get a\n6x28x28 output image!');
+      expect(body?.repeated).toBeUndefined();
+      expect(footer?.text).toBe(`Lecture 5 - ${page.page}`);
+      expect(footer?.repeated).toBe(true);
+      const warnings = detectPageWarnings(page, { chromeDetectionReliable: true });
+      expect(warnings.filter((w) => w.code === 'near_bottom_edge')).toEqual([]);
+    }
+  });
+
   it('marks spaced digit-only edge page labels as repeated chrome', () => {
     function makePage(pageNum: number, pageLabel: string): PageResult {
       const footer: LayoutBlock = {
