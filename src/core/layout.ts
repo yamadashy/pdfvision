@@ -667,11 +667,14 @@ function classifyHeadings(blocks: LayoutBlock[]): void {
  *      (one heading per column at the same y) keep their column
  *      membership so the body underneath each heading reads with that
  *      column, not as a single "all headings then all bodies" flush.
- *   4. Reject if (after pruning promoted headings) there's only one
+ *   4. Re-attach singleton narrow clusters that sit very close to a
+ *      surviving column's left edge. These are usually paragraph indents,
+ *      not page-wide separators.
+ *   5. Reject if (after pruning promoted headings) there's only one
  *      surviving column, or any surviving column has < 2 blocks — a
  *      lone block sitting at a different x is just an indent, not a
  *      column.
- *   5. Walk the y-ordered blocks; whenever a run of narrow column
+ *   6. Walk the y-ordered blocks; whenever a run of narrow column
  *      blocks sits between two spanning blocks (or the page edge),
  *      reorder that run by (column index, y).
  */
@@ -753,6 +756,13 @@ function reorderForColumns(blocks: LayoutBlock[], pageWidth: number): LayoutBloc
     for (const b of survivingColumns[ci]) columnOf.set(b, ci);
   }
 
+  const columnAnchors = survivingColumns.map((column) => median(column.map((block) => block.x)));
+  for (const b of narrow) {
+    if (columnOf.has(b) || promoted.has(b)) continue;
+    const nearestColumn = nearestColumnByX(b, columnAnchors, xEpsilon);
+    if (nearestColumn !== undefined) columnOf.set(b, nearestColumn);
+  }
+
   // Walk in current (y-ordered) order. Buffer column-member blocks;
   // flush sorted by (column, y) whenever we hit a clearly-spanning
   // block or a promoted standalone heading.
@@ -781,12 +791,29 @@ function reorderForColumns(blocks: LayoutBlock[], pageWidth: number): LayoutBloc
   return out;
 }
 
-function mergeAdjacentColumnBlocks(blocks: LayoutBlock[]): LayoutBlock[] {
+function nearestColumnByX(
+  block: LayoutBlock,
+  columnAnchors: readonly number[],
+  maxDistance: number,
+): number | undefined {
+  let bestIndex: number | undefined;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < columnAnchors.length; i++) {
+    const distance = Math.abs(block.x - columnAnchors[i]);
+    if (distance < bestDistance) {
+      bestIndex = i;
+      bestDistance = distance;
+    }
+  }
+  return bestDistance <= maxDistance ? bestIndex : undefined;
+}
+
+function mergeAdjacentColumnBlocks(blocks: LayoutBlock[], pageWidth = 0): LayoutBlock[] {
   if (blocks.length < 2) return blocks;
   const out: LayoutBlock[] = [];
   for (const block of blocks) {
     const prev = out[out.length - 1];
-    if (prev && canMergeAdjacentBodyBlocks(prev, block)) {
+    if (prev && canMergeAdjacentBodyBlocks(prev, block, pageWidth)) {
       prev.lines.push(...block.lines);
       prev.text = prev.lines.map((l) => l.text).join('\n');
       const box = unionBox(prev.lines);
@@ -801,9 +828,10 @@ function mergeAdjacentColumnBlocks(blocks: LayoutBlock[]): LayoutBlock[] {
   return out;
 }
 
-function canMergeAdjacentBodyBlocks(a: LayoutBlock, b: LayoutBlock): boolean {
+function canMergeAdjacentBodyBlocks(a: LayoutBlock, b: LayoutBlock, pageWidth = 0): boolean {
   if (a.role || b.role) return false;
   if (a.writingMode || b.writingMode) return false;
+  if (pageWidth > 0 && (a.width >= pageWidth * 0.6 || b.width >= pageWidth * 0.6)) return false;
   const prevLine = a.lines.at(-1);
   const nextLine = b.lines[0];
   if (!prevLine || !nextLine) return false;
@@ -813,10 +841,22 @@ function canMergeAdjacentBodyBlocks(a: LayoutBlock, b: LayoutBlock): boolean {
 
   const overlap = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
   if (overlap <= 0) return false;
+  if (overlap < Math.min(a.width, b.width) * 0.25) return false;
 
   const sizeRatio =
     Math.max(prevLine.fontSize, nextLine.fontSize) / Math.max(Math.min(prevLine.fontSize, nextLine.fontSize), 0.001);
   return sizeRatio <= 1.3;
+}
+
+function isStandaloneNumericLineAfterProse(prev: LayoutLine, line: LayoutLine, pageWidth: number): boolean {
+  if (pageWidth <= 0) return false;
+  const text = line.text.replace(/\s+/g, ' ').trim();
+  if (!/^[\p{N}\s.-]{1,12}$/u.test(text)) return false;
+  if (line.width > pageWidth * 0.12) return false;
+  if (!/\p{L}/u.test(prev.text)) return false;
+
+  const overlap = Math.min(prev.x + prev.width, line.x + line.width) - Math.max(prev.x, line.x);
+  return line.x < prev.x || overlap < line.width * 0.5;
 }
 
 function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefined {
@@ -1282,7 +1322,15 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0): PageLayout {
       // body still needs to break here.
       const prevWasShortLarger =
         prev.fontSize > line.fontSize * 1.05 && prev.text.replace(/\s/g, '').length <= MAX_HEADING_CHARS;
-      if (gap > prev.height * 1.0 || sizeRatio > 1.3 || sideBySide || closeButDifferentColumn || prevWasShortLarger) {
+      const standaloneNumericAfterProse = isStandaloneNumericLineAfterProse(prev, line, pageWidth);
+      if (
+        gap > prev.height * 1.0 ||
+        sizeRatio > 1.3 ||
+        sideBySide ||
+        closeButDifferentColumn ||
+        prevWasShortLarger ||
+        standaloneNumericAfterProse
+      ) {
         blockGroups.push([line]);
       } else {
         last.push(line);
@@ -1304,7 +1352,7 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0): PageLayout {
   classifyHeadings(blocks);
   const ordered = pageWidth > 0 ? reorderForColumns(blocks, pageWidth) : blocks;
   if (ordered !== blocks)
-    return { blocks: mergeAdjacentColumnBlocks(ordered), ...(tables !== undefined && { tables }) };
+    return { blocks: mergeAdjacentColumnBlocks(ordered, pageWidth), ...(tables !== undefined && { tables }) };
 
   return { blocks: ordered, ...(tables !== undefined && { tables }) };
 }

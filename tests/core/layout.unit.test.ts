@@ -574,6 +574,60 @@ describe('buildLayout — multi-column reading order', () => {
     expect(introIndex).toBeLessThan(figureIndex);
   });
 
+  it('keeps ACL first-page left-column introduction before right-column figure captions', () => {
+    const spans: TextSpan[] = [
+      span('Abstract', 157.75, 218.9, 11.96, 44.49),
+      span('We ask whether multilingual language models', 86.54, 240.47, 10.91, 187.58),
+      span('trained on unbalanced, English-dominated cor-', 86.54, 254.02, 10.91, 187.58),
+      span('pora use English as an internal pivot language-', 86.54, 267.56, 10.91, 187.58),
+      span('a question of key importance for understanding', 86.54, 281.1, 10.91, 187.58),
+      span('how these systems generalize across languages.', 86.54, 294.64, 10.91, 187.58),
+      span('Figure 1: Illustration of logit lens, which applies lan-', 306.14, 424.31, 10.12, 219.94),
+      span('guage modeling head prematurely to latent embeddings', 306.14, 436.26, 10.1, 218.63),
+      span('intermediate layers decode English flower.', 306.14, 448.21, 10.1, 205),
+      span('so well from their mainly English training data to', 306.14, 569.15, 11.05, 218.28),
+      span('other languages?', 306.14, 582.69, 10.91, 73.62),
+      span('Intuitively, one way to achieve strong perfor-', 316.99, 597.79, 11.13, 209.24),
+      span('made available here: https://github.com/', 87.87, 599.14, 10.16, 185.25),
+      span('epfl-dlab/llm-latent-language.', 87.87, 611.1, 9.96, 148.45),
+      span('mance on non-English data in a data-efficient man-', 306.14, 611.34, 10.91, 220.09),
+      span('ner is to use English as a pivot language, by first', 306.14, 624.89, 10.91, 220.09),
+      span('translating input to English and then translating back.', 316.99, 638.44, 10.91, 209.24),
+      span('glish, and then translating the answer back to the', 306.14, 651.99, 11.13, 218.28),
+      span('input language. This method has been shown to', 306.14, 665.54, 11.13, 218.28),
+      span('lead to high performance when implemented ex-', 306.14, 679.09, 11.13, 220.09),
+      span('plicitly (Shi et al., 2022; Ahuja et al., 2023; Huang', 306.14, 692.64, 10.91, 218.28),
+      span('et al., 2023). Our guiding inquiry in this work is', 306.14, 706.19, 11.13, 218.28),
+      span('whether pivoting to English also occurs implicitly', 305.75, 719.74, 10.99, 219.05),
+      span('when LLMs are prompted in non-English.', 305.75, 733.29, 10.91, 184.23),
+      span('In the research community as well as the popular', 316.99, 748.39, 10.91, 207.62),
+      span('press, many seem to assume that the answer is yes,', 306.14, 761.94, 10.91, 219.64),
+      span('1 Introduction', 70.86, 630.68, 11.96, 82.81),
+      span('15366', 285.14, 780.4, 10.91, 27.27),
+      span(
+        'Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics',
+        51.41,
+        804.55,
+        7.97,
+        492.46,
+      ),
+    ];
+
+    const layout = buildLayout(spans, 595.28);
+    const texts = layout.blocks.map((b) => b.text);
+    const introIndex = texts.findIndex((text) => text.includes('1 Introduction'));
+    const figureIndex = texts.findIndex((text) => text.includes('Figure 1:'));
+    const proceedingsIndex = texts.findIndex((text) => text.includes('Proceedings of the 62nd'));
+    const rightBody = texts.find((text) => text.includes('mance on non-English'));
+
+    expect(introIndex).toBeGreaterThan(-1);
+    expect(figureIndex).toBeGreaterThan(-1);
+    expect(introIndex).toBeLessThan(figureIndex);
+    expect(rightBody).not.toContain('15366');
+    expect(rightBody).not.toContain('Proceedings of the 62nd');
+    expect(proceedingsIndex).toBeGreaterThan(-1);
+  });
+
   it('leaves a single-column page in plain top-down order', () => {
     const spans: TextSpan[] = [
       span(`Paragraph one. ${'Long enough text. '.repeat(10)}`, 50, 50, 12, 500),
