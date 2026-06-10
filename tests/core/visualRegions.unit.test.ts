@@ -301,6 +301,36 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('does not let a full-page raster background swallow dense thin vector foregrounds', () => {
+    const vectorBoxes = Array.from({ length: 40 }, (_, index) => ({
+      x: 20,
+      y: 20 + index * 3,
+      width: 180,
+      height: 0.5,
+    }));
+
+    const regions = buildVisualRegions({
+      pageWidth: 250,
+      pageHeight: 250,
+      imageBoxes: [{ x: 0, y: 0, width: 250, height: 250 }],
+      vectorBoxes,
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'vector',
+        x: 12,
+        y: 12,
+        width: 196,
+        height: 133.5,
+        areaRatio: 0.419,
+        sourceCount: 40,
+        sources: Array.from({ length: 16 }, (_, index) => ({ type: 'vectorBox' as const, index })),
+        reason: '40 vector drawing boxes across dense page structure',
+      },
+    ]);
+  });
+
   it('does not let slide header and footer bands swallow dense vector diagrams', () => {
     const vectorBoxes = [
       { x: 0, y: 0, width: 400, height: 40 },

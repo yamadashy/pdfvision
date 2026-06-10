@@ -378,9 +378,10 @@ function sliceSpanBox(span: SearchOwner, start: number, end: number): Box {
  * are intentionally not stitched together yet; returning one giant
  * cross-line region is usually too imprecise for renderRegion zoom.
  *
- * OCR matches use `pages[].ocr.words[]` when present and fall back to a
- * page-level bbox otherwise. Marked `source: 'ocr'` so the consumer can
- * tell them apart from native text-stream matches.
+ * OCR matches use `pages[].ocr.words[]` when present and supplement from
+ * raw `pages[].ocr.text` with a page-level bbox when word-level
+ * reconstruction misses one or more occurrences. Marked `source: 'ocr'`
+ * so the consumer can tell them apart from native text-stream matches.
  */
 export function searchPage(
   spans: readonly TextSpan[] | undefined,
@@ -455,9 +456,9 @@ export function searchPage(
     }
   }
 
-  // OCR pass — prefer word-level OCR geometry when available. Fall back
-  // to the post-trim OCR text with a page-level bbox for older cache
-  // entries or tesseract runs that did not return layout blocks.
+  // OCR pass — prefer word-level OCR geometry when available, then
+  // supplement from the post-trim OCR text with a page-level bbox for
+  // occurrences that word reconstruction missed.
   if (ocr?.text) {
     const ocrWordLines = buildOcrSearchLines(ocr.words, compiled.normalize);
     const ocrTextLine: SearchLine = { text: compiled.normalize ? nfkc(ocr.text) : ocr.text, owners: [] };
@@ -465,7 +466,9 @@ export function searchPage(
     for (const m of compiled.matchers) {
       let count = 0;
       let capped = false;
-      const searchLines = (lines: readonly SearchLine[]) => {
+      const matcherDuplicateKey = (matchText: string) =>
+        duplicateKey(m.queryIndex, m.query, matchText, m.regex.ignoreCase);
+      const searchLines = (lines: readonly SearchLine[], duplicateBudget?: Map<string, number>) => {
         for (const line of lines) {
           const ocrHaystack = line.text;
           m.regex.lastIndex = 0;
@@ -484,6 +487,12 @@ export function searchPage(
             const end = Math.min(ocrHaystack.length, hit.index + hit[0].length + 60);
             const context = ocrHaystack.slice(start, end).replace(/\s+/g, ' ').trim();
             const hitBoxes = contributingBoxes(line, hit.index, hit.index + hit[0].length);
+            const hitKey = matcherDuplicateKey(hit[0]);
+            const remainingDuplicates = duplicateBudget?.get(hitKey) ?? 0;
+            if (remainingDuplicates > 0) {
+              duplicateBudget?.set(hitKey, remainingDuplicates - 1);
+              continue;
+            }
             ocrMatches.push({
               page: pageNum,
               query: m.query,
@@ -503,9 +512,15 @@ export function searchPage(
           if (capped) break;
         }
       };
+      const wordMatchStart = ocrMatches.length;
       searchLines(ocrWordLines);
-      if (!capped && count === 0) {
-        searchLines([ocrTextLine]);
+      if (!capped) {
+        const rawDuplicateBudget = new Map<string, number>();
+        for (const match of ocrMatches.slice(wordMatchStart)) {
+          const key = matcherDuplicateKey(match.text);
+          rawDuplicateBudget.set(key, (rawDuplicateBudget.get(key) ?? 0) + 1);
+        }
+        searchLines([ocrTextLine], rawDuplicateBudget);
       }
       if (capped) {
         onWarning?.(

@@ -360,12 +360,17 @@ function isUsableFinalCandidate(candidate: Candidate, pageWidth: number, pageHei
 function addRasterCandidates(input: BuildVisualRegionsInput, candidates: Candidate[]): void {
   const totalArea = pageArea(input);
   const hasForegroundRaster = hasSubstantialForegroundRaster(input.imageBoxes, input.pageWidth, input.pageHeight);
+  let hasDenseVectorForeground: boolean | undefined;
   for (const [index, box] of input.imageBoxes.entries()) {
     if (!isUsableBox(box)) continue;
     if (isLikelySideChrome(box, input.pageWidth, input.pageHeight)) continue;
     if (isLikelyHorizontalChrome(box, input.pageWidth, input.pageHeight)) continue;
     const ratio = areaRatio(visiblePageBox(box, input.pageWidth, input.pageHeight), totalArea);
-    if (hasForegroundRaster && isNearFullPageBox(box, input.pageWidth, input.pageHeight)) continue;
+    if (isNearFullPageBox(box, input.pageWidth, input.pageHeight)) {
+      if (hasForegroundRaster) continue;
+      hasDenseVectorForeground ??= hasDenseVectorStructure(input);
+      if (hasDenseVectorForeground) continue;
+    }
     const spansWidePage = box.width >= input.pageWidth * 0.3 || box.height >= input.pageHeight * 0.3;
     if (ratio < MIN_IMAGE_AREA_RATIO && !spansWidePage) continue;
     candidates.push({

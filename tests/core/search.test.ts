@@ -538,6 +538,51 @@ describe('processDocument search', () => {
     });
   });
 
+  it('keeps raw OCR fallback hits when word-level reconstruction only covers some occurrences', async () => {
+    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const compiled = compileSearch('東京大学', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const matches = searchPage(
+      undefined,
+      {
+        text: '東京大学\n東京大学',
+        confidence: 0.92,
+        lang: 'jpn',
+        words: [
+          { text: '東京', confidence: 0.9, x: 10, y: 20, width: 30, height: 12 },
+          { text: '大学', confidence: 0.9, x: 42, y: 20, width: 30, height: 12 },
+          { text: '東京', confidence: 0.9, x: 10, y: 48, width: 30, height: 12 },
+          { text: '大学', confidence: 0.9, x: 10, y: 66, width: 30, height: 12 },
+        ],
+      },
+      1,
+      612,
+      792,
+      compiled,
+    );
+    expect(matches).toHaveLength(2);
+    expect(matches[0]).toMatchObject({
+      page: 1,
+      query: '東京大学',
+      bbox: { x: 10, y: 20, width: 62, height: 12 },
+      boxes: [
+        { x: 10, y: 20, width: 30, height: 12 },
+        { x: 42, y: 20, width: 30, height: 12 },
+      ],
+      text: '東京大学',
+      source: 'ocr',
+    });
+    expect(matches[1]).toMatchObject({
+      page: 1,
+      query: '東京大学',
+      bbox: { x: 0, y: 0, width: 612, height: 792 },
+      boxes: [],
+      text: '東京大学',
+      source: 'ocr',
+      context: '東京大学 東京大学',
+    });
+  });
+
   it('suppresses OCR duplicates when native and OCR search passes run separately', async () => {
     // processDocument searches native spans before OCR exists, then
     // searches OCR text later. Keep the separate-pass path equivalent
