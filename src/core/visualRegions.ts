@@ -49,7 +49,8 @@ const MIN_DENSE_VECTOR_UNION_AREA_RATIO = 0.03;
 const MIN_DENSE_VECTOR_LINE_LENGTH_PT = 18;
 const DENSE_VECTOR_CLUSTER_GAP_PT = 24;
 const MIN_DENSE_MICRO_VECTOR_BOXES = 200;
-const MIN_DENSE_MICRO_VECTOR_UNION_AREA_RATIO = 0.08;
+const MIN_DENSE_MICRO_VECTOR_CLUSTER_BOXES = 40;
+const MIN_DENSE_MICRO_VECTOR_CLUSTER_AREA_RATIO = 0.015;
 const MAX_DENSE_MICRO_VECTOR_BOX_AREA_PT = 100;
 const MAX_DENSE_MICRO_VECTOR_DIMENSION_PT = 18;
 const FORM_CLUSTER_GAP_PT = 18;
@@ -445,7 +446,7 @@ function addVectorCandidates(input: BuildVisualRegionsInput, candidates: Candida
     });
   }
   addDenseVectorUnionCandidate(input, candidates);
-  addDenseMicroVectorUnionCandidate(input, candidates);
+  addDenseMicroVectorClusterCandidates(input, candidates);
 }
 
 function addDenseVectorUnionCandidate(input: BuildVisualRegionsInput, candidates: Candidate[]): void {
@@ -468,24 +469,25 @@ function addDenseVectorUnionCandidate(input: BuildVisualRegionsInput, candidates
   }
 }
 
-function addDenseMicroVectorUnionCandidate(input: BuildVisualRegionsInput, candidates: Candidate[]): void {
+function addDenseMicroVectorClusterCandidates(input: BuildVisualRegionsInput, candidates: Candidate[]): void {
   if ((input.vectorBoxes ?? []).length < MIN_DENSE_MICRO_VECTOR_BOXES) return;
   const useful = denseMicroVectorItems(input);
   if (useful.length < MIN_DENSE_MICRO_VECTOR_BOXES) return;
 
-  const box = useful.reduce<BoxLike | undefined>((acc, item) => (acc ? unionBox(acc, item.box) : item.box), undefined);
-  if (!box) return;
-  const ratio = areaRatio(box, pageArea(input));
-  if (ratio < MIN_DENSE_MICRO_VECTOR_UNION_AREA_RATIO) return;
-  if (isNearFullPageBox(box, input.pageWidth, input.pageHeight)) return;
+  for (const cluster of denseVectorClusters(useful)) {
+    if (cluster.items.length < MIN_DENSE_MICRO_VECTOR_CLUSTER_BOXES) continue;
+    const ratio = areaRatio(cluster.box, pageArea(input));
+    if (ratio < MIN_DENSE_MICRO_VECTOR_CLUSTER_AREA_RATIO) continue;
+    if (isNearFullPageBox(cluster.box, input.pageWidth, input.pageHeight)) continue;
 
-  candidates.push({
-    ...box,
-    kind: 'vector',
-    priority: 2,
-    reason: `${useful.length} dense small vector markers across visual region`,
-    sources: useful.map(({ index }) => ({ type: 'vectorBox', index })),
-  });
+    candidates.push({
+      ...cluster.box,
+      kind: 'vector',
+      priority: 2,
+      reason: `${cluster.items.length} dense small vector markers across visual region`,
+      sources: cluster.items.map(({ index }) => ({ type: 'vectorBox', index })),
+    });
+  }
 }
 
 function addTableCandidates(layout: PageLayout | undefined, candidates: Candidate[]): void {

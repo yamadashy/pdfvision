@@ -186,7 +186,7 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
-  it('creates a fallback region for dense small vector markers across a visual region', () => {
+  it('splits disconnected dense small vector marker fields into separate regions', () => {
     const vectorBoxes = Array.from({ length: 240 }, (_, index) => {
       const panelColumn = Math.floor(index / 60) % 2;
       const panelRow = Math.floor(index / 120);
@@ -206,16 +206,42 @@ describe('buildVisualRegions', () => {
       vectorBoxes,
     });
 
-    expect(regions).toHaveLength(1);
-    expect(regions[0]).toMatchObject({
-      kind: 'vector',
-      x: 52,
-      y: 52,
-      width: 348,
-      height: 310,
-      sourceCount: 240,
-      reason: '240 dense small vector markers across visual region',
-    });
+    expect(
+      regions.map(({ x, y, width, height, sourceCount, reason }) => ({ x, y, width, height, sourceCount, reason })),
+    ).toEqual([
+      {
+        x: 52,
+        y: 52,
+        width: 128,
+        height: 90,
+        sourceCount: 60,
+        reason: '60 dense small vector markers across visual region',
+      },
+      {
+        x: 272,
+        y: 52,
+        width: 128,
+        height: 90,
+        sourceCount: 60,
+        reason: '60 dense small vector markers across visual region',
+      },
+      {
+        x: 52,
+        y: 272,
+        width: 128,
+        height: 90,
+        sourceCount: 60,
+        reason: '60 dense small vector markers across visual region',
+      },
+      {
+        x: 272,
+        y: 272,
+        width: 128,
+        height: 90,
+        sourceCount: 60,
+        reason: '60 dense small vector markers across visual region',
+      },
+    ]);
     expect(regions[0].sources).toHaveLength(16);
   });
 
