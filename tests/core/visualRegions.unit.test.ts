@@ -523,6 +523,70 @@ describe('buildVisualRegions', () => {
     expect(regions[0].reason).toContain('layout table hint with 4 rows and 3 columns');
   });
 
+  it('deduplicates raster panels that expand to the same shared caption crop', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 600,
+      pageHeight: 800,
+      imageBoxes: [
+        { x: 60, y: 570, width: 120, height: 80 },
+        { x: 181, y: 570, width: 120, height: 80 },
+        { x: 302, y: 570, width: 120, height: 80 },
+        { x: 424, y: 570, width: 120, height: 80 },
+      ],
+      layout: {
+        blocks: [
+          {
+            text: 'Figure 2: Example images with overlaid masks from a dataset.',
+            x: 50,
+            y: 660,
+            width: 495,
+            height: 12,
+            lines: [
+              {
+                text: 'Figure 2: Example images with overlaid masks from a dataset.',
+                x: 50,
+                y: 660,
+                width: 495,
+                height: 12,
+                fontSize: 10,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'raster',
+        x: 42,
+        y: 562,
+        width: 511,
+        height: 118,
+        areaRatio: 0.126,
+        sourceCount: 4,
+        sources: [
+          { type: 'imageBox', index: 0 },
+          { type: 'imageBox', index: 1 },
+          { type: 'imageBox', index: 2 },
+          { type: 'imageBox', index: 3 },
+        ],
+        reason: 'raster image covers 2.0% of the page',
+        associatedText: [
+          {
+            text: 'Figure 2: Example images with overlaid masks from a dataset.',
+            relation: 'caption',
+            x: 50,
+            y: 660,
+            width: 495,
+            height: 12,
+            blockIndex: 0,
+          },
+        ],
+      },
+    ]);
+  });
+
   it('groups form fields into a single form region', () => {
     const regions = buildVisualRegions({
       pageWidth: 300,

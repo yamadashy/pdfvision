@@ -67,6 +67,8 @@ const CAPTION_MIN_HORIZONTAL_OVERLAP_RATIO = 0.2;
 const HEADING_LABEL_MAX_GAP_PT = 96;
 const HEADING_LABEL_MIN_REGION_AREA_RATIO = 0.08;
 const HEADING_LABEL_MAX_CHARS = 220;
+const EQUIVALENT_CANDIDATE_OVERLAP_RATIO = 0.98;
+const EQUIVALENT_CANDIDATE_AREA_RATIO = 0.98;
 const MAX_ASSOCIATED_TEXT = 3;
 const CAPTION_NUMBER_PATTERN =
   '[\\p{L}\\p{N}０-９一二三四五六七八九十ivxlcdm]+(?:[.-][\\p{L}\\p{N}０-９一二三四五六七八九十ivxlcdm]+)*\\.?';
@@ -164,6 +166,12 @@ function touches(a: BoxLike, b: BoxLike, gap: number): boolean {
 function overlapOfSmaller(a: BoxLike, b: BoxLike): number {
   const smaller = Math.min(area(a), area(b));
   return smaller > 0 ? overlapArea(a, b) / smaller : 0;
+}
+
+function areaSimilarity(a: BoxLike, b: BoxLike): number {
+  const smaller = Math.min(area(a), area(b));
+  const larger = Math.max(area(a), area(b));
+  return larger > 0 ? smaller / larger : 0;
 }
 
 function visiblePageBox(box: BoxLike, pageWidth: number, pageHeight: number): BoxLike {
@@ -801,6 +809,20 @@ function dedupeCandidates(candidates: Candidate[]): Candidate[] {
   return deduped;
 }
 
+function dedupeEquivalentCandidates(candidates: Candidate[]): Candidate[] {
+  const deduped: Candidate[] = [];
+  for (const candidate of candidates) {
+    const index = deduped.findIndex(
+      (existing) =>
+        overlapOfSmaller(existing, candidate) >= EQUIVALENT_CANDIDATE_OVERLAP_RATIO &&
+        areaSimilarity(existing, candidate) >= EQUIVALENT_CANDIDATE_AREA_RATIO,
+    );
+    if (index === -1) deduped.push(candidate);
+    else deduped[index] = mergeCandidates(deduped[index], candidate);
+  }
+  return deduped;
+}
+
 function suppressBackgroundLikeCandidates(candidates: Candidate[], pageWidth: number, pageHeight: number): Candidate[] {
   const hasForegroundRegion = candidates.some(
     (candidate) => !isBackgroundLikeCandidate(candidate, pageWidth, pageHeight),
@@ -862,7 +884,8 @@ export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion
   );
   const withCaptions = attachCaptionText(suppressContainedCandidates(deduped), input.layout);
   const withHeadingLabels = attachHeadingLabels(withCaptions, input.layout, totalArea);
-  return suppressContainedCandidates(withHeadingLabels)
+  const contextDeduped = dedupeEquivalentCandidates(withHeadingLabels);
+  return suppressContainedCandidates(contextDeduped)
     .filter((candidate) => isUsableFinalCandidate(candidate, input.pageWidth, input.pageHeight))
     .sort((a, b) => visualScore(b, totalArea) - visualScore(a, totalArea))
     .slice(0, MAX_REGIONS)
