@@ -89,6 +89,8 @@ const RECURRING_GUTTER_WIDE_ROW_RATIO = 0.7;
 const RECURRING_GUTTER_SIDE_MIN_RATIO = 0.25;
 const RECURRING_GUTTER_BIN_PT = 5;
 const RECURRING_GUTTER_MIN_ROWS = 3;
+const RECURRING_TABLE_GUTTER_MIN_ROWS = 4;
+const RECURRING_TABLE_GUTTER_MIN_NUMERIC_SPANS = 3;
 const LINE_TOP_ALIGNMENT_RATIO = 0.5;
 const LINE_VERTICAL_OVERLAP_RATIO = 0.35;
 const TABLE_ROW_MIN_CELLS = 3;
@@ -895,6 +897,39 @@ function detectRecurringGutterBins(lineGroups: TextSpan[][], pageWidth: number):
   return recurring;
 }
 
+function detectRecurringTableGutterBins(lineGroups: TextSpan[][], pageWidth: number): Set<number> {
+  if (pageWidth <= 0) return new Set();
+
+  const counts = new Map<number, number>();
+  for (const group of lineGroups) {
+    const numericSpans = group.filter(isTableGutterNumericSpan);
+    if (numericSpans.length < RECURRING_TABLE_GUTTER_MIN_NUMERIC_SPANS) continue;
+
+    const xSorted = [...group].sort((a, b) => a.x - b.x);
+    const groupBox = unionBox(xSorted);
+    const binsInRow = new Set<number>();
+    for (let i = 1; i < xSorted.length; i++) {
+      const prev = xSorted[i - 1];
+      const cur = xSorted[i];
+      if (!isTableGutterNumericSpan(prev) || !isTableGutterNumericSpan(cur)) continue;
+      const gap = cur.x - (prev.x + prev.width);
+      const prevFontSize = prev.fontSize || FONT_SIZE_FALLBACK_PT;
+      const curFontSize = cur.fontSize || FONT_SIZE_FALLBACK_PT;
+      const fontSize = Math.min(prevFontSize, curFontSize);
+      if (isRecurringTableGutterCandidate(groupBox, gap, fontSize, pageWidth)) {
+        binsInRow.add(gutterBin(prev, cur));
+      }
+    }
+    for (const bin of binsInRow) counts.set(bin, (counts.get(bin) ?? 0) + 1);
+  }
+
+  const recurring = new Set<number>();
+  for (const [bin, count] of counts) {
+    if (count >= RECURRING_TABLE_GUTTER_MIN_ROWS) recurring.add(bin);
+  }
+  return recurring;
+}
+
 function hasRecurringGutter(recurringGutterBins: Set<number>, prev: TextSpan, cur: TextSpan): boolean {
   if (recurringGutterBins.size === 0) return false;
   const bin = gutterBin(prev, cur);
@@ -902,6 +937,15 @@ function hasRecurringGutter(recurringGutterBins: Set<number>, prev: TextSpan, cu
     if (Math.abs(recurringBin - bin) <= RECURRING_GUTTER_BIN_PT) return true;
   }
   return false;
+}
+
+function isRecurringTableGutterCandidate(groupBox: BBox, gap: number, fontSize: number, pageWidth: number): boolean {
+  if (groupBox.width < pageWidth * 0.4) return false;
+  return gap >= Math.max(fontSize * RECURRING_GUTTER_GAP_RATIO, RECURRING_GUTTER_MIN_GAP_PT);
+}
+
+function isTableGutterNumericSpan(span: TextSpan): boolean {
+  return /^[\s0-9.,()%+-]+$/u.test(span.text);
 }
 
 function rowY(row: LayoutLine[]): number {
@@ -1020,6 +1064,7 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0): PageLayout {
   // justified word spaces to trust per-row. Those split only when the
   // same gutter position recurs on several page-wide y-rows.
   const recurringGutterBins = detectRecurringGutterBins(lineGroups, pageWidth);
+  const recurringTableGutterBins = detectRecurringTableGutterBins(lineGroups, pageWidth);
   const lines: LayoutLine[] = lineGroups.flatMap((group) => {
     const xSorted = [...group].sort((a, b) => a.x - b.x);
     const groupBox = unionBox(xSorted);
@@ -1038,7 +1083,12 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0): PageLayout {
       const recurringGutter =
         hasRecurringGutter(recurringGutterBins, prev, cur) &&
         isRecurringGutterSplitCandidate(groupBox, prev, cur, gap, fontSize, pageWidth);
-      if (gap > segmentGap || recurringGutter) {
+      const recurringTableGutter =
+        hasRecurringGutter(recurringTableGutterBins, prev, cur) &&
+        isTableGutterNumericSpan(prev) &&
+        isTableGutterNumericSpan(cur) &&
+        isRecurringTableGutterCandidate(groupBox, gap, fontSize, pageWidth);
+      if (gap > segmentGap || recurringGutter || recurringTableGutter) {
         subLines.push([cur]);
       } else {
         subLines[subLines.length - 1].push(cur);

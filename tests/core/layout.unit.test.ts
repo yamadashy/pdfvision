@@ -821,6 +821,22 @@ describe('buildLayout — multi-column reading order', () => {
     expect(layout.tables).toBeUndefined();
   });
 
+  it('splits dense recurring numeric gutters inside table rows', () => {
+    const rows = [
+      ['2015', '57.6', '73.3', '40.7', '81.2'],
+      ['2016', '58.1', '74.3', '42.4', '82.5'],
+      ['2017', '58.8', '75.3', '42.5', '83.6'],
+      ['2018', '60.0', '76.8', '45.9', '84.8'],
+      ['2019', '60.6', '77.7', '47.5', '85.3'],
+    ];
+    const xs = [80, 120, 150, 180, 210];
+    const spans = rows.flatMap((row, rowIndex) =>
+      row.map((text, columnIndex) => span(text, xs[columnIndex], 100 + rowIndex * 8, 8, 16)),
+    );
+    const layout = buildLayout(spans, 300);
+    expect(layout.tables?.[0].rows[0].cells.map((cell) => cell.text)).toEqual(['2015', '57.6', '73.3', '40.7', '81.2']);
+  });
+
   it('moves currency symbols that were joined onto the previous table value', () => {
     const spans: TextSpan[] = [
       span('Products', 50, 100, 8, 36),
