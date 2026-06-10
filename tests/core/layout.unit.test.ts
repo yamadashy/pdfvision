@@ -234,6 +234,21 @@ describe('buildLayout — heading classification', () => {
     expect(icon?.roleConfidence).toBeUndefined();
   });
 
+  it('does not classify digit-only page labels as headings', () => {
+    const spans: TextSpan[] = [
+      span('Software tools', 56, 21, 10.5, 62),
+      span('10', 34, 740, 17, 16),
+      span('This body text establishes a normal font size for the page.', 56, 120, 10, 300),
+      span('More body text keeps the body font credible.', 56, 136, 10, 240),
+    ];
+    const layout = buildLayout(spans, 595);
+    const pageLabel = layout.blocks.find((block) => block.text === '10');
+
+    expect(pageLabel?.role).toBeUndefined();
+    expect(pageLabel?.level).toBeUndefined();
+    expect(pageLabel?.roleConfidence).toBeUndefined();
+  });
+
   it('does not classify bullet list items as headings only because the bullet glyph is large', () => {
     const spans: TextSpan[] = [
       span('• You have a valid social security number', 50, 50, 15, 220),
