@@ -523,6 +523,10 @@ function isBottomReference(block: LayoutBlock): boolean {
   if (block.width <= 40 && /^\d{1,4}$/u.test(text)) return true;
   if (block.width <= 40 && isRomanNumeralPageLabel(text)) return true;
   if (block.width <= 100 && /^page\s+\d{1,4}(?:\s+of\s+\d{1,4})?$/iu.test(text)) return true;
+  if (block.width <= 180 && /^(?:[\w:.-]+\s+)?(?:lecture|slide)\s+\d+\s*[-–]\s*\d{1,4}$/iu.test(text)) {
+    return true;
+  }
+  if (block.width <= 120 && isShortDateFooter(text)) return true;
   return /\b(?:https?:\/\/|www\.|doi:|arxiv:)/i.test(text);
 }
 
@@ -530,6 +534,12 @@ function isRomanNumeralPageLabel(text: string): boolean {
   const normalized = text.toLowerCase();
   if (!/^[ivxlcdm]{1,12}$/u.test(normalized)) return false;
   return /^m{0,4}(cm|cd|d?c{0,3})(xc|xl|l?x{0,3})(ix|iv|v?i{0,3})$/u.test(normalized);
+}
+
+function isShortDateFooter(text: string): boolean {
+  return /^(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+\d{1,2},?(?:\s+\d{4})?$/iu.test(
+    text,
+  );
 }
 
 function offPageTolerance(pageWidth: number, pageHeight: number): number {

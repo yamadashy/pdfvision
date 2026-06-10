@@ -1007,6 +1007,21 @@ describe('detectPageWarnings', () => {
       expect(out.filter((w) => w.code === 'near_bottom_edge')).toEqual([]);
     });
 
+    it('does not flag slide deck lecture-number footers at the bottom edge', () => {
+      const blocks = [
+        block(420.6, 376, 95.97, 20.92, { text: 'Lecture 5 - 1' }),
+        block(420.6, 378.85, 102, 20.27, { text: 'Lecture 5 -14' }),
+        block(313.53, 380.35, 150.28, 18.02, { text: 'CS231n: Lecture 1 - 49' }),
+      ];
+      const out = detectPageWarnings(page(blocks, 720, 405));
+      expect(out.filter((w) => w.code === 'near_bottom_edge')).toEqual([]);
+    });
+
+    it('does not flag short date footers at the bottom edge', () => {
+      const out = detectPageWarnings(page([block(530.5, 381.75, 52.58, 18.02, { text: 'April 1,' })], 720, 405));
+      expect(out.filter((w) => w.code === 'near_bottom_edge')).toEqual([]);
+    });
+
     it('still flags non-reference body text near the bottom edge', () => {
       const out = detectPageWarnings(page([block(50, 758, 80, 9, { text: 'closing note' })], 594, 774));
       expect(out.some((w) => w.code === 'near_bottom_edge')).toBe(true);
