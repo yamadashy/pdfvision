@@ -77,7 +77,9 @@ const CAPTION_PATTERN = new RegExp(
   `^\\s*(?:fig(?:ure)?\\.?|table|plate|図表|図|表)\\s*(${CAPTION_NUMBER_PATTERN})(?=\\s|[:：．、-]|$)`,
   'iu',
 );
-const CAPTION_NUMBERISH_PATTERN = /[0-9０-９一二三四五六七八九十ivxlcdm]/iu;
+const CAPTION_DIGIT_OR_CJK_NUMBER_PATTERN = /[0-9０-９一二三四五六七八九十]/u;
+const CAPTION_ROMAN_NUMERAL_PATTERN = /^[ivxlcdm]+$/iu;
+const CAPTION_SINGLE_LETTER_PATTERN = /^[A-Z]$/u;
 const GLOBAL_CAPTION_PATTERN = /^\s*plate\s+/iu;
 
 function round2(n: number): number {
@@ -651,7 +653,14 @@ function normalizeAssociatedText(text: string): string {
 
 function isCaptionText(text: string): boolean {
   const match = CAPTION_PATTERN.exec(text);
-  return match !== null && CAPTION_NUMBERISH_PATTERN.test(match[1] ?? '');
+  return match !== null && isCaptionIdentifier(match[1] ?? '');
+}
+
+function isCaptionIdentifier(text: string): boolean {
+  const normalized = text.trim().replace(/[.．]+$/u, '');
+  if (CAPTION_DIGIT_OR_CJK_NUMBER_PATTERN.test(normalized)) return true;
+  if (CAPTION_ROMAN_NUMERAL_PATTERN.test(normalized)) return true;
+  return CAPTION_SINGLE_LETTER_PATTERN.test(normalized);
 }
 
 function isGlobalCaptionText(text: string): boolean {

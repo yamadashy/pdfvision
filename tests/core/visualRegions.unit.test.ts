@@ -988,6 +988,37 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('does not treat figure copyright notes as figure captions', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 300,
+      pageHeight: 300,
+      imageBoxes: [{ x: 60, y: 60, width: 120, height: 70 }],
+      layout: {
+        blocks: [
+          {
+            text: 'Figure copyright Example Author, 2024.',
+            x: 60,
+            y: 140,
+            width: 160,
+            height: 12,
+            lines: [
+              {
+                text: 'Figure copyright Example Author, 2024.',
+                x: 60,
+                y: 140,
+                width: 160,
+                height: 12,
+                fontSize: 10,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions[0].associatedText).toBeUndefined();
+  });
+
   it('attaches Japanese combined figure-table captions', () => {
     const regions = buildVisualRegions({
       pageWidth: 400,
