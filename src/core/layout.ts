@@ -297,10 +297,24 @@ function canShareLine(a: TextSpan, b: TextSpan): boolean {
 
 function canShareTextLine(a: TextSpan, b: TextSpan): boolean {
   if (!canShareLine(a, b)) return false;
-  const minHeight = Math.max(Math.min(a.height, b.height), 1);
+  if (hasVerticalTextShape(a) || hasVerticalTextShape(b)) {
+    const minHeight = Math.max(Math.min(a.height, b.height), 1);
+    if (Math.abs(a.y - b.y) < minHeight * LINE_TOP_ALIGNMENT_RATIO) return true;
+    const overlap = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+    return overlap >= minHeight * LINE_VERTICAL_OVERLAP_RATIO;
+  }
+
+  const aHeight = horizontalLineGroupingHeight(a);
+  const bHeight = horizontalLineGroupingHeight(b);
+  const minHeight = Math.max(Math.min(aHeight, bHeight), 1);
   if (Math.abs(a.y - b.y) < minHeight * LINE_TOP_ALIGNMENT_RATIO) return true;
-  const overlap = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+  const overlap = Math.min(a.y + aHeight, b.y + bHeight) - Math.max(a.y, b.y);
   return overlap >= minHeight * LINE_VERTICAL_OVERLAP_RATIO;
+}
+
+function horizontalLineGroupingHeight(span: TextSpan): number {
+  const fontSize = span.fontSize || FONT_SIZE_FALLBACK_PT;
+  return Math.max(1, Math.min(span.height || fontSize, fontSize * 1.4));
 }
 
 function lineGroupAnchor(group: TextSpan[]): TextSpan {

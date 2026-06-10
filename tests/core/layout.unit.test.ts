@@ -941,6 +941,21 @@ describe('buildLayout — multi-column reading order', () => {
     expect(layout.blocks[0].lines[0].text).toBe('helloworld');
   });
 
+  it('does not merge stacked slide label spans when bboxes are taller than their font', () => {
+    // Some slide PDFs report text-item bboxes much taller than the
+    // visible glyph line. Use font-size-capped height for line grouping
+    // so a lower label line does not glue onto the line above it.
+    const spans: TextSpan[] = [
+      { text: 'Natural Language', x: 261.65, y: 269.96, width: 127.94, height: 52.84, fontSize: 18 },
+      { text: 'Processing', x: 291.79, y: 297.2, width: 79.39, height: 38.8, fontSize: 18 },
+    ];
+    const layout = buildLayout(spans, 720);
+    const lines = layout.blocks.flatMap((block) => block.lines.map((line) => line.text));
+
+    expect(lines).toEqual(['Natural Language', 'Processing']);
+    expect(layout.blocks[0].text).toBe('Natural Language\nProcessing');
+  });
+
   it('does not merge vertical side labels into horizontal text lines', () => {
     const spans: TextSpan[] = [
       { text: '(Version 2)', x: 114, y: 200, width: 45, height: 10, fontSize: 10 },
