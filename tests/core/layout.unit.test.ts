@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildLayout, markRepeatedBlocks } from '../../src/core/layout.js';
+import { detectPageWarnings } from '../../src/core/warnings.js';
 import type { LayoutBlock, PageResult, TextSpan } from '../../src/types/index.js';
 
 /**
@@ -541,6 +542,57 @@ describe('buildLayout — multi-column reading order', () => {
       // Body blocks (different text per page) stay non-repeated and
       // keep whatever role they had.
       expect(body?.repeated).toBeUndefined();
+    }
+  });
+
+  it('marks footer blocks as repeated when a stable footer line is paired with changing page labels', () => {
+    const stableFooter =
+      'Brought to you by NOAA Library | Unauthenticated | Downloaded 09/12/25 01:27 PM UTC2. Global Climate';
+
+    function makePage(pageNum: number, pageLabel: string): PageResult {
+      const caption: LayoutBlock = {
+        text: `Plate 2.1 caption page ${pageNum}`,
+        x: 307,
+        y: 643,
+        width: 270,
+        height: 108.5,
+        lines: [{ text: `Plate 2.1 caption page ${pageNum}`, x: 307, y: 643, width: 270, height: 9, fontSize: 8 }],
+      };
+      const footer: LayoutBlock = {
+        text: `${stableFooter}\n${pageLabel}`,
+        x: 301,
+        y: 765.23,
+        width: 278,
+        height: 11.77,
+        lines: [
+          { text: stableFooter, x: 301, y: 765.68, width: 245.88, height: 8, fontSize: 6 },
+          { text: pageLabel, x: 562, y: 765.23, width: 15.14, height: 8, fontSize: 8 },
+        ],
+      };
+      return {
+        page: pageNum,
+        text: `${caption.text}\n${footer.text}`,
+        charCount: caption.text.length + footer.text.length + 1,
+        imageCount: 7,
+        vectorCount: 0,
+        textCoverage: 0.05,
+        nonPrintableRatio: 0,
+        nonPrintableCount: 0,
+        width: 594,
+        height: 792,
+        quality: { nativeTextStatus: 'ok' },
+        layout: { blocks: [caption, footer] },
+      };
+    }
+
+    const pages = [makePage(12, 'S22'), makePage(13, 'S23'), makePage(14, 'S24')];
+    markRepeatedBlocks(pages);
+
+    for (const page of pages) {
+      expect(page.layout?.blocks[0].repeated).toBeUndefined();
+      expect(page.layout?.blocks[1].repeated).toBe(true);
+      const warnings = detectPageWarnings(page, { chromeDetectionReliable: true });
+      expect(warnings.filter((w) => w.code === 'near_bottom_edge')).toEqual([]);
     }
   });
 

@@ -96,6 +96,8 @@ const TABLE_ROW_MIN_NUMERIC_CELLS = 2;
 const TABLE_GROUP_MAX_ROW_GAP_PT = 48;
 const REPEATED_CHROME_EDGE_RATIO = 0.1;
 const REPEATED_CHROME_MIN_EDGE_PT = 60;
+const REPEATED_CHROME_LINE_MIN_TEXT_LENGTH = 20;
+const REPEATED_CHROME_LINE_MIN_WIDTH_RATIO = 0.2;
 /** VERTICAL_SPAN_ASPECT_RATIO and VERTICAL_SPAN_MIN_FONT_MULTIPLIER
  *  were tuned against tall side labels and version annotations in sample
  *  PDFs. The ratio admits narrow vertical runs, while the font-size
@@ -1086,7 +1088,9 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0): PageLayout {
  * page numbers / watermarks. Two blocks across different pages are
  * considered the "same" when their normalized text matches and their top y
  * sits in the same 5-pt bin (page chrome rarely shifts more than that
- * between pages, while body text reflows).
+ * between pages, while body text reflows). Edge-band blocks also contribute
+ * long line-level keys so a stable footer line still marks its parent block
+ * as repeated when an adjacent page-number line changes on every page.
  *
  * A block is marked `repeated: true` when it occurs on at least 2 pages
  * AND on at least half of the pages that have a layout. With the default
@@ -1108,11 +1112,18 @@ export function markRepeatedBlocks(pages: PageResult[]): void {
       const b = blocks[bi];
       if (!isRepeatedChromeCandidate(page, b)) continue;
       const text = b.text.replace(/\s+/g, ' ').trim();
-      if (text.length === 0) continue;
-      const key = `${Math.round(b.y / 5) * 5}\t${text}`;
-      const list = groups.get(key);
-      if (list) list.push({ pageIndex: pi, blockIndex: bi });
-      else groups.set(key, [{ pageIndex: pi, blockIndex: bi }]);
+      if (text.length > 0) {
+        addRepeatedChromeGroup(groups, `block\t${Math.round(b.y / 5) * 5}\t${text}`, { pageIndex: pi, blockIndex: bi });
+      }
+      for (const line of b.lines) {
+        if (!isRepeatedChromeLineCandidate(page, line)) continue;
+        const lineText = line.text.replace(/\s+/g, ' ').trim();
+        if (lineText.length === 0) continue;
+        addRepeatedChromeGroup(groups, `line\t${Math.round(line.y / 5) * 5}\t${lineText}`, {
+          pageIndex: pi,
+          blockIndex: bi,
+        });
+      }
     }
   }
 
@@ -1144,7 +1155,25 @@ export function markRepeatedBlocks(pages: PageResult[]): void {
   }
 }
 
+function addRepeatedChromeGroup(
+  groups: Map<string, { pageIndex: number; blockIndex: number }[]>,
+  key: string,
+  ref: { pageIndex: number; blockIndex: number },
+): void {
+  const list = groups.get(key);
+  if (list) list.push(ref);
+  else groups.set(key, [ref]);
+}
+
 function isRepeatedChromeCandidate(page: PageResult, block: LayoutBlock): boolean {
   const edgeBand = Math.max(REPEATED_CHROME_MIN_EDGE_PT, page.height * REPEATED_CHROME_EDGE_RATIO);
   return block.y <= edgeBand || block.y + block.height >= page.height - edgeBand;
+}
+
+function isRepeatedChromeLineCandidate(page: PageResult, line: LayoutBlock['lines'][number]): boolean {
+  const text = line.text.replace(/\s+/g, ' ').trim();
+  return (
+    text.length >= REPEATED_CHROME_LINE_MIN_TEXT_LENGTH ||
+    line.width >= page.width * REPEATED_CHROME_LINE_MIN_WIDTH_RATIO
+  );
 }
