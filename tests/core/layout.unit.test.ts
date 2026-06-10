@@ -821,6 +821,37 @@ describe('buildLayout — multi-column reading order', () => {
     expect(layout.tables).toBeUndefined();
   });
 
+  it('keeps irregular financial tables when numeric columns recur across rows', () => {
+    const rows = [
+      { label: 'Opening balance', y: 100, values: ['(25.4)', '(2.6)', '(50.2)', '(0.1)', '(78.3)'] },
+      { label: 'Changes in valuation period', y: 126, values: ['(0.8)', '(0.1)', '(1.7)', '-', '(2.6)'] },
+      { label: 'methods', y: 151, values: ['(0.1)', '0.3', '0.8', '-', '1.0'] },
+      { label: 'Changes in law or policy', y: 177, values: ['(1.1)', '-', '-', '-', '(1.1)'] },
+      { label: 'assumptions', y: 228, values: ['-', '(0.3)', '(4.5)', '-', '(4.8)'] },
+      { label: 'Change in projection base', y: 241, values: ['-', '(0.6)', '(1.5)', '-', '(2.1)'] },
+      { label: 'Net change in open group measure', y: 255, values: ['(2.5)', '(0.7)', '(6.9)', '-', '(10.1)'] },
+      { label: 'Open group measure, end of year', y: 270, values: ['(27.9)', '(3.3)', '(57.1)', '(0.1)', '(88.4)'] },
+    ];
+    const valueXs = [260, 315, 370, 425, 480];
+    const spans = rows.flatMap((row) => [
+      span(row.label, 50, row.y, 9, Math.min(200, row.label.length * 4.5)),
+      ...row.values.map((value, index) => span(value, valueXs[index], row.y + 1.2, 9, value.length * 4.5)),
+    ]);
+    const layout = buildLayout(spans, 560);
+
+    expect(layout.tables).toHaveLength(1);
+    expect(layout.tables?.[0].rowCount).toBe(8);
+    expect(layout.tables?.[0].columnCount).toBe(6);
+    expect(layout.tables?.[0].rows[0].cells.map((cell) => cell.text)).toEqual([
+      'Opening balance',
+      '(25.4)',
+      '(2.6)',
+      '(50.2)',
+      '(0.1)',
+      '(78.3)',
+    ]);
+  });
+
   it('splits dense recurring numeric gutters inside table rows', () => {
     const rows = [
       ['2015', '57.6', '73.3', '40.7', '81.2'],

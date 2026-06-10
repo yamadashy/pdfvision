@@ -90,6 +90,9 @@ const TABULAR_NUMERIC_MIN_SHARED_ROWS = 3;
 const TABULAR_NUMERIC_ROW_CADENCE_MIN_MATCH_RATIO = 0.65;
 const TABULAR_NUMERIC_ROW_CADENCE_TOLERANCE_RATIO = 0.25;
 const TABULAR_NUMERIC_ROW_CADENCE_MIN_TOLERANCE_PT = 2;
+const TABULAR_NUMERIC_RECURRING_COLUMN_MIN_ROWS = 4;
+const TABULAR_NUMERIC_RECURRING_COLUMN_MIN_COLUMNS = 3;
+const TABULAR_NUMERIC_RECURRING_COLUMN_MIN_ROW_RATIO = 0.6;
 
 function sortWarnings(warnings: PageWarning[]): void {
   // Stable sort by (severity error first, then code, then blockIndex)
@@ -265,7 +268,12 @@ function detectTabularNumericLayout(blocks: LayoutBlock[], out: PageWarning[]): 
   const sharedRowCenters = sharedNumericRowCenters(alignedColumns);
   const sharedRows = sharedRowCenters.length;
   if (sharedRows < TABULAR_NUMERIC_MIN_SHARED_ROWS) return;
-  if (!hasRegularNumericRowCadence(sharedRowCenters)) return;
+  if (
+    !hasRegularNumericRowCadence(sharedRowCenters) &&
+    !hasRecurringNumericColumns(allLines, alignedColumns, sharedRows)
+  ) {
+    return;
+  }
 
   out.push({
     code: 'tabular_numeric_layout',
@@ -294,6 +302,59 @@ function hasRegularNumericRowCadence(rowCenters: number[]): boolean {
 function medianNumber(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
   return sorted[Math.floor(sorted.length / 2)] ?? 0;
+}
+
+function hasRecurringNumericColumns(
+  lines: LayoutLine[],
+  columns: { right: number; lines: LayoutLine[] }[],
+  sharedRows: number,
+): boolean {
+  const minRows = Math.max(
+    TABULAR_NUMERIC_RECURRING_COLUMN_MIN_ROWS,
+    Math.ceil(sharedRows * TABULAR_NUMERIC_RECURRING_COLUMN_MIN_ROW_RATIO),
+  );
+  if (tableRowsWithLabels(lines) < minRows) return false;
+  return (
+    columns.filter((column) => distinctRowCenters(column.lines).length >= minRows).length >=
+    TABULAR_NUMERIC_RECURRING_COLUMN_MIN_COLUMNS
+  );
+}
+
+function tableRowsWithLabels(lines: LayoutLine[]): number {
+  return groupWarningTableRows(lines).filter(
+    (row) =>
+      row.length >= 3 &&
+      row.filter(isTabularNumericLine).length >= TABULAR_NUMERIC_MIN_ALIGNED_COLUMNS &&
+      row.some((line) => !isTabularNumericLine(line) && /[\p{L}]/u.test(line.text)),
+  ).length;
+}
+
+function groupWarningTableRows(lines: LayoutLine[]): LayoutLine[][] {
+  const rows: LayoutLine[][] = [];
+  for (const line of [...lines].sort((a, b) => a.y - b.y || a.x - b.x)) {
+    const row = rows.find((candidate) => canShareWarningTableRow(line, candidate[0]));
+    if (row) row.push(line);
+    else rows.push([line]);
+  }
+  return rows;
+}
+
+function canShareWarningTableRow(a: LayoutLine, b: LayoutLine): boolean {
+  const minHeight = Math.max(Math.min(a.height, b.height), 1);
+  if (Math.abs(a.y - b.y) < minHeight * 0.5) return true;
+  const overlap = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+  return overlap >= minHeight * 0.35;
+}
+
+function distinctRowCenters(lines: LayoutLine[]): number[] {
+  const centers: number[] = [];
+  for (const line of lines) {
+    const center = line.y + line.height / 2;
+    if (!centers.some((existing) => Math.abs(existing - center) <= TABULAR_NUMERIC_ROW_TOLERANCE_PT)) {
+      centers.push(center);
+    }
+  }
+  return centers;
 }
 
 function isTabularNumericLine(line: LayoutLine): boolean {

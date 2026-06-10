@@ -99,6 +99,10 @@ const TABLE_GROUP_MAX_ROW_GAP_PT = 48;
 const TABLE_ROW_CADENCE_MIN_MATCH_RATIO = 0.65;
 const TABLE_ROW_CADENCE_TOLERANCE_RATIO = 0.25;
 const TABLE_ROW_CADENCE_MIN_TOLERANCE_PT = 2;
+const TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROWS = 4;
+const TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS = 3;
+const TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROW_RATIO = 0.6;
+const TABLE_RECURRING_NUMERIC_COLUMN_TOLERANCE_PT = 10;
 const REPEATED_CHROME_EDGE_RATIO = 0.1;
 const REPEATED_CHROME_MIN_EDGE_PT = 60;
 const REPEATED_CHROME_LINE_MIN_TEXT_LENGTH = 20;
@@ -792,7 +796,8 @@ function isLikelyTableRow(row: LayoutLine[]): boolean {
 function hasRegularTableRowCadence(rows: LayoutLine[][]): boolean {
   const gaps = rowGaps(rows);
   if (gaps.length < 2) return true;
-  return cadenceMatchRatio(gaps) >= TABLE_ROW_CADENCE_MIN_MATCH_RATIO;
+  if (cadenceMatchRatio(gaps) >= TABLE_ROW_CADENCE_MIN_MATCH_RATIO) return true;
+  return hasRecurringNumericColumns(rows);
 }
 
 function rowGaps(rows: LayoutLine[][]): number[] {
@@ -813,6 +818,38 @@ function cadenceMatchRatio(gaps: number[]): number {
 function medianNumber(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
   return sorted[Math.floor(sorted.length / 2)] ?? 0;
+}
+
+function hasRecurringNumericColumns(rows: LayoutLine[][]): boolean {
+  const minRows = Math.max(
+    TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROWS,
+    Math.ceil(rows.length * TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROW_RATIO),
+  );
+  if (rows.filter(hasTableLabelCell).length < minRows) return false;
+  const columns: { right: number; rowIndexes: Set<number>; sampleCount: number }[] = [];
+  for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+    for (const line of rows[rowIndex]) {
+      if (!isTableNumericCell(line.text)) continue;
+      const right = line.x + line.width;
+      let column = columns.find(
+        (candidate) => Math.abs(candidate.right - right) <= TABLE_RECURRING_NUMERIC_COLUMN_TOLERANCE_PT,
+      );
+      if (!column) {
+        column = { right, rowIndexes: new Set(), sampleCount: 0 };
+        columns.push(column);
+      }
+      column.right = (column.right * column.sampleCount + right) / (column.sampleCount + 1);
+      column.sampleCount += 1;
+      column.rowIndexes.add(rowIndex);
+    }
+  }
+  return (
+    columns.filter((column) => column.rowIndexes.size >= minRows).length >= TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS
+  );
+}
+
+function hasTableLabelCell(row: LayoutLine[]): boolean {
+  return row.some((line) => !isTableNumericCell(line.text) && /[\p{L}]/u.test(line.text));
 }
 
 function isTableNumericCell(text: string): boolean {

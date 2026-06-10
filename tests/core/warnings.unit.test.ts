@@ -393,6 +393,26 @@ describe('detectPageWarnings', () => {
     expect(out.filter((w) => w.code === 'tabular_numeric_layout')).toEqual([]);
   });
 
+  it('flags irregular financial tables when numeric columns recur across rows', () => {
+    const ys = [100, 126, 151, 177, 228, 241, 255, 270];
+    const out = detectPageWarnings(
+      page([
+        block(50, 90, 500, 200, {
+          text: 'financial table',
+          lines: ys.flatMap((y, index) => [
+            line(index === 2 ? 'methods' : `Financial row ${index + 1}`, 50, y, 140),
+            line(`(${index + 1}.0)`, 260, y + 1.2, 20),
+            line(`(${index + 2}.0)`, 315, y + 1.2, 20),
+            line(`(${index + 3}.0)`, 370, y + 1.2, 20),
+            line(index % 3 === 0 ? '-' : `(${index + 4}.0)`, 425, y + 1.2, 20),
+            line(`(${index + 5}.0)`, 480, y + 1.2, 20),
+          ]),
+        }),
+      ]),
+    );
+    expect(out.some((w) => w.code === 'tabular_numeric_layout')).toBe(true);
+  });
+
   it('does not flag ordinary prose with occasional numeric-only lines', () => {
     const out = detectPageWarnings(
       page([
