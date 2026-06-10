@@ -53,6 +53,7 @@ interface PageOverview {
 `overview[]` is the first thing to inspect for silent-failure detection. The `quality` field gives a one-shot classification; the raw signals below let agents combine signals their own way:
 - `imageCount > 0 && textCoverage ≈ 0` → image-flattened page; the text stream is empty.
 - `imageCount > 0 || vectorCount > 0` plus very low `textCoverage` and a tiny `charCount` → the visible page is mostly outside native text (often just a page number over a slide/image). Maps to `quality.nativeTextStatus === 'sparse_text_with_visual_content'`.
+- Very low `charCount` plus dense vector structure can also map to `sparse_text_with_visual_content` even when `textCoverage` is not low, because one large watermark glyph run can cover much of the page while the visible form/table/chart content lives in vectors.
 - Very low `textCoverage` and a tiny `charCount` plus `quality.visualStatus === 'blank'` → sparse native text is not visible on the rasterised page. Maps to `quality.nativeTextStatus === 'sparse_text_on_blank_visual'`.
 - `vectorCount > 0 && textCoverage is low` → visible non-raster structure exists even when `imageCount` is zero; forms, charts, diagrams, and slide shapes may require `--render`.
 - `0.05 <= nonPrintableRatio < 0.3` → one or more fonts lack a usable ToUnicode CMap; native text contains readable fragments mixed with raw glyph indices. Native text is incomplete even if some words look usable. Maps to `quality.nativeTextStatus === 'mixed_glyph_indices'`.

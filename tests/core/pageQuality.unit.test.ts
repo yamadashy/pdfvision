@@ -166,6 +166,24 @@ describe('derivePageQuality', () => {
     });
   });
 
+  it('treats lone watermark text over dense vector forms as sparse native text', () => {
+    const quality = derivePageQuality(
+      makePage({
+        text: 'SAMPLE',
+        charCount: 6,
+        imageCount: 1,
+        vectorCount: 2731,
+        textCoverage: 0.111,
+        renderContentRatio: 0.08,
+      }),
+    );
+
+    expect(quality).toEqual({
+      nativeTextStatus: 'sparse_text_with_visual_content',
+      visualStatus: 'ok',
+    });
+  });
+
   it('keeps short text-only pages ok when render pixels come from native text', () => {
     const quality = derivePageQuality(
       makePage({

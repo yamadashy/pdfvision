@@ -18,6 +18,8 @@ const TRACE_RENDER_THRESHOLD = 0.0005;
 const SPARSE_RENDER_THRESHOLD = 0.005;
 const SPARSE_VISUAL_TEXT_COVERAGE_THRESHOLD = 0.02;
 const SPARSE_VISUAL_TEXT_CHAR_THRESHOLD = 200;
+const DENSE_VISUAL_SPARSE_TEXT_CHAR_THRESHOLD = 40;
+const DENSE_VISUAL_STRUCTURE_VECTOR_THRESHOLD = 250;
 
 function deriveVisualStatus(p: PageResult): PageQuality['visualStatus'] {
   if (p.renderContentRatio === undefined) return undefined;
@@ -43,8 +45,10 @@ export function derivePageQuality(p: PageResult): PageQuality {
   const hasBlankVisualRender = visualStatus === 'blank';
   const hasNonTextVisualContent = p.imageCount > 0 || p.vectorCount > 0;
   const hasVisualContent = hasNonTextVisualContent || hasVisualRender;
+  const hasDenseVisualStructure = p.vectorCount >= DENSE_VISUAL_STRUCTURE_VECTOR_THRESHOLD;
   const hasSparseText =
-    p.charCount <= SPARSE_VISUAL_TEXT_CHAR_THRESHOLD && p.textCoverage < SPARSE_VISUAL_TEXT_COVERAGE_THRESHOLD;
+    (p.charCount <= SPARSE_VISUAL_TEXT_CHAR_THRESHOLD && p.textCoverage < SPARSE_VISUAL_TEXT_COVERAGE_THRESHOLD) ||
+    (p.charCount <= DENSE_VISUAL_SPARSE_TEXT_CHAR_THRESHOLD && hasDenseVisualStructure);
 
   let nativeTextStatus: PageQuality['nativeTextStatus'];
   if (p.nonPrintableRatio >= UNUSABLE_NPR_THRESHOLD) {

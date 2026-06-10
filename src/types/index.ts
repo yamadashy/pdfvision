@@ -1181,7 +1181,8 @@ export interface PageQuality {
    *     `text` is binary garbage even though `charCount` may look healthy.
    *   - `sparse_text_with_visual_content` — native text exists, but it is
    *     too sparse to explain a visually populated page (often just a page
-   *     number, decorative label, or thin OCR residue over images/vectors).
+   *     number, decorative label, large watermark, or thin OCR residue over
+   *     images/vectors).
    *   - `sparse_text_on_blank_visual` — native text exists, but it is
    *     sparse and the rendered page is effectively blank. Common in
    *     scanned-book front matter where hidden OCR residue is not visible
