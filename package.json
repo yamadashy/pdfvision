@@ -71,18 +71,18 @@
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.15",
+    "@biomejs/biome": "^2.4.16",
     "@expo-google-fonts/noto-sans-jp": "^0.4.3",
     "@secretlint/secretlint-rule-preset-recommend": "^13.0.2",
     "@types/node": "^25.9.1",
     "@types/pdfkit": "^0.17.6",
-    "@typescript/native-preview": "^7.0.0-dev.20260523.1",
-    "@vitest/coverage-v8": "^4.1.7",
-    "oxlint": "^1.66.0",
+    "@typescript/native-preview": "^7.0.0-dev.20260603.1",
+    "@vitest/coverage-v8": "^4.1.8",
+    "oxlint": "^1.68.0",
     "pdfkit": "^0.18.0",
     "secretlint": "^13.0.2",
-    "tsdown": "^0.22.0",
+    "tsdown": "^0.22.1",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.7"
+    "vitest": "^4.1.8"
   }
 }
