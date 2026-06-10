@@ -74,6 +74,10 @@ const PLAIN_IMAGE_LABEL_MAX_CHARS = 120;
 const EQUIVALENT_CANDIDATE_OVERLAP_RATIO = 0.98;
 const EQUIVALENT_CANDIDATE_AREA_RATIO = 0.98;
 const MAX_ASSOCIATED_TEXT = 3;
+const CAPTION_SCORE_TOLERANCE_PT = 12;
+const SHALLOW_TABLE_HINT_MAX_ROWS = 2;
+const SHALLOW_TABLE_HINT_MAX_HEIGHT_RATIO = 0.1;
+const SHALLOW_TABLE_HINT_MIN_WIDTH_RATIO = 0.65;
 const CAPTION_NUMBER_PATTERN =
   '[\\p{L}\\p{N}０-９一二三四五六七八九十ivxlcdm]+(?:[.-][\\p{L}\\p{N}０-９一二三四五六七八九十ivxlcdm]+)*\\.?';
 const CAPTION_PATTERN = new RegExp(
@@ -495,9 +499,15 @@ function addDenseMicroVectorClusterCandidates(input: BuildVisualRegionsInput, ca
   }
 }
 
-function addTableCandidates(layout: PageLayout | undefined, candidates: Candidate[]): void {
+function addTableCandidates(
+  layout: PageLayout | undefined,
+  candidates: Candidate[],
+  pageWidth: number,
+  pageHeight: number,
+): void {
   for (const [index, table] of (layout?.tables ?? []).entries()) {
     if (!isUsableBox(table)) continue;
+    if (isLowConfidenceVisualTableHint(table, pageWidth, pageHeight)) continue;
     candidates.push({
       x: table.x,
       y: table.y,
@@ -509,6 +519,19 @@ function addTableCandidates(layout: PageLayout | undefined, candidates: Candidat
       sources: [{ type: 'layoutTable', index }],
     });
   }
+}
+
+function isLowConfidenceVisualTableHint(
+  table: BoxLike & { rowCount: number },
+  pageWidth: number,
+  pageHeight: number,
+): boolean {
+  if (pageWidth <= 0 || pageHeight <= 0) return false;
+  return (
+    table.rowCount <= SHALLOW_TABLE_HINT_MAX_ROWS &&
+    table.width >= pageWidth * SHALLOW_TABLE_HINT_MIN_WIDTH_RATIO &&
+    table.height <= pageHeight * SHALLOW_TABLE_HINT_MAX_HEIGHT_RATIO
+  );
 }
 
 function addFormCandidate(
@@ -744,14 +767,20 @@ function attachCaptionText(candidates: Candidate[], layout: PageLayout | undefin
   );
   const globalCaptions = captionItems.filter((item) => item.global).slice(0, MAX_ASSOCIATED_TEXT);
   return candidates.map((candidate) => {
-    const captions = captionItems
+    const scoredCaptions = captionItems
       .map((item) => ({
         text: item.text,
         score: captionScore(candidate, item.text),
       }))
       .filter((item): item is { text: VisualRegionAssociatedText; score: number } => item.score !== undefined)
-      .sort((a, b) => a.score - b.score)
-      .slice(0, MAX_ASSOCIATED_TEXT);
+      .sort((a, b) => a.score - b.score);
+    const bestCaptionScore = scoredCaptions[0]?.score;
+    const captions =
+      bestCaptionScore === undefined
+        ? []
+        : scoredCaptions
+            .filter((caption) => caption.score <= bestCaptionScore + CAPTION_SCORE_TOLERANCE_PT)
+            .slice(0, MAX_ASSOCIATED_TEXT);
     if (captions.length === 0) {
       if (globalCaptions.length === 0) return candidate;
       const associatedText = mergeAssociatedText([
@@ -949,7 +978,7 @@ export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion
   const candidates: Candidate[] = [];
   addRasterCandidates(input, candidates);
   addVectorCandidates(input, candidates);
-  addTableCandidates(input.layout, candidates);
+  addTableCandidates(input.layout, candidates, input.pageWidth, input.pageHeight);
   addFormCandidate(input.formFields, input.pageHeight, candidates);
 
   const totalArea = pageArea(input);

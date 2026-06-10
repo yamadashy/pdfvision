@@ -560,6 +560,30 @@ describe('buildVisualRegions', () => {
     expect(regions[0].reason).toContain('layout table hint with 4 rows and 3 columns');
   });
 
+  it('suppresses shallow wide table hints as visual regions', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      layout: {
+        blocks: [],
+        tables: [
+          {
+            x: 84.33,
+            y: 102.02,
+            width: 439.13,
+            height: 25.78,
+            rowCount: 2,
+            columnCount: 6,
+            rows: [],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toEqual([]);
+  });
+
   it('deduplicates raster panels that expand to the same shared caption crop', () => {
     const regions = buildVisualRegions({
       pageWidth: 600,
@@ -1009,6 +1033,63 @@ describe('buildVisualRegions', () => {
         width: 100,
         height: 12,
         blockIndex: 0,
+      },
+    ]);
+  });
+
+  it('attaches only the closest local caption to a visual region', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 600,
+      pageHeight: 500,
+      imageBoxes: [{ x: 70, y: 200, width: 460, height: 150 }],
+      layout: {
+        blocks: [
+          {
+            text: 'Table 1: (Selective Copying.)',
+            x: 72,
+            y: 160,
+            width: 120,
+            height: 10,
+            lines: [{ text: 'Table 1: (Selective Copying.)', x: 72, y: 160, width: 120, height: 10, fontSize: 10 }],
+          },
+          {
+            text: 'Table 2: (Induction Heads.)',
+            x: 292,
+            y: 162,
+            width: 160,
+            height: 10,
+            lines: [{ text: 'Table 2: (Induction Heads.)', x: 292, y: 162, width: 160, height: 10, fontSize: 10 }],
+          },
+          {
+            text: 'Figure 4: (Scaling Laws.) Models scale better.',
+            x: 72,
+            y: 360,
+            width: 455,
+            height: 10,
+            lines: [
+              {
+                text: 'Figure 4: (Scaling Laws.) Models scale better.',
+                x: 72,
+                y: 360,
+                width: 455,
+                height: 10,
+                fontSize: 10,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions[0].associatedText).toEqual([
+      {
+        text: 'Figure 4: (Scaling Laws.) Models scale better.',
+        relation: 'caption',
+        x: 72,
+        y: 360,
+        width: 455,
+        height: 10,
+        blockIndex: 2,
       },
     ]);
   });
