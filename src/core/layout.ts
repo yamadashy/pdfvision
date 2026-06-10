@@ -94,6 +94,9 @@ const LINE_VERTICAL_OVERLAP_RATIO = 0.35;
 const TABLE_ROW_MIN_CELLS = 3;
 const TABLE_ROW_MIN_NUMERIC_CELLS = 2;
 const TABLE_GROUP_MAX_ROW_GAP_PT = 48;
+const TABLE_ROW_CADENCE_MIN_MATCH_RATIO = 0.65;
+const TABLE_ROW_CADENCE_TOLERANCE_RATIO = 0.25;
+const TABLE_ROW_CADENCE_MIN_TOLERANCE_PT = 2;
 const REPEATED_CHROME_EDGE_RATIO = 0.1;
 const REPEATED_CHROME_MIN_EDGE_PT = 60;
 const REPEATED_CHROME_LINE_MIN_TEXT_LENGTH = 20;
@@ -761,7 +764,10 @@ function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefined {
     }
   }
 
-  const result = tables.filter((table) => table.length >= 2).map(toLayoutTable);
+  const result = tables
+    .filter((table) => table.length >= 2)
+    .filter(hasRegularTableRowCadence)
+    .map(toLayoutTable);
   return result.length > 0 ? result : undefined;
 }
 
@@ -779,6 +785,32 @@ function isLikelyTableRow(row: LayoutLine[]): boolean {
   if (row.length < TABLE_ROW_MIN_CELLS) return false;
   const numericCells = row.filter((line) => isTableNumericCell(line.text)).length;
   return numericCells >= TABLE_ROW_MIN_NUMERIC_CELLS;
+}
+
+function hasRegularTableRowCadence(rows: LayoutLine[][]): boolean {
+  const gaps = rowGaps(rows);
+  if (gaps.length < 2) return true;
+  return cadenceMatchRatio(gaps) >= TABLE_ROW_CADENCE_MIN_MATCH_RATIO;
+}
+
+function rowGaps(rows: LayoutLine[][]): number[] {
+  const ys = rows.map(rowY).sort((a, b) => a - b);
+  return ys
+    .slice(1)
+    .map((y, index) => y - ys[index])
+    .filter((gap) => gap > 0.5);
+}
+
+function cadenceMatchRatio(gaps: number[]): number {
+  if (gaps.length === 0) return 1;
+  const median = medianNumber(gaps);
+  const tolerance = Math.max(TABLE_ROW_CADENCE_MIN_TOLERANCE_PT, median * TABLE_ROW_CADENCE_TOLERANCE_RATIO);
+  return gaps.filter((gap) => Math.abs(gap - median) <= tolerance).length / gaps.length;
+}
+
+function medianNumber(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)] ?? 0;
 }
 
 function isTableNumericCell(text: string): boolean {

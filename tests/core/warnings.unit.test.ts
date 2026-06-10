@@ -376,6 +376,23 @@ describe('detectPageWarnings', () => {
     expect(out.filter((w) => w.code === 'tabular_numeric_layout')).toEqual([]);
   });
 
+  it('does not flag chart data labels whose shared numeric rows have irregular cadence', () => {
+    const ys = [328, 348, 371, 376, 504, 521, 526, 532, 540, 549, 560, 573];
+    const out = detectPageWarnings(
+      page([
+        block(90, 320, 260, 260, {
+          text: 'chart labels',
+          lines: ys.flatMap((y, index) => [
+            line(`${80 - index}.0`, 100, y, 20),
+            line(`${70 - index}.0`, 180, y + (index % 3 === 0 ? 0 : 1.2), 20),
+            line(`${30 + index}.0`, 260, y, 20),
+          ]),
+        }),
+      ]),
+    );
+    expect(out.filter((w) => w.code === 'tabular_numeric_layout')).toEqual([]);
+  });
+
   it('does not flag ordinary prose with occasional numeric-only lines', () => {
     const out = detectPageWarnings(
       page([

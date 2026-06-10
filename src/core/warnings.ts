@@ -87,6 +87,9 @@ const TABULAR_NUMERIC_MIN_LINES_PER_COLUMN = 3;
 const TABULAR_NUMERIC_COLUMN_TOLERANCE_PT = 10;
 const TABULAR_NUMERIC_ROW_TOLERANCE_PT = 4;
 const TABULAR_NUMERIC_MIN_SHARED_ROWS = 3;
+const TABULAR_NUMERIC_ROW_CADENCE_MIN_MATCH_RATIO = 0.65;
+const TABULAR_NUMERIC_ROW_CADENCE_TOLERANCE_RATIO = 0.25;
+const TABULAR_NUMERIC_ROW_CADENCE_MIN_TOLERANCE_PT = 2;
 
 function sortWarnings(warnings: PageWarning[]): void {
   // Stable sort by (severity error first, then code, then blockIndex)
@@ -259,14 +262,38 @@ function detectTabularNumericLayout(blocks: LayoutBlock[], out: PageWarning[]): 
     (cluster) => cluster.lines.length >= TABULAR_NUMERIC_MIN_LINES_PER_COLUMN,
   );
   if (alignedColumns.length < TABULAR_NUMERIC_MIN_ALIGNED_COLUMNS) return;
-  const sharedRows = countSharedNumericRows(alignedColumns);
+  const sharedRowCenters = sharedNumericRowCenters(alignedColumns);
+  const sharedRows = sharedRowCenters.length;
   if (sharedRows < TABULAR_NUMERIC_MIN_SHARED_ROWS) return;
+  if (!hasRegularNumericRowCadence(sharedRowCenters)) return;
 
   out.push({
     code: 'tabular_numeric_layout',
     severity: 'warning',
     message: `page contains ${numericLines.length} short numeric lines in ${alignedColumns.length} aligned columns and ${sharedRows} shared numeric rows — table rows/columns may be flattened in native text; inspect the render or geometry when values matter`,
   });
+}
+
+function hasRegularNumericRowCadence(rowCenters: number[]): boolean {
+  const sortedCenters = [...rowCenters].sort((a, b) => a - b);
+  const gaps = sortedCenters
+    .slice(1)
+    .map((center, index) => center - sortedCenters[index])
+    .filter((gap) => gap > 0.5);
+  if (gaps.length < 2) return true;
+
+  const median = medianNumber(gaps);
+  const tolerance = Math.max(
+    TABULAR_NUMERIC_ROW_CADENCE_MIN_TOLERANCE_PT,
+    median * TABULAR_NUMERIC_ROW_CADENCE_TOLERANCE_RATIO,
+  );
+  const matchRatio = gaps.filter((gap) => Math.abs(gap - median) <= tolerance).length / gaps.length;
+  return matchRatio >= TABULAR_NUMERIC_ROW_CADENCE_MIN_MATCH_RATIO;
+}
+
+function medianNumber(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)] ?? 0;
 }
 
 function isTabularNumericLine(line: LayoutLine): boolean {
@@ -295,7 +322,7 @@ function clusterNumericLines(lines: LayoutLine[]): { right: number; lines: Layou
   return clusters;
 }
 
-function countSharedNumericRows(columns: { right: number; lines: LayoutLine[] }[]): number {
+function sharedNumericRowCenters(columns: { right: number; lines: LayoutLine[] }[]): number[] {
   const rowClusters: { center: number; sampleCount: number; columnIndexes: Set<number> }[] = [];
   for (let columnIndex = 0; columnIndex < columns.length; columnIndex++) {
     for (const line of columns[columnIndex].lines) {
@@ -312,7 +339,10 @@ function countSharedNumericRows(columns: { right: number; lines: LayoutLine[] }[
       }
     }
   }
-  return rowClusters.filter((cluster) => cluster.columnIndexes.size >= TABULAR_NUMERIC_MIN_ALIGNED_COLUMNS).length;
+  return rowClusters
+    .filter((cluster) => cluster.columnIndexes.size >= TABULAR_NUMERIC_MIN_ALIGNED_COLUMNS)
+    .map((cluster) => cluster.center)
+    .sort((a, b) => a - b);
 }
 
 function canCompareNativeTextAgainstRaster(status: PageResult['quality']['nativeTextStatus']): boolean {

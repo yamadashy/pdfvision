@@ -810,6 +810,17 @@ describe('buildLayout — multi-column reading order', () => {
     ]);
   });
 
+  it('suppresses chart-like numeric labels with irregular row cadence', () => {
+    const ys = [100, 107, 120, 139, 149, 172];
+    const spans = ys.flatMap((y, index) => [
+      span(`${80 - index}.0`, 100, y, 8, 20),
+      span(`${70 - index * 2}.0`, 180, y + (index % 2 === 0 ? 0 : 1.5), 8, 20),
+      span(`${30 + index}.0`, 260, y, 8, 20),
+    ]);
+    const layout = buildLayout(spans, 612);
+    expect(layout.tables).toBeUndefined();
+  });
+
   it('moves currency symbols that were joined onto the previous table value', () => {
     const spans: TextSpan[] = [
       span('Products', 50, 100, 8, 36),
