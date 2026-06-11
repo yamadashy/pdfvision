@@ -129,6 +129,8 @@ const VERTICAL_CJK_STEP_RATIO = 1.8;
 const VERTICAL_CJK_HORIZONTAL_NEIGHBOUR_RATIO = 0.85;
 const VERTICAL_CJK_HORIZONTAL_NEIGHBOUR_MAX_PT = 32;
 const VERTICAL_CJK_MIN_HEIGHT_RATIO = 1.5;
+const LINE_OVERLAP_MAX_HORIZONTAL_GAP_RATIO = 2;
+const LINE_OVERLAP_MAX_HORIZONTAL_GAP_PT = 24;
 
 /**
  * Join the spans of a single layout line into a readable string. pdfjs
@@ -302,6 +304,7 @@ function canShareTextLine(a: TextSpan, b: TextSpan): boolean {
   if (hasVerticalTextShape(a) || hasVerticalTextShape(b)) {
     const minHeight = Math.max(Math.min(a.height, b.height), 1);
     if (Math.abs(a.y - b.y) < minHeight * LINE_TOP_ALIGNMENT_RATIO) return true;
+    if (!hasCloseHorizontalLineGap(a, b)) return false;
     const overlap = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
     return overlap >= minHeight * LINE_VERTICAL_OVERLAP_RATIO;
   }
@@ -310,8 +313,16 @@ function canShareTextLine(a: TextSpan, b: TextSpan): boolean {
   const bHeight = horizontalLineGroupingHeight(b);
   const minHeight = Math.max(Math.min(aHeight, bHeight), 1);
   if (Math.abs(a.y - b.y) < minHeight * LINE_TOP_ALIGNMENT_RATIO) return true;
+  if (!hasCloseHorizontalLineGap(a, b)) return false;
   const overlap = Math.min(a.y + aHeight, b.y + bHeight) - Math.max(a.y, b.y);
   return overlap >= minHeight * LINE_VERTICAL_OVERLAP_RATIO;
+}
+
+function hasCloseHorizontalLineGap(a: TextSpan, b: TextSpan): boolean {
+  const gap = Math.max(a.x - (b.x + b.width), b.x - (a.x + a.width), 0);
+  if (gap <= 0) return true;
+  const fontSize = Math.max(a.fontSize || FONT_SIZE_FALLBACK_PT, b.fontSize || FONT_SIZE_FALLBACK_PT);
+  return gap <= Math.max(fontSize * LINE_OVERLAP_MAX_HORIZONTAL_GAP_RATIO, LINE_OVERLAP_MAX_HORIZONTAL_GAP_PT);
 }
 
 function horizontalLineGroupingHeight(span: TextSpan): number {

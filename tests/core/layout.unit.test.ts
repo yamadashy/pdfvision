@@ -623,6 +623,8 @@ describe('buildLayout — multi-column reading order', () => {
     expect(introIndex).toBeGreaterThan(-1);
     expect(figureIndex).toBeGreaterThan(-1);
     expect(introIndex).toBeLessThan(figureIndex);
+    expect(rightBody).toContain('by first\ntranslating input to English');
+    expect(rightBody).not.toContain('firsttranslating');
     expect(rightBody).not.toContain('15366');
     expect(rightBody).not.toContain('Proceedings of the 62nd');
     expect(proceedingsIndex).toBeGreaterThan(-1);
