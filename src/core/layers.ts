@@ -56,7 +56,11 @@ function rbGroupsValue(value: unknown): string[][] | undefined {
     .map((group) => {
       if (Array.isArray(group)) return group.map(String).filter((id) => id.length > 0);
       if (group instanceof Set) return [...group].map(String).filter((id) => id.length > 0);
-      if (group && typeof (group as Iterable<unknown>)[Symbol.iterator] === 'function') {
+      if (
+        group !== null &&
+        typeof group === 'object' &&
+        typeof (group as Iterable<unknown>)[Symbol.iterator] === 'function'
+      ) {
         return [...(group as Iterable<unknown>)].map(String).filter((id) => id.length > 0);
       }
       return [];

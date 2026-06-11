@@ -21,6 +21,8 @@ const DISPLAY_NUMBER_MIN_HEIGHT_PT = 24;
 const DISPLAY_NUMBER_LABEL_MAX_HEIGHT_PT = 18;
 const DISPLAY_NUMBER_LABEL_MAX_CHARS = 40;
 const DISPLAY_NUMBER_LABEL_ZONE_RATIO = 0.35;
+const DISPLAY_NUMBER_TEXT = /^[\d０-９\s,，.．:：%％+\-−–—/／()（）※年月日現末在]+$/u;
+const DISPLAY_NUMBER_MIN_DIGITS = 2;
 
 export function detectTextOverlap(blocks: LayoutBlock[], out: PageWarning[]): void {
   // Only non-repeated pairs — repeated chrome (footers, page numbers)
@@ -87,7 +89,13 @@ function isCompactInfographicLabel(block: LayoutBlock): boolean {
 
 function isDisplayNumberBlock(block: LayoutBlock): boolean {
   const text = block.text.trim();
-  return block.lines.length === 1 && block.height >= DISPLAY_NUMBER_MIN_HEIGHT_PT && /^[\d０-９]/u.test(text);
+  const digitCount = text.match(/[\d０-９]/gu)?.length ?? 0;
+  return (
+    block.lines.length === 1 &&
+    block.height >= DISPLAY_NUMBER_MIN_HEIGHT_PT &&
+    digitCount >= DISPLAY_NUMBER_MIN_DIGITS &&
+    DISPLAY_NUMBER_TEXT.test(text)
+  );
 }
 
 function isLooseLineContinuationPair(a: LayoutBlock, b: LayoutBlock): boolean {

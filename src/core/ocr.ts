@@ -78,6 +78,14 @@ function isUsableRawBbox(bbox: RawOcrBbox | undefined): bbox is RawOcrBbox {
   );
 }
 
+function isUsablePageView(value: readonly number[] | undefined): value is readonly [number, number, number, number] {
+  return Array.isArray(value) && value.length >= 4 && value.slice(0, 4).every((item) => Number.isFinite(item));
+}
+
+function isUsablePdfPoint(value: unknown): value is [number, number] {
+  return Array.isArray(value) && value.length >= 2 && Number.isFinite(value[0]) && Number.isFinite(value[1]);
+}
+
 function arrayProperty(value: unknown, key: string): unknown[] {
   if (typeof value !== 'object' || value === null) return [];
   const property = (value as Record<string, unknown>)[key];
@@ -102,7 +110,9 @@ function collectRawWords(page: { blocks?: unknown }): RawOcrWord[] {
 
 function ocrBboxToPageBox(bbox: RawOcrBbox, transform: OcrWordTransform): PageBox | undefined {
   const scale = transform.scale > 0 ? transform.scale : DEFAULT_RENDER_SCALE;
-  if (!transform.viewport || !transform.pageView) {
+  const pageView = isUsablePageView(transform.pageView) ? transform.pageView : undefined;
+  const viewport = transform.viewport;
+  if (!viewport || !pageView) {
     const offsetX = transform.region?.x ?? 0;
     const offsetY = transform.region?.y ?? 0;
     return {
@@ -115,24 +125,29 @@ function ocrBboxToPageBox(bbox: RawOcrBbox, transform: OcrWordTransform): PageBo
 
   const cropX = transform.crop?.x ?? 0;
   const cropY = transform.crop?.y ?? 0;
-  const viewMinX = Math.min(transform.pageView[0] ?? 0, transform.pageView[2] ?? 0);
-  const viewMaxY = Math.max(transform.pageView[1] ?? 0, transform.pageView[3] ?? 0);
-  const points = [
+  const viewMinX = Math.min(pageView[0], pageView[2]);
+  const viewMaxY = Math.max(pageView[1], pageView[3]);
+  const corners = [
     [bbox.x0, bbox.y0],
     [bbox.x1, bbox.y0],
     [bbox.x0, bbox.y1],
     [bbox.x1, bbox.y1],
-  ].map(([x, y]) => {
-    const [pdfX, pdfY] = transform.viewport?.convertToPdfPoint(cropX + x, cropY + y) ?? [0, 0];
+  ];
+  const points = corners.map(([x, y]) => {
+    const pdfPoint = viewport.convertToPdfPoint(cropX + x, cropY + y);
+    if (!isUsablePdfPoint(pdfPoint)) return undefined;
+    const [pdfX, pdfY] = pdfPoint;
     return {
       x: pdfX - viewMinX,
       y: viewMaxY - pdfY,
     };
   });
-  const minX = Math.min(...points.map((point) => point.x));
-  const maxX = Math.max(...points.map((point) => point.x));
-  const minY = Math.min(...points.map((point) => point.y));
-  const maxY = Math.max(...points.map((point) => point.y));
+  if (points.some((point) => point === undefined)) return undefined;
+  const usablePoints = points as { x: number; y: number }[];
+  const minX = Math.min(...usablePoints.map((point) => point.x));
+  const maxX = Math.max(...usablePoints.map((point) => point.x));
+  const minY = Math.min(...usablePoints.map((point) => point.y));
+  const maxY = Math.max(...usablePoints.map((point) => point.y));
   return {
     x: round2(minX),
     y: round2(minY),

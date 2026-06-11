@@ -29,6 +29,12 @@ function numericQuad(value: unknown): Quad | undefined {
   return values as Quad;
 }
 
+function matrix6(value: unknown): Matrix6 | undefined {
+  if (!Array.isArray(value) || value.length !== 6) return undefined;
+  if (!value.every((item) => typeof item === 'number' && Number.isFinite(item))) return undefined;
+  return value as Matrix6;
+}
+
 function bboxToBox(bbox: Quad, ctm: Matrix6, pageHeight: number, viewMinX: number, viewMinY: number): VectorBox {
   const [x1, y1, x2, y2] = bbox;
   const [a, b, c, d, e, f] = ctm;
@@ -82,13 +88,12 @@ export function buildVectorBoxes(
       const popped = stack.pop();
       if (popped) ctm = popped;
     } else if (fn === ops.transform) {
-      ctm = multiply(ctm, args as number[]);
+      const matrix = matrix6(args);
+      if (matrix) ctm = multiply(ctm, matrix);
     } else if (fn === ops.formBegin) {
       stack.push([...ctm] as Matrix6);
-      const matrix = args?.[0];
-      if (Array.isArray(matrix) && matrix.length === 6) {
-        ctm = multiply(ctm, matrix as number[]);
-      }
+      const matrix = matrix6(args?.[0]);
+      if (matrix) ctm = multiply(ctm, matrix);
     } else if (fn === ops.formEnd) {
       const popped = stack.pop();
       if (popped) ctm = popped;

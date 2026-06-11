@@ -1,4 +1,4 @@
-import type { PageLink, PageLinkType } from '../types/index.js';
+import type { PageLink, PageLinkTarget, PageLinkType } from '../types/index.js';
 
 interface PdfLinkAnnotation {
   subtype?: unknown;
@@ -41,10 +41,12 @@ export function buildLinks(
       height: round2(maxY - minY),
     });
   }
-  return links.sort((a, b) => a.y - b.y || a.x - b.x || a.target.localeCompare(b.target));
+  return links.sort(
+    (a, b) => a.y - b.y || a.x - b.x || linkTargetText(a.target).localeCompare(linkTargetText(b.target)),
+  );
 }
 
-function linkTarget(annotation: PdfLinkAnnotation): { type: PageLinkType; target: string } | undefined {
+function linkTarget(annotation: PdfLinkAnnotation): { type: PageLinkType; target: PageLinkTarget } | undefined {
   if (typeof annotation.url === 'string' && annotation.url.length > 0) {
     return { type: 'url', target: annotation.url };
   }
@@ -55,7 +57,11 @@ function linkTarget(annotation: PdfLinkAnnotation): { type: PageLinkType; target
     return { type: 'destination', target: annotation.dest };
   }
   if (Array.isArray(annotation.dest) && annotation.dest.length > 0) {
-    return { type: 'destination', target: JSON.stringify(annotation.dest) };
+    return { type: 'destination', target: annotation.dest };
   }
   return undefined;
+}
+
+function linkTargetText(target: PageLinkTarget): string {
+  return typeof target === 'string' ? target : JSON.stringify(target);
 }

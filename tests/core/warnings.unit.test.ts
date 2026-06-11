@@ -766,6 +766,20 @@ describe('detectPageWarnings', () => {
       expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
     });
 
+    it('still flags labels colliding with tall text that merely starts with digits', () => {
+      const label = block(250, 104, 54, 10, {
+        text: 'Status',
+        lines: [{ text: 'Status', x: 250, y: 104, width: 54, height: 10, fontSize: 10 }],
+      });
+      const heading = block(100, 100, 240, 42, {
+        text: '2024 Research Plan',
+        lines: [{ text: '2024 Research Plan', x: 100, y: 100, width: 240, height: 42, fontSize: 30 }],
+      });
+
+      const out = detectPageWarnings(page([label, heading]));
+      expect(out.some((w) => w.code === 'text_overlap')).toBe(true);
+    });
+
     it('does not flag an indented continuation line inside a loose bullet bbox', () => {
       const bullet = block(236, 458, 152, 25, {
         text: '! Specific rules apply to deter-',

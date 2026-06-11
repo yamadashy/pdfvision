@@ -1,7 +1,15 @@
 import { createHash } from 'node:crypto';
-import { lstatSync, mkdirSync, mkdtempSync, statSync } from 'node:fs';
+import { lstatSync, mkdirSync, mkdtempSync, realpathSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, dirname as pathDirname, isAbsolute as pathIsAbsolute, relative, resolve, sep } from 'node:path';
+import {
+  join,
+  basename as pathBasename,
+  dirname as pathDirname,
+  isAbsolute as pathIsAbsolute,
+  relative,
+  resolve,
+  sep,
+} from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { formatJson } from '../output/json.js';
@@ -141,6 +149,51 @@ function assertSafeRenderDir(dir: string): void {
   }
 }
 
+function ensureSafeRenderRoot(dir: string): void {
+  const resolved = resolve(dir);
+  const missing: string[] = [];
+  let current = resolved;
+
+  while (true) {
+    try {
+      assertSafeRenderDir(current);
+      break;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      missing.push(current);
+      const parent = pathDirname(current);
+      if (parent === current) throw error;
+      current = parent;
+    }
+  }
+
+  let createUnder = realpathSync(current);
+  for (const missingDir of missing.reverse()) {
+    createUnder = join(createUnder, pathBasename(missingDir));
+    mkdirSync(createUnder);
+    assertSafeRenderDir(createUnder);
+  }
+
+  try {
+    assertSafeRenderDir(resolved);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT' && missing.length > 0) {
+      throw new Error(`Refusing to render into ${resolved}: path could not be created`);
+    }
+    throw error;
+  }
+}
+
+function ensureSafeRenderChildDir(dir: string): void {
+  try {
+    assertSafeRenderDir(dir);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    mkdirSync(dir);
+    assertSafeRenderDir(dir);
+  }
+}
+
 function prepareRenderImagesDir(input: RenderImagesDirInput): string {
   const effectiveScale = input.renderScale ?? DEFAULT_RENDER_SCALE;
   const scaleSubdir = effectiveScale === DEFAULT_RENDER_SCALE ? null : scaleDirSuffix(effectiveScale);
@@ -148,14 +201,14 @@ function prepareRenderImagesDir(input: RenderImagesDirInput): string {
     if (!input.fingerprint) {
       throw new Error('renderOutput requires a PDF fingerprint');
     }
-    const fingerprintDir = join(resolve(input.renderOutput), input.fingerprint);
-    mkdirSync(fingerprintDir, { recursive: true });
-    assertSafeRenderDir(fingerprintDir);
+    const outputRoot = resolve(input.renderOutput);
+    ensureSafeRenderRoot(outputRoot);
+    const fingerprintDir = join(outputRoot, input.fingerprint);
+    ensureSafeRenderChildDir(fingerprintDir);
     if (!scaleSubdir) return fingerprintDir;
 
     const scaledDir = join(fingerprintDir, scaleSubdir);
-    mkdirSync(scaledDir, { recursive: true });
-    assertSafeRenderDir(scaledDir);
+    ensureSafeRenderChildDir(scaledDir);
     return scaledDir;
   }
 

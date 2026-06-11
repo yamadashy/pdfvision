@@ -30,7 +30,7 @@ describe('buildLinks', () => {
     ]);
   });
 
-  it('falls back to unsafeUrl and serializes array destinations', () => {
+  it('falls back to unsafeUrl and preserves array destinations', () => {
     const links = buildLinks(
       [
         { subtype: 'Link', unsafeUrl: 'mailto:reader@example.com', rect: [10, 10, 20, 20] },
@@ -40,7 +40,7 @@ describe('buildLinks', () => {
     );
 
     expect(links).toEqual([
-      { type: 'destination', target: '["chapter",{"name":"XYZ"}]', x: 20, y: 50, width: 20, height: 20 },
+      { type: 'destination', target: ['chapter', { name: 'XYZ' }], x: 20, y: 50, width: 20, height: 20 },
       { type: 'url', target: 'mailto:reader@example.com', x: 10, y: 80, width: 10, height: 10 },
     ]);
   });

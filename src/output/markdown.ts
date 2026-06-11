@@ -63,6 +63,10 @@ function visualRegionAssociatedText(region: NonNullable<PageResult['visualRegion
   return (region.associatedText ?? []).map((item) => `${item.relation}: ${item.text}`).join('; ');
 }
 
+function linkTarget(value: NonNullable<PageResult['links']>[number]['target']): string {
+  return typeof value === 'string' ? value : JSON.stringify(value);
+}
+
 function formatBox(box: { x: number; y: number; width: number; height: number }): string {
   return `${box.x},${box.y},${box.width},${box.height}`;
 }
@@ -484,7 +488,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
         lines.push('| Type | Target | BBox |');
         lines.push('| --- | --- | --- |');
         for (const link of page.links) {
-          lines.push(`| ${link.type} | ${escapeTableCell(link.target)} | ${formatBox(link)} |`);
+          lines.push(`| ${link.type} | ${escapeTableCell(linkTarget(link.target))} | ${formatBox(link)} |`);
         }
       }
     }

@@ -43,6 +43,10 @@ function viewerValue(value: unknown): string {
   return JSON.stringify(value);
 }
 
+function linkTarget(value: NonNullable<DocumentResult['pages'][number]['links']>[number]['target']): string {
+  return typeof value === 'string' ? value : JSON.stringify(value);
+}
+
 function appendStructureItem(out: string[], item: PageStructureItem): void {
   if (!('role' in item)) {
     out.push(`<content type="${escapeAttr(item.type)}" id="${escapeAttr(item.id)}"/>`);
@@ -432,7 +436,7 @@ export function formatXml(result: DocumentResult): string {
         out.push('<links>');
         for (const link of page.links) {
           out.push(
-            `<link type="${link.type}" target="${escapeAttr(link.target)}" x="${link.x}" y="${link.y}" width="${link.width}" height="${link.height}"/>`,
+            `<link type="${link.type}" target="${escapeAttr(linkTarget(link.target))}" x="${link.x}" y="${link.y}" width="${link.width}" height="${link.height}"/>`,
           );
         }
         out.push('</links>');

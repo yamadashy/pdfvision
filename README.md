@@ -41,13 +41,13 @@ Every page reports `charCount`, `imageCount`, `vectorCount`, `textCoverage`, and
 - **`--visual-regions`** groups important raster/vector/table/form geometry into padded, crop-ready bboxes, attaches nearby captions/form labels when found (including global Plate captions for multi-panel map/figure pages), and can be fed straight into `--render-region`; **`--render-visual-regions`** renders those suggested crops directly.
 - **`--form-fields`** reports interactive PDF widget fields such as text boxes, checkboxes, radio buttons, choices, and signatures with values, bboxes, and nearby visible labels, including stacked prompt lines and fine-grained adjacent prompts when they form field labels.
 - **`--links`** reports clickable PDF link annotations such as citation jumps, table-of-contents destinations, and external URLs with bboxes.
-- **`--annotations`** reports non-link PDF annotations such as comments, sticky notes, highlights, underlines, strikeouts, stamps, and other markup with bboxes and comment text.
-- **`--structure`** reports tagged-PDF structure trees with roles, figure alt text, language hints, bboxes, and marked-content ids when the PDF exposes accessibility structure.
-- **`--page-labels`** reports viewer page labels such as roman front matter (`i`, `ii`) or restarted section numbering that differs from physical page numbers.
-- **`--attachments`** reports document-level embedded file attachments with filename, description, and byte size, without dumping attachment bytes into the agent context. Add `--attachment-output <dir>` to save the embedded files and include paths in `attachments[].path`.
-- **`--outline`** reports document outline/bookmark sidebar entries, preserving hierarchy and resolving destination pages when possible.
-- **`--viewer`** reports viewer-level document settings such as initial page mode/layout, viewer preferences, open action, permissions, and tagged-PDF MarkInfo.
-- **`--layers`** reports PDF optional content groups shown by viewer layer panels, including layer names, visibility, usage states, radio groups, and panel order for maps, CAD/design files, and variants.
+- **`--annotations`** surfaces non-link PDF annotations such as comments, sticky notes, highlights, underlines, strikeouts, stamps, and other markup with bboxes and comment text.
+- **`--structure`** exposes tagged-PDF structure trees with roles, figure alt text, language hints, bboxes, and marked-content ids when the PDF exposes accessibility structure.
+- **`--page-labels`** emits viewer page labels such as roman front matter (`i`, `ii`) or restarted section numbering that differs from physical page numbers.
+- **`--attachments`** lists document-level embedded file attachments with filename, description, and byte size, without dumping attachment bytes into the agent context. Add `--attachment-output <dir>` to save the embedded files and include paths in `attachments[].path`.
+- **`--outline`** preserves document outline/bookmark sidebar entries, hierarchy, and resolvable destination pages.
+- **`--viewer`** exposes viewer-level document settings such as initial page mode/layout, viewer preferences, open action, permissions, and tagged-PDF MarkInfo.
+- **`--layers`** emits PDF optional content groups shown by viewer layer panels, including layer names, visibility, usage states, radio groups, and panel order for maps, CAD/design files, and variants.
 - **`--geometry`** emits per-text-item `bbox` + `fontSize` so callers can reconstruct visual hierarchy themselves.
 
 Every page always includes `vectorCount` — the number of non-text vector drawing operations such as rules, form boxes, chart paths, and slide shapes.
@@ -205,7 +205,7 @@ for (const page of result.pages) {
 
 `processFile()` returns the same string output the CLI prints (`markdown` / `json` / `xml` / `toon`).
 
-Exports: `processDocument`, `processFile`, `parsePageRange`, plus full type definitions for `DocumentResult` / `DocumentMetadata` / `DocumentAttachment` / `DocumentLayerGroup` / `DocumentLayerOrderItem` / `DocumentLayers` / `DocumentLayerUsage` / `DocumentOutlineItem` / `DocumentOutlineTargetType` / `PageResult` / `PageOverview` / `PageQuality` / `PageWarning` / `SearchMatch` / `LayoutBlock` / `LayoutLine` / `LayoutTable` / `LayoutTableRow` / `LayoutTableCell` / `PageLayout` / `ImageBox` / `PageLink` / `PageLinkType` / `PageAnnotation` / `PageAnnotationBox` / `PageStructureContent` / `PageStructureItem` / `PageStructureNode` / `VisualRegion` / `VisualRegionAssociatedText` / `VisualRegionAssociatedTextRelation` / `VisualRegionKind` / `VisualRegionSource` / `VisualRegionSourceType` / `FormField` / `FormFieldLabel` / `FormFieldLabelRelation` / `FormFieldType` / `PageOcr` / `OcrWord` / `RenderRegion` / `TextSpan` / `VectorBox` / `OutputFormat` / `ProcessDocumentOptions` / `ProcessOptions`.
+Exports: `processDocument`, `processFile`, `parsePageRange`, plus full type definitions for `DocumentResult` / `DocumentMetadata` / `DocumentAttachment` / `DocumentLayerGroup` / `DocumentLayerOrderItem` / `DocumentLayers` / `DocumentLayerUsage` / `DocumentOutlineItem` / `DocumentOutlineTargetType` / `PageResult` / `PageOverview` / `PageQuality` / `PageWarning` / `SearchMatch` / `LayoutBlock` / `LayoutLine` / `LayoutTable` / `LayoutTableRow` / `LayoutTableCell` / `PageLayout` / `ImageBox` / `PageLink` / `PageLinkTarget` / `PageLinkType` / `PageAnnotation` / `PageAnnotationBox` / `PageStructureContent` / `PageStructureItem` / `PageStructureNode` / `VisualRegion` / `VisualRegionAssociatedText` / `VisualRegionAssociatedTextRelation` / `VisualRegionKind` / `VisualRegionSource` / `VisualRegionSourceType` / `FormField` / `FormFieldLabel` / `FormFieldLabelRelation` / `FormFieldType` / `PageOcr` / `OcrWord` / `RenderRegion` / `TextSpan` / `VectorBox` / `OutputFormat` / `ProcessDocumentOptions` / `ProcessOptions`.
 
 ## 💾 Caching
 

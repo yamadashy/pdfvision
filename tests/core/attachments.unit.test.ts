@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -69,6 +69,22 @@ describe('buildAttachments', () => {
 
       expect(byName.get('Report.txt')).toBe('Report.txt');
       expect(byName.get('report.txt')).toBe('report.txt-2');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('refuses to write attachment bytes into a symlinked output directory', () => {
+    if (process.platform === 'win32') return;
+    const dir = mkdtempSync(join(tmpdir(), 'pdfvision-attachments-symlink-unit-'));
+    const target = join(dir, 'target');
+    const link = join(dir, 'link');
+    mkdirSync(target);
+    symlinkSync(target, link);
+    try {
+      expect(() =>
+        buildAttachments({ first: { filename: 'report.txt', content: new Uint8Array([65]) } }, { outputDir: link }),
+      ).toThrow(/symlink/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

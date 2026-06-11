@@ -105,4 +105,21 @@ describe('buildVectorBoxes', () => {
 
     expect(boxes).toEqual([{ x: 50, y: 702, width: 20, height: 30 }]);
   });
+
+  it('ignores malformed transform matrices instead of poisoning later boxes', () => {
+    const boxes = buildVectorBoxes(
+      [OP.transform, OP.transform, OP.constructPath],
+      [
+        [2, 0, 0, 2, 100, 100],
+        [Number.NaN, 0, 0, 1, 10, 10],
+        [OP.stroke, [], [0, 0, 10, 10]],
+      ],
+      ops,
+      PAGE_HEIGHT,
+      0,
+      0,
+    );
+
+    expect(boxes).toEqual([{ x: 100, y: 672, width: 20, height: 20 }]);
+  });
 });

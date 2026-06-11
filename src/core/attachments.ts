@@ -1,4 +1,4 @@
-import { lstatSync, mkdirSync } from 'node:fs';
+import { closeSync, constants as fsConstants, lstatSync, mkdirSync, openSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { DocumentAttachment } from '../types/index.js';
 import { atomicWrite } from './cache.js';
@@ -74,6 +74,14 @@ function bytes(value: unknown): Buffer | undefined {
 function writeAttachment(outputDir: string, filename: string, content: Buffer): string {
   const dir = resolve(outputDir);
   mkdirSync(dir, { recursive: true });
+  assertSafeAttachmentDir(dir);
+
+  const outPath = join(dir, filename);
+  atomicWrite(outPath, content);
+  return outPath;
+}
+
+function assertSafeAttachmentDir(dir: string): void {
   const stat = lstatSync(dir);
   if (stat.isSymbolicLink()) {
     throw new Error(`Refusing to write attachments into ${dir}: path is a symlink`);
@@ -81,10 +89,19 @@ function writeAttachment(outputDir: string, filename: string, content: Buffer): 
   if (!stat.isDirectory()) {
     throw new Error(`Refusing to write attachments into ${dir}: path exists but is not a directory`);
   }
+  if (process.platform === 'win32') return;
 
-  const outPath = join(dir, filename);
-  atomicWrite(outPath, content);
-  return outPath;
+  const flags = fsConstants.O_RDONLY | fsConstants.O_DIRECTORY | fsConstants.O_NOFOLLOW;
+  let fd: number;
+  try {
+    fd = openSync(dir, flags);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ELOOP') {
+      throw new Error(`Refusing to write attachments into ${dir}: path is a symlink`);
+    }
+    throw error;
+  }
+  closeSync(fd);
 }
 
 function safeAttachmentFilename(name: string, index: number, used: Set<string>): string {

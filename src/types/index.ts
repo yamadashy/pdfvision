@@ -683,6 +683,7 @@ export interface FormField {
 }
 
 export type PageLinkType = 'url' | 'destination';
+export type PageLinkTarget = string | unknown[];
 
 export interface PageLink {
   /**
@@ -690,8 +691,8 @@ export interface PageLink {
    * destinations such as citation jumps or table-of-contents anchors.
    */
   type: PageLinkType;
-  /** URL or destination name. */
-  target: string;
+  /** URL, destination name, or raw destination array when pdf.js exposes one. */
+  target: PageLinkTarget;
   x: number;
   y: number;
   width: number;

@@ -90,8 +90,15 @@ function fieldValue(value: unknown): string | undefined {
   if (value === undefined || value === null) return undefined;
   if (typeof value === 'string') return value;
   if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-  if (Array.isArray(value)) return value.map((v) => String(v)).join(', ');
+  if (Array.isArray(value)) return value.map(fieldArrayValue).join(', ');
   return undefined;
+}
+
+function fieldArrayValue(value: unknown): string {
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (value === null) return 'null';
+  const json = JSON.stringify(value);
+  return json === undefined ? String(value) : json;
 }
 
 interface BoxLike {

@@ -56,6 +56,23 @@ describe('buildFormFields', () => {
     ]);
   });
 
+  it('serializes nested values inside choice arrays as readable JSON fragments', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'choice',
+          fieldType: 'Ch',
+          rect: [10, 10, 50, 30],
+          fieldValue: ['A', { exportValue: 'B' }, ['C']],
+        },
+      ],
+      100,
+    );
+
+    expect(fields[0].value).toBe('A, {"exportValue":"B"}, ["C"]');
+  });
+
   it('sorts fields in visual reading order', () => {
     const fields = buildFormFields(
       [
