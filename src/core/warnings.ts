@@ -39,7 +39,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
 
   detectLocalizedGlyphNoise(page, warnings);
   detectRasterBackedTextLayer(page, context, warnings);
-  detectLowConfidenceOcr(page, warnings);
+  detectLowConfidenceOcr(page, context, warnings);
   detectDenseVectorGraphics(page, warnings);
   detectLargeRasterLowTextOverlap(page, warnings);
 
@@ -192,16 +192,21 @@ function detectRasterBackedTextLayer(page: PageResult, context: PageWarningConte
   });
 }
 
-function detectLowConfidenceOcr(page: PageResult, out: PageWarning[]): void {
+function detectLowConfidenceOcr(page: PageResult, context: PageWarningContext, out: PageWarning[]): void {
   if (!page.ocr) return;
   if (page.ocr.confidence >= LOW_CONFIDENCE_OCR_THRESHOLD) return;
   if (page.quality.visualStatus === 'blank') return;
-  if (!nativeExtractionNeedsOcr(page.quality.nativeTextStatus)) return;
+  const nativeNeedsOcr = nativeExtractionNeedsOcr(page.quality.nativeTextStatus);
+  if (!nativeNeedsOcr && !context.rasterBackedTextLayer) return;
+
+  const nativeContext = nativeNeedsOcr
+    ? `while native text is ${page.quality.nativeTextStatus}`
+    : 'on a raster-backed text layer';
 
   out.push({
     code: 'ocr_low_confidence',
     severity: 'warning',
-    message: `OCR confidence is ${(page.ocr.confidence * 100).toFixed(1)}% while native text is ${page.quality.nativeTextStatus} — compare against the render before trusting recognized text or form labels`,
+    message: `OCR confidence is ${(page.ocr.confidence * 100).toFixed(1)}% ${nativeContext} — compare against the render before trusting recognized text or form labels`,
   });
 }
 

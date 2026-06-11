@@ -99,6 +99,31 @@ describe('detectPageWarnings', () => {
     expect(out.filter((w) => w.code === 'ocr_low_confidence')).toEqual([]);
   });
 
+  it('flags low-confidence OCR on raster-backed text layers even when native status is ok', () => {
+    const out = detectPageWarnings(
+      {
+        page: 1,
+        text: 'raster-backed OCR layer',
+        charCount: 24,
+        imageCount: 1,
+        vectorCount: 0,
+        textCoverage: 0.14,
+        nonPrintableRatio: 0,
+        nonPrintableCount: 0,
+        width: 396,
+        height: 600,
+        quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+        ocr: { text: '崩れたOCR結果', confidence: 0.43, lang: 'jpn' },
+      },
+      { rasterBackedTextLayer: true },
+    );
+
+    expect(out.map((w) => w.code)).toContain('ocr_low_confidence');
+    const warning = out.find((w) => w.code === 'ocr_low_confidence');
+    expect(warning?.message).toContain('43.0%');
+    expect(warning?.message).toContain('raster-backed text layer');
+  });
+
   it('does not flag low-confidence OCR on blank renders', () => {
     const out = detectPageWarnings({
       page: 1,
