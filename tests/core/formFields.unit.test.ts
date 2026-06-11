@@ -174,4 +174,49 @@ describe('buildFormFields', () => {
     expect(fields[0].label?.text).toBe('Middle Initial');
     expect(fields[1].label?.text).toBe('Other Last Names Used');
   });
+
+  it('prefers left-side instruction labels for narrow inline text fields', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'llcClassification',
+          fieldType: 'Tx',
+          rect: [417.6, 589, 446.4, 600],
+          fieldValue: '',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'exemptPayeeCode',
+          fieldType: 'Tx',
+          rect: [543.6, 588, 576, 600],
+          fieldValue: '',
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        { text: 'Trust/estate', x: 402.4, y: 180, width: 37.46, height: 7, fontSize: 7 },
+        {
+          text: 'LLC. Enter the tax classification (C = C corporation, S = S corporation, P = Partnership)',
+          x: 86.4,
+          y: 193.5,
+          width: 272.14,
+          height: 7,
+          fontSize: 7,
+        },
+        { text: 'Exempt payee code (if any)', x: 457.6, y: 192.5, width: 82.25, height: 7, fontSize: 7 },
+      ],
+    );
+
+    expect(fields.find((field) => field.name === 'llcClassification')?.label).toMatchObject({
+      text: 'LLC. Enter the tax classification (C = C corporation, S = S corporation, P = Partnership)',
+      relation: 'left',
+    });
+    expect(fields.find((field) => field.name === 'exemptPayeeCode')?.label).toMatchObject({
+      text: 'Exempt payee code (if any)',
+      relation: 'left',
+    });
+  });
 });

@@ -117,6 +117,8 @@ const MIN_HORIZONTAL_OVERLAP_RATIO = 0.18;
 const STACKED_LABEL_MAX_GAP_PT = 4;
 const STACKED_LABEL_X_TOLERANCE_PT = 5;
 const STACKED_LABEL_FONT_TOLERANCE_PT = 2;
+const INLINE_TEXT_FIELD_MAX_WIDTH_PT = 60;
+const INLINE_TEXT_FIELD_MAX_HEIGHT_PT = 18;
 
 function findFieldLabel(field: FormField, lines: readonly LabelLine[]): FormFieldLabel | undefined {
   if (lines.length === 0) return undefined;
@@ -134,10 +136,21 @@ function findFieldLabel(field: FormField, lines: readonly LabelLine[]): FormFiel
 
 function scoreLabelCandidate(field: FormField, line: LabelLine, text: string): LabelCandidate | undefined {
   const sidePreferred = field.type === 'checkbox' || field.type === 'radio' || field.type === 'button';
+  const inlineTextField =
+    field.type === 'text' &&
+    field.width <= INLINE_TEXT_FIELD_MAX_WIDTH_PT &&
+    field.height <= INLINE_TEXT_FIELD_MAX_HEIGHT_PT;
   const candidates = [
     sideLabelCandidate(field, line, text, 'right', sidePreferred ? 0 : 28),
-    sideLabelCandidate(field, line, text, 'left', sidePreferred ? 12 : 18),
-    verticalLabelCandidate(field, line, text, 'above', sidePreferred ? 70 : 0),
+    sideLabelCandidate(
+      field,
+      line,
+      text,
+      'left',
+      sidePreferred ? 12 : inlineTextField ? 0 : 18,
+      inlineTextField ? 0.45 : 1.4,
+    ),
+    verticalLabelCandidate(field, line, text, 'above', sidePreferred ? 70 : inlineTextField ? 45 : 0),
     verticalLabelCandidate(field, line, text, 'below', 95),
   ].filter((candidate): candidate is LabelCandidate => candidate !== undefined);
 
@@ -150,6 +163,7 @@ function sideLabelCandidate(
   text: string,
   relation: Extract<FormFieldLabelRelation, 'left' | 'right'>,
   baseScore: number,
+  gapWeight = 1.4,
 ): LabelCandidate | undefined {
   const fieldRight = field.x + field.width;
   const lineRight = line.x + line.width;
@@ -164,7 +178,7 @@ function sideLabelCandidate(
     line,
     text,
     relation,
-    score: baseScore + Math.max(0, gap) * 1.4 + centerDelta * 2 + lengthPenalty(text),
+    score: baseScore + Math.max(0, gap) * gapWeight + centerDelta * 2 + lengthPenalty(text),
   };
 }
 
