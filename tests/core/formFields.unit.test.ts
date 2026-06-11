@@ -219,4 +219,72 @@ describe('buildFormFields', () => {
       relation: 'left',
     });
   });
+
+  it('ignores short offset labels above wide text fields', () => {
+    const fields = buildFormFields(
+      [{ subtype: 'Widget', fieldName: 'otherText', fieldType: 'Tx', rect: [68.4, 708.5, 236.6, 719.5] }],
+      792,
+      0,
+      0,
+      [
+        { text: 'Combat zone', x: 165.6, y: 61.9, width: 42.13, height: 7, fontSize: 7 },
+        { text: 'Other', x: 46.4, y: 73.9, width: 17.51, height: 7, fontSize: 7 },
+      ],
+    );
+
+    expect(fields[0].label).toMatchObject({
+      text: 'Other',
+      relation: 'left',
+    });
+  });
+
+  it('prefers wide descriptive above labels over tiny line numbers', () => {
+    const fields = buildFormFields(
+      [{ subtype: 'Widget', fieldName: 'entityName', fieldType: 'Tx', rect: [58.6, 660, 576, 674] }],
+      792,
+      0,
+      0,
+      [
+        { text: '1', x: 61.6, y: 97, width: 3.89, height: 7, fontSize: 7 },
+        {
+          text: '1 Name of entity/individual. An entry is required.',
+          x: 61.6,
+          y: 97,
+          width: 260,
+          height: 7,
+          fontSize: 7,
+        },
+      ],
+    );
+
+    expect(fields[0].label).toMatchObject({
+      text: '1 Name of entity/individual. An entry is required.',
+      relation: 'above',
+    });
+  });
+
+  it('prefers same-line left prompts over wide previous-row labels', () => {
+    const fields = buildFormFields(
+      [{ subtype: 'Widget', fieldName: 'otherText', fieldType: 'Tx', rect: [68.4, 708.5, 236.6, 719.5] }],
+      792,
+      0,
+      0,
+      [
+        {
+          text: 'Filed pursuant to section 301.9100-2 Combat zone',
+          x: 46.4,
+          y: 61.9,
+          width: 161.33,
+          height: 7,
+          fontSize: 7,
+        },
+        { text: 'Other', x: 46.4, y: 73.9, width: 17.51, height: 7, fontSize: 7 },
+      ],
+    );
+
+    expect(fields[0].label).toMatchObject({
+      text: 'Other',
+      relation: 'left',
+    });
+  });
 });

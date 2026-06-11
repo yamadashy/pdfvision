@@ -119,6 +119,11 @@ const STACKED_LABEL_X_TOLERANCE_PT = 5;
 const STACKED_LABEL_FONT_TOLERANCE_PT = 2;
 const INLINE_TEXT_FIELD_MAX_WIDTH_PT = 60;
 const INLINE_TEXT_FIELD_MAX_HEIGHT_PT = 18;
+const SHORT_VERTICAL_LABEL_FIELD_COVERAGE = 0.35;
+const VERTICAL_LABEL_EDGE_TOLERANCE_PT = 8;
+const WIDE_VERTICAL_LABEL_FIELD_COVERAGE = 0.7;
+const SAME_LINE_TEXT_PROMPT_MAX_GAP_PT = 12;
+const SAME_LINE_TEXT_PROMPT_MAX_FONT_SIZE_PT = 8.5;
 
 function findFieldLabel(field: FormField, lines: readonly LabelLine[]): FormFieldLabel | undefined {
   if (lines.length === 0) return undefined;
@@ -172,13 +177,21 @@ function sideLabelCandidate(
   const centerDelta = Math.abs(centerY(field) - centerY(line));
   const maxCenterDelta = Math.max(7, Math.max(field.height, line.height) * 0.9);
   if (centerDelta > maxCenterDelta) return undefined;
+  const sameLineTextPrompt =
+    field.type === 'text' &&
+    relation === 'left' &&
+    gap <= SAME_LINE_TEXT_PROMPT_MAX_GAP_PT &&
+    centerDelta <= Math.max(4, field.height * 0.35) &&
+    (line.fontSize ?? SAME_LINE_TEXT_PROMPT_MAX_FONT_SIZE_PT) <= SAME_LINE_TEXT_PROMPT_MAX_FONT_SIZE_PT;
+  const scoreBase = sameLineTextPrompt ? Math.min(baseScore, 0) : baseScore;
+  const scoreGapWeight = sameLineTextPrompt ? Math.min(gapWeight, 0.45) : gapWeight;
 
   return {
     label: makeLabel(line, text, relation),
     line,
     text,
     relation,
-    score: baseScore + Math.max(0, gap) * gapWeight + centerDelta * 2 + lengthPenalty(text),
+    score: scoreBase + Math.max(0, gap) * scoreGapWeight + centerDelta * 2 + lengthPenalty(text),
   };
 }
 
@@ -198,6 +211,13 @@ function verticalLabelCandidate(
   const overlap = horizontalOverlapRatio(field, line);
   const fieldCoverage = horizontalOverlapWidth(field, line) / Math.max(1, field.width);
   const centerDelta = Math.abs(centerX(field) - centerX(line));
+  const lineRight = line.x + line.width;
+  const fieldRight = field.x + field.width;
+  const edgeAligned =
+    Math.abs(line.x - field.x) <= VERTICAL_LABEL_EDGE_TOLERANCE_PT ||
+    Math.abs(lineRight - fieldRight) <= VERTICAL_LABEL_EDGE_TOLERANCE_PT;
+  if (fieldCoverage < SHORT_VERTICAL_LABEL_FIELD_COVERAGE && !edgeAligned) return undefined;
+
   const nearEdge =
     line.x <= field.x + field.width + 8 &&
     line.x + line.width >= field.x - 8 &&
@@ -212,7 +232,12 @@ function verticalLabelCandidate(
     line,
     text,
     relation,
-    score: baseScore + Math.max(0, gap) * 2 + (1 - alignment) * 32 + centerDelta * 0.04 + lengthPenalty(text),
+    score:
+      baseScore +
+      Math.max(0, gap) * 2 +
+      (1 - alignment) * 32 +
+      centerDelta * 0.04 +
+      (fieldCoverage >= WIDE_VERTICAL_LABEL_FIELD_COVERAGE ? 0 : lengthPenalty(text)),
   };
 }
 
