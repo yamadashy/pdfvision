@@ -584,6 +584,42 @@ describe('buildVisualRegions', () => {
     expect(regions).toEqual([]);
   });
 
+  it('keeps full-page raster fallback over extreme OCR-fragment table hints', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 396,
+      pageHeight: 600.8,
+      imageBoxes: [{ x: 0, y: 0, width: 396, height: 600.8 }],
+      layout: {
+        blocks: [],
+        tables: [
+          {
+            x: 22.5,
+            y: 30.23,
+            width: 339.68,
+            height: 424.33,
+            rowCount: 2,
+            columnCount: 231,
+            rows: [],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'raster',
+        x: 0,
+        y: 0,
+        width: 396,
+        height: 600.8,
+        areaRatio: 1,
+        sourceCount: 1,
+        sources: [{ type: 'imageBox', index: 0 }],
+        reason: 'raster image covers 100.0% of the page',
+      },
+    ]);
+  });
+
   it('deduplicates raster panels that expand to the same shared caption crop', () => {
     const regions = buildVisualRegions({
       pageWidth: 600,

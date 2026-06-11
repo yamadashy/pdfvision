@@ -78,6 +78,7 @@ const CAPTION_SCORE_TOLERANCE_PT = 12;
 const SHALLOW_TABLE_HINT_MAX_ROWS = 2;
 const SHALLOW_TABLE_HINT_MAX_HEIGHT_RATIO = 0.1;
 const SHALLOW_TABLE_HINT_MIN_WIDTH_RATIO = 0.65;
+const OCR_FRAGMENT_TABLE_HINT_MIN_COLUMNS = 20;
 const CAPTION_NUMBER_PATTERN =
   '[\\p{L}\\p{N}０-９一二三四五六七八九十ivxlcdm]+(?:[.-][\\p{L}\\p{N}０-９一二三四五六七八九十ivxlcdm]+)*\\.?';
 const CAPTION_PATTERN = new RegExp(
@@ -522,11 +523,14 @@ function addTableCandidates(
 }
 
 function isLowConfidenceVisualTableHint(
-  table: BoxLike & { rowCount: number },
+  table: BoxLike & { rowCount: number; columnCount: number },
   pageWidth: number,
   pageHeight: number,
 ): boolean {
   if (pageWidth <= 0 || pageHeight <= 0) return false;
+  if (table.rowCount <= SHALLOW_TABLE_HINT_MAX_ROWS && table.columnCount >= OCR_FRAGMENT_TABLE_HINT_MIN_COLUMNS) {
+    return true;
+  }
   return (
     table.rowCount <= SHALLOW_TABLE_HINT_MAX_ROWS &&
     table.width >= pageWidth * SHALLOW_TABLE_HINT_MIN_WIDTH_RATIO &&
