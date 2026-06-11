@@ -8,6 +8,8 @@ interface PdfLinkAnnotation {
   rect?: unknown;
 }
 
+type Rect = [number, number, number, number];
+
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
@@ -22,12 +24,13 @@ export function buildLinks(
   for (const annotation of annotations) {
     const ann = annotation as PdfLinkAnnotation;
     if (ann.subtype !== 'Link') continue;
-    if (!Array.isArray(ann.rect) || ann.rect.length < 4 || !ann.rect.every((v) => typeof v === 'number')) continue;
+    const rect = linkRect(ann.rect);
+    if (!rect) continue;
 
     const target = linkTarget(ann);
     if (!target) continue;
 
-    const [x1, y1, x2, y2] = ann.rect as [number, number, number, number];
+    const [x1, y1, x2, y2] = rect;
     const minX = Math.min(x1, x2);
     const maxX = Math.max(x1, x2);
     const minY = Math.min(y1, y2);
@@ -44,6 +47,13 @@ export function buildLinks(
   return links.sort(
     (a, b) => a.y - b.y || a.x - b.x || linkTargetText(a.target).localeCompare(linkTargetText(b.target)),
   );
+}
+
+function linkRect(value: unknown): Rect | undefined {
+  if (!Array.isArray(value) || value.length < 4) return undefined;
+  const values = value.slice(0, 4);
+  if (!values.every((item) => typeof item === 'number' && Number.isFinite(item))) return undefined;
+  return values as Rect;
 }
 
 function linkTarget(annotation: PdfLinkAnnotation): { type: PageLinkType; target: PageLinkTarget } | undefined {

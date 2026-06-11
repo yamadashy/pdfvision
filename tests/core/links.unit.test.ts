@@ -44,4 +44,16 @@ describe('buildLinks', () => {
       { type: 'url', target: 'mailto:reader@example.com', x: 10, y: 80, width: 10, height: 10 },
     ]);
   });
+
+  it('ignores link annotations with non-finite rect coordinates', () => {
+    const links = buildLinks(
+      [
+        { subtype: 'Link', url: 'https://bad.example', rect: [10, 10, Number.NaN, 20] },
+        { subtype: 'Link', url: 'https://good.example', rect: [10, 10, 20, 20] },
+      ],
+      100,
+    );
+
+    expect(links).toEqual([{ type: 'url', target: 'https://good.example', x: 10, y: 80, width: 10, height: 10 }]);
+  });
 });
