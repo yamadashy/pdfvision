@@ -22,8 +22,19 @@ interface LabelLine {
   fontSize?: number;
 }
 
+type Rect = [number, number, number, number];
+
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+function validatePageGeometry(pageHeight: number, viewMinX: number, viewMinY: number): void {
+  if (!Number.isFinite(pageHeight) || pageHeight <= 0) {
+    throw new TypeError('buildFormFields: pageHeight must be a positive finite number');
+  }
+  if (!Number.isFinite(viewMinX) || !Number.isFinite(viewMinY)) {
+    throw new TypeError('buildFormFields: viewMinX and viewMinY must be finite numbers');
+  }
 }
 
 export function buildFormFields(
@@ -33,14 +44,17 @@ export function buildFormFields(
   viewMinY = 0,
   labelLines: readonly LabelLine[] = [],
 ): FormField[] {
+  validatePageGeometry(pageHeight, viewMinX, viewMinY);
+
   const fields: FormField[] = [];
   for (const annotation of annotations) {
     const ann = annotation as PdfAnnotation;
     if (ann.subtype !== 'Widget') continue;
     if (typeof ann.fieldName !== 'string' || ann.fieldName.length === 0) continue;
-    if (!Array.isArray(ann.rect) || ann.rect.length < 4 || !ann.rect.every((v) => typeof v === 'number')) continue;
+    const rect = fieldRect(ann.rect);
+    if (!rect) continue;
 
-    const [x1, y1, x2, y2] = ann.rect as [number, number, number, number];
+    const [x1, y1, x2, y2] = rect;
     const minX = Math.min(x1, x2);
     const maxX = Math.max(x1, x2);
     const minY = Math.min(y1, y2);
@@ -67,6 +81,13 @@ export function buildFormFields(
     fields.push(field);
   }
   return fields.sort((a, b) => a.y - b.y || a.x - b.x || a.name.localeCompare(b.name));
+}
+
+function fieldRect(value: unknown): Rect | undefined {
+  if (!Array.isArray(value) || value.length < 4) return undefined;
+  const values = value.slice(0, 4);
+  if (!values.every((item) => typeof item === 'number' && Number.isFinite(item))) return undefined;
+  return values as Rect;
 }
 
 function formFieldType(annotation: PdfAnnotation): FormFieldType {

@@ -102,8 +102,16 @@ function buildLayerGroup(id: unknown, group: PdfOptionalContentGroup, options: B
   };
 }
 
+function isOptionalContentConfig(value: unknown): value is PdfOptionalContentConfig {
+  return (
+    value !== null && typeof value === 'object' && typeof (value as Iterable<unknown>)[Symbol.iterator] === 'function'
+  );
+}
+
 export async function buildLayers(doc: PDFDocumentProxy, options: BuildLayersOptions = {}): Promise<DocumentLayers> {
-  const config = (await doc.getOptionalContentConfig({ intent: 'display' })) as PdfOptionalContentConfig;
+  const config = await doc.getOptionalContentConfig({ intent: 'display' });
+  if (!isOptionalContentConfig(config)) return { groups: [] };
+
   const order = layerOrder(config.getOrder?.(), options);
   const name = textValue(config.name, options);
   const creator = textValue(config.creator, options);

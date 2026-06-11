@@ -65,4 +65,12 @@ describe('buildOutline', () => {
 
     expect(outline).toEqual([{ title: 'Child', type: 'url', target: 'https://example.com' }]);
   });
+
+  it('ignores malformed null and primitive outline nodes', async () => {
+    const doc = {} as PDFDocumentProxy;
+
+    const outline = await buildOutline([null, 'broken', 42, { title: 'Valid', url: 'https://example.com' }], doc);
+
+    expect(outline).toEqual([{ title: 'Valid', type: 'url', target: 'https://example.com' }]);
+  });
 });

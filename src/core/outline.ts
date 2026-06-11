@@ -26,7 +26,7 @@ export async function buildOutline(
     const item = await buildOutlineItem(node, doc, options);
     if (item) {
       out.push(item);
-    } else {
+    } else if (node !== null && typeof node === 'object') {
       const outlineNode = node as PdfOutlineNode;
       if (Array.isArray(outlineNode.items)) out.push(...(await buildOutline(outlineNode.items, doc, options)));
     }
@@ -39,6 +39,7 @@ async function buildOutlineItem(
   doc: PDFDocumentProxy,
   options: BuildOutlineOptions,
 ): Promise<DocumentOutlineItem | undefined> {
+  if (node === null || typeof node !== 'object') return undefined;
   const outlineNode = node as PdfOutlineNode;
   if (typeof outlineNode.title !== 'string' || outlineNode.title.length === 0) return undefined;
 

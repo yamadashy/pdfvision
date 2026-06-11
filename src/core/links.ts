@@ -14,12 +14,23 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+function validatePageGeometry(pageHeight: number, viewMinX: number, viewMinY: number): void {
+  if (!Number.isFinite(pageHeight) || pageHeight <= 0) {
+    throw new TypeError('buildLinks: pageHeight must be a positive finite number');
+  }
+  if (!Number.isFinite(viewMinX) || !Number.isFinite(viewMinY)) {
+    throw new TypeError('buildLinks: viewMinX and viewMinY must be finite numbers');
+  }
+}
+
 export function buildLinks(
   annotations: readonly unknown[],
   pageHeight: number,
   viewMinX = 0,
   viewMinY = 0,
 ): PageLink[] {
+  validatePageGeometry(pageHeight, viewMinX, viewMinY);
+
   const links: PageLink[] = [];
   for (const annotation of annotations) {
     const ann = annotation as PdfLinkAnnotation;

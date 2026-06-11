@@ -73,6 +73,25 @@ describe('buildFormFields', () => {
     expect(fields[0].value).toBe('A, {"exportValue":"B"}, ["C"]');
   });
 
+  it('rejects invalid page geometry parameters before coordinate conversion', () => {
+    expect(() => buildFormFields([], Number.NaN)).toThrow(/pageHeight/);
+    expect(() => buildFormFields([], 0)).toThrow(/pageHeight/);
+    expect(() => buildFormFields([], 100, Number.POSITIVE_INFINITY)).toThrow(/viewMinX and viewMinY/);
+    expect(() => buildFormFields([], 100, 0, Number.NaN)).toThrow(/viewMinX and viewMinY/);
+  });
+
+  it('ignores widget annotations with non-finite rect coordinates', () => {
+    const fields = buildFormFields(
+      [
+        { subtype: 'Widget', fieldName: 'bad', fieldType: 'Tx', rect: [10, 10, Number.NaN, 20] },
+        { subtype: 'Widget', fieldName: 'good', fieldType: 'Tx', rect: [10, 10, 20, 20] },
+      ],
+      100,
+    );
+
+    expect(fields.map((field) => field.name)).toEqual(['good']);
+  });
+
   it('sorts fields in visual reading order', () => {
     const fields = buildFormFields(
       [

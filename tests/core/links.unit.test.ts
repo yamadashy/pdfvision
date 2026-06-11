@@ -56,4 +56,11 @@ describe('buildLinks', () => {
 
     expect(links).toEqual([{ type: 'url', target: 'https://good.example', x: 10, y: 80, width: 10, height: 10 }]);
   });
+
+  it('rejects invalid page geometry parameters before coordinate conversion', () => {
+    expect(() => buildLinks([], Number.NaN)).toThrow(/pageHeight/);
+    expect(() => buildLinks([], 0)).toThrow(/pageHeight/);
+    expect(() => buildLinks([], 100, Number.NEGATIVE_INFINITY)).toThrow(/viewMinX and viewMinY/);
+    expect(() => buildLinks([], 100, 0, Number.NaN)).toThrow(/viewMinX and viewMinY/);
+  });
 });
