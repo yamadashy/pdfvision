@@ -653,7 +653,9 @@ describe('detectPageWarnings', () => {
       // punctuation advance can explain, so something really is off-page.
       const title = block(349.8, 257.9, 530, 34.56, {
         text: '令和7年版情報通信白書(概要)',
-        lines: [{ text: '令和7年版情報通信白書(概要)', x: 349.8, y: 257.9, width: 530, height: 34.56, fontSize: 34.56 }],
+        lines: [
+          { text: '令和7年版情報通信白書(概要)', x: 349.8, y: 257.9, width: 530, height: 34.56, fontSize: 34.56 },
+        ],
       });
       const out = detectPageWarnings(page([title], 841.92, 595.32));
       expect(out.some((w) => w.code === 'off_page' && w.message.includes('right'))).toBe(true);
@@ -668,6 +670,54 @@ describe('detectPageWarnings', () => {
       });
       const out = detectPageWarnings(page([latin], 841.92, 595.32));
       expect(out.some((w) => w.code === 'off_page' && w.message.includes('right'))).toBe(true);
+    });
+  });
+
+  describe('reading_order_divergence', () => {
+    /** Page shaped like PLoS Medicine p.1: the title heading leads the
+     *  visual flow but the producer emitted it after the body columns. */
+    function divergentPage(): PageResult {
+      const title = 'Why Most Published Research Findings Are False';
+      const body = 'Published research findings are sometimes refuted by subsequent evidence. '.repeat(20);
+      const blocks = [
+        block(45, 61, 433, 40, { text: title, role: 'heading' }),
+        block(45, 121, 156, 300, { text: body.slice(0, 500) }),
+        block(219, 141, 153, 500, { text: body.slice(500, 1000) }),
+        block(393, 141, 156, 500, { text: body.slice(1000) }),
+      ];
+      return { ...page(blocks, 594, 783), text: `${body}${title}`, charCount: body.length + title.length };
+    }
+
+    it('flags a leading heading that only appears late in the native text stream', () => {
+      const out = detectPageWarnings(divergentPage());
+      const divergence = out.find((w) => w.code === 'reading_order_divergence');
+      expect(divergence).toBeDefined();
+      expect(divergence?.blockIndex).toBe(0);
+      expect(divergence?.message).toContain('Why Most Published Research Findings');
+    });
+
+    it('does not flag when native order matches the layout order', () => {
+      const aligned = divergentPage();
+      const title = 'Why Most Published Research Findings Are False';
+      aligned.text = `${title}\n${aligned.text.slice(0, aligned.text.length - title.length)}`;
+      const out = detectPageWarnings(aligned);
+      expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
+    });
+
+    it('does not flag headings that are late in BOTH orders (right-column section heads)', () => {
+      // A section heading at the top of the right column is visually
+      // high on the page but legitimately late in the reading flow.
+      const body = 'Body paragraph text for the left column. '.repeat(30);
+      const heading = 'Modeling the Framework for False Positives';
+      const blocks = [
+        block(45, 50, 156, 600, { text: body }),
+        block(219, 50, 153, 20, { text: heading, role: 'heading' }),
+        block(219, 80, 153, 570, { text: body }),
+        block(393, 50, 156, 600, { text: body }),
+      ];
+      const p = { ...page(blocks, 594, 783), text: `${body}${heading}${body}${body}` };
+      const out = detectPageWarnings(p);
+      expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
     });
   });
 
@@ -1161,7 +1211,14 @@ describe('detectPageWarnings', () => {
       const body = block(60, 60, 700, 400, {
         text: 'main body paragraph text that fills the slide',
         lines: [
-          { text: 'main body paragraph text that fills the slide', x: 60, y: 60, width: 700, height: 11, fontSize: 9.6 },
+          {
+            text: 'main body paragraph text that fills the slide',
+            x: 60,
+            y: 60,
+            width: 700,
+            height: 11,
+            fontSize: 9.6,
+          },
         ],
       });
       const crowded = block(60, 580, 400, 10, {

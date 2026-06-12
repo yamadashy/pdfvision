@@ -56,6 +56,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
   detectOffPage(blocks, page.width, page.height, warnings);
   detectTextOverlap(blocks, warnings);
   detectTabularNumericLayout(blocks, warnings);
+  detectReadingOrderDivergence(page, blocks, warnings);
   // `near_bottom_edge` only distinguishes body from chrome via the
   // `repeated` flag, which is meaningless when chrome detection
   // didn't run reliably (single-page extraction, or every layout
@@ -438,6 +439,57 @@ function overlapRatio(a: BoxLike, b: BoxLike): number {
   return clippedArea(a, b) / denominator;
 }
 
+/** Reading-order divergence thresholds. A heading the layout pass
+ *  places in the first quarter of the page flow but whose text only
+ *  shows up in the back half of the native content stream means the
+ *  producer emitted columns/frames out of visual order (InDesign
+ *  magazine layouts are the common case — PLoS Medicine emits the
+ *  page title AFTER all three body columns). */
+const READING_ORDER_LAYOUT_EARLY_RATIO = 0.25;
+const READING_ORDER_NATIVE_LATE_RATIO = 0.5;
+const READING_ORDER_MIN_BLOCKS = 4;
+const READING_ORDER_MIN_HEADING_CHARS = 10;
+const READING_ORDER_PROBE_CHARS = 40;
+
+/**
+ * Flag pages whose native text stream order diverges from the visual
+ * reading order the layout pass reconstructed. Detection is anchored
+ * on headings: a heading that is *early* in layout order (top of the
+ * visual flow) but *late* in `page.text` is unambiguous divergence,
+ * whereas comparing whole-page block permutations would fire on benign
+ * column-ordering nuances. Consumers should prefer `layout.blocks`
+ * order when sequence matters; the Markdown formatter switches to the
+ * layout-rebuilt body when this warning is present.
+ */
+function detectReadingOrderDivergence(page: PageResult, blocks: LayoutBlock[], out: PageWarning[]): void {
+  if (blocks.length < READING_ORDER_MIN_BLOCKS) return;
+  if (page.text.length === 0) return;
+
+  let layoutOffset = 0;
+  const totalChars = blocks.reduce((sum, b) => sum + b.text.length, 0);
+  if (totalChars === 0) return;
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i];
+    const layoutPos = layoutOffset / totalChars;
+    layoutOffset += block.text.length;
+    if (layoutPos > READING_ORDER_LAYOUT_EARLY_RATIO) return; // blocks beyond the early window can't qualify
+    if (block.role !== 'heading' || block.repeated) continue;
+    const probe = block.text.split('\n', 1)[0].trim().slice(0, READING_ORDER_PROBE_CHARS);
+    if (probe.length < READING_ORDER_MIN_HEADING_CHARS) continue;
+    const nativeIndex = page.text.indexOf(probe);
+    if (nativeIndex < 0) continue;
+    const nativePos = nativeIndex / page.text.length;
+    if (nativePos < READING_ORDER_NATIVE_LATE_RATIO) continue;
+    out.push({
+      code: 'reading_order_divergence',
+      severity: 'warning',
+      message: `heading "${probe}" leads the visual reading order but only appears ${(nativePos * 100).toFixed(0)}% of the way through the native text stream — native text order diverges from what a human reads; prefer layout.blocks order when sequence matters`,
+      blockIndex: i,
+    });
+    return;
+  }
+}
+
 /** Tolerance for off-page detection. PDFs commonly have sub-point
  *  fractional coordinates from cropping / rounding; treating anything
  *  inside this slack as on-page avoids false positives on otherwise
@@ -639,7 +691,8 @@ const SOURCE_FOOTNOTE_CAPTION_MAX_CHARS = 300;
  *  matched against the NFKC-normalized text the layout pass carries,
  *  so full-width parens appear here in their ASCII form. */
 const SOURCE_FOOTNOTE_PREFIX = /^[（(〔[［]?(?:出典|出所|資料|注\d*)[）)〕\]］：:.．]/u;
-const SOURCE_FOOTNOTE_SUFFIX = /(?:を(?:基|もと)に(?:筆者)?(?:作成|加工|編集)|より(?:筆者)?(?:作成|引用|抜粋|転載))[。.]?$/u;
+const SOURCE_FOOTNOTE_SUFFIX =
+  /(?:を(?:基|もと)に(?:筆者)?(?:作成|加工|編集)|より(?:筆者)?(?:作成|引用|抜粋|転載))[。.]?$/u;
 
 function isSourceFootnoteCaption(block: LayoutBlock): boolean {
   const text = block.text.trim();

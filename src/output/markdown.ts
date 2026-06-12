@@ -198,6 +198,13 @@ function appendStructureItem(lines: string[], item: PageStructureItem, depth = 0
 function pageBody(page: PageResult, options: MarkdownOptions): string {
   if (!options.stripRepeated) {
     if (page.layout?.blocks.some((b) => b.writingMode === 'vertical')) return layoutBody(page, false);
+    // When the warning pass established that the native stream order
+    // diverges from the visual reading order (magazine-style frames
+    // emitted out of order), the layout rebuild is the human-faithful
+    // body — raw page.text would bury the page title mid-stream.
+    if (page.layout && page.warnings?.some((w) => w.code === 'reading_order_divergence')) {
+      return layoutBody(page, false);
+    }
     return page.text;
   }
   if (!page.layout) {

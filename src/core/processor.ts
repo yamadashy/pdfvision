@@ -1,5 +1,15 @@
 import { createHash } from 'node:crypto';
-import { closeSync, fstatSync, lstatSync, mkdirSync, mkdtempSync, openSync, readSync, realpathSync, statSync } from 'node:fs';
+import {
+  closeSync,
+  fstatSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  openSync,
+  readSync,
+  realpathSync,
+  statSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import {
   join,
@@ -755,7 +765,8 @@ function withTruncationHint(error: unknown, pdfData: Uint8Array | undefined, fil
     return error;
   }
   if (Buffer.from(tail).includes('%%EOF')) return error;
-  error.message += ' (no %%EOF trailer in the final bytes — the file is likely truncated, e.g. an incomplete download; re-download it and compare byte sizes before retrying)';
+  error.message +=
+    ' (no %%EOF trailer in the final bytes — the file is likely truncated, e.g. an incomplete download; re-download it and compare byte sizes before retrying)';
   return error;
 }
 
