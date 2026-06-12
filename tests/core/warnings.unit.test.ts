@@ -632,6 +632,43 @@ describe('detectPageWarnings', () => {
       const out = detectPageWarnings(page([block(260, -20, 1400, 67)], 1920, 1080));
       expect(out.some((w) => w.code === 'off_page' && w.message.includes('top'))).toBe(true);
     });
+
+    it('does not flag right overhang from a trailing full-width closing paren advance', () => {
+      // 総務省白書 title slide: 34.56pt CJK title ends in （概要）flush
+      // against the right edge of an 842pt landscape page. The closing
+      // paren's advance pushes the reported right edge to 857pt, but
+      // its ink ends on the page — a human sees nothing clipped.
+      const title = block(349.8, 257.9, 507.25, 34.56, {
+        text: '令和7年版情報通信白書(概要)',
+        lines: [
+          { text: '令和7年版情報通信白書(概要)', x: 349.8, y: 257.9, width: 507.25, height: 34.56, fontSize: 34.56 },
+        ],
+      });
+      const out = detectPageWarnings(page([title], 841.92, 595.32));
+      expect(out.filter((w) => w.code === 'off_page')).toEqual([]);
+    });
+
+    it('still flags right overhang past the trailing-advance allowance', () => {
+      // Same shape but the overhang is a full em — more than trailing
+      // punctuation advance can explain, so something really is off-page.
+      const title = block(349.8, 257.9, 530, 34.56, {
+        text: '令和7年版情報通信白書(概要)',
+        lines: [{ text: '令和7年版情報通信白書(概要)', x: 349.8, y: 257.9, width: 530, height: 34.56, fontSize: 34.56 }],
+      });
+      const out = detectPageWarnings(page([title], 841.92, 595.32));
+      expect(out.some((w) => w.code === 'off_page' && w.message.includes('right'))).toBe(true);
+    });
+
+    it('still flags right overhang on a Latin line ending with a paren', () => {
+      // ASCII ")" has a narrow advance — a half-em overhang on a Latin
+      // line is real bleed, not a font-metric phantom.
+      const latin = block(349.8, 257.9, 507.25, 34.56, {
+        text: 'Annual Report (Summary)',
+        lines: [{ text: 'Annual Report (Summary)', x: 349.8, y: 257.9, width: 507.25, height: 34.56, fontSize: 34.56 }],
+      });
+      const out = detectPageWarnings(page([latin], 841.92, 595.32));
+      expect(out.some((w) => w.code === 'off_page' && w.message.includes('right'))).toBe(true);
+    });
   });
 
   describe('text_overlap', () => {
@@ -1063,6 +1100,77 @@ describe('detectPageWarnings', () => {
 
     it('still flags non-reference body text near the bottom edge', () => {
       const out = detectPageWarnings(page([block(50, 758, 80, 9, { text: 'closing note' })], 594, 774));
+      expect(out.some((w) => w.code === 'near_bottom_edge')).toBe(true);
+    });
+
+    it('does not flag Japanese source-attribution captions at the bottom edge', () => {
+      // Government white-paper chart slides park 「(出典)…」/「…を基に作成」
+      // attributions at the bottom of every chart box by design.
+      const captions = [
+        block(60, 580, 200, 10, { text: '総務省「通信利用動向調査」を基に作成' }),
+        block(420, 580, 350, 10, {
+          text: '(出典)Reuters Institute for the Study of Journalism「Digital News Report」(2024) を基に作成',
+        }),
+        block(420, 582, 280, 8, { text: '総務省「情報通信メディアの利用時間と情報行動に関する調査」' }),
+      ];
+      const out = detectPageWarnings(page(captions, 841.92, 595.32));
+      expect(out.filter((w) => w.code === 'near_bottom_edge')).toEqual([]);
+    });
+
+    it('does not flag ※ footnote captions at the bottom edge', () => {
+      const footnote = block(60, 582, 700, 10, {
+        text: '※主要な事業者のシェアから推計。端数処理の関係や、本推計対象から外れる企業があり得ること等から、例えば、0%と表記されていても、当該国・地域のシェアが全く無いとは限らない。',
+      });
+      const out = detectPageWarnings(page([footnote], 841.92, 595.32));
+      expect(out.filter((w) => w.code === 'near_bottom_edge')).toEqual([]);
+    });
+
+    it('does not flag English Source:/Note: captions at the bottom edge', () => {
+      const out = detectPageWarnings(
+        page([block(60, 580, 300, 10, { text: 'Source: OECD Digital Economy Outlook 2024' })], 841.92, 595.32),
+      );
+      expect(out.filter((w) => w.code === 'near_bottom_edge')).toEqual([]);
+    });
+
+    it('does not flag tiny-font caption tails well below the page body size', () => {
+      // 総務省白書 p10: a wrapped citation tail (6.5pt) sits at the very
+      // bottom of a slide whose body text runs at 9.6pt. Tiny type at the
+      // bottom edge is intentional caption design, not crowded body text.
+      const body = block(60, 60, 700, 400, {
+        text: 'デジタル空間における情報流通の健全性確保に向けた取組が進められている。',
+        lines: [
+          {
+            text: 'デジタル空間における情報流通の健全性確保に向けた取組が進められている。',
+            x: 60,
+            y: 60,
+            width: 700,
+            height: 11,
+            fontSize: 9.6,
+          },
+        ],
+      });
+      const tail = block(268.9, 578.8, 62.4, 6.5, {
+        text: '(第1回)事務局資料',
+        lines: [{ text: '(第1回)事務局資料', x: 268.9, y: 578.8, width: 62.4, height: 6.5, fontSize: 6.24 }],
+      });
+      const out = detectPageWarnings(page([body, tail], 841.92, 595.32));
+      expect(out.filter((w) => w.code === 'near_bottom_edge')).toEqual([]);
+    });
+
+    it('still flags body-sized text near the bottom edge when line data is present', () => {
+      const body = block(60, 60, 700, 400, {
+        text: 'main body paragraph text that fills the slide',
+        lines: [
+          { text: 'main body paragraph text that fills the slide', x: 60, y: 60, width: 700, height: 11, fontSize: 9.6 },
+        ],
+      });
+      const crowded = block(60, 580, 400, 10, {
+        text: 'closing body sentence pushed to the margin',
+        lines: [
+          { text: 'closing body sentence pushed to the margin', x: 60, y: 580, width: 400, height: 10, fontSize: 9.6 },
+        ],
+      });
+      const out = detectPageWarnings(page([body, crowded], 841.92, 595.32));
       expect(out.some((w) => w.code === 'near_bottom_edge')).toBe(true);
     });
 
