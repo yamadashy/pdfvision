@@ -76,9 +76,15 @@ export function buildFormFields(
       ...(typeof ann.required === 'boolean' && { required: ann.required }),
       ...(typeof ann.multiline === 'boolean' && { multiline: ann.multiline }),
     };
-    const label = findFieldLabel(field, labelLines);
-    if (label) field.label = label;
     fields.push(field);
+  }
+  // Labels are resolved after every widget rect is known so that a
+  // candidate line spanning ACROSS a sibling widget (two checkbox
+  // options merged into one layout line) can be penalized in favor of
+  // the span that stops at the sibling.
+  for (const field of fields) {
+    const label = findFieldLabel(field, labelLines, fields);
+    if (label) field.label = label;
   }
   return fields.sort((a, b) => a.y - b.y || a.x - b.x || a.name.localeCompare(b.name));
 }
@@ -153,7 +159,11 @@ const WIDE_VERTICAL_LABEL_FIELD_COVERAGE = 0.7;
 const SAME_LINE_TEXT_PROMPT_MAX_GAP_PT = 12;
 const SAME_LINE_TEXT_PROMPT_MAX_FONT_SIZE_PT = 8.5;
 
-function findFieldLabel(field: FormField, lines: readonly LabelLine[]): FormFieldLabel | undefined {
+function findFieldLabel(
+  field: FormField,
+  lines: readonly LabelLine[],
+  siblings: readonly FormField[] = [],
+): FormFieldLabel | undefined {
   if (lines.length === 0) return undefined;
   let best: LabelCandidate | undefined;
   for (const line of lines) {
@@ -162,9 +172,32 @@ function findFieldLabel(field: FormField, lines: readonly LabelLine[]): FormFiel
     if (overlapRatio(field, line) >= 0.35) continue;
     const candidate = scoreLabelCandidate(field, line, text);
     if (!candidate) continue;
+    candidate.score += widgetCrossingPenalty(field, candidate, siblings);
     if (!best || candidate.score < best.score) best = candidate;
   }
   return best ? expandStackedLabel(field, best, lines) : undefined;
+}
+
+/** Penalty per sibling widget a side-relation label line runs across.
+ *  IRS 1040 packs several checkbox options on one row ("[cb] Filed
+ *  pursuant to section 301.9100-2  [cb] Combat zone"); the layout pass
+ *  merges that row into one line, which would otherwise out-score the
+ *  per-option span and hand the first checkbox both options' text. */
+const WIDGET_CROSSING_PENALTY = 40;
+
+function widgetCrossingPenalty(field: FormField, candidate: LabelCandidate, siblings: readonly FormField[]): number {
+  if (candidate.relation !== 'left' && candidate.relation !== 'right') return 0;
+  const line = candidate.line;
+  let crossings = 0;
+  for (const sibling of siblings) {
+    if (sibling === field) continue;
+    const siblingCenterX = sibling.x + sibling.width / 2;
+    if (siblingCenterX <= line.x || siblingCenterX >= line.x + line.width) continue;
+    const verticalOverlap = Math.min(line.y + line.height, sibling.y + sibling.height) - Math.max(line.y, sibling.y);
+    if (verticalOverlap < Math.min(line.height, sibling.height) * 0.5) continue;
+    crossings++;
+  }
+  return crossings * WIDGET_CROSSING_PENALTY;
 }
 
 function scoreLabelCandidate(field: FormField, line: LabelLine, text: string): LabelCandidate | undefined {

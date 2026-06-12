@@ -211,6 +211,51 @@ describe('buildFormFields', () => {
     expect(fields[1].label?.text).toBe('Other Last Names Used');
   });
 
+  it('stops a checkbox label at the next checkbox on the same row', () => {
+    // IRS 1040 header row: "[cb] Filed pursuant to section 301.9100-2
+    // [cb] Combat zone". The layout pass merges the row into one line;
+    // that line crosses the second checkbox's rect, so the per-option
+    // span must win or the first checkbox absorbs both options' text.
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'c1_1',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: [36, 684, 44, 692],
+          fieldValue: 'Off',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'c1_2',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: [157, 684, 165, 692],
+          fieldValue: 'Off',
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        {
+          text: 'Filed pursuant to section 301.9100-2 Combat zone',
+          x: 46.4,
+          y: 100.5,
+          width: 161.3,
+          height: 7,
+          fontSize: 7,
+        },
+        { text: 'Filed pursuant to section 301.9100-2', x: 46.4, y: 100.5, width: 108, height: 7, fontSize: 7 },
+        { text: 'Combat zone', x: 165.6, y: 100.5, width: 42.1, height: 7, fontSize: 7 },
+      ],
+    );
+
+    expect(fields[0].label?.text).toBe('Filed pursuant to section 301.9100-2');
+    expect(fields[1].label?.text).toBe('Combat zone');
+  });
+
   it('prefers left-side instruction labels for narrow inline text fields', () => {
     const fields = buildFormFields(
       [
