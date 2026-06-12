@@ -118,7 +118,8 @@ Options:
                           detects CJK vertical text stacks as writingMode='vertical'
                           and uses those recovered blocks in Markdown text;
                           also enables layout warnings (text_overlap / near_bottom_edge /
-                          body_near_repeated_chrome / off_page / tabular_numeric_layout)
+                          body_near_repeated_chrome / off_page / tabular_numeric_layout /
+                          reading_order_divergence)
       --image-boxes       Emit per-image bbox in pages[].imageBoxes;
                           enables large-raster warnings with --layout or --geometry
       --vector-boxes      Emit painted vector path bboxes in pages[].vectorBoxes

@@ -47,10 +47,12 @@ Options
       --layout            Reconstruct \`pages[].layout\` (lines, blocks, vertical CJK stacks,
                           and numeric-table hints
                           in approximate reading order) from the same span data. Structured layout fields
-                          appear in -f json / -f xml / -f toon; Markdown uses recovered vertical text blocks.
+                          appear in -f json / -f xml / -f toon; Markdown uses recovered vertical text
+                          blocks, and rebuilds the page body in layout order when the native text
+                          stream diverges from the visual reading order.
                           Also enables layout warnings: overlapping text, off-page bboxes,
-                          body crowded against repeated chrome, or flattened numeric tables
-                          in \`pages[].warnings\`.
+                          body crowded against repeated chrome, flattened numeric tables,
+                          or native-vs-visual reading-order divergence in \`pages[].warnings\`.
       --image-boxes       Emit \`pages[].imageBoxes\` — bounding box of every raster image
                           draw on the page. Enables large-raster warnings with --layout or
                           --geometry. Only -f json / -f xml / -f toon.

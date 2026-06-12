@@ -461,7 +461,8 @@ interface PageWarning {
     | 'tabular_numeric_layout'
     | 'raster_backed_text_layer'
     | 'ocr_low_confidence'
-    | 'large_raster_low_text_overlap';
+    | 'large_raster_low_text_overlap'
+    | 'reading_order_divergence';
   severity: 'warning' | 'error';
   message: string;
   blockIndex?: number;        // 0-based into pages[N].layout.blocks
@@ -484,6 +485,7 @@ The current rule catalog:
 - `raster_backed_text_layer` — native text appears to be an OCR/text layer over a full-page raster image, including sparse OCR layers on scanned covers; text may be useful but error-prone, and bbox/layout geometry can drift from the pixels a human sees.
 - `ocr_low_confidence` — `--ocr` ran with confidence below 0.5 while native extraction was empty, sparse, glyph-corrupted, or attached to a raster-backed text layer; OCR text is present but should be treated as tentative until checked against the render, language choice, or a focused crop.
 - `large_raster_low_text_overlap` — bbox-enabled extraction found a large raster image with little overlapping native text, including sparse-text visual pages, so labels, chart text, map text, or screenshot text inside it will not appear in native text.
+- `reading_order_divergence` — a heading that leads the visual reading order (early in `layout.blocks`) only appears in the back half of `pages[].text`; the producer emitted columns/frames out of visual order (InDesign magazine layouts, page banners written last). Prefer `layout.blocks` order over `pages[].text` when sequence matters — the Markdown formatter already rebuilds the body from layout blocks on these pages. Requires `--layout`; `blockIndex` points at the displaced heading.
 
 Same observational posture as `quality`: pdfvision tells the agent what it saw; the agent decides whether to surface, re-OCR, or zoom in via `--render-region`.
 
