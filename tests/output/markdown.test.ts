@@ -165,6 +165,448 @@ describe('formatMarkdown', () => {
     expect(out).toMatch(/vectors: 12/);
   });
 
+  it('adds vector-box counts without rendering a large bbox table in Markdown', () => {
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 2,
+        pages: [
+          makePage({ page: 1, text: 'plain', charCount: 5, vectorBoxes: [] }),
+          makePage({
+            page: 2,
+            text: 'symbols',
+            charCount: 7,
+            vectorCount: 12,
+            vectorBoxes: [
+              { x: 215.21, y: 39.48, width: 31.57, height: 20.69 },
+              { x: 246.11, y: 40.07, width: 0.72, height: 0.72 },
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toMatch(/\| Page \| Chars \| Images \| Coverage \| Size \(pt\) \| Vectors \| VectorBoxes \|/);
+    expect(out).toMatch(/\| 2 \| 7 \| 0 \| 0% \| 612×792 \| 12 \| 2 \|/);
+    expect(out).toContain('vectorBoxes: 2');
+    expect(out).not.toContain('215.21,39.48');
+  });
+
+  it('adds visual-region counts and crop-ready region tables in Markdown', () => {
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 2,
+        pages: [
+          makePage({
+            page: 1,
+            text: 'figure page',
+            charCount: 11,
+            visualRegions: [
+              {
+                id: 'p1-vr0',
+                kind: 'raster',
+                x: 36,
+                y: 72,
+                width: 240,
+                height: 180,
+                areaRatio: 0.089,
+                sourceCount: 18,
+                sources: [
+                  { type: 'imageBox', index: 0 },
+                  { type: 'vectorBox', index: 2 },
+                ],
+                reason: 'raster image covers 8.9% of the page',
+                image: '/tmp/region|crop.png',
+                renderContentRatio: 0.1234,
+                associatedText: [
+                  {
+                    text: 'Figure 1. Overview',
+                    relation: 'caption',
+                    x: 40,
+                    y: 256,
+                    width: 180,
+                    height: 12,
+                    blockIndex: 3,
+                  },
+                ],
+              },
+            ],
+          }),
+          makePage({ page: 2, text: 'plain', charCount: 5, visualRegions: [] }),
+        ],
+      }),
+    );
+
+    expect(out).toMatch(/\| Page \| Chars \| Images \| Coverage \| Size \(pt\) \| VisualRegions \|/);
+    expect(out).toMatch(/\| 1 \| 11 \| 0 \| 0% \| 612×792 \| 1 \|/);
+    expect(out).toContain('visualRegions: 1');
+    expect(out).toContain('### Visual regions');
+    expect(out).toContain('| ID | Kind | BBox | Area | Image | Render | Text | Sources | Reason |');
+    expect(out).toContain(
+      '| p1-vr0 | raster | 36,72,240,180 | 8.9% | /tmp/region\\|crop.png | 12.34% | caption: Figure 1. Overview | imageBox[0], vectorBox[2], +16 more | raster image covers 8.9% of the page |',
+    );
+    expect(out).toContain('_No crop-ready visual regions found._');
+  });
+
+  it('adds form field counts and a form-field table when form fields are present', () => {
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 2,
+        pages: [
+          makePage({
+            page: 1,
+            text: 'form page',
+            charCount: 9,
+            formFields: [
+              {
+                name: 'topmostSubform[0].Page1[0].f1_01[0]',
+                type: 'text',
+                x: 228.8,
+                y: 48.5,
+                width: 88,
+                height: 11,
+              },
+              {
+                name: 'agree|box',
+                type: 'checkbox',
+                x: 36,
+                y: 62,
+                width: 8,
+                height: 8,
+                value: 'Off',
+                checked: false,
+                label: {
+                  text: 'Agree | certify',
+                  relation: 'right',
+                  x: 48,
+                  y: 61,
+                  width: 80,
+                  height: 10,
+                },
+              },
+            ],
+          }),
+          makePage({ page: 2, text: 'plain', charCount: 5, formFields: [] }),
+        ],
+      }),
+    );
+
+    expect(out).toMatch(/\| Page \| Chars \| Images \| Coverage \| Size \(pt\) \| FormFields \|/);
+    expect(out).toMatch(/\| 1 \| 9 \| 0 \| 0% \| 612×792 \| 2 \|/);
+    expect(out).toMatch(/formFields: 2/);
+    expect(out).toContain('### Form fields');
+    expect(out).toContain('| Type | Name | Label | Value | BBox |');
+    expect(out).toContain('| checkbox | agree\\|box | Agree \\| certify (right) | unchecked | 36,62,8,8 |');
+    expect(out).toContain('_No interactive form fields found._');
+  });
+
+  it('adds link counts and a links table when clickable links are present', () => {
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 2,
+        pages: [
+          makePage({
+            page: 1,
+            text: 'linked page',
+            charCount: 11,
+            links: [
+              {
+                type: 'url',
+                target: 'https://example.com?q=a|b',
+                x: 100,
+                y: 72,
+                width: 60,
+                height: 20,
+              },
+              {
+                type: 'destination',
+                target: ['cite.transformer', { name: 'Fit' }],
+                x: 40,
+                y: 180,
+                width: 40,
+                height: 12,
+              },
+            ],
+          }),
+          makePage({ page: 2, text: 'plain', charCount: 5, links: [] }),
+        ],
+      }),
+    );
+
+    expect(out).toMatch(/\| Page \| Chars \| Images \| Coverage \| Size \(pt\) \| Links \|/);
+    expect(out).toMatch(/\| 1 \| 11 \| 0 \| 0% \| 612×792 \| 2 \|/);
+    expect(out).toMatch(/links: 2/);
+    expect(out).toContain('### Links');
+    expect(out).toContain('| url | https://example.com?q=a\\|b | 100,72,60,20 |');
+    expect(out).toContain('| destination | ["cite.transformer",{"name":"Fit"}] | 40,180,40,12 |');
+    expect(out).toContain('_No clickable links found._');
+  });
+
+  it('adds annotation counts and an annotations table when comments or markup are present', () => {
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 2,
+        pages: [
+          makePage({
+            page: 1,
+            text: 'annotated',
+            charCount: 9,
+            annotations: [
+              {
+                subtype: 'Highlight',
+                contents: 'important|note',
+                title: 'Markup',
+                color: [255, 255, 11],
+                x: 100,
+                y: 80,
+                width: 80,
+                height: 12,
+                quadBoxes: [{ x: 100, y: 80, width: 80, height: 12 }],
+              },
+            ],
+          }),
+          makePage({ page: 2, text: 'plain', charCount: 5, annotations: [] }),
+        ],
+      }),
+    );
+
+    expect(out).toMatch(/\| Page \| Chars \| Images \| Coverage \| Size \(pt\) \| Annotations \|/);
+    expect(out).toMatch(/\| 1 \| 9 \| 0 \| 0% \| 612×792 \| 1 \|/);
+    expect(out).toMatch(/annotations: 1/);
+    expect(out).toContain('### Annotations');
+    expect(out).toContain('| Highlight | important\\|note | Markup | 100,80,80,12 | 255,255,11 | 1 |');
+    expect(out).toContain('_No non-link annotations found._');
+  });
+
+  it('renders the document outline when outline extraction was requested', () => {
+    const out = formatMarkdown(
+      makeResult({
+        outline: [
+          {
+            title: 'Intro [draft]',
+            type: 'destination',
+            target: 'section.1',
+            page: 1,
+            items: [{ title: 'Website', type: 'url', target: 'https://example.com' }],
+          },
+        ],
+      }),
+    );
+
+    expect(out).toContain('## Outline');
+    expect(out).toContain('- Intro \\[draft\\] (p. 1 · destination · section.1)');
+    expect(out).toContain('  - Website (url · https://example.com)');
+  });
+
+  it('renders an explicit empty outline message when the outline pass found no bookmarks', () => {
+    const out = formatMarkdown(makeResult({ outline: [] }));
+    expect(out).toContain('## Outline');
+    expect(out).toContain('_No document outline found._');
+  });
+
+  it('renders viewer page labels in overview and page sections', () => {
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 2,
+        pageLabels: ['i', '1'],
+        pages: [
+          makePage({ page: 1, pageLabel: 'i', text: 'front', charCount: 5 }),
+          makePage({ page: 2, pageLabel: '1', text: 'body', charCount: 4 }),
+        ],
+      }),
+    );
+
+    expect(out).toMatch(/\| Page \| Label \| Chars \| Images \| Coverage \| Size \(pt\) \|/);
+    expect(out).toMatch(/\| 1 \| i \| 5 \| 0 \| 0% \| 612×792 \|/);
+    expect(out).toContain('## Page 1 (i)');
+    expect(out).toContain('_chars: 5 · images: 0 · coverage: 0% · label: i · size: 612×792pt_');
+  });
+
+  it('adds a Structure column to the Overview table when structure extraction ran', () => {
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 2,
+        pages: [
+          makePage({
+            page: 1,
+            text: 'tagged',
+            charCount: 6,
+            structure: {
+              role: 'Root',
+              children: [{ role: 'Document', children: [{ type: 'content', id: 'p1_mc0' }] }],
+            },
+          }),
+          makePage({ page: 2, text: 'plain', charCount: 5, structure: null }),
+        ],
+      }),
+    );
+
+    expect(out).toMatch(/\| Page \| Chars \| Images \| Coverage \| Size \(pt\) \| Structure \|/);
+    expect(out).toMatch(/\| ---: \| ---: \| ---: \| ---: \| ---: \| ---: \|/);
+    expect(out).toMatch(/\| 1 \| 6 \| 0 \| 0% \| 612×792 \| 2 \|/);
+    expect(out).toMatch(/\| 2 \| 5 \| 0 \| 0% \| 612×792 \| 0 \|/);
+  });
+
+  it('renders tagged PDF structure trees with alternate text', () => {
+    const out = formatMarkdown(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 'hello',
+            charCount: 5,
+            structure: {
+              role: 'Root',
+              children: [
+                {
+                  role: 'Figure',
+                  alt: 'A compass on the cover',
+                  lang: 'en-US',
+                  bbox: [36.5, 60, 575, 774],
+                  children: [{ type: 'content', id: 'p1_mc0' }],
+                },
+              ],
+            },
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toContain('_chars: 5 · images: 0 · coverage: 0% · structure: 2 · size: 612×792pt_');
+    expect(out).toContain('### Structure');
+    expect(out).toContain('- Root');
+    expect(out).toContain('  - Figure · lang=en-US · bbox=36.5,60,575,774 · alt=A compass on the cover');
+    expect(out).toContain('    - content p1\\_mc0');
+  });
+
+  it('escapes tagged PDF structure labels and emits MathML', () => {
+    const out = formatMarkdown(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            structure: {
+              role: 'Root',
+              children: [
+                {
+                  role: 'Formula',
+                  alt: 'A < B & C *D* _E_ `F` [G]',
+                  mathML: '<math><mi>x</mi></math>',
+                  children: [{ type: 'annotation', id: 'annot_p3R_1' }],
+                },
+              ],
+            },
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toContain(
+      '  - Formula · alt=A &lt; B &amp; C \\*D\\* \\_E\\_ \\`F\\` \\[G\\] · mathML=&lt;math&gt;&lt;mi&gt;x&lt;/mi&gt;&lt;/math&gt;',
+    );
+    expect(out).toContain('    - annotation annot\\_p3R\\_1');
+  });
+
+  it('renders an explicit empty structure message when the structure pass found no tree', () => {
+    const out = formatMarkdown(makeResult({ pages: [makePage({ page: 1, structure: null })] }));
+    expect(out).toContain('### Structure');
+    expect(out).toContain('_No tagged PDF structure tree found._');
+  });
+
+  it('renders an explicit empty page-label message when extraction found no labels', () => {
+    const out = formatMarkdown(makeResult({ pageLabels: [] }));
+    expect(out).toContain('## Page Labels');
+    expect(out).toContain('_No custom page labels found._');
+  });
+
+  it('renders viewer-level document settings', () => {
+    const out = formatMarkdown(
+      makeResult({
+        viewer: {
+          pageMode: 'UseOutlines',
+          pageLayout: 'TwoColumnLeft',
+          viewerPreferences: { DisplayDocTitle: true, PrintPageRange: [1, 2] },
+          openAction: { type: 'destination', page: 3, target: '[{"name":"Fit"}]' },
+          permissions: { flags: [4, 16], allowed: ['print', 'copy'] },
+          markInfo: { marked: true, userProperties: false, suspects: false },
+        },
+      }),
+    );
+
+    expect(out).toContain('## Viewer');
+    expect(out).toContain('- **Page mode:** UseOutlines');
+    expect(out).toContain('- **Page layout:** TwoColumnLeft');
+    expect(out).toContain('- **Open action:** destination · p. 3 · \\[{"name":"Fit"}\\]');
+    expect(out).toContain('- **Permissions:** print, copy');
+    expect(out).toContain('- **Mark info:** marked=true, userProperties=false, suspects=false');
+    expect(out).toContain('- **Preferences:** DisplayDocTitle=true; PrintPageRange=\\[1,2\\]');
+  });
+
+  it('renders an explicit empty viewer message when the viewer pass found no settings', () => {
+    const out = formatMarkdown(makeResult({ viewer: {} }));
+    expect(out).toContain('## Viewer');
+    expect(out).toContain('_No viewer settings found._');
+  });
+
+  it('renders PDF layers with visibility and usage states', () => {
+    const out = formatMarkdown(
+      makeResult({
+        layers: {
+          name: 'Layer config',
+          creator: 'pdfvision test',
+          order: ['4R', { name: 'Nested group', order: ['5R'] }],
+          groups: [
+            {
+              id: '4R',
+              name: 'Visible layer',
+              visible: true,
+              intent: ['View'],
+              usage: { viewState: 'ON', printState: 'ON' },
+              rbGroups: [['4R', '5R']],
+            },
+            {
+              id: '5R',
+              name: 'Hidden layer',
+              visible: false,
+              intent: ['View', 'Design'],
+              usage: { viewState: 'OFF', printState: 'OFF' },
+            },
+          ],
+        },
+      }),
+    );
+
+    expect(out).toContain('## Layers');
+    expect(out).toContain('- **Config:** Layer config');
+    expect(out).toContain('- **Panel order:** \\["4R",{"name":"Nested group","order":\\["5R"\\]}\\]');
+    expect(out).toContain('| ID | Name | Visible | Intent | View | Print | Radio groups |');
+    expect(out).toContain('| 4R | Visible layer | yes | View | ON | ON | [["4R","5R"]] |');
+    expect(out).toContain('| 5R | Hidden layer | no | View, Design | OFF | OFF | [] |');
+  });
+
+  it('renders an explicit empty layers message when the layer pass found no groups', () => {
+    const out = formatMarkdown(makeResult({ layers: { groups: [] } }));
+    expect(out).toContain('## Layers');
+    expect(out).toContain('_No PDF layers found._');
+  });
+
+  it('renders document attachment metadata without content bytes', () => {
+    const out = formatMarkdown(
+      makeResult({
+        attachments: [{ name: 'supplement|data.txt', description: 'Extra file', size: 123, path: '/tmp/a|b.txt' }],
+      }),
+    );
+
+    expect(out).toContain('## Attachments');
+    expect(out).toContain('| Name | Description | Size (bytes) | Path |');
+    expect(out).toContain('| supplement\\|data.txt | Extra file | 123 | /tmp/a\\|b.txt |');
+  });
+
+  it('renders an explicit empty attachments message when extraction found no embedded files', () => {
+    const out = formatMarkdown(makeResult({ attachments: [] }));
+    expect(out).toContain('## Attachments');
+    expect(out).toContain('_No embedded file attachments found._');
+  });
+
   it('adds a Blocks column to the Overview table when --layout populated pages[].layout', () => {
     // With layout on, agents can scan the Blocks count alongside the
     // density signals to spot pages that decompose differently — a
@@ -322,6 +764,25 @@ describe('formatMarkdown', () => {
     expect(out).toMatch(/native: unusable_glyph_indices/);
   });
 
+  it('appends a native: mixed_glyph_indices badge when only part of the page has glyph garbage', () => {
+    const out = formatMarkdown(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 'garbled prefix on connectivity readable tail',
+            charCount: 1330,
+            nonPrintableRatio: 0.141,
+            nonPrintableCount: 188,
+            quality: { nativeTextStatus: 'mixed_glyph_indices' },
+          }),
+        ],
+      }),
+    );
+    expect(out).toMatch(/nonPrint: 14% \(188\)/);
+    expect(out).toMatch(/native: mixed_glyph_indices/);
+  });
+
   it('appends a native: empty_but_visual_content badge for image-only pages', () => {
     // SpeakerDeck-shaped page: no native text but visual content present.
     const out = formatMarkdown(
@@ -358,6 +819,27 @@ describe('formatMarkdown', () => {
     expect(out).toMatch(/native: sparse_text_with_visual_content/);
   });
 
+  it('appends a native: sparse_text_on_blank_visual badge for hidden sparse text', () => {
+    const out = formatMarkdown(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: '4\nI\n9',
+            charCount: 5,
+            imageCount: 1,
+            textCoverage: 0.001,
+            renderContentRatio: 0.000021,
+            quality: { nativeTextStatus: 'sparse_text_on_blank_visual', visualStatus: 'blank' },
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toMatch(/native: sparse_text_on_blank_visual/);
+    expect(out).toMatch(/visual: blank/);
+  });
+
   it('appends a visual: blank badge when the rendered page came out blank', () => {
     // Alice dark scan: charCount=0, renderContentRatio rounds to 0.00%,
     // visualStatus="blank" tells the agent the render itself failed.
@@ -378,6 +860,26 @@ describe('formatMarkdown', () => {
     expect(out).toMatch(/render: 0\.00%/);
     expect(out).toMatch(/native: empty_but_visual_content/);
     expect(out).toMatch(/visual: blank/);
+  });
+
+  it('appends a visual: sparse badge when the rendered page has only tiny marks', () => {
+    const out = formatMarkdown(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: '',
+            charCount: 0,
+            vectorCount: 1,
+            renderContentRatio: 0.0008,
+            quality: { nativeTextStatus: 'empty_but_visual_content', visualStatus: 'sparse' },
+          }),
+        ],
+      }),
+    );
+    expect(out).toMatch(/render: 0\.08%/);
+    expect(out).toMatch(/native: empty_but_visual_content/);
+    expect(out).toMatch(/visual: sparse/);
   });
 
   it('omits quality badges on healthy pages (nativeTextStatus=ok, no visualStatus)', () => {
@@ -495,6 +997,42 @@ describe('formatMarkdown', () => {
     );
     expect(out).toContain('Body');
     expect(out).toContain('© Footer');
+  });
+
+  it('uses layout text for Markdown body when vertical CJK blocks are present', async () => {
+    // pdf.js native text streams often expose vertical Japanese as one
+    // glyph per line. When --layout already recovered the top-to-bottom
+    // stack, Markdown should show that human-readable block instead of
+    // the raw glyph stream.
+    const out = formatMarkdown(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: '縦\n書\nき',
+            charCount: 3,
+            layout: {
+              blocks: [
+                {
+                  text: '縦書き',
+                  x: 36,
+                  y: 194,
+                  width: 88,
+                  height: 299,
+                  writingMode: 'vertical',
+                  lines: [
+                    { text: '縦書き', x: 36, y: 194, width: 88, height: 299, fontSize: 88, writingMode: 'vertical' },
+                  ],
+                },
+              ],
+            },
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toMatch(/\n縦書き$/);
+    expect(out).not.toContain('縦\n書\nき');
   });
 
   it('throws when stripRepeated is requested but the page carries no layout', async () => {

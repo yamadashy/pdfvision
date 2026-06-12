@@ -74,6 +74,16 @@ describe('processDocument with --ocr', () => {
     // Confidence is normalised to 0..1.
     expect(page.ocr?.confidence).toBeGreaterThanOrEqual(0);
     expect(page.ocr?.confidence).toBeLessThanOrEqual(1);
+    expect(page.ocr?.words?.length ?? 0).toBeGreaterThan(0);
+    for (const word of page.ocr?.words ?? []) {
+      expect(word.text.length).toBeGreaterThan(0);
+      expect(word.confidence).toBeGreaterThanOrEqual(0);
+      expect(word.confidence).toBeLessThanOrEqual(1);
+      expect(word.x).toBeGreaterThanOrEqual(0);
+      expect(word.y).toBeGreaterThanOrEqual(0);
+      expect(word.width).toBeGreaterThan(0);
+      expect(word.height).toBeGreaterThan(0);
+    }
     // sample.pdf renders "Hello pdfvision" on page 1; OCR should produce
     // something resembling that. We check shape rather than exact glyphs —
     // tesseract's reads shift with the rendering backend (pdf.js + wasm

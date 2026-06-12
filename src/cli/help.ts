@@ -44,13 +44,59 @@ Options
                           \`ﬁ\`) matters for downstream diff / forensics.
       --geometry          Emit per-text-item bbox + font size in \`pages[].spans\`.
                           Only takes effect with -f json / -f xml / -f toon.
-      --layout            Reconstruct \`pages[].layout\` (lines + blocks in approximate
-                          reading order) from the same span data. Only -f json / -f xml / -f toon.
-                          Also enables geometry-driven anomaly detection: any pages with
-                          overlapping text, off-page bboxes, or body crowded against
-                          repeated chrome get \`pages[].warnings\` populated.
+      --layout            Reconstruct \`pages[].layout\` (lines, blocks, vertical CJK stacks,
+                          and numeric-table hints
+                          in approximate reading order) from the same span data. Structured layout fields
+                          appear in -f json / -f xml / -f toon; Markdown uses recovered vertical text blocks.
+                          Also enables layout warnings: overlapping text, off-page bboxes,
+                          body crowded against repeated chrome, or flattened numeric tables
+                          in \`pages[].warnings\`.
       --image-boxes       Emit \`pages[].imageBoxes\` — bounding box of every raster image
-                          draw on the page. Only -f json / -f xml / -f toon.
+                          draw on the page. Enables large-raster warnings with --layout or
+                          --geometry. Only -f json / -f xml / -f toon.
+                          Full-page scan/OCR-layer and dense-vector warnings can appear
+                          even without this flag.
+      --vector-boxes      Emit \`pages[].vectorBoxes\` — bounding boxes of painted vector
+                          paths such as map symbols, chart paths, table rules, form
+                          boxes, and slide shapes. Only -f json / -f xml / -f toon.
+      --visual-regions    Emit \`pages[].visualRegions\` — padded, crop-ready bboxes
+                          for important figures, charts, diagrams, tables, forms, and
+                          raster/vector clusters. Feed x,y,width,height directly into
+                          --render-region for a visual zoom.
+      --render-visual-regions
+                          Render each visual region crop to PNG and attach
+                          \`visualRegions[].image\` / \`renderContentRatio\`.
+                          Implies --visual-regions and does not require --render.
+      --form-fields       Emit \`pages[].formFields\` — interactive PDF widget fields
+                          such as text boxes, checkboxes, radio buttons, choices, and
+                          signatures with values, bboxes, and nearby visible labels.
+                          Useful for government forms.
+                          Markdown also renders a form-field table.
+      --links             Emit \`pages[].links\` — clickable PDF link annotations such as
+                          external URLs, citation jumps, and table-of-contents destinations
+                          with bboxes. Markdown also renders a links table.
+      --annotations       Emit \`pages[].annotations\` — non-link PDF annotations such as
+                          comments, sticky notes, highlights, underlines, strikeouts, stamps,
+                          and other markup with bboxes and comment text.
+      --structure         Emit tagged-PDF structure trees in \`pages[].structure\`,
+                          including role hierarchy, figure alt text, language hints,
+                          bboxes, and marked-content ids when the PDF provides them.
+      --page-labels       Emit viewer page labels in \`pageLabels\` and \`pages[].pageLabel\`;
+                          useful when front matter uses roman numerals or page numbering
+                          restarts apart from the physical page number.
+      --attachments       Emit document-level embedded file attachment metadata in
+                          \`attachments\` without embedding attachment bytes in output.
+      --attachment-output <dir>
+                          Directory to write embedded attachment files into. Requires
+                          --attachments; files land under a per-PDF fingerprint subdir.
+      --outline           Emit top-level \`outline\` document bookmarks, preserving hierarchy
+                          and resolving destination pages when possible. Markdown also renders
+                          an outline section.
+      --viewer            Emit top-level \`viewer\` settings: initial page mode/layout,
+                          viewer preferences, open action, permissions, and MarkInfo.
+      --layers            Emit top-level \`layers\` from PDF optional content groups:
+                          layer names, visibility, usage states, radio groups, and
+                          viewer panel order for maps, CAD/design PDFs, and variants.
       --strip-repeated    Drop running headers / footers / page numbers (blocks the layout
                           pass tagged as \`repeated\`) from the rendered Markdown body so
                           LLM readers don't have to wade through the same footer N times.
@@ -70,14 +116,15 @@ Options
                           by default; case-insensitive; NFKC-aware (matches
                           compatibility codepoints like \`ﬁ\` (U+FB01 ligature) for
                           \`fi\`). Also searches OCR text when --ocr is on
-                          (marked source:'ocr').
+                          (marked source:'ocr'); duplicate OCR hits already
+                          covered by native matches are suppressed.
       --search-regex      Treat each --search query as a JavaScript regular expression
                           (default: literal substring).
       --search-case-sensitive
                           Match case exactly (default: insensitive).
-      --remote <url>      Download an http(s) URL to the on-disk cache and run extraction
-                          on it. Same URL → same cache slot; combine with --no-cache (or
-                          --clear-cache) to refresh.
+      --remote <url>      Download an http(s) PDF, validate the PDF header, and run extraction
+                          on it. Same URL → same cache slot unless --no-cache streams the
+                          bytes directly without writing the remote-PDF cache.
       --no-cache          Skip the on-disk cache (re-download / re-extract every run).
       --clear-cache       Remove every cached extraction, rendered PNG, and downloaded
                           remote PDF, then exit. No file argument required.

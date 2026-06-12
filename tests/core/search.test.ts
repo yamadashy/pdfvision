@@ -1,6 +1,8 @@
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { processDocument } from '../../src/core/processor.js';
+import { compileSearch, searchPage } from '../../src/core/search.js';
+import type { TextSpan } from '../../src/types/index.js';
 
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
 const SAMPLE_JA_PDF = resolve(__dirname, '../fixtures/sample-ja.pdf');
@@ -36,6 +38,39 @@ describe('processDocument search', () => {
     });
     expect(result.pages[0].matches).toBeDefined();
     expect(result.pages[0].matches?.length).toBe(0);
+  });
+
+  it('matches across a tight URL font-run boundary with a semantic space', () => {
+    const spans: TextSpan[] = [
+      {
+        text: 'els are available at',
+        x: 82.91,
+        y: 451.93,
+        width: 80.3,
+        height: 10.91,
+        fontSize: 10.91,
+      },
+      {
+        text: 'https://github.com/',
+        x: 165.9,
+        y: 451.93,
+        width: 124.36,
+        height: 10.91,
+        fontSize: 10.91,
+      },
+    ];
+    const compiled = compileSearch('at https://github.com/', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 595, 842, compiled);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'at https://github.com/',
+      source: 'native',
+      page: 1,
+    });
+    expect(matches[0].boxes.length).toBeGreaterThanOrEqual(2);
   });
 
   it('omits matches[] entirely when no search was requested', async () => {
@@ -217,6 +252,53 @@ describe('processDocument search', () => {
     expect(matches[0].bbox).toEqual({ x: 10, y: 20, width: 71, height: 10 });
   });
 
+  it('narrows native match boxes to the matched substring inside a span', async () => {
+    // Search bboxes feed directly into --render-region. A substring
+    // match should not return the whole pdf.js span when only two
+    // characters inside that span matched.
+    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const compiled = compileSearch('cd', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const matches = searchPage(
+      [{ text: 'abcdef', x: 10, y: 20, width: 60, height: 10, fontSize: 10 }],
+      undefined,
+      1,
+      612,
+      792,
+      compiled,
+    );
+    expect(matches).toHaveLength(1);
+    expect(matches[0].boxes).toEqual([{ x: 30, y: 20, width: 20, height: 10 }]);
+    expect(matches[0].bbox).toEqual({ x: 30, y: 20, width: 20, height: 10 });
+  });
+
+  it('narrows only the matching slice of a span-boundary phrase', async () => {
+    // JICA report-shaped case: "JICA" is its own span and the CJK
+    // suffix starts a longer span. Searching "JICA債" should include
+    // only the first character of the second span, not the whole
+    // "債への投資家..." run.
+    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const compiled = compileSearch('JICA債', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const matches = searchPage(
+      [
+        { text: 'JICA', x: 100, y: 20, width: 40, height: 10, fontSize: 10 },
+        { text: '債への投資家', x: 142, y: 20, width: 60, height: 10, fontSize: 10 },
+      ],
+      undefined,
+      1,
+      612,
+      792,
+      compiled,
+    );
+    expect(matches).toHaveLength(1);
+    expect(matches[0].boxes).toEqual([
+      { x: 100, y: 20, width: 40, height: 10 },
+      { x: 142, y: 20, width: 10, height: 10 },
+    ]);
+    expect(matches[0].bbox).toEqual({ x: 100, y: 20, width: 52, height: 10 });
+  });
+
   it('does not double-insert a synthetic space when adjacent spans already carry whitespace', async () => {
     const { compileSearch, searchPage } = await import('../../src/core/search.js');
     const compiled = compileSearch('Hello World', {});
@@ -269,6 +351,264 @@ describe('processDocument search', () => {
       compiled,
     );
     expect(matches).toEqual([]);
+  });
+
+  it('does not stitch nearby magazine columns into one search line', async () => {
+    // JICA report page 50-shaped case: two body columns can sit on the
+    // same baseline with only ~23pt of gutter. A human reads these as
+    // separate columns, so search context and phrase matching should
+    // not join the left line to the right line.
+    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const compiled = compileSearch('domestic investors', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const matches = searchPage(
+      [
+        { text: 'domestic', x: 66, y: 204, width: 220, height: 10, fontSize: 10 },
+        { text: 'investors', x: 309, y: 204, width: 80, height: 10, fontSize: 10 },
+      ],
+      undefined,
+      1,
+      612,
+      792,
+      compiled,
+    );
+    expect(matches).toEqual([]);
+  });
+
+  it('does not stitch ACL-style two-column body lines across narrow gutters', async () => {
+    // BERT / ACL paper-shaped case: same-baseline left and right body
+    // columns can have only ~17pt of gutter. Search context should not
+    // join the left column tail to the right column hit.
+    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const compiled = compileSearch('inference approaches', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const matches = searchPage(
+      [
+        { text: 'natural language inference', x: 72, y: 643, width: 218, height: 10.91, fontSize: 10.91 },
+        { text: 'approaches', x: 307, y: 643, width: 49, height: 10.91, fontSize: 10.91 },
+      ],
+      undefined,
+      1,
+      612,
+      792,
+      compiled,
+    );
+    expect(matches).toEqual([]);
+  });
+
+  it('suppresses OCR search duplicates already covered by precise native matches', async () => {
+    // Scan-with-hidden-text-layer case: --ocr can find the same word as
+    // the native text layer. Emitting both makes find-then-zoom
+    // ambiguous, so the precise native match wins.
+    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const compiled = compileSearch('Switzerland', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const matches = searchPage(
+      [{ text: 'Switzerland', x: 120, y: 220, width: 70, height: 12, fontSize: 12 }],
+      { text: 'Switzerland', confidence: 0.94, lang: 'eng' },
+      1,
+      612,
+      792,
+      compiled,
+    );
+    expect(matches).toHaveLength(1);
+    expect(matches[0].source).toBe('native');
+    expect(matches[0].bbox).toEqual({ x: 120, y: 220, width: 70, height: 12 });
+  });
+
+  it('keeps OCR-only extra search hits after native duplicate suppression', async () => {
+    // Suppression is counted, not all-or-nothing. If OCR sees another
+    // occurrence that the native layer did not expose, keep it for
+    // recall. Older OCR cache entries without word boxes still fall
+    // back to a page-level bbox.
+    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const compiled = compileSearch('Switzerland', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const matches = searchPage(
+      [{ text: 'Switzerland', x: 120, y: 220, width: 70, height: 12, fontSize: 12 }],
+      { text: 'Switzerland near Geneva. Switzerland near Zurich.', confidence: 0.92, lang: 'eng' },
+      1,
+      612,
+      792,
+      compiled,
+    );
+    expect(matches).toHaveLength(2);
+    expect(matches.map((m) => m.source)).toEqual(['native', 'ocr']);
+    expect(matches[1].bbox).toEqual({ x: 0, y: 0, width: 612, height: 792 });
+  });
+
+  it('uses OCR word boxes for OCR-only search hits when available', async () => {
+    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const compiled = compileSearch('near Geneva', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const matches = searchPage(
+      undefined,
+      {
+        text: 'Switzerland near Geneva.',
+        confidence: 0.92,
+        lang: 'eng',
+        words: [
+          { text: 'Switzerland', confidence: 0.9, x: 10, y: 20, width: 60, height: 12 },
+          { text: 'near', confidence: 0.9, x: 80, y: 20, width: 24, height: 12 },
+          { text: 'Geneva.', confidence: 0.9, x: 112, y: 20, width: 42, height: 12 },
+        ],
+      },
+      1,
+      612,
+      792,
+      compiled,
+    );
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      page: 1,
+      query: 'near Geneva',
+      bbox: { x: 80, y: 20, width: 68, height: 12 },
+      boxes: [
+        { x: 80, y: 20, width: 24, height: 12 },
+        { x: 112, y: 20, width: 36, height: 12 },
+      ],
+      text: 'near Geneva',
+      source: 'ocr',
+    });
+  });
+
+  it('does not insert OCR search spaces between CJK word boxes', async () => {
+    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const compiled = compileSearch('東京大学', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const matches = searchPage(
+      undefined,
+      {
+        text: '東京大学',
+        confidence: 0.92,
+        lang: 'jpn',
+        words: [
+          { text: '東京', confidence: 0.9, x: 10, y: 20, width: 30, height: 12 },
+          { text: '大学', confidence: 0.9, x: 42, y: 20, width: 30, height: 12 },
+        ],
+      },
+      1,
+      612,
+      792,
+      compiled,
+    );
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      page: 1,
+      query: '東京大学',
+      bbox: { x: 10, y: 20, width: 62, height: 12 },
+      boxes: [
+        { x: 10, y: 20, width: 30, height: 12 },
+        { x: 42, y: 20, width: 30, height: 12 },
+      ],
+      text: '東京大学',
+      source: 'ocr',
+    });
+  });
+
+  it('falls back to OCR text when word-level reconstruction misses the query', async () => {
+    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const compiled = compileSearch('HelloWorld', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const matches = searchPage(
+      undefined,
+      {
+        text: 'HelloWorld',
+        confidence: 0.92,
+        lang: 'eng',
+        words: [
+          { text: 'Hello', confidence: 0.9, x: 10, y: 20, width: 30, height: 12 },
+          { text: 'World', confidence: 0.9, x: 45, y: 20, width: 35, height: 12 },
+        ],
+      },
+      1,
+      612,
+      792,
+      compiled,
+    );
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      page: 1,
+      query: 'HelloWorld',
+      bbox: { x: 0, y: 0, width: 612, height: 792 },
+      boxes: [],
+      text: 'HelloWorld',
+      source: 'ocr',
+      context: 'HelloWorld',
+    });
+  });
+
+  it('keeps raw OCR fallback hits when word-level reconstruction only covers some occurrences', async () => {
+    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const compiled = compileSearch('東京大学', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const matches = searchPage(
+      undefined,
+      {
+        text: '東京大学\n東京大学',
+        confidence: 0.92,
+        lang: 'jpn',
+        words: [
+          { text: '東京', confidence: 0.9, x: 10, y: 20, width: 30, height: 12 },
+          { text: '大学', confidence: 0.9, x: 42, y: 20, width: 30, height: 12 },
+          { text: '東京', confidence: 0.9, x: 10, y: 48, width: 30, height: 12 },
+          { text: '大学', confidence: 0.9, x: 10, y: 66, width: 30, height: 12 },
+        ],
+      },
+      1,
+      612,
+      792,
+      compiled,
+    );
+    expect(matches).toHaveLength(2);
+    expect(matches[0]).toMatchObject({
+      page: 1,
+      query: '東京大学',
+      bbox: { x: 10, y: 20, width: 62, height: 12 },
+      boxes: [
+        { x: 10, y: 20, width: 30, height: 12 },
+        { x: 42, y: 20, width: 30, height: 12 },
+      ],
+      text: '東京大学',
+      source: 'ocr',
+    });
+    expect(matches[1]).toMatchObject({
+      page: 1,
+      query: '東京大学',
+      bbox: { x: 0, y: 0, width: 612, height: 792 },
+      boxes: [],
+      text: '東京大学',
+      source: 'ocr',
+      context: '東京大学 東京大学',
+    });
+  });
+
+  it('suppresses OCR duplicates when native and OCR search passes run separately', async () => {
+    // processDocument searches native spans before OCR exists, then
+    // searches OCR text later. Keep the separate-pass path equivalent
+    // to a single searchPage(spans, ocr, ...) call.
+    const { compileSearch, searchPage, suppressDuplicateOcrMatches } = await import('../../src/core/search.js');
+    const compiled = compileSearch('Switzerland', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const nativeMatches = searchPage(
+      [{ text: 'Switzerland', x: 120, y: 220, width: 70, height: 12, fontSize: 12 }],
+      undefined,
+      1,
+      612,
+      792,
+      compiled,
+    );
+    const ocrMatches = searchPage(
+      undefined,
+      { text: 'Switzerland', confidence: 0.94, lang: 'eng' },
+      1,
+      612,
+      792,
+      compiled,
+    );
+    const merged = nativeMatches.concat(suppressDuplicateOcrMatches(nativeMatches, ocrMatches, compiled));
+    expect(merged).toHaveLength(1);
+    expect(merged[0].source).toBe('native');
   });
 
   it('caps matches per page per query at MAX_MATCHES_PER_QUERY_PER_PAGE and surfaces a warning', async () => {

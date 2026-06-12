@@ -1,7 +1,7 @@
 import { existsSync, lstatSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
-import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { RenderRegion } from '../types/index.js';
 import { atomicWrite } from './cache.js';
 import { runParallel } from './parallel.js';
@@ -34,6 +34,17 @@ const LUM_BUCKET_SIZE = 16;
  */
 const CONTENT_LUM_DELTA = LUM_BUCKET_SIZE * 2;
 
+export interface ViewportCrop {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface PageViewportLike {
+  convertToViewportRectangle(rect: [number, number, number, number]): number[];
+}
+
 function isReusableImage(path: string): boolean {
   if (!existsSync(path)) return false;
   // lstat-then-stat would catch a symlink even if the target is a regular
@@ -46,6 +57,31 @@ function isReusableImage(path: string): boolean {
   // A zero-byte cached PNG indicates a previous run that crashed mid-write
   // (pre atomic-rename), so treat it as missing and re-render.
   return statSync(path).size > 0;
+}
+
+export function viewportCropForRegion(
+  page: PDFPageProxy,
+  viewport: PageViewportLike,
+  region: RenderRegion,
+): ViewportCrop {
+  const view = page.view;
+  const viewMinX = Math.min(view[0], view[2]);
+  const viewMaxY = Math.max(view[1], view[3]);
+  const leftPdf = viewMinX + region.x;
+  const rightPdf = leftPdf + region.width;
+  const topPdf = viewMaxY - region.y;
+  const bottomPdf = topPdf - region.height;
+  const rect = viewport.convertToViewportRectangle([leftPdf, topPdf, rightPdf, bottomPdf]);
+  const left = Math.min(rect[0], rect[2]);
+  const top = Math.min(rect[1], rect[3]);
+  const right = Math.max(rect[0], rect[2]);
+  const bottom = Math.max(rect[1], rect[3]);
+  return {
+    x: left,
+    y: top,
+    width: Math.max(0, right - left),
+    height: Math.max(0, bottom - top),
+  };
 }
 
 /**
@@ -117,10 +153,13 @@ export function computeContentRatio(rgba: Uint8ClampedArray): number {
  * content-ratio computed from the pre-encode RGBA pixels — measuring
  * after PNG encode would require decoding back, which is wasteful.
  *
- * When `region` is set, the canvas is sized to `region.width × region.height`
- * (times `scale`) and the pdf.js render call gets a translation transform
- * that shifts the full-page draw so the region's top-left corner lands at
- * canvas (0, 0). pdf.js still walks the full operator list — the
+ * When `region` is set, pdfvision converts its MediaBox top-left bbox
+ * through pdf.js's viewport first. That keeps callers on the same
+ * coordinate system as `imageBoxes` / `layout.blocks`, while crop pixels
+ * still follow the human-visible page rotation. The pdf.js render call
+ * then gets a translation transform that shifts the requested viewport
+ * rectangle so its top-left corner lands at canvas (0, 0). pdf.js still
+ * walks the full operator list — the
  * speedup comes from skipping pixel work outside the canvas, not from
  * skipping draw calls. For region-extraction workloads (agent zooming
  * into a flagged block) that's the right trade.
@@ -139,6 +178,7 @@ export async function renderPageToBuffer(
 ): Promise<{ buffer: Buffer; contentRatio: number }> {
   const page = await doc.getPage(pageNum);
   const viewport = page.getViewport({ scale });
+  const crop = region ? viewportCropForRegion(page, viewport, region) : undefined;
 
   // With a region, the canvas captures only the sub-rectangle; without
   // it, we render the full viewport. `Math.round` matches the rounding
@@ -147,8 +187,8 @@ export async function renderPageToBuffer(
   // sub-pixel regions (e.g. 0.4pt × scale 1 → 0.4px) from collapsing
   // the canvas to a 0-dim allocation that @napi-rs/canvas refuses with
   // an opaque error.
-  const canvasW = region ? Math.max(1, Math.round(region.width * scale)) : viewport.width;
-  const canvasH = region ? Math.max(1, Math.round(region.height * scale)) : viewport.height;
+  const canvasW = crop ? Math.max(1, Math.round(crop.width)) : viewport.width;
+  const canvasH = crop ? Math.max(1, Math.round(crop.height)) : viewport.height;
   const canvas = createCanvas(canvasW, canvasH);
   const context = canvas.getContext('2d');
 
@@ -157,10 +197,10 @@ export async function renderPageToBuffer(
     canvasContext: context,
     viewport,
     // Translation matrix applied *after* the viewport transform — shifts
-    // pixel output so PDF top-down (region.x, region.y) lands at canvas
-    // (0, 0). When `region` is undefined, omit the option so pdf.js takes
-    // the identity path it always has.
-    ...(region ? { transform: [1, 0, 0, 1, -region.x * scale, -region.y * scale] } : {}),
+    // pixel output so the requested crop lands at canvas (0, 0). When
+    // `region` is undefined, omit the option so pdf.js takes the identity
+    // path it always has.
+    ...(crop ? { transform: [1, 0, 0, 1, -crop.x, -crop.y] } : {}),
   }).promise;
 
   // Read the RGBA buffer BEFORE PNG encode — the post-encode round trip

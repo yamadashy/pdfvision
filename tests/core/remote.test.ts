@@ -1,10 +1,10 @@
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { downloadRemote } from '../../src/core/remote.js';
+import { downloadRemote, downloadRemoteData } from '../../src/core/remote.js';
 
 /**
  * One process-wide HTTP server with per-test routing. Tests register a
@@ -54,6 +54,30 @@ describe('downloadRemote', () => {
     expect(readFileSync(path)).toEqual(TINY_PDF);
   });
 
+  it('downloads bytes without creating a remote cache entry', async () => {
+    setHandler((_req, res) => {
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/pdf');
+      res.end(TINY_PDF);
+    });
+
+    const prevCacheDir = process.env.PDFVISION_CACHE_DIR;
+    const cacheRoot = mkdtempSync(join(tmpdir(), 'pdfvision-remote-data-'));
+    process.env.PDFVISION_CACHE_DIR = cacheRoot;
+    try {
+      const data = await downloadRemoteData(`http://127.0.0.1:${port}/doc.pdf`);
+      expect(Buffer.from(data)).toEqual(TINY_PDF);
+      expect(existsSync(join(cacheRoot, 'remote'))).toBe(false);
+    } finally {
+      if (prevCacheDir === undefined) {
+        delete process.env.PDFVISION_CACHE_DIR;
+      } else {
+        process.env.PDFVISION_CACHE_DIR = prevCacheDir;
+      }
+      rmSync(cacheRoot, { recursive: true, force: true });
+    }
+  });
+
   it('hits the cache on the second call (no network) for the same URL', async () => {
     let hits = 0;
     setHandler((_req, res) => {
@@ -67,6 +91,25 @@ describe('downloadRemote', () => {
     const second = await downloadRemote(url);
     expect(second).toBe(first);
     expect(hits).toBe(1);
+  });
+
+  it('re-downloads instead of returning a cached non-PDF body', async () => {
+    let hits = 0;
+    setHandler((_req, res) => {
+      hits++;
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/pdf');
+      res.end(TINY_PDF);
+    });
+
+    const url = `http://127.0.0.1:${port}/stale-html-cache.pdf`;
+    const path = await downloadRemote(url);
+    writeFileSync(path, '<!doctype html><title>stale cache</title>');
+
+    const second = await downloadRemote(url);
+    expect(second).toBe(path);
+    expect(readFileSync(path)).toEqual(TINY_PDF);
+    expect(hits).toBe(2);
   });
 
   it('re-downloads when noCache is true even if the cache is populated', async () => {
@@ -113,6 +156,18 @@ describe('downloadRemote', () => {
       res.end('nope');
     });
     await expect(downloadRemote(`http://127.0.0.1:${port}/missing.pdf`)).rejects.toThrow(/HTTP 404/);
+  });
+
+  it('rejects a successful response that is not actually a PDF', async () => {
+    setHandler((_req, res) => {
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.end('<!doctype html><title>not a pdf</title>');
+    });
+
+    await expect(downloadRemote(`http://127.0.0.1:${port}/looks-like.pdf`)).rejects.toThrow(
+      /Remote URL did not return a PDF .*text\/html/,
+    );
   });
 
   it('refuses to download when Content-Length declares more than the size limit', async () => {

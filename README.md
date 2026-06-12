@@ -27,16 +27,27 @@ Hand an agent a PDF and it usually either can't read it at all, or swallows the 
 
 ### See whether text extraction actually worked
 
-Every page reports `charCount`, `imageCount`, `vectorCount`, `textCoverage`, and `quality.nativeTextStatus`, so an agent can tell at a glance that "this slide is visual, not just text" — and decide to re-run with `--render` or `--ocr` instead of trusting an empty string or a lone page number.
+Every page reports `charCount`, `imageCount`, `vectorCount`, `textCoverage`, and `quality.nativeTextStatus`, so an agent can tell at a glance that "this slide is visual, not just text", "this dense form only extracted a watermark", "this sparse OCR residue is not visible on the rendered page", or "this native text mixes readable words with glyph garbage" — and decide to re-run with `--render` or `--ocr` instead of trusting an empty string or a lone page number.
 
 ### Look at the page, not just the text
 
-`--render` hands PNG paths straight to a vision model and `--ocr` attaches per-page OCR alongside the native text, so an agent can read a page visually when the text layer falls short.
+`--render` hands PNG paths straight to a vision model and `--ocr` attaches per-page OCR text plus word boxes alongside the native text, so an agent can read and locate scanned-page content when the text layer falls short.
 
 ### Preserve layout and visual structure
 
-- **`--layout`** returns blocks with `role: 'heading'`, `repeated: true` for running headers and footers, and multi-column reading order.
+- **`--layout`** returns blocks with `role: 'heading'`, `repeated: true` for running headers and footers (splitting glued footer lines away from nearby body text when possible), multi-column reading order (including narrow repeated gutters and drop caps), `writingMode: 'vertical'` for detected CJK vertical text stacks, and row-major `layout.tables[]` hints for aligned numeric tables.
 - **`--image-boxes`** reports where each raster draw lands.
+- **`--vector-boxes`** reports where painted vector paths land, useful for maps, symbols, chart paths, form boxes, table rules, and slide shapes that are visible but not raster images.
+- **`--visual-regions`** groups important raster/vector/table/form geometry into padded, crop-ready bboxes, attaches nearby captions/form labels when found (including global Plate captions for multi-panel map/figure pages), and can be fed straight into `--render-region`; **`--render-visual-regions`** renders those suggested crops directly.
+- **`--form-fields`** reports interactive PDF widget fields such as text boxes, checkboxes, radio buttons, choices, and signatures with values, bboxes, and nearby visible labels, including stacked prompt lines and fine-grained adjacent prompts when they form field labels.
+- **`--links`** reports clickable PDF link annotations such as citation jumps, table-of-contents destinations, and external URLs with bboxes.
+- **`--annotations`** surfaces non-link PDF annotations such as comments, sticky notes, highlights, underlines, strikeouts, stamps, and other markup with bboxes and comment text.
+- **`--structure`** exposes tagged-PDF structure trees with roles, figure alt text, language hints, bboxes, and marked-content ids when the PDF exposes accessibility structure.
+- **`--page-labels`** emits viewer page labels such as roman front matter (`i`, `ii`) or restarted section numbering that differs from physical page numbers.
+- **`--attachments`** lists document-level embedded file attachments with filename, description, and byte size, without dumping attachment bytes into the agent context. Add `--attachment-output <dir>` to save the embedded files and include paths in `attachments[].path`.
+- **`--outline`** preserves document outline/bookmark sidebar entries, hierarchy, and resolvable destination pages.
+- **`--viewer`** exposes viewer-level document settings such as initial page mode/layout, viewer preferences, open action, permissions, and tagged-PDF MarkInfo.
+- **`--layers`** emits PDF optional content groups shown by viewer layer panels, including layer names, visibility, usage states, radio groups, and panel order for maps, CAD/design files, and variants.
 - **`--geometry`** emits per-text-item `bbox` + `fontSize` so callers can reconstruct visual hierarchy themselves.
 
 Every page always includes `vectorCount` — the number of non-text vector drawing operations such as rules, form boxes, chart paths, and slide shapes.
@@ -45,7 +56,7 @@ The agent picks which signals matter; pdfvision doesn't bake one answer.
 
 ### Spot anomalies a human would notice
 
-With `--layout`, each page carries `pages[].warnings` — overlapping text, body running off the page, collisions with running headers/footers — the "this looks off" cues a text-only extractor silently drops.
+Each page can carry `pages[].warnings` — overlapping text, body running off the page, collisions with running headers/footers, localized glyph noise (including printable mojibake in CJK text), dense vector graphics such as form boxes or chart paths, numeric tables whose row/column relationships may be flattened, OCR/text layers over full-page scans, low-confidence OCR on scan-like pages, or large raster regions whose internal labels will not appear in native text — the "this looks off" cues a text-only extractor silently drops.
 
 ### Keep raw evidence available
 
@@ -103,13 +114,31 @@ Options:
                           Directory for rendered PNGs (requires --render)
       --render-scale <n>  Rasterisation multiplier (default 2; bounds (0, 4]). Requires --render or --ocr.
       --geometry          Emit per-text-item bbox + font size in pages[].spans (json/xml/toon)
-      --layout            Reconstruct lines + blocks (with role / repeated flags) in pages[].layout;
-                          also emit pages[].warnings (text_overlap / near_bottom_edge /
-                          body_near_repeated_chrome / off_page)
-      --image-boxes       Emit per-image bbox in pages[].imageBoxes
+      --layout            Reconstruct lines + blocks + numeric-table hints in pages[].layout;
+                          detects CJK vertical text stacks as writingMode='vertical'
+                          and uses those recovered blocks in Markdown text;
+                          also enables layout warnings (text_overlap / near_bottom_edge /
+                          body_near_repeated_chrome / off_page / tabular_numeric_layout)
+      --image-boxes       Emit per-image bbox in pages[].imageBoxes;
+                          enables large-raster warnings with --layout or --geometry
+      --vector-boxes      Emit painted vector path bboxes in pages[].vectorBoxes
+      --visual-regions    Emit crop-ready figure/chart/table/form regions in pages[].visualRegions
+      --render-visual-regions
+                          Render visual region crops to PNG and attach paths
+      --form-fields       Emit interactive PDF widget fields and nearby labels in pages[].formFields
+      --links             Emit clickable link annotations in pages[].links with bboxes
+      --annotations       Emit non-link PDF annotations in pages[].annotations
+      --structure         Emit tagged-PDF structure trees in pages[].structure
+      --page-labels       Emit viewer page labels in pageLabels and pages[].pageLabel
+      --attachments       Emit embedded file attachment metadata in attachments
+      --attachment-output <dir>
+                          Write embedded attachment files and include attachments[].path
+      --outline           Emit document outline/bookmarks in outline
+      --viewer            Emit viewer settings in viewer
+      --layers            Emit PDF optional content groups in layers
       --ocr               Run tesseract.js OCR; attach pages[].ocr (text/confidence/lang)
       --ocr-lang <lang>   Tesseract lang(s), plus-separated (e.g. eng+jpn). Default: eng
-      --remote <url>      Download an http(s) PDF into the cache, then extract
+      --remote <url>      Download an http(s) PDF into the cache, validate the PDF header, then extract
       --no-cache          Skip the on-disk cache
       --no-normalize      Disable Unicode NFKC normalization (default: on; pre-normalization text
                           is preserved in JSON/XML \`rawText\` only when normalization changed
@@ -135,11 +164,17 @@ pdfvision document.pdf -p 1-3 -f json
 # Render PNGs into ./images for a multimodal LLM
 pdfvision document.pdf -r --render-output ./images
 
-# Layout + image bboxes — agent reconstructs reading order itself,
-# and pages[].warnings flags overlapping text, body running into the
-# bottom edge, body colliding with running headers/footers, etc.
+# Layout + image bboxes — agent reconstructs reading order itself.
+# pages[].warnings flags overlapping text, body running into the
+# bottom edge, body colliding with running headers/footers, localized
+# glyph noise / CJK mojibake, dense vector forms/charts,
+# OCR/text layers over full-page scans, and large raster
+# images whose labels may need vision.
 # Pages also expose vectorCount for form boxes, chart paths, and shapes.
 pdfvision document.pdf --layout --image-boxes -f json
+
+# Suggested visual crops as PNGs, without rendering every full page
+pdfvision document.pdf --render-visual-regions --render-output ./regions -f json
 
 # Per-text-item geometry (bbox + fontSize per glyph run)
 pdfvision document.pdf -f json --geometry
@@ -170,11 +205,15 @@ for (const page of result.pages) {
 
 `processFile()` returns the same string output the CLI prints (`markdown` / `json` / `xml` / `toon`).
 
-Exports: `processDocument`, `processFile`, `parsePageRange`, plus full type definitions for `DocumentResult` / `PageResult` / `PageOverview` / `PageQuality` / `DocumentMetadata` / `ProcessDocumentOptions` / `ProcessOptions` / `OutputFormat` / `TextSpan` / `LayoutBlock` / `LayoutLine` / `PageLayout` / `ImageBox` / `PageOcr` / `PageWarning`.
+Exports: `processDocument`, `processFile`, `parsePageRange`, plus full type definitions for `DocumentResult` / `DocumentMetadata` / `DocumentAttachment` / `DocumentLayerGroup` / `DocumentLayerOrderItem` / `DocumentLayers` / `DocumentLayerUsage` / `DocumentOutlineItem` / `DocumentOutlineTargetType` / `PageResult` / `PageOverview` / `PageQuality` / `PageWarning` / `SearchMatch` / `LayoutBlock` / `LayoutLine` / `LayoutTable` / `LayoutTableRow` / `LayoutTableCell` / `PageLayout` / `ImageBox` / `PageLink` / `PageLinkTarget` / `PageLinkType` / `PageAnnotation` / `PageAnnotationBox` / `PageStructureContent` / `PageStructureItem` / `PageStructureNode` / `VisualRegion` / `VisualRegionAssociatedText` / `VisualRegionAssociatedTextRelation` / `VisualRegionKind` / `VisualRegionSource` / `VisualRegionSourceType` / `FormField` / `FormFieldLabel` / `FormFieldLabelRelation` / `FormFieldType` / `PageOcr` / `OcrWord` / `RenderRegion` / `TextSpan` / `VectorBox` / `OutputFormat` / `ProcessDocumentOptions` / `ProcessOptions`.
 
 ## 💾 Caching
 
 Results land under `<os-tmp>/pdfvision/<sha256-prefix>/` keyed by file content. POSIX `0700` / `0600` permissions, symlink/TOCTOU defences. Override the location with `PDFVISION_CACHE_DIR=/path` or wipe everything with `pdfvision --clear-cache`.
+
+Remote downloads must actually return a PDF header. If a `.pdf` URL returns an HTML challenge, landing page, or other non-PDF body, pdfvision fails before caching it and reports the response content type instead of surfacing a later `Invalid PDF structure` parse error.
+
+When `--remote --no-cache` is set, the downloaded PDF is streamed directly into extraction and is not written to the remote-PDF cache.
 
 ## 🛠️ Requirements
 

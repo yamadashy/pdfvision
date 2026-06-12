@@ -125,6 +125,97 @@ describe('cli', () => {
     expect(parsed.totalPages).toBe(1);
   });
 
+  it('passes --form-fields through to JSON output', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--json', '--form-fields', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    const parsed = JSON.parse(r.stdout.join('\n'));
+    expect(parsed.pages[0].formFields).toEqual([]);
+  });
+
+  it('passes --links through to JSON output', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--json', '--links', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    const parsed = JSON.parse(r.stdout.join('\n'));
+    expect(parsed.pages[0].links).toEqual([]);
+  });
+
+  it('passes --annotations through to JSON output', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--json', '--annotations', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    const parsed = JSON.parse(r.stdout.join('\n'));
+    expect(parsed.pages[0].annotations).toEqual([]);
+  });
+
+  it('passes --structure through to JSON output', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--json', '--structure', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    const parsed = JSON.parse(r.stdout.join('\n'));
+    expect(parsed.pages[0].structure).toBeNull();
+  });
+
+  it('passes --outline through to JSON output', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--json', '--outline', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    const parsed = JSON.parse(r.stdout.join('\n'));
+    expect(parsed.outline).toEqual([]);
+  });
+
+  it('passes --page-labels through to JSON output', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--json', '--page-labels', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    const parsed = JSON.parse(r.stdout.join('\n'));
+    expect(parsed.pageLabels).toEqual([]);
+  });
+
+  it('passes --attachments through to JSON output', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--json', '--attachments', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    const parsed = JSON.parse(r.stdout.join('\n'));
+    expect(parsed.attachments).toEqual([]);
+  });
+
+  it('passes --viewer through to JSON output', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--json', '--viewer', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    const parsed = JSON.parse(r.stdout.join('\n'));
+    expect(parsed.viewer).toBeDefined();
+  });
+
+  it('passes --layers through to JSON output', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--json', '--layers', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    const parsed = JSON.parse(r.stdout.join('\n'));
+    expect(parsed.layers).toEqual({ groups: [] });
+  });
+
+  it('rejects --attachment-output without --attachments', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--attachment-output', '/tmp/whatever']);
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr.join('\n')).toMatch(/--attachment-output requires --attachments/);
+  });
+
+  it('passes --vector-boxes through to JSON output', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--json', '--vector-boxes', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    const parsed = JSON.parse(r.stdout.join('\n'));
+    expect(parsed.pages[0].vectorBoxes).toEqual([]);
+  });
+
+  it('passes --visual-regions through to JSON output', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--json', '--visual-regions', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    const parsed = JSON.parse(r.stdout.join('\n'));
+    expect(parsed.pages[0].visualRegions).toEqual([]);
+  });
+
+  it('accepts --render-visual-regions and implies --visual-regions', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--json', '--render-visual-regions', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    const parsed = JSON.parse(r.stdout.join('\n'));
+    expect(parsed.pages[0].visualRegions).toEqual([]);
+    expect(parsed.pages[0].image).toBeUndefined();
+  });
+
   it('accepts the --xml shortcut as an alias for --format xml', async () => {
     const r = await captureRun([SAMPLE_PDF, '--xml', '--no-cache']);
     expect(r.exitCode).toBeNull();
@@ -179,21 +270,21 @@ describe('cli', () => {
     expect(r.stderr.join('\n')).toMatch(/--strip-repeated only applies to markdown/);
   });
 
-  it('rejects --render-output without --render', async () => {
-    // --render-output only meaningfully writes when --render is requested.
-    // Silent no-op would leave the user's empty directory looking like a
-    // tooling bug.
+  it('rejects --render-output without --render or --render-visual-regions', async () => {
+    // --render-output only meaningfully writes when page or region crops
+    // are requested. Silent no-op would leave the user's empty directory
+    // looking like a tooling bug.
     const r = await captureRun([SAMPLE_PDF, '--render-output', '/tmp/whatever']);
     expect(r.exitCode).toBe(1);
-    expect(r.stderr.join('\n')).toMatch(/--render-output requires --render/);
+    expect(r.stderr.join('\n')).toMatch(/--render-output requires --render or --render-visual-regions/);
   });
 
-  it('rejects --render-scale without --render or --ocr', async () => {
+  it('rejects --render-scale without --render, --render-visual-regions, or --ocr', async () => {
     // Same posture as --render-output: silently ignoring a flag the user
     // explicitly passed would hide misconfiguration.
     const r = await captureRun([SAMPLE_PDF, '--render-scale', '1.5']);
     expect(r.exitCode).toBe(1);
-    expect(r.stderr.join('\n')).toMatch(/--render-scale requires --render or --ocr/);
+    expect(r.stderr.join('\n')).toMatch(/--render-scale requires --render, --render-visual-regions, or --ocr/);
   });
 
   it('rejects --render-scale outside (0, 4]', async () => {
@@ -307,6 +398,9 @@ describe('cli', () => {
     // Spin up a one-off http server that serves the existing sample
     // fixture, point --remote at it, and assert the markdown body
     // matches what we'd get from running locally on the same bytes.
+    const { existsSync, mkdtempSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
     const fixtureBytes = await import('node:fs').then(({ readFileSync }) => readFileSync(SAMPLE_PDF));
     const server = createServer((_req, res) => {
       res.statusCode = 200;
@@ -315,11 +409,22 @@ describe('cli', () => {
     });
     await new Promise<void>((resolveListen) => server.listen(0, '127.0.0.1', resolveListen));
     const port = (server.address() as AddressInfo).port;
+    const prevCacheDir = process.env.PDFVISION_CACHE_DIR;
+    const cacheRoot = mkdtempSync(join(tmpdir(), 'pdfvision-cli-remote-'));
+    process.env.PDFVISION_CACHE_DIR = cacheRoot;
     try {
       const r = await captureRun(['--remote', `http://127.0.0.1:${port}/doc.pdf`, '--no-cache']);
       expect(r.exitCode).toBeNull();
       expect(r.stdout.join('\n')).toContain('Hello pdfvision');
+      expect(r.stdout.join('\n')).toMatch(/^# http:\/\/127\.0\.0\.1:/);
+      expect(existsSync(join(cacheRoot, 'remote'))).toBe(false);
     } finally {
+      if (prevCacheDir === undefined) {
+        delete process.env.PDFVISION_CACHE_DIR;
+      } else {
+        process.env.PDFVISION_CACHE_DIR = prevCacheDir;
+      }
+      rmSync(cacheRoot, { recursive: true, force: true });
       await new Promise<void>((resolveClose, reject) => server.close((err) => (err ? reject(err) : resolveClose())));
     }
   });

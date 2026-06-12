@@ -1,12 +1,155 @@
-import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, mkdtempSync, readFileSync, rmSync, unlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { basename, dirname, resolve } from 'node:path';
+import PDFDocument from 'pdfkit';
 import { describe, expect, it } from 'vitest';
 import { processDocument, processFile } from '../../src/core/processor.js';
+import { buildPageStructure } from '../../src/core/structure.js';
 
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
 const SAMPLE_JA_PDF = resolve(__dirname, '../fixtures/sample-ja.pdf');
 const SAMPLE_WITH_IMAGE_PDF = resolve(__dirname, '../fixtures/sample-with-image.pdf');
 const SAMPLE_TILED_PDF = resolve(__dirname, '../fixtures/sample-tiled.pdf');
+
+async function buildPdfWithLink(): Promise<Uint8Array> {
+  const chunks: Buffer[] = [];
+  const doc = new PDFDocument({ size: [612, 792], margin: 0 });
+  doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+  const done = new Promise<void>((resolveDone) => doc.on('end', resolveDone));
+
+  doc.text('Example link', 100, 72);
+  doc.link(100, 72, 120, 20, 'https://example.com/path?q=1');
+  doc.addPage({ size: [612, 792], margin: 0 });
+  doc.text('Plain page', 100, 72);
+  doc.end();
+
+  await done;
+  return new Uint8Array(Buffer.concat(chunks));
+}
+
+async function buildPdfWithOutline(): Promise<Uint8Array> {
+  const chunks: Buffer[] = [];
+  const doc = new PDFDocument({ size: [612, 792], margin: 0 });
+  doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+  const done = new Promise<void>((resolveDone) => doc.on('end', resolveDone));
+
+  doc.text('Intro', 100, 72);
+  const intro = doc.outline.addItem('Intro');
+  intro.addItem('Intro child');
+  doc.addPage({ size: [612, 792], margin: 0 });
+  doc.text('Details', 100, 72);
+  doc.outline.addItem('Details');
+  doc.end();
+
+  await done;
+  return new Uint8Array(Buffer.concat(chunks));
+}
+
+async function buildRotatedPdf(): Promise<Uint8Array> {
+  const chunks: Buffer[] = [];
+  const doc = new PDFDocument({ size: [596, 842], margin: 0 });
+  doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+  const done = new Promise<void>((resolveDone) => doc.on('end', resolveDone));
+
+  (doc.page.dictionary.data as Record<string, unknown>).Rotate = 270;
+  doc.rect(0, 0, 596, 842).stroke();
+  doc.fontSize(28).text('ROTATED PAGE', 72, 72);
+  doc.end();
+
+  await done;
+  return new Uint8Array(Buffer.concat(chunks));
+}
+
+async function buildPdfWithAnnotations(): Promise<Uint8Array> {
+  const chunks: Buffer[] = [];
+  const doc = new PDFDocument({ size: [612, 792], margin: 0 });
+  doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+  const done = new Promise<void>((resolveDone) => doc.on('end', resolveDone));
+
+  doc.text('Annotated text', 100, 72);
+  doc.note(100, 72, 22, 22, 'Ｎｏｔｅ text', { color: [255, 255, 0] as never });
+  doc.highlight(100, 120, 80, 12, { color: [255, 0, 0] as never });
+  doc.link(100, 160, 80, 12, 'https://example.com');
+  doc.end();
+
+  await done;
+  return new Uint8Array(Buffer.concat(chunks));
+}
+
+function buildRawPdf(objects: string[]): Uint8Array {
+  let body = '%PDF-1.7\n';
+  const offsets: number[] = [0];
+  for (const [index, object] of objects.entries()) {
+    offsets[index + 1] = Buffer.byteLength(body, 'binary');
+    body += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  }
+
+  const xrefOffset = Buffer.byteLength(body, 'binary');
+  body += `xref\n0 ${objects.length + 1}\n`;
+  body += '0000000000 65535 f \n';
+  for (let i = 1; i <= objects.length; i++) {
+    body += `${String(offsets[i]).padStart(10, '0')} 00000 n \n`;
+  }
+  body += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
+
+  return new Uint8Array(Buffer.from(body, 'binary'));
+}
+
+function buildPdfWithPageLabels(): Uint8Array {
+  return buildRawPdf([
+    '<< /Type /Catalog /Pages 2 0 R /PageLabels << /Nums [ 0 << /S /r >> 2 << /S /D /St 1 >> ] >> >>',
+    '<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R] /Count 3 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> >>',
+  ]);
+}
+
+function buildPdfWithAttachment(): Uint8Array {
+  const content = 'hello attachment';
+  const size = Buffer.byteLength(content, 'binary');
+  return buildRawPdf([
+    '<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles << /Names [(hello.txt) 4 0 R] >> >> >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> >>',
+    '<< /Type /Filespec /F (hello.txt) /UF (hello.txt) /Desc (Supplement file) /EF << /F 5 0 R /UF 5 0 R >> >>',
+    `<< /Type /EmbeddedFile /Subtype /text#2Fplain /Length ${size} /Params << /Size ${size} >> >>\nstream\n${content}\nendstream`,
+  ]);
+}
+
+function buildPdfWithViewerState(): Uint8Array {
+  return buildRawPdf([
+    '<< /Type /Catalog /Pages 2 0 R /PageMode /UseOutlines /PageLayout /TwoColumnLeft /ViewerPreferences << /DisplayDocTitle true /Direction /R2L >> /OpenAction [3 0 R /FitH 700] /MarkInfo << /Marked true /UserProperties false /Suspects false >> >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> >>',
+  ]);
+}
+
+function buildPdfWithLayers(): Uint8Array {
+  return buildRawPdf([
+    '<< /Type /Catalog /Pages 2 0 R /PageMode /UseOC /OCProperties << /OCGs [4 0 R 5 0 R] /D << /Name (Layer config) /Creator (pdfvision test) /BaseState /ON /OFF [5 0 R] /Order [4 0 R [(Nested group) 5 0 R]] /RBGroups [[4 0 R 5 0 R]] >> >> >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> >>',
+    '<< /Type /OCG /Name (Visible layer) /Intent [/View] /Usage << /View << /ViewState /ON >> /Print << /PrintState /ON >> >> >>',
+    '<< /Type /OCG /Name (Hidden layer) /Intent [/View /Design] /Usage << /View << /ViewState /OFF >> /Print << /PrintState /OFF >> >> >>',
+  ]);
+}
+
+function buildPdfWithStructure(): Uint8Array {
+  const stream = 'BT /F1 12 Tf 72 720 Td /P <</MCID 0>> BDC (Hello tagged) Tj EMC ET';
+  const length = Buffer.byteLength(stream, 'binary');
+  return buildRawPdf([
+    '<< /Type /Catalog /Pages 2 0 R /MarkInfo << /Marked true >> /StructTreeRoot 6 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /StructParents 0 /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>',
+    `<< /Length ${length} >>\nstream\n${stream}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    '<< /Type /StructTreeRoot /K [7 0 R] /ParentTree 8 0 R /ParentTreeNextKey 1 >>',
+    '<< /Type /StructElem /S /Document /P 6 0 R /K [9 0 R] /Lang (en-US) >>',
+    '<< /Nums [0 [9 0 R]] >>',
+    '<< /Type /StructElem /S /P /P 7 0 R /Alt (Paragraph alt) /Lang (en-US) /K << /Type /MCR /Pg 3 0 R /MCID 0 >> >>',
+  ]);
+}
 
 describe('processDocument', () => {
   it('returns a structured DocumentResult, no JSON parsing required', async () => {
@@ -22,6 +165,16 @@ describe('processDocument', () => {
       creator: null,
     });
     expect(result.pages).toHaveLength(1);
+    expect(result.pages[0].text).toContain('Hello pdfvision');
+  });
+
+  it('can parse in-memory PDF bytes while preserving the caller-provided file label', async () => {
+    const result = await processDocument('memory://sample.pdf', {
+      sourceData: readFileSync(SAMPLE_PDF),
+      noCache: true,
+    });
+
+    expect(result.file).toBe('memory://sample.pdf');
     expect(result.pages[0].text).toContain('Hello pdfvision');
   });
 
@@ -67,12 +220,402 @@ describe('processDocument', () => {
     expect(first.width).toBe(result.pages[0].width);
   });
 
+  it('extracts real viewer page labels and mirrors them on selected pages', async () => {
+    const result = await processDocument('memory://page-labels.pdf', {
+      sourceData: buildPdfWithPageLabels(),
+      noCache: true,
+      pageLabels: true,
+    });
+
+    expect(result.pageLabels).toEqual(['i', 'ii', '1']);
+    expect(result.pages.map((page) => page.pageLabel)).toEqual(['i', 'ii', '1']);
+    expect(result.overview?.map((page) => page.pageLabel)).toEqual(['i', 'ii', '1']);
+  });
+
+  it('uses physical page selection while preserving viewer labels from the full document', async () => {
+    const result = await processDocument('memory://page-labels-selected.pdf', {
+      sourceData: buildPdfWithPageLabels(),
+      pages: '2',
+      noCache: true,
+      pageLabels: true,
+    });
+
+    expect(result.pageLabels).toEqual(['i', 'ii', '1']);
+    expect(result.pages).toHaveLength(1);
+    expect(result.pages[0].page).toBe(2);
+    expect(result.pages[0].pageLabel).toBe('ii');
+    expect(result.overview).toBeUndefined();
+  });
+
+  it('keeps cache entries with vs without page labels separate', async () => {
+    const sourceData = buildPdfWithPageLabels();
+    const noLabels = await processDocument('memory://page-labels-cache.pdf', {
+      sourceData,
+      noCache: false,
+    });
+    const withLabels = await processDocument('memory://page-labels-cache.pdf', {
+      sourceData,
+      noCache: false,
+      pageLabels: true,
+    });
+
+    expect(noLabels.pageLabels).toBeUndefined();
+    expect(noLabels.pages[0].pageLabel).toBeUndefined();
+    expect(withLabels.pageLabels).toEqual(['i', 'ii', '1']);
+    expect(withLabels.pages[0].pageLabel).toBe('i');
+  });
+
+  it('emits an empty pageLabels array when page-label extraction ran but found none', async () => {
+    const result = await processDocument(SAMPLE_PDF, { noCache: true, pageLabels: true });
+
+    expect(result.pageLabels).toEqual([]);
+    expect(result.pages[0].pageLabel).toBeUndefined();
+  });
+
+  it('extracts viewer-level document settings and resolves the open action page', async () => {
+    const result = await processDocument('memory://viewer.pdf', {
+      sourceData: buildPdfWithViewerState(),
+      noCache: true,
+      viewer: true,
+    });
+
+    expect(result.viewer).toMatchObject({
+      pageLayout: 'TwoColumnLeft',
+      pageMode: 'UseOutlines',
+      viewerPreferences: {
+        DisplayDocTitle: true,
+        Direction: 'R2L',
+      },
+      openAction: {
+        type: 'destination',
+        page: 1,
+      },
+      markInfo: {
+        marked: true,
+        userProperties: false,
+        suspects: false,
+      },
+    });
+    expect(result.viewer?.openAction?.target).toContain('FitH');
+  });
+
+  it('emits an empty viewer object when viewer extraction ran but found no explicit settings', async () => {
+    const result = await processDocument(SAMPLE_PDF, { noCache: true, viewer: true });
+
+    expect(result.viewer).toEqual({});
+  });
+
+  it('extracts PDF optional content groups as viewer layers', async () => {
+    const result = await processDocument('memory://layers.pdf', {
+      sourceData: buildPdfWithLayers(),
+      noCache: true,
+      layers: true,
+    });
+
+    expect(result.layers).toMatchObject({
+      name: 'Layer config',
+      creator: 'pdfvision test',
+      order: ['4R', { name: 'Nested group', order: ['5R'] }],
+      groups: [
+        {
+          id: '4R',
+          name: 'Visible layer',
+          visible: true,
+          intent: ['View'],
+          usage: { viewState: 'ON', printState: 'ON' },
+          rbGroups: [['4R', '5R']],
+        },
+        {
+          id: '5R',
+          name: 'Hidden layer',
+          visible: false,
+          intent: ['View', 'Design'],
+          usage: { viewState: 'OFF', printState: 'OFF' },
+          rbGroups: [['4R', '5R']],
+        },
+      ],
+    });
+  });
+
+  it('emits an empty layers group list when layer extraction ran but found none', async () => {
+    const result = await processDocument(SAMPLE_PDF, { noCache: true, layers: true });
+
+    expect(result.layers).toEqual({ groups: [] });
+  });
+
+  it('keeps cache entries with vs without layers separate', async () => {
+    const cacheRoot = mkdtempSync(resolve(tmpdir(), 'pdfvision-layers-cache-'));
+    const originalCache = process.env.PDFVISION_CACHE_DIR;
+    process.env.PDFVISION_CACHE_DIR = cacheRoot;
+    try {
+      const sourceData = buildPdfWithLayers();
+      const withoutLayers = await processDocument('memory://layers-cache.pdf', {
+        sourceData,
+      });
+      const withLayers = await processDocument('memory://layers-cache.pdf', {
+        sourceData,
+        layers: true,
+      });
+
+      expect(withoutLayers.layers).toBeUndefined();
+      expect(withLayers.layers?.groups).toHaveLength(2);
+    } finally {
+      if (originalCache === undefined) delete process.env.PDFVISION_CACHE_DIR;
+      else process.env.PDFVISION_CACHE_DIR = originalCache;
+      rmSync(cacheRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('extracts tagged PDF structure trees with alternate text', async () => {
+    const result = await processDocument('memory://structure.pdf', {
+      sourceData: buildPdfWithStructure(),
+      noCache: true,
+      structure: true,
+    });
+
+    expect(result.pages[0].text).toContain('Hello tagged');
+    expect(result.pages[0].structure).toEqual({
+      role: 'Root',
+      children: [
+        {
+          role: 'Document',
+          lang: 'en-US',
+          children: [
+            {
+              role: 'P',
+              alt: 'Paragraph alt',
+              lang: 'en-US',
+              children: [{ type: 'content', id: 'p3R_mc0' }],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('preserves Formula MathML while normalizing tagged structure trees', () => {
+    const structure = buildPageStructure({
+      role: 'Root',
+      children: [
+        {
+          role: 'Formula',
+          alt: 'x equals y',
+          mathML: '<math><mi>x</mi><mo>=</mo><mi>y</mi></math>',
+          children: [{ type: 'annotation', id: 'annot_p3R_1' }],
+        },
+      ],
+    });
+
+    expect(structure).toEqual({
+      role: 'Root',
+      children: [
+        {
+          role: 'Formula',
+          alt: 'x equals y',
+          mathML: '<math><mi>x</mi><mo>=</mo><mi>y</mi></math>',
+          children: [{ type: 'annotation', id: 'annot_p3R_1' }],
+        },
+      ],
+    });
+  });
+
+  it('emits null structure when structure extraction ran but found no tree', async () => {
+    const result = await processDocument(SAMPLE_PDF, { noCache: true, structure: true });
+
+    expect(result.pages[0].structure).toBeNull();
+  });
+
+  it('keeps cache entries with vs without structure separate', async () => {
+    const cacheRoot = mkdtempSync(resolve(tmpdir(), 'pdfvision-structure-cache-'));
+    const originalCache = process.env.PDFVISION_CACHE_DIR;
+    process.env.PDFVISION_CACHE_DIR = cacheRoot;
+    try {
+      const sourceData = buildPdfWithStructure();
+      const withoutStructure = await processDocument('memory://structure-cache.pdf', {
+        sourceData,
+      });
+      const withStructure = await processDocument('memory://structure-cache.pdf', {
+        sourceData,
+        structure: true,
+      });
+
+      expect(withoutStructure.pages[0].structure).toBeUndefined();
+      expect(withStructure.pages[0].structure?.role).toBe('Root');
+    } finally {
+      if (originalCache === undefined) delete process.env.PDFVISION_CACHE_DIR;
+      else process.env.PDFVISION_CACHE_DIR = originalCache;
+      rmSync(cacheRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('extracts embedded attachment metadata without embedding attachment bytes', async () => {
+    const result = await processDocument('memory://attachment.pdf', {
+      sourceData: buildPdfWithAttachment(),
+      noCache: true,
+      attachments: true,
+    });
+
+    expect(result.attachments).toEqual([{ name: 'hello.txt', description: 'Supplement file', size: 16 }]);
+    expect(JSON.stringify(result.attachments)).not.toContain('hello attachment');
+  });
+
+  it('writes embedded attachments into a per-PDF output subdirectory', async () => {
+    const baseDir = mkdtempSync(resolve(tmpdir(), 'pdfvision-attachment-output-'));
+    try {
+      const result = await processDocument('memory://attachment-output.pdf', {
+        sourceData: buildPdfWithAttachment(),
+        noCache: true,
+        attachments: true,
+        attachmentOutput: baseDir,
+      });
+
+      const attachment = result.attachments?.[0];
+      expect(attachment?.path).toBeDefined();
+      expect(dirname(attachment?.path as string)).not.toBe(baseDir);
+      expect(dirname(dirname(attachment?.path as string))).toBe(baseDir);
+      expect(basename(attachment?.path as string)).toBe('hello.txt');
+      expect(readFileSync(attachment?.path as string, 'utf8')).toBe('hello attachment');
+    } finally {
+      rmSync(baseDir, { recursive: true, force: true });
+    }
+  });
+
+  it('drops cached attachment output when a saved attachment file has gone missing', async () => {
+    const cacheRoot = mkdtempSync(resolve(tmpdir(), 'pdfvision-attachment-cache-'));
+    const baseDir = mkdtempSync(resolve(tmpdir(), 'pdfvision-attachment-cache-out-'));
+    const originalCache = process.env.PDFVISION_CACHE_DIR;
+    process.env.PDFVISION_CACHE_DIR = cacheRoot;
+    try {
+      const sourceData = buildPdfWithAttachment();
+      const first = await processDocument('memory://attachment-cache.pdf', {
+        sourceData,
+        attachments: true,
+        attachmentOutput: baseDir,
+      });
+      const path = first.attachments?.[0].path as string;
+      expect(existsSync(path)).toBe(true);
+      unlinkSync(path);
+
+      const recovered = await processDocument('memory://attachment-cache.pdf', {
+        sourceData,
+        attachments: true,
+        attachmentOutput: baseDir,
+      });
+      expect(recovered.attachments?.[0].path).toBe(path);
+      expect(readFileSync(path, 'utf8')).toBe('hello attachment');
+    } finally {
+      if (originalCache === undefined) delete process.env.PDFVISION_CACHE_DIR;
+      else process.env.PDFVISION_CACHE_DIR = originalCache;
+      rmSync(cacheRoot, { recursive: true, force: true });
+      rmSync(baseDir, { recursive: true, force: true });
+    }
+  });
+
+  it('emits an empty attachments array when attachment extraction ran but found none', async () => {
+    const result = await processDocument(SAMPLE_PDF, { noCache: true, attachments: true });
+
+    expect(result.attachments).toEqual([]);
+  });
+
   it('counts embedded raster images in imageCount', async () => {
     // The fixture embeds the same tiny PNG twice. Without this assertion
     // the density signal could regress to "always 0" and the silent-failure
     // detection that motivates F1 would be useless on real-world PDFs.
     const result = await processDocument(SAMPLE_WITH_IMAGE_PDF, { noCache: true });
     expect(result.pages[0].imageCount).toBeGreaterThanOrEqual(2);
+  });
+
+  it('emits an empty formFields array when form-field extraction runs on a non-form PDF', async () => {
+    const result = await processDocument(SAMPLE_PDF, { noCache: true, formFields: true });
+    expect(result.pages[0].formFields).toEqual([]);
+    expect(result.pages[0].layout).toBeUndefined();
+    expect(result.pages[0].spans).toBeUndefined();
+  });
+
+  it('emits an empty links array when link extraction runs on a PDF with no link annotations', async () => {
+    const result = await processDocument(SAMPLE_PDF, { noCache: true, links: true });
+    expect(result.pages[0].links).toEqual([]);
+  });
+
+  it('extracts link annotations from a real pdfjs page with top-left bboxes', async () => {
+    const result = await processDocument('memory://links.pdf', {
+      sourceData: await buildPdfWithLink(),
+      noCache: true,
+      links: true,
+    });
+
+    expect(result.pages[0].links).toEqual([
+      {
+        type: 'url',
+        target: 'https://example.com/path?q=1',
+        x: 100,
+        y: 72,
+        width: 120,
+        height: 20,
+      },
+    ]);
+    expect(result.pages[1].links).toEqual([]);
+    expect(result.overview?.map((o) => o.linkCount)).toEqual([1, 0]);
+  });
+
+  it('extracts a real document outline with nested items and resolved pages', async () => {
+    const result = await processDocument('memory://outline.pdf', {
+      sourceData: await buildPdfWithOutline(),
+      noCache: true,
+      outline: true,
+    });
+
+    expect(result.outline).toEqual([
+      expect.objectContaining({
+        title: 'Intro',
+        type: 'destination',
+        page: 1,
+        items: [expect.objectContaining({ title: 'Intro child', type: 'destination', page: 1 })],
+      }),
+      expect.objectContaining({ title: 'Details', type: 'destination', page: 2 }),
+    ]);
+  });
+
+  it('extracts real non-link annotations with top-left bboxes and excludes links', async () => {
+    const result = await processDocument('memory://annotations.pdf', {
+      sourceData: await buildPdfWithAnnotations(),
+      noCache: true,
+      annotations: true,
+      links: true,
+    });
+
+    expect(result.pages[0].annotations).toEqual([
+      expect.objectContaining({
+        subtype: 'Text',
+        contents: 'Note text',
+        color: [255, 255, 0],
+        x: 100,
+        y: 72,
+        width: 22,
+        height: 22,
+      }),
+      expect.objectContaining({
+        subtype: 'Highlight',
+        color: [255, 0, 0],
+        x: 100,
+        y: 120,
+        width: 80,
+        height: 12,
+        quadBoxes: [expect.objectContaining({ x: 100, y: 120, width: 80, height: 12 })],
+      }),
+    ]);
+    expect(result.pages[0].links).toHaveLength(1);
+  });
+
+  it('mirrors linkCount on the overview when link extraction runs on a multi-page PDF', async () => {
+    const result = await processDocument(SAMPLE_JA_PDF, { noCache: true, links: true });
+    expect(result.overview).toBeDefined();
+    expect(result.overview?.every((o) => o.linkCount !== undefined)).toBe(true);
+  });
+
+  it('emits an empty vectorBoxes array when vector-box extraction runs on a text-only PDF', async () => {
+    const result = await processDocument(SAMPLE_PDF, { noCache: true, vectorBoxes: true });
+    expect(result.pages[0].vectorBoxes).toEqual([]);
   });
 
   it('flags sparse native text on visually populated pages', async () => {
@@ -200,12 +743,10 @@ describe('processDocument', () => {
   });
 
   it('actually crops to the requested (x, y) — not just (0, 0) with the right dimensions', async () => {
-    // Regression guard against a misreading of pdf.js's `transform` option
-    // (gemini PR #53 review claimed translation should be in PDF points
-    // with positive y; the actual semantics, per pdfjs-dist source, are
-    // pixel-space with the y flip already baked into viewport.transform,
-    // so `[1,0,0,1,-x*scale,-y*scale]` is the correct shift to put a
-    // top-down PDF region at canvas (0, 0)).
+    // Regression guard against a misreading of pdf.js's `transform` option.
+    // The transform is applied in viewport pixel space, so pdfvision first
+    // maps the requested top-down MediaBox region through the page viewport,
+    // then shifts that viewport crop to canvas (0, 0).
     //
     // Two same-sized regions at different (x, y) on the same page must
     // produce different PNG bytes. If the transform were wrong and both
@@ -232,7 +773,7 @@ describe('processDocument', () => {
     expect(hashUL).not.toBe(hashLR);
   });
 
-  it('composes renderRegion with renderScale (region size × scale = pixels)', async () => {
+  it('composes renderRegion with renderScale on non-rotated pages', async () => {
     // 200×100pt × scale 3 = 600×300px. Guards the multiplicative
     // contract documented on ProcessDocumentOptions.renderRegion.
     const { loadImage } = await import('@napi-rs/canvas');
@@ -340,26 +881,24 @@ describe('processDocument', () => {
     ).rejects.toThrow(/renderRegion requires render: true or ocr: true/);
   });
 
-  it('rejects renderRegion on rotated pages with a clear V1 limitation message', async () => {
-    // The fixture isn't rotated, so we synthesise the check by patching
-    // the probe-page rotation. Skipped instead of failing fast if no
-    // rotated fixture exists yet. The behaviour we guard: the error
-    // message must say "rotated" so the agent knows it's a V1 gap and
-    // not a coordinate-system bug they need to debug.
-    const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
-    const doc = await getDocument(SAMPLE_PDF).promise;
-    const page = await doc.getPage(1);
-    if (page.rotate !== 0) {
-      await expect(
-        processDocument(SAMPLE_PDF, {
-          render: true,
-          renderRegion: { x: 0, y: 0, width: 50, height: 50 },
-          noCache: true,
-        }),
-      ).rejects.toThrow(/rotated/);
-    }
-    // No rotated fixture available — the bounds-check + reject-on-
-    // rotate path is exercised on real data only when one's added.
+  it('renders renderRegion on rotated pages in the human-visible orientation', async () => {
+    const { loadImage } = await import('@napi-rs/canvas');
+    const result = await processDocument('memory://rotated-render-region.pdf', {
+      sourceData: await buildRotatedPdf(),
+      render: true,
+      renderRegion: { x: 0, y: 0, width: 596, height: 842 },
+      renderScale: 1,
+      noCache: true,
+    });
+
+    expect(result.pages[0]).toMatchObject({
+      width: 596,
+      height: 842,
+      renderRegion: { x: 0, y: 0, width: 596, height: 842 },
+    });
+    const img = await loadImage(result.pages[0].image as string);
+    expect(img.width).toBe(842);
+    expect(img.height).toBe(596);
   });
 
   it('keeps a sub-pixel region from collapsing the canvas to a zero dimension', async () => {

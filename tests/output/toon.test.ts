@@ -72,6 +72,15 @@ describe('formatToon', () => {
         }),
         makePage({ page: 2, imageCount: 3, quality: { nativeTextStatus: 'empty_but_visual_content' } }),
       ],
+      outline: [
+        {
+          title: 'Intro',
+          type: 'destination',
+          target: 'section.1',
+          page: 1,
+          items: [{ title: 'Website', type: 'url', target: 'https://example.com' }],
+        },
+      ],
     });
     const decoded = decode(formatToon(result));
     expect(decoded).toEqual(result);
@@ -134,6 +143,128 @@ describe('formatToon', () => {
       }),
     );
     expect(out).toMatch(/overview\[2\]/);
+  });
+
+  it('round-trips document and page labels through the TOON data model', () => {
+    const result = makeResult({
+      pageLabels: ['i', '1'],
+      overview: [
+        {
+          page: 1,
+          pageLabel: 'i',
+          charCount: 11,
+          imageCount: 0,
+          vectorCount: 0,
+          textCoverage: 0.01,
+          nonPrintableRatio: 0,
+          nonPrintableCount: 0,
+          quality: { nativeTextStatus: 'ok' },
+          width: 612,
+          height: 792,
+        },
+      ],
+      pages: [makePage({ page: 1, pageLabel: 'i', text: 'hello world', charCount: 11, textCoverage: 0.01 })],
+    });
+
+    const decoded = decode(formatToon(result));
+    expect(decoded).toEqual(result);
+  });
+
+  it('round-trips attachment metadata through the TOON data model', () => {
+    const result = makeResult({
+      attachments: [{ name: 'supplement.txt', description: 'Extra file', size: 123 }],
+    });
+
+    const decoded = decode(formatToon(result));
+    expect(decoded).toEqual(result);
+  });
+
+  it('round-trips viewer settings through the TOON data model', () => {
+    const result = makeResult({
+      viewer: {
+        pageMode: 'UseOutlines',
+        openAction: { type: 'destination', page: 1, target: '[{"name":"Fit"}]' },
+        permissions: { flags: [4, 16], allowed: ['print', 'copy'] },
+      },
+    });
+
+    const decoded = decode(formatToon(result));
+    expect(decoded).toEqual(result);
+  });
+
+  it('round-trips PDF layers through the TOON data model', () => {
+    const result = makeResult({
+      layers: {
+        name: 'Layer config',
+        order: ['4R', { name: 'Nested group', order: ['5R'] }],
+        groups: [
+          {
+            id: '4R',
+            name: 'Visible layer',
+            visible: true,
+            intent: ['View'],
+            usage: { viewState: 'ON', printState: 'ON' },
+          },
+        ],
+      },
+    });
+
+    const decoded = decode(formatToon(result));
+    expect(decoded).toEqual(result);
+  });
+
+  it('round-trips tagged PDF structure through the TOON data model', () => {
+    const result = makeResult({
+      pages: [
+        makePage({
+          page: 1,
+          text: 'hello',
+          charCount: 5,
+          structure: {
+            role: 'Root',
+            children: [
+              {
+                role: 'Figure',
+                alt: 'A compass on the cover',
+                children: [{ type: 'content', id: 'p1_mc0' }],
+              },
+            ],
+          },
+        }),
+      ],
+    });
+
+    const decoded = decode(formatToon(result));
+    expect(decoded).toEqual(result);
+  });
+
+  it('round-trips visual regions through the TOON data model', () => {
+    const result = makeResult({
+      pages: [
+        makePage({
+          page: 1,
+          text: 'figure',
+          charCount: 6,
+          visualRegions: [
+            {
+              id: 'p1-vr0',
+              kind: 'raster',
+              x: 36,
+              y: 72,
+              width: 240,
+              height: 180,
+              areaRatio: 0.089,
+              sourceCount: 1,
+              sources: [{ type: 'imageBox', index: 0 }],
+              reason: 'raster image covers 8.9% of the page',
+            },
+          ],
+        }),
+      ],
+    });
+
+    const decoded = decode(formatToon(result));
+    expect(decoded).toEqual(result);
   });
 
   it('omits optional fields that are undefined instead of emitting them as null', () => {

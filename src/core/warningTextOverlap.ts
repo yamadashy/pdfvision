@@ -17,6 +17,12 @@ const INLINE_FRAGMENT_MAX_WIDTH_PT = 40;
 const INLINE_FRAGMENT_MAX_HEIGHT_PT = 12;
 const MATH_ANNOTATION_MAX_HEIGHT_RATIO = 0.85;
 const MATH_ANNOTATION_MAX_CHARS = 80;
+const DISPLAY_NUMBER_MIN_HEIGHT_PT = 24;
+const DISPLAY_NUMBER_LABEL_MAX_HEIGHT_PT = 18;
+const DISPLAY_NUMBER_LABEL_MAX_CHARS = 40;
+const DISPLAY_NUMBER_LABEL_ZONE_RATIO = 0.35;
+const DISPLAY_NUMBER_TEXT = /^[\d０-９\s,，.．:：%％+\-−–—/／()（）※年月日現末在]+$/u;
+const DISPLAY_NUMBER_MIN_DIGITS = 2;
 
 export function detectTextOverlap(blocks: LayoutBlock[], out: PageWarning[]): void {
   // Only non-repeated pairs — repeated chrome (footers, page numbers)
@@ -32,6 +38,7 @@ export function detectTextOverlap(blocks: LayoutBlock[], out: PageWarning[]): vo
       if (!boxesIntersect(a, b)) continue;
       if (isLooseLineContinuationPair(a, b)) continue;
       if (isInlineFragmentPair(a, b)) continue;
+      if (isDisplayNumberLabelPair(a, b)) continue;
       // Compute intersection area to give the message a concrete
       // anchor — a 0.1 pt² nick at a column boundary reads very
       // differently from a half-page overlap.
@@ -53,6 +60,42 @@ export function detectTextOverlap(blocks: LayoutBlock[], out: PageWarning[]): vo
 
 function isInlineFragmentPair(a: LayoutBlock, b: LayoutBlock): boolean {
   return isInlineFragment(a, b) || isInlineFragment(b, a) || isMathAnnotation(a, b) || isMathAnnotation(b, a);
+}
+
+function isDisplayNumberLabelPair(a: LayoutBlock, b: LayoutBlock): boolean {
+  return isLabelNearDisplayNumber(a, b) || isLabelNearDisplayNumber(b, a);
+}
+
+function isLabelNearDisplayNumber(label: LayoutBlock, value: LayoutBlock): boolean {
+  if (!isCompactInfographicLabel(label)) return false;
+  if (!isDisplayNumberBlock(value)) return false;
+  if (!horizontalOverlap(label, value)) return false;
+  const labelCenterY = label.y + label.height / 2;
+  const numberLine = value.lines[0];
+  if (!numberLine) return false;
+  const topZone = Math.max(value.height * DISPLAY_NUMBER_LABEL_ZONE_RATIO, numberLine.fontSize * 0.8);
+  return labelCenterY >= value.y - 2 && labelCenterY <= value.y + topZone;
+}
+
+function isCompactInfographicLabel(block: LayoutBlock): boolean {
+  const text = block.text.replace(/\s+/g, '');
+  return (
+    text.length > 0 &&
+    text.length <= DISPLAY_NUMBER_LABEL_MAX_CHARS &&
+    block.lines.length === 1 &&
+    block.height <= DISPLAY_NUMBER_LABEL_MAX_HEIGHT_PT
+  );
+}
+
+function isDisplayNumberBlock(block: LayoutBlock): boolean {
+  const text = block.text.trim();
+  const digitCount = text.match(/[\d０-９]/gu)?.length ?? 0;
+  return (
+    block.lines.length === 1 &&
+    block.height >= DISPLAY_NUMBER_MIN_HEIGHT_PT &&
+    digitCount >= DISPLAY_NUMBER_MIN_DIGITS &&
+    DISPLAY_NUMBER_TEXT.test(text)
+  );
 }
 
 function isLooseLineContinuationPair(a: LayoutBlock, b: LayoutBlock): boolean {

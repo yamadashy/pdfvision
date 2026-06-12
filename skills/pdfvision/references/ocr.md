@@ -43,9 +43,9 @@ Rough interpretation, treat as heuristic:
 
 - `>= 0.8` — high confidence, OCR text is usable as-is for most agent purposes
 - `0.5–0.8` — usable but verify on important entities (numbers, names, code identifiers)
-- `< 0.5` — partial recognition. Either wrong `--ocr-lang`, low-resolution scan, or stylised typography. Compare with the rendered PNG via `--render` before trusting the text.
+- `< 0.5` — partial recognition. Either wrong `--ocr-lang`, low-resolution scan, or stylised typography. On scan-like pages where native extraction is empty, sparse, glyph-corrupted, or riding on a raster-backed text layer, this also appears as `pages[].warnings[].code === 'ocr_low_confidence'`. Compare with the rendered PNG via `--render` before trusting the text.
 
-A `confidence: 0` with an empty `ocr.text` usually means the rasterise step produced a blank page (see "Troubleshooting" below) rather than OCR genuinely finding nothing. **Check `pages[].renderContentRatio` first**: when it's `<= 0.001` the render came out blank and OCR had nothing to work with — distinguish that from a real OCR miss before reporting "no text".
+A `confidence: 0` with an empty `ocr.text` usually means the rasterise step produced a blank page (see "Troubleshooting" below) rather than OCR genuinely finding nothing. **Check `pages[].quality.visualStatus` first**: when it is `blank`, the render came out blank and OCR had nothing to work with; when it is `sparse`, the page has tiny visible marks and should be inspected with geometry or a crop before reporting "no text".
 
 ## Output shape
 
@@ -54,12 +54,19 @@ interface PageOcr {
   text: string;        // trimmed of trailing whitespace, line breaks preserved
   confidence: number;  // 0..1, page-level mean
   lang: string;        // whitespace-normalised, order-preserved
+  words?: OcrWord[];   // OCR word boxes in page coordinates, when tesseract returns layout
+}
+
+interface OcrWord {
+  text: string;
+  confidence: number;  // 0..1, word-level confidence
+  x: number; y: number; width: number; height: number;
 }
 ```
 
-`pages[].text` (pdfjs-derived) is **never overwritten** by OCR — both signals coexist on the same page object so the agent can diff and decide. A scanned PDF typically shows empty `text` with populated `ocr.text`; a mixed-content PDF shows native text in `text` and an alternative OCR-derived reading in `ocr.text` (useful sanity check for ambiguous glyphs).
+`pages[].text` (pdfjs-derived) is **never overwritten** by OCR — both signals coexist on the same page object so the agent can diff and decide. A scanned PDF typically shows empty `text` with populated `ocr.text`; a mixed-content PDF shows native text in `text` and an alternative OCR-derived reading in `ocr.text` (useful sanity check for ambiguous glyphs). `ocr.words[]` is optional because tesseract may occasionally omit layout blocks, but when present it lets `--search` return OCR word-level bboxes. If word-level reconstruction misses a query that exists in full `ocr.text` (for example OCR line-boundary or spacing differences), search falls back to `ocr.text` with a page-level bbox instead of dropping the hit.
 
-In XML output, OCR surfaces as `<ocr lang="..." confidence="...">...</ocr>`. Self-closing `<ocr lang="..." confidence="0"/>` means OCR ran and produced no text — distinct from the tag being absent (OCR wasn't requested).
+In XML output, OCR without word boxes surfaces as `<ocr lang="..." confidence="...">...</ocr>`. When word boxes are present, the OCR element contains `<text>` and `<words><word .../></words>` children. Self-closing `<ocr lang="..." confidence="0"/>` means OCR ran and produced no text — distinct from the tag being absent (OCR wasn't requested).
 
 ## Install requirements
 
@@ -105,7 +112,7 @@ These are **harmless pre-load probes** from tesseract.js's internal boot sequenc
 
 ### "OCR ran but `text` is empty and `confidence: 0`"
 
-Most likely the rasterise step produced a blank page, not an actual OCR failure. Common cause: the PDF uses an image format pdfjs + `@napi-rs/canvas` can't decode (notably JPEG2000 / JPX, common in Internet Archive scans). Verify by:
+Most likely the rasterise step produced a blank page, not an actual OCR failure. Common cause: the PDF uses an image format pdfjs + `@napi-rs/canvas` can't decode (notably JPEG2000 / JPX, common in Internet Archive scans). First check `pages[].quality.visualStatus`: `blank` means OCR had a near-uniform input, while `sparse` means there are tiny visible marks worth inspecting with geometry or a crop. Verify by:
 
 ```bash
 npx pdfvision doc.pdf -p <page> --render --render-output /tmp/dbg

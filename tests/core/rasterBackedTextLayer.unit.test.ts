@@ -41,4 +41,13 @@ describe('isRasterBackedTextLayer', () => {
   it('requires enough text coverage to look like an OCR layer', () => {
     expect(detect({ textCoverage: 0.09 })).toBe(false);
   });
+
+  it('detects sparse OCR text backed by a full-page raster image', () => {
+    expect(detect({ textCoverage: 0.045, charCount: 188 })).toBe(true);
+  });
+
+  it('ignores tiny text noise on full-page raster images', () => {
+    expect(detect({ textCoverage: 0.019, charCount: 188 })).toBe(false);
+    expect(detect({ textCoverage: 0.045, charCount: 12 })).toBe(false);
+  });
 });

@@ -166,11 +166,9 @@ describe('processDocument layout: true', () => {
     }
   });
 
-  it('skips warning detection entirely when layout is off', async () => {
-    // Same fixture, layout disabled. Even though `repeated` and bbox
-    // info would let some rules fire if computed, we deliberately
-    // don't run the detector without layout — it would be misleading
-    // since the chrome-aware rules need the cross-page pass.
+  it('does not attach geometry warnings when layout is off', async () => {
+    // Same fixture, layout disabled. Geometry rules need layout bboxes,
+    // so clean text-only pages should still come back without warnings.
     const result = await processDocument(SAMPLE_HEADERS_PDF, { noCache: true });
     for (const page of result.pages) {
       expect(page.warnings).toBeUndefined();
