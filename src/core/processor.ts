@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { lstatSync, mkdirSync, mkdtempSync, realpathSync, statSync } from 'node:fs';
+import { closeSync, fstatSync, lstatSync, mkdirSync, mkdtempSync, openSync, readSync, realpathSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import {
   join,
@@ -719,6 +719,46 @@ function fingerprintData(data: Uint8Array): string {
   return createHash('sha256').update(data).digest('hex').slice(0, 16);
 }
 
+/** Bytes scanned at the end of the file for the `%%EOF` marker. The PDF
+ *  spec requires the trailer within the last 1024 bytes; doubled for
+ *  slack (trailing whitespace, sloppy producers). */
+const EOF_SCAN_WINDOW_BYTES = 2048;
+
+/**
+ * When pdf.js fails to parse a document, check whether the underlying
+ * bytes even end in a `%%EOF` trailer. A missing trailer almost always
+ * means the file is truncated (an interrupted download is the common
+ * case — observed with a 128KB partial of the 1.6MB NIST SP 800-63-3),
+ * and pdf.js's own message for that ("Invalid Root reference") gives a
+ * caller no way to tell a broken PDF from a broken download. The probe
+ * is best-effort: any inspection failure returns the original error.
+ */
+function withTruncationHint(error: unknown, pdfData: Uint8Array | undefined, filePath: string): unknown {
+  if (!(error instanceof Error)) return error;
+  let tail: Uint8Array;
+  try {
+    if (pdfData) {
+      tail = pdfData.subarray(Math.max(0, pdfData.length - EOF_SCAN_WINDOW_BYTES));
+    } else {
+      const fd = openSync(filePath, 'r');
+      try {
+        const size = fstatSync(fd).size;
+        const length = Math.min(EOF_SCAN_WINDOW_BYTES, size);
+        const buffer = Buffer.alloc(length);
+        readSync(fd, buffer, 0, length, size - length);
+        tail = buffer;
+      } finally {
+        closeSync(fd);
+      }
+    }
+  } catch {
+    return error;
+  }
+  if (Buffer.from(tail).includes('%%EOF')) return error;
+  error.message += ' (no %%EOF trailer in the final bytes — the file is likely truncated, e.g. an incomplete download; re-download it and compare byte sizes before retrying)';
+  return error;
+}
+
 /**
  * Extract a structured representation of a PDF.
  *
@@ -877,8 +917,12 @@ export async function processDocument(filePath: string, options: ProcessDocument
     // Best-effort: keep going without the wasm/cmap asset URLs rather
     // than fail the whole extraction over a missing optional asset.
   }
-  const loadingTask = getDocument(docOptions);
-  const doc = await loadingTask.promise;
+  let doc: PDFDocumentProxy;
+  try {
+    doc = await getDocument(docOptions).promise;
+  } catch (error) {
+    throw withTruncationHint(error, pdfData, filePath);
+  }
   try {
     const totalPages = doc.numPages;
     let pageNumbers: number[];
