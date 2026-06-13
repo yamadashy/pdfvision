@@ -158,13 +158,12 @@ function isLooseLineContinuationPair(a: LayoutBlock, b: LayoutBlock): boolean {
   const continuationIndent =
     lowerLine.x >= upperLine.x - 2 && lowerLine.x - upperLine.x <= Math.max(42, upperLine.fontSize * 4);
   if (!continuationIndent || !horizontalOverlap(upperLine, lowerLine)) return false;
+  // Inline superscripts/subscripts can inflate either adjacent line's bbox
+  // even when the visible baselines are normally separated.
+  const inlineMathSlack = upperLine.height > upperLine.fontSize * 1.35 || lowerLine.height > lowerLine.fontSize * 1.35;
   // Only leading !/bullet markers are list markers; trailing punctuation
   // should not suppress a real visual overlap.
-  return (
-    upperLine.height > upperLine.fontSize * 1.35 ||
-    /^[!•]\s/u.test(upperLine.text.trim()) ||
-    /[-‐‑–]\s*$/u.test(upperLine.text.trim())
-  );
+  return inlineMathSlack || /^[!•]\s/u.test(upperLine.text.trim()) || /[-‐‑–]\s*$/u.test(upperLine.text.trim());
 }
 
 function isInlineFragment(fragment: LayoutBlock, neighbour: LayoutBlock): boolean {

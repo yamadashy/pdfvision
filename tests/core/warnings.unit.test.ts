@@ -1194,6 +1194,54 @@ describe('detectPageWarnings', () => {
       expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
     });
 
+    it('does not flag adjacent prose blocks when the lower line bbox is inflated by inline math', () => {
+      const upper = block(55.44, 416.22, 236.01, 45.82, {
+        text: 'A second advantage of using a learned linear reward function.\nfunction in Equation (4). If we do not represent R as a',
+        lines: [
+          {
+            text: 'A second advantage of using a learned linear reward function.',
+            x: 55.08,
+            y: 416.22,
+            width: 236.01,
+            height: 9.96,
+            fontSize: 10.15,
+          },
+          {
+            text: 'function in Equation (4). If we do not represent R as a',
+            x: 55.44,
+            y: 452.08,
+            width: 234,
+            height: 9.96,
+            fontSize: 10.16,
+          },
+        ],
+      });
+      const lower = block(55.44, 456.57, 234.35, 29.38, {
+        text: 'linear combination of pretrained features, and instead let anyθ\nparameter in R change during each proposal, then for m',
+        lines: [
+          {
+            text: 'linear combination of pretrained features, and instead let anyθ',
+            x: 55.44,
+            y: 456.57,
+            width: 234.35,
+            height: 17.43,
+            fontSize: 9.96,
+          },
+          {
+            text: 'parameter in R change during each proposal, then for m',
+            x: 55.44,
+            y: 475.99,
+            width: 234,
+            height: 9.96,
+            fontSize: 10.16,
+          },
+        ],
+      });
+
+      const out = detectPageWarnings(page([upper, lower]));
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
     it('does not flag icon markers overlapping the leading edge of callout text', () => {
       const icon = block(317.56, 292.76, 22.48, 21.6, {
         text: '▲',
