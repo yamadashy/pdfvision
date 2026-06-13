@@ -364,6 +364,22 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+function textItemDedupeKey(
+  text: string,
+  width: number,
+  height: number,
+  transform: readonly number[] | undefined,
+  fontName: unknown,
+): string {
+  const geometry = transform ? transform.map((value) => Math.round(value * 1000) / 1000).join(',') : 'no-transform';
+  const font = typeof fontName === 'string' ? fontName : '';
+  return JSON.stringify([text, round3(width), round3(height), geometry, font]);
+}
+
+function round3(n: number): number {
+  return Math.round(n * 1000) / 1000;
+}
+
 /**
  * Whitespace-normalise (and drop empty separators from) the OCR language
  * string used for cache keying. Order is preserved on purpose —
@@ -470,6 +486,7 @@ async function extractPageData(
   const joinItems: JoinItem[] = [];
   let textArea = 0;
   const spans: TextSpan[] = [];
+  const seenTextItems = new Set<string>();
   for (const item of content.items) {
     if (!('str' in item)) continue;
     const w = typeof item.width === 'number' ? item.width : 0;
@@ -479,6 +496,9 @@ async function extractPageData(
     const reportedH = typeof item.height === 'number' ? item.height : 0;
     const transform = item.transform;
     const h = reportedH > 0 ? reportedH : transform ? textMatrixFontSize(transform) : 0;
+    const itemKey = textItemDedupeKey(item.str, w, h, transform, item.fontName);
+    if (seenTextItems.has(itemKey)) continue;
+    seenTextItems.add(itemKey);
     textArea += Math.abs(w * h);
 
     // Feed the page-text joiner. x/fontSize default to 0 when the

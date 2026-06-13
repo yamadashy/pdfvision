@@ -111,7 +111,7 @@ interface PageQuality {
 }
 ```
 
-`text` is the pdfjs-derived text stream. `ocr.text` (when `--ocr` is on) is the OCR result alongside, **never overwriting `text`** — consumers diff or pick whichever signal looks better for the page.
+`text` is the pdfjs-derived text stream. Exact duplicate text draws with the same text, font, width/height, and text matrix are collapsed before joining so optional-content and overprint duplicates do not read as repeated words. `ocr.text` (when `--ocr` is on) is the OCR result alongside, **never overwriting `text`** — consumers diff or pick whichever signal looks better for the page.
 
 `quality` is pure observation, not recommendation: pdfvision tells the agent what it saw, the agent picks what to do next.
 

@@ -76,6 +76,21 @@ async function buildPdfWithAnnotations(): Promise<Uint8Array> {
   return new Uint8Array(Buffer.concat(chunks));
 }
 
+async function buildPdfWithDuplicateTextDraws(): Promise<Uint8Array> {
+  const chunks: Buffer[] = [];
+  const doc = new PDFDocument({ size: [612, 792], margin: 0 });
+  doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+  const done = new Promise<void>((resolveDone) => doc.on('end', resolveDone));
+
+  doc.fontSize(24).text('Overprinted text', 100, 100);
+  doc.fontSize(24).text('Overprinted text', 100, 100);
+  doc.fontSize(24).text('Next line', 100, 140);
+  doc.end();
+
+  await done;
+  return new Uint8Array(Buffer.concat(chunks));
+}
+
 function buildRawPdf(objects: string[]): Uint8Array {
   let body = '%PDF-1.7\n';
   const offsets: number[] = [0];
@@ -176,6 +191,23 @@ describe('processDocument', () => {
 
     expect(result.file).toBe('memory://sample.pdf');
     expect(result.pages[0].text).toContain('Hello pdfvision');
+  });
+
+  it('collapses exact duplicate text draws before joining text and layout', async () => {
+    const result = await processDocument('memory://duplicate-text.pdf', {
+      sourceData: await buildPdfWithDuplicateTextDraws(),
+      noCache: true,
+      geometry: true,
+      layout: true,
+    });
+
+    expect(result.pages[0].text.match(/Overprinted text/g)).toHaveLength(1);
+    expect(result.pages[0].text).toContain('Next line');
+    expect(result.pages[0].spans?.map((span) => span.text)).toEqual(['Overprinted text', 'Next line']);
+    expect(result.pages[0].layout?.blocks.flatMap((block) => block.lines.map((line) => line.text))).toEqual([
+      'Overprinted text',
+      'Next line',
+    ]);
   });
 
   it('accepts no options (all defaults)', async () => {
