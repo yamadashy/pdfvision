@@ -1015,7 +1015,9 @@ export interface PageResult {
    * to `--render` or `--ocr` when this appears. Counts NUL, C0 (except
    * `\t\n\r`), DEL, C1, unpaired surrogates, and Unicode noncharacters.
    * Private Use Area, format controls, and combining marks are
-   * intentionally excluded.
+   * intentionally excluded. PUA-dominant pages can still surface through
+   * `warnings[].code === 'glyph_garbage_text'` because icon fonts may use
+   * sparse PUA glyphs legitimately.
    */
   nonPrintableRatio: number;
   /**
@@ -1154,10 +1156,11 @@ export interface PageResult {
    * or image boxes. Layout-specific warnings require `layout: true`;
    * image-region warnings can use internal image boxes even when
    * `imageBoxes` is false, while `imageBoxIndex` is only emitted when
-   * public `pages[].imageBoxes` exists. Localized glyph noise can
-   * surface from always-on text-quality signals such as non-printable
-   * counters or isolated mojibake in CJK text. Empty array is omitted;
-   * a populated array means at least one rule fired.
+   * public `pages[].imageBoxes` exists. Localized glyph noise and
+   * PUA-dominant glyph-code text can surface from always-on text-quality
+   * signals such as non-printable counters, private-use glyph ratios, or
+   * isolated mojibake in CJK text. Empty array is omitted; a populated
+   * array means at least one rule fired.
    *
    * Same observational stance as {@link PageQuality}: the warning
    * describes what pdfvision saw, not what the agent should do. See

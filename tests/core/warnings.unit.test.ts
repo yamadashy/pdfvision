@@ -199,6 +199,46 @@ describe('detectPageWarnings', () => {
     expect(unusable[0].message).toContain('100.0%');
   });
 
+  it('flags private-use glyph code text when the whole page is PUA-dominant', () => {
+    // PDF.js issue215-shaped case: the visible page says "OPENMAGAZIN",
+    // but the text stream is printable PUA glyph IDs with no usable
+    // Unicode mapping. `nonPrintableRatio` intentionally stays 0.
+    const out = detectPageWarnings({
+      page: 1,
+      text: '\uf76f\uf770\uf765\uf76e\uf76d\uf761\uf767\uf761\uf77a\uf769\uf76e',
+      charCount: 11,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.03,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 595.28,
+      height: 841.89,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'glyph_garbage_text', severity: 'warning' });
+    expect(out[0].message).toContain('private-use glyph codes');
+    expect(out[0].message).toContain('100.0% PUA');
+  });
+
+  it('does not flag isolated private-use icon glyphs in otherwise readable text', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: 'Download \uf019 report',
+      charCount: 17,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.03,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+    });
+    expect(out.filter((w) => w.code === 'glyph_garbage_text')).toEqual([]);
+  });
+
   it('flags two localized non-printable glyphs when exact symbols may matter', () => {
     // ResNet figure-equation-shaped case: only two control characters,
     // but they sit inside a visible formula (`F(x)+x`) where exact

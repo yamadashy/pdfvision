@@ -78,6 +78,8 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
 
 const LOCALIZED_GLYPH_NOISE_RATIO_THRESHOLD = 0.05;
 const LOCALIZED_GLYPH_NOISE_COUNT_THRESHOLD = 2;
+const PRIVATE_USE_GLYPH_GARBAGE_MIN_COUNT = 4;
+const PRIVATE_USE_GLYPH_GARBAGE_RATIO_THRESHOLD = 0.6;
 const REPLACEMENT_CHARACTER = '\uFFFD';
 const CJK_MOJIBAKE_MIN_CJK_COUNT = 50;
 const CJK_MOJIBAKE_COUNT_THRESHOLD = 5;
@@ -104,15 +106,44 @@ const TABULAR_NUMERIC_RECURRING_COLUMN_MIN_ROW_RATIO = 0.6;
 
 function detectGlyphGarbageText(page: PageResult, out: PageWarning[]): void {
   const status = page.quality.nativeTextStatus;
-  if (status !== 'mixed_glyph_indices' && status !== 'unusable_glyph_indices') return;
+  if (status === 'mixed_glyph_indices' || status === 'unusable_glyph_indices') {
+    const percent = (page.nonPrintableRatio * 100).toFixed(1);
+    const scope = status === 'unusable_glyph_indices' ? 'mostly' : 'partly';
+    out.push({
+      code: 'glyph_garbage_text',
+      severity: 'warning',
+      message: `native text is ${scope} raw glyph-index garbage (${percent}% non-printable, ${page.nonPrintableCount} code point${page.nonPrintableCount === 1 ? '' : 's'}); inspect the render or run OCR before trusting extracted text`,
+    });
+    return;
+  }
 
-  const percent = (page.nonPrintableRatio * 100).toFixed(1);
-  const scope = status === 'unusable_glyph_indices' ? 'mostly' : 'partly';
+  const privateUse = privateUseGlyphStats(page.text);
+  if (privateUse.count < PRIVATE_USE_GLYPH_GARBAGE_MIN_COUNT) return;
+  if (privateUse.ratio < PRIVATE_USE_GLYPH_GARBAGE_RATIO_THRESHOLD) return;
   out.push({
     code: 'glyph_garbage_text',
     severity: 'warning',
-    message: `native text is ${scope} raw glyph-index garbage (${percent}% non-printable, ${page.nonPrintableCount} code point${page.nonPrintableCount === 1 ? '' : 's'}); inspect the render or run OCR before trusting extracted text`,
+    message: `native text is mostly private-use glyph codes (${(privateUse.ratio * 100).toFixed(1)}% PUA, ${privateUse.count} code point${privateUse.count === 1 ? '' : 's'}); inspect the render or run OCR before trusting extracted text`,
   });
+}
+
+function privateUseGlyphStats(text: string): { count: number; ratio: number } {
+  let total = 0;
+  let count = 0;
+  for (let i = 0; i < text.length; ) {
+    const cp = text.codePointAt(i) as number;
+    const char = String.fromCodePoint(cp);
+    if (!/\s/u.test(char)) {
+      total++;
+      if (isPrivateUseCodePoint(cp)) count++;
+    }
+    i += cp > 0xffff ? 2 : 1;
+  }
+  return { count, ratio: total > 0 ? count / total : 0 };
+}
+
+function isPrivateUseCodePoint(cp: number): boolean {
+  return (cp >= 0xe000 && cp <= 0xf8ff) || (cp >= 0xf0000 && cp <= 0xffffd) || (cp >= 0x100000 && cp <= 0x10fffd);
 }
 
 function sortWarnings(warnings: PageWarning[]): void {
