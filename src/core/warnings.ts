@@ -80,6 +80,7 @@ const LOCALIZED_GLYPH_NOISE_RATIO_THRESHOLD = 0.05;
 const LOCALIZED_GLYPH_NOISE_COUNT_THRESHOLD = 2;
 const PRIVATE_USE_GLYPH_GARBAGE_MIN_COUNT = 2;
 const PRIVATE_USE_GLYPH_GARBAGE_RATIO_THRESHOLD = 0.6;
+const LOCALIZED_PRIVATE_USE_GLYPH_RATIO_THRESHOLD = 0.25;
 const REPLACEMENT_CHARACTER = '\uFFFD';
 const CJK_MOJIBAKE_MIN_CJK_COUNT = 50;
 const CJK_MOJIBAKE_COUNT_THRESHOLD = 5;
@@ -186,6 +187,22 @@ function detectLocalizedGlyphNoise(page: PageResult, out: PageWarning[]): void {
       code: 'localized_glyph_noise',
       severity: 'warning',
       message: `native text contains ${page.nonPrintableCount} non-printable code points below the glyph-garbage ratio threshold — likely localized glyph noise such as formulas, bullets, or symbols; inspect the render if exact text matters`,
+    });
+  }
+
+  const privateUse = privateUseGlyphStats(page.text);
+  const isPageWidePrivateUseGarbage =
+    privateUse.count >= PRIVATE_USE_GLYPH_GARBAGE_MIN_COUNT &&
+    privateUse.ratio >= PRIVATE_USE_GLYPH_GARBAGE_RATIO_THRESHOLD;
+  if (
+    !isPageWidePrivateUseGarbage &&
+    privateUse.count > 0 &&
+    privateUse.ratio >= LOCALIZED_PRIVATE_USE_GLYPH_RATIO_THRESHOLD
+  ) {
+    out.push({
+      code: 'localized_glyph_noise',
+      severity: 'warning',
+      message: `native text contains ${privateUse.count} private-use glyph code${privateUse.count === 1 ? '' : 's'} in otherwise readable text (${(privateUse.ratio * 100).toFixed(1)}% PUA) — likely localized glyph noise such as a symbol, unit mark, or icon-font glyph; inspect the render if exact text matters`,
     });
   }
 

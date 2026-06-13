@@ -256,6 +256,27 @@ describe('detectPageWarnings', () => {
       quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
     });
     expect(out.filter((w) => w.code === 'glyph_garbage_text')).toEqual([]);
+    expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
+  });
+
+  it('flags localized private-use glyphs when they dominate a short text run', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '\ue0e0cm',
+      charCount: 3,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.06,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 200,
+      height: 50,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'localized_glyph_noise', severity: 'warning' });
+    expect(out[0].message).toContain('private-use glyph code');
+    expect(out[0].message).toContain('33.3% PUA');
   });
 
   it('flags two localized non-printable glyphs when exact symbols may matter', () => {
