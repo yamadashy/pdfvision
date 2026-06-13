@@ -138,6 +138,24 @@ describe('detectPageWarnings', () => {
     expect(out.filter((w) => w.code === 'ocr_native_text_mismatch')).toEqual([]);
   });
 
+  it('does not flag OCR-native mismatches when OCR only captured part of the native text', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: 'Project 2061 Science for All Americans Floyd James Rutherford and Andrew Ahlgren',
+      charCount: 76,
+      imageCount: 0,
+      vectorCount: 22,
+      textCoverage: 0.03,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+      ocr: { text: 'Project 2061 Science for All Americans', confidence: 0.93, lang: 'eng+jpn' },
+    });
+    expect(out.filter((w) => w.code === 'ocr_native_text_mismatch')).toEqual([]);
+  });
+
   it('flags low-confidence OCR on raster-backed text layers even when native status is ok', () => {
     const out = detectPageWarnings(
       {

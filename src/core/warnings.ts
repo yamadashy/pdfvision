@@ -101,6 +101,7 @@ const LOW_CONFIDENCE_OCR_THRESHOLD = 0.5;
 const OCR_NATIVE_MISMATCH_MIN_CONFIDENCE = 0.85;
 const OCR_NATIVE_MISMATCH_MIN_CHARS = 3;
 const OCR_NATIVE_MISMATCH_MAX_CHARS = 200;
+const OCR_NATIVE_MISMATCH_MIN_LENGTH_RATIO = 0.75;
 const OCR_NATIVE_MISMATCH_DISTANCE_RATIO_THRESHOLD = 0.5;
 const RASTER_TEXT_LAYER_SYMBOL_NOISE_MIN_CHARS = 80;
 const RASTER_TEXT_LAYER_SYMBOL_NOISE_RATIO_THRESHOLD = 0.35;
@@ -392,7 +393,7 @@ function detectHighConfidenceOcrNativeMismatch(page: PageResult, out: PageWarnin
   if (maxLength < OCR_NATIVE_MISMATCH_MIN_CHARS || maxLength > OCR_NATIVE_MISMATCH_MAX_CHARS) return;
   if (native === ocr) return;
   const minLength = Math.min(native.length, ocr.length);
-  if (minLength / maxLength < 0.5) return;
+  if (minLength / maxLength < OCR_NATIVE_MISMATCH_MIN_LENGTH_RATIO) return;
 
   const distanceRatio = levenshteinDistance(native, ocr) / maxLength;
   if (distanceRatio < OCR_NATIVE_MISMATCH_DISTANCE_RATIO_THRESHOLD) return;
