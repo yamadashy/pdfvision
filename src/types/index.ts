@@ -257,7 +257,7 @@ export interface ProcessDocumentOptions {
   /**
    * Emit viewer-level document settings in `viewer`, including initial page
    * mode/layout, viewer preferences, open action, JavaScript actions,
-   * permissions, and MarkInfo.
+   * page-level JavaScript actions, permissions, and MarkInfo.
    * Useful when the way a human PDF viewer opens or navigates the document is
    * itself part of the reading context.
    */
@@ -1067,6 +1067,11 @@ export interface PageResult {
    * structure tree; absent means structure extraction was not requested.
    */
   structure?: PageStructureNode | null;
+  /**
+   * Page-level JavaScript actions such as PageOpen/PageClose scripts, present
+   * when `viewer: true` was passed and the page defines them.
+   */
+  jsActions?: Record<string, string[]>;
   /**
    * OCR-derived text + confidence + language, only present when
    * `ocr: true` was passed. The pdfjs-derived `text` field is preserved

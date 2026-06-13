@@ -65,7 +65,7 @@ import { buildPageStructure, countStructureNodes } from './structure.js';
 import { textMatrixFontSize, textRunGeometryFromTransform } from './textGeometry.js';
 import { buildVectorBoxes } from './vectorBoxes.js';
 import { countVectorPaintOps } from './vectorOps.js';
-import { buildViewerState } from './viewer.js';
+import { buildViewerState, normalizeJavaScriptActions } from './viewer.js';
 import { type BuildVisualRegionsInput, buildVisualRegions } from './visualRegions.js';
 import { detectPageWarnings } from './warnings.js';
 
@@ -293,7 +293,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v69',
+    format: 'structured-v70',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -428,6 +428,7 @@ interface PageData {
   links?: PageLink[];
   annotations?: PageAnnotation[];
   structure?: PageStructureNode | null;
+  jsActions?: Record<string, string[]>;
 }
 
 interface PageFlags {
@@ -441,6 +442,7 @@ interface PageFlags {
   links: boolean;
   annotations: boolean;
   structure: boolean;
+  viewer: boolean;
   /** Build spans internally even when neither `geometry` nor `layout`
    *  was requested. Search needs them for per-match bbox; the public
    *  `pages[].spans` payload still requires `geometry`. */
@@ -612,6 +614,11 @@ async function extractPageData(
         normalizeText: flags.normalize ? normalizeText : undefined,
       })
     : undefined;
+  const jsActions = flags.viewer
+    ? normalizeJavaScriptActions(await page.getJSActions(), {
+        normalizeText: flags.normalize ? normalizeText : undefined,
+      })
+    : undefined;
 
   const pageArea = width * height;
   const rawCoverage = pageArea > 0 ? textArea / pageArea : 0;
@@ -678,6 +685,7 @@ async function extractPageData(
     ...(links !== undefined && { links }),
     ...(pageAnnotations !== undefined && { annotations: pageAnnotations }),
     ...(structure !== undefined && { structure }),
+    ...(jsActions !== undefined && { jsActions }),
   };
 }
 
@@ -1082,6 +1090,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       links: !!options.links,
       annotations: !!options.annotations,
       structure: !!options.structure,
+      viewer: !!options.viewer,
       // Search needs span-level bbox to populate `matches[*].bbox`;
       // build spans internally even if the caller didn't ask for the
       // full `pages[].spans` payload via --geometry.
@@ -1143,6 +1152,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
         ...(data.links !== undefined && { links: data.links }),
         ...(data.annotations !== undefined && { annotations: data.annotations }),
         ...(data.structure !== undefined && { structure: data.structure }),
+        ...(data.jsActions !== undefined && { jsActions: data.jsActions }),
         // Initial classification using whatever signals we have so far.
         // OCR may attach a renderContentRatio below; the post-OCR pass
         // overwrites this with the final classification.

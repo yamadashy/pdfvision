@@ -575,6 +575,34 @@ describe('formatMarkdown', () => {
     expect(out).toContain('- **Preferences:** DisplayDocTitle=true; PrintPageRange=\\[1,2\\]');
   });
 
+  it('renders page-level JavaScript actions', () => {
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 2,
+        pages: [
+          makePage({
+            page: 1,
+            text: 'page with actions',
+            charCount: 17,
+            jsActions: {
+              PageOpen: ['this.getField("Text1").value = "PageOpen";'],
+              PageClose: ['this.getField("Text2").value = "PageClose";'],
+            },
+          }),
+          makePage({ page: 2, text: 'plain', charCount: 5 }),
+        ],
+      }),
+    );
+
+    expect(out).toContain('JS Actions');
+    expect(out).toContain('| 1 | 17 | 0 | 0% | 612×792 | 2 |');
+    expect(out).toContain('_chars: 17 · images: 0 · coverage: 0% · jsActions: 2 · size: 612×792pt_');
+    expect(out).toContain('### JavaScript actions');
+    expect(out).toContain(
+      '- PageOpen=this.getField("Text1").value = "PageOpen"; \\| PageClose=this.getField("Text2").value = "PageClose";',
+    );
+  });
+
   it('renders an explicit empty viewer message when the viewer pass found no settings', () => {
     const out = formatMarkdown(makeResult({ viewer: {} }));
     expect(out).toContain('## Viewer');

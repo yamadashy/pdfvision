@@ -833,6 +833,31 @@ describe('formatXml', () => {
     expect(out).toContain('<preference name="PrintPageRange" value="[1,2]"/>');
   });
 
+  it('emits page-level JavaScript actions', () => {
+    const out = formatXml(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 'page with actions',
+            charCount: 17,
+            jsActions: {
+              PageOpen: ['this.getField("Text1").value = "PageOpen";'],
+              PageClose: ['this.getField("Text2").value = "PageClose";'],
+            },
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toContain('<page no="1"');
+    expect(out).toContain('<jsActions>');
+    expect(out).toContain('<action name="PageOpen">');
+    expect(out).toContain('<script>this.getField("Text1").value = "PageOpen";</script>');
+    expect(out).toContain('<action name="PageClose">');
+    expect(out).toContain('<script>this.getField("Text2").value = "PageClose";</script>');
+  });
+
   it('emits self-closing <viewer/> when extraction ran but found no viewer settings', () => {
     const out = formatXml(makeResult({ viewer: {} }));
     expect(out).toContain('<viewer/>');

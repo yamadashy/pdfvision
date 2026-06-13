@@ -46,7 +46,7 @@ Every page reports `charCount`, `imageCount`, `vectorCount`, `textCoverage`, and
 - **`--page-labels`** emits viewer page labels such as roman front matter (`i`, `ii`) or restarted section numbering that differs from physical page numbers.
 - **`--attachments`** lists document-level embedded file attachments with filename, description, and byte size, without dumping attachment bytes into the agent context. Add `--attachment-output <dir>` to save the embedded files and include paths in `attachments[].path`.
 - **`--outline`** preserves document outline/bookmark sidebar entries, hierarchy, resolvable destination pages, URLs, and named viewer actions such as `NextPage`.
-- **`--viewer`** exposes viewer-level document settings such as initial page mode/layout, viewer preferences, open action, document JavaScript actions, permissions, and tagged-PDF MarkInfo.
+- **`--viewer`** exposes viewer-level document settings such as initial page mode/layout, viewer preferences, open action, document/page JavaScript actions, permissions, and tagged-PDF MarkInfo.
 - **`--layers`** emits PDF optional content groups shown by viewer layer panels, including layer names, visibility, usage states, radio groups, and panel order for maps, CAD/design files, and variants.
 - **`--geometry`** emits per-text-item `bbox` + `fontSize` so callers can reconstruct visual hierarchy themselves.
 

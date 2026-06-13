@@ -43,6 +43,16 @@ function viewerValue(value: unknown): string {
   return JSON.stringify(value);
 }
 
+function appendJavaScriptActions(out: string[], actions: Record<string, string[]>): void {
+  out.push('<jsActions>');
+  for (const [name, scripts] of Object.entries(actions)) {
+    out.push(`<action name="${escapeAttr(name)}">`);
+    for (const script of scripts) out.push(`<script>${escapeText(script)}</script>`);
+    out.push('</action>');
+  }
+  out.push('</jsActions>');
+}
+
 function linkTarget(value: NonNullable<DocumentResult['pages'][number]['links']>[number]['target']): string {
   return typeof value === 'string' ? value : JSON.stringify(value);
 }
@@ -112,13 +122,7 @@ export function formatXml(result: DocumentResult): string {
         out.push(`<openAction ${actionAttrs.join(' ')}/>`);
       }
       if (result.viewer.jsActions) {
-        out.push('<jsActions>');
-        for (const [name, scripts] of Object.entries(result.viewer.jsActions)) {
-          out.push(`<action name="${escapeAttr(name)}">`);
-          for (const script of scripts) out.push(`<script>${escapeText(script)}</script>`);
-          out.push('</action>');
-        }
-        out.push('</jsActions>');
+        appendJavaScriptActions(out, result.viewer.jsActions);
       }
       if (result.viewer.permissions) {
         out.push(
@@ -451,6 +455,10 @@ export function formatXml(result: DocumentResult): string {
         }
         out.push('</formFields>');
       }
+    }
+
+    if (page.jsActions) {
+      appendJavaScriptActions(out, page.jsActions);
     }
 
     if (page.links) {

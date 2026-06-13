@@ -110,6 +110,10 @@ function buildRawPdf(objects: string[]): Uint8Array {
   return new Uint8Array(Buffer.from(body, 'binary'));
 }
 
+function pdfHexString(value: string): string {
+  return `<${Buffer.from(value, 'utf8').toString('hex')}>`;
+}
+
 function buildPdfWithPageLabels(): Uint8Array {
   return buildRawPdf([
     '<< /Type /Catalog /Pages 2 0 R /PageLabels << /Nums [ 0 << /S /r >> 2 << /S /D /St 1 >> ] >> >>',
@@ -137,6 +141,23 @@ function buildPdfWithViewerState(): Uint8Array {
     '<< /Type /Catalog /Pages 2 0 R /PageMode /UseOutlines /PageLayout /TwoColumnLeft /ViewerPreferences << /DisplayDocTitle true /Direction /R2L >> /OpenAction [3 0 R /FitH 700] /MarkInfo << /Marked true /UserProperties false /Suspects false >> >>',
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
     '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> >>',
+  ]);
+}
+
+function buildPdfWithPageJavaScriptActions(): Uint8Array {
+  const stream = 'BT /F1 12 Tf 72 720 Td (Page JS) Tj ET';
+  const length = Buffer.byteLength(stream, 'binary');
+  const pageOpen = 'this.getField("Text1").value = "PageOpen";';
+  const pageClose = 'this.getField("Text2").value = "PageClose";';
+
+  return buildRawPdf([
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 7 0 R >> >> /Contents 6 0 R /AA << /O 4 0 R /C 5 0 R >> >>',
+    `<< /S /JavaScript /JS ${pdfHexString(pageOpen)} >>`,
+    `<< /S /JavaScript /JS ${pdfHexString(pageClose)} >>`,
+    `<< /Length ${length} >>\nstream\n${stream}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
   ]);
 }
 
@@ -329,6 +350,19 @@ describe('processDocument', () => {
       },
     });
     expect(result.viewer?.openAction?.target).toContain('FitH');
+  });
+
+  it('extracts page-level JavaScript actions when viewer extraction runs', async () => {
+    const result = await processDocument('memory://page-js-actions.pdf', {
+      sourceData: buildPdfWithPageJavaScriptActions(),
+      noCache: true,
+      viewer: true,
+    });
+
+    expect(result.pages[0].jsActions).toEqual({
+      PageClose: ['this.getField("Text2").value = "PageClose";'],
+      PageOpen: ['this.getField("Text1").value = "PageOpen";'],
+    });
   });
 
   it('emits an empty viewer object when viewer extraction ran but found no explicit settings', async () => {

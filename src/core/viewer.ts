@@ -112,8 +112,11 @@ function permissionsValue(value: unknown): Pick<DocumentViewerState, 'permission
   return { permissions };
 }
 
-function jsActionsValue(value: unknown, options: BuildViewerStateOptions): Pick<DocumentViewerState, 'jsActions'> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+export function normalizeJavaScriptActions(
+  value: unknown,
+  options: BuildViewerStateOptions = {},
+): Record<string, string[]> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
   const actions: Record<string, string[]> = {};
   for (const [rawName, rawScripts] of Object.entries(value)) {
     const name = normalizeTarget(rawName, options);
@@ -123,7 +126,12 @@ function jsActionsValue(value: unknown, options: BuildViewerStateOptions): Pick<
       .filter((script): script is string => script !== undefined);
     if (scripts.length > 0) actions[name] = [...(actions[name] ?? []), ...scripts];
   }
-  return Object.keys(actions).length > 0 ? { jsActions: actions } : {};
+  return Object.keys(actions).length > 0 ? actions : undefined;
+}
+
+function jsActionsValue(value: unknown, options: BuildViewerStateOptions): Pick<DocumentViewerState, 'jsActions'> {
+  const jsActions = normalizeJavaScriptActions(value, options);
+  return jsActions ? { jsActions } : {};
 }
 
 function markInfoValue(value: unknown): Pick<DocumentViewerState, 'markInfo'> {

@@ -90,6 +90,7 @@ interface PageResult {
   links?: PageLink[];            // present iff --links
   annotations?: PageAnnotation[]; // present iff --annotations
   structure?: PageStructureNode | null; // present iff --structure; null means no page structure tree
+  jsActions?: Record<string, string[]>; // page-level JavaScript actions, present iff --viewer and the page defines them
   ocr?: PageOcr;                 // present iff --ocr
   warnings?: PageWarning[];      // omitted when no rule fired on the page
   matches?: SearchMatch[];       // present iff --search; empty array means "search ran, no hit on this page"
@@ -324,7 +325,7 @@ interface DocumentViewerState {
 }
 ```
 
-`viewer` surfaces document-level state a human PDF viewer uses before reading page text: sidebar/page mode, page layout, preferences such as `DisplayDocTitle`, catalog `OpenAction`, document JavaScript actions such as auto-print scripts, permission flags, and tagged-PDF `MarkInfo`. Use it on specs, manuals, papers, forms, and long reports where opening position, bookmark/sidebar mode, JavaScript-triggered viewer behavior, copy/print permissions, or tagged-PDF structure affects navigation or accessibility. Empty `viewer: {}` means the pass ran and no viewer-level settings were present; absent `viewer` means `--viewer` was not requested.
+`viewer` surfaces document-level state a human PDF viewer uses before reading page text: sidebar/page mode, page layout, preferences such as `DisplayDocTitle`, catalog `OpenAction`, document JavaScript actions such as auto-print scripts, permission flags, and tagged-PDF `MarkInfo`. The same `--viewer` pass also emits page-level JavaScript actions such as `PageOpen` / `PageClose` on `pages[].jsActions` when a page defines them. Use it on specs, manuals, papers, forms, and long reports where opening position, bookmark/sidebar mode, JavaScript-triggered viewer behavior, copy/print permissions, or tagged-PDF structure affects navigation or accessibility. Empty `viewer: {}` means the pass ran and no viewer-level settings were present; absent `viewer` means `--viewer` was not requested.
 
 ## Layers (`--layers`)
 

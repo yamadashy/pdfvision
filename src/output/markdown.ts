@@ -140,6 +140,16 @@ function formatViewerValue(value: unknown): string {
   return JSON.stringify(value);
 }
 
+function jsActionCount(actions: Record<string, string[]> | undefined): number {
+  return Object.values(actions ?? {}).reduce((sum, scripts) => sum + scripts.length, 0);
+}
+
+function formatJavaScriptActions(actions: Record<string, string[]>): string {
+  return Object.entries(actions)
+    .map(([name, scripts]) => `${name}=${scripts.join(' || ')}`)
+    .join(' | ');
+}
+
 function appendViewer(lines: string[], viewer: NonNullable<DocumentResult['viewer']>): void {
   lines.push('');
   lines.push('## Viewer');
@@ -158,10 +168,7 @@ function appendViewer(lines: string[], viewer: NonNullable<DocumentResult['viewe
     lines.push(`- **Open action:** ${escapeInline(parts.join(' · '))}`);
   }
   if (viewer.jsActions) {
-    const actions = Object.entries(viewer.jsActions)
-      .map(([name, scripts]) => `${name}=${scripts.join(' | ')}`)
-      .join('; ');
-    lines.push(`- **JavaScript actions:** ${escapeInline(actions)}`);
+    lines.push(`- **JavaScript actions:** ${escapeInline(formatJavaScriptActions(viewer.jsActions))}`);
   }
   if (viewer.permissions) {
     const allowed = viewer.permissions.allowed.length > 0 ? viewer.permissions.allowed.join(', ') : '(none)';
@@ -350,6 +357,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     const showLinks = result.pages.some((p) => p.links !== undefined);
     const showAnnotations = result.pages.some((p) => p.annotations !== undefined);
     const showStructure = result.pages.some((p) => p.structure !== undefined);
+    const showPageJsActions = result.pages.some((p) => p.jsActions !== undefined);
     const showVisualRegions = result.pages.some((p) => p.visualRegions !== undefined);
     const showPageLabels = result.pages.some((p) => p.pageLabel !== undefined);
     // The Warnings column appears only when at least one page carries
@@ -367,10 +375,10 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     lines.push('## Overview');
     lines.push('');
     lines.push(
-      `| Page |${showPageLabels ? ' Label |' : ''} Chars | Images | Coverage |${showNonPrint ? ' NonPrint |' : ''}${showRender ? ' Render |' : ''} Size (pt) |${showVectors ? ' Vectors |' : ''}${showVectorBoxes ? ' VectorBoxes |' : ''}${showVisualRegions ? ' VisualRegions |' : ''}${showBlocks ? ' Blocks |' : ''}${showWarnings ? ' Warnings |' : ''}${showMatches ? ' Matches |' : ''}${showFormFields ? ' FormFields |' : ''}${showLinks ? ' Links |' : ''}${showAnnotations ? ' Annotations |' : ''}${showStructure ? ' Structure |' : ''}`,
+      `| Page |${showPageLabels ? ' Label |' : ''} Chars | Images | Coverage |${showNonPrint ? ' NonPrint |' : ''}${showRender ? ' Render |' : ''} Size (pt) |${showVectors ? ' Vectors |' : ''}${showVectorBoxes ? ' VectorBoxes |' : ''}${showVisualRegions ? ' VisualRegions |' : ''}${showBlocks ? ' Blocks |' : ''}${showWarnings ? ' Warnings |' : ''}${showMatches ? ' Matches |' : ''}${showFormFields ? ' FormFields |' : ''}${showLinks ? ' Links |' : ''}${showAnnotations ? ' Annotations |' : ''}${showStructure ? ' Structure |' : ''}${showPageJsActions ? ' JS Actions |' : ''}`,
     );
     lines.push(
-      `| ---: |${showPageLabels ? ' --- |' : ''} ---: | ---: | ---: |${showNonPrint ? ' ---: |' : ''}${showRender ? ' ---: |' : ''} ---: |${showVectors ? ' ---: |' : ''}${showVectorBoxes ? ' ---: |' : ''}${showVisualRegions ? ' ---: |' : ''}${showBlocks ? ' ---: |' : ''}${showWarnings ? ' ---: |' : ''}${showMatches ? ' ---: |' : ''}${showFormFields ? ' ---: |' : ''}${showLinks ? ' ---: |' : ''}${showAnnotations ? ' ---: |' : ''}${showStructure ? ' ---: |' : ''}`,
+      `| ---: |${showPageLabels ? ' --- |' : ''} ---: | ---: | ---: |${showNonPrint ? ' ---: |' : ''}${showRender ? ' ---: |' : ''} ---: |${showVectors ? ' ---: |' : ''}${showVectorBoxes ? ' ---: |' : ''}${showVisualRegions ? ' ---: |' : ''}${showBlocks ? ' ---: |' : ''}${showWarnings ? ' ---: |' : ''}${showMatches ? ' ---: |' : ''}${showFormFields ? ' ---: |' : ''}${showLinks ? ' ---: |' : ''}${showAnnotations ? ' ---: |' : ''}${showStructure ? ' ---: |' : ''}${showPageJsActions ? ' ---: |' : ''}`,
     );
     for (const page of result.pages) {
       const coveragePct = Math.round(page.textCoverage * 100);
@@ -399,8 +407,9 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
       const linksCell = showLinks ? ` ${page.links?.length ?? 0} |` : '';
       const annotationsCell = showAnnotations ? ` ${page.annotations?.length ?? 0} |` : '';
       const structureCell = showStructure ? ` ${structureNodeCount(page.structure)} |` : '';
+      const jsActionsCell = showPageJsActions ? ` ${jsActionCount(page.jsActions)} |` : '';
       lines.push(
-        `| ${page.page} |${pageLabelCell} ${page.charCount} | ${page.imageCount} | ${coveragePct}% |${nonPrintCell}${renderCell} ${formatSize(page)} |${vectorsCell}${vectorBoxesCell}${visualRegionsCell}${blocksCell}${warningsCell}${matchesCell}${formFieldsCell}${linksCell}${annotationsCell}${structureCell}`,
+        `| ${page.page} |${pageLabelCell} ${page.charCount} | ${page.imageCount} | ${coveragePct}% |${nonPrintCell}${renderCell} ${formatSize(page)} |${vectorsCell}${vectorBoxesCell}${visualRegionsCell}${blocksCell}${warningsCell}${matchesCell}${formFieldsCell}${linksCell}${annotationsCell}${structureCell}${jsActionsCell}`,
       );
     }
   }
@@ -435,6 +444,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     const linksFragment = page.links !== undefined ? ` · links: ${page.links.length}` : '';
     const annotationsFragment = page.annotations !== undefined ? ` · annotations: ${page.annotations.length}` : '';
     const structureFragment = page.structure !== undefined ? ` · structure: ${structureNodeCount(page.structure)}` : '';
+    const jsActionsFragment = page.jsActions !== undefined ? ` · jsActions: ${jsActionCount(page.jsActions)}` : '';
     // Surface the derived quality classification when it's abnormal so
     // the LLM-facing markdown carries the same dispatch signal that
     // JSON / XML expose. `nativeTextStatus === 'ok'` and an `'empty'`
@@ -459,7 +469,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     // because no search ran. Mirrors the overview Matches column.
     const matchesFragment = page.matches !== undefined ? ` · matches: ${page.matches.length}` : '';
     lines.push(
-      `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${pageLabelFragment}${nonPrintFragment}${renderFragment}${vectorsFragment}${vectorBoxesFragment}${visualRegionsFragment}${formFieldsFragment}${linksFragment}${annotationsFragment}${structureFragment}${nativeFragment}${visualFragment}${warningsFragment}${matchesFragment} · size: ${formatSize(page)}pt_`,
+      `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${pageLabelFragment}${nonPrintFragment}${renderFragment}${vectorsFragment}${vectorBoxesFragment}${visualRegionsFragment}${formFieldsFragment}${linksFragment}${annotationsFragment}${structureFragment}${jsActionsFragment}${nativeFragment}${visualFragment}${warningsFragment}${matchesFragment} · size: ${formatSize(page)}pt_`,
     );
     const body = pageBody(page, options);
     if (body) {
@@ -523,6 +533,12 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
           );
         }
       }
+    }
+    if (page.jsActions) {
+      lines.push('');
+      lines.push('### JavaScript actions');
+      lines.push('');
+      lines.push(`- ${escapeInline(formatJavaScriptActions(page.jsActions))}`);
     }
     if (page.links) {
       lines.push('');
