@@ -61,6 +61,35 @@ describe('detectPageWarnings', () => {
     expect(detectPageWarnings(noLayout)).toEqual([]);
   });
 
+  it('suppresses geometry warnings when glyph garbage makes layout bboxes unreliable', () => {
+    const out = detectPageWarnings({
+      ...page([block(50, -10, 100, 50), block(60, 0, 100, 50)]),
+      text: `${'\u0003'.repeat(20)} readable text`,
+      charCount: 34,
+      nonPrintableCount: 20,
+      nonPrintableRatio: 0.2,
+      quality: { nativeTextStatus: 'mixed_glyph_indices', visualStatus: 'ok' },
+    });
+
+    expect(out.some((w) => w.code === 'glyph_garbage_text')).toBe(true);
+    expect(out.filter((w) => w.code === 'off_page')).toEqual([]);
+    expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+  });
+
+  it('keeps geometry warnings on low-ratio mixed glyph pages', () => {
+    const out = detectPageWarnings({
+      ...page([block(50, -10, 100, 50)]),
+      text: `${'\u0003'.repeat(6)} mostly readable text with localized symbols`,
+      charCount: 47,
+      nonPrintableCount: 6,
+      nonPrintableRatio: 0.06,
+      quality: { nativeTextStatus: 'mixed_glyph_indices', visualStatus: 'ok' },
+    });
+
+    expect(out.some((w) => w.code === 'glyph_garbage_text')).toBe(true);
+    expect(out.some((w) => w.code === 'off_page')).toBe(true);
+  });
+
   it('flags low-confidence OCR when native extraction needs OCR', () => {
     const out = detectPageWarnings({
       page: 1,

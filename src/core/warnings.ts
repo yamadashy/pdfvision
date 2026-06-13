@@ -52,7 +52,12 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
   detectDenseVectorGraphics(page, warnings);
   detectLargeRasterLowTextOverlap(page, context, warnings);
 
-  if (!page.layout || page.layout.blocks.length === 0 || context.rasterBackedTextLayer) {
+  if (
+    !page.layout ||
+    page.layout.blocks.length === 0 ||
+    context.rasterBackedTextLayer ||
+    hasUnreliableGlyphGeometry(page)
+  ) {
     sortWarnings(warnings);
     return warnings;
   }
@@ -84,6 +89,7 @@ const LOCALIZED_GLYPH_NOISE_RATIO_THRESHOLD = 0.05;
 const LOCALIZED_GLYPH_NOISE_COUNT_THRESHOLD = 2;
 const PRIVATE_USE_GLYPH_GARBAGE_MIN_COUNT = 2;
 const PRIVATE_USE_GLYPH_GARBAGE_RATIO_THRESHOLD = 0.6;
+const GEOMETRY_SUPPRESSION_GLYPH_NOISE_RATIO = 0.1;
 const LOCALIZED_PRIVATE_USE_GLYPH_COUNT_THRESHOLD = 8;
 const LOCALIZED_PRIVATE_USE_GLYPH_LOW_RATIO_THRESHOLD = 0.02;
 const LOCALIZED_PRIVATE_USE_GLYPH_RATIO_THRESHOLD = 0.25;
@@ -140,6 +146,14 @@ function detectGlyphGarbageText(page: PageResult, out: PageWarning[]): void {
     severity: 'warning',
     message: `native text is mostly private-use glyph codes (${(privateUse.ratio * 100).toFixed(1)}% PUA, ${privateUse.count} code point${privateUse.count === 1 ? '' : 's'}); inspect the render or run OCR before trusting extracted text`,
   });
+}
+
+function hasUnreliableGlyphGeometry(page: PageResult): boolean {
+  return (
+    page.quality.nativeTextStatus === 'unusable_glyph_indices' ||
+    (page.quality.nativeTextStatus === 'mixed_glyph_indices' &&
+      page.nonPrintableRatio >= GEOMETRY_SUPPRESSION_GLYPH_NOISE_RATIO)
+  );
 }
 
 function privateUseGlyphStats(text: string): { count: number; ratio: number } {
