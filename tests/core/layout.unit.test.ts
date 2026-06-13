@@ -1096,6 +1096,42 @@ describe('buildLayout — multi-column reading order', () => {
     ]);
   });
 
+  it('trims side-panel financial table rows away from adjacent prose columns', () => {
+    // PDF.js marked-content-shaped case: prose columns and a compact
+    // financial side panel share y positions. Table hints should describe
+    // the side panel, not the full visual row spanning body text.
+    const rows = [
+      { label: 'Revenue', y: 100, values: ['275.5', '295.6', '319.4', '330.7'] },
+      { label: 'EBITA', y: 112, values: ['8.8', '10.3', '12.2', '12.7'] },
+      { label: 'Net income', y: 124, values: ['4.4', '5.6', '7.1', '7.5'] },
+    ];
+    const valueXs = [765, 807, 850, 892];
+    const spans = rows.flatMap((row, index) => {
+      const prose =
+        index === 1
+          ? [span("Kreate's EBITA increased to 2.8 MEUR during the quarter.", 335, row.y, 11, 260)]
+          : [
+              span(`left prose row ${index} with many words`, 27, row.y, 11, 260),
+              span(`middle prose row ${index} with many words`, 335, row.y, 11, 260),
+            ];
+      return [
+        ...prose,
+        span(row.label, 670, row.y + 1, 9, Math.min(90, row.label.length * 5)),
+        ...row.values.map((value, valueIndex) => span(value, valueXs[valueIndex], row.y + 1, 9, value.length * 5)),
+      ];
+    });
+    const layout = buildLayout(spans, 960);
+
+    expect(layout.tables).toHaveLength(1);
+    expect(layout.tables?.[0].x).toBeGreaterThanOrEqual(660);
+    expect(layout.tables?.[0].columnCount).toBe(5);
+    expect(layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text))).toEqual([
+      ['Revenue', '275.5', '295.6', '319.4', '330.7'],
+      ['EBITA', '8.8', '10.3', '12.2', '12.7'],
+      ['Net income', '4.4', '5.6', '7.1', '7.5'],
+    ]);
+  });
+
   it('keeps numeric-only subtotal rows aligned with recurring financial table columns', () => {
     // Berkshire-style balance sheets often show subtotals as unlabeled
     // numeric rows under the year columns. They are human-visible table

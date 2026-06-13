@@ -878,8 +878,8 @@ function isStandaloneNumericLineAfterProse(prev: LayoutLine, line: LayoutLine, p
 function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefined {
   const allRowGroups = groupLinesByTableRow(lines).map((row) => row.sort((a, b) => a.x - b.x));
   const rowGroups: IndexedLayoutRow[] = allRowGroups
-    .map((row, index) => ({ row, index }))
-    .filter(({ row }) => isLikelyTableRow(row))
+    .map((row, index) => ({ row: tableCandidateRow(row), index }))
+    .filter((item): item is IndexedLayoutRow => item.row !== undefined)
     .map(({ row, index }) => ({ row: attachLabelContinuationRows(row, index, allRowGroups), index }));
   if (rowGroups.length < 2) return undefined;
 
@@ -905,6 +905,10 @@ function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefined {
   return result.length > 0 ? result : undefined;
 }
 
+const TABLE_SIDE_PANEL_MIN_GAP_PT = 40;
+const TABLE_COMPACT_LABEL_MAX_WIDTH_PT = 140;
+const TABLE_COMPACT_LABEL_MAX_CHARS = 60;
+
 function groupLinesByTableRow(lines: LayoutLine[]): LayoutLine[][] {
   const rows: LayoutLine[][] = [];
   for (const line of [...lines].sort((a, b) => a.y - b.y || a.x - b.x)) {
@@ -915,10 +919,65 @@ function groupLinesByTableRow(lines: LayoutLine[]): LayoutLine[][] {
   return rows;
 }
 
+function tableCandidateRow(row: LayoutLine[]): LayoutLine[] | undefined {
+  if (row.length < TABLE_ROW_MIN_CELLS) return undefined;
+  if (!isLikelyTableRow(row)) return undefined;
+  for (let start = 1; start < row.length; start++) {
+    const suffix = row.slice(start);
+    if (!isLikelyTableRow(suffix)) continue;
+    if (!isTableLikeSuffix(suffix)) continue;
+    if (canTrimSidePanelTableSuffix(row, start, suffix)) return suffix;
+  }
+  if (isTableLikeSuffix(row)) return row;
+  return row;
+}
+
 function isLikelyTableRow(row: LayoutLine[]): boolean {
   if (row.length < TABLE_ROW_MIN_CELLS) return false;
   const numericCells = row.filter((line) => isTableNumericCell(line.text)).length;
   return numericCells >= TABLE_ROW_MIN_NUMERIC_CELLS;
+}
+
+function isTableLikeSuffix(row: LayoutLine[]): boolean {
+  const numericCells = row.filter((line) => isTableNumericCell(line.text)).length;
+  if (numericCells < TABLE_ROW_MIN_NUMERIC_CELLS) return false;
+  return row.every(
+    (line) => isTableNumericCell(line.text) || isCurrencyOnlyCell(line.text) || isCompactTableLabelCell(line),
+  );
+}
+
+function isCompactTableLabelCell(line: LayoutLine): boolean {
+  const text = line.text.replace(/\s+/g, ' ').trim();
+  if (text.length === 0 || text.length > TABLE_COMPACT_LABEL_MAX_CHARS) return false;
+  if (!/[\p{L}]/u.test(text)) return false;
+  return line.width <= TABLE_COMPACT_LABEL_MAX_WIDTH_PT;
+}
+
+function hasSidePanelTableGap(row: LayoutLine[], start: number): boolean {
+  const prev = row[start - 1];
+  const cur = row[start];
+  if (!prev || !cur) return false;
+  const gap = cur.x - (prev.x + prev.width);
+  return gap >= Math.max(TABLE_SIDE_PANEL_MIN_GAP_PT, cur.fontSize * 4);
+}
+
+function canTrimSidePanelTableSuffix(row: LayoutLine[], start: number, suffix: LayoutLine[]): boolean {
+  if (!hasSidePanelTableGap(row, start)) return false;
+  const firstSuffixCell = suffix[0];
+  const startsWithCompactLabel =
+    firstSuffixCell !== undefined &&
+    !isTableNumericCell(firstSuffixCell.text) &&
+    isCompactTableLabelCell(firstSuffixCell);
+  if (start === 1) return startsWithCompactLabel && isProseBeforeSidePanel(row[0]);
+  return startsWithCompactLabel || row.slice(0, start).some(isProseBeforeSidePanel);
+}
+
+function isProseBeforeSidePanel(line: LayoutLine): boolean {
+  const text = line.text.replace(/\s+/g, ' ').trim();
+  if (!/[\p{L}]/u.test(text)) return false;
+  const wordCount = text.split(/\s+/).filter(Boolean).length;
+  if (wordCount < 4) return false;
+  return line.width > TABLE_COMPACT_LABEL_MAX_WIDTH_PT || /[.!?:;]/u.test(text);
 }
 
 function attachNumericContinuationRows(
