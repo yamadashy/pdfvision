@@ -157,6 +157,12 @@ function appendViewer(lines: string[], viewer: NonNullable<DocumentResult['viewe
     if (viewer.openAction.target) parts.push(viewer.openAction.target);
     lines.push(`- **Open action:** ${escapeInline(parts.join(' · '))}`);
   }
+  if (viewer.jsActions) {
+    const actions = Object.entries(viewer.jsActions)
+      .map(([name, scripts]) => `${name}=${scripts.join(' | ')}`)
+      .join('; ');
+    lines.push(`- **JavaScript actions:** ${escapeInline(actions)}`);
+  }
   if (viewer.permissions) {
     const allowed = viewer.permissions.allowed.length > 0 ? viewer.permissions.allowed.join(', ') : '(none)';
     lines.push(`- **Permissions:** ${escapeInline(allowed)}`);

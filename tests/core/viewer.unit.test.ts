@@ -14,6 +14,10 @@ describe('buildViewerState', () => {
         Nested: { Direction: 'Ｒ２Ｌ' },
       }),
       getOpenAction: async () => ({ action: 'Print' }),
+      getJSActions: async () => ({
+        printMe: ['this.print(true);'],
+        bad: [42, 'ＯＫ'],
+      }),
       getPermissions: async () => [0x04, 0x10, 0x800, 999],
       getMarkInfo: async () => ({ Marked: false, UserProperties: true, Suspects: true }),
     } as unknown as PDFDocumentProxy;
@@ -30,6 +34,10 @@ describe('buildViewerState', () => {
       openAction: {
         type: 'action',
         action: 'Print',
+      },
+      jsActions: {
+        printMe: ['this.print(true);'],
+        bad: ['OK'],
       },
       permissions: {
         flags: [0x04, 0x10, 0x800, 999],
@@ -49,6 +57,7 @@ describe('buildViewerState', () => {
       getPageMode: async () => 'UseNone',
       getViewerPreferences: async () => null,
       getOpenAction: async () => null,
+      getJSActions: async () => null,
       getPermissions: async () => [],
       getMarkInfo: async () => null,
     } as unknown as PDFDocumentProxy;

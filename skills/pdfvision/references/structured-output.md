@@ -311,6 +311,7 @@ interface DocumentViewerState {
     page?: number;              // 1-based, resolved when possible
     action?: string;            // PDF action name for non-destination actions
   };
+  jsActions?: Record<string, string[]>; // document-level JavaScript action scripts
   permissions?: {
     flags: number[];            // raw PDF permission flags
     allowed: string[];          // decoded names; empty means permissions were present but none matched
@@ -323,7 +324,7 @@ interface DocumentViewerState {
 }
 ```
 
-`viewer` surfaces document-level state a human PDF viewer uses before reading page text: sidebar/page mode, page layout, preferences such as `DisplayDocTitle`, catalog `OpenAction`, permission flags, and tagged-PDF `MarkInfo`. Use it on specs, manuals, papers, forms, and long reports where opening position, bookmark/sidebar mode, copy/print permissions, or tagged-PDF structure affects navigation or accessibility. Empty `viewer: {}` means the pass ran and no viewer-level settings were present; absent `viewer` means `--viewer` was not requested.
+`viewer` surfaces document-level state a human PDF viewer uses before reading page text: sidebar/page mode, page layout, preferences such as `DisplayDocTitle`, catalog `OpenAction`, document JavaScript actions such as auto-print scripts, permission flags, and tagged-PDF `MarkInfo`. Use it on specs, manuals, papers, forms, and long reports where opening position, bookmark/sidebar mode, JavaScript-triggered viewer behavior, copy/print permissions, or tagged-PDF structure affects navigation or accessibility. Empty `viewer: {}` means the pass ran and no viewer-level settings were present; absent `viewer` means `--viewer` was not requested.
 
 ## Layers (`--layers`)
 

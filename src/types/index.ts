@@ -256,7 +256,8 @@ export interface ProcessDocumentOptions {
   outline?: boolean;
   /**
    * Emit viewer-level document settings in `viewer`, including initial page
-   * mode/layout, viewer preferences, open action, permissions, and MarkInfo.
+   * mode/layout, viewer preferences, open action, JavaScript actions,
+   * permissions, and MarkInfo.
    * Useful when the way a human PDF viewer opens or navigates the document is
    * itself part of the reading context.
    */
@@ -777,6 +778,8 @@ export interface DocumentViewerState {
   viewerPreferences?: Record<string, JsonValue>;
   /** Catalog OpenAction resolved to a page when possible. */
   openAction?: DocumentOpenAction;
+  /** Document-level JavaScript actions such as auto-print scripts. */
+  jsActions?: Record<string, string[]>;
   /** Document permission flags when the PDF defines them. */
   permissions?: DocumentPermissions;
   /** Tagged-PDF MarkInfo flags when present. */

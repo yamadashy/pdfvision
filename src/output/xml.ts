@@ -111,6 +111,15 @@ export function formatXml(result: DocumentResult): string {
         }
         out.push(`<openAction ${actionAttrs.join(' ')}/>`);
       }
+      if (result.viewer.jsActions) {
+        out.push('<jsActions>');
+        for (const [name, scripts] of Object.entries(result.viewer.jsActions)) {
+          out.push(`<action name="${escapeAttr(name)}">`);
+          for (const script of scripts) out.push(`<script>${escapeText(script)}</script>`);
+          out.push('</action>');
+        }
+        out.push('</jsActions>');
+      }
       if (result.viewer.permissions) {
         out.push(
           `<permissions flags="${escapeAttr(result.viewer.permissions.flags.join(','))}" allowed="${escapeAttr(result.viewer.permissions.allowed.join(','))}"/>`,

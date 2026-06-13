@@ -558,6 +558,7 @@ describe('formatMarkdown', () => {
           pageLayout: 'TwoColumnLeft',
           viewerPreferences: { DisplayDocTitle: true, PrintPageRange: [1, 2] },
           openAction: { type: 'destination', page: 3, target: '[{"name":"Fit"}]' },
+          jsActions: { printMe: ['this.print(true);'] },
           permissions: { flags: [4, 16], allowed: ['print', 'copy'] },
           markInfo: { marked: true, userProperties: false, suspects: false },
         },
@@ -568,6 +569,7 @@ describe('formatMarkdown', () => {
     expect(out).toContain('- **Page mode:** UseOutlines');
     expect(out).toContain('- **Page layout:** TwoColumnLeft');
     expect(out).toContain('- **Open action:** destination · p. 3 · \\[{"name":"Fit"}\\]');
+    expect(out).toContain('- **JavaScript actions:** printMe=this.print(true);');
     expect(out).toContain('- **Permissions:** print, copy');
     expect(out).toContain('- **Mark info:** marked=true, userProperties=false, suspects=false');
     expect(out).toContain('- **Preferences:** DisplayDocTitle=true; PrintPageRange=\\[1,2\\]');

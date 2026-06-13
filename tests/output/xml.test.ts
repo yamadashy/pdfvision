@@ -815,6 +815,7 @@ describe('formatXml', () => {
           pageLayout: 'TwoColumnLeft',
           viewerPreferences: { DisplayDocTitle: true, PrintPageRange: [1, 2] },
           openAction: { type: 'destination', page: 3, target: '[{"name":"Fit"}]' },
+          jsActions: { printMe: ['this.print(true);'] },
           permissions: { flags: [4, 16], allowed: ['print', 'copy'] },
           markInfo: { marked: true, userProperties: false, suspects: false },
         },
@@ -823,6 +824,9 @@ describe('formatXml', () => {
 
     expect(out).toContain('<viewer pageMode="UseOutlines" pageLayout="TwoColumnLeft">');
     expect(out).toContain('<openAction type="destination" page="3" target="[{&quot;name&quot;:&quot;Fit&quot;}]"/>');
+    expect(out).toContain('<jsActions>');
+    expect(out).toContain('<action name="printMe">');
+    expect(out).toContain('<script>this.print(true);</script>');
     expect(out).toContain('<permissions flags="4,16" allowed="print,copy"/>');
     expect(out).toContain('<markInfo marked="true" userProperties="false" suspects="false"/>');
     expect(out).toContain('<preference name="DisplayDocTitle" value="true"/>');

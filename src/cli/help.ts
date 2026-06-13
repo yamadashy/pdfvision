@@ -96,7 +96,8 @@ Options
                           URLs, named actions, and resolved destination pages when possible.
                           Markdown also renders an outline section.
       --viewer            Emit top-level \`viewer\` settings: initial page mode/layout,
-                          viewer preferences, open action, permissions, and MarkInfo.
+                          viewer preferences, open action, JavaScript actions,
+                          permissions, and MarkInfo.
       --layers            Emit top-level \`layers\` from PDF optional content groups:
                           layer names, visibility, usage states, radio groups, and
                           viewer panel order for maps, CAD/design PDFs, and variants.
