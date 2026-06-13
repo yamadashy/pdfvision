@@ -1143,6 +1143,22 @@ describe('buildLayout — multi-column reading order', () => {
     expect(layout.blocks.map((block) => block.text)).not.toContain('縦 書\n書 籍\nき の');
   });
 
+  it('marks tall CJK spans as vertical columns in right-to-left order', () => {
+    // PDF.js vertical.pdf-shaped input: each vertical column arrives as
+    // one tall span whose text is already top-to-bottom.
+    const spans: TextSpan[] = [
+      span('あいうえお', 233.86, 21.97, 9.21, 9.21),
+      span('日本語', 218.27, 21.97, 9.21, 9.21),
+    ];
+    spans[0].height = 46.06;
+    spans[1].height = 27.64;
+
+    const layout = buildLayout(spans, 300);
+    expect(layout.blocks.map((block) => block.text)).toEqual(['あいうえお', '日本語']);
+    expect(layout.blocks.every((block) => block.writingMode === 'vertical')).toBe(true);
+    expect(layout.blocks.every((block) => block.lines[0]?.writingMode === 'vertical')).toBe(true);
+  });
+
   it('does not treat aligned first glyphs of horizontal CJK lines as vertical writing', () => {
     const spans: TextSpan[] = [
       span('日', 50, 50, 12, 12),
