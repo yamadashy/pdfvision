@@ -63,6 +63,14 @@ const BACKGROUND_BOX_AREA_RATIO = 0.9;
 const BACKGROUND_BOX_SPAN_RATIO = 0.95;
 const PAGE_EDGE_CHROME_SPAN_RATIO = 0.8;
 const PAGE_EDGE_CHROME_THICKNESS_RATIO = 0.16;
+const HORIZONTAL_LABEL_BAND_MIN_WIDTH_RATIO = 0.25;
+const HORIZONTAL_LABEL_BAND_MAX_HEIGHT_RATIO = 0.08;
+const HORIZONTAL_LABEL_BAND_MIN_HEIGHT_PT = 8;
+const HORIZONTAL_LABEL_BAND_MIN_ASPECT_RATIO = 8;
+const WIDE_TEXT_PANEL_MIN_WIDTH_RATIO = 0.85;
+const WIDE_TEXT_PANEL_MIN_HEIGHT_RATIO = 0.12;
+const WIDE_TEXT_PANEL_MAX_HEIGHT_RATIO = 0.45;
+const WIDE_TEXT_PANEL_EDGE_RATIO = 0.15;
 const CAPTION_MAX_GAP_PT = 54;
 const CAPTION_MIN_HORIZONTAL_OVERLAP_RATIO = 0.2;
 const HEADING_LABEL_MAX_GAP_PT = 96;
@@ -251,11 +259,41 @@ function isLikelyHorizontalChrome(box: BoxLike, pageWidth: number, pageHeight: n
   );
 }
 
+function isLikelyHorizontalLabelBand(box: BoxLike, pageWidth: number, pageHeight: number): boolean {
+  const visible = visiblePageBox(box, pageWidth, pageHeight);
+  return (
+    visible.width >= pageWidth * HORIZONTAL_LABEL_BAND_MIN_WIDTH_RATIO &&
+    visible.height >= HORIZONTAL_LABEL_BAND_MIN_HEIGHT_PT &&
+    visible.height <= pageHeight * HORIZONTAL_LABEL_BAND_MAX_HEIGHT_RATIO &&
+    visible.width / Math.max(1, visible.height) >= HORIZONTAL_LABEL_BAND_MIN_ASPECT_RATIO
+  );
+}
+
+function isLikelyWideTextPanelBackplane(box: BoxLike, pageWidth: number, pageHeight: number): boolean {
+  const visible = visiblePageBox(box, pageWidth, pageHeight);
+  const heightRatio = pageHeight > 0 ? visible.height / pageHeight : 0;
+  return (
+    visible.width >= pageWidth * WIDE_TEXT_PANEL_MIN_WIDTH_RATIO &&
+    heightRatio >= WIDE_TEXT_PANEL_MIN_HEIGHT_RATIO &&
+    heightRatio <= WIDE_TEXT_PANEL_MAX_HEIGHT_RATIO &&
+    (visible.y <= pageHeight * WIDE_TEXT_PANEL_EDGE_RATIO ||
+      visible.y + visible.height >= pageHeight * (1 - WIDE_TEXT_PANEL_EDGE_RATIO))
+  );
+}
+
 function isBackgroundLikeCandidate(box: BoxLike, pageWidth: number, pageHeight: number): boolean {
   return (
     isNearFullPageBox(box, pageWidth, pageHeight) ||
     isLikelySideChrome(box, pageWidth, pageHeight) ||
     isLikelyHorizontalChrome(box, pageWidth, pageHeight)
+  );
+}
+
+function isLikelyVectorBackplane(box: BoxLike, pageWidth: number, pageHeight: number): boolean {
+  return (
+    isBackgroundLikeCandidate(box, pageWidth, pageHeight) ||
+    isLikelyHorizontalLabelBand(box, pageWidth, pageHeight) ||
+    isLikelyWideTextPanelBackplane(box, pageWidth, pageHeight)
   );
 }
 
@@ -418,7 +456,7 @@ function clusterVectorBoxes(
     if (!isUsableBox(box)) continue;
     if (isLikelySideChrome(box, pageWidth, pageHeight)) continue;
     if (isLikelyHorizontalChrome(box, pageWidth, pageHeight)) continue;
-    if (skipBackgroundBoxes && isNearFullPageBox(box, pageWidth, pageHeight)) continue;
+    if (skipBackgroundBoxes && isLikelyVectorBackplane(box, pageWidth, pageHeight)) continue;
     const matches: number[] = [];
     for (let i = 0; i < clusters.length; i++) {
       if (touches(clusters[i], box, CLUSTER_GAP_PT)) matches.push(i);

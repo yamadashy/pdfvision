@@ -520,6 +520,121 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('keeps chart crops separate from wide vector text panels and title bands', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 780,
+      pageHeight: 540,
+      imageBoxes: [{ x: 11.52, y: 280.56, width: 484.8, height: 161.4 }],
+      vectorBoxes: [
+        { x: 0, y: 0, width: 780, height: 540 },
+        { x: 11.52, y: 237.6, width: 484.8, height: 22.68 },
+        { x: 470.45, y: 194.33, width: 301.68, height: 333.86 },
+        { x: 601.98, y: 303.87, width: 16.08, height: 69.27 },
+        { x: 601.98, y: 303.87, width: 16.08, height: 69.27 },
+        { x: 601.98, y: 305.77, width: 69.28, height: 103.8 },
+        { x: 581.94, y: 373.14, width: 78.95, height: 69.27 },
+        { x: 532.7, y: 303.87, width: 69.28, height: 135.57 },
+        { x: 626.27, y: 437.88, width: 0.5, height: 6.6 },
+        { x: 590.15, y: 293.88, width: 127.44, height: 0.84 },
+        { x: 506.16, y: 237.36, width: 257.16, height: 22.68 },
+        { x: 7.98, y: 43.74, width: 764.16, height: 181.44 },
+        { x: 569.91, y: 72.21, width: 150.6, height: 1.32 },
+        { x: 735.27, y: 72.21, width: 21, height: 1.32 },
+        { x: 49.95, y: 91.41, width: 135.84, height: 1.32 },
+        { x: 558.27, y: 91.41, width: 185.16, height: 1.32 },
+        { x: 49.95, y: 110.61, width: 158.04, height: 1.32 },
+        { x: 340.35, y: 191.01, width: 311.52, height: 1.32 },
+      ],
+      layout: {
+        blocks: [
+          {
+            text: 'Manufacturing DX status and current context',
+            x: 22.94,
+            y: 10.44,
+            width: 524,
+            height: 20.04,
+            role: 'heading',
+            level: 1,
+            lines: [
+              {
+                text: 'Manufacturing DX status and current context',
+                x: 22.94,
+                y: 10.44,
+                width: 524,
+                height: 20.04,
+                fontSize: 20,
+              },
+            ],
+          },
+          {
+            text: 'Industry data sharing intent',
+            x: 548.88,
+            y: 240.34,
+            width: 171.93,
+            height: 14.04,
+            lines: [
+              {
+                text: 'Industry data sharing intent',
+                x: 548.88,
+                y: 240.34,
+                width: 171.93,
+                height: 14.04,
+                fontSize: 12,
+              },
+            ],
+          },
+          {
+            text: 'DX progress by operation area',
+            x: 173.78,
+            y: 240.55,
+            width: 160.35,
+            height: 14.04,
+            lines: [
+              {
+                text: 'DX progress by operation area',
+                x: 173.78,
+                y: 240.55,
+                width: 160.35,
+                height: 14.04,
+                fontSize: 12,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'vector',
+        x: 462.45,
+        y: 186.33,
+        width: 317.55,
+        height: 349.86,
+        areaRatio: 0.264,
+        sourceCount: 4,
+        sources: [
+          { type: 'vectorBox', index: 2 },
+          { type: 'vectorBox', index: 5 },
+          { type: 'vectorBox', index: 6 },
+          { type: 'vectorBox', index: 7 },
+        ],
+        reason: '4 nearby vector drawing operations',
+      },
+      {
+        kind: 'raster',
+        x: 3.52,
+        y: 272.56,
+        width: 500.8,
+        height: 177.4,
+        areaRatio: 0.211,
+        sourceCount: 1,
+        sources: [{ type: 'imageBox', index: 0 }],
+        reason: 'raster image covers 18.6% of the page',
+      },
+    ]);
+  });
+
   it('deduplicates overlapping table and vector candidates into a mixed region', () => {
     const regions = buildVisualRegions({
       pageWidth: 300,
