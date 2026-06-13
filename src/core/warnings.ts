@@ -78,12 +78,14 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
 
 const LOCALIZED_GLYPH_NOISE_RATIO_THRESHOLD = 0.05;
 const LOCALIZED_GLYPH_NOISE_COUNT_THRESHOLD = 2;
-const PRIVATE_USE_GLYPH_GARBAGE_MIN_COUNT = 4;
+const PRIVATE_USE_GLYPH_GARBAGE_MIN_COUNT = 2;
 const PRIVATE_USE_GLYPH_GARBAGE_RATIO_THRESHOLD = 0.6;
 const REPLACEMENT_CHARACTER = '\uFFFD';
 const CJK_MOJIBAKE_MIN_CJK_COUNT = 50;
 const CJK_MOJIBAKE_COUNT_THRESHOLD = 5;
 const CJK_MOJIBAKE_RATIO_THRESHOLD = 0.05;
+const LATIN1_MOJIBAKE_MIN_COUNT = 4;
+const LATIN1_MOJIBAKE_RATIO_THRESHOLD = 0.6;
 const DENSE_VECTOR_GRAPHICS_COUNT_THRESHOLD = 250;
 const LARGE_RASTER_AREA_RATIO_THRESHOLD = 0.2;
 const LARGE_RASTER_TEXT_OVERLAP_RATIO_THRESHOLD = 0.01;
@@ -195,6 +197,15 @@ function detectLocalizedGlyphNoise(page: PageResult, out: PageWarning[]): void {
       message: `native text contains ${cjkMojibake.count} isolated Latin-extended glyphs inside CJK text (e.g. ${cjkMojibake.samples.map((s) => JSON.stringify(s)).join(', ')}) — likely localized character-map noise such as leader dots or symbols; inspect the render if exact text matters`,
     });
   }
+
+  const latin1Mojibake = detectLatin1MojibakeGlyphNoise(page.text);
+  if (latin1Mojibake) {
+    out.push({
+      code: 'localized_glyph_noise',
+      severity: 'warning',
+      message: `native text is ${(latin1Mojibake.ratio * 100).toFixed(1)}% Latin-1 supplement glyphs (samples: ${latin1Mojibake.samples.map((s) => JSON.stringify(s)).join(', ')}) — likely printable mojibake from a missing or custom font map; inspect the render if exact text matters`,
+    });
+  }
 }
 
 function countReplacementCharacters(text: string): number {
@@ -233,6 +244,26 @@ function isLatinTextChar(ch: string | undefined): boolean {
 
 function isLatinExtendedChar(ch: string | undefined): boolean {
   return ch !== undefined && /[\u0100-\u024f\u1e00-\u1eff]/u.test(ch);
+}
+
+function detectLatin1MojibakeGlyphNoise(text: string): { count: number; ratio: number; samples: string[] } | undefined {
+  const chars = Array.from(text).filter((ch) => !/\s/u.test(ch));
+  if (chars.length < LATIN1_MOJIBAKE_MIN_COUNT) return undefined;
+
+  const suspicious = chars.filter(isLatin1SupplementChar);
+  if (suspicious.length < LATIN1_MOJIBAKE_MIN_COUNT) return undefined;
+  const ratio = suspicious.length / chars.length;
+  if (ratio < LATIN1_MOJIBAKE_RATIO_THRESHOLD) return undefined;
+  if (!suspicious.some(isLatin1MojibakeAnchorChar)) return undefined;
+  return { count: suspicious.length, ratio, samples: [...new Set(suspicious)].slice(0, 4) };
+}
+
+function isLatin1SupplementChar(ch: string | undefined): boolean {
+  return ch !== undefined && /[\u00a0-\u00ff]/u.test(ch);
+}
+
+function isLatin1MojibakeAnchorChar(ch: string | undefined): boolean {
+  return ch !== undefined && /[ÃÂâãÐðÞþ]/u.test(ch);
 }
 
 function detectRasterBackedTextLayer(page: PageResult, context: PageWarningContext, out: PageWarning[]): void {

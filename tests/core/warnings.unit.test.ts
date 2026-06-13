@@ -222,6 +222,25 @@ describe('detectPageWarnings', () => {
     expect(out[0].message).toContain('100.0% PUA');
   });
 
+  it('flags short private-use glyph code pages when all text is PUA', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '\uf8f2\uf8f3',
+      charCount: 2,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.07,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 200,
+      height: 50,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'glyph_garbage_text', severity: 'warning' });
+    expect(out[0].message).toContain('100.0% PUA');
+  });
+
   it('does not flag isolated private-use icon glyphs in otherwise readable text', () => {
     const out = detectPageWarnings({
       page: 1,
@@ -354,6 +373,44 @@ describe('detectPageWarnings', () => {
       width: 612,
       height: 792,
       quality: { nativeTextStatus: 'ok' },
+    });
+    expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
+  });
+
+  it('flags Latin-1 supplement dominated printable mojibake', () => {
+    // PDF.js issue3025-shaped case: the render shows Devanagari glyphs,
+    // but the native text is printable Latin-1 code noise.
+    const out = detectPageWarnings({
+      page: 1,
+      text: 'ã½ãá Ìãã',
+      charCount: 9,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.071,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 200,
+      height: 50,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'localized_glyph_noise', severity: 'warning' });
+    expect(out[0].message).toContain('Latin-1 supplement glyphs');
+  });
+
+  it('does not flag ordinary accented Latin prose as Latin-1 mojibake', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: 'KÖNYVAJÁNLÓ: Think Like A Programmer',
+      charCount: 36,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.011,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
     });
     expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
   });

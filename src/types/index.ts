@@ -1159,9 +1159,9 @@ export interface PageResult {
    * `imageBoxes` is false, while `imageBoxIndex` is only emitted when
    * public `pages[].imageBoxes` exists. Localized glyph noise and
    * PUA-dominant glyph-code text can surface from always-on text-quality
-   * signals such as non-printable counters, private-use glyph ratios, or
-   * isolated mojibake in CJK text. Empty array is omitted; a populated
-   * array means at least one rule fired.
+   * signals such as non-printable counters, private-use glyph ratios,
+   * isolated mojibake in CJK text, or Latin-1 printable mojibake. Empty
+   * array is omitted; a populated array means at least one rule fired.
    *
    * Same observational stance as {@link PageQuality}: the warning
    * describes what pdfvision saw, not what the agent should do. See
