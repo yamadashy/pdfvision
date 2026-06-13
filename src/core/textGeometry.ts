@@ -22,7 +22,8 @@ export function textMatrixFontSize(transform: readonly number[], fallback = 0): 
   const b = transform[1] ?? 0;
   const c = transform[2] ?? 0;
   const d = transform[3] ?? 0;
-  return Math.max(Math.hypot(a, b), Math.hypot(c, d), fallback);
+  const matrixScale = Math.max(Math.hypot(a, b), Math.hypot(c, d));
+  return matrixScale > VECTOR_EPSILON ? matrixScale : fallback;
 }
 
 export function textRunGeometryFromTransform(input: TextRunGeometryInput): TextRunGeometry {

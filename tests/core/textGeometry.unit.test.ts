@@ -71,4 +71,26 @@ describe('textRunGeometryFromTransform', () => {
       fontSize: 7,
     });
   });
+
+  it('keeps vertical run font size from the text matrix when item height is full run advance', () => {
+    expect(textMatrixFontSize([10, 0, 0, 10, 117.42, 409.61], 240)).toBe(10);
+    const geometry = textRunGeometryFromTransform({
+      transform: [10, 0, 0, 10, 117.42, 409.61],
+      width: 10,
+      height: 240,
+      pageHeight: 792,
+      viewMinX: 0,
+      viewMinY: 0,
+    });
+
+    expect(geometry).toMatchObject({
+      width: 10,
+      height: 240,
+      fontSize: 10,
+    });
+  });
+
+  it('falls back to reported item height when the text matrix has no scale', () => {
+    expect(textMatrixFontSize([0, 0, 0, 0, 100, 100], 12)).toBe(12);
+  });
 });
