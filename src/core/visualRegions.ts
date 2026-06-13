@@ -60,6 +60,7 @@ const FORM_LARGE_CLUSTER_HEIGHT_RATIO = 0.35;
 const FORM_TALL_CLUSTER_MIN_FIELDS = 8;
 const FORM_TALL_CLUSTER_HEIGHT_RATIO = 0.2;
 const FORM_BACKPLANE_AREA_RATIO = 0.3;
+const FORM_BACKPLANE_SINGLE_FORM_AREA_RATIO = 0.5;
 const FORM_BACKPLANE_MIN_FORM_OVERLAPS = 2;
 const BACKGROUND_BOX_AREA_RATIO = 0.9;
 const BACKGROUND_BOX_SPAN_RATIO = 0.95;
@@ -760,13 +761,15 @@ function splitLargeFormCluster<T extends { field: FormField; index: number }>(
 
 function suppressFormBackplaneCandidates(candidates: Candidate[], totalArea: number): Candidate[] {
   const formCandidates = candidates.filter((candidate) => hasSourceType(candidate, 'formField'));
-  if (formCandidates.length < FORM_BACKPLANE_MIN_FORM_OVERLAPS) return candidates;
+  if (formCandidates.length === 0) return candidates;
 
   return candidates.filter((candidate) => {
     if (hasSourceType(candidate, 'formField')) return true;
     if (candidate.kind !== 'vector') return true;
-    if (areaRatio(candidate, totalArea) < FORM_BACKPLANE_AREA_RATIO) return true;
+    const candidateAreaRatio = areaRatio(candidate, totalArea);
+    if (candidateAreaRatio < FORM_BACKPLANE_AREA_RATIO) return true;
     const overlappingForms = formCandidates.filter((form) => overlapOfSmaller(form, candidate) >= 0.75).length;
+    if (candidateAreaRatio >= FORM_BACKPLANE_SINGLE_FORM_AREA_RATIO && overlappingForms >= 1) return false;
     return overlappingForms < FORM_BACKPLANE_MIN_FORM_OVERLAPS;
   });
 }

@@ -1962,6 +1962,30 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('suppresses page-sized vector backplanes around a single form field', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      vectorBoxes: [{ x: 6.56, y: 22.81, width: 591.75, height: 729.75 }],
+      formFields: [{ name: 'Text2', type: 'text', x: 21.71, y: 59.28, width: 150, height: 22, flags: ['print'] }],
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'form',
+        x: 13.71,
+        y: 51.28,
+        width: 166,
+        height: 38,
+        areaRatio: 0.013,
+        sourceCount: 1,
+        sources: [{ type: 'formField', index: 0 }],
+        reason: '1 interactive form fields in one page region',
+      },
+    ]);
+  });
+
   it('deduplicates repeated form labels in associated visual-region text', () => {
     const sharedLabel = {
       text: 'Shared taxpayer label',
