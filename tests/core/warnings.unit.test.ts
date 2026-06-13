@@ -279,6 +279,49 @@ describe('detectPageWarnings', () => {
     expect(out[0].message).toContain('33.3% PUA');
   });
 
+  it('flags pdf.js font mapping warnings when printable native text otherwise looks ok', () => {
+    const out = detectPageWarnings(
+      {
+        page: 1,
+        text: '’>in',
+        charCount: 4,
+        imageCount: 0,
+        vectorCount: 0,
+        textCoverage: 0.04,
+        nonPrintableRatio: 0,
+        nonPrintableCount: 0,
+        width: 120,
+        height: 40,
+        quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+      },
+      { pdfJsWarnings: ['Warning: No cmap table available.'] },
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'font_mapping_warning', severity: 'warning' });
+    expect(out[0].message).toContain('No cmap table available');
+  });
+
+  it('does not duplicate font mapping warnings on pages already flagged as glyph noise', () => {
+    const out = detectPageWarnings(
+      {
+        page: 1,
+        text: '\ue0e0cm',
+        charCount: 3,
+        imageCount: 0,
+        vectorCount: 0,
+        textCoverage: 0.06,
+        nonPrintableRatio: 0,
+        nonPrintableCount: 0,
+        width: 200,
+        height: 50,
+        quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+      },
+      { pdfJsWarnings: ['Warning: No cmap table available.'] },
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'localized_glyph_noise', severity: 'warning' });
+  });
+
   it('flags two localized non-printable glyphs when exact symbols may matter', () => {
     // ResNet figure-equation-shaped case: only two control characters,
     // but they sit inside a visible formula (`F(x)+x`) where exact

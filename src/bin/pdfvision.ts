@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 import { run } from '../cli/cli.js';
 
-// pdfjs-dist emits "Warning: ..." lines for non-fatal PDF quirks (missing
-// font tables, malformed structures, etc.) that aren't actionable for end
-// users. Suppress them at the CLI boundary only — library consumers keep
-// the original behaviour.
+// pdfjs-dist emits raw "Warning: ..." lines for non-fatal PDF quirks.
+// Suppress those CLI side-channel lines; processor.ts separately captures
+// selected font-map warnings into structured pages[].warnings.
 const originalWarn = console.warn;
 console.warn = (...args: unknown[]) => {
   const msg = String(args[0]);

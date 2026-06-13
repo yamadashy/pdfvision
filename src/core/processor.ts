@@ -295,7 +295,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v72',
+    format: 'structured-v73',
     passwordHash:
       input.password !== undefined ? createHash('sha256').update(input.password).digest('hex').slice(0, 16) : null,
     render: !!input.render,
@@ -996,12 +996,20 @@ export async function processDocument(filePath: string, options: ProcessDocument
     // Best-effort: keep going without the wasm/cmap asset URLs rather
     // than fail the whole extraction over a missing optional asset.
   }
+  const loadingTask = getDocument(docOptions);
   let doc: PDFDocumentProxy;
   try {
-    doc = await getDocument(docOptions).promise;
+    doc = await loadingTask.promise;
   } catch (error) {
+    try {
+      await loadingTask.destroy();
+    } catch {
+      // Preserve the original parse failure; cleanup here is best-effort.
+    }
     throw withTruncationHint(error, pdfData, filePath);
   }
+  const pdfJsWarnings: string[] = [];
+  const restorePdfJsWarningCapture = capturePdfJsWarnings(pdfJsWarnings);
   try {
     const totalPages = doc.numPages;
     let pageNumbers: number[];
@@ -1301,6 +1309,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
         chromeDetectionReliable,
         rasterBackedTextLayer: rasterBackedTextLayerByPage.get(p.page),
         imageBoxes: warningImageBoxesByPage.get(p.page),
+        pdfJsWarnings,
       });
       if (warnings.length > 0) p.warnings = warnings;
       else delete p.warnings;
@@ -1390,8 +1399,21 @@ export async function processDocument(filePath: string, options: ProcessDocument
 
     return result;
   } finally {
+    restorePdfJsWarningCapture();
     await loadingTask.destroy();
   }
+}
+
+function capturePdfJsWarnings(out: string[]): () => void {
+  const originalWarn = console.warn;
+  console.warn = (...args: unknown[]) => {
+    const msg = args.map(String).join(' ');
+    if (msg.startsWith('Warning:')) out.push(msg);
+    originalWarn(...args);
+  };
+  return () => {
+    console.warn = originalWarn;
+  };
 }
 
 /**

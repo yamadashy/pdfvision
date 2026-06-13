@@ -17,6 +17,8 @@ export interface PageWarningContext {
   /** Internal raster bboxes used for warnings even when public
    *  `pages[].imageBoxes` was not requested. */
   imageBoxes?: ImageBox[];
+  /** Non-fatal pdf.js warnings captured during parsing/rendering. */
+  pdfJsWarnings?: readonly string[];
 }
 
 /**
@@ -42,6 +44,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
 
   detectGlyphGarbageText(page, warnings);
   detectLocalizedGlyphNoise(page, warnings);
+  detectFontMappingWarning(page, context, warnings);
   detectRasterBackedTextLayer(page, context, warnings);
   detectRasterTextLayerSymbolNoise(page, context, warnings);
   detectLowConfidenceOcr(page, context, warnings);
@@ -87,6 +90,7 @@ const CJK_MOJIBAKE_COUNT_THRESHOLD = 5;
 const CJK_MOJIBAKE_RATIO_THRESHOLD = 0.05;
 const LATIN1_MOJIBAKE_MIN_COUNT = 4;
 const LATIN1_MOJIBAKE_RATIO_THRESHOLD = 0.6;
+const FONT_MAPPING_WARNING_PATTERNS = [/no cmap table available/iu, /toUnicode/i, /font.*cmap/iu];
 const DENSE_VECTOR_GRAPHICS_COUNT_THRESHOLD = 250;
 const LARGE_RASTER_AREA_RATIO_THRESHOLD = 0.2;
 const LARGE_RASTER_TEXT_OVERLAP_RATIO_THRESHOLD = 0.01;
@@ -223,6 +227,22 @@ function detectLocalizedGlyphNoise(page: PageResult, out: PageWarning[]): void {
       message: `native text is ${(latin1Mojibake.ratio * 100).toFixed(1)}% Latin-1 supplement glyphs (samples: ${latin1Mojibake.samples.map((s) => JSON.stringify(s)).join(', ')}) — likely printable mojibake from a missing or custom font map; inspect the render if exact text matters`,
     });
   }
+}
+
+function detectFontMappingWarning(page: PageResult, context: PageWarningContext, out: PageWarning[]): void {
+  const warning = context.pdfJsWarnings?.find((message) =>
+    FONT_MAPPING_WARNING_PATTERNS.some((pattern) => pattern.test(message)),
+  );
+  if (!warning) return;
+  if (page.charCount === 0) return;
+  if (page.quality.nativeTextStatus !== 'ok') return;
+  if (out.some((item) => item.code === 'glyph_garbage_text' || item.code === 'localized_glyph_noise')) return;
+
+  out.push({
+    code: 'font_mapping_warning',
+    severity: 'warning',
+    message: `pdf.js reported a font character-map warning (${warning.replace(/^Warning:\s*/u, '')}) while extracting this document — native text may contain printable glyph substitutions even though quality.nativeTextStatus is ok; inspect the render if exact text matters`,
+  });
 }
 
 function countReplacementCharacters(text: string): number {

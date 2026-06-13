@@ -506,6 +506,7 @@ interface PageWarning {
     | 'off_page'
     | 'glyph_garbage_text'
     | 'localized_glyph_noise'
+    | 'font_mapping_warning'
     | 'dense_vector_graphics'
     | 'tabular_numeric_layout'
     | 'raster_backed_text_layer'
@@ -521,7 +522,7 @@ interface PageWarning {
 }
 ```
 
-`pages[].warnings[]` is omitted when no rule fired. Geometry warnings require `--layout` because they pin to layout blocks. Image-region warnings can use pdfvision's internal image-box pass even when `--image-boxes` was not requested; `imageBoxIndex` is emitted only when public `pages[].imageBoxes` exists. `large_raster_low_text_overlap` gets stronger overlap evidence when `--image-boxes` is combined with `--layout` or `--geometry`, because it can compare image boxes against native text bboxes. `tabular_numeric_layout` requires `--layout` because it inspects aligned layout lines. `glyph_garbage_text`, `localized_glyph_noise`, and `dense_vector_graphics` use always-on page signals and can appear without layout. `raster_backed_text_layer` and `raster_text_layer_symbol_noise` use the internal image-box pass and can appear even when `--image-boxes` was not requested. `ocr_low_confidence` requires `--ocr`.
+`pages[].warnings[]` is omitted when no rule fired. Geometry warnings require `--layout` because they pin to layout blocks. Image-region warnings can use pdfvision's internal image-box pass even when `--image-boxes` was not requested; `imageBoxIndex` is emitted only when public `pages[].imageBoxes` exists. `large_raster_low_text_overlap` gets stronger overlap evidence when `--image-boxes` is combined with `--layout` or `--geometry`, because it can compare image boxes against native text bboxes. `tabular_numeric_layout` requires `--layout` because it inspects aligned layout lines. `glyph_garbage_text`, `localized_glyph_noise`, `font_mapping_warning`, and `dense_vector_graphics` use always-on page/document signals and can appear without layout. `raster_backed_text_layer` and `raster_text_layer_symbol_noise` use the internal image-box pass and can appear even when `--image-boxes` was not requested. `ocr_low_confidence` requires `--ocr`.
 
 The current rule catalog:
 
@@ -531,6 +532,7 @@ The current rule catalog:
 - `off_page` — a layout block bbox extends beyond the page.
 - `glyph_garbage_text` — `quality.nativeTextStatus` is `mixed_glyph_indices` or `unusable_glyph_indices`, or native text is dominated by Private Use Area glyph-code strings; native text is partly or mostly raw glyph-index garbage and should be checked against render/OCR before use.
 - `localized_glyph_noise` — multiple non-printable code points appear below the mixed-glyph threshold, Unicode replacement characters (`U+FFFD`) appear in otherwise usable native text, private-use glyph codes dominate a short run, isolated Latin-extended mojibake appears inside CJK text, or Latin-1 supplement printable mojibake dominates a short text run; often broken formulas, comparison symbols, unit marks, bullets, dotted leaders, non-Latin custom fonts, or icon-font symbols.
+- `font_mapping_warning` — pdf.js reported missing or suspicious font character-map data while native text otherwise looked usable; visible text may render correctly but extract as printable glyph substitutions, so compare against the render when exact text matters.
 - `dense_vector_graphics` — the page contains many vector drawing operations; often form boxes, table rules, chart paths, checkboxes, or diagrams whose visible structure is not represented by native text.
 - `tabular_numeric_layout` — many short numeric lines form multiple aligned columns with shared row positions; often financial statements or dense numeric tables whose row/column relationships are visually obvious but can be flattened in plain native text. Chart-axis tick labels and irregular chart data-label rows are suppressed.
 - `raster_backed_text_layer` — native text appears to be an OCR/text layer over a full-page raster image, including sparse OCR layers on scanned covers; text may be useful but error-prone, and bbox/layout geometry can drift from the pixels a human sees.
