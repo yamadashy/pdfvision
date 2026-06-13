@@ -72,7 +72,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
   // page deselected). Suppress to avoid false positives where a
   // running footer reads as "body crowded against the bottom".
   if (chromeDetectionReliable) {
-    detectNearBottomEdge(blocks, page.height, warnings);
+    detectNearBottomEdge(blocks, page.width, page.height, warnings);
   }
   detectBodyNearRepeatedChrome(blocks, warnings);
 
@@ -807,7 +807,7 @@ function isMinorFontMetricTopBleed(block: LayoutBlock, tolerance: number): boole
   return bleed <= allowed;
 }
 
-function detectNearBottomEdge(blocks: LayoutBlock[], pageHeight: number, out: PageWarning[]): void {
+function detectNearBottomEdge(blocks: LayoutBlock[], pageWidth: number, pageHeight: number, out: PageWarning[]): void {
   // Only non-repeated body blocks — a footer at the bottom edge is
   // by definition "near the bottom edge" and that's not a finding.
   const threshold = Math.min(EDGE_NEAR_BOTTOM_ABS, pageHeight * EDGE_NEAR_BOTTOM_REL);
@@ -816,6 +816,7 @@ function detectNearBottomEdge(blocks: LayoutBlock[], pageHeight: number, out: Pa
     const b = blocks[i];
     if (b.repeated) continue;
     if (isBottomReference(b)) continue;
+    if (isCenteredBottomLabel(b, pageWidth)) continue;
     if (isSourceFootnoteCaption(b)) continue;
     if (isTinyFontCaption(b, bodyFontSize)) continue;
     const distance = pageHeight - (b.y + b.height);
@@ -828,6 +829,15 @@ function detectNearBottomEdge(blocks: LayoutBlock[], pageHeight: number, out: Pa
       blockIndex: i,
     });
   }
+}
+
+function isCenteredBottomLabel(block: LayoutBlock, pageWidth: number): boolean {
+  const text = block.text.trim();
+  if (text.length === 0 || text.length > 120) return false;
+  if (block.lines.length > 2) return false;
+  if (block.width > pageWidth * 0.35) return false;
+  const center = block.x + block.width / 2;
+  return Math.abs(center - pageWidth / 2) <= pageWidth * 0.15;
 }
 
 function isBottomReference(block: LayoutBlock): boolean {

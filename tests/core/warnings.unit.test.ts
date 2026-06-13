@@ -1399,6 +1399,11 @@ describe('detectPageWarnings', () => {
       expect(out.filter((w) => w.code === 'near_bottom_edge')).toEqual([]);
     });
 
+    it('does not flag short centered bottom labels on slide-like pages', () => {
+      const out = detectPageWarnings(page([block(328, 517, 123, 12, { text: 'ものづくり振興施策を掲載' })], 780, 540));
+      expect(out.filter((w) => w.code === 'near_bottom_edge')).toEqual([]);
+    });
+
     it('does not flag centered roman numeral page numbers at the bottom edge', () => {
       const out = detectPageWarnings(page([block(294, 758, 8, 9, { text: 'iv' })], 594, 774));
       expect(out.filter((w) => w.code === 'near_bottom_edge')).toEqual([]);
