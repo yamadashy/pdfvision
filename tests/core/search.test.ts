@@ -96,6 +96,26 @@ describe('processDocument search', () => {
     expect(matches[0].boxes).toHaveLength(3);
   });
 
+  it('matches phrases across Type3-style wide word spacing rows', () => {
+    const spans: TextSpan[] = [
+      { text: 'ab', x: 50, y: 60, width: 20, height: 10, fontSize: 10 },
+      { text: 'ba', x: 120, y: 60, width: 20, height: 10, fontSize: 10 },
+      { text: 'abba', x: 190, y: 60, width: 40, height: 10, fontSize: 10 },
+    ];
+    const compiled = compileSearch('ab ba abba', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 300, 80, compiled);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'ab ba abba',
+      source: 'native',
+      page: 1,
+    });
+    expect(matches[0].boxes).toHaveLength(3);
+  });
+
   it('omits matches[] entirely when no search was requested', async () => {
     // Default extraction never carries a stray matches field.
     const result = await processDocument(SAMPLE_PDF, { noCache: true });

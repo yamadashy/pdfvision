@@ -1,6 +1,6 @@
 import type { OcrWord, PageOcr, SearchMatch, TextSpan } from '../types/index.js';
 import { CJK_TIGHT_GAP_RATIO, isCjkLeading } from './cjkJoin.js';
-import { shouldInsertSemanticSpace } from './spacing.js';
+import { isLikelyWideWordSpacingRow, shouldInsertSemanticSpace } from './spacing.js';
 
 /**
  * Inputs the processor builds once per request, then passes to
@@ -203,7 +203,7 @@ export function suppressDuplicateOcrMatches(
   return out;
 }
 
-function buildSearchLines(spans: readonly TextSpan[] | undefined): SearchLine[] {
+function buildSearchLines(spans: readonly TextSpan[] | undefined, pageWidth: number): SearchLine[] {
   if (!spans || spans.length === 0) return [];
   const sorted = [...spans].sort((a, b) => a.y - b.y || a.x - b.x);
   const groups: TextSpan[][] = [];
@@ -220,6 +220,7 @@ function buildSearchLines(spans: readonly TextSpan[] | undefined): SearchLine[] 
   const lines: SearchLine[] = [];
   for (const group of groups) {
     const xSorted = [...group].sort((a, b) => a.x - b.x);
+    const preserveWideWordSpacing = isLikelyWideWordSpacingRow(xSorted, pageWidth);
     let text = '';
     const owners: (SearchOwner | undefined)[] = [];
     const pushLine = (): void => {
@@ -236,7 +237,7 @@ function buildSearchLines(spans: readonly TextSpan[] | undefined): SearchLine[] 
         const gap = span.x - (prev.x + prev.width);
         const fontSize = span.fontSize || prev.fontSize || FONT_SIZE_FALLBACK_PT;
         const segmentGap = Math.max(fontSize * SEARCH_SEGMENT_GAP_RATIO, SEARCH_SEGMENT_MIN_GAP_PT);
-        if (gap > segmentGap) {
+        if (!preserveWideWordSpacing && gap > segmentGap) {
           pushLine();
         } else if (
           (gap > spaceGapThreshold(prev, span, fontSize) ||
@@ -407,7 +408,7 @@ export function searchPage(
   // too, so they're in the same form as the haystack. Regex-mode
   // queries are intentionally NOT normalised — the user opts into
   // literal-codepoint semantics against the normalised document text.
-  lineLoop: for (const line of buildSearchLines(spans)) {
+  lineLoop: for (const line of buildSearchLines(spans, pageWidth)) {
     const haystack = line.text;
     for (let mi = 0; mi < compiled.matchers.length; mi++) {
       const m = compiled.matchers[mi];

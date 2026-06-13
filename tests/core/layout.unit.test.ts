@@ -1066,6 +1066,26 @@ describe('buildLayout — multi-column reading order', () => {
     expect(layout.blocks[0].lines[0].text).toBe('العربية اخلطوط انواع');
   });
 
+  it('does not split Type3-style wide word spacing rows into columns', () => {
+    // PDF.js Type3WordSpacing-shaped case: synthetic word spacing can be
+    // much wider than ordinary Latin text, but the short word sequence is
+    // still one visual line rather than three columns.
+    const spans: TextSpan[] = [
+      span('ab', 20, 30, 10, 20),
+      span('ba', 60, 30, 10, 20),
+      span('abba', 100, 30, 10, 40),
+      span('ab', 50, 60, 10, 20),
+      span('ba', 120, 60, 10, 20),
+      span('abba', 190, 60, 10, 40),
+    ];
+    const layout = buildLayout(spans, 300);
+
+    expect(layout.blocks.flatMap((block) => block.lines.map((line) => line.text))).toEqual([
+      'ab ba abba',
+      'ab ba abba',
+    ]);
+  });
+
   it('splits large numeric callouts from small annotation lines while keeping the unit', () => {
     // Japanese infographic-shaped case: a small "75%" annotation sits
     // above a large "9,308万枚" KPI. The large number's tall bbox used
