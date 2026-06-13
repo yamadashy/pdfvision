@@ -57,6 +57,21 @@ describe('buildVisualRegions', () => {
     expect(regions).toEqual([]);
   });
 
+  it('suppresses form regions when the rendered page is blank', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      formFields: [
+        { name: 'Text1', type: 'text', x: 24, y: 48, width: 264, height: 25, readOnly: false, required: false },
+        { name: 'Text2', type: 'text', x: 312, y: 48, width: 266, height: 25, readOnly: false, required: false },
+      ],
+      visualStatus: 'blank',
+    });
+
+    expect(regions).toEqual([]);
+  });
+
   it('keeps full-page raster regions without render evidence', () => {
     const regions = buildVisualRegions({
       pageWidth: 100,

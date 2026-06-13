@@ -1198,6 +1198,7 @@ function canSuppressContainedCandidate(candidate: Candidate, other: Candidate): 
 
 export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion[] {
   if (input.pageWidth <= 0 || input.pageHeight <= 0) return [];
+  if (input.visualStatus === 'blank') return [];
 
   const candidates: Candidate[] = [];
   addRasterCandidates(input, candidates);
