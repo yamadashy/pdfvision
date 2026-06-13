@@ -518,6 +518,23 @@ describe('detectPageWarnings', () => {
     expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
   });
 
+  it('does not flag standalone French diacritics as Latin-1 mojibake', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: 'à À â Â ä Ä ç Ç é É è È ê Ê ë Ë î Î ï Ï ô Ô ù Ù û Û ü Ü\n1',
+      charCount: 57,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.006,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 595.28,
+      height: 841.89,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'sparse' },
+    });
+    expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
+  });
+
   it('flags dense vector graphics that may carry form or chart structure outside text', () => {
     // IRS Form 1040-shaped case: text extraction is healthy, but the
     // checkbox/table/form geometry is mostly vector drawing operations.

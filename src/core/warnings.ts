@@ -289,7 +289,9 @@ function isLatinExtendedChar(ch: string | undefined): boolean {
 }
 
 function detectLatin1MojibakeGlyphNoise(text: string): { count: number; ratio: number; samples: string[] } | undefined {
-  const chars = Array.from(text).filter((ch) => !/\s/u.test(ch));
+  const allChars = Array.from(text);
+  if (!hasAdjacentLatin1SupplementRun(allChars)) return undefined;
+  const chars = allChars.filter((ch) => !/\s/u.test(ch));
   if (chars.length < LATIN1_MOJIBAKE_MIN_COUNT) return undefined;
 
   const suspicious = chars.filter(isLatin1SupplementChar);
@@ -306,6 +308,13 @@ function isLatin1SupplementChar(ch: string | undefined): boolean {
 
 function isLatin1MojibakeAnchorChar(ch: string | undefined): boolean {
   return ch !== undefined && /[ÃÂâãÐðÞþ]/u.test(ch);
+}
+
+function hasAdjacentLatin1SupplementRun(chars: readonly string[]): boolean {
+  for (let i = 1; i < chars.length; i++) {
+    if (isLatin1SupplementChar(chars[i - 1]) && isLatin1SupplementChar(chars[i])) return true;
+  }
+  return false;
 }
 
 function detectRasterBackedTextLayer(page: PageResult, context: PageWarningContext, out: PageWarning[]): void {
