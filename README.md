@@ -37,7 +37,7 @@ Every page reports `charCount`, `imageCount`, `vectorCount`, `textCoverage`, and
 
 - **`--layout`** returns blocks with `role: 'heading'`, `repeated: true` for running headers and footers (splitting glued footer lines away from nearby body text when possible), multi-column reading order (including narrow repeated gutters and drop caps), `writingMode: 'vertical'` for detected CJK vertical text stacks, and row-major `layout.tables[]` hints for aligned numeric tables.
 - **`--image-boxes`** reports where each raster draw lands, including image-bearing pattern fills.
-- **`--vector-boxes`** reports where painted vector paths land, useful for maps, symbols, chart paths, form boxes, table rules, and slide shapes that are visible but not raster images.
+- **`--vector-boxes`** reports where painted vector paths and clipped shading fills land, useful for maps, symbols, chart paths, gradient panels, form boxes, table rules, and slide shapes that are visible but not raster images.
 - **`--visual-regions`** groups important raster/vector/table/form geometry into padded, crop-ready bboxes, attaches nearby captions/form labels/table lead-ins when found (including global Plate captions for multi-panel map/figure pages), and can be fed straight into `--render-region`; **`--render-visual-regions`** renders those suggested crops directly.
 - **`--form-fields`** reports interactive PDF widget fields such as text boxes, checkboxes, radio buttons, choices, buttons, and signatures with values, checkbox/radio export values, bboxes, decoded widget flags, JavaScript actions, nearby visible labels, and choice options when the PDF exposes them, including stacked prompt lines, dotted-leader amount prompts, and fine-grained adjacent prompts when they form field labels.
 - **`--links`** reports clickable PDF link annotations such as citation jumps, table-of-contents destinations, and external URLs with bboxes, plus the resolved physical target page when an internal destination can be resolved.
@@ -123,7 +123,7 @@ Options:
                           reading_order_divergence)
       --image-boxes       Emit per-image bbox in pages[].imageBoxes;
                           enables imageBoxIndex details on large-raster warnings
-      --vector-boxes      Emit painted vector path bboxes in pages[].vectorBoxes
+      --vector-boxes      Emit vector drawing bboxes in pages[].vectorBoxes
       --visual-regions    Emit crop-ready figure/chart/table/form regions in pages[].visualRegions
       --render-visual-regions
                           Render visual region crops to PNG and attach paths

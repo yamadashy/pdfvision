@@ -60,9 +60,9 @@ Options
                           --geometry. Only -f json / -f xml / -f toon.
                           Full-page scan/OCR-layer and dense-vector warnings can appear
                           even without this flag.
-      --vector-boxes      Emit \`pages[].vectorBoxes\` — bounding boxes of painted vector
-                          paths such as map symbols, chart paths, table rules, form
-                          boxes, and slide shapes. Only -f json / -f xml / -f toon.
+      --vector-boxes      Emit \`pages[].vectorBoxes\` — bounding boxes of vector drawings
+                          such as map symbols, chart paths, clipped shading fills, table
+                          rules, form boxes, and slide shapes. Only -f json / -f xml / -f toon.
       --visual-regions    Emit \`pages[].visualRegions\` — padded, crop-ready bboxes
                           for important figures, charts, diagrams, tables, forms, and
                           raster/vector clusters. Feed x,y,width,height directly into

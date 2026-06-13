@@ -31,6 +31,8 @@ export interface ImageOps {
   pathFillOps: ReadonlySet<number>;
   /** Direct vector drawing operations that expose non-text, non-raster structure. */
   vectorPaintOps: ReadonlySet<number>;
+  /** Shading fill operations paint gradients through the active clip path. */
+  shadingFill: number;
   paintImageXObjectRepeat: number;
   paintImageMaskXObjectRepeat: number;
   paintImageMaskXObjectGroup: number;

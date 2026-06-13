@@ -406,7 +406,7 @@ interface VectorBox {
 }
 ```
 
-One entry per painted vector path where pdf.js reports a path bbox, excluding page-sized white background fills. This is useful for maps, symbol tables, charts, diagrams, table rules, form boxes, and slide shapes: content a human sees, but that is neither native text nor a raster image. Horizontal/vertical strokes are expanded to at least 0.5pt in the degenerate dimension so their boxes can feed `--render-region`. `vectorCount` remains the broad density signal for meaningful vector drawing operations; `vectorBoxes[]` is the opt-in location signal and can be shorter than `vectorCount` when a low-level op has no bbox.
+One entry per painted vector path where pdf.js reports a path bbox, plus shading fills when pdf.js exposes the active clipping bbox, excluding page-sized white background fills. This is useful for maps, symbol tables, charts, diagrams, gradient panels, table rules, form boxes, and slide shapes: content a human sees, but that is neither native text nor a raster image. Horizontal/vertical strokes are expanded to at least 0.5pt in the degenerate dimension so their boxes can feed `--render-region`. `vectorCount` remains the broad density signal for meaningful vector drawing operations; `vectorBoxes[]` is the opt-in location signal and can be shorter than `vectorCount` when a low-level op has no bbox.
 
 ## Visual regions (`--visual-regions`)
 

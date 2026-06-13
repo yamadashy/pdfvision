@@ -82,6 +82,7 @@ export function buildVectorBoxes(
   const boxes: VectorBox[] = [];
   let ctm: Matrix6 = [1, 0, 0, 1, 0, 0];
   let fillColor: string | undefined;
+  let pendingClipBox: VectorBox | undefined;
   const stack: GraphicsState[] = [];
 
   for (let i = 0; i < fnArray.length; i++) {
@@ -96,6 +97,7 @@ export function buildVectorBoxes(
         ctm = popped.ctm;
         fillColor = popped.fillColor;
       }
+      pendingClipBox = undefined;
     } else if (fn === ops.transform) {
       const matrix = matrix6(args);
       if (matrix) ctm = multiply(ctm, matrix);
@@ -109,16 +111,27 @@ export function buildVectorBoxes(
         ctm = popped.ctm;
         fillColor = popped.fillColor;
       }
+      pendingClipBox = undefined;
     } else if (ops.fillColorOps.has(fn)) {
       fillColor = fillColorValue(args);
     } else if (fn === ops.constructPath) {
       const pathOp = args?.[0];
       const bbox = numericQuad(args?.[2]);
       if (typeof pathOp === 'number' && ops.pathPaintOps.has(pathOp) && bbox) {
+        pendingClipBox = undefined;
         const box = bboxToBox(bbox, ctm, pageHeight, viewMinX, viewMinY);
         if (!isWhitePageBackgroundFill(pathOp, box, fillColor, ops, pageWidth, pageHeight)) {
           boxes.push(box);
         }
+      } else if (bbox) {
+        pendingClipBox = bboxToBox(bbox, ctm, pageHeight, viewMinX, viewMinY);
+      } else {
+        pendingClipBox = undefined;
+      }
+    } else if (fn === ops.shadingFill) {
+      if (pendingClipBox) {
+        boxes.push(pendingClipBox);
+        pendingClipBox = undefined;
       }
     }
   }

@@ -26,6 +26,7 @@ const ops: ImageOps = {
   pathPaintOps: new Set<number>([OP.stroke, OP.fill]),
   pathFillOps: new Set<number>([OP.fill]),
   vectorPaintOps: new Set<number>([OP.shadingFill, OP.rawFillPath]),
+  shadingFill: OP.shadingFill,
   paintImageXObjectRepeat: 20,
   paintImageMaskXObjectRepeat: 21,
   paintImageMaskXObjectGroup: 22,

@@ -14,6 +14,7 @@ const OP = {
   stroke: 10,
   clip: 11,
   fill: 12,
+  shadingFill: 13,
   paintImageXObjectRepeat: 20,
   paintImageMaskXObjectRepeat: 21,
   paintImageMaskXObjectGroup: 22,
@@ -32,7 +33,8 @@ const ops: ImageOps = {
   constructPath: OP.constructPath,
   pathPaintOps: new Set<number>([OP.stroke, OP.fill]),
   pathFillOps: new Set<number>([OP.fill]),
-  vectorPaintOps: new Set<number>([OP.stroke]),
+  vectorPaintOps: new Set<number>([OP.stroke, OP.shadingFill]),
+  shadingFill: OP.shadingFill,
   paintImageXObjectRepeat: OP.paintImageXObjectRepeat,
   paintImageMaskXObjectRepeat: OP.paintImageMaskXObjectRepeat,
   paintImageMaskXObjectGroup: OP.paintImageMaskXObjectGroup,
@@ -72,6 +74,20 @@ describe('buildVectorBoxes', () => {
     );
 
     expect(boxes).toEqual([]);
+  });
+
+  it('uses the active clip bbox for shading fills', () => {
+    const boxes = buildVectorBoxes(
+      [OP.save, OP.constructPath, OP.shadingFill, OP.restore],
+      [[], [OP.clip, [], [30, 582, 200, 752]], ['pattern_p0_1'], []],
+      ops,
+      PAGE_WIDTH,
+      PAGE_HEIGHT,
+      0,
+      0,
+    );
+
+    expect(boxes).toEqual([{ x: 30, y: 40, width: 170, height: 170 }]);
   });
 
   it('inflates horizontal and vertical stroke bboxes so they can feed render regions', () => {

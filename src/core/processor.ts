@@ -1153,6 +1153,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       pathPaintOps,
       pathFillOps,
       vectorPaintOps,
+      shadingFill: OPS.shadingFill,
       paintImageXObjectRepeat: OPS.paintImageXObjectRepeat,
       paintImageMaskXObjectRepeat: OPS.paintImageMaskXObjectRepeat,
       paintImageMaskXObjectGroup: OPS.paintImageMaskXObjectGroup,

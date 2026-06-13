@@ -188,10 +188,10 @@ export interface ProcessDocumentOptions {
    */
   imageBoxes?: boolean;
   /**
-   * Emit bounding boxes for painted vector paths in `pages[].vectorBoxes`.
-   * Useful for maps, diagrams, chart paths, table rules, slide shapes, and
-   * other non-raster visual marks that are visible to humans but absent
-   * from native text.
+   * Emit bounding boxes for painted vector paths and clipped shading fills
+   * in `pages[].vectorBoxes`. Useful for maps, diagrams, chart paths,
+   * gradient panels, table rules, slide shapes, and other non-raster visual
+   * marks that are visible to humans but absent from native text.
    */
   vectorBoxes?: boolean;
   /**
@@ -1081,9 +1081,10 @@ export interface PageResult {
    */
   imageBoxes?: ImageBox[];
   /**
-   * Bounding boxes of painted vector paths on the page, only present when
+   * Bounding boxes of vector drawings on the page, only present when
    * `vectorBoxes: true` was passed. One entry per path paint operation
-   * where pdf.js reports a path bbox, excluding page-sized white
+   * where pdf.js reports a path bbox, plus shading fills when pdf.js
+   * exposes the active clipping bbox, excluding page-sized white
    * background fills. Coordinates use the same top-left PDF-point system
    * as `spans`, `layout.blocks`, and `imageBoxes`.
    */
