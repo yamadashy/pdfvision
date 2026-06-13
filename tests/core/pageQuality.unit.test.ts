@@ -132,6 +132,34 @@ describe('derivePageQuality', () => {
     });
   });
 
+  it('keeps tiny visible annotation appearances distinct from blank renders', () => {
+    const quality = derivePageQuality(
+      makePage({
+        renderContentRatio: 0.000167,
+      }),
+      { hasVisibleAnnotationAppearance: true },
+    );
+
+    expect(quality).toEqual({
+      nativeTextStatus: 'empty_but_visual_content',
+      visualStatus: 'sparse',
+    });
+  });
+
+  it('uses public annotation appearances as visual-content evidence', () => {
+    const quality = derivePageQuality(
+      makePage({
+        annotations: [{ subtype: 'FreeText', hasAppearance: true, x: 10, y: 10, width: 8, height: 8 }],
+        renderContentRatio: 0.000167,
+      }),
+    );
+
+    expect(quality).toEqual({
+      nativeTextStatus: 'empty_but_visual_content',
+      visualStatus: 'sparse',
+    });
+  });
+
   it('keeps near-threshold text-only render traces distinct from blank renders', () => {
     const quality = derivePageQuality(
       makePage({

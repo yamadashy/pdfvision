@@ -45,7 +45,7 @@ import type {
   TextSpan,
   VectorBox,
 } from '../types/index.js';
-import { buildAnnotations } from './annotations.js';
+import { buildAnnotations, hasVisibleAnnotationAppearance } from './annotations.js';
 import { buildAttachments } from './attachments.js';
 import { dropCached, ensurePrivateDir, getCacheDir, getCached, pdfFingerprint, setCache } from './cache.js';
 import { type JoinItem, joinPageText } from './cjkJoin.js';
@@ -428,6 +428,7 @@ interface PageData {
   _warningImageBoxes?: ImageBox[];
   vectorBoxes?: VectorBox[];
   _visualRegionInput?: BuildVisualRegionsInput;
+  hasVisibleAnnotationAppearance?: boolean;
   formFields?: FormField[];
   links?: PageLink[];
   annotations?: PageAnnotation[];
@@ -445,6 +446,7 @@ interface PageFlags {
   formFields: boolean;
   links: boolean;
   annotations: boolean;
+  annotationAppearanceHints: boolean;
   structure: boolean;
   viewer: boolean;
   /** Build spans internally even when neither `geometry` nor `layout`
@@ -571,10 +573,10 @@ async function extractPageData(
   const internalLayout =
     flags.layout || flags.visualRegions || flags.formFields ? buildLayout(spans, round2(width)) : undefined;
   const layout = flags.layout ? internalLayout : undefined;
-  const annotations =
-    flags.formFields || flags.links || flags.annotations || flags.visualRegions
-      ? await page.getAnnotations({ intent: 'display' })
-      : undefined;
+  const needsAnnotations =
+    flags.formFields || flags.links || flags.annotations || flags.visualRegions || flags.annotationAppearanceHints;
+  const annotations = needsAnnotations ? await page.getAnnotations({ intent: 'display' }) : undefined;
+  const visibleAnnotationAppearance = annotations ? hasVisibleAnnotationAppearance(annotations) : false;
   const allFormFields =
     flags.formFields || flags.visualRegions
       ? buildFormFields(
@@ -689,6 +691,7 @@ async function extractPageData(
     _warningImageBoxes: allBoxes,
     ...(vectorBoxes !== undefined && { vectorBoxes }),
     ...(visualRegionInput !== undefined && { _visualRegionInput: visualRegionInput }),
+    ...(visibleAnnotationAppearance && { hasVisibleAnnotationAppearance: true }),
     ...(formFields !== undefined && { formFields }),
     ...(links !== undefined && { links }),
     ...(pageAnnotations !== undefined && { annotations: pageAnnotations }),
@@ -1100,6 +1103,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       formFields: !!options.formFields,
       links: !!options.links,
       annotations: !!options.annotations,
+      annotationAppearanceHints: !!options.render || !!options.ocr,
       structure: !!options.structure,
       viewer: !!options.viewer,
       // Search needs span-level bbox to populate `matches[*].bbox`;
@@ -1112,6 +1116,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     const rasterBackedTextLayerByPage = new Map<number, boolean>();
     const warningImageBoxesByPage = new Map<number, ImageBox[]>();
     const visualRegionInputsByPage = new Map<number, BuildVisualRegionsInput>();
+    const annotationAppearanceByPage = new Map<number, boolean>();
     const imageOps: ImageOps = {
       save: OPS.save,
       restore: OPS.restore,
@@ -1138,6 +1143,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       rasterBackedTextLayerByPage.set(pageNum, data.rasterBackedTextLayer);
       warningImageBoxesByPage.set(pageNum, data._warningImageBoxes ?? []);
       if (data._visualRegionInput) visualRegionInputsByPage.set(pageNum, data._visualRegionInput);
+      if (data.hasVisibleAnnotationAppearance) annotationAppearanceByPage.set(pageNum, true);
       const renderRatio = renderRatios[i];
       const page: PageResult = {
         page: pageNum,
@@ -1169,7 +1175,9 @@ export async function processDocument(filePath: string, options: ProcessDocument
         // overwrites this with the final classification.
         quality: { nativeTextStatus: 'empty' },
       };
-      page.quality = derivePageQuality(page);
+      page.quality = derivePageQuality(page, {
+        hasVisibleAnnotationAppearance: annotationAppearanceByPage.get(pageNum) ?? false,
+      });
       // Run the native (span-based) search pass here while the internal
       // spans are still in scope. OCR-based matches are appended
       // post-OCR below — both produce the same SearchMatch shape, so
@@ -1242,7 +1250,9 @@ export async function processDocument(filePath: string, options: ProcessDocument
     // Compute the derived `quality` field *after* OCR so the OCR-only
     // path's renderContentRatio participates in visual-status decisions.
     for (const p of pages) {
-      p.quality = derivePageQuality(p);
+      p.quality = derivePageQuality(p, {
+        hasVisibleAnnotationAppearance: annotationAppearanceByPage.get(p.page) ?? false,
+      });
     }
 
     // Warning detection runs after `markRepeatedBlocks` so geometry

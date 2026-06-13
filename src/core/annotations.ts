@@ -165,6 +165,18 @@ export function annotationFlagNames(value: unknown): PageAnnotationFlag[] {
   return ANNOTATION_FLAGS.filter(({ bit }) => (value & bit) !== 0).map(({ name }) => name);
 }
 
+export function hasVisibleAnnotationAppearance(annotations: readonly unknown[]): boolean {
+  for (const annotation of annotations) {
+    const ann = annotation as PdfAnnotation;
+    if (typeof ann.subtype !== 'string' || ann.subtype === 'Popup' || ann.subtype === 'Link') continue;
+    if (ann.hasAppearance !== true) continue;
+    const flags = annotationFlagNames(ann.annotationFlags);
+    if (flags.some((flag) => flag === 'invisible' || flag === 'hidden' || flag === 'noView')) continue;
+    return true;
+  }
+  return false;
+}
+
 function borderStyleValue(value: unknown): PageAnnotationBorder | undefined {
   if (!value || typeof value !== 'object') return undefined;
   const border = value as PdfAnnotationBorderStyle;

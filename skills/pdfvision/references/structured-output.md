@@ -60,7 +60,7 @@ interface PageOverview {
 - `vectorCount > 0 && textCoverage is low` → visible non-raster structure exists even when `imageCount` is zero; forms, charts, diagrams, and slide shapes may require `--render`.
 - `0.05 <= nonPrintableRatio < 0.3` → one or more fonts lack a usable ToUnicode CMap; native text contains readable fragments mixed with raw glyph indices. Native text is incomplete even if some words look usable. Maps to `quality.nativeTextStatus === 'mixed_glyph_indices'`.
 - `nonPrintableRatio >= 0.3` → ToUnicode CMap missing for most of the page; the text stream is mostly raw glyph indices (NUL + control chars) even though `textCoverage` looks fine. Native text is unusable; fall back to `--render` or `--ocr`. Maps to `quality.nativeTextStatus === 'unusable_glyph_indices'`.
-- `quality.visualStatus === 'sparse'` → rasterised page is not blank, but visible marks are sparse. This covers `0.001 < renderContentRatio <= 0.005`, tiny corroborated image/vector traces below the blank threshold, and text-only pages whose visible ink sits just below the threshold; inspect geometry or render a crop before calling it a render failure.
+- `quality.visualStatus === 'sparse'` → rasterised page is not blank, but visible marks are sparse. This covers `0.001 < renderContentRatio <= 0.005`, tiny corroborated image/vector/annotation traces below the blank threshold, and text-only or annotation-only pages whose visible ink sits just below the threshold; inspect geometry or render a crop before calling it a render failure.
 - `quality.visualStatus === 'blank'` → rasterised page is effectively blank against its own dominant background (only meaningful when `--render` or `--ocr` was on). Background-aware so dark covers and beige scans don't false-trip it. Catches render-pipeline failures pdfvision can't otherwise surface: pdf.js + @napi-rs/canvas can't decode JPEG2000 image streams (common in Internet Archive scans), and PDFs whose fonts have no resolvable glyphs draw nothing. When OCR runs against this, `confidence: 0` is *not* an OCR miss — the input was a near-uniform image.
 
 ## PageResult (per page)
@@ -105,7 +105,7 @@ interface PageQuality {
     | 'unusable_glyph_indices'   // nonPrintableRatio >= 0.3 — fall back to --ocr / --render
     | 'sparse_text_on_blank_visual' // sparse native text exists but the rendered page is effectively blank
     | 'sparse_text_with_visual_content' // native text exists but is too sparse for a visual page
-    | 'empty_but_visual_content' // no native text but the page has images / vectors / non-blank pixels
+    | 'empty_but_visual_content' // no native text but the page has images / vectors / annotations / non-blank pixels
     | 'empty';                   // no text, no detected visual content
   visualStatus?:                 // present iff --render or --ocr triggered a raster
     | 'ok'                       // renderContentRatio > 0.005 — renderer drew clearly populated content

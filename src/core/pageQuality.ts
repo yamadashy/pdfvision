@@ -21,14 +21,35 @@ const SPARSE_VISUAL_TEXT_CHAR_THRESHOLD = 200;
 const DENSE_VISUAL_SPARSE_TEXT_CHAR_THRESHOLD = 40;
 const DENSE_VISUAL_STRUCTURE_VECTOR_THRESHOLD = 250;
 
-function deriveVisualStatus(p: PageResult): PageQuality['visualStatus'] {
+interface DerivePageQualityOptions {
+  hasVisibleAnnotationAppearance?: boolean;
+}
+
+function hasPublicVisibleAnnotationAppearance(p: PageResult): boolean {
+  return (
+    p.annotations?.some((annotation) => {
+      if (annotation.hasAppearance !== true) return false;
+      return !annotation.flags?.some((flag) => flag === 'invisible' || flag === 'hidden' || flag === 'noView');
+    }) ?? false
+  );
+}
+
+function deriveVisualStatus(p: PageResult, options: DerivePageQualityOptions): PageQuality['visualStatus'] {
   if (p.renderContentRatio === undefined) return undefined;
   if (p.renderContentRatio > SPARSE_RENDER_THRESHOLD) return 'ok';
   if (p.renderContentRatio > BLANK_RENDER_THRESHOLD) return 'sparse';
 
+  const hasVisibleAnnotationAppearance =
+    options.hasVisibleAnnotationAppearance ?? hasPublicVisibleAnnotationAppearance(p);
   const hasCorroboratingVisualObjects = p.imageCount > 0 || p.vectorCount > 0;
   const hasVisibleTextOnlyTrace = p.charCount > 0 && p.textCoverage > 0 && p.imageCount === 0 && p.vectorCount === 0;
-  if (p.renderContentRatio >= TRACE_RENDER_THRESHOLD && (hasCorroboratingVisualObjects || hasVisibleTextOnlyTrace)) {
+  if (
+    p.renderContentRatio >= TRACE_RENDER_THRESHOLD &&
+    (hasCorroboratingVisualObjects || hasVisibleTextOnlyTrace || hasVisibleAnnotationAppearance)
+  ) {
+    return 'sparse';
+  }
+  if (p.renderContentRatio > 0 && hasVisibleAnnotationAppearance) {
     return 'sparse';
   }
   return 'blank';
@@ -39,12 +60,15 @@ function deriveVisualStatus(p: PageResult): PageQuality['visualStatus'] {
  * of the raw fields, invoked after OCR/render have had a chance to attach
  * `renderContentRatio`.
  */
-export function derivePageQuality(p: PageResult): PageQuality {
-  const visualStatus = deriveVisualStatus(p);
+export function derivePageQuality(p: PageResult, options: DerivePageQualityOptions = {}): PageQuality {
+  const visualStatus = deriveVisualStatus(p, options);
   const hasVisualRender = visualStatus === 'ok' || visualStatus === 'sparse';
   const hasBlankVisualRender = visualStatus === 'blank';
   const hasNonTextVisualContent = p.imageCount > 0 || p.vectorCount > 0;
-  const hasVisualContent = (hasNonTextVisualContent && !hasBlankVisualRender) || hasVisualRender;
+  const hasVisibleAnnotationAppearance =
+    options.hasVisibleAnnotationAppearance ?? hasPublicVisibleAnnotationAppearance(p);
+  const hasVisualContent =
+    (hasNonTextVisualContent && !hasBlankVisualRender) || hasVisualRender || hasVisibleAnnotationAppearance;
   const hasDenseVisualStructure = p.vectorCount >= DENSE_VISUAL_STRUCTURE_VECTOR_THRESHOLD;
   const hasSparseText =
     (p.charCount <= SPARSE_VISUAL_TEXT_CHAR_THRESHOLD && p.textCoverage < SPARSE_VISUAL_TEXT_COVERAGE_THRESHOLD) ||

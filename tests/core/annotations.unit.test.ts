@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildAnnotations } from '../../src/core/annotations.js';
+import { buildAnnotations, hasVisibleAnnotationAppearance } from '../../src/core/annotations.js';
 
 describe('buildAnnotations', () => {
   it('extracts non-link annotations with comments, colors, and quad boxes', () => {
@@ -176,5 +176,21 @@ describe('buildAnnotations', () => {
         height: 97,
       },
     ]);
+  });
+
+  it('detects visible annotation appearances for page-quality hints', () => {
+    expect(
+      hasVisibleAnnotationAppearance([
+        { subtype: 'FreeText', rect: [10, 10, 20, 20], hasAppearance: true, annotationFlags: 4 },
+      ]),
+    ).toBe(true);
+
+    expect(
+      hasVisibleAnnotationAppearance([
+        { subtype: 'FreeText', rect: [10, 10, 20, 20], hasAppearance: true, annotationFlags: 2 },
+        { subtype: 'Link', rect: [10, 10, 20, 20], hasAppearance: true, annotationFlags: 4 },
+        { subtype: 'Text', rect: [10, 10, 20, 20], hasAppearance: false, annotationFlags: 4 },
+      ]),
+    ).toBe(false);
   });
 });

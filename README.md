@@ -27,7 +27,7 @@ Hand an agent a PDF and it usually either can't read it at all, or swallows the 
 
 ### See whether text extraction actually worked
 
-Every page reports `charCount`, `imageCount`, `vectorCount`, `textCoverage`, and `quality.nativeTextStatus`, so an agent can tell at a glance that "this slide is visual, not just text", "this dense form only extracted a watermark", "this sparse OCR residue is not visible on the rendered page", or "this native text mixes readable words with glyph garbage" — and decide to re-run with `--render` or `--ocr` instead of trusting an empty string or a lone page number.
+Every page reports `charCount`, `imageCount`, `vectorCount`, `textCoverage`, and `quality.nativeTextStatus`, so an agent can tell at a glance that "this slide is visual, not just text", "this dense form only extracted a watermark", "this annotation-only page is not blank", "this sparse OCR residue is not visible on the rendered page", or "this native text mixes readable words with glyph garbage" — and decide to re-run with `--render` or `--ocr` instead of trusting an empty string or a lone page number.
 
 ### Look at the page, not just the text
 

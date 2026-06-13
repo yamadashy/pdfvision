@@ -1044,7 +1044,7 @@ export interface PageResult {
    *
    * Rough thresholds (skill doc):
    *   - ≤ 0.001 → effectively blank unless corroborated object geometry
-   *     shows a tiny visible trace
+   *     or visible annotation appearance shows a tiny visible trace
    *   - 0.001 – 0.005, or a corroborated tiny trace below 0.001 →
    *     sparse marks only
    *   - > 0.005 → renderer produced visible content
@@ -1293,10 +1293,11 @@ export interface PageQuality {
    *     scanned-book front matter where hidden OCR residue is not visible
    *     to a human reader.
    *   - `empty_but_visual_content` — `charCount === 0` AND the page has
-   *     visual content (`imageCount > 0`, `vectorCount > 0`, or
-   *     `renderContentRatio` is above the blank threshold when
-   *     --render/--ocr ran). Typical of image-flattened slides, scans,
-   *     and vector-only diagrams / forms.
+   *     visual content (`imageCount > 0`, `vectorCount > 0`, a visible
+   *     annotation appearance, or `renderContentRatio` is above the
+   *     blank threshold when --render/--ocr ran). Typical of
+   *     image-flattened slides, scans, vector-only diagrams / forms,
+   *     and annotation-only review pages.
    *   - `empty` — `charCount === 0` and no visual content detected.
    *     Likely a genuinely blank page or a render failure (combine with
    *     `visualStatus` to disambiguate).
@@ -1316,7 +1317,7 @@ export interface PageQuality {
    *     clearly populated content.
    *   - `sparse` — the renderer drew only sparse visible marks, either
    *     `0.001 < renderContentRatio <= 0.005` or a tiny but corroborated
-   *     image/vector trace below the blank threshold.
+   *     image/vector/annotation trace below the blank threshold.
    *   - `blank` — the page came out
    *     effectively blank against its own dominant background;
    *     typically a render-pipeline failure (unsupported image format,

@@ -104,11 +104,11 @@ Each page (and each overview row) carries a derived `quality` field that classif
   - `unusable_glyph_indices` — `nonPrintableRatio >= 0.3`. Text is mostly binary garbage even though `charCount` looks healthy. Fall back to `--render` or `--ocr`.
   - `sparse_text_with_visual_content` — native text exists, but it is too sparse to explain a visually populated page (for example, only a page number over an image-heavy slide, or a large `SAMPLE` watermark over a dense static form). Inspect with `--render`.
   - `sparse_text_on_blank_visual` — native text exists, but it is sparse and the rendered page is effectively blank. Treat the text as hidden OCR residue or a render/text-layer mismatch until visually confirmed.
-  - `empty_but_visual_content` — no native text, but the page carries images, vector drawings, or non-blank pixels. Re-run with `--ocr` (or read the rendered PNG via `--render`).
+  - `empty_but_visual_content` — no native text, but the page carries images, vector drawings, visible annotation appearances, or non-blank pixels. Re-run with `--ocr` (or read the rendered PNG via `--render`).
   - `empty` — no text, no detected visual content. Likely a genuinely blank page (or a render failure — combine with `visualStatus` below).
 - `quality.visualStatus` (present only when `--render` or `--ocr` ran):
   - `ok` — renderer drew clearly populated content.
-  - `sparse` — renderer drew only sparse visible marks, including text-only pages whose ink sits just below the blank threshold. This is not a blank render; inspect with `--render-region` / `--visual-regions` when the small mark matters.
+  - `sparse` — renderer drew only sparse visible marks, including text-only or annotation-only pages whose ink sits just below the blank threshold. This is not a blank render; inspect with `--render-region` / `--visual-regions` when the small mark matters.
   - `blank` — page came out effectively blank against its own dominant background. Render-pipeline failure or genuinely blank page.
 
 pdfvision deliberately stops at observation: it does **not** recommend an action. The action is the agent's call based on the two statuses + the raw signals below.
@@ -123,7 +123,7 @@ pdfvision deliberately stops at observation: it does **not** recommend an action
 - `nonPrintableRatio >= 0.05` → pdf.js fell back to raw glyph indices for at least part of the page because some fonts lack a ToUnicode CMap (common with Hebrew, older CJK, custom symbol fonts, and branded annual reports). `0.05–0.3` maps to `quality.nativeTextStatus === 'mixed_glyph_indices'`: some text may be readable, but native extraction is incomplete. `>= 0.3` maps to `unusable_glyph_indices`: treat the native text as mostly garbage. The raw count is in `nonPrintableCount` — when the 3dp ratio rounds to 0 the count still tells you whether any non-printable code points slipped through (useful for "is there ANY garbage in this page?" filters).
 - `charCount: 0` but `imageCount: 0` → genuinely blank page (separator, end matter).
 - Sudden drop in `textCoverage` on a single page in an otherwise text-dense doc → that page is likely a figure / scan / chart. Inspect with `--render`.
-- `quality.visualStatus === 'sparse'` → the rasterised page is not blank, but the visible marks are too small/sparse to call the page visually populated. This can be a one-line text-only page as well as a tiny image/vector mark. Use object geometry (`spans`, `vectorBoxes`, `imageBoxes`, `visualRegions`) or `--render-region` to inspect the mark instead of treating this as a render failure.
+- `quality.visualStatus === 'sparse'` → the rasterised page is not blank, but the visible marks are too small/sparse to call the page visually populated. This can be a one-line text-only page as well as a tiny image/vector/annotation mark. Use object geometry (`spans`, `vectorBoxes`, `imageBoxes`, `annotations`, `visualRegions`) or `--render-region` to inspect the mark instead of treating this as a render failure.
 - `quality.visualStatus === 'blank'` → the rasterised page came out blank **against its own dominant background**. Likely a render-pipeline failure (pdf.js + @napi-rs/canvas can't decode JPEG2000 image streams, or the font has no resolvable glyphs) or a genuinely blank page. The ratio is background-aware — dark book covers and beige scan paper don't false-trip it. OCR on this page returns `confidence: 0` not because OCR failed but because the input was a near-uniform image.
 
 ### Warnings
