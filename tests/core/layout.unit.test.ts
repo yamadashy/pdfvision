@@ -1417,6 +1417,42 @@ describe('buildLayout — multi-column reading order', () => {
     expect(layout.tables?.[0].rows[0].cells.map((cell) => cell.text)).toEqual(['2015', '57.6', '73.3', '40.7', '81.2']);
   });
 
+  it('splits compact numeric side-table gutters with comma and ratio values', () => {
+    // PDF.js issue10900-shaped case: a small table can sit far from the
+    // page edge and still have recurring numeric gutters that should
+    // survive as row-major cells.
+    const rows = [
+      { y: 178.44, values: ['3', '3', '3', '3'], widths: [4.19, 4.19, 4.19, 4.19] },
+      { y: 187.8, values: ['851.5', '854.9', '839.3', '837.5'], widths: [18.95, 18.95, 18.95, 18.95] },
+      { y: 198.83, values: ['633.6', '727.8', '789.9', '796.2'], widths: [18.95, 18.95, 18.95, 18.95] },
+      { y: 209.03, values: ['1,485.1', '1,582.7', '1,629.2', '1,633.7'], widths: [25.32, 25.31, 25.31, 25.31] },
+      { y: 219.23, values: ['114.2', '121.7', '125.3', '130.7'], widths: [18.96, 18.95, 18.95, 18.95] },
+      { y: 228.6, values: ['13.0x', '13.0x', '13.0x', '12.5x'], widths: [18.53, 18.53, 18.53, 18.53] },
+    ];
+    const xs = [
+      [474.35, 510.49, 546.61, 582.73],
+      [459.6, 495.73, 531.84, 567.96],
+      [459.59, 495.72, 531.84, 567.95],
+      [453.23, 489.35, 525.46, 561.57],
+      [459.59, 495.72, 531.84, 567.95],
+      [462.6, 498.72, 534.83, 570.95],
+    ];
+    const spans = rows.flatMap((row, rowIndex) =>
+      row.values.map((value, columnIndex) =>
+        span(value, xs[rowIndex][columnIndex], row.y, 7.56, row.widths[columnIndex]),
+      ),
+    );
+
+    const layout = buildLayout(spans, 612);
+
+    expect(layout.tables).toHaveLength(1);
+    expect(layout.tables?.[0].rowCount).toBe(6);
+    expect(layout.tables?.[0].columnCount).toBe(4);
+    expect(layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text))).toEqual(
+      rows.map((row) => row.values),
+    );
+  });
+
   it('moves currency symbols that were joined onto the previous table value', () => {
     const spans: TextSpan[] = [
       span('Products', 50, 100, 8, 36),

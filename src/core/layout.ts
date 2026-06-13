@@ -96,6 +96,7 @@ const RECURRING_GUTTER_BIN_PT = 5;
 const RECURRING_GUTTER_MIN_ROWS = 3;
 const RECURRING_TABLE_GUTTER_MIN_ROWS = 4;
 const RECURRING_TABLE_GUTTER_MIN_NUMERIC_SPANS = 3;
+const RECURRING_TABLE_GUTTER_MIN_WIDTH_PT = 96;
 const LINE_TOP_ALIGNMENT_RATIO = 0.5;
 const LINE_VERTICAL_OVERLAP_RATIO = 0.35;
 const TINY_LINE_FONT_SIZE_PT = 4;
@@ -1215,7 +1216,8 @@ function hasTableLabelCell(row: LayoutLine[]): boolean {
 function isTableNumericCell(text: string): boolean {
   const trimmed = text.trim();
   if (trimmed.length === 0 || !/\d/u.test(trimmed)) return false;
-  return trimmed.replace(/[0-9.,()%$¥€£+\-\s]/gu, '').length === 0;
+  const withoutRatioSuffix = trimmed.replace(/(?<=\d)\s*[xX]$/u, '');
+  return withoutRatioSuffix.replace(/[0-9.,()%$¥€£+\-\s]/gu, '').length === 0;
 }
 
 function gutterBin(prev: BBox, cur: BBox): number {
@@ -1337,12 +1339,13 @@ function hasRecurringGutter(recurringGutterBins: Set<number>, prev: TextSpan, cu
 }
 
 function isRecurringTableGutterCandidate(groupBox: BBox, gap: number, fontSize: number, pageWidth: number): boolean {
-  if (groupBox.width < pageWidth * 0.4) return false;
+  if (groupBox.width < Math.min(pageWidth * 0.4, RECURRING_TABLE_GUTTER_MIN_WIDTH_PT)) return false;
   return gap >= Math.max(fontSize * RECURRING_GUTTER_GAP_RATIO, RECURRING_GUTTER_MIN_GAP_PT);
 }
 
 function isTableGutterNumericSpan(span: TextSpan): boolean {
-  return /^[\s0-9.,()%+-]+$/u.test(span.text);
+  const text = span.text.trim();
+  return text === '-' || isTableNumericCell(text);
 }
 
 function rowY(row: LayoutLine[]): number {
