@@ -991,6 +991,79 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('splits medium-sized tall form clusters at major vertical bands', () => {
+    const formFields = [60, 96, 132, 168].flatMap((y, band) => [
+      { name: `top-${band}`, type: 'text' as const, x: 40, y, width: 80, height: 12 },
+      { name: `bottom-${band}`, type: 'text' as const, x: 40, y: y + 8, width: 80, height: 12 },
+    ]);
+
+    const regions = buildVisualRegions({
+      pageWidth: 300,
+      pageHeight: 300,
+      imageBoxes: [],
+      formFields,
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'form',
+        x: 32,
+        y: 52,
+        width: 96,
+        height: 36,
+        areaRatio: 0.038,
+        sourceCount: 2,
+        sources: [
+          { type: 'formField', index: 0 },
+          { type: 'formField', index: 1 },
+        ],
+        reason: '2 interactive form fields in one page region',
+      },
+      {
+        kind: 'form',
+        x: 32,
+        y: 88,
+        width: 96,
+        height: 36,
+        areaRatio: 0.038,
+        sourceCount: 2,
+        sources: [
+          { type: 'formField', index: 2 },
+          { type: 'formField', index: 3 },
+        ],
+        reason: '2 interactive form fields in one page region',
+      },
+      {
+        kind: 'form',
+        x: 32,
+        y: 124,
+        width: 96,
+        height: 36,
+        areaRatio: 0.038,
+        sourceCount: 2,
+        sources: [
+          { type: 'formField', index: 4 },
+          { type: 'formField', index: 5 },
+        ],
+        reason: '2 interactive form fields in one page region',
+      },
+      {
+        kind: 'form',
+        x: 32,
+        y: 160,
+        width: 96,
+        height: 36,
+        areaRatio: 0.038,
+        sourceCount: 2,
+        sources: [
+          { type: 'formField', index: 6 },
+          { type: 'formField', index: 7 },
+        ],
+        reason: '2 interactive form fields in one page region',
+      },
+    ]);
+  });
+
   it('splits very dense form pages at major vertical bands', () => {
     const formFields = [
       ...Array.from({ length: 12 }, (_, index) => ({

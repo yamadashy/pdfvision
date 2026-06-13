@@ -57,6 +57,8 @@ const FORM_CLUSTER_GAP_PT = 18;
 const FORM_LARGE_CLUSTER_MIN_FIELDS = 16;
 const FORM_LARGE_CLUSTER_SPLIT_GAP_PT = 13;
 const FORM_LARGE_CLUSTER_HEIGHT_RATIO = 0.35;
+const FORM_TALL_CLUSTER_MIN_FIELDS = 8;
+const FORM_TALL_CLUSTER_HEIGHT_RATIO = 0.2;
 const FORM_BACKPLANE_AREA_RATIO = 0.3;
 const FORM_BACKPLANE_MIN_FORM_OVERLAPS = 2;
 const BACKGROUND_BOX_AREA_RATIO = 0.9;
@@ -723,7 +725,11 @@ function splitLargeFormCluster<T extends { field: FormField; index: number }>(
   const sorted = [...fields].sort((a, b) => a.field.y - b.field.y || a.field.x - b.field.x);
   if (sorted.length === 0) return [];
   const box = sorted.slice(1).reduce<BoxLike>((acc, item) => unionBox(acc, item.field), sorted[0].field);
-  if (sorted.length < FORM_LARGE_CLUSTER_MIN_FIELDS && box.height < pageHeight * FORM_LARGE_CLUSTER_HEIGHT_RATIO) {
+  const shouldSplit =
+    sorted.length >= FORM_LARGE_CLUSTER_MIN_FIELDS ||
+    box.height >= pageHeight * FORM_LARGE_CLUSTER_HEIGHT_RATIO ||
+    (sorted.length >= FORM_TALL_CLUSTER_MIN_FIELDS && box.height >= pageHeight * FORM_TALL_CLUSTER_HEIGHT_RATIO);
+  if (!shouldSplit) {
     return [sorted];
   }
 
