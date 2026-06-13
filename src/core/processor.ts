@@ -159,6 +159,12 @@ function assertSafeRenderDir(dir: string): void {
   }
 }
 
+function assertRenderAncestorDir(dir: string): void {
+  if (!statSync(dir).isDirectory()) {
+    throw new Error(`Refusing to render into ${dir}: path exists but is not a directory`);
+  }
+}
+
 function ensureSafeRenderRoot(dir: string): void {
   const resolved = resolve(dir);
   const missing: string[] = [];
@@ -166,7 +172,8 @@ function ensureSafeRenderRoot(dir: string): void {
 
   while (true) {
     try {
-      assertSafeRenderDir(current);
+      if (current === resolved) assertSafeRenderDir(current);
+      else assertRenderAncestorDir(current);
       break;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;

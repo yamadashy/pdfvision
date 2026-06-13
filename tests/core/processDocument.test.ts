@@ -977,6 +977,54 @@ describe('processDocument', () => {
     }
   });
 
+  it('allows renderOutput under a symlinked existing ancestor', async () => {
+    // macOS exposes /tmp as a symlink to /private/tmp. Agent workflows and
+    // docs commonly use /tmp/pdfvision-renders, so the render root itself
+    // must remain guarded while normalising already-existing ancestors.
+    if (process.platform === 'win32') return;
+    const { mkdtempSync, mkdirSync, realpathSync, rmSync, symlinkSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join, relative } = await import('node:path');
+    const baseTmp = mkdtempSync(join(tmpdir(), 'pdfvision-render-ancestor-symlink-'));
+    const realParent = join(baseTmp, 'real-parent');
+    const linkedParent = join(baseTmp, 'linked-parent');
+    const outDir = join(linkedParent, 'images');
+    mkdirSync(realParent);
+    symlinkSync(realParent, linkedParent);
+    try {
+      const result = await processDocument(SAMPLE_PDF, {
+        render: true,
+        renderOutput: outDir,
+        noCache: true,
+      });
+      const imagePath = result.pages[0].image as string;
+      expect(existsSync(imagePath)).toBe(true);
+      const rel = relative(realpathSync(outDir), realpathSync(imagePath));
+      expect(rel.startsWith('..')).toBe(false);
+    } finally {
+      rmSync(baseTmp, { recursive: true, force: true });
+    }
+  });
+
+  it('still refuses when renderOutput itself is a symlink', async () => {
+    if (process.platform === 'win32') return;
+    const { mkdtempSync, mkdirSync, rmSync, symlinkSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const baseTmp = mkdtempSync(join(tmpdir(), 'pdfvision-render-root-symlink-'));
+    const realOut = join(baseTmp, 'real-images');
+    const linkedOut = join(baseTmp, 'linked-images');
+    mkdirSync(realOut);
+    symlinkSync(realOut, linkedOut);
+    try {
+      await expect(
+        processDocument(SAMPLE_PDF, { render: true, renderOutput: linkedOut, noCache: true }),
+      ).rejects.toThrow(/symlink/);
+    } finally {
+      rmSync(baseTmp, { recursive: true, force: true });
+    }
+  });
+
   it('keeps per-PDF rendered PNGs isolated when two PDFs share the same renderOutput directory', async () => {
     // Regression: previously `renderer` always wrote `page-${n}.png` into the
     // caller-supplied renderOutput dir verbatim. Running two different PDFs
