@@ -663,6 +663,10 @@ const READING_ORDER_NATIVE_LATE_RATIO = 0.5;
 const READING_ORDER_MIN_BLOCKS = 4;
 const READING_ORDER_MIN_HEADING_CHARS = 10;
 const READING_ORDER_PROBE_CHARS = 40;
+const LOCAL_READING_ORDER_MIN_COMPACT_CHARS = 4;
+const LOCAL_READING_ORDER_MAX_COMPACT_CHARS = 40;
+const LOCAL_READING_ORDER_PROBE_CHARS = 50;
+const LOCAL_READING_ORDER_MATH_SYMBOL = /[√∛∜∑∫∏∈∉∞≈≠≤≥±×÷=+\-*/^]/u;
 
 /**
  * Flag pages whose native text stream order diverges from the visual
@@ -670,22 +674,27 @@ const READING_ORDER_PROBE_CHARS = 40;
  * on headings: a heading that is *early* in layout order (top of the
  * visual flow) but *late* in `page.text` is unambiguous divergence,
  * whereas comparing whole-page block permutations would fire on benign
- * column-ordering nuances. Consumers should prefer `layout.blocks`
+ * column-ordering nuances. A second narrow path catches short math
+ * blocks whose superscripts or operators are emitted out of visual order
+ * in the native text stream. Consumers should prefer `layout.blocks`
  * order when sequence matters; the Markdown formatter switches to the
  * layout-rebuilt body when this warning is present.
  */
 function detectReadingOrderDivergence(page: PageResult, blocks: LayoutBlock[], out: PageWarning[]): void {
-  if (blocks.length < READING_ORDER_MIN_BLOCKS) return;
   if (page.text.length === 0) return;
+  if (blocks.length >= READING_ORDER_MIN_BLOCKS && detectHeadingReadingOrderDivergence(page, blocks, out)) return;
+  detectLocalMathReadingOrderDivergence(page, blocks, out);
+}
 
+function detectHeadingReadingOrderDivergence(page: PageResult, blocks: LayoutBlock[], out: PageWarning[]): boolean {
   let layoutOffset = 0;
   const totalChars = blocks.reduce((sum, b) => sum + b.text.length, 0);
-  if (totalChars === 0) return;
+  if (totalChars === 0) return false;
   for (let i = 0; i < blocks.length; i++) {
     const block = blocks[i];
     const layoutPos = layoutOffset / totalChars;
     layoutOffset += block.text.length;
-    if (layoutPos > READING_ORDER_LAYOUT_EARLY_RATIO) return; // blocks beyond the early window can't qualify
+    if (layoutPos > READING_ORDER_LAYOUT_EARLY_RATIO) return false; // blocks beyond the early window can't qualify
     if (block.role !== 'heading' || block.repeated) continue;
     const probe = block.text.split('\n', 1)[0].trim().slice(0, READING_ORDER_PROBE_CHARS);
     if (probe.length < READING_ORDER_MIN_HEADING_CHARS) continue;
@@ -699,8 +708,57 @@ function detectReadingOrderDivergence(page: PageResult, blocks: LayoutBlock[], o
       message: `heading "${probe}" leads the visual reading order but only appears ${(nativePos * 100).toFixed(0)}% of the way through the native text stream — native text order diverges from what a human reads; prefer layout.blocks order when sequence matters`,
       blockIndex: i,
     });
+    return true;
+  }
+  return false;
+}
+
+function detectLocalMathReadingOrderDivergence(page: PageResult, blocks: LayoutBlock[], out: PageWarning[]): void {
+  const nativeChars = compactReadingOrderChars(page.text);
+  if (nativeChars.length === 0) return;
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i];
+    if (block.repeated) continue;
+    if (!LOCAL_READING_ORDER_MATH_SYMBOL.test(block.text)) continue;
+    const blockChars = compactReadingOrderChars(block.text);
+    if (
+      blockChars.length < LOCAL_READING_ORDER_MIN_COMPACT_CHARS ||
+      blockChars.length > LOCAL_READING_ORDER_MAX_COMPACT_CHARS
+    ) {
+      continue;
+    }
+    const compactBlock = blockChars.join('');
+    if (nativeChars.join('').includes(compactBlock)) continue;
+    if (!containsReorderedCharacterWindow(nativeChars, blockChars)) continue;
+    const probe = block.text.replace(/\s+/gu, ' ').trim().slice(0, LOCAL_READING_ORDER_PROBE_CHARS);
+    out.push({
+      code: 'reading_order_divergence',
+      severity: 'warning',
+      message: `layout block "${probe}" appears with reordered characters in the native text stream — superscripts, radicals, or inline math may read differently in pages[].text; prefer layout.blocks order when exact sequence matters`,
+      blockIndex: i,
+    });
     return;
   }
+}
+
+function compactReadingOrderChars(text: string): string[] {
+  return Array.from(text.normalize('NFKC')).filter((char) => !/\s/u.test(char));
+}
+
+function containsReorderedCharacterWindow(nativeChars: readonly string[], blockChars: readonly string[]): boolean {
+  if (blockChars.length > nativeChars.length) return false;
+  const target = characterMultisetKey(blockChars);
+  const blockText = blockChars.join('');
+  for (let i = 0; i <= nativeChars.length - blockChars.length; i++) {
+    const window = nativeChars.slice(i, i + blockChars.length);
+    if (window.join('') === blockText) continue;
+    if (characterMultisetKey(window) === target) return true;
+  }
+  return false;
+}
+
+function characterMultisetKey(chars: readonly string[]): string {
+  return [...chars].sort().join('');
 }
 
 /** Tolerance for off-page detection. PDFs commonly have sub-point

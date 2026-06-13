@@ -1229,6 +1229,7 @@ export interface SearchMatch {
  * page-wide glyph-index garbage,
  * dense vector graphics whose form fields or chart paths are not text,
  * numeric table-like layouts whose rows/columns may flatten into plain text,
+ * local math/text-order divergences whose visual order differs from native text,
  * large image regions whose internal labels will not appear in native text,
  * OCR-backed scan layers whose bboxes may drift from pixels, etc.
  */

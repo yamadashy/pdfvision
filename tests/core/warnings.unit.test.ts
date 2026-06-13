@@ -982,6 +982,39 @@ describe('detectPageWarnings', () => {
       const out = detectPageWarnings(p);
       expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
     });
+
+    it('flags compact math blocks whose native text stream reorders visible characters', () => {
+      // PDF.js bug2004951-shaped case: the visual line is "3√x + y",
+      // but the native text stream can emit the superscript after the
+      // baseline expression as "√x + y3".
+      const blocks = [
+        block(72, 88, 85, 20, { text: '1 Example', role: 'heading' }),
+        block(72, 121, 52, 12, { text: 'Some text' }),
+        block(288, 148, 37, 13, { text: '3√x + y' }),
+      ];
+      const p = {
+        ...page(blocks, 612, 792),
+        text: '1 Example\nSome text\n√x + y3',
+        charCount: 27,
+        vectorCount: 1,
+        quality: { nativeTextStatus: 'sparse_text_with_visual_content' as const },
+      };
+
+      const out = detectPageWarnings(p);
+      const divergence = out.find((w) => w.code === 'reading_order_divergence');
+      expect(divergence).toMatchObject({ severity: 'warning', blockIndex: 2 });
+      expect(divergence?.message).toContain('3√x + y');
+    });
+
+    it('does not flag compact math blocks when native and visual order agree', () => {
+      const blocks = [
+        block(72, 88, 85, 20, { text: '1 Example', role: 'heading' }),
+        block(288, 148, 37, 13, { text: '3√x + y' }),
+      ];
+      const p = { ...page(blocks, 612, 792), text: '1 Example\n3√x + y', charCount: 17 };
+      const out = detectPageWarnings(p);
+      expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
+    });
   });
 
   describe('text_overlap', () => {
