@@ -21,6 +21,7 @@ describe('buildFormFields', () => {
           radioButton: false,
           rect: [36, 722, 44, 730],
           fieldValue: 'Off',
+          exportValue: 'Yes',
           annotationFlags: 6,
         },
         {
@@ -53,9 +54,35 @@ describe('buildFormFields', () => {
         height: 8,
         value: 'Off',
         checked: false,
+        exportValue: 'Yes',
         flags: ['hidden', 'print'],
       },
     ]);
+  });
+
+  it('extracts radio button export values from buttonValue', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'Group6',
+          fieldType: 'Btn',
+          checkBox: false,
+          radioButton: true,
+          rect: [94.78, 670.38, 112.78, 688.38],
+          fieldValue: null,
+          buttonValue: 'Choice1',
+        },
+      ],
+      792,
+    );
+
+    expect(fields[0]).toMatchObject({
+      name: 'Group6',
+      type: 'radio',
+      checked: false,
+      exportValue: 'Choice1',
+    });
   });
 
   it('serializes nested values inside choice arrays as readable JSON fragments', () => {

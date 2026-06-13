@@ -39,7 +39,7 @@ Every page reports `charCount`, `imageCount`, `vectorCount`, `textCoverage`, and
 - **`--image-boxes`** reports where each raster draw lands.
 - **`--vector-boxes`** reports where painted vector paths land, useful for maps, symbols, chart paths, form boxes, table rules, and slide shapes that are visible but not raster images.
 - **`--visual-regions`** groups important raster/vector/table/form geometry into padded, crop-ready bboxes, attaches nearby captions/form labels/table lead-ins when found (including global Plate captions for multi-panel map/figure pages), and can be fed straight into `--render-region`; **`--render-visual-regions`** renders those suggested crops directly.
-- **`--form-fields`** reports interactive PDF widget fields such as text boxes, checkboxes, radio buttons, choices, buttons, and signatures with values, bboxes, decoded widget flags, JavaScript actions, nearby visible labels, and choice options when the PDF exposes them, including stacked prompt lines and fine-grained adjacent prompts when they form field labels.
+- **`--form-fields`** reports interactive PDF widget fields such as text boxes, checkboxes, radio buttons, choices, buttons, and signatures with values, checkbox/radio export values, bboxes, decoded widget flags, JavaScript actions, nearby visible labels, and choice options when the PDF exposes them, including stacked prompt lines and fine-grained adjacent prompts when they form field labels.
 - **`--links`** reports clickable PDF link annotations such as citation jumps, table-of-contents destinations, and external URLs with bboxes.
 - **`--annotations`** surfaces non-link PDF annotations such as comments, sticky notes, highlights, underlines, strikeouts, stamps, file-attachment icons, and other markup with bboxes, comment text, PDF flags such as `hidden` / `print`, and attachment metadata when available.
 - **`--structure`** exposes tagged-PDF structure trees with roles, figure alt text, language hints, bboxes, and marked-content ids when the PDF exposes accessibility structure; stray control bytes in structure strings are removed.
@@ -126,7 +126,7 @@ Options:
       --visual-regions    Emit crop-ready figure/chart/table/form regions in pages[].visualRegions
       --render-visual-regions
                           Render visual region crops to PNG and attach paths
-      --form-fields       Emit interactive PDF widget fields, flags, actions, choice options, and labels in pages[].formFields
+      --form-fields       Emit interactive PDF widget fields, flags, actions, export values, choice options, and labels in pages[].formFields
       --links             Emit clickable link annotations in pages[].links with bboxes
       --annotations       Emit non-link PDF annotations in pages[].annotations
       --structure         Emit tagged-PDF structure trees in pages[].structure

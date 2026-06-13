@@ -65,6 +65,10 @@ function fieldOptions(field: NonNullable<PageResult['formFields']>[number]): str
   );
 }
 
+function fieldExportValue(field: NonNullable<PageResult['formFields']>[number]): string {
+  return field.exportValue ?? '';
+}
+
 function fieldFlags(field: NonNullable<PageResult['formFields']>[number]): string {
   const flags = new Set<string>(field.flags ?? []);
   if (field.readOnly) flags.add('readOnly');
@@ -535,12 +539,18 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
       } else {
         lines.push('');
         const showFieldActions = page.formFields.some((field) => field.actions !== undefined);
-        lines.push(`| Type | Name | Label | Value | Options |${showFieldActions ? ' Actions |' : ''} Flags | BBox |`);
-        lines.push(`| --- | --- | --- | --- | --- |${showFieldActions ? ' --- |' : ''} --- | --- |`);
+        const showExportValue = page.formFields.some((field) => field.exportValue !== undefined);
+        lines.push(
+          `| Type | Name | Label | Value |${showExportValue ? ' Export |' : ''} Options |${showFieldActions ? ' Actions |' : ''} Flags | BBox |`,
+        );
+        lines.push(
+          `| --- | --- | --- | --- |${showExportValue ? ' --- |' : ''} --- |${showFieldActions ? ' --- |' : ''} --- | --- |`,
+        );
         for (const field of page.formFields) {
           const actionsCell = showFieldActions ? ` ${escapeTableCell(fieldActions(field))} |` : '';
+          const exportCell = showExportValue ? ` ${escapeTableCell(fieldExportValue(field))} |` : '';
           lines.push(
-            `| ${field.type} | ${escapeTableCell(field.name)} | ${escapeTableCell(fieldLabel(field))} | ${escapeTableCell(fieldValue(field))} | ${escapeTableCell(fieldOptions(field))} |${actionsCell} ${escapeTableCell(fieldFlags(field))} | ${formatBox(field)} |`,
+            `| ${field.type} | ${escapeTableCell(field.name)} | ${escapeTableCell(fieldLabel(field))} | ${escapeTableCell(fieldValue(field))} |${exportCell} ${escapeTableCell(fieldOptions(field))} |${actionsCell} ${escapeTableCell(fieldFlags(field))} | ${formatBox(field)} |`,
           );
         }
       }

@@ -71,8 +71,8 @@ Options
                           Implies --visual-regions and does not require --render.
       --form-fields       Emit \`pages[].formFields\` — interactive PDF widget fields
                           such as text boxes, checkboxes, radio buttons, choices,
-                          buttons, and signatures with values, flags, actions,
-                          choice options, bboxes, and nearby visible labels.
+                          buttons, and signatures with values, export values,
+                          flags, actions, choice options, bboxes, and nearby visible labels.
                           Useful for government forms.
                           Markdown also renders a form-field table.
       --links             Emit \`pages[].links\` — clickable PDF link annotations such as

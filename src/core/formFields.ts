@@ -24,6 +24,8 @@ interface PdfAnnotation {
   combo?: unknown;
   multiSelect?: unknown;
   actions?: unknown;
+  exportValue?: unknown;
+  buttonValue?: unknown;
 }
 
 interface LabelLine {
@@ -77,6 +79,7 @@ export function buildFormFields(
     const checked = type === 'checkbox' || type === 'radio' ? value !== undefined && value !== 'Off' : undefined;
     const flags = annotationFlagNames(ann.annotationFlags);
     const actions = normalizeJavaScriptActions(ann.actions);
+    const exportValue = fieldExportValue(ann, type);
 
     const field: FormField = {
       name: ann.fieldName,
@@ -90,6 +93,7 @@ export function buildFormFields(
       ...(typeof ann.readOnly === 'boolean' && { readOnly: ann.readOnly }),
       ...(typeof ann.required === 'boolean' && { required: ann.required }),
       ...(typeof ann.multiline === 'boolean' && { multiline: ann.multiline }),
+      ...(exportValue !== undefined && { exportValue }),
       ...choiceFieldMetadata(ann),
       ...(flags.length > 0 && { flags }),
       ...(actions !== undefined && { actions }),
@@ -136,6 +140,12 @@ function fieldValue(value: unknown): string | undefined {
   if (typeof value === 'string') return value;
   if (typeof value === 'number' || typeof value === 'boolean') return String(value);
   if (Array.isArray(value)) return value.map(fieldArrayValue).join(', ');
+  return undefined;
+}
+
+function fieldExportValue(annotation: PdfAnnotation, type: FormFieldType): string | undefined {
+  if (type === 'checkbox') return fieldValue(annotation.exportValue);
+  if (type === 'radio') return fieldValue(annotation.buttonValue ?? annotation.exportValue);
   return undefined;
 }
 

@@ -206,9 +206,9 @@ export interface ProcessDocumentOptions {
   /**
    * Emit interactive PDF form/widget fields in `pages[].formFields`.
    * Useful for government forms and applications where blank text boxes,
-   * checkboxes, radio buttons, buttons, signatures, choice fields, and
-   * widget actions are part of the human-visible document even when native
-   * text extraction succeeds.
+   * checkboxes, radio buttons, buttons, signatures, choice fields, export
+   * values, and widget actions are part of the human-visible document even
+   * when native text extraction succeeds.
    */
   formFields?: boolean;
   /**
@@ -681,6 +681,8 @@ export interface FormField {
   readOnly?: boolean;
   required?: boolean;
   multiline?: boolean;
+  /** Submitted/exported value for checkbox/radio button widgets when pdf.js exposes it. */
+  exportValue?: string;
   /** Choice-field options, present when pdf.js exposes combo/list box entries. */
   options?: FormFieldChoiceOption[];
   /** True for combo boxes, false for list boxes. Present for choice fields when pdf.js exposes it. */
