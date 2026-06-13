@@ -6,6 +6,7 @@ import type {
   FormFieldType,
 } from '../types/index.js';
 import { annotationFlagNames } from './annotations.js';
+import { normalizeJavaScriptActions } from './viewer.js';
 
 interface PdfAnnotation {
   subtype?: unknown;
@@ -22,6 +23,7 @@ interface PdfAnnotation {
   options?: unknown;
   combo?: unknown;
   multiSelect?: unknown;
+  actions?: unknown;
 }
 
 interface LabelLine {
@@ -74,6 +76,7 @@ export function buildFormFields(
     const value = fieldValue(ann.fieldValue);
     const checked = type === 'checkbox' || type === 'radio' ? value !== undefined && value !== 'Off' : undefined;
     const flags = annotationFlagNames(ann.annotationFlags);
+    const actions = normalizeJavaScriptActions(ann.actions);
 
     const field: FormField = {
       name: ann.fieldName,
@@ -89,6 +92,7 @@ export function buildFormFields(
       ...(typeof ann.multiline === 'boolean' && { multiline: ann.multiline }),
       ...choiceFieldMetadata(ann),
       ...(flags.length > 0 && { flags }),
+      ...(actions !== undefined && { actions }),
     };
     fields.push(field);
   }

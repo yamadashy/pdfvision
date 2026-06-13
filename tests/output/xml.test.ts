@@ -619,6 +619,37 @@ describe('formatXml', () => {
     expect(out).toContain('<formFields/>');
   });
 
+  it('emits form field JavaScript actions', () => {
+    const out = formatXml(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 'form page',
+            charCount: 9,
+            formFields: [
+              {
+                name: 'Execute',
+                type: 'button',
+                x: 10,
+                y: 20,
+                width: 80,
+                height: 20,
+                actions: { Action: ['app.alert("clicked");'] },
+              },
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toContain('<field name="Execute" type="button" x="10" y="20" width="80" height="20">');
+    expect(out).toContain('<jsActions>');
+    expect(out).toContain('<action name="Action">');
+    expect(out).toContain('<script>app.alert("clicked");</script>');
+    expect(out).toContain('</field>');
+  });
+
   it('emits clickable PDF links with escaped targets and overview counts', () => {
     const out = formatXml(
       makeResult({

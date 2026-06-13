@@ -20,7 +20,12 @@ function formatSize(page: PageResult): string {
 }
 
 function escapeTableCell(value: string): string {
-  return value.replaceAll('\\', '\\\\').replaceAll('|', '\\|').replaceAll('\n', ' ');
+  return value
+    .replaceAll('\\', '\\\\')
+    .replaceAll('|', '\\|')
+    .replaceAll('\r\n', ' ')
+    .replaceAll('\n', ' ')
+    .replaceAll('\r', ' ');
 }
 
 function escapeInline(value: string): string {
@@ -68,6 +73,10 @@ function fieldFlags(field: NonNullable<PageResult['formFields']>[number]): strin
   if (field.combo !== undefined) flags.add(field.combo ? 'combo' : 'list');
   if (field.multiSelect) flags.add('multiSelect');
   return Array.from(flags).join(', ');
+}
+
+function fieldActions(field: NonNullable<PageResult['formFields']>[number]): string {
+  return field.actions ? formatJavaScriptActions(field.actions) : '';
 }
 
 function annotationColor(annotation: NonNullable<PageResult['annotations']>[number]): string {
@@ -525,11 +534,13 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
         lines.push('_No interactive form fields found._');
       } else {
         lines.push('');
-        lines.push('| Type | Name | Label | Value | Options | Flags | BBox |');
-        lines.push('| --- | --- | --- | --- | --- | --- | --- |');
+        const showFieldActions = page.formFields.some((field) => field.actions !== undefined);
+        lines.push(`| Type | Name | Label | Value | Options |${showFieldActions ? ' Actions |' : ''} Flags | BBox |`);
+        lines.push(`| --- | --- | --- | --- | --- |${showFieldActions ? ' --- |' : ''} --- | --- |`);
         for (const field of page.formFields) {
+          const actionsCell = showFieldActions ? ` ${escapeTableCell(fieldActions(field))} |` : '';
           lines.push(
-            `| ${field.type} | ${escapeTableCell(field.name)} | ${escapeTableCell(fieldLabel(field))} | ${escapeTableCell(fieldValue(field))} | ${escapeTableCell(fieldOptions(field))} | ${escapeTableCell(fieldFlags(field))} | ${formatBox(field)} |`,
+            `| ${field.type} | ${escapeTableCell(field.name)} | ${escapeTableCell(fieldLabel(field))} | ${escapeTableCell(fieldValue(field))} | ${escapeTableCell(fieldOptions(field))} |${actionsCell} ${escapeTableCell(fieldFlags(field))} | ${formatBox(field)} |`,
           );
         }
       }

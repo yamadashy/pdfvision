@@ -206,8 +206,9 @@ export interface ProcessDocumentOptions {
   /**
    * Emit interactive PDF form/widget fields in `pages[].formFields`.
    * Useful for government forms and applications where blank text boxes,
-   * checkboxes, radio buttons, signatures, and choice fields are part of
-   * the human-visible document even when native text extraction succeeds.
+   * checkboxes, radio buttons, buttons, signatures, choice fields, and
+   * widget actions are part of the human-visible document even when native
+   * text extraction succeeds.
    */
   formFields?: boolean;
   /**
@@ -688,6 +689,8 @@ export interface FormField {
   multiSelect?: boolean;
   /** Decoded PDF widget annotation flags, such as hidden, print, noView, or locked. */
   flags?: PageAnnotationFlag[];
+  /** Widget-level JavaScript actions such as button click scripts. */
+  actions?: Record<string, string[]>;
   /**
    * Nearby visible text that likely labels this field, reconstructed from
    * layout lines when `--form-fields` is enabled. Stacked above/below label

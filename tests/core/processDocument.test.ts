@@ -161,6 +161,22 @@ function buildPdfWithPageJavaScriptActions(): Uint8Array {
   ]);
 }
 
+function buildPdfWithWidgetAction(): Uint8Array {
+  const stream = 'BT /F1 12 Tf 72 720 Td (Widget action) Tj ET';
+  const length = Buffer.byteLength(stream, 'binary');
+  const action = 'app.alert("clicked");';
+
+  return buildRawPdf([
+    '<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R] >> >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 7 0 R >> >> /Contents 6 0 R /Annots [5 0 R] >>',
+    `<< /S /JavaScript /JS ${pdfHexString(action)} >>`,
+    '<< /Type /Annot /Subtype /Widget /FT /Btn /T (Execute) /Ff 65536 /Rect [100 600 180 620] /P 3 0 R /A 4 0 R >>',
+    `<< /Length ${length} >>\nstream\n${stream}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ]);
+}
+
 function buildPdfWithLayers(): Uint8Array {
   return buildRawPdf([
     '<< /Type /Catalog /Pages 2 0 R /PageMode /UseOC /OCProperties << /OCGs [4 0 R 5 0 R] /D << /Name (Layer config) /Creator (pdfvision test) /BaseState /ON /OFF [5 0 R] /Order [4 0 R [(Nested group) 5 0 R]] /RBGroups [[4 0 R 5 0 R]] >> >> >>',
@@ -363,6 +379,24 @@ describe('processDocument', () => {
       PageClose: ['this.getField("Text2").value = "PageClose";'],
       PageOpen: ['this.getField("Text1").value = "PageOpen";'],
     });
+  });
+
+  it('extracts widget JavaScript actions from form fields', async () => {
+    const result = await processDocument('memory://widget-actions.pdf', {
+      sourceData: buildPdfWithWidgetAction(),
+      noCache: true,
+      formFields: true,
+    });
+
+    expect(result.pages[0].formFields).toMatchObject([
+      {
+        name: 'Execute',
+        type: 'button',
+        actions: {
+          Action: ['app.alert("clicked");'],
+        },
+      },
+    ]);
   });
 
   it('emits an empty viewer object when viewer extraction ran but found no explicit settings', async () => {

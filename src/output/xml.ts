@@ -439,18 +439,23 @@ export function formatXml(result: DocumentResult): string {
             fieldAttrs.push(`labelWidth="${field.label.width}"`);
             fieldAttrs.push(`labelHeight="${field.label.height}"`);
           }
-          if (!field.options || field.options.length === 0) {
+          const hasOptions = field.options !== undefined && field.options.length > 0;
+          const hasActions = field.actions !== undefined;
+          if (!hasOptions && !hasActions) {
             out.push(`<field ${fieldAttrs.join(' ')}/>`);
             continue;
           }
           out.push(`<field ${fieldAttrs.join(' ')}>`);
-          out.push('<options>');
-          for (const option of field.options) {
-            out.push(
-              `<option exportValue="${escapeAttr(option.exportValue)}" displayValue="${escapeAttr(option.displayValue)}"/>`,
-            );
+          if (field.actions) appendJavaScriptActions(out, field.actions);
+          if (field.options && field.options.length > 0) {
+            out.push('<options>');
+            for (const option of field.options) {
+              out.push(
+                `<option exportValue="${escapeAttr(option.exportValue)}" displayValue="${escapeAttr(option.displayValue)}"/>`,
+              );
+            }
+            out.push('</options>');
           }
-          out.push('</options>');
           out.push('</field>');
         }
         out.push('</formFields>');

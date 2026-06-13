@@ -311,6 +311,34 @@ describe('formatMarkdown', () => {
     expect(out).toContain('_No interactive form fields found._');
   });
 
+  it('renders form field JavaScript actions', () => {
+    const out = formatMarkdown(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 'form page',
+            charCount: 9,
+            formFields: [
+              {
+                name: 'Execute',
+                type: 'button',
+                x: 10,
+                y: 20,
+                width: 80,
+                height: 20,
+                actions: { Action: ['line1();\r\nline2();'] },
+              },
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toContain('| Type | Name | Label | Value | Options | Actions | Flags | BBox |');
+    expect(out).toContain('| button | Execute |  |  |  | Action=line1(); line2(); |  | 10,20,80,20 |');
+  });
+
   it('adds link counts and a links table when clickable links are present', () => {
     const out = formatMarkdown(
       makeResult({
