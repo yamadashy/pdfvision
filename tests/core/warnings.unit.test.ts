@@ -1161,6 +1161,28 @@ describe('detectPageWarnings', () => {
       expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
     });
 
+    it('does not flag icon markers overlapping the leading edge of callout text', () => {
+      const icon = block(317.56, 292.76, 22.48, 21.6, {
+        text: '▲',
+        lines: [{ text: '▲', x: 317.56, y: 292.76, width: 22.48, height: 21.6, fontSize: 25.2 }],
+      });
+      const callout = block(326.48, 294.92, 235.51, 18.28, {
+        text: '! Multiple jobs. Complete Steps 3 through 4(b) on only',
+        lines: [
+          {
+            text: '! Multiple jobs. Complete Steps 3 through 4(b) on only',
+            x: 326.48,
+            y: 294.92,
+            width: 235.51,
+            height: 18.28,
+            fontSize: 9,
+          },
+        ],
+      });
+      const out = detectPageWarnings(page([icon, callout]));
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
     it('does not treat a trailing exclamation mark as a loose continuation marker', () => {
       const upper = block(236, 458, 152, 10, {
         text: 'Important!',

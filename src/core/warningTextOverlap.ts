@@ -23,6 +23,8 @@ const DISPLAY_NUMBER_LABEL_MAX_CHARS = 40;
 const DISPLAY_NUMBER_LABEL_ZONE_RATIO = 0.35;
 const DISPLAY_NUMBER_TEXT = /^[\d０-９\s,，.．:：%％+\-−–—/／()（）※年月日現末在]+$/u;
 const DISPLAY_NUMBER_MIN_DIGITS = 2;
+const ICON_MARKER_MAX_CHARS = 3;
+const ICON_MARKER_MAX_SIZE_PT = 36;
 const TEXT_OVERLAP_MAX_DETAILED_WARNINGS = 8;
 
 interface TextOverlapCandidate {
@@ -47,6 +49,7 @@ export function detectTextOverlap(blocks: LayoutBlock[], out: PageWarning[]): vo
       if (isLooseLineContinuationPair(a, b)) continue;
       if (isInlineFragmentPair(a, b)) continue;
       if (isDisplayNumberLabelPair(a, b)) continue;
+      if (isIconMarkerPair(a, b)) continue;
       // Compute intersection area to give the message a concrete
       // anchor — a 0.1 pt² nick at a column boundary reads very
       // differently from a half-page overlap.
@@ -89,6 +92,27 @@ function isInlineFragmentPair(a: LayoutBlock, b: LayoutBlock): boolean {
 
 function isDisplayNumberLabelPair(a: LayoutBlock, b: LayoutBlock): boolean {
   return isLabelNearDisplayNumber(a, b) || isLabelNearDisplayNumber(b, a);
+}
+
+function isIconMarkerPair(a: LayoutBlock, b: LayoutBlock): boolean {
+  return isIconMarkerNearText(a, b) || isIconMarkerNearText(b, a);
+}
+
+function isIconMarkerNearText(marker: LayoutBlock, text: LayoutBlock): boolean {
+  const compact = marker.text.replace(/\s+/g, '');
+  if (compact.length === 0 || compact.length > ICON_MARKER_MAX_CHARS) return false;
+  if (/[\p{L}\p{N}]/u.test(compact)) return false;
+  if (marker.lines.length !== 1 || text.lines.length === 0) return false;
+  if (marker.width > ICON_MARKER_MAX_SIZE_PT || marker.height > ICON_MARKER_MAX_SIZE_PT) return false;
+  if (text.width < marker.width * 4) return false;
+
+  const line = text.lines[0];
+  const verticalDepth = verticalIntersectionDepth(marker.lines[0] ?? marker, line);
+  const minHeight = Math.max(Math.min(marker.height, line.height), 0.001);
+  if (verticalDepth / minHeight < TEXT_OVERLAP_MIN_DEPTH_RATIO) return false;
+
+  const leadingGap = line.x - (marker.x + marker.width);
+  return Math.abs(leadingGap) <= marker.width * 0.75;
 }
 
 function isLabelNearDisplayNumber(label: LayoutBlock, value: LayoutBlock): boolean {
