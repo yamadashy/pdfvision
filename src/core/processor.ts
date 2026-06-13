@@ -72,6 +72,7 @@ import { detectPageWarnings } from './warnings.js';
 /** Inputs that determine which cached entry a request maps to. */
 interface CacheKeyInput {
   pages?: string;
+  password?: string;
   render?: boolean;
   renderOutput?: string;
   renderScale?: number;
@@ -293,7 +294,9 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v71',
+    format: 'structured-v72',
+    passwordHash:
+      input.password !== undefined ? createHash('sha256').update(input.password).digest('hex').slice(0, 16) : null,
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -944,6 +947,9 @@ export async function processDocument(filePath: string, options: ProcessDocument
   // Best-effort: if pdfjs-dist resolution fails, fall back to pre-asset
   // behaviour rather than failing the whole extraction.
   const docOptions: Record<string, unknown> = pdfData ? { data: pdfData } : { url: filePath };
+  if (options.password !== undefined) {
+    docOptions.password = options.password;
+  }
   try {
     // `import.meta.resolve` is sync since Node 20.6 and returns a file://
     // URL for an installed package; convert to a plain directory path so
@@ -1372,6 +1378,7 @@ export async function processFile(filePath: string, options: ProcessOptions): Pr
   const result = await processDocument(filePath, {
     pages: options.pages,
     sourceData: options.sourceData,
+    password: options.password,
     render: options.render,
     noCache: options.noCache,
     renderOutput: options.renderOutput,

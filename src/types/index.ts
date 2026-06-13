@@ -29,6 +29,11 @@ export interface ProcessDocumentOptions {
    * so the downloaded PDF does not have to be written to the remote cache.
    */
   sourceData?: Uint8Array;
+  /**
+   * Password for encrypted PDFs. Omit for unencrypted PDFs; pass the
+   * document user password when pdf.js reports that a password is required.
+   */
+  password?: string;
   /** Render each selected page to PNG and include the path in `pages[].image`. */
   render?: boolean;
   /** Skip the on-disk cache, always re-extract. Defaults to `false`. */
@@ -299,6 +304,8 @@ export interface ProcessOptions {
   pages?: string;
   /** See {@link ProcessDocumentOptions.sourceData}. */
   sourceData?: Uint8Array;
+  /** See {@link ProcessDocumentOptions.password}. */
+  password?: string;
   format: OutputFormat;
   noCache: boolean;
   render?: boolean;

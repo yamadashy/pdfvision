@@ -46,6 +46,7 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
         'render-region': { type: 'string' },
         'no-cache': { type: 'boolean' },
         'no-normalize': { type: 'boolean' },
+        password: { type: 'string' },
         geometry: { type: 'boolean' },
         layout: { type: 'boolean' },
         'image-boxes': { type: 'boolean' },
@@ -278,6 +279,7 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
     const result = await processFile(filePath, {
       pages: values.pages as string | undefined,
       sourceData,
+      password: values.password as string | undefined,
       format,
       render,
       renderOutput,

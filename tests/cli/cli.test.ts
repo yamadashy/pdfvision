@@ -125,6 +125,15 @@ describe('cli', () => {
     expect(parsed.totalPages).toBe(1);
   });
 
+  it('passes --password through without emitting it', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--json', '--password', 'secret', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    const out = r.stdout.join('\n');
+    const parsed = JSON.parse(out);
+    expect(parsed.pages[0].text).toContain('Hello pdfvision');
+    expect(out).not.toContain('secret');
+  });
+
   it('passes --form-fields through to JSON output', async () => {
     const r = await captureRun([SAMPLE_PDF, '--json', '--form-fields', '--no-cache']);
     expect(r.exitCode).toBeNull();

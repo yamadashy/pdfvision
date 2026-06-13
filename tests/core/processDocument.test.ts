@@ -91,6 +91,24 @@ async function buildPdfWithDuplicateTextDraws(): Promise<Uint8Array> {
   return new Uint8Array(Buffer.concat(chunks));
 }
 
+async function buildEncryptedPdf(): Promise<Uint8Array> {
+  const chunks: Buffer[] = [];
+  const doc = new PDFDocument({
+    size: [612, 792],
+    margin: 0,
+    userPassword: 'test',
+    ownerPassword: 'owner',
+  } as PDFKit.PDFDocumentOptions & { userPassword: string; ownerPassword: string });
+  doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+  const done = new Promise<void>((resolveDone) => doc.on('end', resolveDone));
+
+  doc.text('Encrypted hello', 100, 72);
+  doc.end();
+
+  await done;
+  return new Uint8Array(Buffer.concat(chunks));
+}
+
 function buildRawPdf(objects: string[]): Uint8Array {
   let body = '%PDF-1.7\n';
   const offsets: number[] = [0];
@@ -228,6 +246,38 @@ describe('processDocument', () => {
 
     expect(result.file).toBe('memory://sample.pdf');
     expect(result.pages[0].text).toContain('Hello pdfvision');
+  });
+
+  it('opens encrypted PDFs when the document password is provided', async () => {
+    const sourceData = await buildEncryptedPdf();
+
+    await expect(
+      processDocument('memory://encrypted.pdf', {
+        sourceData,
+        noCache: true,
+      }),
+    ).rejects.toThrow(/password/i);
+
+    const result = await processDocument('memory://encrypted.pdf', {
+      sourceData,
+      password: 'test',
+      noCache: true,
+    });
+
+    expect(result.pages[0].text).toContain('Encrypted hello');
+  });
+
+  it('passes encrypted PDF passwords through processFile', async () => {
+    const output = await processFile('memory://encrypted-process-file.pdf', {
+      sourceData: await buildEncryptedPdf(),
+      password: 'test',
+      format: 'json',
+      noCache: true,
+    });
+
+    const result = JSON.parse(output);
+    expect(result.pages[0].text).toContain('Encrypted hello');
+    expect(output).not.toContain('test');
   });
 
   it('collapses exact duplicate text draws before joining text and layout', async () => {

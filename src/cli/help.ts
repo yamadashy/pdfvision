@@ -42,6 +42,8 @@ Options
                           Markdown output shows only the normalized form — pass --no-normalize if
                           original codepoint fidelity (e.g. fullwidth punctuation \`（\`, ligatures
                           \`ﬁ\`) matters for downstream diff / forensics.
+      --password <value>  Password for encrypted PDFs. The password is used only for pdf.js
+                          decryption and is never emitted in output.
       --geometry          Emit per-text-item bbox + font size in \`pages[].spans\`.
                           Only takes effect with -f json / -f xml / -f toon.
       --layout            Reconstruct \`pages[].layout\` (lines, blocks, vertical CJK stacks,
@@ -157,6 +159,7 @@ Examples
   pdfvision slides.pdf --xml --geometry                                        # layout / geometry as XML
   pdfvision report.pdf --toon --geometry                                       # token-efficient spans (TOON)
   pdfvision report.pdf --layout --strip-repeated                               # markdown w/o repeated chrome
+  pdfvision encrypted.pdf --password "secret" --json                           # encrypted PDF
   pdfvision scan.pdf --ocr --json                                              # OCR a scanned PDF
   pdfvision scan-ja.pdf --ocr --ocr-lang eng+jpn --json                        # multi-lang OCR
   pdfvision --remote https://example.com/paper.pdf --json                      # fetch + extract JSON

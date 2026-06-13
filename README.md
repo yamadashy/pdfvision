@@ -49,6 +49,7 @@ Every page reports `charCount`, `imageCount`, `vectorCount`, `textCoverage`, and
 - **`--viewer`** exposes viewer-level document settings such as initial page mode/layout, viewer preferences, open action, document/page JavaScript actions, permissions, and tagged-PDF MarkInfo.
 - **`--layers`** emits PDF optional content groups shown by viewer layer panels, including layer names, visibility, usage states, radio groups, and panel order for maps, CAD/design files, and variants.
 - **`--geometry`** emits per-text-item `bbox` + `fontSize` so callers can reconstruct visual hierarchy themselves.
+- **`--password`** opens encrypted PDFs when the caller knows the document password; the password is used for decryption and is never included in output.
 
 Every page always includes `vectorCount` — the number of non-text vector drawing operations such as rules, form boxes, chart paths, and slide shapes.
 
@@ -126,6 +127,7 @@ Options:
       --visual-regions    Emit crop-ready figure/chart/table/form regions in pages[].visualRegions
       --render-visual-regions
                           Render visual region crops to PNG and attach paths
+      --password <value>  Password for encrypted PDFs; never emitted in output
       --form-fields       Emit interactive PDF widget fields, flags, actions, export values, choice options, and labels in pages[].formFields
       --links             Emit clickable link annotations in pages[].links with bboxes
       --annotations       Emit non-link PDF annotations, flags, attachments, and shape geometry in pages[].annotations
@@ -182,6 +184,9 @@ pdfvision document.pdf -f json --geometry
 
 # Same geometry as token-efficient TOON (spans become tabular rows)
 pdfvision document.pdf -f toon --geometry
+
+# Open an encrypted PDF when you know the document password
+pdfvision encrypted.pdf --password "secret" -f json
 
 # OCR a scanned PDF (multi-language)
 pdfvision scan.pdf --ocr --ocr-lang eng+jpn -f json
