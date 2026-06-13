@@ -1135,10 +1135,15 @@ function shareAssociatedCaption(a: Candidate, b: Candidate): boolean {
 
 function suppressBackgroundLikeCandidates(candidates: Candidate[], pageWidth: number, pageHeight: number): Candidate[] {
   const hasForegroundRegion = candidates.some(
-    (candidate) => !isBackgroundLikeCandidate(candidate, pageWidth, pageHeight),
+    (candidate) => !isSuppressibleBackgroundLikeCandidate(candidate, pageWidth, pageHeight),
   );
   if (!hasForegroundRegion) return candidates;
-  return candidates.filter((candidate) => !isBackgroundLikeCandidate(candidate, pageWidth, pageHeight));
+  return candidates.filter((candidate) => !isSuppressibleBackgroundLikeCandidate(candidate, pageWidth, pageHeight));
+}
+
+function isSuppressibleBackgroundLikeCandidate(candidate: Candidate, pageWidth: number, pageHeight: number): boolean {
+  if (hasSourceType(candidate, 'layoutTable') || hasSourceType(candidate, 'formField')) return false;
+  return isBackgroundLikeCandidate(candidate, pageWidth, pageHeight);
 }
 
 function suppressBlankFullPageCandidates(

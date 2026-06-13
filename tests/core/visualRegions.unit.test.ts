@@ -675,6 +675,54 @@ describe('buildVisualRegions', () => {
     expect(regions[0].reason).toContain('layout table hint with 4 rows and 3 columns');
   });
 
+  it('keeps wide bottom table candidates when other foreground visuals are present', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 300,
+      pageHeight: 300,
+      imageBoxes: [],
+      vectorBoxes: [{ x: 50, y: 100, width: 80, height: 40 }],
+      layout: {
+        blocks: [],
+        tables: [
+          {
+            x: 20,
+            y: 270,
+            width: 260,
+            height: 24,
+            rowCount: 5,
+            columnCount: 10,
+            rows: [],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'vector',
+        x: 42,
+        y: 92,
+        width: 96,
+        height: 56,
+        areaRatio: 0.06,
+        sourceCount: 1,
+        sources: [{ type: 'vectorBox', index: 0 }],
+        reason: '1 nearby vector drawing operations',
+      },
+      {
+        kind: 'table',
+        x: 12,
+        y: 262,
+        width: 276,
+        height: 38,
+        areaRatio: 0.117,
+        sourceCount: 1,
+        sources: [{ type: 'layoutTable', index: 0 }],
+        reason: 'layout table hint with 5 rows and 10 columns',
+      },
+    ]);
+  });
+
   it('suppresses shallow wide table hints as visual regions', () => {
     const regions = buildVisualRegions({
       pageWidth: 612,
