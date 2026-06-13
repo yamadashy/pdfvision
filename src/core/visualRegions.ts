@@ -85,6 +85,7 @@ const EQUIVALENT_CANDIDATE_OVERLAP_RATIO = 0.98;
 const EQUIVALENT_CANDIDATE_AREA_RATIO = 0.98;
 const CONTEXTUAL_DUPLICATE_OVERLAP_RATIO = 0.85;
 const CONTEXTUAL_DUPLICATE_AREA_RATIO = 0.85;
+const CONTEXTUAL_DUPLICATE_CONTAINED_OVERLAP_RATIO = 0.95;
 const MAX_ASSOCIATED_TEXT = 3;
 const CAPTION_SCORE_TOLERANCE_PT = 12;
 const SHALLOW_TABLE_HINT_MAX_ROWS = 2;
@@ -1090,12 +1091,7 @@ function dedupeEquivalentCandidates(candidates: Candidate[]): Candidate[] {
 function dedupeContextualDuplicates(candidates: Candidate[]): Candidate[] {
   const deduped: Candidate[] = [];
   for (const candidate of candidates) {
-    const index = deduped.findIndex(
-      (existing) =>
-        shareAssociatedText(existing, candidate) &&
-        overlapOfSmaller(existing, candidate) >= CONTEXTUAL_DUPLICATE_OVERLAP_RATIO &&
-        areaSimilarity(existing, candidate) >= CONTEXTUAL_DUPLICATE_AREA_RATIO,
-    );
+    const index = deduped.findIndex((existing) => areContextualDuplicates(existing, candidate));
     if (index === -1) {
       deduped.push(candidate);
       continue;
@@ -1109,10 +1105,26 @@ function dedupeContextualDuplicates(candidates: Candidate[]): Candidate[] {
   return deduped;
 }
 
+function areContextualDuplicates(a: Candidate, b: Candidate): boolean {
+  if (!shareAssociatedText(a, b)) return false;
+  const overlapRatio = overlapOfSmaller(a, b);
+  if (overlapRatio < CONTEXTUAL_DUPLICATE_OVERLAP_RATIO) return false;
+  if (areaSimilarity(a, b) >= CONTEXTUAL_DUPLICATE_AREA_RATIO) return true;
+  return (
+    a.kind !== b.kind && shareAssociatedCaption(a, b) && overlapRatio >= CONTEXTUAL_DUPLICATE_CONTAINED_OVERLAP_RATIO
+  );
+}
+
 function shareAssociatedText(a: Candidate, b: Candidate): boolean {
   if (!a.associatedText || !b.associatedText) return false;
   const aKeys = new Set(a.associatedText.map(associatedTextKey));
   return b.associatedText.some((text) => aKeys.has(associatedTextKey(text)));
+}
+
+function shareAssociatedCaption(a: Candidate, b: Candidate): boolean {
+  if (!a.associatedText || !b.associatedText) return false;
+  const aCaptionKeys = new Set(a.associatedText.filter((text) => text.relation === 'caption').map(associatedTextKey));
+  return b.associatedText.some((text) => text.relation === 'caption' && aCaptionKeys.has(associatedTextKey(text)));
 }
 
 function suppressBackgroundLikeCandidates(candidates: Candidate[], pageWidth: number, pageHeight: number): Candidate[] {

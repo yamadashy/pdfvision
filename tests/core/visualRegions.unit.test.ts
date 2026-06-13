@@ -1135,6 +1135,59 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('deduplicates same-caption vector overlays contained inside a raster figure crop', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 600,
+      pageHeight: 800,
+      imageBoxes: [
+        { x: 40, y: 40, width: 120, height: 90 },
+        { x: 420, y: 40, width: 120, height: 90 },
+      ],
+      vectorBoxes: [{ x: 180, y: 80, width: 220, height: 50 }],
+      layout: {
+        blocks: [
+          {
+            text: 'Figure 4: Model overview.',
+            x: 40,
+            y: 160,
+            width: 500,
+            height: 20,
+            lines: [{ text: 'Figure 4: Model overview.', x: 40, y: 160, width: 500, height: 20, fontSize: 10 }],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'mixed',
+        x: 32,
+        y: 32,
+        width: 516,
+        height: 156,
+        areaRatio: 0.168,
+        sourceCount: 3,
+        sources: [
+          { type: 'imageBox', index: 0 },
+          { type: 'imageBox', index: 1 },
+          { type: 'vectorBox', index: 0 },
+        ],
+        reason: 'raster image covers 2.3% of the page; 1 nearby vector drawing operations',
+        associatedText: [
+          {
+            text: 'Figure 4: Model overview.',
+            relation: 'caption',
+            x: 40,
+            y: 160,
+            width: 500,
+            height: 20,
+            blockIndex: 0,
+          },
+        ],
+      },
+    ]);
+  });
+
   it('attaches nearby heading labels to large unlabeled table regions', () => {
     const regions = buildVisualRegions({
       pageWidth: 300,
