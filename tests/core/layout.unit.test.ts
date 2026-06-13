@@ -1096,6 +1096,48 @@ describe('buildLayout — multi-column reading order', () => {
     ]);
   });
 
+  it('keeps numeric-only subtotal rows aligned with recurring financial table columns', () => {
+    // Berkshire-style balance sheets often show subtotals as unlabeled
+    // numeric rows under the year columns. They are human-visible table
+    // rows even though they do not have a label cell.
+    const spans: TextSpan[] = [
+      span('Assets', 50, 96, 8, 28),
+      span('2023', 443, 108, 8, 28),
+      span('2022', 516, 108, 8, 28),
+      span('Cash and cash equivalents', 55, 120, 8, 120),
+      span('33,672', 443, 120, 8, 28),
+      span('32,260', 516, 120, 8, 28),
+      span('Short-term investments', 55, 132, 8, 108),
+      span('31,397', 443, 132, 8, 28),
+      span('9,138', 522, 132, 8, 22),
+      span('Other', 55, 144, 8, 28),
+      span('19,568', 443, 144, 8, 28),
+      span('19,657', 516, 144, 8, 28),
+      span('811,206', 438, 156, 8, 33),
+      span('726,002', 511, 156, 8, 33),
+      span('Railroad, Utilities and Energy:', 45, 168, 8, 140),
+      span('Cash and cash equivalents*', 55, 180, 8, 124),
+      span('2,290', 449, 180, 8, 22),
+      span('2,545', 522, 180, 8, 22),
+      span('Property, plant and equipment', 55, 192, 8, 132),
+      span('170,224', 438, 192, 8, 33),
+      span('160,579', 511, 192, 8, 33),
+      span('Other', 55, 204, 8, 28),
+      span('30,397', 443, 204, 8, 28),
+      span('22,190', 516, 204, 8, 28),
+      span('258,772', 438, 216, 8, 33),
+      span('222,463', 511, 216, 8, 33),
+      span('$ 1,069,978 $', 411.65, 228, 8, 78),
+      span('948,465', 511, 228, 8, 33),
+    ];
+    const layout = buildLayout(spans, 612);
+    const rows = layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text));
+
+    expect(rows).toContainEqual(['811,206', '726,002']);
+    expect(rows).toContainEqual(['258,772', '222,463']);
+    expect(rows).toContainEqual(['$ 1,069,978', '$ 948,465']);
+  });
+
   it('suppresses chart-like numeric labels with irregular row cadence', () => {
     const ys = [100, 107, 120, 139, 149, 172];
     const spans = ys.flatMap((y, index) => [

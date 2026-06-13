@@ -9,6 +9,11 @@ interface BBox {
   height: number;
 }
 
+interface IndexedLayoutRow {
+  row: LayoutLine[];
+  index: number;
+}
+
 /** Round to 2dp — keeps coordinates compact in JSON. */
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
@@ -872,27 +877,31 @@ function isStandaloneNumericLineAfterProse(prev: LayoutLine, line: LayoutLine, p
 
 function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefined {
   const allRowGroups = groupLinesByTableRow(lines).map((row) => row.sort((a, b) => a.x - b.x));
-  const rowGroups = allRowGroups
+  const rowGroups: IndexedLayoutRow[] = allRowGroups
     .map((row, index) => ({ row, index }))
     .filter(({ row }) => isLikelyTableRow(row))
-    .map(({ row, index }) => attachLabelContinuationRows(row, index, allRowGroups));
+    .map(({ row, index }) => ({ row: attachLabelContinuationRows(row, index, allRowGroups), index }));
   if (rowGroups.length < 2) return undefined;
 
-  const tables: LayoutLine[][][] = [];
+  const tables: IndexedLayoutRow[][] = [];
   for (const row of rowGroups) {
     const prevTable = tables.at(-1);
     const prevRow = prevTable?.at(-1);
-    if (prevRow && rowY(row) - rowBottom(prevRow) <= TABLE_GROUP_MAX_ROW_GAP_PT) {
+    if (prevRow && rowY(row.row) - rowBottom(prevRow.row) <= TABLE_GROUP_MAX_ROW_GAP_PT) {
       prevTable?.push(row);
     } else {
       tables.push([row]);
     }
   }
 
-  const result = tables
-    .filter((table) => table.length >= 2)
-    .filter(hasRegularTableRowCadence)
-    .map(toLayoutTable);
+  const result: LayoutTable[] = [];
+  for (let index = 0; index < tables.length; index++) {
+    const table = tables[index];
+    const baseRows = table.map(({ row }) => row);
+    if (baseRows.length < 2 || !hasRegularTableRowCadence(baseRows)) continue;
+    const nextTableFirstIndex = tables[index + 1]?.[0]?.index ?? allRowGroups.length;
+    result.push(toLayoutTable(attachNumericContinuationRows(table, allRowGroups, nextTableFirstIndex)));
+  }
   return result.length > 0 ? result : undefined;
 }
 
@@ -910,6 +919,109 @@ function isLikelyTableRow(row: LayoutLine[]): boolean {
   if (row.length < TABLE_ROW_MIN_CELLS) return false;
   const numericCells = row.filter((line) => isTableNumericCell(line.text)).length;
   return numericCells >= TABLE_ROW_MIN_NUMERIC_CELLS;
+}
+
+function attachNumericContinuationRows(
+  table: IndexedLayoutRow[],
+  allRows: LayoutLine[][],
+  scanEndIndex: number,
+): LayoutLine[][] {
+  const baseRowsByIndex = new Map(table.map(({ row, index }) => [index, row]));
+  const baseRows = table.map(({ row }) => row);
+  const numericColumnRights = recurringNumericColumnRights(baseRows, {
+    minColumns: TABLE_ROW_MIN_NUMERIC_CELLS,
+    minRows: Math.min(
+      baseRows.length,
+      Math.max(2, Math.ceil(baseRows.length * TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROW_RATIO)),
+    ),
+  });
+  if (numericColumnRights.length < TABLE_ROW_MIN_NUMERIC_CELLS) return baseRows;
+
+  const firstIndex = table[0]?.index ?? 0;
+  const lastBaseIndex = table.at(-1)?.index ?? firstIndex;
+  const rows: LayoutLine[][] = [];
+  let previousIncluded: LayoutLine[] | undefined;
+  for (let index = firstIndex; index < scanEndIndex; index++) {
+    const baseRow = baseRowsByIndex.get(index);
+    if (baseRow) {
+      rows.push(baseRow);
+      previousIncluded = baseRow;
+      continue;
+    }
+
+    if (!previousIncluded) continue;
+    const candidate = allRows[index];
+    if (!candidate) continue;
+    const verticalGap = rowY(candidate) - rowBottom(previousIncluded);
+    if (index > lastBaseIndex && verticalGap > TABLE_GROUP_MAX_ROW_GAP_PT) break;
+    if (verticalGap > TABLE_GROUP_MAX_ROW_GAP_PT) continue;
+    if (!isAlignedNumericContinuationRow(candidate, numericColumnRights)) continue;
+
+    rows.push(candidate);
+    previousIncluded = candidate;
+  }
+  return rows;
+}
+
+function recurringNumericColumnRights(
+  rows: LayoutLine[][],
+  options: { minColumns: number; minRows: number },
+): number[] {
+  const columns: { right: number; rowIndexes: Set<number>; sampleCount: number }[] = [];
+  for (const [rowIndex, row] of rows.entries()) {
+    const numericCells = row.filter((line) => isTableNumericCell(line.text));
+    for (let cellIndex = 0; cellIndex < numericCells.length; cellIndex++) {
+      const line = numericCells[cellIndex];
+      if (!line) continue;
+      const right = numericColumnMatchRight(line, numericCells[cellIndex + 1]);
+      let column = columns.find(
+        (candidate) => Math.abs(candidate.right - right) <= TABLE_RECURRING_NUMERIC_COLUMN_TOLERANCE_PT,
+      );
+      if (!column) {
+        column = { right, rowIndexes: new Set(), sampleCount: 0 };
+        columns.push(column);
+      }
+      column.right = (column.right * column.sampleCount + right) / (column.sampleCount + 1);
+      column.sampleCount += 1;
+      column.rowIndexes.add(rowIndex);
+    }
+  }
+  const recurringColumns = columns
+    .filter((column) => column.rowIndexes.size >= options.minRows)
+    .sort((a, b) => a.right - b.right)
+    .map((column) => column.right);
+  return recurringColumns.length >= options.minColumns ? recurringColumns : [];
+}
+
+function isAlignedNumericContinuationRow(row: LayoutLine[], columnRights: number[]): boolean {
+  const valueCells = row.filter((line) => isTableNumericCell(line.text));
+  if (valueCells.length < TABLE_ROW_MIN_NUMERIC_CELLS) return false;
+  if (row.some((line) => !isTableNumericCell(line.text) && !isCurrencyOnlyCell(line.text))) return false;
+
+  let matchedCells = 0;
+  const matchedColumns = new Set<number>();
+  for (let cellIndex = 0; cellIndex < valueCells.length; cellIndex++) {
+    const cell = valueCells[cellIndex];
+    if (!cell) continue;
+    const right = numericColumnMatchRight(cell, valueCells[cellIndex + 1]);
+    const columnIndex = columnRights.findIndex(
+      (columnRight) => Math.abs(columnRight - right) <= TABLE_RECURRING_NUMERIC_COLUMN_TOLERANCE_PT,
+    );
+    if (columnIndex < 0) return false;
+    matchedCells += 1;
+    matchedColumns.add(columnIndex);
+  }
+  return matchedCells >= TABLE_ROW_MIN_NUMERIC_CELLS && matchedColumns.size >= TABLE_ROW_MIN_NUMERIC_CELLS;
+}
+
+function numericColumnMatchRight(cell: LayoutLine, nextNumericCell: LayoutLine | undefined): number {
+  const trailing = trailingCurrencyForNextValue(cell.text, nextNumericCell);
+  if (!trailing) return cell.x + cell.width;
+
+  const trimmed = cell.text.trim();
+  const valueText = trimmed.slice(0, -trailing.length).trimEnd();
+  if (trimmed.length === 0 || valueText.length === 0) return cell.x + cell.width;
+  return cell.x + cell.width * (valueText.length / trimmed.length);
 }
 
 function attachLabelContinuationRows(row: LayoutLine[], rowIndex: number, allRows: LayoutLine[][]): LayoutLine[] {
@@ -984,25 +1096,11 @@ function hasRecurringNumericColumns(rows: LayoutLine[][]): boolean {
     Math.ceil(rows.length * TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROW_RATIO),
   );
   if (rows.filter(hasTableLabelCell).length < minRows) return false;
-  const columns: { right: number; rowIndexes: Set<number>; sampleCount: number }[] = [];
-  for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
-    for (const line of rows[rowIndex]) {
-      if (!isTableNumericCell(line.text)) continue;
-      const right = line.x + line.width;
-      let column = columns.find(
-        (candidate) => Math.abs(candidate.right - right) <= TABLE_RECURRING_NUMERIC_COLUMN_TOLERANCE_PT,
-      );
-      if (!column) {
-        column = { right, rowIndexes: new Set(), sampleCount: 0 };
-        columns.push(column);
-      }
-      column.right = (column.right * column.sampleCount + right) / (column.sampleCount + 1);
-      column.sampleCount += 1;
-      column.rowIndexes.add(rowIndex);
-    }
-  }
   return (
-    columns.filter((column) => column.rowIndexes.size >= minRows).length >= TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS
+    recurringNumericColumnRights(rows, {
+      minColumns: TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS,
+      minRows,
+    }).length >= TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS
   );
 }
 
