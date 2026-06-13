@@ -574,6 +574,7 @@ describe('formatXml', () => {
                 height: 8,
                 value: 'Off',
                 checked: false,
+                flags: ['hidden', 'print'],
               },
               {
                 name: 'choice',
@@ -602,7 +603,7 @@ describe('formatXml', () => {
       '<field name="name|field" type="text" x="10" y="20" width="100" height="12" value="Alice &amp; Bob" label="Legal &lt;name&gt;" labelRelation="above" labelX="10" labelY="8" labelWidth="80" labelHeight="10"/>',
     );
     expect(out).toContain(
-      '<field name="agree" type="checkbox" x="10" y="40" width="8" height="8" value="Off" checked="false"/>',
+      '<field name="agree" type="checkbox" x="10" y="40" width="8" height="8" value="Off" checked="false" flags="hidden,print"/>',
     );
     expect(out).toContain(
       '<field name="choice" type="choice" x="20" y="60" width="120" height="20" value="B" combo="false" multiSelect="true">',

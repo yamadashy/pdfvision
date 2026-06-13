@@ -417,6 +417,7 @@ export function formatXml(result: DocumentResult): string {
           if (field.multiline !== undefined) fieldAttrs.push(`multiline="${field.multiline}"`);
           if (field.combo !== undefined) fieldAttrs.push(`combo="${field.combo}"`);
           if (field.multiSelect !== undefined) fieldAttrs.push(`multiSelect="${field.multiSelect}"`);
+          if (field.flags !== undefined) fieldAttrs.push(`flags="${escapeAttr(field.flags.join(','))}"`);
           if (field.label !== undefined) {
             fieldAttrs.push(`label="${escapeAttr(field.label.text)}"`);
             fieldAttrs.push(`labelRelation="${field.label.relation}"`);

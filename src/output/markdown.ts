@@ -61,13 +61,13 @@ function fieldOptions(field: NonNullable<PageResult['formFields']>[number]): str
 }
 
 function fieldFlags(field: NonNullable<PageResult['formFields']>[number]): string {
-  const flags: string[] = [];
-  if (field.readOnly) flags.push('readOnly');
-  if (field.required) flags.push('required');
-  if (field.multiline) flags.push('multiline');
-  if (field.combo !== undefined) flags.push(field.combo ? 'combo' : 'list');
-  if (field.multiSelect) flags.push('multiSelect');
-  return flags.join(', ');
+  const flags = new Set<string>(field.flags ?? []);
+  if (field.readOnly) flags.add('readOnly');
+  if (field.required) flags.add('required');
+  if (field.multiline) flags.add('multiline');
+  if (field.combo !== undefined) flags.add(field.combo ? 'combo' : 'list');
+  if (field.multiSelect) flags.add('multiSelect');
+  return Array.from(flags).join(', ');
 }
 
 function annotationColor(annotation: NonNullable<PageResult['annotations']>[number]): string {

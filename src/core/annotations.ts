@@ -114,7 +114,7 @@ function colorValue(value: unknown): [number, number, number] | undefined {
   return [Math.round(values[0]), Math.round(values[1]), Math.round(values[2])];
 }
 
-function annotationFlagNames(value: unknown): PageAnnotationFlag[] {
+export function annotationFlagNames(value: unknown): PageAnnotationFlag[] {
   if (typeof value !== 'number' || !Number.isFinite(value)) return [];
   return ANNOTATION_FLAGS.filter(({ bit }) => (value & bit) !== 0).map(({ name }) => name);
 }

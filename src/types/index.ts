@@ -685,6 +685,8 @@ export interface FormField {
   combo?: boolean;
   /** True when a choice field allows selecting multiple options. */
   multiSelect?: boolean;
+  /** Decoded PDF widget annotation flags, such as hidden, print, noView, or locked. */
+  flags?: PageAnnotationFlag[];
   /**
    * Nearby visible text that likely labels this field, reconstructed from
    * layout lines when `--form-fields` is enabled. Stacked above/below label

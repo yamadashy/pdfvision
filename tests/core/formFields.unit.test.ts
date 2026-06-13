@@ -21,6 +21,7 @@ describe('buildFormFields', () => {
           radioButton: false,
           rect: [36, 722, 44, 730],
           fieldValue: 'Off',
+          annotationFlags: 6,
         },
         {
           subtype: 'Link',
@@ -52,6 +53,7 @@ describe('buildFormFields', () => {
         height: 8,
         value: 'Off',
         checked: false,
+        flags: ['hidden', 'print'],
       },
     ]);
   });
