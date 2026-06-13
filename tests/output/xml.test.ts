@@ -537,7 +537,7 @@ describe('formatXml', () => {
             nonPrintableRatio: 0,
             nonPrintableCount: 0,
             quality: { nativeTextStatus: 'ok' },
-            formFieldCount: 2,
+            formFieldCount: 3,
             width: 612,
             height: 792,
           },
@@ -575,13 +575,28 @@ describe('formatXml', () => {
                 value: 'Off',
                 checked: false,
               },
+              {
+                name: 'choice',
+                type: 'choice',
+                x: 20,
+                y: 60,
+                width: 120,
+                height: 20,
+                value: 'B',
+                combo: false,
+                multiSelect: true,
+                options: [
+                  { exportValue: 'A&B', displayValue: 'Alpha <A>' },
+                  { exportValue: 'B', displayValue: 'Beta' },
+                ],
+              },
             ],
           }),
         ],
       }),
     );
 
-    expect(out).toContain('formFieldCount="2"');
+    expect(out).toContain('formFieldCount="3"');
     expect(out).toContain('<formFields>');
     expect(out).toContain(
       '<field name="name|field" type="text" x="10" y="20" width="100" height="12" value="Alice &amp; Bob" label="Legal &lt;name&gt;" labelRelation="above" labelX="10" labelY="8" labelWidth="80" labelHeight="10"/>',
@@ -589,6 +604,13 @@ describe('formatXml', () => {
     expect(out).toContain(
       '<field name="agree" type="checkbox" x="10" y="40" width="8" height="8" value="Off" checked="false"/>',
     );
+    expect(out).toContain(
+      '<field name="choice" type="choice" x="20" y="60" width="120" height="20" value="B" combo="false" multiSelect="true">',
+    );
+    expect(out).toContain('<options>');
+    expect(out).toContain('<option exportValue="A&amp;B" displayValue="Alpha &lt;A&gt;"/>');
+    expect(out).toContain('<option exportValue="B" displayValue="Beta"/>');
+    expect(out).toContain('</field>');
   });
 
   it('emits self-closing <formFields/> when extraction ran but found no widgets', () => {

@@ -48,6 +48,28 @@ function fieldLabel(field: NonNullable<PageResult['formFields']>[number]): strin
   return field.label ? `${field.label.text} (${field.label.relation})` : '';
 }
 
+function fieldOptions(field: NonNullable<PageResult['formFields']>[number]): string {
+  return (
+    field.options
+      ?.map((option) =>
+        option.displayValue === option.exportValue
+          ? option.displayValue
+          : `${option.displayValue}=${option.exportValue}`,
+      )
+      .join(', ') ?? ''
+  );
+}
+
+function fieldFlags(field: NonNullable<PageResult['formFields']>[number]): string {
+  const flags: string[] = [];
+  if (field.readOnly) flags.push('readOnly');
+  if (field.required) flags.push('required');
+  if (field.multiline) flags.push('multiline');
+  if (field.combo !== undefined) flags.push(field.combo ? 'combo' : 'list');
+  if (field.multiSelect) flags.push('multiSelect');
+  return flags.join(', ');
+}
+
 function annotationColor(annotation: NonNullable<PageResult['annotations']>[number]): string {
   return annotation.color ? annotation.color.join(',') : '';
 }
@@ -487,11 +509,11 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
         lines.push('_No interactive form fields found._');
       } else {
         lines.push('');
-        lines.push('| Type | Name | Label | Value | BBox |');
-        lines.push('| --- | --- | --- | --- | --- |');
+        lines.push('| Type | Name | Label | Value | Options | Flags | BBox |');
+        lines.push('| --- | --- | --- | --- | --- | --- | --- |');
         for (const field of page.formFields) {
           lines.push(
-            `| ${field.type} | ${escapeTableCell(field.name)} | ${escapeTableCell(fieldLabel(field))} | ${escapeTableCell(fieldValue(field))} | ${formatBox(field)} |`,
+            `| ${field.type} | ${escapeTableCell(field.name)} | ${escapeTableCell(fieldLabel(field))} | ${escapeTableCell(fieldValue(field))} | ${escapeTableCell(fieldOptions(field))} | ${escapeTableCell(fieldFlags(field))} | ${formatBox(field)} |`,
           );
         }
       }

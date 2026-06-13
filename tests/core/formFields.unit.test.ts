@@ -73,6 +73,43 @@ describe('buildFormFields', () => {
     expect(fields[0].value).toBe('A, {"exportValue":"B"}, ["C"]');
   });
 
+  it('extracts choice options and selection behavior metadata', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'choice',
+          fieldType: 'Ch',
+          rect: [10, 10, 50, 30],
+          fieldValue: ['A'],
+          combo: false,
+          multiSelect: true,
+          options: [
+            { exportValue: 'A', displayValue: 'Alpha' },
+            { exportValue: 'B', displayValue: 'Beta' },
+            { exportValue: 3, displayValue: true },
+            { displayValue: 'Missing export' },
+            'bad',
+          ],
+        },
+      ],
+      100,
+    );
+
+    expect(fields[0]).toMatchObject({
+      name: 'choice',
+      type: 'choice',
+      value: 'A',
+      combo: false,
+      multiSelect: true,
+      options: [
+        { exportValue: 'A', displayValue: 'Alpha' },
+        { exportValue: 'B', displayValue: 'Beta' },
+        { exportValue: '3', displayValue: 'true' },
+      ],
+    });
+  });
+
   it('rejects invalid page geometry parameters before coordinate conversion', () => {
     expect(() => buildFormFields([], Number.NaN)).toThrow(/pageHeight/);
     expect(() => buildFormFields([], 0)).toThrow(/pageHeight/);

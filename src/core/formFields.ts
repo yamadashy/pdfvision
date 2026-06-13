@@ -1,4 +1,10 @@
-import type { FormField, FormFieldLabel, FormFieldLabelRelation, FormFieldType } from '../types/index.js';
+import type {
+  FormField,
+  FormFieldChoiceOption,
+  FormFieldLabel,
+  FormFieldLabelRelation,
+  FormFieldType,
+} from '../types/index.js';
 
 interface PdfAnnotation {
   subtype?: unknown;
@@ -11,6 +17,9 @@ interface PdfAnnotation {
   readOnly?: unknown;
   required?: unknown;
   multiline?: unknown;
+  options?: unknown;
+  combo?: unknown;
+  multiSelect?: unknown;
 }
 
 interface LabelLine {
@@ -75,6 +84,7 @@ export function buildFormFields(
       ...(typeof ann.readOnly === 'boolean' && { readOnly: ann.readOnly }),
       ...(typeof ann.required === 'boolean' && { required: ann.required }),
       ...(typeof ann.multiline === 'boolean' && { multiline: ann.multiline }),
+      ...choiceFieldMetadata(ann),
     };
     fields.push(field);
   }
@@ -126,6 +136,36 @@ function fieldArrayValue(value: unknown): string {
   if (value === null) return 'null';
   const json = JSON.stringify(value);
   return json === undefined ? String(value) : json;
+}
+
+function choiceFieldMetadata(annotation: PdfAnnotation): Pick<FormField, 'combo' | 'multiSelect' | 'options'> {
+  if (annotation.fieldType !== 'Ch') return {};
+  const options = choiceOptions(annotation.options);
+  return {
+    ...(typeof annotation.combo === 'boolean' && { combo: annotation.combo }),
+    ...(typeof annotation.multiSelect === 'boolean' && { multiSelect: annotation.multiSelect }),
+    ...(options.length > 0 && { options }),
+  };
+}
+
+function choiceOptions(value: unknown): FormFieldChoiceOption[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => choiceOption(item)).filter((item): item is FormFieldChoiceOption => item !== undefined);
+}
+
+function choiceOption(value: unknown): FormFieldChoiceOption | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const raw = value as { exportValue?: unknown; displayValue?: unknown };
+  const exportValue = choiceOptionText(raw.exportValue);
+  const displayValue = choiceOptionText(raw.displayValue) ?? exportValue;
+  if (exportValue === undefined || displayValue === undefined) return undefined;
+  return { exportValue, displayValue };
+}
+
+function choiceOptionText(value: unknown): string | undefined {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return undefined;
 }
 
 interface BoxLike {

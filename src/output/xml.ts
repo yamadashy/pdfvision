@@ -415,6 +415,8 @@ export function formatXml(result: DocumentResult): string {
           if (field.readOnly !== undefined) fieldAttrs.push(`readOnly="${field.readOnly}"`);
           if (field.required !== undefined) fieldAttrs.push(`required="${field.required}"`);
           if (field.multiline !== undefined) fieldAttrs.push(`multiline="${field.multiline}"`);
+          if (field.combo !== undefined) fieldAttrs.push(`combo="${field.combo}"`);
+          if (field.multiSelect !== undefined) fieldAttrs.push(`multiSelect="${field.multiSelect}"`);
           if (field.label !== undefined) {
             fieldAttrs.push(`label="${escapeAttr(field.label.text)}"`);
             fieldAttrs.push(`labelRelation="${field.label.relation}"`);
@@ -423,7 +425,19 @@ export function formatXml(result: DocumentResult): string {
             fieldAttrs.push(`labelWidth="${field.label.width}"`);
             fieldAttrs.push(`labelHeight="${field.label.height}"`);
           }
-          out.push(`<field ${fieldAttrs.join(' ')}/>`);
+          if (!field.options || field.options.length === 0) {
+            out.push(`<field ${fieldAttrs.join(' ')}/>`);
+            continue;
+          }
+          out.push(`<field ${fieldAttrs.join(' ')}>`);
+          out.push('<options>');
+          for (const option of field.options) {
+            out.push(
+              `<option exportValue="${escapeAttr(option.exportValue)}" displayValue="${escapeAttr(option.displayValue)}"/>`,
+            );
+          }
+          out.push('</options>');
+          out.push('</field>');
         }
         out.push('</formFields>');
       }

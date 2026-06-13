@@ -660,6 +660,13 @@ export interface FormFieldLabel {
   height: number;
 }
 
+export interface FormFieldChoiceOption {
+  /** Value submitted/exported by the PDF form. */
+  exportValue: string;
+  /** Human-visible choice label shown by a PDF viewer. */
+  displayValue: string;
+}
+
 export interface FormField {
   name: string;
   type: FormFieldType;
@@ -672,6 +679,12 @@ export interface FormField {
   readOnly?: boolean;
   required?: boolean;
   multiline?: boolean;
+  /** Choice-field options, present when pdf.js exposes combo/list box entries. */
+  options?: FormFieldChoiceOption[];
+  /** True for combo boxes, false for list boxes. Present for choice fields when pdf.js exposes it. */
+  combo?: boolean;
+  /** True when a choice field allows selecting multiple options. */
+  multiSelect?: boolean;
   /**
    * Nearby visible text that likely labels this field, reconstructed from
    * layout lines when `--form-fields` is enabled. Stacked above/below label
