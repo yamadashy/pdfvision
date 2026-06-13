@@ -362,6 +362,16 @@ describe('formatMarkdown', () => {
                 height: 12,
                 quadBoxes: [{ x: 100, y: 80, width: 80, height: 12 }],
               },
+              {
+                subtype: 'FileAttachment',
+                contents: 'Test.txt',
+                title: 'Reviewer',
+                fileAttachment: { name: 'Test.txt', size: 15, description: 'Supplement' },
+                x: 70,
+                y: 94,
+                width: 20,
+                height: 24,
+              },
             ],
           }),
           makePage({ page: 2, text: 'plain', charCount: 5, annotations: [] }),
@@ -370,10 +380,13 @@ describe('formatMarkdown', () => {
     );
 
     expect(out).toMatch(/\| Page \| Chars \| Images \| Coverage \| Size \(pt\) \| Annotations \|/);
-    expect(out).toMatch(/\| 1 \| 9 \| 0 \| 0% \| 612×792 \| 1 \|/);
-    expect(out).toMatch(/annotations: 1/);
+    expect(out).toMatch(/\| 1 \| 9 \| 0 \| 0% \| 612×792 \| 2 \|/);
+    expect(out).toMatch(/annotations: 2/);
     expect(out).toContain('### Annotations');
-    expect(out).toContain('| Highlight | important\\|note | Markup | 100,80,80,12 | 255,255,11 | 1 |');
+    expect(out).toContain('| Highlight | important\\|note | Markup |  | 100,80,80,12 | 255,255,11 | 1 |');
+    expect(out).toContain(
+      '| FileAttachment | Test.txt | Reviewer | Test.txt · 15 bytes · Supplement | 70,94,20,24 |  | 0 |',
+    );
     expect(out).toContain('_No non-link annotations found._');
   });
 

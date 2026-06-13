@@ -1,4 +1,4 @@
-import type { PageAnnotation, PageAnnotationBox } from '../types/index.js';
+import type { PageAnnotation, PageAnnotationBox, PageAnnotationFileAttachment } from '../types/index.js';
 
 interface PdfAnnotation {
   subtype?: unknown;
@@ -9,6 +9,14 @@ interface PdfAnnotation {
   modificationDate?: unknown;
   hasAppearance?: unknown;
   quadPoints?: unknown;
+  file?: unknown;
+}
+
+interface PdfFileAttachment {
+  filename?: unknown;
+  rawFilename?: unknown;
+  description?: unknown;
+  content?: unknown;
 }
 
 interface BuildAnnotationsOptions {
@@ -39,6 +47,7 @@ export function buildAnnotations(
     const title = textValue(ann.titleObj?.str, options.normalizeText);
     const color = colorValue(ann.color);
     const quadBoxes = quadPointBoxes(ann.quadPoints, pageHeight, viewMinX, viewMinY);
+    const fileAttachment = fileAttachmentValue(ann.file, options.normalizeText);
 
     out.push({
       subtype: ann.subtype,
@@ -47,6 +56,7 @@ export function buildAnnotations(
       ...(color !== undefined && { color }),
       ...(typeof ann.modificationDate === 'string' && { modified: ann.modificationDate }),
       ...(typeof ann.hasAppearance === 'boolean' && { hasAppearance: ann.hasAppearance }),
+      ...(fileAttachment !== undefined && { fileAttachment }),
       ...baseBox,
       ...(quadBoxes.length > 0 && { quadBoxes }),
     });
@@ -82,6 +92,33 @@ function colorValue(value: unknown): [number, number, number] | undefined {
   const values = numericArrayLike(value, 3);
   if (!values) return undefined;
   return [Math.round(values[0]), Math.round(values[1]), Math.round(values[2])];
+}
+
+function fileAttachmentValue(
+  value: unknown,
+  normalizeText: ((value: string) => string) | undefined,
+): PageAnnotationFileAttachment | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const file = value as PdfFileAttachment;
+  const name = textValue(file.filename, normalizeText) ?? textValue(file.rawFilename, normalizeText);
+  if (!name) return undefined;
+
+  const size = binaryLength(file.content);
+  if (size === undefined) return undefined;
+
+  const description = textValue(file.description, normalizeText);
+  return {
+    name,
+    size,
+    ...(description !== undefined && { description }),
+  };
+}
+
+function binaryLength(value: unknown): number | undefined {
+  if (value instanceof Uint8Array) return value.length;
+  if (ArrayBuffer.isView(value)) return value.byteLength;
+  if (value instanceof ArrayBuffer) return value.byteLength;
+  return undefined;
 }
 
 function quadPointBoxes(value: unknown, pageHeight: number, viewMinX: number, viewMinY: number): PageAnnotationBox[] {

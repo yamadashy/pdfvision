@@ -820,8 +820,17 @@ export interface PageAnnotationBox {
   height: number;
 }
 
+export interface PageAnnotationFileAttachment {
+  /** Embedded filename shown by the file-attachment annotation. */
+  name: string;
+  /** Optional attachment description when the PDF provides one. */
+  description?: string;
+  /** Attachment byte length. Bytes are intentionally not embedded in output. */
+  size: number;
+}
+
 export interface PageAnnotation {
-  /** PDF annotation subtype such as Text, Highlight, Underline, StrikeOut, FreeText, Stamp, or Ink. */
+  /** PDF annotation subtype such as Text, Highlight, Underline, StrikeOut, FreeText, Stamp, FileAttachment, or Ink. */
   subtype: string;
   /** Comment / markup contents when the PDF provides them. */
   contents?: string;
@@ -833,6 +842,8 @@ export interface PageAnnotation {
   modified?: string;
   /** Whether pdf.js reports an appearance stream for this annotation. */
   hasAppearance?: boolean;
+  /** File metadata for FileAttachment annotations. Bytes are never embedded in structured output. */
+  fileAttachment?: PageAnnotationFileAttachment;
   x: number;
   y: number;
   width: number;

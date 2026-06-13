@@ -463,9 +463,22 @@ export function formatXml(result: DocumentResult): string {
           if (annotation.hasAppearance !== undefined) {
             annotationAttrs.push(`hasAppearance="${annotation.hasAppearance}"`);
           }
-          if (annotation.quadBoxes && annotation.quadBoxes.length > 0) {
+          if (
+            annotation.fileAttachment !== undefined ||
+            (annotation.quadBoxes !== undefined && annotation.quadBoxes.length > 0)
+          ) {
             out.push(`<annotation ${annotationAttrs.join(' ')}>`);
-            for (const box of annotation.quadBoxes) {
+            if (annotation.fileAttachment !== undefined) {
+              const fileAttrs = [
+                `name="${escapeAttr(annotation.fileAttachment.name)}"`,
+                `size="${annotation.fileAttachment.size}"`,
+              ];
+              if (annotation.fileAttachment.description !== undefined) {
+                fileAttrs.push(`description="${escapeAttr(annotation.fileAttachment.description)}"`);
+              }
+              out.push(`<fileAttachment ${fileAttrs.join(' ')}/>`);
+            }
+            for (const box of annotation.quadBoxes ?? []) {
               out.push(`<quadBox x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}"/>`);
             }
             out.push('</annotation>');
