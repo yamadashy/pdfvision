@@ -878,7 +878,7 @@ export type PageStructureItem = PageStructureNode | PageStructureContent;
 export interface PageStructureNode {
   /** Tagged-PDF role, already role-map-resolved by pdf.js when possible. */
   role: string;
-  /** Alternate text, commonly used for figures or formula descriptions. */
+  /** Alternate text, commonly used for figures or formula descriptions; control bytes are removed. */
   alt?: string;
   /** MathML emitted by pdf.js for tagged Formula nodes when available. */
   mathML?: string;

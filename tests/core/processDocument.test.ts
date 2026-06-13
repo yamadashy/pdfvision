@@ -419,6 +419,32 @@ describe('processDocument', () => {
     });
   });
 
+  it('drops control bytes from tagged structure strings', () => {
+    const structure = buildPageStructure({
+      role: 'Root',
+      children: [
+        {
+          role: 'Figure',
+          alt: 'Secondary text for stamp\u0000',
+          lang: 'EN\u0007',
+          children: [{ type: 'annotation', id: 'pdfjs_internal_id_20R' }],
+        },
+      ],
+    });
+
+    expect(structure).toEqual({
+      role: 'Root',
+      children: [
+        {
+          role: 'Figure',
+          alt: 'Secondary text for stamp',
+          lang: 'EN',
+          children: [{ type: 'annotation', id: 'pdfjs_internal_id_20R' }],
+        },
+      ],
+    });
+  });
+
   it('emits null structure when structure extraction ran but found no tree', async () => {
     const result = await processDocument(SAMPLE_PDF, { noCache: true, structure: true });
 

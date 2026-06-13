@@ -20,7 +20,23 @@ interface PdfStructTreeContent {
 
 function textValue(value: unknown, options: BuildStructureOptions): string | undefined {
   if (typeof value !== 'string' || value.length === 0) return undefined;
-  return options.normalizeText ? options.normalizeText(value) : value;
+  const normalized = options.normalizeText ? options.normalizeText(value) : value;
+  const sanitized = dropControlBytes(normalized);
+  return sanitized.length > 0 ? sanitized : undefined;
+}
+
+function dropControlBytes(value: string): string {
+  let out = '';
+  for (const char of value) {
+    const cp = char.codePointAt(0) as number;
+    if (!isControlByte(cp)) out += char;
+  }
+  return out;
+}
+
+function isControlByte(cp: number): boolean {
+  if (cp < 0x20) return cp !== 0x09 && cp !== 0x0a && cp !== 0x0d;
+  return cp === 0x7f || (cp >= 0x80 && cp <= 0x9f);
 }
 
 function bboxValue(value: unknown): number[] | undefined {

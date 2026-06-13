@@ -42,7 +42,7 @@ Every page reports `charCount`, `imageCount`, `vectorCount`, `textCoverage`, and
 - **`--form-fields`** reports interactive PDF widget fields such as text boxes, checkboxes, radio buttons, choices, and signatures with values, bboxes, and nearby visible labels, including stacked prompt lines and fine-grained adjacent prompts when they form field labels.
 - **`--links`** reports clickable PDF link annotations such as citation jumps, table-of-contents destinations, and external URLs with bboxes.
 - **`--annotations`** surfaces non-link PDF annotations such as comments, sticky notes, highlights, underlines, strikeouts, stamps, file-attachment icons, and other markup with bboxes, comment text, PDF flags such as `hidden` / `print`, and attachment metadata when available.
-- **`--structure`** exposes tagged-PDF structure trees with roles, figure alt text, language hints, bboxes, and marked-content ids when the PDF exposes accessibility structure.
+- **`--structure`** exposes tagged-PDF structure trees with roles, figure alt text, language hints, bboxes, and marked-content ids when the PDF exposes accessibility structure; stray control bytes in structure strings are removed.
 - **`--page-labels`** emits viewer page labels such as roman front matter (`i`, `ii`) or restarted section numbering that differs from physical page numbers.
 - **`--attachments`** lists document-level embedded file attachments with filename, description, and byte size, without dumping attachment bytes into the agent context. Add `--attachment-output <dir>` to save the embedded files and include paths in `attachments[].path`.
 - **`--outline`** preserves document outline/bookmark sidebar entries, hierarchy, and resolvable destination pages.
