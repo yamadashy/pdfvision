@@ -829,6 +829,16 @@ function isCaptionText(text: string): boolean {
   return match !== null && isCaptionIdentifier(match[1] ?? '');
 }
 
+function isBareCaptionReferenceText(text: string): boolean {
+  const match = CAPTION_PATTERN.exec(text);
+  if (match === null || !isCaptionIdentifier(match[1] ?? '')) return false;
+  const remainder = text
+    .slice(match[0].length)
+    .replace(/^[\s:：．。、.-]+/u, '')
+    .trim();
+  return !/[\p{L}\p{N}]/u.test(remainder);
+}
+
 function isCaptionIdentifier(text: string): boolean {
   const normalized = text.trim().replace(/[.．]+$/u, '');
   if (CAPTION_DIGIT_OR_CJK_NUMBER_PATTERN.test(normalized)) return true;
@@ -854,6 +864,11 @@ function horizontalOverlapRatio(a: BoxLike, b: BoxLike): number {
 }
 
 function captionScore(candidate: Candidate, textBox: BoxLike): number | undefined {
+  if ('text' in textBox && typeof textBox.text === 'string' && isBareCaptionReferenceText(textBox.text)) {
+    const contained = overlapOfSmaller(candidate, textBox) >= 0.9;
+    if (contained) return undefined;
+  }
+
   const captionBottom = textBox.y + textBox.height;
   const regionBottom = candidate.y + candidate.height;
   const belowGap = textBox.y - regionBottom;
