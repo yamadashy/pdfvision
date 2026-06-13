@@ -877,7 +877,8 @@ export async function processDocument(filePath: string, options: ProcessDocument
     // Best-effort: keep going without the wasm/cmap asset URLs rather
     // than fail the whole extraction over a missing optional asset.
   }
-  const doc = await getDocument(docOptions).promise;
+  const loadingTask = getDocument(docOptions);
+  const doc = await loadingTask.promise;
   try {
     const totalPages = doc.numPages;
     let pageNumbers: number[];
@@ -1244,7 +1245,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
 
     return result;
   } finally {
-    await doc.destroy();
+    await loadingTask.destroy();
   }
 }
 
