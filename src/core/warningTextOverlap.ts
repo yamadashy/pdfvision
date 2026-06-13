@@ -23,8 +23,16 @@ const DISPLAY_NUMBER_LABEL_MAX_CHARS = 40;
 const DISPLAY_NUMBER_LABEL_ZONE_RATIO = 0.35;
 const DISPLAY_NUMBER_TEXT = /^[\d０-９\s,，.．:：%％+\-−–—/／()（）※年月日現末在]+$/u;
 const DISPLAY_NUMBER_MIN_DIGITS = 2;
+const TEXT_OVERLAP_MAX_DETAILED_WARNINGS = 8;
+
+interface TextOverlapCandidate {
+  blockIndex: number;
+  otherBlockIndex: number;
+  overlapArea: number;
+}
 
 export function detectTextOverlap(blocks: LayoutBlock[], out: PageWarning[]): void {
+  const overlaps: TextOverlapCandidate[] = [];
   // Only non-repeated pairs — repeated chrome (footers, page numbers)
   // legitimately occupies the bottom margin where body sometimes
   // bleeds, and the `body_near_repeated_chrome` rule covers the case
@@ -47,15 +55,32 @@ export function detectTextOverlap(blocks: LayoutBlock[], out: PageWarning[]): vo
       // typically just adjacent blocks whose bbox includes glyph
       // ascender/descender slack.
       if (overlapArea < 1) continue;
-      out.push({
-        code: 'text_overlap',
-        severity: 'warning',
-        message: `block bboxes overlap (${overlapArea.toFixed(1)}pt²) — text from different blocks may visually collide`,
-        blockIndex: i,
-        otherBlockIndex: j,
-      });
+      overlaps.push({ blockIndex: i, otherBlockIndex: j, overlapArea });
     }
   }
+  emitTextOverlapWarnings(overlaps, out);
+}
+
+function emitTextOverlapWarnings(overlaps: TextOverlapCandidate[], out: PageWarning[]): void {
+  const sorted = [...overlaps].sort(
+    (a, b) => b.overlapArea - a.overlapArea || a.blockIndex - b.blockIndex || a.otherBlockIndex - b.otherBlockIndex,
+  );
+  for (const overlap of sorted.slice(0, TEXT_OVERLAP_MAX_DETAILED_WARNINGS)) {
+    out.push({
+      code: 'text_overlap',
+      severity: 'warning',
+      message: `block bboxes overlap (${overlap.overlapArea.toFixed(1)}pt²) — text from different blocks may visually collide`,
+      blockIndex: overlap.blockIndex,
+      otherBlockIndex: overlap.otherBlockIndex,
+    });
+  }
+  const omitted = sorted.length - TEXT_OVERLAP_MAX_DETAILED_WARNINGS;
+  if (omitted <= 0) return;
+  out.push({
+    code: 'text_overlap',
+    severity: 'warning',
+    message: `${omitted} additional block bbox overlap${omitted === 1 ? '' : 's'} omitted after showing the ${TEXT_OVERLAP_MAX_DETAILED_WARNINGS} largest overlaps`,
+  });
 }
 
 function isInlineFragmentPair(a: LayoutBlock, b: LayoutBlock): boolean {

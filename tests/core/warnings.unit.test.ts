@@ -956,6 +956,19 @@ describe('detectPageWarnings', () => {
       expect(out.some((w) => w.code === 'text_overlap')).toBe(true);
     });
 
+    it('caps noisy overlap pages and summarizes omitted pairs', () => {
+      const blocks = Array.from({ length: 12 }, (_, index) =>
+        block(50 + index * 2, 50 + index * 2, 120, 120, { text: `overlap block ${index}` }),
+      );
+
+      const overlaps = detectPageWarnings(page(blocks)).filter((w) => w.code === 'text_overlap');
+      const detailed = overlaps.filter((w) => w.blockIndex !== undefined);
+      const summary = overlaps.find((w) => w.blockIndex === undefined);
+
+      expect(detailed).toHaveLength(8);
+      expect(summary?.message).toMatch(/additional block bbox overlaps omitted/);
+    });
+
     it('does not flag compact subscript blocks embedded in a displayed formula', () => {
       const formula = block(300, 208, 43, 8, {
         text: 'τ τ −τ',
