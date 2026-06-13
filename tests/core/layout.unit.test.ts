@@ -653,6 +653,42 @@ describe('buildLayout — multi-column reading order', () => {
     expect(proceedingsIndex).toBeGreaterThan(-1);
   });
 
+  it('moves first-page bottom permission notes after the main two-column body', () => {
+    const spans: TextSpan[] = [
+      span('Abstract', 54, 333, 10.96, 40),
+      span('Left abstract line that begins the main paper body.', 54, 349, 8.97, 239),
+      span('Left abstract line that continues before the introduction.', 54, 361, 8.97, 239),
+      span('1. Introduction', 54, 566, 10.96, 78),
+      span('Left introduction reaches the handoff to the right column.', 54, 582, 8.97, 239),
+      span('for example, is the de facto standard for client-side web programming', 54, 618, 8.97, 239),
+      span('Permission to make digital or hard copies of all or part of this work for personal or', 54, 665, 6.97, 239),
+      span('classroom use is granted without fee provided that copies are not made or distributed', 54, 673, 6.97, 239),
+      span(
+        'for profit or commercial advantage and that copies bear this notice and the full citation',
+        54,
+        681,
+        6.97,
+        239,
+      ),
+      span('PLDI’09, June 15–20, 2009, Dublin, Ireland.', 54, 707, 6.97, 130),
+      span('and is used for the application logic of browser-based productivity', 317, 335, 8.97, 239),
+      span('applications such as Google Mail and Google Docs.', 317, 347, 8.97, 239),
+      span('Compilers for statically typed languages rely on type information.', 317, 385, 8.97, 239),
+    ];
+
+    const layout = buildLayout(spans, 612, 792);
+    const texts = layout.blocks.map((block) => block.text);
+    const permissionIndex = texts.findIndex((text) => text.includes('Permission to make digital'));
+    const venueIndex = texts.findIndex((text) => text.includes('PLDI’09'));
+    const rightColumnIndex = texts.findIndex((text) => text.includes('and is used for the application logic'));
+
+    expect(permissionIndex).toBeGreaterThan(-1);
+    expect(venueIndex).toBeGreaterThan(-1);
+    expect(rightColumnIndex).toBeGreaterThan(-1);
+    expect(rightColumnIndex).toBeLessThan(permissionIndex);
+    expect(rightColumnIndex).toBeLessThan(venueIndex);
+  });
+
   it('leaves a single-column page in plain top-down order', () => {
     const spans: TextSpan[] = [
       span(`Paragraph one. ${'Long enough text. '.repeat(10)}`, 50, 50, 12, 500),

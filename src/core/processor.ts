@@ -295,7 +295,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v83',
+    format: 'structured-v85',
     passwordHash:
       input.password !== undefined ? createHash('sha256').update(input.password).digest('hex').slice(0, 16) : null,
     render: !!input.render,
@@ -580,7 +580,9 @@ async function extractPageData(
   // Build layout internally for form-field labels and visual-region table
   // hints, but only expose pages[].layout when --layout is explicitly on.
   const internalLayout =
-    flags.layout || flags.visualRegions || flags.formFields ? buildLayout(spans, round2(width)) : undefined;
+    flags.layout || flags.visualRegions || flags.formFields
+      ? buildLayout(spans, round2(width), round2(height))
+      : undefined;
   const layout = flags.layout ? internalLayout : undefined;
   const needsAnnotations =
     flags.formFields || flags.links || flags.annotations || flags.visualRegions || flags.annotationAppearanceHints;

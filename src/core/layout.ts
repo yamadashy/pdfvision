@@ -146,6 +146,9 @@ const VERTICAL_CJK_HORIZONTAL_NEIGHBOUR_MAX_PT = 32;
 const VERTICAL_CJK_MIN_HEIGHT_RATIO = 1.5;
 const LINE_OVERLAP_MAX_HORIZONTAL_GAP_RATIO = 2;
 const LINE_OVERLAP_MAX_HORIZONTAL_GAP_PT = 24;
+const COLUMN_BOTTOM_NOTE_MIN_Y_RATIO = 0.78;
+const COLUMN_BOTTOM_NOTE_FONT_RATIO = 0.82;
+const COLUMN_BOTTOM_NOTE_MIN_CHARS = 40;
 
 /**
  * Join the spans of a single layout line into a readable string. pdfjs
@@ -736,7 +739,7 @@ function classifyHeadings(blocks: LayoutBlock[]): void {
  *      blocks sits between two spanning blocks (or the page edge),
  *      reorder that run by (column index, y).
  */
-function reorderForColumns(blocks: LayoutBlock[], pageWidth: number): LayoutBlock[] {
+function reorderForColumns(blocks: LayoutBlock[], pageWidth: number, pageHeight = 0): LayoutBlock[] {
   if (blocks.length < 4 || pageWidth <= 0) return blocks;
 
   const spanThreshold = pageWidth * 0.6;
@@ -828,11 +831,7 @@ function reorderForColumns(blocks: LayoutBlock[], pageWidth: number): LayoutBloc
   let pending: LayoutBlock[] = [];
   const flush = () => {
     if (pending.length === 0) return;
-    pending.sort((a, b) => {
-      const ca = columnOf.get(a) ?? 0;
-      const cb = columnOf.get(b) ?? 0;
-      return ca - cb || a.y - b.y;
-    });
+    sortColumnRun(pending, columnOf, pageHeight);
     out.push(...pending);
     pending = [];
   };
@@ -847,6 +846,54 @@ function reorderForColumns(blocks: LayoutBlock[], pageWidth: number): LayoutBloc
   }
   flush();
   return out;
+}
+
+function sortColumnRun(pending: LayoutBlock[], columnOf: ReadonlyMap<LayoutBlock, number>, pageHeight: number): void {
+  const bottomNotes = new Set(detectColumnBottomNotes(pending, columnOf, pageHeight));
+  pending.sort((a, b) => {
+    const aBottomNote = bottomNotes.has(a);
+    const bBottomNote = bottomNotes.has(b);
+    if (aBottomNote !== bBottomNote) return aBottomNote ? 1 : -1;
+    const ca = columnOf.get(a) ?? 0;
+    const cb = columnOf.get(b) ?? 0;
+    return ca - cb || a.y - b.y;
+  });
+}
+
+function detectColumnBottomNotes(
+  pending: readonly LayoutBlock[],
+  columnOf: ReadonlyMap<LayoutBlock, number>,
+  pageHeight: number,
+): LayoutBlock[] {
+  if (pageHeight <= 0 || pending.length < 3) return [];
+  const fontSizes = pending.flatMap((block) => block.lines.map((line) => line.fontSize).filter((size) => size > 0));
+  if (fontSizes.length === 0) return [];
+  const bodyFontSize = median(fontSizes);
+  if (bodyFontSize <= 0) return [];
+
+  const isSmallBottomBlock = (block: LayoutBlock): boolean => {
+    const column = columnOf.get(block);
+    if (column === undefined) return false;
+    if (block.y < pageHeight * COLUMN_BOTTOM_NOTE_MIN_Y_RATIO) return false;
+    const blockFontSize = median(block.lines.map((line) => line.fontSize).filter((size) => size > 0));
+    if (blockFontSize <= 0 || blockFontSize > bodyFontSize * COLUMN_BOTTOM_NOTE_FONT_RATIO) return false;
+    return pending.some((other) => {
+      if (other === block) return false;
+      const otherColumn = columnOf.get(other);
+      return otherColumn !== undefined && otherColumn !== column && other.y < block.y;
+    });
+  };
+  const anchors = pending.filter(
+    (block) => isSmallBottomBlock(block) && block.text.replace(/\s/g, '').length >= COLUMN_BOTTOM_NOTE_MIN_CHARS,
+  );
+  if (anchors.length === 0) return [];
+  const anchorColumns = new Set(
+    anchors.map((block) => columnOf.get(block)).filter((column): column is number => column !== undefined),
+  );
+  return pending.filter((block) => {
+    const column = columnOf.get(block);
+    return column !== undefined && isSmallBottomBlock(block) && anchorColumns.has(column);
+  });
 }
 
 function nearestColumnByX(
@@ -1443,9 +1490,11 @@ function trailingCurrencyForNextValue(text: string, next: LayoutLine | undefined
  *
  * `pageWidth` is needed for column detection; pass 0 to skip the multi-
  * column pass (e.g. when the caller already knows the page is single-
- * column or when blocks come from a non-page source).
+ * column or when blocks come from a non-page source). `pageHeight`
+ * enables bottom-note detection inside column runs; 0 keeps the legacy
+ * column sort for synthetic callers that do not know page bounds.
  */
-export function buildLayout(spans: TextSpan[], pageWidth = 0): PageLayout {
+export function buildLayout(spans: TextSpan[], pageWidth = 0, pageHeight = 0): PageLayout {
   if (spans.length === 0) return { blocks: [] };
 
   const vertical = extractVerticalCjkBlocks(spans);
@@ -1578,7 +1627,7 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0): PageLayout {
   ].sort((a, b) => a.y - b.y || a.x - b.x);
 
   classifyHeadings(blocks);
-  const ordered = pageWidth > 0 ? reorderForColumns(blocks, pageWidth) : blocks;
+  const ordered = pageWidth > 0 ? reorderForColumns(blocks, pageWidth, pageHeight) : blocks;
   if (ordered !== blocks)
     return { blocks: mergeAdjacentColumnBlocks(ordered, pageWidth), ...(tables !== undefined && { tables }) };
 
