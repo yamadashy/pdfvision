@@ -92,9 +92,9 @@ Options
       --attachment-output <dir>
                           Directory to write embedded attachment files into. Requires
                           --attachments; files land under a per-PDF fingerprint subdir.
-      --outline           Emit top-level \`outline\` document bookmarks, preserving hierarchy
-                          and resolving destination pages when possible. Markdown also renders
-                          an outline section.
+      --outline           Emit top-level \`outline\` document bookmarks, preserving hierarchy,
+                          URLs, named actions, and resolved destination pages when possible.
+                          Markdown also renders an outline section.
       --viewer            Emit top-level \`viewer\` settings: initial page mode/layout,
                           viewer preferences, open action, permissions, and MarkInfo.
       --layers            Emit top-level \`layers\` from PDF optional content groups:

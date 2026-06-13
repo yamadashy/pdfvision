@@ -411,7 +411,10 @@ describe('formatMarkdown', () => {
             type: 'destination',
             target: 'section.1',
             page: 1,
-            items: [{ title: 'Website', type: 'url', target: 'https://example.com' }],
+            items: [
+              { title: 'Website', type: 'url', target: 'https://example.com' },
+              { title: 'Next page', type: 'action', target: 'NextPage' },
+            ],
           },
         ],
       }),
@@ -420,6 +423,7 @@ describe('formatMarkdown', () => {
     expect(out).toContain('## Outline');
     expect(out).toContain('- Intro \\[draft\\] (p. 1 · destination · section.1)');
     expect(out).toContain('  - Website (url · https://example.com)');
+    expect(out).toContain('  - Next page (action · NextPage)');
   });
 
   it('renders an explicit empty outline message when the outline pass found no bookmarks', () => {

@@ -749,7 +749,10 @@ describe('formatXml', () => {
             type: 'destination',
             target: 'section.1',
             page: 1,
-            items: [{ title: 'Website', type: 'url', target: 'https://example.com?q=1&b=2' }],
+            items: [
+              { title: 'Website', type: 'url', target: 'https://example.com?q=1&b=2' },
+              { title: 'Next page', type: 'action', target: 'NextPage' },
+            ],
           },
         ],
       }),
@@ -758,6 +761,7 @@ describe('formatXml', () => {
     expect(out).toContain('<outline>');
     expect(out).toContain('<item title="Intro &amp; Setup" type="destination" target="section.1" page="1">');
     expect(out).toContain('<item title="Website" type="url" target="https://example.com?q=1&amp;b=2"/>');
+    expect(out).toContain('<item title="Next page" type="action" target="NextPage"/>');
     expect(out).toContain('</outline>');
   });
 

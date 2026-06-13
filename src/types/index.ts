@@ -712,16 +712,17 @@ export interface PageLink {
   height: number;
 }
 
-export type DocumentOutlineTargetType = 'destination' | 'url';
+export type DocumentOutlineTargetType = 'destination' | 'url' | 'action';
 
 export interface DocumentOutlineItem {
   title: string;
   /**
    * `url` for external outline links, `destination` for named/internal PDF
-   * destinations. Omitted when an outline node is only a parent label.
+   * destinations, or `action` for named PDF viewer actions such as NextPage.
+   * Omitted when an outline node is only a parent label.
    */
   type?: DocumentOutlineTargetType;
-  /** URL or destination identifier / explicit-destination JSON string. */
+  /** URL, action name, or destination identifier / explicit-destination JSON string. */
   target?: string;
   /** 1-based page number resolved from `target` when pdf.js can map it. */
   page?: number;
