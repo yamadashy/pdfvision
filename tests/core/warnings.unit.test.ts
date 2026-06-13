@@ -542,6 +542,33 @@ describe('detectPageWarnings', () => {
     expect(out[0]).toMatchObject({ code: 'large_raster_low_text_overlap', severity: 'warning' });
   });
 
+  it('uses internal image boxes for sparse visual pages without exposing an imageBoxIndex', () => {
+    // Baseline JSON does not include pages[].imageBoxes, but extraction
+    // still computes image geometry internally. A scanned or screenshot
+    // page with only tiny native text should warn even before the caller
+    // knows to re-run with --image-boxes.
+    const out = detectPageWarnings(
+      {
+        page: 1,
+        text: 'tiny native text',
+        charCount: 16,
+        imageCount: 1,
+        vectorCount: 0,
+        textCoverage: 0.001,
+        nonPrintableRatio: 0,
+        nonPrintableCount: 0,
+        width: 612,
+        height: 792,
+        quality: { nativeTextStatus: 'sparse_text_with_visual_content' },
+      },
+      { imageBoxes: [{ x: 0, y: 0, width: 612, height: 792 }] },
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'large_raster_low_text_overlap', severity: 'warning' });
+    expect(out[0].imageBoxIndex).toBeUndefined();
+    expect(out[0].message).toContain('native text is sparse');
+  });
+
   it('does not add large-raster warnings when native text is already glyph-garbage', () => {
     const out = detectPageWarnings({
       ...page([block(20, 20, 300, 40, { text: '\x00\x01\x02' })], 1000, 1000),

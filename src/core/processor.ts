@@ -293,7 +293,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v68',
+    format: 'structured-v69',
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -405,6 +405,7 @@ interface PageData {
   _internalSpans?: TextSpan[];
   layout?: PageLayout;
   imageBoxes?: ImageBox[];
+  _warningImageBoxes?: ImageBox[];
   vectorBoxes?: VectorBox[];
   _visualRegionInput?: BuildVisualRegionsInput;
   formFields?: FormField[];
@@ -650,6 +651,7 @@ async function extractPageData(
     ...(flags.needSpansForSearch && { _internalSpans: spans }),
     ...(layout !== undefined && { layout }),
     ...(imageBoxes !== undefined && { imageBoxes }),
+    _warningImageBoxes: allBoxes,
     ...(vectorBoxes !== undefined && { vectorBoxes }),
     ...(visualRegionInput !== undefined && { _visualRegionInput: visualRegionInput }),
     ...(formFields !== undefined && { formFields }),
@@ -1068,6 +1070,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     const ocrEnabled = !!options.ocr;
     const ocrLang = options.ocrLang ?? 'eng';
     const rasterBackedTextLayerByPage = new Map<number, boolean>();
+    const warningImageBoxesByPage = new Map<number, ImageBox[]>();
     const visualRegionInputsByPage = new Map<number, BuildVisualRegionsInput>();
     const imageOps: ImageOps = {
       save: OPS.save,
@@ -1093,6 +1096,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     const pages: PageResult[] = await runParallel(pageNumbers, async (pageNum, i) => {
       const data = await extractPageData(doc, pageNum, imageOps, flags);
       rasterBackedTextLayerByPage.set(pageNum, data.rasterBackedTextLayer);
+      warningImageBoxesByPage.set(pageNum, data._warningImageBoxes ?? []);
       if (data._visualRegionInput) visualRegionInputsByPage.set(pageNum, data._visualRegionInput);
       const renderRatio = renderRatios[i];
       const page: PageResult = {
@@ -1218,6 +1222,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       const warnings = detectPageWarnings(p, {
         chromeDetectionReliable,
         rasterBackedTextLayer: rasterBackedTextLayerByPage.get(p.page),
+        imageBoxes: warningImageBoxesByPage.get(p.page),
       });
       if (warnings.length > 0) p.warnings = warnings;
       else delete p.warnings;

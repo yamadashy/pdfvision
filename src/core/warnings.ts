@@ -1,4 +1,4 @@
-import type { LayoutBlock, LayoutLine, PageResult, PageWarning } from '../types/index.js';
+import type { ImageBox, LayoutBlock, LayoutLine, PageResult, PageWarning } from '../types/index.js';
 import { detectTextOverlap, horizontalOverlap } from './warningTextOverlap.js';
 
 /** Context flags the orchestrator passes to the detector so the
@@ -14,6 +14,9 @@ export interface PageWarningContext {
    *  that case layout bboxes describe hidden OCR text, not the pixels a
    *  human sees, so geometry-driven warnings are more noise than signal. */
   rasterBackedTextLayer?: boolean;
+  /** Internal raster bboxes used for warnings even when public
+   *  `pages[].imageBoxes` was not requested. */
+  imageBoxes?: ImageBox[];
 }
 
 /**
@@ -41,7 +44,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
   detectRasterBackedTextLayer(page, context, warnings);
   detectLowConfidenceOcr(page, context, warnings);
   detectDenseVectorGraphics(page, warnings);
-  detectLargeRasterLowTextOverlap(page, warnings);
+  detectLargeRasterLowTextOverlap(page, context, warnings);
 
   if (!page.layout || page.layout.blocks.length === 0 || context.rasterBackedTextLayer) {
     sortWarnings(warnings);
@@ -229,17 +232,19 @@ function detectDenseVectorGraphics(page: PageResult, out: PageWarning[]): void {
   });
 }
 
-function detectLargeRasterLowTextOverlap(page: PageResult, out: PageWarning[]): void {
-  if (!page.imageBoxes || page.imageBoxes.length === 0) return;
+function detectLargeRasterLowTextOverlap(page: PageResult, context: PageWarningContext, out: PageWarning[]): void {
+  const imageBoxes = page.imageBoxes ?? context.imageBoxes;
+  if (!imageBoxes || imageBoxes.length === 0) return;
   if (!canCompareNativeTextAgainstRaster(page.quality.nativeTextStatus)) return;
   const pageArea = page.width * page.height;
   if (pageArea <= 0) return;
 
   const textBoxes = page.layout?.blocks ?? page.spans ?? [];
-  if (textBoxes.length === 0) return;
+  if (textBoxes.length === 0 && page.quality.nativeTextStatus !== 'sparse_text_with_visual_content') return;
+  const exposeImageBoxIndex = page.imageBoxes !== undefined;
   const warnedImages: BoxLike[] = [];
-  for (let i = 0; i < page.imageBoxes.length; i++) {
-    const image = page.imageBoxes[i];
+  for (let i = 0; i < imageBoxes.length; i++) {
+    const image = imageBoxes[i];
     if (warnedImages.some((warned) => overlapRatio(image, warned) >= 0.95)) continue;
     const imageArea = clippedArea(image, { x: 0, y: 0, width: page.width, height: page.height });
     const imageAreaRatio = imageArea / pageArea;
@@ -249,11 +254,15 @@ function detectLargeRasterLowTextOverlap(page: PageResult, out: PageWarning[]): 
     const textOverlapRatio = imageArea > 0 ? textOverlap / imageArea : 0;
     if (textOverlapRatio >= LARGE_RASTER_TEXT_OVERLAP_RATIO_THRESHOLD) continue;
 
+    const message =
+      textBoxes.length > 0
+        ? `large raster image covers ${(imageAreaRatio * 100).toFixed(1)}% of the page with little native-text overlap (${(textOverlapRatio * 100).toFixed(2)}%) — labels, chart text, or map text inside the image will not appear in native text`
+        : `large raster image covers ${(imageAreaRatio * 100).toFixed(1)}% of the page while native text is sparse — labels, chart text, or map text inside the image will not appear in native text`;
     out.push({
       code: 'large_raster_low_text_overlap',
       severity: 'warning',
-      message: `large raster image covers ${(imageAreaRatio * 100).toFixed(1)}% of the page with little native-text overlap (${(textOverlapRatio * 100).toFixed(2)}%) — labels, chart text, or map text inside the image will not appear in native text`,
-      imageBoxIndex: i,
+      message,
+      ...(exposeImageBoxIndex && { imageBoxIndex: i }),
     });
     warnedImages.push(image);
   }

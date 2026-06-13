@@ -121,7 +121,7 @@ Options:
                           body_near_repeated_chrome / off_page / tabular_numeric_layout /
                           reading_order_divergence)
       --image-boxes       Emit per-image bbox in pages[].imageBoxes;
-                          enables large-raster warnings with --layout or --geometry
+                          enables imageBoxIndex details on large-raster warnings
       --vector-boxes      Emit painted vector path bboxes in pages[].vectorBoxes
       --visual-regions    Emit crop-ready figure/chart/table/form regions in pages[].visualRegions
       --render-visual-regions
