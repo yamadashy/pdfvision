@@ -79,7 +79,8 @@ Options
                           Markdown also renders a form-field table.
       --links             Emit \`pages[].links\` — clickable PDF link annotations such as
                           external URLs, citation jumps, and table-of-contents destinations
-                          with bboxes. Markdown also renders a links table.
+                          with bboxes and resolved destination pages when available.
+                          Markdown also renders a links table.
       --annotations       Emit \`pages[].annotations\` — non-link PDF annotations such as
                           comments, sticky notes, highlights, underlines, strikeouts, stamps,
                           file-attachment icons, shape markup, and ink with bboxes, comment

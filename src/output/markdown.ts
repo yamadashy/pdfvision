@@ -596,10 +596,12 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
         lines.push('_No clickable links found._');
       } else {
         lines.push('');
-        lines.push('| Type | Target | BBox |');
-        lines.push('| --- | --- | --- |');
+        lines.push('| Type | Target | TargetPage | BBox |');
+        lines.push('| --- | --- | ---: | --- |');
         for (const link of page.links) {
-          lines.push(`| ${link.type} | ${escapeTableCell(linkTarget(link.target))} | ${formatBox(link)} |`);
+          lines.push(
+            `| ${link.type} | ${escapeTableCell(linkTarget(link.target))} | ${link.page ?? ''} | ${formatBox(link)} |`,
+          );
         }
       }
     }

@@ -687,6 +687,7 @@ describe('formatXml', () => {
               {
                 type: 'destination',
                 target: ['cite.transformer', { name: 'Fit' }],
+                page: 3,
                 x: 40,
                 y: 180,
                 width: 40,
@@ -704,7 +705,7 @@ describe('formatXml', () => {
       '<link type="url" target="https://example.com?q=a&amp;title=&quot;PDF&quot;" x="100" y="72" width="60" height="20"/>',
     );
     expect(out).toContain(
-      '<link type="destination" target="[&quot;cite.transformer&quot;,{&quot;name&quot;:&quot;Fit&quot;}]" x="40" y="180" width="40" height="12"/>',
+      '<link type="destination" target="[&quot;cite.transformer&quot;,{&quot;name&quot;:&quot;Fit&quot;}]" page="3" x="40" y="180" width="40" height="12"/>',
     );
   });
 

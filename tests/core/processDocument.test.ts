@@ -19,8 +19,10 @@ async function buildPdfWithLink(): Promise<Uint8Array> {
 
   doc.text('Example link', 100, 72);
   doc.link(100, 72, 120, 20, 'https://example.com/path?q=1');
+  doc.text('Details link', 240, 72);
+  doc.goTo(240, 72, 120, 20, 'details');
   doc.addPage({ size: [612, 792], margin: 0 });
-  doc.text('Plain page', 100, 72);
+  doc.text('Plain page', 100, 72, { destination: 'details' });
   doc.end();
 
   await done;
@@ -729,9 +731,18 @@ describe('processDocument', () => {
         width: 120,
         height: 20,
       },
+      {
+        type: 'destination',
+        target: 'details',
+        page: 2,
+        x: 240,
+        y: 72,
+        width: 120,
+        height: 20,
+      },
     ]);
     expect(result.pages[1].links).toEqual([]);
-    expect(result.overview?.map((o) => o.linkCount)).toEqual([1, 0]);
+    expect(result.overview?.map((o) => o.linkCount)).toEqual([2, 0]);
   });
 
   it('extracts a real document outline with nested items and resolved pages', async () => {

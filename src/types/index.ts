@@ -722,6 +722,8 @@ export interface PageLink {
   type: PageLinkType;
   /** URL, destination name, or raw destination array when pdf.js exposes one. */
   target: PageLinkTarget;
+  /** 1-based physical destination page for internal PDF links when it can be resolved. */
+  page?: number;
   x: number;
   y: number;
   width: number;

@@ -8,6 +8,10 @@ interface PdfLinkAnnotation {
   rect?: unknown;
 }
 
+interface BuildLinksOptions {
+  resolveDestinationPage?: (target: PageLinkTarget) => number | undefined | Promise<number | undefined>;
+}
+
 type Rect = [number, number, number, number];
 
 function round2(n: number): number {
@@ -23,15 +27,17 @@ function validatePageGeometry(pageHeight: number, viewMinX: number, viewMinY: nu
   }
 }
 
-export function buildLinks(
+export async function buildLinks(
   annotations: readonly unknown[],
   pageHeight: number,
   viewMinX = 0,
   viewMinY = 0,
-): PageLink[] {
+  options: BuildLinksOptions = {},
+): Promise<PageLink[]> {
   validatePageGeometry(pageHeight, viewMinX, viewMinY);
 
   const links: PageLink[] = [];
+  const resolvedPageCache = new Map<string, number | undefined>();
   for (const annotation of annotations) {
     const ann = annotation as PdfLinkAnnotation;
     if (ann.subtype !== 'Link') continue;
@@ -47,8 +53,18 @@ export function buildLinks(
     const minY = Math.min(y1, y2);
     const maxY = Math.max(y1, y2);
 
+    let page: number | undefined;
+    if (target.type === 'destination' && options.resolveDestinationPage) {
+      const cacheKey = linkTargetText(target.target);
+      if (!resolvedPageCache.has(cacheKey)) {
+        resolvedPageCache.set(cacheKey, await options.resolveDestinationPage(target.target));
+      }
+      page = resolvedPageCache.get(cacheKey);
+    }
+
     links.push({
       ...target,
+      ...(page !== undefined && { page }),
       x: round2(minX - viewMinX),
       y: round2(pageHeight - (maxY - viewMinY)),
       width: round2(maxX - minX),

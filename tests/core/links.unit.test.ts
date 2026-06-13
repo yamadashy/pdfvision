@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { buildLinks } from '../../src/core/links.js';
 
 describe('buildLinks', () => {
-  it('extracts URL and destination link annotations with top-left bboxes', () => {
-    const links = buildLinks(
+  it('extracts URL and destination link annotations with top-left bboxes', async () => {
+    const links = await buildLinks(
       [
         {
           subtype: 'Link',
@@ -22,16 +22,21 @@ describe('buildLinks', () => {
         },
       ],
       792,
+      0,
+      0,
+      {
+        resolveDestinationPage: (target) => (target === 'cite.transformer' ? 7 : undefined),
+      },
     );
 
     expect(links).toEqual([
       { type: 'url', target: 'https://example.com/paper', x: 100, y: 72, width: 60, height: 20 },
-      { type: 'destination', target: 'cite.transformer', x: 40, y: 180, width: 40, height: 12 },
+      { type: 'destination', target: 'cite.transformer', page: 7, x: 40, y: 180, width: 40, height: 12 },
     ]);
   });
 
-  it('falls back to unsafeUrl and preserves array destinations', () => {
-    const links = buildLinks(
+  it('falls back to unsafeUrl and preserves array destinations', async () => {
+    const links = await buildLinks(
       [
         { subtype: 'Link', unsafeUrl: 'mailto:reader@example.com', rect: [10, 10, 20, 20] },
         { subtype: 'Link', dest: ['chapter', { name: 'XYZ' }], rect: [20, 30, 40, 50] },
@@ -45,8 +50,28 @@ describe('buildLinks', () => {
     ]);
   });
 
-  it('ignores link annotations with non-finite rect coordinates', () => {
-    const links = buildLinks(
+  it('caches resolved destination pages within one page', async () => {
+    const resolveDestinationPage = vi.fn(async () => 5);
+    const links = await buildLinks(
+      [
+        { subtype: 'Link', dest: 'section.1', rect: [10, 80, 40, 100] },
+        { subtype: 'Link', dest: 'section.1', rect: [50, 80, 80, 100] },
+      ],
+      120,
+      0,
+      0,
+      { resolveDestinationPage },
+    );
+
+    expect(resolveDestinationPage).toHaveBeenCalledOnce();
+    expect(links).toEqual([
+      { type: 'destination', target: 'section.1', page: 5, x: 10, y: 20, width: 30, height: 20 },
+      { type: 'destination', target: 'section.1', page: 5, x: 50, y: 20, width: 30, height: 20 },
+    ]);
+  });
+
+  it('ignores link annotations with non-finite rect coordinates', async () => {
+    const links = await buildLinks(
       [
         { subtype: 'Link', url: 'https://bad.example', rect: [10, 10, Number.NaN, 20] },
         { subtype: 'Link', url: 'https://good.example', rect: [10, 10, 20, 20] },
@@ -57,10 +82,10 @@ describe('buildLinks', () => {
     expect(links).toEqual([{ type: 'url', target: 'https://good.example', x: 10, y: 80, width: 10, height: 10 }]);
   });
 
-  it('rejects invalid page geometry parameters before coordinate conversion', () => {
-    expect(() => buildLinks([], Number.NaN)).toThrow(/pageHeight/);
-    expect(() => buildLinks([], 0)).toThrow(/pageHeight/);
-    expect(() => buildLinks([], 100, Number.NEGATIVE_INFINITY)).toThrow(/viewMinX and viewMinY/);
-    expect(() => buildLinks([], 100, 0, Number.NaN)).toThrow(/viewMinX and viewMinY/);
+  it('rejects invalid page geometry parameters before coordinate conversion', async () => {
+    await expect(buildLinks([], Number.NaN)).rejects.toThrow(/pageHeight/);
+    await expect(buildLinks([], 0)).rejects.toThrow(/pageHeight/);
+    await expect(buildLinks([], 100, Number.NEGATIVE_INFINITY)).rejects.toThrow(/viewMinX and viewMinY/);
+    await expect(buildLinks([], 100, 0, Number.NaN)).rejects.toThrow(/viewMinX and viewMinY/);
   });
 });

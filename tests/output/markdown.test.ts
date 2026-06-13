@@ -361,6 +361,7 @@ describe('formatMarkdown', () => {
               {
                 type: 'destination',
                 target: ['cite.transformer', { name: 'Fit' }],
+                page: 3,
                 x: 40,
                 y: 180,
                 width: 40,
@@ -377,8 +378,9 @@ describe('formatMarkdown', () => {
     expect(out).toMatch(/\| 1 \| 11 \| 0 \| 0% \| 612×792 \| 2 \|/);
     expect(out).toMatch(/links: 2/);
     expect(out).toContain('### Links');
-    expect(out).toContain('| url | https://example.com?q=a\\|b | 100,72,60,20 |');
-    expect(out).toContain('| destination | ["cite.transformer",{"name":"Fit"}] | 40,180,40,12 |');
+    expect(out).toContain('| Type | Target | TargetPage | BBox |');
+    expect(out).toContain('| url | https://example.com?q=a\\|b |  | 100,72,60,20 |');
+    expect(out).toContain('| destination | ["cite.transformer",{"name":"Fit"}] | 3 | 40,180,40,12 |');
     expect(out).toContain('_No clickable links found._');
   });
 

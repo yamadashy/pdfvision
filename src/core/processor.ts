@@ -49,6 +49,7 @@ import { buildAnnotations } from './annotations.js';
 import { buildAttachments } from './attachments.js';
 import { dropCached, ensurePrivateDir, getCacheDir, getCached, pdfFingerprint, setCache } from './cache.js';
 import { type JoinItem, joinPageText } from './cjkJoin.js';
+import { resolveDestinationPage } from './destinations.js';
 import { buildFormFields } from './formFields.js';
 import { buildImageBoxes, type ImageOps } from './imageBoxes.js';
 import { buildLayers } from './layers.js';
@@ -606,7 +607,11 @@ async function extractPageData(
         )
       : undefined;
   const formFields = flags.formFields ? allFormFields : undefined;
-  const links = flags.links ? buildLinks(annotations ?? [], height, xMin, yMin) : undefined;
+  const links = flags.links
+    ? await buildLinks(annotations ?? [], height, xMin, yMin, {
+        resolveDestinationPage: (target) => resolveDestinationPage(doc, target),
+      })
+    : undefined;
   const pageAnnotations = flags.annotations
     ? buildAnnotations(annotations ?? [], height, xMin, yMin, {
         normalizeText: flags.normalize ? normalizeText : undefined,

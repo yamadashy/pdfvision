@@ -207,12 +207,13 @@ interface FormFieldLabel {
 ```ts
 interface PageLink {
   type: 'url' | 'destination';
-  target: string;              // external URL or internal/named PDF destination
+  target: string | unknown[];  // external URL or internal/named PDF destination
+  page?: number;               // 1-based physical target page when destination can be resolved
   x: number; y: number; width: number; height: number;
 }
 ```
 
-`links[]` surfaces clickable PDF link annotations: external URLs, citation jumps, table-of-contents destinations, and cross-reference targets. Coordinates use the same top-left PDF-point system as `spans`, `layout.blocks`, and `imageBoxes`, so a link bbox can feed directly into `--render-region`.
+`links[]` surfaces clickable PDF link annotations: external URLs, citation jumps, table-of-contents destinations, and cross-reference targets. Internal destinations include `page` when pdfvision can resolve the target to a 1-based physical page number. Coordinates use the same top-left PDF-point system as `spans`, `layout.blocks`, and `imageBoxes`, so a link bbox can feed directly into `--render-region`.
 
 ## Annotations (`--annotations`)
 
