@@ -216,6 +216,10 @@ const VERTICAL_LABEL_EDGE_TOLERANCE_PT = 8;
 const WIDE_VERTICAL_LABEL_FIELD_COVERAGE = 0.7;
 const SAME_LINE_TEXT_PROMPT_MAX_GAP_PT = 12;
 const SAME_LINE_TEXT_PROMPT_MAX_FONT_SIZE_PT = 8.5;
+const SAME_LINE_MARKER_PROMPT_MAX_GAP_PT = 30;
+const SAME_LINE_MARKER_PROMPT_STACK_MAX_GAP_PT = 4;
+const SAME_LINE_MARKER_PROMPT_MAX_STACK_LINES = 1;
+const SAME_LINE_MARKER_PROMPT_X_TOLERANCE_PT = 18;
 
 function findFieldLabel(
   field: FormField,
@@ -233,7 +237,8 @@ function findFieldLabel(
     candidate.score += widgetCrossingPenalty(field, candidate, siblings);
     if (!best || candidate.score < best.score) best = candidate;
   }
-  return best ? expandStackedLabel(field, best, lines) : undefined;
+  if (!best) return undefined;
+  return expandSameLineMarkerPromptLabel(field, best, lines) ?? expandStackedLabel(field, best, lines);
 }
 
 /** Penalty per sibling widget a side-relation label line runs across.
@@ -381,6 +386,108 @@ function expandStackedLabel(field: FormField, candidate: LabelCandidate, lines: 
   };
 }
 
+function expandSameLineMarkerPromptLabel(
+  field: FormField,
+  candidate: LabelCandidate,
+  lines: readonly LabelLine[],
+): FormFieldLabel | undefined {
+  if (field.type !== 'text' || candidate.relation !== 'left') return undefined;
+  if (!isCompactFieldMarker(candidate.text)) return undefined;
+
+  const sameLinePrompt = collectConnectedLeftPromptLines(candidate.line, lines);
+  if (sameLinePrompt.length === 0) return undefined;
+
+  const stackedPrompt = collectSameLineMarkerPromptStack(sameLinePrompt, lines);
+  const promptLines = [...stackedPrompt, ...sameLinePrompt, { line: candidate.line, text: candidate.text }];
+  const textParts = promptLines
+    .map(({ text }) => normalizePromptLabelText(text))
+    .filter((text) => text.length > 0 && !isDotLeaderText(text));
+  const text = normalizePromptLabelText(textParts.join(' '));
+  if (!isUsableLabelText(text) || text === candidate.text) return undefined;
+
+  const boxLines = promptLines
+    .filter(({ text }) => !isDotLeaderText(text))
+    .map(({ line }) => line)
+    .sort((a, b) => a.y - b.y || a.x - b.x);
+  const labelBox = boxLines.slice(1).reduce<BoxLike>((box, line) => unionBox(box, line), boxLines[0] ?? candidate.line);
+  return {
+    text,
+    relation: candidate.relation,
+    x: round2(labelBox.x),
+    y: round2(labelBox.y),
+    width: round2(labelBox.width),
+    height: round2(labelBox.height),
+  };
+}
+
+function collectConnectedLeftPromptLines(
+  markerLine: LabelLine,
+  lines: readonly LabelLine[],
+): { line: LabelLine; text: string }[] {
+  const markerCenter = centerY(markerLine);
+  let boundaryX = markerLine.x;
+  const connected: { line: LabelLine; text: string }[] = [];
+  const leftLines = lines
+    .filter((line) => line !== markerLine)
+    .filter((line) => line.x + line.width <= markerLine.x + 1)
+    .filter((line) => Math.abs(centerY(line) - markerCenter) <= Math.max(3, markerLine.height * 0.45))
+    .sort((a, b) => b.x + b.width - (a.x + a.width));
+
+  for (const line of leftLines) {
+    const text = normalizeLabelText(line.text);
+    if (!isUsablePromptFragment(text)) continue;
+    const gap = boundaryX - (line.x + line.width);
+    if (gap < -2) continue;
+    if (gap > SAME_LINE_MARKER_PROMPT_MAX_GAP_PT) break;
+    connected.unshift({ line, text });
+    boundaryX = line.x;
+  }
+  return connected;
+}
+
+function collectSameLineMarkerPromptStack(
+  sameLinePrompt: readonly { line: LabelLine; text: string }[],
+  lines: readonly LabelLine[],
+): { line: LabelLine; text: string }[] {
+  const firstPrompt = sameLinePrompt.find((item) => !isDotLeaderText(item.text));
+  if (!firstPrompt || startsWithPromptItemMarker(firstPrompt.text)) return [];
+
+  const stack: { line: LabelLine; text: string }[] = [];
+  let bounds: BoxLike = firstPrompt.line;
+  while (stack.length < SAME_LINE_MARKER_PROMPT_MAX_STACK_LINES) {
+    const next = findPromptStackLine(bounds, lines, [
+      ...stack.map((item) => item.line),
+      ...sameLinePrompt.map((item) => item.line),
+    ]);
+    if (!next) return stack.sort((a, b) => a.line.y - b.line.y || a.line.x - b.line.x);
+    stack.push(next);
+    bounds = unionBox(next.line, bounds);
+  }
+  return stack.sort((a, b) => a.line.y - b.line.y || a.line.x - b.line.x);
+}
+
+function findPromptStackLine(
+  bounds: BoxLike,
+  lines: readonly LabelLine[],
+  excluded: readonly LabelLine[],
+): { line: LabelLine; text: string } | undefined {
+  let best: { line: LabelLine; text: string; gap: number } | undefined;
+  for (const line of lines) {
+    if (excluded.includes(line)) continue;
+    const text = normalizeLabelText(line.text);
+    if (!isUsablePromptFragment(text) || isDotLeaderText(text)) continue;
+    const gap = bounds.y - (line.y + line.height);
+    if (gap < -1 || gap > SAME_LINE_MARKER_PROMPT_STACK_MAX_GAP_PT) continue;
+    const leftAligned = Math.abs(line.x - bounds.x) <= SAME_LINE_MARKER_PROMPT_X_TOLERANCE_PT;
+    const overlapsExisting = horizontalOverlapRatio(bounds, line) >= MIN_HORIZONTAL_OVERLAP_RATIO;
+    if (!leftAligned && !overlapsExisting) continue;
+    if (!best || gap < best.gap || (gap === best.gap && line.y < best.line.y)) {
+      best = { line, text, gap };
+    }
+  }
+  return best ? { line: best.line, text: best.text } : undefined;
+}
+
 function collectStackedLabelLines(
   field: FormField,
   candidate: LabelCandidate,
@@ -453,9 +560,37 @@ function normalizeLabelText(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
 }
 
+function normalizePromptLabelText(text: string): string {
+  return text
+    .replace(/(?:\s*\.\s*){2,}/g, ' ')
+    .replace(/\s+([,.;:])/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function isUsableLabelText(text: string): boolean {
   if (text.length === 0 || text.length > LABEL_MAX_CHARS) return false;
   return /[\p{Letter}\p{Number}]/u.test(text);
+}
+
+function isUsablePromptFragment(text: string): boolean {
+  if (text.length === 0 || text.length > LABEL_MAX_CHARS) return false;
+  return isDotLeaderText(text) || /[\p{Letter}\p{Number}]/u.test(text);
+}
+
+function isDotLeaderText(text: string): boolean {
+  return /^[.\s]+$/u.test(text);
+}
+
+function isCompactFieldMarker(text: string): boolean {
+  const normalized = normalizePromptLabelText(text);
+  if (normalized.length > 16) return false;
+  return /^(?:\d+(?:\([a-z]\)|[a-z])?|\([a-z]\))\s*\$?$/iu.test(normalized);
+}
+
+function startsWithPromptItemMarker(text: string): boolean {
+  const normalized = normalizePromptLabelText(text);
+  return /^(?:\d+(?:\([a-z]\)|[a-z])?|\([a-z]\)|[a-z]\s+[A-Z])/u.test(normalized);
 }
 
 function lengthPenalty(text: string): number {

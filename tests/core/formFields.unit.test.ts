@@ -367,6 +367,132 @@ describe('buildFormFields', () => {
     });
   });
 
+  it('expands compact amount markers across same-line dot leaders', () => {
+    const dotLeaders = Array.from({ length: 19 }, (_, index) => ({
+      text: '.',
+      x: 251.94 + index * 12,
+      y: 192.42,
+      width: 2.5,
+      height: 9,
+      fontSize: 9,
+    }));
+    const fields = buildFormFields(
+      [{ subtype: 'Widget', fieldName: 'line1Amount', fieldType: 'Tx', rect: [511.2, 588, 576, 600] }],
+      792,
+      0,
+      0,
+      [
+        {
+          text: '"Lower Paying Job" column, find the value at the intersection of the two household salaries and enter',
+          x: 64.81,
+          y: 181.62,
+          width: 410.34,
+          height: 9,
+          fontSize: 9,
+        },
+        {
+          text: 'that value on line 1. Then, skip to line 3 . .',
+          x: 64.75,
+          y: 192.42,
+          width: 177.69,
+          height: 9,
+          fontSize: 9,
+        },
+        ...dotLeaders,
+        { text: '1 $', x: 490.58, y: 192.42, width: 19.52, height: 9, fontSize: 9 },
+      ],
+    );
+
+    expect(fields[0].label).toMatchObject({
+      text: '"Lower Paying Job" column, find the value at the intersection of the two household salaries and enter that value on line 1. Then, skip to line 3 1 $',
+      relation: 'left',
+      x: 64.75,
+      y: 181.62,
+    });
+  });
+
+  it('expands compact amount markers when the same prompt is also split into spans', () => {
+    const dotLeaders = Array.from({ length: 20 }, (_, index) => ({
+      text: '.',
+      x: 239.94 + index * 12,
+      y: 192.42,
+      width: 2.5,
+      height: 9,
+      fontSize: 9,
+    }));
+    const fields = buildFormFields(
+      [{ subtype: 'Widget', fieldName: 'line1Amount', fieldType: 'Tx', rect: [511.2, 588, 576, 600] }],
+      792,
+      0,
+      0,
+      [
+        {
+          text: '"Lower Paying Job" column, find the value at the intersection of the two household salaries and enter',
+          x: 64.81,
+          y: 181.62,
+          width: 410.34,
+          height: 9,
+          fontSize: 9,
+        },
+        {
+          text: 'that value on line 1. Then, skip to line 3 . .',
+          x: 64.75,
+          y: 192.42,
+          width: 177.69,
+          height: 9,
+          fontSize: 9,
+        },
+        { text: 'that value on line 1. Then,', x: 64.75, y: 192.42, width: 103.2, height: 9, fontSize: 9 },
+        { text: 'skip', x: 170.45, y: 192.42, width: 17.82, height: 9, fontSize: 9 },
+        { text: 'to line 3 .', x: 190.77, y: 192.42, width: 39.67, height: 9, fontSize: 9 },
+        ...dotLeaders,
+        { text: '1 $', x: 490.58, y: 192.42, width: 19.52, height: 9, fontSize: 9 },
+        { text: '1', x: 490.58, y: 192.42, width: 5, height: 9, fontSize: 9 },
+        { text: '$', x: 505.1, y: 192.42, width: 5, height: 9, fontSize: 9 },
+      ],
+    );
+
+    expect(fields[0].label?.text).toContain('that value on line 1. Then, skip to line 3 1 $');
+  });
+
+  it('does not absorb the previous numbered prompt into a new amount marker row', () => {
+    const fields = buildFormFields(
+      [{ subtype: 'Widget', fieldName: 'line3bAmount', fieldType: 'Tx', rect: [417.6, 288, 481.65, 300] }],
+      792,
+      0,
+      0,
+      [
+        {
+          text: '(a) Multiply the number of qualifying children under age 17 by',
+          x: 122.36,
+          y: 469.12,
+          width: 259.23,
+          height: 9,
+          fontSize: 9,
+        },
+        {
+          text: '$2,200 . . . . . . . . . . . . . . . . . .',
+          x: 136.78,
+          y: 479.92,
+          width: 237.65,
+          height: 9,
+          fontSize: 9,
+        },
+        {
+          text: '(b) Multiply the number of other dependents by $500 . . .',
+          x: 122.4,
+          y: 492.43,
+          width: 252.13,
+          height: 9,
+          fontSize: 9,
+        },
+        { text: '3(b) $', x: 391.69, y: 492.43, width: 24.81, height: 9, fontSize: 9 },
+      ],
+    );
+
+    expect(fields[0].label?.text).toBe('(b) Multiply the number of other dependents by $500 3(b) $');
+  });
+
   it('ignores short offset labels above wide text fields', () => {
     const fields = buildFormFields(
       [{ subtype: 'Widget', fieldName: 'otherText', fieldType: 'Tx', rect: [68.4, 708.5, 236.6, 719.5] }],
