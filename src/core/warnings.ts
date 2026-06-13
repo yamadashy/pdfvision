@@ -679,7 +679,9 @@ const READING_ORDER_PROBE_CHARS = 40;
 const LOCAL_READING_ORDER_MIN_COMPACT_CHARS = 4;
 const LOCAL_READING_ORDER_MAX_COMPACT_CHARS = 40;
 const LOCAL_READING_ORDER_PROBE_CHARS = 50;
-const LOCAL_READING_ORDER_MATH_SYMBOL = /[√∛∜∑∫∏∈∉∞≈≠≤≥±×÷=+\-*/^]/u;
+const LOCAL_READING_ORDER_STRONG_MATH_SYMBOL = /[√∛∜∑∫∏∈∉∞≈≠≤≥±×÷=^]/u;
+const LOCAL_READING_ORDER_WEAK_MATH_SYMBOL = /[+\-*/]/u;
+const LOCAL_READING_ORDER_NUMBER = /\p{Number}/u;
 
 /**
  * Flag pages whose native text stream order diverges from the visual
@@ -732,7 +734,7 @@ function detectLocalMathReadingOrderDivergence(page: PageResult, blocks: LayoutB
   for (let i = 0; i < blocks.length; i++) {
     const block = blocks[i];
     if (block.repeated) continue;
-    if (!LOCAL_READING_ORDER_MATH_SYMBOL.test(block.text)) continue;
+    if (!hasLocalReadingOrderMathSignal(block.text)) continue;
     const blockChars = compactReadingOrderChars(block.text);
     if (
       blockChars.length < LOCAL_READING_ORDER_MIN_COMPACT_CHARS ||
@@ -752,6 +754,11 @@ function detectLocalMathReadingOrderDivergence(page: PageResult, blocks: LayoutB
     });
     return;
   }
+}
+
+function hasLocalReadingOrderMathSignal(text: string): boolean {
+  if (LOCAL_READING_ORDER_STRONG_MATH_SYMBOL.test(text)) return true;
+  return LOCAL_READING_ORDER_WEAK_MATH_SYMBOL.test(text) && LOCAL_READING_ORDER_NUMBER.test(text);
 }
 
 function compactReadingOrderChars(text: string): string[] {

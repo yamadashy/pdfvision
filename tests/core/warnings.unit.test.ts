@@ -1072,6 +1072,22 @@ describe('detectPageWarnings', () => {
       const out = detectPageWarnings(p);
       expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
     });
+
+    it('does not treat form date placeholder slashes as compact math order divergence', () => {
+      const dateLabel = 'Deceased MM / DD / YYYY Spouse MM / DD / YYYY';
+      const blocks = [
+        block(72, 88, 85, 20, { text: 'Form 1040', role: 'heading' }),
+        block(385, 61, 189, 7, { text: dateLabel }),
+      ];
+      const p = {
+        ...page(blocks, 612, 792),
+        text: `Form 1040\nDeceased MM DD YYYY Spouse MM DD YYYY////`,
+        charCount: 58,
+        vectorCount: 502,
+      };
+      const out = detectPageWarnings(p);
+      expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
+    });
   });
 
   describe('text_overlap', () => {
