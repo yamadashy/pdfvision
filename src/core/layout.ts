@@ -98,6 +98,10 @@ const RECURRING_TABLE_GUTTER_MIN_ROWS = 4;
 const RECURRING_TABLE_GUTTER_MIN_NUMERIC_SPANS = 3;
 const LINE_TOP_ALIGNMENT_RATIO = 0.5;
 const LINE_VERTICAL_OVERLAP_RATIO = 0.35;
+const TINY_LINE_FONT_SIZE_PT = 4;
+const TINY_LINE_LARGE_PEER_MIN_FONT_SIZE_PT = 8;
+const TINY_LINE_MAX_FONT_RATIO = 0.55;
+const TINY_LINE_MIN_CHARS = 8;
 const TABLE_ROW_MIN_CELLS = 3;
 const TABLE_ROW_MIN_NUMERIC_CELLS = 2;
 const TABLE_GROUP_MAX_ROW_GAP_PT = 48;
@@ -314,6 +318,8 @@ function canShareTextLine(a: TextSpan, b: TextSpan): boolean {
     return overlap >= minHeight * LINE_VERTICAL_OVERLAP_RATIO;
   }
 
+  if (hasTinyLineFontMismatch(a, b)) return false;
+
   const aHeight = horizontalLineGroupingHeight(a);
   const bHeight = horizontalLineGroupingHeight(b);
   const minHeight = Math.max(Math.min(aHeight, bHeight), 1);
@@ -321,6 +327,28 @@ function canShareTextLine(a: TextSpan, b: TextSpan): boolean {
   if (!hasCloseHorizontalLineGap(a, b)) return false;
   const overlap = Math.min(a.y + aHeight, b.y + bHeight) - Math.max(a.y, b.y);
   return overlap >= minHeight * LINE_VERTICAL_OVERLAP_RATIO;
+}
+
+function hasTinyLineFontMismatch(a: TextSpan, b: TextSpan): boolean {
+  const aFontSize = measuredLineFontSize(a);
+  const bFontSize = measuredLineFontSize(b);
+  if (aFontSize <= 0 || bFontSize <= 0) return false;
+
+  const small = aFontSize <= bFontSize ? a : b;
+  const smallFontSize = Math.min(aFontSize, bFontSize);
+  const largeFontSize = Math.max(aFontSize, bFontSize);
+  if (smallFontSize > TINY_LINE_FONT_SIZE_PT) return false;
+  if (largeFontSize < TINY_LINE_LARGE_PEER_MIN_FONT_SIZE_PT) return false;
+  if (smallFontSize / largeFontSize > TINY_LINE_MAX_FONT_RATIO) return false;
+
+  const smallChars = small.text.replace(/\s/g, '').length;
+  return smallChars >= TINY_LINE_MIN_CHARS || small.width >= largeFontSize * 3;
+}
+
+function measuredLineFontSize(span: TextSpan): number {
+  if (span.fontSize > 0) return span.fontSize;
+  if (span.height > 0) return span.height;
+  return 0;
 }
 
 function hasCloseHorizontalLineGap(a: TextSpan, b: TextSpan): boolean {

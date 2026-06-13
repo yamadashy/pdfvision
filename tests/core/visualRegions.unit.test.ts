@@ -1772,7 +1772,7 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
-  it('ignores bare figure references inside a visual region while keeping the real caption', () => {
+  it('ignores bare or tiny figure references inside a visual region while keeping the real caption', () => {
     const regions = buildVisualRegions({
       pageWidth: 600,
       pageHeight: 500,
@@ -1787,6 +1787,14 @@ describe('buildVisualRegions', () => {
             width: 22,
             height: 8,
             lines: [{ text: 'Fig.4', x: 120, y: 150, width: 22, height: 8, fontSize: 8 }],
+          },
+          {
+            text: 'Figure 1: Nested thumbnail caption',
+            x: 120,
+            y: 180,
+            width: 110,
+            height: 3,
+            lines: [{ text: 'Figure 1: Nested thumbnail caption', x: 120, y: 180, width: 110, height: 3, fontSize: 3 }],
           },
           {
             text: 'Figure 1: The overview of the pipeline to collect the images with text.',
@@ -1817,7 +1825,7 @@ describe('buildVisualRegions', () => {
         y: 280,
         width: 300,
         height: 12,
-        blockIndex: 1,
+        blockIndex: 2,
       },
     ]);
   });

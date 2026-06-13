@@ -78,6 +78,7 @@ const WIDE_TEXT_PANEL_MAX_HEIGHT_RATIO = 0.45;
 const WIDE_TEXT_PANEL_EDGE_RATIO = 0.15;
 const CAPTION_MAX_GAP_PT = 54;
 const CAPTION_MIN_HORIZONTAL_OVERLAP_RATIO = 0.2;
+const MIN_CONTAINED_CAPTION_HEIGHT_PT = 6;
 const HEADING_LABEL_MAX_GAP_PT = 96;
 const HEADING_LABEL_MIN_REGION_AREA_RATIO = 0.08;
 const HEADING_LABEL_MAX_CHARS = 220;
@@ -864,9 +865,12 @@ function horizontalOverlapRatio(a: BoxLike, b: BoxLike): number {
 }
 
 function captionScore(candidate: Candidate, textBox: BoxLike): number | undefined {
-  if ('text' in textBox && typeof textBox.text === 'string' && isBareCaptionReferenceText(textBox.text)) {
-    const contained = overlapOfSmaller(candidate, textBox) >= 0.9;
-    if (contained) return undefined;
+  const contained = overlapOfSmaller(candidate, textBox) >= 0.9;
+  if (contained) {
+    if (textBox.height < MIN_CONTAINED_CAPTION_HEIGHT_PT) return undefined;
+    if ('text' in textBox && typeof textBox.text === 'string' && isBareCaptionReferenceText(textBox.text)) {
+      return undefined;
+    }
   }
 
   const captionBottom = textBox.y + textBox.height;

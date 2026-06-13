@@ -378,6 +378,29 @@ describe('buildLayout — multi-column reading order', () => {
     ]);
   });
 
+  it('does not merge tiny embedded thumbnail text into a normal caption line', () => {
+    const spans: TextSpan[] = [
+      span('Figure 2: Title page of the DocLayNet paper - left PDF, right rendered', 108, 369.47, 9.96, 396),
+      span(
+        'Despite the substantial improvements achieved with machine-learning approaches, document',
+        329.6,
+        373.21,
+        3,
+        187.31,
+      ),
+    ];
+    const layout = buildLayout(spans, 595);
+    const lineTexts = layout.blocks.flatMap((block) => block.lines.map((line) => line.text));
+
+    expect(lineTexts).toContain('Figure 2: Title page of the DocLayNet paper - left PDF, right rendered');
+    expect(lineTexts).toContain(
+      'Despite the substantial improvements achieved with machine-learning approaches, document',
+    );
+    expect(lineTexts).not.toContain(
+      'Figure 2: Title page of the DocLayNet paper - left PDF, right renderedDespite the substantial improvements achieved with machine-learning approaches, document',
+    );
+  });
+
   it('splits recurring narrow gutters in dense two-column journal text', () => {
     // Nature-style two-column body rows can have only ~13pt between the
     // left and right columns. That is below the default 16pt hard gutter,
