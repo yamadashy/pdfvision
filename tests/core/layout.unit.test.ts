@@ -803,6 +803,66 @@ describe('buildLayout — multi-column reading order', () => {
     }
   });
 
+  it('does not mark repeated short form control labels as page chrome', () => {
+    function makePage(pageNum: number, bodyText: string): PageResult {
+      const bodyBlock: LayoutBlock = {
+        text: bodyText,
+        x: 327,
+        y: 38,
+        width: 230,
+        height: 34,
+        lines: [
+          { text: bodyText.slice(0, 50), x: 327, y: 38, width: 230, height: 10, fontSize: 10 },
+          { text: 'Yes. Continue', x: 350, y: 62.5, width: 62, height: 10, fontSize: 10 },
+        ],
+      };
+      const noBlock: LayoutBlock = {
+        text: 'No.',
+        x: 466,
+        y: 62.9,
+        width: 16,
+        height: 10,
+        lines: [{ text: 'No.', x: 466, y: 62.9, width: 16, height: 10, fontSize: 10 }],
+      };
+      const stopBlock: LayoutBlock = {
+        text: 'STOP',
+        x: 488,
+        y: 67.3,
+        width: 12,
+        height: 5.4,
+        lines: [{ text: 'STOP', x: 488, y: 67.3, width: 12, height: 5.4, fontSize: 5.4 }],
+      };
+      return {
+        page: pageNum,
+        text: `${bodyText}\nNo.\nSTOP`,
+        charCount: bodyText.length + 9,
+        imageCount: 0,
+        vectorCount: 10,
+        textCoverage: 0.2,
+        nonPrintableRatio: 0,
+        nonPrintableCount: 0,
+        width: 612,
+        height: 792,
+        quality: { nativeTextStatus: 'ok' },
+        layout: { blocks: [bodyBlock, noBlock, stopBlock] },
+      };
+    }
+
+    const pages = [
+      makePage(20, 'Can you claim the credit for this relative?'),
+      makePage(40, 'Is your social security number valid for EIC purposes?'),
+      makePage(41, 'Did you have investment income above the threshold?'),
+    ];
+    markRepeatedBlocks(pages);
+
+    for (const page of pages) {
+      expect(page.layout?.blocks[1].repeated).toBeUndefined();
+      expect(page.layout?.blocks[2].repeated).toBeUndefined();
+      const warnings = detectPageWarnings(page, { chromeDetectionReliable: true });
+      expect(warnings.filter((w) => w.code === 'body_near_repeated_chrome')).toEqual([]);
+    }
+  });
+
   it('marks footer blocks as repeated when a stable footer line is paired with changing page labels', () => {
     const stableFooter =
       'Brought to you by NOAA Library | Unauthenticated | Downloaded 09/12/25 01:27 PM UTC2. Global Climate';

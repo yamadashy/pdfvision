@@ -1915,8 +1915,14 @@ function digitNormalizedChromeText(text: string): string | undefined {
 }
 
 function isRepeatedChromeCandidate(page: PageResult, block: LayoutBlock): boolean {
+  const text = block.text.replace(/\s+/g, ' ').trim();
+  if (isShortFormControlLabel(text)) return false;
   const edgeBand = Math.max(REPEATED_CHROME_MIN_EDGE_PT, page.height * REPEATED_CHROME_EDGE_RATIO);
   return block.y <= edgeBand || block.y + block.height >= page.height - edgeBand;
+}
+
+function isShortFormControlLabel(text: string): boolean {
+  return /^(?:yes|no|stop)\.?$/iu.test(text);
 }
 
 function isRepeatedChromeLineCandidate(page: PageResult, line: LayoutBlock['lines'][number]): boolean {
