@@ -463,6 +463,9 @@ export function formatXml(result: DocumentResult): string {
           if (annotation.hasAppearance !== undefined) {
             annotationAttrs.push(`hasAppearance="${annotation.hasAppearance}"`);
           }
+          if (annotation.flags !== undefined && annotation.flags.length > 0) {
+            annotationAttrs.push(`flags="${annotation.flags.join(',')}"`);
+          }
           if (
             annotation.fileAttachment !== undefined ||
             (annotation.quadBoxes !== undefined && annotation.quadBoxes.length > 0)

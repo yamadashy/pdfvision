@@ -829,6 +829,18 @@ export interface PageAnnotationFileAttachment {
   size: number;
 }
 
+export type PageAnnotationFlag =
+  | 'invisible'
+  | 'hidden'
+  | 'print'
+  | 'noZoom'
+  | 'noRotate'
+  | 'noView'
+  | 'readOnly'
+  | 'locked'
+  | 'toggleNoView'
+  | 'lockedContents';
+
 export interface PageAnnotation {
   /** PDF annotation subtype such as Text, Highlight, Underline, StrikeOut, FreeText, Stamp, FileAttachment, or Ink. */
   subtype: string;
@@ -844,6 +856,8 @@ export interface PageAnnotation {
   hasAppearance?: boolean;
   /** File metadata for FileAttachment annotations. Bytes are never embedded in structured output. */
   fileAttachment?: PageAnnotationFileAttachment;
+  /** Decoded PDF annotation flags, such as hidden, print, noView, or locked. */
+  flags?: PageAnnotationFlag[];
   x: number;
   y: number;
   width: number;

@@ -356,6 +356,7 @@ describe('formatMarkdown', () => {
                 contents: 'important|note',
                 title: 'Markup',
                 color: [255, 255, 11],
+                flags: ['print', 'noView'],
                 x: 100,
                 y: 80,
                 width: 80,
@@ -383,9 +384,11 @@ describe('formatMarkdown', () => {
     expect(out).toMatch(/\| 1 \| 9 \| 0 \| 0% \| 612×792 \| 2 \|/);
     expect(out).toMatch(/annotations: 2/);
     expect(out).toContain('### Annotations');
-    expect(out).toContain('| Highlight | important\\|note | Markup |  | 100,80,80,12 | 255,255,11 | 1 |');
     expect(out).toContain(
-      '| FileAttachment | Test.txt | Reviewer | Test.txt · 15 bytes · Supplement | 70,94,20,24 |  | 0 |',
+      '| Highlight | important\\|note | Markup |  | print,noView | 100,80,80,12 | 255,255,11 | 1 |',
+    );
+    expect(out).toContain(
+      '| FileAttachment | Test.txt | Reviewer | Test.txt · 15 bytes · Supplement |  | 70,94,20,24 |  | 0 |',
     );
     expect(out).toContain('_No non-link annotations found._');
   });

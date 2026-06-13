@@ -691,6 +691,7 @@ describe('formatXml', () => {
                 modified: "D:20140401161700+02'00'",
                 hasAppearance: false,
                 fileAttachment: { name: 'A&B.txt', size: 15, description: 'Review file' },
+                flags: ['hidden', 'print'],
                 x: 100,
                 y: 80,
                 width: 80,
@@ -706,7 +707,7 @@ describe('formatXml', () => {
     expect(out).toContain('annotationCount="1"');
     expect(out).toContain('<annotations>');
     expect(out).toContain(
-      '<annotation subtype="Highlight" x="100" y="80" width="80" height="12" contents="A &amp; B" title="Markup" color="255,255,11" modified="D:20140401161700+02\'00\'" hasAppearance="false">',
+      '<annotation subtype="Highlight" x="100" y="80" width="80" height="12" contents="A &amp; B" title="Markup" color="255,255,11" modified="D:20140401161700+02\'00\'" hasAppearance="false" flags="hidden,print">',
     );
     expect(out).toContain('<fileAttachment name="A&amp;B.txt" size="15" description="Review file"/>');
     expect(out).toContain('<quadBox x="100" y="80" width="80" height="12"/>');

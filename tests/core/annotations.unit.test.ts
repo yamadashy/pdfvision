@@ -14,6 +14,7 @@ describe('buildAnnotations', () => {
           quadPoints: { 0: 100, 1: 712, 2: 180, 3: 712, 4: 100, 5: 700, 6: 180, 7: 700 },
           modificationDate: "D:20140401161700+02'00'",
           hasAppearance: false,
+          annotationFlags: 36,
         },
         { subtype: 'Link', rect: [0, 0, 10, 10], contentsObj: { str: 'ignored' } },
         { subtype: 'Widget', rect: [0, 0, 10, 10], contentsObj: { str: 'ignored' } },
@@ -33,6 +34,7 @@ describe('buildAnnotations', () => {
         color: [255, 255, 11],
         modified: "D:20140401161700+02'00'",
         hasAppearance: false,
+        flags: ['print', 'noView'],
         x: 100,
         y: 80,
         width: 80,
@@ -83,5 +85,31 @@ describe('buildAnnotations', () => {
       },
     ]);
     expect(JSON.stringify(annotations)).not.toContain('Test attachment');
+  });
+
+  it('decodes hidden and print annotation flags', () => {
+    const annotations = buildAnnotations(
+      [
+        {
+          subtype: 'Ink',
+          titleObj: { str: 'Reviewer' },
+          rect: [174, 632, 286, 729],
+          annotationFlags: 6,
+        },
+      ],
+      792,
+    );
+
+    expect(annotations).toEqual([
+      {
+        subtype: 'Ink',
+        title: 'Reviewer',
+        flags: ['hidden', 'print'],
+        x: 174,
+        y: 63,
+        width: 112,
+        height: 97,
+      },
+    ]);
   });
 });

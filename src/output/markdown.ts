@@ -60,6 +60,10 @@ function annotationFileAttachment(annotation: NonNullable<PageResult['annotation
   return parts.join(' · ');
 }
 
+function annotationFlags(annotation: NonNullable<PageResult['annotations']>[number]): string {
+  return annotation.flags?.join(',') ?? '';
+}
+
 function visualRegionSources(region: NonNullable<PageResult['visualRegions']>[number]): string {
   const refs = region.sources.map((source) => `${source.type}[${source.index}]`);
   const hiddenCount = region.sourceCount - region.sources.length;
@@ -515,11 +519,11 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
         lines.push('_No non-link annotations found._');
       } else {
         lines.push('');
-        lines.push('| Type | Contents | Title | File | BBox | Color | QuadBoxes |');
-        lines.push('| --- | --- | --- | --- | --- | --- | ---: |');
+        lines.push('| Type | Contents | Title | File | Flags | BBox | Color | QuadBoxes |');
+        lines.push('| --- | --- | --- | --- | --- | --- | --- | ---: |');
         for (const annotation of page.annotations) {
           lines.push(
-            `| ${escapeTableCell(annotation.subtype)} | ${escapeTableCell(annotation.contents ?? '')} | ${escapeTableCell(annotation.title ?? '')} | ${escapeTableCell(annotationFileAttachment(annotation))} | ${formatBox(annotation)} | ${annotationColor(annotation)} | ${annotation.quadBoxes?.length ?? 0} |`,
+            `| ${escapeTableCell(annotation.subtype)} | ${escapeTableCell(annotation.contents ?? '')} | ${escapeTableCell(annotation.title ?? '')} | ${escapeTableCell(annotationFileAttachment(annotation))} | ${annotationFlags(annotation)} | ${formatBox(annotation)} | ${annotationColor(annotation)} | ${annotation.quadBoxes?.length ?? 0} |`,
           );
         }
       }

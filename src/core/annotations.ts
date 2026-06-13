@@ -1,4 +1,9 @@
-import type { PageAnnotation, PageAnnotationBox, PageAnnotationFileAttachment } from '../types/index.js';
+import type {
+  PageAnnotation,
+  PageAnnotationBox,
+  PageAnnotationFileAttachment,
+  PageAnnotationFlag,
+} from '../types/index.js';
 
 interface PdfAnnotation {
   subtype?: unknown;
@@ -10,6 +15,7 @@ interface PdfAnnotation {
   hasAppearance?: unknown;
   quadPoints?: unknown;
   file?: unknown;
+  annotationFlags?: unknown;
 }
 
 interface PdfFileAttachment {
@@ -24,6 +30,18 @@ interface BuildAnnotationsOptions {
 }
 
 const EXCLUDED_SUBTYPES = new Set(['Link', 'Widget', 'Popup']);
+const ANNOTATION_FLAGS: { bit: number; name: PageAnnotationFlag }[] = [
+  { bit: 1, name: 'invisible' },
+  { bit: 2, name: 'hidden' },
+  { bit: 4, name: 'print' },
+  { bit: 8, name: 'noZoom' },
+  { bit: 16, name: 'noRotate' },
+  { bit: 32, name: 'noView' },
+  { bit: 64, name: 'readOnly' },
+  { bit: 128, name: 'locked' },
+  { bit: 256, name: 'toggleNoView' },
+  { bit: 512, name: 'lockedContents' },
+];
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
@@ -48,6 +66,7 @@ export function buildAnnotations(
     const color = colorValue(ann.color);
     const quadBoxes = quadPointBoxes(ann.quadPoints, pageHeight, viewMinX, viewMinY);
     const fileAttachment = fileAttachmentValue(ann.file, options.normalizeText);
+    const flags = annotationFlagNames(ann.annotationFlags);
 
     out.push({
       subtype: ann.subtype,
@@ -57,6 +76,7 @@ export function buildAnnotations(
       ...(typeof ann.modificationDate === 'string' && { modified: ann.modificationDate }),
       ...(typeof ann.hasAppearance === 'boolean' && { hasAppearance: ann.hasAppearance }),
       ...(fileAttachment !== undefined && { fileAttachment }),
+      ...(flags.length > 0 && { flags }),
       ...baseBox,
       ...(quadBoxes.length > 0 && { quadBoxes }),
     });
@@ -92,6 +112,11 @@ function colorValue(value: unknown): [number, number, number] | undefined {
   const values = numericArrayLike(value, 3);
   if (!values) return undefined;
   return [Math.round(values[0]), Math.round(values[1]), Math.round(values[2])];
+}
+
+function annotationFlagNames(value: unknown): PageAnnotationFlag[] {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return [];
+  return ANNOTATION_FLAGS.filter(({ bit }) => (value & bit) !== 0).map(({ name }) => name);
 }
 
 function fileAttachmentValue(

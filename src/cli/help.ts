@@ -80,7 +80,7 @@ Options
       --annotations       Emit \`pages[].annotations\` — non-link PDF annotations such as
                           comments, sticky notes, highlights, underlines, strikeouts, stamps,
                           file-attachment icons, and other markup with bboxes, comment text,
-                          and attachment metadata when available.
+                          PDF flags such as hidden/print, and attachment metadata when available.
       --structure         Emit tagged-PDF structure trees in \`pages[].structure\`,
                           including role hierarchy, figure alt text, language hints,
                           bboxes, and marked-content ids when the PDF provides them.

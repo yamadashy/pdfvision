@@ -210,6 +210,7 @@ interface PageAnnotation {
   color?: [number, number, number];
   modified?: string;            // PDF date string
   hasAppearance?: boolean;
+  flags?: PageAnnotationFlag[];  // decoded PDF annotation flags: hidden, print, noView, locked, ...
   fileAttachment?: {
     name: string;
     description?: string;
@@ -218,9 +219,21 @@ interface PageAnnotation {
   x: number; y: number; width: number; height: number;
   quadBoxes?: { x: number; y: number; width: number; height: number }[];
 }
+
+type PageAnnotationFlag =
+  | 'invisible'
+  | 'hidden'
+  | 'print'
+  | 'noZoom'
+  | 'noRotate'
+  | 'noView'
+  | 'readOnly'
+  | 'locked'
+  | 'toggleNoView'
+  | 'lockedContents';
 ```
 
-`annotations[]` surfaces non-link, non-widget PDF annotations: sticky notes, comments, highlights, underlines, strikeouts, stamps, free text, file-attachment icons, ink, and other markup. File-attachment annotations include filename / description / byte-size metadata when pdf.js exposes it, but never embed the file bytes in context. `Link`, `Widget`, and `Popup` annotations are intentionally excluded because links and form widgets have dedicated outputs and popups usually duplicate their parent annotation. Coordinates use the same top-left PDF-point system as `spans`, `layout.blocks`, and `imageBoxes`; `quadBoxes[]` gives precise markup regions when the PDF provides QuadPoints.
+`annotations[]` surfaces non-link, non-widget PDF annotations: sticky notes, comments, highlights, underlines, strikeouts, stamps, free text, file-attachment icons, ink, and other markup. `flags[]` decodes the PDF annotation flags so agents can distinguish normal screen-visible markup from hidden, print-only, no-view, locked, or otherwise viewer-controlled annotations; for example `["hidden","print"]` means the annotation can exist in the PDF even when the normal screen render is blank. File-attachment annotations include filename / description / byte-size metadata when pdf.js exposes it, but never embed the file bytes in context. `Link`, `Widget`, and `Popup` annotations are intentionally excluded because links and form widgets have dedicated outputs and popups usually duplicate their parent annotation. Coordinates use the same top-left PDF-point system as `spans`, `layout.blocks`, and `imageBoxes`; `quadBoxes[]` gives precise markup regions when the PDF provides QuadPoints.
 
 ## Structure (`--structure`)
 
@@ -646,4 +659,4 @@ for (const page of result.pages) {
 
 `processFile()` returns the formatted string output (`markdown` / `json` / `xml` / `toon`). `processDocument()` returns the structured object directly.
 
-Exported types: `DocumentResult`, `DocumentMetadata`, `DocumentAttachment`, `DocumentLayerGroup`, `DocumentLayerOrderItem`, `DocumentLayers`, `DocumentLayerUsage`, `DocumentOutlineItem`, `DocumentOutlineTargetType`, `DocumentViewerState`, `DocumentOpenAction`, `DocumentPermissions`, `DocumentPermission`, `DocumentMarkInfo`, `JsonScalar`, `JsonValue`, `PageOverview`, `PageResult`, `PageQuality`, `PageWarning`, `SearchMatch`, `LayoutBlock`, `LayoutLine`, `LayoutTable`, `LayoutTableRow`, `LayoutTableCell`, `PageLayout`, `ImageBox`, `PageLink`, `PageLinkType`, `PageAnnotation`, `PageAnnotationBox`, `PageAnnotationFileAttachment`, `PageStructureContent`, `PageStructureItem`, `PageStructureNode`, `VisualRegion`, `VisualRegionAssociatedText`, `VisualRegionAssociatedTextRelation`, `VisualRegionKind`, `VisualRegionSource`, `VisualRegionSourceType`, `RenderRegion`, `TextSpan`, `PageOcr`, `OcrWord`, `OutputFormat`, `ProcessDocumentOptions`, `ProcessOptions`.
+Exported types: `DocumentResult`, `DocumentMetadata`, `DocumentAttachment`, `DocumentLayerGroup`, `DocumentLayerOrderItem`, `DocumentLayers`, `DocumentLayerUsage`, `DocumentOutlineItem`, `DocumentOutlineTargetType`, `DocumentViewerState`, `DocumentOpenAction`, `DocumentPermissions`, `DocumentPermission`, `DocumentMarkInfo`, `JsonScalar`, `JsonValue`, `PageOverview`, `PageResult`, `PageQuality`, `PageWarning`, `SearchMatch`, `LayoutBlock`, `LayoutLine`, `LayoutTable`, `LayoutTableRow`, `LayoutTableCell`, `PageLayout`, `ImageBox`, `PageLink`, `PageLinkType`, `PageAnnotation`, `PageAnnotationBox`, `PageAnnotationFileAttachment`, `PageAnnotationFlag`, `PageStructureContent`, `PageStructureItem`, `PageStructureNode`, `VisualRegion`, `VisualRegionAssociatedText`, `VisualRegionAssociatedTextRelation`, `VisualRegionKind`, `VisualRegionSource`, `VisualRegionSourceType`, `RenderRegion`, `TextSpan`, `PageOcr`, `OcrWord`, `OutputFormat`, `ProcessDocumentOptions`, `ProcessOptions`.
