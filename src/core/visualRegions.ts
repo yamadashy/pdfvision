@@ -83,6 +83,8 @@ const PLAIN_IMAGE_LABEL_MIN_HORIZONTAL_OVERLAP_RATIO = 0.45;
 const PLAIN_IMAGE_LABEL_MAX_CHARS = 120;
 const EQUIVALENT_CANDIDATE_OVERLAP_RATIO = 0.98;
 const EQUIVALENT_CANDIDATE_AREA_RATIO = 0.98;
+const CONTEXTUAL_DUPLICATE_OVERLAP_RATIO = 0.85;
+const CONTEXTUAL_DUPLICATE_AREA_RATIO = 0.85;
 const MAX_ASSOCIATED_TEXT = 3;
 const CAPTION_SCORE_TOLERANCE_PT = 12;
 const SHALLOW_TABLE_HINT_MAX_ROWS = 2;
@@ -392,6 +394,58 @@ function mergeCandidates(a: Candidate, b: Candidate): Candidate {
     sources,
     ...(associatedText.length > 0 && { associatedText }),
   };
+}
+
+function mergeCandidateMetadataInto(primary: Candidate, duplicate: Candidate): Candidate {
+  const sources = mergeSources([...primary.sources, ...duplicate.sources]);
+  const associatedText = mergeAssociatedText([...(primary.associatedText ?? []), ...(duplicate.associatedText ?? [])]);
+  return {
+    ...primary,
+    kind: primary.kind === duplicate.kind ? primary.kind : 'mixed',
+    priority: Math.max(primary.priority, duplicate.priority),
+    reason: mergeCandidateReasons(primary, duplicate, sources),
+    sources,
+    ...(associatedText.length > 0 && { associatedText }),
+  };
+}
+
+function mergeCandidateReasons(
+  primary: Candidate,
+  duplicate: Candidate,
+  sources: readonly VisualRegionSource[],
+): string {
+  if (primary.reason === duplicate.reason) {
+    return normalizeMergedReason(primary.reason, sources);
+  }
+  return normalizeMergedReason(
+    mergeReasonsBySourceCoverage(primary, duplicate) ?? `${primary.reason}; ${duplicate.reason}`,
+    sources,
+  );
+}
+
+function normalizeMergedReason(reason: string, sources: readonly VisualRegionSource[]): string {
+  const vectorSourceCount = sources.filter((source) => source.type === 'vectorBox').length;
+  const segments = reason.split('; ');
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  let emittedVectorSegment = false;
+  for (const segment of segments) {
+    if (/^\d+ nearby vector drawing operations$/u.test(segment) && vectorSourceCount > 0) {
+      if (!emittedVectorSegment) normalized.push(`${vectorSourceCount} nearby vector drawing operations`);
+      emittedVectorSegment = true;
+      continue;
+    }
+    if (seen.has(segment)) continue;
+    seen.add(segment);
+    normalized.push(segment);
+  }
+  return normalized.join('; ');
+}
+
+function mergeReasonsBySourceCoverage(primary: Candidate, duplicate: Candidate): string | undefined {
+  if (primary.reason.startsWith(duplicate.reason)) return primary.reason;
+  if (duplicate.reason.startsWith(primary.reason)) return duplicate.reason;
+  return undefined;
 }
 
 function visualScore(candidate: Candidate, totalArea: number): number {
@@ -1033,6 +1087,34 @@ function dedupeEquivalentCandidates(candidates: Candidate[]): Candidate[] {
   return deduped;
 }
 
+function dedupeContextualDuplicates(candidates: Candidate[]): Candidate[] {
+  const deduped: Candidate[] = [];
+  for (const candidate of candidates) {
+    const index = deduped.findIndex(
+      (existing) =>
+        shareAssociatedText(existing, candidate) &&
+        overlapOfSmaller(existing, candidate) >= CONTEXTUAL_DUPLICATE_OVERLAP_RATIO &&
+        areaSimilarity(existing, candidate) >= CONTEXTUAL_DUPLICATE_AREA_RATIO,
+    );
+    if (index === -1) {
+      deduped.push(candidate);
+      continue;
+    }
+
+    const existing = deduped[index];
+    const primary = area(candidate) > area(existing) ? candidate : existing;
+    const duplicate = primary === candidate ? existing : candidate;
+    deduped[index] = mergeCandidateMetadataInto(primary, duplicate);
+  }
+  return deduped;
+}
+
+function shareAssociatedText(a: Candidate, b: Candidate): boolean {
+  if (!a.associatedText || !b.associatedText) return false;
+  const aKeys = new Set(a.associatedText.map(associatedTextKey));
+  return b.associatedText.some((text) => aKeys.has(associatedTextKey(text)));
+}
+
 function suppressBackgroundLikeCandidates(candidates: Candidate[], pageWidth: number, pageHeight: number): Candidate[] {
   const hasForegroundRegion = candidates.some(
     (candidate) => !isBackgroundLikeCandidate(candidate, pageWidth, pageHeight),
@@ -1127,7 +1209,7 @@ export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion
   const withTableLeadInLabels = attachTableLeadInLabels(withCaptions, input.layout);
   const withPlainImageLabels = attachPlainImageLabels(withTableLeadInLabels, input.layout);
   const withHeadingLabels = attachHeadingLabels(withPlainImageLabels, input.layout, totalArea);
-  const contextDeduped = dedupeEquivalentCandidates(withHeadingLabels);
+  const contextDeduped = dedupeContextualDuplicates(dedupeEquivalentCandidates(withHeadingLabels));
   return suppressContainedCandidates(contextDeduped)
     .filter((candidate) => isUsableFinalCandidate(candidate, input.pageWidth, input.pageHeight))
     .sort((a, b) => visualScore(b, totalArea) - visualScore(a, totalArea))

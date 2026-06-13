@@ -1075,6 +1075,66 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('deduplicates overlapping regions expanded by the same caption', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 600,
+      pageHeight: 800,
+      imageBoxes: [
+        { x: 300, y: 30, width: 250, height: 250 },
+        { x: 350, y: 70, width: 250, height: 250 },
+      ],
+      layout: {
+        blocks: [
+          {
+            text: 'Figure 1. Compound figure overview',
+            x: 30,
+            y: 310,
+            width: 570,
+            height: 20,
+            lines: [
+              {
+                text: 'Figure 1. Compound figure overview',
+                x: 30,
+                y: 310,
+                width: 570,
+                height: 20,
+                fontSize: 10,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'raster',
+        x: 22,
+        y: 22,
+        width: 578,
+        height: 316,
+        areaRatio: 0.381,
+        sourceCount: 2,
+        sources: [
+          { type: 'imageBox', index: 0 },
+          { type: 'imageBox', index: 1 },
+        ],
+        reason: 'raster image covers 13.0% of the page',
+        associatedText: [
+          {
+            text: 'Figure 1. Compound figure overview',
+            relation: 'caption',
+            x: 30,
+            y: 310,
+            width: 570,
+            height: 20,
+            blockIndex: 0,
+          },
+        ],
+      },
+    ]);
+  });
+
   it('attaches nearby heading labels to large unlabeled table regions', () => {
     const regions = buildVisualRegions({
       pageWidth: 300,
