@@ -130,6 +130,63 @@ describe('buildVisualRegions', () => {
     expect(regions[0]).toMatchObject({ kind: 'raster', areaRatio: 1 });
   });
 
+  it('emits compact raster text-strip regions below the normal image area threshold', () => {
+    // PDF.js bug1795263-shaped case: visible title/header text can be
+    // painted as narrow raster fragments, too small for normal raster
+    // area thresholds but still important for human reading.
+    const regions = buildVisualRegions({
+      pageWidth: 595,
+      pageHeight: 842,
+      imageBoxes: [
+        { x: 230.86, y: 50.42, width: 140, height: 24.21 },
+        { x: 370.86, y: 50.42, width: 11.99, height: 24.21 },
+        { x: 42.55, y: 118.87, width: 146.11, height: 14.38 },
+        { x: 188.67, y: 118.87, width: 3.96, height: 14.38 },
+        { x: 192.62, y: 118.87, width: 3.36, height: 14.38 },
+        { x: 195.98, y: 118.87, width: 114.11, height: 14.38 },
+        { x: 310.09, y: 118.87, width: 3.96, height: 14.38 },
+        { x: 314.04, y: 118.87, width: 3.36, height: 14.38 },
+        { x: 317.4, y: 118.87, width: 21.93, height: 14.38 },
+      ],
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'raster',
+        x: 222.86,
+        y: 42.42,
+        width: 167.99,
+        height: 40.21,
+        areaRatio: 0.013,
+        sourceCount: 2,
+        sources: [
+          { type: 'imageBox', index: 0 },
+          { type: 'imageBox', index: 1 },
+        ],
+        reason: '2 small raster text fragments in one horizontal band',
+      },
+      {
+        kind: 'raster',
+        x: 34.55,
+        y: 110.87,
+        width: 312.78,
+        height: 30.38,
+        areaRatio: 0.019,
+        sourceCount: 7,
+        sources: [
+          { type: 'imageBox', index: 2 },
+          { type: 'imageBox', index: 3 },
+          { type: 'imageBox', index: 4 },
+          { type: 'imageBox', index: 5 },
+          { type: 'imageBox', index: 6 },
+          { type: 'imageBox', index: 7 },
+          { type: 'imageBox', index: 8 },
+        ],
+        reason: '7 small raster text fragments in one horizontal band',
+      },
+    ]);
+  });
+
   it('suppresses lone full-page vector backplanes', () => {
     const regions = buildVisualRegions({
       pageWidth: 100,
