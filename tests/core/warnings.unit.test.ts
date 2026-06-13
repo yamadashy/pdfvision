@@ -99,6 +99,45 @@ describe('detectPageWarnings', () => {
     expect(out.filter((w) => w.code === 'ocr_low_confidence')).toEqual([]);
   });
 
+  it('flags high-confidence OCR that disagrees with short native text', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '6XPPD',
+      charCount: 5,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.003,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'sparse' },
+      ocr: { text: 'Summa', confidence: 0.94, lang: 'eng' },
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'ocr_native_text_mismatch', severity: 'warning' });
+    expect(out[0].message).toContain('Summa');
+    expect(out[0].message).toContain('6XPPD');
+  });
+
+  it('does not flag OCR-native mismatches when OCR confidence is low', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '6XPPD',
+      charCount: 5,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.003,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'sparse' },
+      ocr: { text: 'Summa', confidence: 0.62, lang: 'eng' },
+    });
+    expect(out.filter((w) => w.code === 'ocr_native_text_mismatch')).toEqual([]);
+  });
+
   it('flags low-confidence OCR on raster-backed text layers even when native status is ok', () => {
     const out = detectPageWarnings(
       {

@@ -1160,9 +1160,10 @@ export interface PageResult {
    * public `pages[].imageBoxes` exists. Localized glyph noise and
    * PUA-dominant glyph-code text can surface from always-on text-quality
    * signals such as non-printable counters, private-use glyph ratios,
-   * isolated mojibake in CJK text, Latin-1 printable mojibake, or pdf.js
-   * font character-map warnings. Empty array is omitted; a populated
-   * array means at least one rule fired.
+   * isolated mojibake in CJK text, Latin-1 printable mojibake, pdf.js
+   * font character-map warnings, or high-confidence OCR/native text
+   * disagreement. Empty array is omitted; a populated array means at
+   * least one rule fired.
    *
    * Same observational stance as {@link PageQuality}: the warning
    * describes what pdfvision saw, not what the agent should do. See
@@ -1246,6 +1247,7 @@ export interface PageWarning {
     | 'raster_backed_text_layer'
     | 'raster_text_layer_symbol_noise'
     | 'ocr_low_confidence'
+    | 'ocr_native_text_mismatch'
     | 'large_raster_low_text_overlap'
     | 'reading_order_divergence';
   /**

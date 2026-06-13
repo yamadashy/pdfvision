@@ -48,6 +48,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
   detectRasterBackedTextLayer(page, context, warnings);
   detectRasterTextLayerSymbolNoise(page, context, warnings);
   detectLowConfidenceOcr(page, context, warnings);
+  detectHighConfidenceOcrNativeMismatch(page, warnings);
   detectDenseVectorGraphics(page, warnings);
   detectLargeRasterLowTextOverlap(page, context, warnings);
 
@@ -95,6 +96,10 @@ const DENSE_VECTOR_GRAPHICS_COUNT_THRESHOLD = 250;
 const LARGE_RASTER_AREA_RATIO_THRESHOLD = 0.2;
 const LARGE_RASTER_TEXT_OVERLAP_RATIO_THRESHOLD = 0.01;
 const LOW_CONFIDENCE_OCR_THRESHOLD = 0.5;
+const OCR_NATIVE_MISMATCH_MIN_CONFIDENCE = 0.85;
+const OCR_NATIVE_MISMATCH_MIN_CHARS = 3;
+const OCR_NATIVE_MISMATCH_MAX_CHARS = 200;
+const OCR_NATIVE_MISMATCH_DISTANCE_RATIO_THRESHOLD = 0.5;
 const RASTER_TEXT_LAYER_SYMBOL_NOISE_MIN_CHARS = 80;
 const RASTER_TEXT_LAYER_SYMBOL_NOISE_RATIO_THRESHOLD = 0.35;
 const TABULAR_NUMERIC_MIN_LINES = 12;
@@ -361,6 +366,56 @@ function detectLowConfidenceOcr(page: PageResult, context: PageWarningContext, o
     severity: 'warning',
     message: `OCR confidence is ${(page.ocr.confidence * 100).toFixed(1)}% ${nativeContext} — compare against the render before trusting recognized text or form labels`,
   });
+}
+
+function detectHighConfidenceOcrNativeMismatch(page: PageResult, out: PageWarning[]): void {
+  if (!page.ocr) return;
+  if (page.ocr.confidence < OCR_NATIVE_MISMATCH_MIN_CONFIDENCE) return;
+  if (page.quality.nativeTextStatus !== 'ok') return;
+  if (page.quality.visualStatus === 'blank') return;
+
+  const native = normalizeComparableText(page.text);
+  const ocr = normalizeComparableText(page.ocr.text);
+  const maxLength = Math.max(native.length, ocr.length);
+  if (maxLength < OCR_NATIVE_MISMATCH_MIN_CHARS || maxLength > OCR_NATIVE_MISMATCH_MAX_CHARS) return;
+  if (native === ocr) return;
+  const minLength = Math.min(native.length, ocr.length);
+  if (minLength / maxLength < 0.5) return;
+
+  const distanceRatio = levenshteinDistance(native, ocr) / maxLength;
+  if (distanceRatio < OCR_NATIVE_MISMATCH_DISTANCE_RATIO_THRESHOLD) return;
+
+  out.push({
+    code: 'ocr_native_text_mismatch',
+    severity: 'warning',
+    message: `high-confidence OCR text (${JSON.stringify(shortTextSample(page.ocr.text))}, ${(page.ocr.confidence * 100).toFixed(1)}%) differs from native text (${JSON.stringify(shortTextSample(page.text))}) — native text may be a printable glyph substitution; compare against the render before trusting exact text`,
+  });
+}
+
+function normalizeComparableText(text: string): string {
+  return text
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '');
+}
+
+function shortTextSample(text: string): string {
+  const normalized = text.replace(/\s+/gu, ' ').trim();
+  return normalized.length > 40 ? `${normalized.slice(0, 37)}...` : normalized;
+}
+
+function levenshteinDistance(a: string, b: string): number {
+  const previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+  const current = Array.from({ length: b.length + 1 }, () => 0);
+  for (let i = 0; i < a.length; i++) {
+    current[0] = i + 1;
+    for (let j = 0; j < b.length; j++) {
+      const substitution = previous[j] + (a[i] === b[j] ? 0 : 1);
+      current[j + 1] = Math.min(previous[j + 1] + 1, current[j] + 1, substitution);
+    }
+    for (let j = 0; j < previous.length; j++) previous[j] = current[j];
+  }
+  return previous[b.length] ?? 0;
 }
 
 function nativeExtractionNeedsOcr(status: PageResult['quality']['nativeTextStatus']): boolean {
