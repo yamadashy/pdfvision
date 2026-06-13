@@ -10,8 +10,10 @@ const OP = {
   formEnd: 5,
   constructPath: 6,
   setFillColorN: 7,
+  setFillRGBColor: 8,
   stroke: 10,
   clip: 11,
+  fill: 12,
   paintImageXObjectRepeat: 20,
   paintImageMaskXObjectRepeat: 21,
   paintImageMaskXObjectGroup: 22,
@@ -25,10 +27,11 @@ const ops: ImageOps = {
   formBegin: OP.formBegin,
   formEnd: OP.formEnd,
   setFillColorN: OP.setFillColorN,
-  fillColorOps: new Set<number>([OP.setFillColorN]),
+  fillColorOps: new Set<number>([OP.setFillColorN, OP.setFillRGBColor]),
   singleImageOps: new Set<number>(),
   constructPath: OP.constructPath,
-  pathPaintOps: new Set<number>([OP.stroke]),
+  pathPaintOps: new Set<number>([OP.stroke, OP.fill]),
+  pathFillOps: new Set<number>([OP.fill]),
   vectorPaintOps: new Set<number>([OP.stroke]),
   paintImageXObjectRepeat: OP.paintImageXObjectRepeat,
   paintImageMaskXObjectRepeat: OP.paintImageMaskXObjectRepeat,
@@ -37,6 +40,7 @@ const ops: ImageOps = {
 };
 
 const PAGE_HEIGHT = 792;
+const PAGE_WIDTH = 612;
 
 describe('buildVectorBoxes', () => {
   it('emits painted path bboxes in top-left coordinates', () => {
@@ -44,6 +48,7 @@ describe('buildVectorBoxes', () => {
       [OP.save, OP.transform, OP.constructPath, OP.restore],
       [[], [2, 0, 0, 3, 100, 200], [OP.stroke, [], new Float32Array([0, 0, 10, 20])], []],
       ops,
+      PAGE_WIDTH,
       PAGE_HEIGHT,
       0,
       0,
@@ -60,6 +65,7 @@ describe('buildVectorBoxes', () => {
         [OP.stroke, [], null],
       ],
       ops,
+      PAGE_WIDTH,
       PAGE_HEIGHT,
       0,
       0,
@@ -77,6 +83,7 @@ describe('buildVectorBoxes', () => {
         [OP.stroke, [], [50, 100, 70, 100.001]],
       ],
       ops,
+      PAGE_WIDTH,
       PAGE_HEIGHT,
       0,
       0,
@@ -101,6 +108,7 @@ describe('buildVectorBoxes', () => {
         [],
       ],
       ops,
+      PAGE_WIDTH,
       PAGE_HEIGHT,
       0,
       0,
@@ -118,11 +126,40 @@ describe('buildVectorBoxes', () => {
         [OP.stroke, [], [0, 0, 10, 10]],
       ],
       ops,
+      PAGE_WIDTH,
       PAGE_HEIGHT,
       0,
       0,
     );
 
     expect(boxes).toEqual([{ x: 100, y: 672, width: 20, height: 20 }]);
+  });
+
+  it('suppresses white full-page background fills', () => {
+    const boxes = buildVectorBoxes(
+      [OP.setFillRGBColor, OP.constructPath],
+      [['#ffffff'], [OP.fill, [0, 0, PAGE_WIDTH, PAGE_HEIGHT], [0, 0, PAGE_WIDTH, PAGE_HEIGHT]]],
+      ops,
+      PAGE_WIDTH,
+      PAGE_HEIGHT,
+      0,
+      0,
+    );
+
+    expect(boxes).toEqual([]);
+  });
+
+  it('keeps white stroked page-sized shapes because they can be visible rules', () => {
+    const boxes = buildVectorBoxes(
+      [OP.setFillRGBColor, OP.constructPath],
+      [['#ffffff'], [OP.stroke, [0, 0, PAGE_WIDTH, PAGE_HEIGHT], [0, 0, PAGE_WIDTH, PAGE_HEIGHT]]],
+      ops,
+      PAGE_WIDTH,
+      PAGE_HEIGHT,
+      0,
+      0,
+    );
+
+    expect(boxes).toEqual([{ x: 0, y: 0, width: 612, height: 792 }]);
   });
 });

@@ -27,6 +27,8 @@ export interface ImageOps {
   constructPath: number;
   /** Path operations that actually paint pixels when they appear inside constructPath. */
   pathPaintOps: ReadonlySet<number>;
+  /** Path paint operations that fill an area, including fill+stroke variants. */
+  pathFillOps: ReadonlySet<number>;
   /** Direct vector drawing operations that expose non-text, non-raster structure. */
   vectorPaintOps: ReadonlySet<number>;
   paintImageXObjectRepeat: number;
@@ -229,7 +231,7 @@ export function buildImageBoxes(
     } else if (fn === ops.constructPath) {
       const pathOp = args?.[0];
       const bbox = numericQuad(args?.[2]);
-      if (fillPatternHasImage && typeof pathOp === 'number' && ops.pathPaintOps.has(pathOp) && bbox) {
+      if (fillPatternHasImage && typeof pathOp === 'number' && ops.pathFillOps.has(pathOp) && bbox) {
         boxes.push(bboxToBox(bbox, ctm, pageHeight, viewMinX, viewMinY));
       }
     } else if (ops.singleImageOps.has(fn)) {

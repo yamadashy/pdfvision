@@ -1081,8 +1081,9 @@ export interface PageResult {
   /**
    * Bounding boxes of painted vector paths on the page, only present when
    * `vectorBoxes: true` was passed. One entry per path paint operation
-   * where pdf.js reports a path bbox. Coordinates use the same top-left
-   * PDF-point system as `spans`, `layout.blocks`, and `imageBoxes`.
+   * where pdf.js reports a path bbox, excluding page-sized white
+   * background fills. Coordinates use the same top-left PDF-point system
+   * as `spans`, `layout.blocks`, and `imageBoxes`.
    */
   vectorBoxes?: VectorBox[];
   /**

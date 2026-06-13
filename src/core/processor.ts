@@ -562,10 +562,18 @@ async function extractPageData(
   const allBoxes = buildImageBoxes(opList.fnArray, opList.argsArray as unknown[][], ops, height, view[0], yMin);
   const imageCount = allBoxes.length;
   const imageBoxes = flags.imageBoxes ? allBoxes : undefined;
-  const vectorCount = countVectorPaintOps(opList.fnArray, opList.argsArray as unknown[][], ops);
+  const vectorCount = countVectorPaintOps(
+    opList.fnArray,
+    opList.argsArray as unknown[][],
+    ops,
+    width,
+    height,
+    xMin,
+    yMin,
+  );
   const allVectorBoxes =
     flags.vectorBoxes || flags.visualRegions
-      ? buildVectorBoxes(opList.fnArray, opList.argsArray as unknown[][], ops, height, xMin, yMin)
+      ? buildVectorBoxes(opList.fnArray, opList.argsArray as unknown[][], ops, width, height, xMin, yMin)
       : undefined;
   const vectorBoxes = flags.vectorBoxes ? allVectorBoxes : undefined;
   // Build layout internally for form-field labels and visual-region table
@@ -931,6 +939,14 @@ export async function processDocument(filePath: string, options: ProcessDocument
     OPS.closeFillStroke,
     OPS.closeEOFillStroke,
   ]);
+  const pathFillOps = new Set<number>([
+    OPS.fill,
+    OPS.eoFill,
+    OPS.fillStroke,
+    OPS.eoFillStroke,
+    OPS.closeFillStroke,
+    OPS.closeEOFillStroke,
+  ]);
   const vectorPaintOps = new Set<number>([...pathPaintOps, OPS.shadingFill, OPS.rawFillPath]);
   // Hand pdf.js the bundled OpenJPEG (JPX / JPEG2000) + JBIG2 wasm decoders,
   // predefined CJK CMap pack, and standard font data.
@@ -1134,6 +1150,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       singleImageOps,
       constructPath: OPS.constructPath,
       pathPaintOps,
+      pathFillOps,
       vectorPaintOps,
       paintImageXObjectRepeat: OPS.paintImageXObjectRepeat,
       paintImageMaskXObjectRepeat: OPS.paintImageMaskXObjectRepeat,

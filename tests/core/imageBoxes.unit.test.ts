@@ -35,6 +35,7 @@ const ops: ImageOps = {
   singleImageOps: new Set<number>([OP.paintImageXObject, OP.paintImageMaskXObject, OP.paintInlineImageXObject]),
   constructPath: OP.constructPath,
   pathPaintOps: new Set<number>([OP.fill]),
+  pathFillOps: new Set<number>([OP.fill]),
   vectorPaintOps: new Set<number>(),
   paintImageXObjectRepeat: OP.paintImageXObjectRepeat,
   paintImageMaskXObjectRepeat: OP.paintImageMaskXObjectRepeat,

@@ -3,6 +3,10 @@ import type { ImageOps } from './imageBoxes.js';
 
 type Matrix6 = [number, number, number, number, number, number];
 type Quad = [number, number, number, number];
+interface GraphicsState {
+  ctm: Matrix6;
+  fillColor?: string;
+}
 const MIN_VECTOR_BOX_SIZE = 0.5;
 
 function multiply(ctm: Matrix6, m: readonly number[]): Matrix6 {
@@ -70,40 +74,81 @@ export function buildVectorBoxes(
   fnArray: number[],
   argsArray: unknown[][],
   ops: ImageOps,
+  pageWidth: number,
   pageHeight: number,
   viewMinX: number,
   viewMinY: number,
 ): VectorBox[] {
   const boxes: VectorBox[] = [];
   let ctm: Matrix6 = [1, 0, 0, 1, 0, 0];
-  const stack: Matrix6[] = [];
+  let fillColor: string | undefined;
+  const stack: GraphicsState[] = [];
 
   for (let i = 0; i < fnArray.length; i++) {
     const fn = fnArray[i];
     const args = argsArray[i];
 
     if (fn === ops.save) {
-      stack.push([...ctm] as Matrix6);
+      stack.push({ ctm: [...ctm] as Matrix6, fillColor });
     } else if (fn === ops.restore) {
       const popped = stack.pop();
-      if (popped) ctm = popped;
+      if (popped) {
+        ctm = popped.ctm;
+        fillColor = popped.fillColor;
+      }
     } else if (fn === ops.transform) {
       const matrix = matrix6(args);
       if (matrix) ctm = multiply(ctm, matrix);
     } else if (fn === ops.formBegin) {
-      stack.push([...ctm] as Matrix6);
+      stack.push({ ctm: [...ctm] as Matrix6, fillColor });
       const matrix = matrix6(args?.[0]);
       if (matrix) ctm = multiply(ctm, matrix);
     } else if (fn === ops.formEnd) {
       const popped = stack.pop();
-      if (popped) ctm = popped;
+      if (popped) {
+        ctm = popped.ctm;
+        fillColor = popped.fillColor;
+      }
+    } else if (ops.fillColorOps.has(fn)) {
+      fillColor = fillColorValue(args);
     } else if (fn === ops.constructPath) {
       const pathOp = args?.[0];
       const bbox = numericQuad(args?.[2]);
       if (typeof pathOp === 'number' && ops.pathPaintOps.has(pathOp) && bbox) {
-        boxes.push(bboxToBox(bbox, ctm, pageHeight, viewMinX, viewMinY));
+        const box = bboxToBox(bbox, ctm, pageHeight, viewMinX, viewMinY);
+        if (!isWhitePageBackgroundFill(pathOp, box, fillColor, ops, pageWidth, pageHeight)) {
+          boxes.push(box);
+        }
       }
     }
   }
   return boxes;
+}
+
+function fillColorValue(args: readonly unknown[] | undefined): string | undefined {
+  const first = args?.[0];
+  if (typeof first === 'string') return first.toLowerCase();
+  return undefined;
+}
+
+function isWhiteColor(value: string | undefined): boolean {
+  return value === '#fff' || value === '#ffffff' || value === 'white';
+}
+
+function isWhitePageBackgroundFill(
+  pathOp: number,
+  box: VectorBox,
+  fillColor: string | undefined,
+  ops: ImageOps,
+  pageWidth: number,
+  pageHeight: number,
+): boolean {
+  if (!ops.pathFillOps.has(pathOp) || !isWhiteColor(fillColor)) return false;
+  const tolerance = 1;
+  return (
+    box.x <= tolerance &&
+    box.y <= tolerance &&
+    box.x + box.width >= pageWidth - tolerance &&
+    box.y + box.height >= pageHeight - tolerance
+  );
 }
