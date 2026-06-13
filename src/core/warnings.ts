@@ -84,6 +84,8 @@ const LOCALIZED_GLYPH_NOISE_RATIO_THRESHOLD = 0.05;
 const LOCALIZED_GLYPH_NOISE_COUNT_THRESHOLD = 2;
 const PRIVATE_USE_GLYPH_GARBAGE_MIN_COUNT = 2;
 const PRIVATE_USE_GLYPH_GARBAGE_RATIO_THRESHOLD = 0.6;
+const LOCALIZED_PRIVATE_USE_GLYPH_COUNT_THRESHOLD = 8;
+const LOCALIZED_PRIVATE_USE_GLYPH_LOW_RATIO_THRESHOLD = 0.02;
 const LOCALIZED_PRIVATE_USE_GLYPH_RATIO_THRESHOLD = 0.25;
 const REPLACEMENT_CHARACTER = '\uFFFD';
 const CJK_MOJIBAKE_MIN_CJK_COUNT = 50;
@@ -203,11 +205,12 @@ function detectLocalizedGlyphNoise(page: PageResult, out: PageWarning[]): void {
   const isPageWidePrivateUseGarbage =
     privateUse.count >= PRIVATE_USE_GLYPH_GARBAGE_MIN_COUNT &&
     privateUse.ratio >= PRIVATE_USE_GLYPH_GARBAGE_RATIO_THRESHOLD;
-  if (
-    !isPageWidePrivateUseGarbage &&
+  const hasLocalizedPrivateUseNoise =
     privateUse.count > 0 &&
-    privateUse.ratio >= LOCALIZED_PRIVATE_USE_GLYPH_RATIO_THRESHOLD
-  ) {
+    (privateUse.ratio >= LOCALIZED_PRIVATE_USE_GLYPH_RATIO_THRESHOLD ||
+      (privateUse.count >= LOCALIZED_PRIVATE_USE_GLYPH_COUNT_THRESHOLD &&
+        privateUse.ratio >= LOCALIZED_PRIVATE_USE_GLYPH_LOW_RATIO_THRESHOLD));
+  if (!isPageWidePrivateUseGarbage && hasLocalizedPrivateUseNoise) {
     out.push({
       code: 'localized_glyph_noise',
       severity: 'warning',

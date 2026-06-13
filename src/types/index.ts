@@ -1159,7 +1159,7 @@ export interface PageResult {
    * `imageBoxes` is false, while `imageBoxIndex` is only emitted when
    * public `pages[].imageBoxes` exists. Localized glyph noise and
    * PUA-dominant glyph-code text can surface from always-on text-quality
-   * signals such as non-printable counters, private-use glyph ratios,
+   * signals such as non-printable counters, private-use glyph counts/ratios,
    * isolated mojibake in CJK text, Latin-1 printable mojibake, pdf.js
    * font character-map warnings, or high-confidence OCR/native text
    * disagreement. Empty array is omitted; a populated array means at

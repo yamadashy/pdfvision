@@ -318,6 +318,28 @@ describe('detectPageWarnings', () => {
     expect(out[0].message).toContain('33.3% PUA');
   });
 
+  it('flags repeated private-use glyphs inside otherwise readable math text', () => {
+    const text =
+      'Readable vector worksheet '.repeat(8) +
+      '\uf0d7 \uf076 \uf02d \uf02b \uf0b1 \uf03d \uf0b0 \uf0e5 \uf076 \uf02b \uf03d \uf0b1';
+    const out = detectPageWarnings({
+      page: 1,
+      text,
+      charCount: text.length,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.12,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'localized_glyph_noise', severity: 'warning' });
+    expect(out[0].message).toContain('12 private-use glyph codes');
+  });
+
   it('flags pdf.js font mapping warnings when printable native text otherwise looks ok', () => {
     const out = detectPageWarnings(
       {
