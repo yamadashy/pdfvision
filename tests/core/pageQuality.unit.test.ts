@@ -104,6 +104,20 @@ describe('derivePageQuality', () => {
     });
   });
 
+  it('treats image-only blank renders as empty pages', () => {
+    const quality = derivePageQuality(
+      makePage({
+        imageCount: 2,
+        renderContentRatio: 0.000002,
+      }),
+    );
+
+    expect(quality).toEqual({
+      nativeTextStatus: 'empty',
+      visualStatus: 'blank',
+    });
+  });
+
   it('keeps tiny corroborated visual traces distinct from blank renders', () => {
     const quality = derivePageQuality(
       makePage({

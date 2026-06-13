@@ -44,7 +44,7 @@ export function derivePageQuality(p: PageResult): PageQuality {
   const hasVisualRender = visualStatus === 'ok' || visualStatus === 'sparse';
   const hasBlankVisualRender = visualStatus === 'blank';
   const hasNonTextVisualContent = p.imageCount > 0 || p.vectorCount > 0;
-  const hasVisualContent = hasNonTextVisualContent || hasVisualRender;
+  const hasVisualContent = (hasNonTextVisualContent && !hasBlankVisualRender) || hasVisualRender;
   const hasDenseVisualStructure = p.vectorCount >= DENSE_VISUAL_STRUCTURE_VECTOR_THRESHOLD;
   const hasSparseText =
     (p.charCount <= SPARSE_VISUAL_TEXT_CHAR_THRESHOLD && p.textCoverage < SPARSE_VISUAL_TEXT_COVERAGE_THRESHOLD) ||
