@@ -1382,6 +1382,74 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('prefers chart headings inside a large visual region over nearby page headers', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 600,
+      pageHeight: 800,
+      imageBoxes: [],
+      layout: {
+        blocks: [
+          {
+            text: 'Page: 16/16',
+            x: 500,
+            y: 72,
+            width: 52,
+            height: 9,
+            role: 'heading',
+            level: 2,
+            lines: [{ text: 'Page: 16/16', x: 500, y: 72, width: 52, height: 9, fontSize: 9 }],
+          },
+          {
+            text: 'Heart rate',
+            x: 270,
+            y: 112,
+            width: 60,
+            height: 10,
+            role: 'heading',
+            level: 1,
+            lines: [{ text: 'Heart rate', x: 270, y: 112, width: 60, height: 10, fontSize: 10 }],
+          },
+        ],
+        tables: [
+          {
+            x: 80,
+            y: 100,
+            width: 440,
+            height: 210,
+            rowCount: 12,
+            columnCount: 8,
+            rows: [],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'table',
+        x: 72,
+        y: 92,
+        width: 456,
+        height: 226,
+        areaRatio: 0.215,
+        sourceCount: 1,
+        sources: [{ type: 'layoutTable', index: 0 }],
+        reason: 'layout table hint with 12 rows and 8 columns',
+        associatedText: [
+          {
+            text: 'Heart rate',
+            relation: 'label',
+            x: 270,
+            y: 112,
+            width: 60,
+            height: 10,
+            blockIndex: 1,
+          },
+        ],
+      },
+    ]);
+  });
+
   it('attaches nearby plain table lead-ins to unlabeled table regions', () => {
     const regions = buildVisualRegions({
       pageWidth: 300,
