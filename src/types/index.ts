@@ -611,9 +611,9 @@ export interface VisualRegionAssociatedText {
   y: number;
   width: number;
   height: number;
-  /** 0-based index into `layout.blocks` when relation is `caption`. */
+  /** 0-based index into `layout.blocks` when the text came from page layout. */
   blockIndex?: number;
-  /** 0-based index into `formFields` when relation is `label`. */
+  /** 0-based index into `formFields` when the label came from a form field. */
   fieldIndex?: number;
 }
 
@@ -640,7 +640,7 @@ export interface VisualRegion {
   sources: VisualRegionSource[];
   /** Short human-readable reason for why the region is worth inspecting. */
   reason: string;
-  /** Nearby text that identifies or explains this visual region, such as a caption or form label. */
+  /** Nearby text that identifies or explains this visual region, such as a caption, form label, or table lead-in. */
   associatedText?: VisualRegionAssociatedText[];
   /** Cropped PNG path for this region when `renderVisualRegions` was requested. */
   image?: string;

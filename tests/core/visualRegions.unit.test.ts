@@ -1018,6 +1018,79 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('attaches nearby plain table lead-ins to unlabeled table regions', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 300,
+      pageHeight: 300,
+      imageBoxes: [],
+      layout: {
+        blocks: [
+          {
+            text: 'The following table shows information by reportable segment for 2023, 2022 and 2021:',
+            x: 45,
+            y: 72,
+            width: 210,
+            height: 10,
+            lines: [
+              {
+                text: 'The following table shows information by reportable segment for 2023, 2022 and 2021:',
+                x: 45,
+                y: 72,
+                width: 210,
+                height: 10,
+                fontSize: 10,
+              },
+            ],
+          },
+          {
+            text: 'Americas:',
+            x: 45,
+            y: 118,
+            width: 60,
+            height: 10,
+            lines: [{ text: 'Americas:', x: 45, y: 118, width: 60, height: 10, fontSize: 10 }],
+          },
+        ],
+        tables: [
+          {
+            x: 40,
+            y: 100,
+            width: 220,
+            height: 130,
+            rowCount: 6,
+            columnCount: 4,
+            rows: [],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'table',
+        x: 32,
+        y: 64,
+        width: 236,
+        height: 174,
+        areaRatio: 0.456,
+        sourceCount: 1,
+        sources: [{ type: 'layoutTable', index: 0 }],
+        reason: 'layout table hint with 6 rows and 4 columns',
+        associatedText: [
+          {
+            text: 'The following table shows information by reportable segment for 2023, 2022 and 2021:',
+            relation: 'label',
+            x: 45,
+            y: 72,
+            width: 210,
+            height: 10,
+            blockIndex: 0,
+          },
+        ],
+      },
+    ]);
+  });
+
   it('attaches short plain labels below raster images', () => {
     const regions = buildVisualRegions({
       pageWidth: 200,
