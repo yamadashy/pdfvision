@@ -1935,6 +1935,33 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('skips hidden form fields when building visual regions', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 360,
+      pageHeight: 140,
+      imageBoxes: [],
+      formFields: [
+        { name: 'hiddenText', type: 'text', x: 54, y: 28, width: 150, height: 22, flags: ['hidden'] },
+        { name: 'showButton', type: 'button', x: 251, y: 30, width: 72, height: 20, flags: ['print'] },
+        { name: 'noViewText', type: 'text', x: 54, y: 77, width: 150, height: 22, flags: ['noView'] },
+      ],
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'form',
+        x: 243,
+        y: 22,
+        width: 88,
+        height: 36,
+        areaRatio: 0.063,
+        sourceCount: 1,
+        sources: [{ type: 'formField', index: 1 }],
+        reason: '1 interactive form fields in one page region',
+      },
+    ]);
+  });
+
   it('deduplicates repeated form labels in associated visual-region text', () => {
     const sharedLabel = {
       text: 'Shared taxpayer label',

@@ -648,7 +648,7 @@ function addFormCandidate(
   if (!formFields || formFields.length === 0) return;
   const usableFields = formFields
     .map((field, index) => ({ field, index }))
-    .filter(({ field }) => isFinitePositiveBox(field));
+    .filter(({ field }) => isFinitePositiveBox(field) && isVisuallyDispatchableFormField(field));
   if (usableFields.length === 0) return;
   for (const cluster of formFieldClusters(usableFields, pageHeight)) {
     const associatedText = cluster.flatMap(({ field, index }) =>
@@ -685,6 +685,10 @@ function addFormCandidate(
       ...(associatedText.length > 0 && { associatedText }),
     });
   }
+}
+
+function isVisuallyDispatchableFormField(field: FormField): boolean {
+  return !field.flags?.some((flag) => flag === 'invisible' || flag === 'hidden' || flag === 'noView');
 }
 
 function formFieldBox(field: FormField): BoxLike {
