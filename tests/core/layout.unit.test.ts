@@ -1052,6 +1052,20 @@ describe('buildLayout — multi-column reading order', () => {
     expect(layout.blocks[0].lines[0].text).toBe('els are available at https://github.com/');
   });
 
+  it('keeps Arabic word spaces when shaped word boxes have tight gaps', () => {
+    // Arabic shaping can make pdf.js word boxes sit closer than the
+    // Latin-oriented 0.25x font-size gap threshold even though the source
+    // text has spaces between words.
+    const spans: TextSpan[] = [
+      span('العربية', 257.55, 184, 36, 83.92),
+      span('اخلطوط', 346.8, 184, 36, 86.94),
+      span('انواع', 439.06, 184, 36, 62.93),
+    ];
+    const layout = buildLayout(spans);
+
+    expect(layout.blocks[0].lines[0].text).toBe('العربية اخلطوط انواع');
+  });
+
   it('splits large numeric callouts from small annotation lines while keeping the unit', () => {
     // Japanese infographic-shaped case: a small "75%" annotation sits
     // above a large "9,308万枚" KPI. The large number's tall bbox used
