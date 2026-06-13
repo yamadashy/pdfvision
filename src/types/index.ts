@@ -605,14 +605,14 @@ export interface VectorBox {
   height: number;
 }
 
-export type VisualRegionKind = 'raster' | 'vector' | 'table' | 'form' | 'mixed';
-export type VisualRegionSourceType = 'imageBox' | 'vectorBox' | 'layoutTable' | 'formField';
+export type VisualRegionKind = 'raster' | 'vector' | 'table' | 'form' | 'annotation' | 'mixed';
+export type VisualRegionSourceType = 'imageBox' | 'vectorBox' | 'layoutTable' | 'formField' | 'annotation';
 export type VisualRegionAssociatedTextRelation = 'caption' | 'label';
 
 export interface VisualRegionSource {
   /** Source geometry collection this region was derived from. */
   type: VisualRegionSourceType;
-  /** 0-based index into the source collection on the same page. */
+  /** 0-based index into the source collection on the same page; the collection may be internal if not emitted. */
   index: number;
 }
 
@@ -633,8 +633,8 @@ export interface VisualRegionAssociatedText {
  * Human-meaningful visual region that can be passed directly to
  * `--render-region x,y,width,height` for a high-detail crop. Regions are
  * derived from existing page geometry (raster image boxes, vector path
- * clusters, layout table hints, and form widgets), padded and clamped to
- * page bounds.
+ * clusters, layout table hints, form widgets, and visible annotation
+ * markup), padded and clamped to page bounds.
  */
 export interface VisualRegion {
   /** Stable page-local identifier such as `p3-vr0`, present in extracted page results. */

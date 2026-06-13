@@ -794,6 +794,24 @@ describe('processDocument', () => {
     expect(result.pages[0].links).toHaveLength(1);
   });
 
+  it('uses visible annotations as visual-region seeds without exposing annotations by default', async () => {
+    const result = await processDocument('memory://annotation-region.pdf', {
+      sourceData: await buildPdfWithAnnotations(),
+      noCache: true,
+      visualRegions: true,
+    });
+
+    const page = result.pages[0];
+    expect(page.annotations).toBeUndefined();
+    expect(page.visualRegions).toContainEqual(
+      expect.objectContaining({
+        kind: 'annotation',
+        sources: [{ type: 'annotation', index: 1 }],
+        reason: 'Highlight annotation markup',
+      }),
+    );
+  });
+
   it('mirrors linkCount on the overview when link extraction runs on a multi-page PDF', async () => {
     const result = await processDocument(SAMPLE_JA_PDF, { noCache: true, links: true });
     expect(result.overview).toBeDefined();

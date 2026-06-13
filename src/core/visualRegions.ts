@@ -1,6 +1,7 @@
 import type {
   FormField,
   ImageBox,
+  PageAnnotation,
   PageLayout,
   VectorBox,
   VisualRegion,
@@ -31,6 +32,7 @@ export interface BuildVisualRegionsInput {
   vectorBoxes?: readonly VectorBox[];
   layout?: PageLayout;
   formFields?: readonly FormField[];
+  annotations?: readonly PageAnnotation[];
   visualStatus?: 'ok' | 'sparse' | 'blank';
 }
 
@@ -692,6 +694,34 @@ function isVisuallyDispatchableFormField(field: FormField): boolean {
   return !field.flags?.some((flag) => flag === 'invisible' || flag === 'hidden' || flag === 'noView');
 }
 
+function addAnnotationCandidates(annotations: readonly PageAnnotation[] | undefined, candidates: Candidate[]): void {
+  if (!annotations || annotations.length === 0) return;
+  for (const [index, annotation] of annotations.entries()) {
+    if (!isVisuallyDispatchableAnnotation(annotation)) continue;
+    const box = annotationVisualBox(annotation);
+    if (!box) continue;
+    candidates.push({
+      ...box,
+      kind: 'annotation',
+      priority: 3,
+      reason: `${annotation.subtype} annotation markup`,
+      sources: [{ type: 'annotation', index }],
+    });
+  }
+}
+
+function isVisuallyDispatchableAnnotation(annotation: PageAnnotation): boolean {
+  return !annotation.flags?.some((flag) => flag === 'invisible' || flag === 'hidden' || flag === 'noView');
+}
+
+function annotationVisualBox(annotation: PageAnnotation): BoxLike | undefined {
+  const boxes = (annotation.quadBoxes && annotation.quadBoxes.length > 0 ? annotation.quadBoxes : [annotation]).filter(
+    isFinitePositiveBox,
+  );
+  if (boxes.length === 0) return undefined;
+  return boxes.slice(1).reduce<BoxLike>((acc, box) => unionBox(acc, box), boxes[0]);
+}
+
 function formFieldBox(field: FormField): BoxLike {
   return field.label ? unionBox(field, field.label) : field;
 }
@@ -1230,6 +1260,7 @@ export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion
   addVectorCandidates(input, candidates);
   addTableCandidates(input.layout, candidates, input.pageWidth, input.pageHeight);
   addFormCandidate(input.formFields, input.pageHeight, candidates);
+  addAnnotationCandidates(input.annotations, candidates);
 
   const totalArea = pageArea(input);
   const formAwareCandidates = suppressFormBackplaneCandidates(candidates, totalArea);

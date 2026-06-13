@@ -72,6 +72,53 @@ describe('buildVisualRegions', () => {
     expect(regions).toEqual([]);
   });
 
+  it('emits annotation markup regions even when the visible mark is thin', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      annotations: [
+        {
+          subtype: 'Highlight',
+          flags: ['print'],
+          x: 56.52,
+          y: 88.94,
+          width: 133.98,
+          height: 12,
+          quadBoxes: [{ x: 56.52, y: 88.94, width: 133.98, height: 12 }],
+        },
+      ],
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'annotation',
+        x: 48.52,
+        y: 80.94,
+        width: 149.98,
+        height: 28,
+        areaRatio: 0.009,
+        sourceCount: 1,
+        sources: [{ type: 'annotation', index: 0 }],
+        reason: 'Highlight annotation markup',
+      },
+    ]);
+  });
+
+  it('does not dispatch hidden annotations as visual regions', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      annotations: [
+        { subtype: 'Stamp', flags: ['hidden', 'print'], x: 70, y: 90, width: 100, height: 30 },
+        { subtype: 'Ink', flags: ['noView'], x: 100, y: 150, width: 80, height: 40 },
+      ],
+    });
+
+    expect(regions).toEqual([]);
+  });
+
   it('keeps full-page raster regions without render evidence', () => {
     const regions = buildVisualRegions({
       pageWidth: 100,

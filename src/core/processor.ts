@@ -295,7 +295,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v74',
+    format: 'structured-v75',
     passwordHash:
       input.password !== undefined ? createHash('sha256').update(input.password).digest('hex').slice(0, 16) : null,
     render: !!input.render,
@@ -623,11 +623,13 @@ async function extractPageData(
         resolveDestinationPage: (target) => resolveDestinationPage(doc, target),
       })
     : undefined;
-  const pageAnnotations = flags.annotations
-    ? buildAnnotations(annotations ?? [], height, xMin, yMin, {
-        normalizeText: flags.normalize ? normalizeText : undefined,
-      })
-    : undefined;
+  const allPageAnnotations =
+    flags.annotations || flags.visualRegions
+      ? buildAnnotations(annotations ?? [], height, xMin, yMin, {
+          normalizeText: flags.normalize ? normalizeText : undefined,
+        })
+      : undefined;
+  const pageAnnotations = flags.annotations ? allPageAnnotations : undefined;
   const structure = flags.structure
     ? buildPageStructure(await page.getStructTree(), {
         normalizeText: flags.normalize ? normalizeText : undefined,
@@ -660,6 +662,7 @@ async function extractPageData(
         vectorBoxes: allVectorBoxes,
         layout: internalLayout,
         formFields: allFormFields,
+        annotations: allPageAnnotations,
       }
     : undefined;
 
