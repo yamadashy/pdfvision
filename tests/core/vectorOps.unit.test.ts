@@ -18,6 +18,8 @@ const ops: ImageOps = {
   transform: 12,
   formBegin: 13,
   formEnd: 14,
+  setFillColorN: 15,
+  fillColorOps: new Set<number>([15]),
   singleImageOps: new Set<number>(),
   constructPath: OP.constructPath,
   pathPaintOps: new Set<number>([OP.stroke, OP.fill]),

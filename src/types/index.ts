@@ -584,7 +584,9 @@ export interface LayoutTableCell {
  * multiple draws of the same XObject into a single op carrying a
  * `positions` array (or per-instance transforms). `buildImageBoxes` in
  * `core/imageBoxes.ts` walks those ops and emits one entry per drawn
- * instance, so a tiled hero surfaces as N per-instance bboxes — and
+ * instance, so a tiled hero surfaces as N per-instance bboxes. Image-
+ * bearing tiling patterns painted through fill paths surface as the
+ * painted path bbox so masked/pattern images still become crop targets.
  * `imageCount === imageBoxes.length` holds for every page. Form XObject
  * (`paintFormXObjectBegin/End`) CTM-stack tracking ensures images drawn
  * inside a Form XObject map to the correct page-space position.
@@ -1072,7 +1074,8 @@ export interface PageResult {
   /**
    * Bounding boxes of raster image draws on the page, only present when
    * `imageBoxes: true` was passed. One entry per draw operation (a tiled
-   * hero image yields multiple entries).
+   * hero image yields multiple entries); image-bearing tiling pattern
+   * fills use the painted path bbox.
    */
   imageBoxes?: ImageBox[];
   /**

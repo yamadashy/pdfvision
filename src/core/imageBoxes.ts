@@ -18,6 +18,9 @@ export interface ImageOps {
   transform: number;
   formBegin: number;
   formEnd: number;
+  setFillColorN: number;
+  /** Fill-color setters that clear an image-bearing tiling pattern. */
+  fillColorOps: ReadonlySet<number>;
   /** Image draws that count as a single instance per op (paintImage*, paintInlineImage*, paintImageMaskXObject). */
   singleImageOps: Set<number>;
   /** pdf.js wraps path painting in constructPath and stores the actual path op as args[0]. */
@@ -33,6 +36,7 @@ export interface ImageOps {
 }
 
 type Matrix6 = [number, number, number, number, number, number];
+type Quad = [number, number, number, number];
 
 /** ctm × m, using pdf.js's right-multiply convention. */
 function multiply(ctm: Matrix6, m: readonly number[]): Matrix6 {
@@ -49,6 +53,15 @@ function multiply(ctm: Matrix6, m: readonly number[]): Matrix6 {
 /** Round to 2dp — matches the rest of the public bbox payload. */
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+function numericQuad(value: unknown): Quad | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const maybe = value as ArrayLike<unknown>;
+  if (maybe.length < 4) return undefined;
+  const values = [maybe[0], maybe[1], maybe[2], maybe[3]];
+  if (!values.every((v) => typeof v === 'number' && Number.isFinite(v))) return undefined;
+  return values as Quad;
 }
 
 /**
@@ -76,6 +89,62 @@ function unitSquareToBox(m: Matrix6, pageHeight: number, viewMinX: number, viewM
     width: round2(xMaxPdf - xMinPdf),
     height: round2(yMaxPdf - yMinPdf),
   };
+}
+
+function bboxToBox(bbox: Quad, ctm: Matrix6, pageHeight: number, viewMinX: number, viewMinY: number): ImageBox {
+  const [x1, y1, x2, y2] = bbox;
+  const [a, b, c, d, e, f] = ctm;
+  const corners = [
+    [x1, y1],
+    [x2, y1],
+    [x1, y2],
+    [x2, y2],
+  ].map(([x, y]) => [a * x + c * y + e, b * x + d * y + f]);
+  const xs = corners.map(([x]) => x);
+  const ys = corners.map(([, y]) => y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  return {
+    x: round2(minX - viewMinX),
+    y: round2(pageHeight - (maxY - viewMinY)),
+    width: round2(maxX - minX),
+    height: round2(maxY - minY),
+  };
+}
+
+function isImagePaintOp(fn: number, ops: ImageOps): boolean {
+  return (
+    ops.singleImageOps.has(fn) ||
+    fn === ops.paintImageXObjectRepeat ||
+    fn === ops.paintImageMaskXObjectRepeat ||
+    fn === ops.paintImageMaskXObjectGroup ||
+    fn === ops.paintInlineImageXObjectGroup
+  );
+}
+
+function operatorListHasImagePaint(value: unknown, ops: ImageOps, depth = 0): boolean {
+  if (!value || typeof value !== 'object' || depth > 3) return false;
+  const maybe = value as { fnArray?: ArrayLike<unknown>; argsArray?: ArrayLike<unknown> };
+  if (!maybe.fnArray || typeof maybe.fnArray.length !== 'number') return false;
+
+  for (let i = 0; i < maybe.fnArray.length; i++) {
+    const fn = maybe.fnArray[i];
+    if (typeof fn !== 'number') continue;
+    if (isImagePaintOp(fn, ops)) return true;
+    if (fn === ops.setFillColorN && setFillColorNHasImagePattern(maybe.argsArray?.[i], ops, depth + 1)) return true;
+  }
+  return false;
+}
+
+function setFillColorNHasImagePattern(args: unknown, ops: ImageOps, depth = 0): boolean {
+  if (!Array.isArray(args)) return false;
+  return args.some((arg) => {
+    if (operatorListHasImagePaint(arg, ops, depth)) return true;
+    if (!Array.isArray(arg)) return false;
+    return arg.some((nested) => operatorListHasImagePaint(nested, ops, depth + 1));
+  });
 }
 
 /**
@@ -124,6 +193,7 @@ export function buildImageBoxes(
   const boxes: ImageBox[] = [];
   let ctm: Matrix6 = [1, 0, 0, 1, 0, 0];
   const stack: Matrix6[] = [];
+  let fillPatternHasImage = false;
 
   const emit = (perInstance: Matrix6 | null): void => {
     const eff = perInstance === null ? ctm : multiply(ctm, perInstance);
@@ -152,6 +222,16 @@ export function buildImageBoxes(
     } else if (fn === ops.formEnd) {
       const popped = stack.pop();
       if (popped) ctm = popped;
+    } else if (fn === ops.setFillColorN) {
+      fillPatternHasImage = setFillColorNHasImagePattern(args, ops);
+    } else if (ops.fillColorOps.has(fn)) {
+      fillPatternHasImage = false;
+    } else if (fn === ops.constructPath) {
+      const pathOp = args?.[0];
+      const bbox = numericQuad(args?.[2]);
+      if (fillPatternHasImage && typeof pathOp === 'number' && ops.pathPaintOps.has(pathOp) && bbox) {
+        boxes.push(bboxToBox(bbox, ctm, pageHeight, viewMinX, viewMinY));
+      }
     } else if (ops.singleImageOps.has(fn)) {
       emit(null);
     } else if (fn === ops.paintImageXObjectRepeat) {

@@ -32,7 +32,7 @@ interface PageOverview {
   page: number;
   pageLabel?: string;             // viewer-visible page label; present iff --page-labels and labels exist
   charCount: number;
-  imageCount: number;             // raster image draws (XObject + inline + mask), per drawn instance
+  imageCount: number;             // raster image draws (XObject + inline + mask + image-bearing patterns), per drawn instance
   vectorCount: number;            // vector drawing ops (paths / shadings), e.g. form boxes, chart rules, slide shapes
   textCoverage: number;           // 0..1, fraction of page area covered by text glyph bboxes
   nonPrintableRatio: number;      // 0..1, fraction of `text` that is NUL / control / noncharacter
@@ -395,7 +395,7 @@ interface ImageBox {
 }
 ```
 
-One entry per drawn instance — a tiled hero image yields multiple entries. `imageCount === imageBoxes.length` is an invariant on every page. Form XObject CTM tracking ensures images drawn inside a form land at the correct page-space position.
+One entry per drawn instance — a tiled hero image yields multiple entries. Image-bearing tiling patterns painted through fill paths surface as the painted path bbox, so masked/pattern images still become crop targets. `imageCount === imageBoxes.length` is an invariant on every page. Form XObject CTM tracking ensures images drawn inside a form land at the correct page-space position.
 
 ## Vector boxes (`--vector-boxes`)
 
