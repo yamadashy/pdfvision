@@ -70,11 +70,11 @@ function median(values: number[]): number {
 }
 
 /** Gap fraction for non-CJK pairs — pdf.js typically packs inter-word
- *  spaces around 0.25 × fontSize. Preserves the pre-fix behavior for
+ *  spaces around 0.22 × fontSize. Preserves the pre-fix behavior for
  *  Latin / digits / punctuation. CJK pairs use {@link CJK_TIGHT_GAP_RATIO}
  *  imported from cjkJoin so primary text and layout-block text classify
  *  the same gap identically. */
-const DEFAULT_SPACE_GAP_RATIO = 0.25;
+const DEFAULT_SPACE_GAP_RATIO = 0.22;
 
 /** Fallback fontSize when both prev and cur report 0 (rare — usually
  *  malformed PDFs that strip the text matrix scale). Without this the
@@ -103,6 +103,9 @@ const TINY_LINE_FONT_SIZE_PT = 4;
 const TINY_LINE_LARGE_PEER_MIN_FONT_SIZE_PT = 8;
 const TINY_LINE_MAX_FONT_RATIO = 0.55;
 const TINY_LINE_MIN_CHARS = 8;
+const SMALL_PUNCTUATION_LINE_FONT_SIZE_PT = 7;
+const SMALL_PUNCTUATION_LINE_LARGE_PEER_MIN_FONT_SIZE_PT = 10;
+const SMALL_PUNCTUATION_LINE_MAX_FONT_RATIO = 0.65;
 const TABLE_ROW_MIN_CELLS = 3;
 const TABLE_ROW_MIN_NUMERIC_CELLS = 2;
 const TWO_COLUMN_NUMERIC_TABLE_MIN_ROWS = 4;
@@ -340,6 +343,14 @@ function hasTinyLineFontMismatch(a: TextSpan, b: TextSpan): boolean {
   const small = aFontSize <= bFontSize ? a : b;
   const smallFontSize = Math.min(aFontSize, bFontSize);
   const largeFontSize = Math.max(aFontSize, bFontSize);
+  if (
+    smallFontSize <= SMALL_PUNCTUATION_LINE_FONT_SIZE_PT &&
+    largeFontSize >= SMALL_PUNCTUATION_LINE_LARGE_PEER_MIN_FONT_SIZE_PT &&
+    smallFontSize / largeFontSize <= SMALL_PUNCTUATION_LINE_MAX_FONT_RATIO &&
+    /^[\p{P}\p{S}]{1,3}$/u.test(small.text.trim())
+  ) {
+    return true;
+  }
   if (smallFontSize > TINY_LINE_FONT_SIZE_PT) return false;
   if (largeFontSize < TINY_LINE_LARGE_PEER_MIN_FONT_SIZE_PT) return false;
   if (smallFontSize / largeFontSize > TINY_LINE_MAX_FONT_RATIO) return false;

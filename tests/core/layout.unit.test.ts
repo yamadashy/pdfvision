@@ -1075,9 +1075,39 @@ describe('buildLayout — multi-column reading order', () => {
     expect(layout.blocks[0].lines[0].text).toBe('els are available at https://github.com/');
   });
 
+  it('preserves tight Latin word spaces in separated word spans', () => {
+    // PDF.js bug1513120-shaped case: word spans are separated by only
+    // ~0.24em, but the rendered line is normal English with spaces.
+    const spans: TextSpan[] = [
+      span('Questions', 23.04, 159.84, 12.96, 53.52),
+      span('about', 79.68, 159.84, 12.96, 30),
+      span('your', 112.8, 159.84, 12.96, 23.76),
+      span('bill?', 139.68, 159.84, 12.96, 22.08),
+    ];
+    const layout = buildLayout(spans);
+
+    expect(layout.blocks[0].lines[0].text).toBe('Questions about your bill?');
+  });
+
+  it('does not attach small punctuation-only spans to the next body line', () => {
+    // PDF.js bug1513120 also emits a tiny standalone "." just above
+    // the next line. It is not a word prefix for "Monday-Friday".
+    const spans: TextSpan[] = [
+      span('.', 23.04, 175.44, 6.72, 1.68),
+      span('Monday-Friday', 23.04, 178.8, 11.28, 66.96),
+      span('7', 92.88, 178.8, 11.28, 5.52),
+      span('a.m.-9', 101.28, 178.8, 11.28, 28.8),
+      span('p.m.', 132.96, 178.8, 11.28, 19.92),
+    ];
+    const layout = buildLayout(spans);
+    const lines = layout.blocks.flatMap((block) => block.lines.map((line) => line.text));
+
+    expect(lines).toEqual(['.', 'Monday-Friday 7 a.m.-9 p.m.']);
+  });
+
   it('keeps Arabic word spaces when shaped word boxes have tight gaps', () => {
     // Arabic shaping can make pdf.js word boxes sit closer than the
-    // Latin-oriented 0.25x font-size gap threshold even though the source
+    // Latin-oriented font-size gap threshold even though the source
     // text has spaces between words.
     const spans: TextSpan[] = [
       span('العربية', 257.55, 184, 36, 83.92),
