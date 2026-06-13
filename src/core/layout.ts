@@ -104,6 +104,7 @@ const TINY_LINE_MAX_FONT_RATIO = 0.55;
 const TINY_LINE_MIN_CHARS = 8;
 const TABLE_ROW_MIN_CELLS = 3;
 const TABLE_ROW_MIN_NUMERIC_CELLS = 2;
+const TWO_COLUMN_NUMERIC_TABLE_MIN_ROWS = 4;
 const TABLE_GROUP_MAX_ROW_GAP_PT = 48;
 const TABLE_ROW_CADENCE_MIN_MATCH_RATIO = 0.65;
 const TABLE_ROW_CADENCE_TOLERANCE_RATIO = 0.25;
@@ -927,6 +928,7 @@ function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefined {
     const table = tables[index];
     const baseRows = table.map(({ row }) => row);
     if (baseRows.length < 2 || !hasRegularTableRowCadence(baseRows)) continue;
+    if (isTwoColumnNumericOnlyTable(baseRows) && baseRows.length < TWO_COLUMN_NUMERIC_TABLE_MIN_ROWS) continue;
     const nextTableFirstIndex = tables[index + 1]?.[0]?.index ?? allRowGroups.length;
     result.push(toLayoutTable(attachNumericContinuationRows(table, allRowGroups, nextTableFirstIndex)));
   }
@@ -948,7 +950,6 @@ function groupLinesByTableRow(lines: LayoutLine[]): LayoutLine[][] {
 }
 
 function tableCandidateRow(row: LayoutLine[]): LayoutLine[] | undefined {
-  if (row.length < TABLE_ROW_MIN_CELLS) return undefined;
   if (!isLikelyTableRow(row)) return undefined;
   for (let start = 1; start < row.length; start++) {
     const suffix = row.slice(start);
@@ -961,8 +962,9 @@ function tableCandidateRow(row: LayoutLine[]): LayoutLine[] | undefined {
 }
 
 function isLikelyTableRow(row: LayoutLine[]): boolean {
-  if (row.length < TABLE_ROW_MIN_CELLS) return false;
   const numericCells = row.filter((line) => isTableNumericCell(line.text)).length;
+  if (row.length === TABLE_ROW_MIN_NUMERIC_CELLS) return numericCells === TABLE_ROW_MIN_NUMERIC_CELLS;
+  if (row.length < TABLE_ROW_MIN_CELLS) return false;
   return numericCells >= TABLE_ROW_MIN_NUMERIC_CELLS;
 }
 
@@ -972,6 +974,13 @@ function isTableLikeSuffix(row: LayoutLine[]): boolean {
   return row.every(
     (line) => isTableNumericCell(line.text) || isCurrencyOnlyCell(line.text) || isCompactTableLabelCell(line),
   );
+}
+
+function isTwoColumnNumericOnlyTable(rows: LayoutLine[][]): boolean {
+  return rows.every((row) => {
+    const normalized = normalizeTableCurrencyCells(row);
+    return normalized.length === 2 && normalized.every((cell) => isTableNumericCell(cell.text));
+  });
 }
 
 function isCompactTableLabelCell(line: LayoutLine): boolean {

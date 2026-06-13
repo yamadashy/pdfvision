@@ -1153,6 +1153,51 @@ describe('buildLayout — multi-column reading order', () => {
     ]);
   });
 
+  it('emits row-major table hints for two-column numeric year/value rows', () => {
+    // Berkshire annual-report-shaped case: a compact year/value table
+    // has only two semantic columns, with a detached currency marker on
+    // the first value row. It is still a human-visible table whose rows
+    // should survive separately from surrounding prose.
+    const spans: TextSpan[] = [
+      span('it has grown, as the following table shows:', 27, 180.5, 9.5, 156.41),
+      span('Year', 91, 195, 9.5, 17.95),
+      span('Float (in millions)', 414.25, 195, 9.5, 69.73),
+      span('1970', 91, 209.55, 9.5, 19),
+      span('$', 402.8, 209.55, 9.5, 4.75),
+      span('39', 476.45, 209.55, 9.5, 9.5),
+      span('1980', 91, 220.1, 9.5, 19),
+      span('237', 471.7, 220.1, 9.5, 14.25),
+      span('1990', 91, 230.65, 9.5, 19),
+      span('1,632', 464.55, 230.65, 9.5, 21.38),
+      span('2000', 91, 241.2, 9.5, 19),
+      span('27,871', 459.8, 241.2, 9.5, 26.13),
+      span('2010', 91, 251.75, 9.5, 19),
+      span('65,832', 459.8, 251.75, 9.5, 26.13),
+      span('2020', 91, 262.3, 9.5, 19),
+      span('138,503', 455.05, 262.3, 9.5, 30.88),
+      span('2022', 91, 272.85, 9.5, 19),
+      span('164,109', 455.05, 272.85, 9.5, 30.88),
+      span('2023', 91, 283.4, 9.5, 19),
+      span('168,895', 455.05, 283.4, 9.5, 30.88),
+      span('We may in time experience a decline in float.', 51, 297.4, 9.5, 160),
+    ];
+    const layout = buildLayout(spans, 594);
+
+    expect(layout.tables).toHaveLength(1);
+    expect(layout.tables?.[0].rowCount).toBe(8);
+    expect(layout.tables?.[0].columnCount).toBe(2);
+    expect(layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text))).toEqual([
+      ['1970', '$ 39'],
+      ['1980', '237'],
+      ['1990', '1,632'],
+      ['2000', '27,871'],
+      ['2010', '65,832'],
+      ['2020', '138,503'],
+      ['2022', '164,109'],
+      ['2023', '168,895'],
+    ]);
+  });
+
   it('trims side-panel financial table rows away from adjacent prose columns', () => {
     // PDF.js marked-content-shaped case: prose columns and a compact
     // financial side panel share y positions. Table hints should describe
