@@ -527,7 +527,7 @@ interface PageWarning {
 
 The current rule catalog:
 
-- `text_overlap` — non-repeated layout blocks overlap in a way that may scramble reading order. Shallow adjacent-line bbox slack from inline math, superscripts, subscripts, and punctuation-only inline fragments is suppressed.
+- `text_overlap` — non-repeated layout blocks overlap in a way that may scramble reading order. Shallow adjacent-line bbox slack from inline math, superscripts, subscripts, punctuation-only inline fragments, and callout-marker continuation lines is suppressed.
 - `near_bottom_edge` — body text ends unusually close to the page bottom.
 - `body_near_repeated_chrome` — body text overlaps or nearly touches detected repeated header/footer chrome.
 - `off_page` — a layout block bbox extends beyond the page.

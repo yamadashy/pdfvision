@@ -170,7 +170,7 @@ function isLooseLineContinuationPair(a: LayoutBlock, b: LayoutBlock): boolean {
   const inlineMathSlack = upperLine.height > upperLine.fontSize * 1.35 || lowerLine.height > lowerLine.fontSize * 1.35;
   // Only leading !/bullet markers are list markers; trailing punctuation
   // should not suppress a real visual overlap.
-  return inlineMathSlack || /^[!•]\s/u.test(upperLine.text.trim()) || /[-‐‑–]\s*$/u.test(upperLine.text.trim());
+  return inlineMathSlack || /^[!•▲▶►▸]\s/u.test(upperLine.text.trim()) || /[-‐‑–]\s*$/u.test(upperLine.text.trim());
 }
 
 function isInlineFragment(fragment: LayoutBlock, neighbour: LayoutBlock): boolean {

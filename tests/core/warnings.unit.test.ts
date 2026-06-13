@@ -1278,6 +1278,37 @@ describe('detectPageWarnings', () => {
       expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
     });
 
+    it('does not flag an indented continuation line under a triangle callout marker', () => {
+      const marker = block(465.1, 122.36, 108.51, 14.28, {
+        text: '▲ Make sure the SSN(s) above',
+        lines: [
+          {
+            text: '▲ Make sure the SSN(s) above',
+            x: 465.1,
+            y: 122.36,
+            width: 108.51,
+            height: 14.28,
+            fontSize: 13,
+          },
+        ],
+      });
+      const continuation = block(488.3, 130.76, 81.81, 7, {
+        text: 'and on line 6c are correct.',
+        lines: [
+          {
+            text: 'and on line 6c are correct.',
+            x: 488.3,
+            y: 130.76,
+            width: 81.81,
+            height: 7,
+            fontSize: 7,
+          },
+        ],
+      });
+      const out = detectPageWarnings(page([marker, continuation]));
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
     it('does not flag adjacent prose blocks when the lower line bbox is inflated by inline math', () => {
       const upper = block(55.44, 416.22, 236.01, 45.82, {
         text: 'A second advantage of using a learned linear reward function.\nfunction in Equation (4). If we do not represent R as a',
