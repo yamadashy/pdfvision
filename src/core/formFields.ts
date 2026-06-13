@@ -202,6 +202,7 @@ interface LabelCandidate {
 }
 
 const LABEL_MAX_CHARS = 220;
+const STACKED_LABEL_MAX_CHARS = 260;
 const SIDE_LABEL_MAX_GAP_PT = 80;
 const ABOVE_LABEL_MAX_GAP_PT = 42;
 const BELOW_LABEL_MAX_GAP_PT = 24;
@@ -374,7 +375,7 @@ function expandStackedLabel(field: FormField, candidate: LabelCandidate, lines: 
   const sorted = stack.sort((a, b) => a.line.y - b.line.y || a.line.x - b.line.x);
   const labelBox = sorted.slice(1).reduce<BoxLike>((box, item) => unionBox(box, item.line), sorted[0].line);
   const text = sorted.map((item) => item.text).join(' ');
-  if (!isUsableLabelText(text)) return candidate.label;
+  if (!isUsableLabelText(text, STACKED_LABEL_MAX_CHARS)) return candidate.label;
 
   return {
     text,
@@ -568,8 +569,8 @@ function normalizePromptLabelText(text: string): string {
     .trim();
 }
 
-function isUsableLabelText(text: string): boolean {
-  if (text.length === 0 || text.length > LABEL_MAX_CHARS) return false;
+function isUsableLabelText(text: string, maxChars = LABEL_MAX_CHARS): boolean {
+  if (text.length === 0 || text.length > maxChars) return false;
   return /[\p{Letter}\p{Number}]/u.test(text);
 }
 

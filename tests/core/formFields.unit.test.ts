@@ -257,6 +257,51 @@ describe('buildFormFields', () => {
     });
   });
 
+  it('keeps two-line checkbox instructions when stacked text just exceeds the single-line cap', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'twoJobsCheckbox',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: [564, 380, 572, 388],
+          fieldValue: 'Off',
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        {
+          text: '(c) If there are only two jobs total, you may check this box. Do the same on Form W-4 for the other job. This',
+          x: 122.4,
+          y: 380.8,
+          width: 434.2,
+          height: 9,
+          fontSize: 9,
+        },
+        {
+          text: 'option is generally more accurate than Step 2(b) if pay at the lower paying job is more than half of the pay at',
+          x: 136.8,
+          y: 391.6,
+          width: 433.4,
+          height: 9,
+          fontSize: 9,
+        },
+      ],
+    );
+
+    expect(fields[0].label).toMatchObject({
+      text: '(c) If there are only two jobs total, you may check this box. Do the same on Form W-4 for the other job. This option is generally more accurate than Step 2(b) if pay at the lower paying job is more than half of the pay at',
+      relation: 'above',
+      x: 122.4,
+      y: 380.8,
+      width: 447.8,
+      height: 19.8,
+    });
+  });
+
   it('prefers fine-grained label spans over merged adjacent label lines', () => {
     const fields = buildFormFields(
       [
