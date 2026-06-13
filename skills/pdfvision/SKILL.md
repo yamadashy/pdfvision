@@ -128,9 +128,10 @@ pdfvision deliberately stops at observation: it does **not** recommend an action
 
 ### Warnings
 
-`pages[].warnings[]` carries page anomalies that deserve visual attention even when `quality.nativeTextStatus` is still `ok`.
+`pages[].warnings[]` carries page anomalies that deserve visual attention.
 
 - Geometry warnings (`text_overlap`, `near_bottom_edge`, `body_near_repeated_chrome`, `off_page`) require `--layout`.
+- `glyph_garbage_text` uses always-on text-quality signals and fires when `quality.nativeTextStatus` is `mixed_glyph_indices` or `unusable_glyph_indices`. Treat native `text`, `spans`, search hits, and layout text as incomplete or unreliable; inspect `--render` and consider `--ocr`.
 - `localized_glyph_noise` uses always-on text-quality signals and fires when multiple non-printable code points appear below the mixed-glyph ratio threshold, when native text contains Unicode replacement characters (`U+FFFD`), or when a CJK page contains isolated Latin-extended mojibake characters. Common cases: formulas, comparison symbols, bullet symbols, dotted leaders, or custom icon fonts that render fine but extract as control characters, replacement glyphs, or stray printable glyphs.
 - `dense_vector_graphics` uses the always-on `vectorCount` signal and fires on pages dominated by vector drawing operations. Common cases: forms, checkboxes, table rules, chart paths, and diagrams whose visible structure is not represented by native text.
 - `tabular_numeric_layout` requires `--layout` and fires when many short numeric lines form multiple aligned columns with shared row positions. Common cases: financial statements and dense numeric tables whose row/column relationships are visually obvious but can be flattened in plain native text. Irregular financial tables can still surface when labelled rows have recurring numeric columns; chart-axis tick labels and irregular chart data-label rows are suppressed.

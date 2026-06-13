@@ -163,6 +163,42 @@ describe('detectPageWarnings', () => {
     expect(out[0].message).toContain('18 non-printable');
   });
 
+  it('flags page-wide glyph garbage when native text is mixed or unusable', () => {
+    const mixed = detectPageWarnings({
+      page: 1,
+      text: 'mixed garbage',
+      charCount: 1330,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.128,
+      nonPrintableRatio: 0.141,
+      nonPrintableCount: 188,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'mixed_glyph_indices' },
+    });
+    expect(mixed[0]).toMatchObject({ code: 'glyph_garbage_text', severity: 'warning' });
+    expect(mixed[0].message).toContain('partly raw glyph-index garbage');
+    expect(mixed[0].message).toContain('14.1%');
+
+    const unusable = detectPageWarnings({
+      page: 1,
+      text: '￿￿￿￿',
+      charCount: 4,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.004,
+      nonPrintableRatio: 1,
+      nonPrintableCount: 4,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'unusable_glyph_indices' },
+    });
+    expect(unusable[0]).toMatchObject({ code: 'glyph_garbage_text', severity: 'warning' });
+    expect(unusable[0].message).toContain('mostly raw glyph-index garbage');
+    expect(unusable[0].message).toContain('100.0%');
+  });
+
   it('flags two localized non-printable glyphs when exact symbols may matter', () => {
     // ResNet figure-equation-shaped case: only two control characters,
     // but they sit inside a visible formula (`F(x)+x`) where exact

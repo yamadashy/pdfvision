@@ -40,6 +40,7 @@ export interface PageWarningContext {
 export function detectPageWarnings(page: PageResult, context: PageWarningContext = {}): PageWarning[] {
   const warnings: PageWarning[] = [];
 
+  detectGlyphGarbageText(page, warnings);
   detectLocalizedGlyphNoise(page, warnings);
   detectRasterBackedTextLayer(page, context, warnings);
   detectRasterTextLayerSymbolNoise(page, context, warnings);
@@ -100,6 +101,19 @@ const TABULAR_NUMERIC_ROW_CADENCE_MIN_TOLERANCE_PT = 2;
 const TABULAR_NUMERIC_RECURRING_COLUMN_MIN_ROWS = 4;
 const TABULAR_NUMERIC_RECURRING_COLUMN_MIN_COLUMNS = 3;
 const TABULAR_NUMERIC_RECURRING_COLUMN_MIN_ROW_RATIO = 0.6;
+
+function detectGlyphGarbageText(page: PageResult, out: PageWarning[]): void {
+  const status = page.quality.nativeTextStatus;
+  if (status !== 'mixed_glyph_indices' && status !== 'unusable_glyph_indices') return;
+
+  const percent = (page.nonPrintableRatio * 100).toFixed(1);
+  const scope = status === 'unusable_glyph_indices' ? 'mostly' : 'partly';
+  out.push({
+    code: 'glyph_garbage_text',
+    severity: 'warning',
+    message: `native text is ${scope} raw glyph-index garbage (${percent}% non-printable, ${page.nonPrintableCount} code point${page.nonPrintableCount === 1 ? '' : 's'}); inspect the render or run OCR before trusting extracted text`,
+  });
+}
 
 function sortWarnings(warnings: PageWarning[]): void {
   // Stable sort by (severity error first, then code, then blockIndex)
