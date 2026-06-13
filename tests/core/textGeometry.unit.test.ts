@@ -90,6 +90,26 @@ describe('textRunGeometryFromTransform', () => {
     });
   });
 
+  it('treats pdf.js top-to-bottom text height as vertical advance', () => {
+    const geometry = textRunGeometryFromTransform({
+      transform: [9.212, 0, 0, 9.212, 233.86, 299.05],
+      width: 9.212,
+      height: 46.06,
+      pageHeight: 321.02,
+      viewMinX: 0,
+      viewMinY: 0,
+      dir: 'ttb',
+    });
+
+    expect(geometry).toEqual({
+      x: 233.86,
+      y: 21.97,
+      width: 9.21,
+      height: 46.06,
+      fontSize: 9.21,
+    });
+  });
+
   it('falls back to reported item height when the text matrix has no scale', () => {
     expect(textMatrixFontSize([0, 0, 0, 0, 100, 100], 12)).toBe(12);
   });

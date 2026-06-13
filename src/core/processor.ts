@@ -536,6 +536,7 @@ async function extractPageData(
         pageHeight: height,
         viewMinX: xMin,
         viewMinY: yMin,
+        dir: typeof item.dir === 'string' ? item.dir : undefined,
       });
       spans.push({
         text: flags.normalize ? normalizeText(item.str) : item.str,

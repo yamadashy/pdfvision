@@ -5,6 +5,7 @@ export interface TextRunGeometryInput {
   pageHeight: number;
   viewMinX: number;
   viewMinY: number;
+  dir?: string;
 }
 
 export interface TextRunGeometry {
@@ -28,9 +29,19 @@ export function textMatrixFontSize(transform: readonly number[], fallback = 0): 
 
 export function textRunGeometryFromTransform(input: TextRunGeometryInput): TextRunGeometry {
   const [a = 0, b = 0, c = 0, d = 0, e = 0, f = 0] = input.transform;
+  const fontSize = textMatrixFontSize(input.transform, input.height);
+  if (input.dir === 'ttb' && Math.abs(b) <= VECTOR_EPSILON && Math.abs(c) <= VECTOR_EPSILON) {
+    return {
+      x: round2(e - input.viewMinX),
+      y: round2(input.pageHeight - (f - input.viewMinY)),
+      width: round2(input.width > 0 ? input.width : fontSize),
+      height: round2(input.height > 0 ? input.height : fontSize),
+      fontSize: round2(fontSize),
+    };
+  }
+
   const baseline = unitVector(a, b) ?? [1, 0];
   const normal = unitVector(c, d) ?? [-baseline[1], baseline[0]];
-  const fontSize = textMatrixFontSize(input.transform, input.height);
   const glyphHeight = input.height > 0 ? input.height : fontSize;
   const points = [
     [e, f],
