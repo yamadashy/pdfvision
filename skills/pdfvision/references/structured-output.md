@@ -56,7 +56,7 @@ interface PageOverview {
 - `imageCount > 0 && textCoverage ≈ 0` → image-flattened page; the text stream is empty.
 - `imageCount > 0 || vectorCount > 0` plus very low `textCoverage` and a tiny `charCount` → the visible page is mostly outside native text (often just a page number over a slide/image). Maps to `quality.nativeTextStatus === 'sparse_text_with_visual_content'`.
 - Very low `charCount` plus dense vector structure can also map to `sparse_text_with_visual_content` even when `textCoverage` is not low, because one large watermark glyph run can cover much of the page while the visible form/table/chart content lives in vectors.
-- Very low `textCoverage` and a tiny `charCount` plus `quality.visualStatus === 'blank'` → sparse native text is not visible on the rasterised page. Maps to `quality.nativeTextStatus === 'sparse_text_on_blank_visual'`.
+- Any native text plus `quality.visualStatus === 'blank'` → native text is not visible on the rasterised page. Common cases: hidden OCR residue, invisible/broken-font text, or render/text-layer mismatches. Maps to `quality.nativeTextStatus === 'sparse_text_on_blank_visual'`.
 - `vectorCount > 0 && textCoverage is low` → visible non-raster structure exists even when `imageCount` is zero; forms, charts, diagrams, and slide shapes may require `--render`.
 - `0.05 <= nonPrintableRatio < 0.3` → one or more fonts lack a usable ToUnicode CMap; native text contains readable fragments mixed with raw glyph indices. Native text is incomplete even if some words look usable. Maps to `quality.nativeTextStatus === 'mixed_glyph_indices'`.
 - `nonPrintableRatio >= 0.3` → ToUnicode CMap missing for most of the page; the text stream is mostly raw glyph indices (NUL + control chars) even though `textCoverage` looks fine. Native text is unusable; fall back to `--render` or `--ocr`. Maps to `quality.nativeTextStatus === 'unusable_glyph_indices'`.
@@ -104,7 +104,7 @@ interface PageQuality {
     | 'ok'                       // usable native text that is not sparse relative to non-text visuals
     | 'mixed_glyph_indices'      // 0.05 <= nonPrintableRatio < 0.3 — readable fragments mixed with glyph garbage
     | 'unusable_glyph_indices'   // nonPrintableRatio >= 0.3 — fall back to --ocr / --render
-    | 'sparse_text_on_blank_visual' // sparse native text exists but the rendered page is effectively blank
+    | 'sparse_text_on_blank_visual' // native text exists but the rendered page is effectively blank
     | 'sparse_text_with_visual_content' // native text exists but is too sparse for a visual page
     | 'empty_but_visual_content' // no native text but the page has images / vectors / non-blank pixels / visible annotations not contradicted by a blank render
     | 'empty';                   // no text, no detected visual content

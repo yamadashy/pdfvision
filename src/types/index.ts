@@ -1296,10 +1296,10 @@ export interface PageQuality {
    *     too sparse to explain a visually populated page (often just a page
    *     number, decorative label, large watermark, or thin OCR residue over
    *     images/vectors).
-   *   - `sparse_text_on_blank_visual` — native text exists, but it is
-   *     sparse and the rendered page is effectively blank. Common in
-   *     scanned-book front matter where hidden OCR residue is not visible
-   *     to a human reader.
+   *   - `sparse_text_on_blank_visual` — native text exists, but the
+   *     rendered page is effectively blank. Common in scanned-book front
+   *     matter with hidden OCR residue, invisible/broken-font text, or
+   *     render/text-layer mismatches.
    *   - `empty_but_visual_content` — `charCount === 0` AND the page has
    *     visual content (`imageCount > 0`, `vectorCount > 0`, a visible
    *     annotation appearance that is not contradicted by a blank render,

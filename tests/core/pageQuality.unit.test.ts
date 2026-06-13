@@ -104,6 +104,22 @@ describe('derivePageQuality', () => {
     });
   });
 
+  it('flags dense native text that is not visible on a blank render', () => {
+    const quality = derivePageQuality(
+      makePage({
+        text: 'A broken TrueType font has extractable text but no rendered glyph outlines.',
+        charCount: 72,
+        textCoverage: 0.285,
+        renderContentRatio: 0,
+      }),
+    );
+
+    expect(quality).toEqual({
+      nativeTextStatus: 'sparse_text_on_blank_visual',
+      visualStatus: 'blank',
+    });
+  });
+
   it('treats image-only blank renders as empty pages', () => {
     const quality = derivePageQuality(
       makePage({

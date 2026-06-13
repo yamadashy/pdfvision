@@ -81,7 +81,7 @@ export function derivePageQuality(p: PageResult, options: DerivePageQualityOptio
   } else if (p.nonPrintableRatio >= MIXED_NPR_THRESHOLD) {
     nativeTextStatus = 'mixed_glyph_indices';
   } else if (p.charCount > 0) {
-    if (hasBlankVisualRender && hasSparseText) {
+    if (hasBlankVisualRender) {
       nativeTextStatus = 'sparse_text_on_blank_visual';
     } else if (hasNonTextVisualContent && hasSparseText) {
       nativeTextStatus = 'sparse_text_with_visual_content';
