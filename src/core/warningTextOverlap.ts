@@ -15,8 +15,14 @@ const TEXT_OVERLAP_MIN_DEPTH_RATIO = 0.5;
 const INLINE_FRAGMENT_MAX_CHARS = 12;
 const INLINE_FRAGMENT_MAX_WIDTH_PT = 40;
 const INLINE_FRAGMENT_MAX_HEIGHT_PT = 12;
+const MATH_ANNOTATION_MAX_LINES = 2;
+const MATH_ANNOTATION_MULTI_LINE_MAX_HEIGHT_PT = 16;
 const MATH_ANNOTATION_MAX_HEIGHT_RATIO = 0.85;
 const MATH_ANNOTATION_MAX_CHARS = 80;
+const MATH_ANNOTATION_LINE_MAX_CHARS = 24;
+const MATH_ANNOTATION_HORIZONTAL_SLACK_PT = 6;
+const MATH_ANNOTATION_PROSE_MIN_CHARS = 45;
+const MATH_ANNOTATION_EDGE_OVERLAP_RATIO = 0.2;
 const DISPLAY_NUMBER_MIN_HEIGHT_PT = 24;
 const DISPLAY_NUMBER_LABEL_MAX_HEIGHT_PT = 18;
 const DISPLAY_NUMBER_LABEL_MAX_CHARS = 40;
@@ -206,13 +212,62 @@ function isInlinePunctuationLinePair(a: LayoutLine | LayoutBlock, b: LayoutLine 
 }
 
 function isMathAnnotation(annotation: LayoutBlock, neighbour: LayoutBlock): boolean {
-  if (annotation.lines.length !== 1 || neighbour.lines.length === 0) return false;
+  if (
+    annotation.lines.length === 0 ||
+    annotation.lines.length > MATH_ANNOTATION_MAX_LINES ||
+    neighbour.lines.length === 0
+  ) {
+    return false;
+  }
   const compact = annotation.text.replace(/\s+/g, '');
   if (compact.length === 0 || compact.length > MATH_ANNOTATION_MAX_CHARS) return false;
+  if (annotation.lines.length > 1 && annotation.height > MATH_ANNOTATION_MULTI_LINE_MAX_HEIGHT_PT) return false;
   if (annotation.height > neighbour.height * MATH_ANNOTATION_MAX_HEIGHT_RATIO) return false;
   if (!isMathLikeAnnotationText(annotation.text, neighbour.text)) return false;
-  if (!sitsOnNeighbourLine(annotation, neighbour, { allowCentered: true })) return false;
-  return true;
+  if (annotation.lines.length > 1 && !isProseOrFormulaNeighbour(neighbour)) return false;
+  return annotation.lines.every((line) =>
+    sitsBoxOnNeighbourLine(line, neighbour, {
+      allowCentered: true,
+      horizontalSlack: MATH_ANNOTATION_HORIZONTAL_SLACK_PT,
+    }),
+  );
+}
+
+function isProseOrFormulaNeighbour(block: LayoutBlock): boolean {
+  const normalized = block.text.replace(/\s+/g, ' ').trim();
+  if (normalized.length >= MATH_ANNOTATION_PROSE_MIN_CHARS && /\p{L}{3,}\s+\p{L}{3,}/u.test(normalized)) {
+    return true;
+  }
+  return hasFormulaContextSignal(normalized);
+}
+
+function isMathAnnotationLinePair(
+  annotationLine: LayoutLine | LayoutBlock,
+  neighbourLine: LayoutLine | LayoutBlock,
+  annotationBlock: LayoutBlock,
+  neighbourBlock: LayoutBlock,
+): boolean {
+  const compactLine = annotationLine.text.replace(/\s+/g, '');
+  if (compactLine.length === 0 || compactLine.length > MATH_ANNOTATION_LINE_MAX_CHARS) return false;
+  if (annotationLine.height > INLINE_FRAGMENT_MAX_HEIGHT_PT) return false;
+  if (!isMathLikeAnnotationText(annotationBlock.text, neighbourBlock.text)) return false;
+  if (!isProseOrFormulaNeighbour(neighbourBlock) && !hasFormulaContextSignal(neighbourLine.text)) return false;
+
+  const depth = verticalIntersectionDepth(annotationLine, neighbourLine);
+  const minHeight = Math.max(Math.min(annotationLine.height, neighbourLine.height), 0.001);
+  if (depth / minHeight < TEXT_OVERLAP_MIN_DEPTH_RATIO) return false;
+
+  const annotationCenterX = annotationLine.x + annotationLine.width / 2;
+  if (
+    annotationCenterX >= neighbourLine.x - MATH_ANNOTATION_HORIZONTAL_SLACK_PT &&
+    annotationCenterX <= neighbourLine.x + neighbourLine.width + MATH_ANNOTATION_HORIZONTAL_SLACK_PT
+  ) {
+    return true;
+  }
+
+  const overlapWidth = horizontalIntersectionDepth(annotationLine, neighbourLine);
+  const minWidth = Math.max(Math.min(annotationLine.width, neighbourLine.width), 0.001);
+  return overlapWidth / minWidth <= MATH_ANNOTATION_EDGE_OVERLAP_RATIO;
 }
 
 function isMathLikeAnnotationText(text: string, neighbourText: string): boolean {
@@ -266,10 +321,19 @@ function sitsOnNeighbourLine(
   options: { allowCentered?: boolean } = {},
 ): boolean {
   const fragmentBox = fragment.lines[0] ?? fragment;
+  return sitsBoxOnNeighbourLine(fragmentBox, neighbour, options);
+}
+
+function sitsBoxOnNeighbourLine(
+  fragmentBox: LayoutLine | LayoutBlock,
+  neighbour: LayoutBlock,
+  options: { allowCentered?: boolean; horizontalSlack?: number } = {},
+): boolean {
   const fragmentCenterX = fragmentBox.x + fragmentBox.width / 2;
   const fragmentCenterY = fragmentBox.y + fragmentBox.height / 2;
+  const horizontalSlack = options.horizontalSlack ?? 0;
   for (const line of neighbour.lines) {
-    if (fragmentCenterX < line.x || fragmentCenterX > line.x + line.width) continue;
+    if (fragmentCenterX < line.x - horizontalSlack || fragmentCenterX > line.x + line.width + horizontalSlack) continue;
     if (!boxesIntersect(fragmentBox, line)) continue;
     const depth = verticalIntersectionDepth(fragmentBox, line);
     const minHeight = Math.max(Math.min(fragmentBox.height, line.height), 0.001);
@@ -288,6 +352,7 @@ function textOverlapArea(a: LayoutBlock, b: LayoutBlock): number {
   for (const aa of aBoxes) {
     for (const bb of bBoxes) {
       if (isInlinePunctuationLinePair(aa, bb)) continue;
+      if (isMathAnnotationLinePair(aa, bb, a, b) || isMathAnnotationLinePair(bb, aa, b, a)) continue;
       const depth = verticalIntersectionDepth(aa, bb);
       const minHeight = Math.max(Math.min(aa.height, bb.height), 0.001);
       if (depth / minHeight < TEXT_OVERLAP_MIN_DEPTH_RATIO) continue;
@@ -309,10 +374,14 @@ function boxesIntersect(a: Box, b: Box): boolean {
 }
 
 function intersectionArea(a: Box, b: Box): number {
-  const dx = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+  const dx = horizontalIntersectionDepth(a, b);
   const dy = verticalIntersectionDepth(a, b);
   if (dx <= 0 || dy <= 0) return 0;
   return dx * dy;
+}
+
+function horizontalIntersectionDepth(a: Box, b: Box): number {
+  return Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
 }
 
 function verticalIntersectionDepth(a: Box, b: Box): number {

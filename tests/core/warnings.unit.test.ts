@@ -1137,6 +1137,45 @@ describe('detectPageWarnings', () => {
       expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
     });
 
+    it('does not flag multi-line math annotations sitting on prose lines', () => {
+      // PMLR AudioLDM p.3 emits a compact superscript/subscript cluster
+      // as a two-line block over the paragraph lines that define E^y and
+      // f_audio(.). The visual text is inline notation, not a collision.
+      const paragraph = block(55, 677, 234, 35, {
+        text: 'We denote audio samples as x and the text description as y. A text encoder f (·) and an audio encoder f (·) are used to extract a text embedding E ∈ R and an audio',
+        lines: [
+          line('We denote audio samples as x and the text description as', 55, 678, 234, 10),
+          line('y. A text encoder f (·) and an audio encoder f (·) are', 55, 690, 234, 10),
+          line('used to extract a text embedding E ∈ R and an audio', 55, 702, 234, 10),
+        ],
+      });
+      const annotation = block(201, 694, 118, 14, {
+        text: 'audio\ny L N',
+        lines: [line('audio', 248, 694, 16, 7), line('y L N', 201, 698, 118, 10)],
+      });
+      const out = detectPageWarnings(page([paragraph, annotation]));
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
+    it('still flags overlapping compact diagram label groups', () => {
+      // Dense figure labels can overlap because the diagram itself is
+      // spatial, not a prose line with inline math annotations.
+      const upperLabels = block(122, 70, 363, 27, {
+        text: 'Text Encoder Audio VAE VAE VAE',
+        lines: [
+          line('Text Encoder', 122, 70, 60, 8),
+          line('Audio VAE', 200, 84, 55, 8),
+          line('VAE VAE', 400, 90, 80, 8),
+        ],
+      });
+      const lowerLabels = block(119, 94, 372, 11, {
+        text: 'E*ε R) Encoder Encoder Encoder Decoder',
+        lines: [line('E*ε R)', 119, 94, 45, 7), line('Encoder Encoder Encoder Decoder', 170, 94, 250, 8)],
+      });
+      const out = detectPageWarnings(page([upperLabels, lowerLabels]));
+      expect(out.filter((w) => w.code === 'text_overlap')).toHaveLength(1);
+    });
+
     it('still flags a small independent label that collides with a text line', () => {
       const paragraph = block(50, 100, 400, 40, {
         text: 'The main paragraph has an overlapping callout.',
