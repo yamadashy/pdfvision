@@ -10,7 +10,7 @@ Encrypted PDFs require `--password <value>` or `processDocument(..., { password 
 
 ```ts
 interface DocumentResult {
-  file: string;                // path the CLI was invoked with (or cache path for --remote)
+  file: string;                // path/URL the CLI was invoked with
   totalPages: number;          // total in the source PDF, not in the selection
   metadata: DocumentMetadata;  // title / author / subject / creator (all string | null)
   pageLabels?: string[];       // full 0-indexed viewer page-label array; present iff --page-labels
@@ -23,7 +23,7 @@ interface DocumentResult {
 }
 ```
 
-`file` is patched on cache hit to the current invocation's path, so a downstream consumer sees a meaningful path even when the cached entry came from a different invocation that touched the same content hash.
+`file` is patched on cache hit to the current invocation's path or `--remote` URL, so a downstream consumer sees a meaningful input label even when the cached entry came from a different invocation that touched the same content hash.
 
 ## PageOverview (density summary)
 
@@ -166,7 +166,7 @@ Multi-column reading order: `blocks[]` reads top-to-bottom of the left column be
 
 Repeated chrome detection runs after block clustering. When only one line inside a multi-line edge block is repeated page chrome, such as a slide footer glued to nearby body text, pdfvision splits that line into its own `repeated: true` block and leaves the adjacent body lines non-repeated.
 
-`tables[]` is a conservative row-major hint for aligned numeric tables. It appears when multiple rows have several cells and at least two numeric cells, a common shape in financial statements and government statistical tables; compact two-column year/value tables are included when enough regular rows make the table shape clear. Treat it as a visual-structure aid, not a complete table parser: merged headers, continuation labels, and footnotes can still require `--render` / `--render-region`, but `rows[].cells[]` preserves the row/cell order that `blocks[]` often loses when a table is split into label and numeric columns. Dense recurring numeric gutters are split before table construction so adjacent values do not collapse into one cell when the visual grid is regular. Nearby label-only continuation rows are folded into the following row label unless they look like section headers. Irregular row spacing is still accepted when labelled rows have recurring numeric columns, so financial tables with multi-line labels and subtotal gaps remain visible. Detached currency symbols are folded into the following numeric cell when their row position makes the relationship clear.
+`tables[]` is a conservative row-major hint for aligned numeric tables. It appears when multiple rows have several cells and at least two numeric cells, a common shape in financial statements and government statistical tables; compact two-column year/value tables are included when enough regular rows make the table shape clear. Treat it as a visual-structure aid, not a complete table parser: merged headers, continuation labels, and footnotes can still require `--render` / `--render-region`, but `rows[].cells[]` preserves the row/cell order that `blocks[]` often loses when a table is split into label and numeric columns. Dense recurring numeric gutters are split before table construction so adjacent values do not collapse into one cell when the visual grid is regular. Decorative dotted rule text from publisher table borders is ignored while grouping rows, so a tall dotted border does not absorb all cells into one row. Nearby label-only continuation rows are folded into the following row label unless they look like section headers. Irregular row spacing is still accepted when labelled rows have recurring numeric columns, so financial tables with multi-line labels and subtotal gaps remain visible. Detached currency symbols are folded into the following numeric cell when their row position makes the relationship clear.
 
 ## Form Fields (`--form-fields`)
 

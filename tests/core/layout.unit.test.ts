@@ -1153,6 +1153,54 @@ describe('buildLayout — multi-column reading order', () => {
     ]);
   });
 
+  it('ignores decorative dotted rule text when grouping table rows', () => {
+    // PLOS-style tables can encode a left dotted border as one tall
+    // punctuation-only text line. That decorative line overlaps every
+    // data row vertically and must not become the row-grouping anchor.
+    const dottedRule: TextSpan = {
+      text: '. . . . . . . . . . . . . . . . . . . . . . . . . . . . . .',
+      x: 50.11,
+      y: 547.81,
+      width: 8.97,
+      height: 183.47,
+      fontSize: 8.97,
+    };
+    const spans: TextSpan[] = [
+      dottedRule,
+      span('Table 3. Exploratory regressions on citation count', 64.06, 550.42, 8.97, 220),
+      span('Number of articles (% of total)', 174.33, 575.32, 6.97, 94.96),
+      span('Number of citations (% of total)', 291.96, 575.32, 6.97, 99.27),
+      span('Percent increase in citation count', 409.6, 575.32, 6.97, 105),
+      span('p-value', 527.24, 575.32, 6.97, 24),
+      span('TOTAL', 66.5, 590.29, 6.97, 20.03),
+      span('41', 174.33, 590.29, 6.97, 7.41),
+      span('5334', 291.97, 590.29, 6.97, 14.81),
+      span('Trial size.25 patients', 66.5, 602.76, 6.97, 64.43),
+      span('26 (63%)', 174.33, 602.76, 6.97, 26.02),
+      span('3704 (69%)', 291.97, 602.76, 6.97, 33.16),
+      span('122%', 409.61, 602.76, 6.97, 16.19),
+      span('0.001', 527.24, 602.76, 6.97, 18),
+      span('Clinical endpoint', 66.5, 615.17, 6.97, 50.07),
+      span('18 (44%)', 174.33, 615.17, 6.97, 26.02),
+      span('3404 (64%)', 291.97, 615.17, 6.97, 33.16),
+      span('79%', 409.61, 615.17, 6.97, 12.63),
+      span('0.01', 527.25, 615.17, 6.97, 12.12),
+      span('Affymetrix platform', 66.5, 627.65, 6.97, 57.84),
+      span('22 (54%)', 174.33, 627.65, 6.97, 26.02),
+      span('2735 (51%)', 291.96, 627.65, 6.97, 33.16),
+      span('18%', 409.6, 627.65, 6.97, 12.63),
+      span('0.43', 527.24, 627.65, 6.97, 12.12),
+    ];
+    const layout = buildLayout(spans, 612);
+    const rows = layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text));
+
+    expect(layout.tables).toHaveLength(1);
+    expect(layout.tables?.[0].columnCount).toBe(5);
+    expect(rows).toContainEqual(['TOTAL', '41', '5334']);
+    expect(rows).toContainEqual(['Trial size.25 patients', '26 (63%)', '3704 (69%)', '122%', '0.001']);
+    expect(rows).toContainEqual(['Clinical endpoint', '18 (44%)', '3404 (64%)', '79%', '0.01']);
+  });
+
   it('emits row-major table hints for two-column numeric year/value rows', () => {
     // Berkshire annual-report-shaped case: a compact year/value table
     // has only two semantic columns, with a detached currency marker on

@@ -1,4 +1,4 @@
-import { accessSync } from 'node:fs';
+import { accessSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import type { OutputFormat, RenderRegion } from '../types/index.js';
@@ -257,7 +257,9 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
         sourceData = await downloadRemoteData(remoteUrl);
         filePath = remoteUrl;
       } else {
-        filePath = await downloadRemote(remoteUrl);
+        const cachedPath = await downloadRemote(remoteUrl);
+        sourceData = readFileSync(cachedPath);
+        filePath = remoteUrl;
       }
     } catch (error) {
       exitWithError(error instanceof Error ? error.message : String(error));

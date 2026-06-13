@@ -437,6 +437,39 @@ describe('cli', () => {
       await new Promise<void>((resolveClose, reject) => server.close((err) => (err ? reject(err) : resolveClose())));
     }
   });
+
+  it('reads cached remote PDFs as bytes and keeps the remote URL as the output file label', async () => {
+    const { existsSync, mkdtempSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const fixtureBytes = await import('node:fs').then(({ readFileSync }) => readFileSync(SAMPLE_PDF));
+    const server = createServer((_req, res) => {
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/pdf');
+      res.end(fixtureBytes);
+    });
+    await new Promise<void>((resolveListen) => server.listen(0, '127.0.0.1', resolveListen));
+    const port = (server.address() as AddressInfo).port;
+    const prevCacheDir = process.env.PDFVISION_CACHE_DIR;
+    const cacheRoot = mkdtempSync(join(tmpdir(), 'pdfvision-cli-remote-cached-'));
+    process.env.PDFVISION_CACHE_DIR = cacheRoot;
+    try {
+      const url = `http://127.0.0.1:${port}/doc.pdf`;
+      const r = await captureRun(['--remote', url]);
+      expect(r.exitCode).toBeNull();
+      expect(r.stdout.join('\n')).toContain('Hello pdfvision');
+      expect(r.stdout.join('\n').startsWith(`# ${url}`)).toBe(true);
+      expect(existsSync(join(cacheRoot, 'remote'))).toBe(true);
+    } finally {
+      if (prevCacheDir === undefined) {
+        delete process.env.PDFVISION_CACHE_DIR;
+      } else {
+        process.env.PDFVISION_CACHE_DIR = prevCacheDir;
+      }
+      rmSync(cacheRoot, { recursive: true, force: true });
+      await new Promise<void>((resolveClose, reject) => server.close((err) => (err ? reject(err) : resolveClose())));
+    }
+  });
 });
 
 // --clear-cache is intentionally NOT exercised from the CLI surface

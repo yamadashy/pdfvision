@@ -25,8 +25,8 @@ export interface ProcessDocumentOptions {
   /**
    * In-memory PDF bytes. When provided, pdfvision parses these bytes
    * instead of reading `filePath` from disk; `filePath` remains a label
-   * in the returned `DocumentResult.file`. Used by `--remote --no-cache`
-   * so the downloaded PDF does not have to be written to the remote cache.
+   * in the returned `DocumentResult.file`. Used by `--remote` so the
+   * extractor is isolated from remote-cache cleanup after download.
    */
   sourceData?: Uint8Array;
   /**

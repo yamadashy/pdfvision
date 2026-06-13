@@ -105,6 +105,7 @@ const TINY_LINE_MIN_CHARS = 8;
 const TABLE_ROW_MIN_CELLS = 3;
 const TABLE_ROW_MIN_NUMERIC_CELLS = 2;
 const TWO_COLUMN_NUMERIC_TABLE_MIN_ROWS = 4;
+const DECORATIVE_DOTTED_RULE_MIN_DOTS = 8;
 const TABLE_GROUP_MAX_ROW_GAP_PT = 48;
 const TABLE_ROW_CADENCE_MIN_MATCH_RATIO = 0.65;
 const TABLE_ROW_CADENCE_TOLERANCE_RATIO = 0.25;
@@ -905,7 +906,8 @@ function isStandaloneNumericLineAfterProse(prev: LayoutLine, line: LayoutLine, p
 }
 
 function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefined {
-  const allRowGroups = groupLinesByTableRow(lines).map((row) => row.sort((a, b) => a.x - b.x));
+  const tableLines = lines.filter((line) => !isDecorativeDottedRuleLine(line));
+  const allRowGroups = groupLinesByTableRow(tableLines).map((row) => row.sort((a, b) => a.x - b.x));
   const rowGroups: IndexedLayoutRow[] = allRowGroups
     .map((row, index) => ({ row: tableCandidateRow(row), index }))
     .filter((item): item is IndexedLayoutRow => item.row !== undefined)
@@ -947,6 +949,12 @@ function groupLinesByTableRow(lines: LayoutLine[]): LayoutLine[][] {
     else rows.push([line]);
   }
   return rows;
+}
+
+function isDecorativeDottedRuleLine(line: LayoutLine): boolean {
+  const compact = line.text.replace(/\s+/g, '');
+  if (compact.length < DECORATIVE_DOTTED_RULE_MIN_DOTS) return false;
+  return /^[.\u00b7\u2022\u2027\u2219]+$/u.test(compact);
 }
 
 function tableCandidateRow(row: LayoutLine[]): LayoutLine[] | undefined {
