@@ -65,7 +65,7 @@
   "dependencies": {
     "@napi-rs/canvas": "^0.1.100",
     "@toon-format/toon": "^2.3.0",
-    "pdfjs-dist": "^5.7.0"
+    "pdfjs-dist": "^6.0.227"
   },
   "optionalDependencies": {
     "tesseract.js": "^7.0.0"
