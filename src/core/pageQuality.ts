@@ -43,9 +43,12 @@ function deriveVisualStatus(p: PageResult, options: DerivePageQualityOptions): P
     options.hasVisibleAnnotationAppearance ?? hasPublicVisibleAnnotationAppearance(p);
   const hasCorroboratingVisualObjects = p.imageCount > 0 || p.vectorCount > 0;
   const hasVisibleTextOnlyTrace = p.charCount > 0 && p.textCoverage > 0 && p.imageCount === 0 && p.vectorCount === 0;
+  if (p.renderContentRatio > 0 && hasVisibleTextOnlyTrace) {
+    return 'sparse';
+  }
   if (
     p.renderContentRatio >= TRACE_RENDER_THRESHOLD &&
-    (hasCorroboratingVisualObjects || hasVisibleTextOnlyTrace || hasVisibleAnnotationAppearance)
+    (hasCorroboratingVisualObjects || hasVisibleAnnotationAppearance)
   ) {
     return 'sparse';
   }

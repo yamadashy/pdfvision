@@ -208,6 +208,24 @@ describe('derivePageQuality', () => {
     });
   });
 
+  it('keeps tiny text-only render traces distinct from blank renders', () => {
+    const quality = derivePageQuality(
+      makePage({
+        text: 'Hello PDF.js World',
+        charCount: 18,
+        textCoverage: 0.001,
+        imageCount: 0,
+        vectorCount: 0,
+        renderContentRatio: 0.000021,
+      }),
+    );
+
+    expect(quality).toEqual({
+      nativeTextStatus: 'ok',
+      visualStatus: 'sparse',
+    });
+  });
+
   it('classifies low render ratios above the blank threshold as sparse', () => {
     const quality = derivePageQuality(
       makePage({
