@@ -441,6 +441,39 @@ describe('buildLayout — multi-column reading order', () => {
     );
   });
 
+  it('splits recurring right side-panel starts away from adjacent body lines', () => {
+    // Wikipedia export-shaped case: body prose and a right infobox table
+    // share baselines with only a ~15pt gap. The repeated side-panel start
+    // at x≈400 should split even though the gap is just under the hard
+    // single-row gutter threshold.
+    const spans: TextSpan[] = [
+      span('PDF.js is used in', 35.5, 400.25, 12, 88.89),
+      span('Thunderbird', 127.52, 400, 12, 68.05),
+      span('[10]', 198.8, 397.9, 9.6, 17.22),
+      span('ownCloud', 219.16, 400, 12, 53.81),
+      span('[11]', 276.2, 397.9, 9.6, 15.45),
+      span('Nextcloud', 294.79, 400, 12, 54.35),
+      span('[12]', 352.38, 397.9, 9.6, 16.69),
+      span('[13]', 369.06, 397.9, 9.6, 16.62),
+      span('Original author(s)', 400.75, 394.69, 10.56, 88.59),
+      span('Andreas Gal', 496.84, 394.69, 10.56, 58.7),
+      span('and as browser extensions for', 35.5, 416.75, 12, 173.58),
+      span('Google Chrome', 216.05, 416.5, 12, 86.39),
+      span('/', 302.44, 416.75, 12, 5.63),
+      span('Chromium', 308.07, 416.5, 12, 57.63),
+      span('[14]', 368.93, 414.4, 9.6, 16.75),
+      span('Developer(s)', 400.75, 414.19, 10.56, 63.97),
+      span('Mozilla', 496.84, 414.19, 10.56, 32.86),
+    ];
+    const layout = buildLayout(spans, 612);
+    const lineTexts = layout.blocks.flatMap((block) => block.lines.map((line) => line.text));
+
+    expect(lineTexts).toContain('Original author(s) Andreas Gal');
+    expect(lineTexts).toContain('Developer(s)');
+    expect(lineTexts.some((text) => text.includes('Nextcloud') && text.includes('Original author(s)'))).toBe(false);
+    expect(lineTexts.some((text) => text.includes('Chromium') && text.includes('Developer(s)'))).toBe(false);
+  });
+
   it('reorders narrow blocks by (column, y) when two columns are detected', () => {
     // pageWidth 595 (A4). Two ~240pt columns at x=50 and x=320.
     const spans: TextSpan[] = [

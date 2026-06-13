@@ -94,6 +94,12 @@ const RECURRING_GUTTER_WIDE_ROW_RATIO = 0.7;
 const RECURRING_GUTTER_SIDE_MIN_RATIO = 0.25;
 const RECURRING_GUTTER_BIN_PT = 5;
 const RECURRING_GUTTER_MIN_ROWS = 3;
+const RECURRING_SIDE_PANEL_START_RATIO = 0.58;
+const RECURRING_SIDE_PANEL_ROW_MIN_WIDTH_RATIO = 0.6;
+const RECURRING_SIDE_PANEL_LEFT_MIN_RATIO = 0.4;
+const RECURRING_SIDE_PANEL_GAP_RATIO = 0.9;
+const RECURRING_SIDE_PANEL_MIN_GAP_PT = 9;
+const RECURRING_SIDE_PANEL_MIN_ROWS = 2;
 const RECURRING_TABLE_GUTTER_MIN_ROWS = 4;
 const RECURRING_TABLE_GUTTER_MIN_NUMERIC_SPANS = 3;
 const RECURRING_TABLE_GUTTER_MIN_WIDTH_PT = 96;
@@ -1354,6 +1360,36 @@ function detectRecurringGutterBins(lineGroups: TextSpan[][], pageWidth: number):
   return recurring;
 }
 
+function detectRecurringSidePanelStartBins(lineGroups: TextSpan[][], pageWidth: number): Set<number> {
+  if (pageWidth <= 0) return new Set();
+
+  const counts = new Map<number, number>();
+  for (const group of lineGroups) {
+    if (group.length < 2) continue;
+    const xSorted = [...group].sort((a, b) => a.x - b.x);
+    const groupBox = unionBox(xSorted);
+    const binsInRow = new Set<number>();
+    for (let i = 1; i < xSorted.length; i++) {
+      const prev = xSorted[i - 1];
+      const cur = xSorted[i];
+      const gap = cur.x - (prev.x + prev.width);
+      const prevFontSize = prev.fontSize || FONT_SIZE_FALLBACK_PT;
+      const curFontSize = cur.fontSize || FONT_SIZE_FALLBACK_PT;
+      const fontSize = Math.min(prevFontSize, curFontSize);
+      if (isRecurringSidePanelStartCandidate(groupBox, prev, cur, gap, fontSize, pageWidth)) {
+        binsInRow.add(Math.round(cur.x / RECURRING_GUTTER_BIN_PT) * RECURRING_GUTTER_BIN_PT);
+      }
+    }
+    for (const bin of binsInRow) counts.set(bin, (counts.get(bin) ?? 0) + 1);
+  }
+
+  const recurring = new Set<number>();
+  for (const [bin, count] of counts) {
+    if (count >= RECURRING_SIDE_PANEL_MIN_ROWS) recurring.add(bin);
+  }
+  return recurring;
+}
+
 function detectRecurringTableGutterBins(lineGroups: TextSpan[][], pageWidth: number): Set<number> {
   if (pageWidth <= 0) return new Set();
 
@@ -1394,6 +1430,32 @@ function hasRecurringGutter(recurringGutterBins: Set<number>, prev: TextSpan, cu
     if (Math.abs(recurringBin - bin) <= RECURRING_GUTTER_BIN_PT) return true;
   }
   return false;
+}
+
+function hasRecurringSidePanelStart(recurringSidePanelStartBins: Set<number>, cur: TextSpan): boolean {
+  if (recurringSidePanelStartBins.size === 0) return false;
+  const bin = Math.round(cur.x / RECURRING_GUTTER_BIN_PT) * RECURRING_GUTTER_BIN_PT;
+  for (const recurringBin of recurringSidePanelStartBins) {
+    if (Math.abs(recurringBin - bin) <= RECURRING_GUTTER_BIN_PT) return true;
+  }
+  return false;
+}
+
+function isRecurringSidePanelStartCandidate(
+  groupBox: BBox,
+  prev: TextSpan,
+  cur: TextSpan,
+  gap: number,
+  fontSize: number,
+  pageWidth: number,
+): boolean {
+  if (pageWidth <= 0) return false;
+  if (groupBox.width < pageWidth * RECURRING_SIDE_PANEL_ROW_MIN_WIDTH_RATIO) return false;
+  if (cur.x < pageWidth * RECURRING_SIDE_PANEL_START_RATIO) return false;
+  if (gap < Math.max(fontSize * RECURRING_SIDE_PANEL_GAP_RATIO, RECURRING_SIDE_PANEL_MIN_GAP_PT)) return false;
+
+  const leftWidth = prev.x + prev.width - groupBox.x;
+  return leftWidth >= pageWidth * RECURRING_SIDE_PANEL_LEFT_MIN_RATIO;
 }
 
 function isRecurringTableGutterCandidate(groupBox: BBox, gap: number, fontSize: number, pageWidth: number): boolean {
@@ -1524,6 +1586,7 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0, pageHeight = 0): P
   // justified word spaces to trust per-row. Those split only when the
   // same gutter position recurs on several page-wide y-rows.
   const recurringGutterBins = detectRecurringGutterBins(lineGroups, pageWidth);
+  const recurringSidePanelStartBins = detectRecurringSidePanelStartBins(lineGroups, pageWidth);
   const recurringTableGutterBins = detectRecurringTableGutterBins(lineGroups, pageWidth);
   const lines: LayoutLine[] = lineGroups.flatMap((group) => {
     const xSorted = [...group].sort((a, b) => a.x - b.x);
@@ -1544,12 +1607,18 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0, pageHeight = 0): P
       const recurringGutter =
         hasRecurringGutter(recurringGutterBins, prev, cur) &&
         isRecurringGutterSplitCandidate(groupBox, prev, cur, gap, fontSize, pageWidth);
+      const recurringSidePanelStart =
+        hasRecurringSidePanelStart(recurringSidePanelStartBins, cur) &&
+        isRecurringSidePanelStartCandidate(groupBox, prev, cur, gap, fontSize, pageWidth);
       const recurringTableGutter =
         hasRecurringGutter(recurringTableGutterBins, prev, cur) &&
         isTableGutterNumericSpan(prev) &&
         isTableGutterNumericSpan(cur) &&
         isRecurringTableGutterCandidate(groupBox, gap, fontSize, pageWidth);
-      if (!preserveWideWordSpacing && (gap > segmentGap || recurringGutter || recurringTableGutter)) {
+      if (
+        !preserveWideWordSpacing &&
+        (gap > segmentGap || recurringGutter || recurringSidePanelStart || recurringTableGutter)
+      ) {
         subLines.push([cur]);
       } else {
         subLines[subLines.length - 1].push(cur);

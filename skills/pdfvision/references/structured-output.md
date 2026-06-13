@@ -162,7 +162,7 @@ interface LayoutTableCell {
 }
 ```
 
-Multi-column reading order: `blocks[]` reads top-to-bottom of the left column before the right column. The layout pass treats recurring narrow gutters as column breaks, preserves tight Latin and Arabic word spaces when pdf.js emits words as separate spans, keeps indented singleton lines attached to the nearest surviving column instead of turning them into page-wide separators, avoids letting tall drop caps absorb following paragraph lines, keeps narrow standalone numeric page labels separate from surrounding prose, and moves small bottom permission/footer notes after the main two-column body. It also detects compact CJK glyph stacks that are visually vertical, joins them top-to-bottom as separate blocks, and marks those blocks/lines with `writingMode: "vertical"` so consumers do not mistake them for horizontal rows. Standalone level-1 / level-2 headings act as column separators; level-3 candidates stay inside their column so subsection breaks don't scramble reading order. Block clustering is still heuristic — table cells may merge into a single block.
+Multi-column reading order: `blocks[]` reads top-to-bottom of the left column before the right column. The layout pass treats recurring narrow gutters and recurring right-side panel starts as column/table breaks, preserves tight Latin and Arabic word spaces when pdf.js emits words as separate spans, keeps indented singleton lines attached to the nearest surviving column instead of turning them into page-wide separators, avoids letting tall drop caps absorb following paragraph lines, keeps narrow standalone numeric page labels separate from surrounding prose, and moves small bottom permission/footer notes after the main two-column body. It also detects compact CJK glyph stacks that are visually vertical, joins them top-to-bottom as separate blocks, and marks those blocks/lines with `writingMode: "vertical"` so consumers do not mistake them for horizontal rows. Standalone level-1 / level-2 headings act as column separators; level-3 candidates stay inside their column so subsection breaks don't scramble reading order. Block clustering is still heuristic — table cells may merge into a single block.
 
 Repeated chrome detection runs after block clustering. When only one line inside a multi-line edge block is repeated page chrome, such as a slide footer glued to nearby body text, pdfvision splits that line into its own `repeated: true` block and leaves the adjacent body lines non-repeated.
 
@@ -527,7 +527,7 @@ interface PageWarning {
 
 The current rule catalog:
 
-- `text_overlap` — non-repeated layout blocks overlap in a way that may scramble reading order. Shallow adjacent-line bbox slack from inline math, superscripts, and subscripts is suppressed.
+- `text_overlap` — non-repeated layout blocks overlap in a way that may scramble reading order. Shallow adjacent-line bbox slack from inline math, superscripts, subscripts, and punctuation-only inline fragments is suppressed.
 - `near_bottom_edge` — body text ends unusually close to the page bottom.
 - `body_near_repeated_chrome` — body text overlaps or nearly touches detected repeated header/footer chrome.
 - `off_page` — a layout block bbox extends beyond the page.

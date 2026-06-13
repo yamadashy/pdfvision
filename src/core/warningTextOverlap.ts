@@ -1,4 +1,4 @@
-import type { LayoutBlock, PageWarning } from '../types/index.js';
+import type { LayoutBlock, LayoutLine, PageWarning } from '../types/index.js';
 
 /** Real text collisions overlap deeply on the y axis. PDF text bboxes
  *  routinely include ascender / descender slack that makes adjacent lines
@@ -87,7 +87,14 @@ function emitTextOverlapWarnings(overlaps: TextOverlapCandidate[], out: PageWarn
 }
 
 function isInlineFragmentPair(a: LayoutBlock, b: LayoutBlock): boolean {
-  return isInlineFragment(a, b) || isInlineFragment(b, a) || isMathAnnotation(a, b) || isMathAnnotation(b, a);
+  return (
+    isInlineFragment(a, b) ||
+    isInlineFragment(b, a) ||
+    isInlinePunctuation(a, b) ||
+    isInlinePunctuation(b, a) ||
+    isMathAnnotation(a, b) ||
+    isMathAnnotation(b, a)
+  );
 }
 
 function isDisplayNumberLabelPair(a: LayoutBlock, b: LayoutBlock): boolean {
@@ -176,6 +183,28 @@ function isInlineFragment(fragment: LayoutBlock, neighbour: LayoutBlock): boolea
   return true;
 }
 
+function isInlinePunctuation(fragment: LayoutBlock, neighbour: LayoutBlock): boolean {
+  if (fragment.lines.length > 1) return false;
+  if (!isInlinePunctuationBox(fragment, neighbour)) return false;
+  return sitsOnNeighbourLine(fragment, neighbour, { allowCentered: true });
+}
+
+function isInlinePunctuationBox(fragment: LayoutLine | LayoutBlock, neighbour: LayoutLine | LayoutBlock): boolean {
+  const text = fragment.text.replace(/\s+/g, '');
+  if (text.length === 0 || text.length > 3) return false;
+  if (/[\p{L}\p{N}]/u.test(text)) return false;
+  if (!/^[\p{P}\p{S}]+$/u.test(text)) return false;
+  if (fragment.width > INLINE_FRAGMENT_MAX_WIDTH_PT || fragment.height > INLINE_FRAGMENT_MAX_HEIGHT_PT) return false;
+  if (neighbour.width < fragment.width * 4) return false;
+  return true;
+}
+
+function isInlinePunctuationLinePair(a: LayoutLine | LayoutBlock, b: LayoutLine | LayoutBlock): boolean {
+  if (isInlinePunctuationBox(a, b)) return boxesIntersect(a, b);
+  if (isInlinePunctuationBox(b, a)) return boxesIntersect(a, b);
+  return false;
+}
+
 function isMathAnnotation(annotation: LayoutBlock, neighbour: LayoutBlock): boolean {
   if (annotation.lines.length !== 1 || neighbour.lines.length === 0) return false;
   const compact = annotation.text.replace(/\s+/g, '');
@@ -258,6 +287,7 @@ function textOverlapArea(a: LayoutBlock, b: LayoutBlock): number {
   let total = 0;
   for (const aa of aBoxes) {
     for (const bb of bBoxes) {
+      if (isInlinePunctuationLinePair(aa, bb)) continue;
       const depth = verticalIntersectionDepth(aa, bb);
       const minHeight = Math.max(Math.min(aa.height, bb.height), 0.001);
       if (depth / minHeight < TEXT_OVERLAP_MIN_DEPTH_RATIO) continue;

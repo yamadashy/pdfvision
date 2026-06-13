@@ -1147,6 +1147,51 @@ describe('detectPageWarnings', () => {
       expect(out.some((w) => w.code === 'text_overlap')).toBe(true);
     });
 
+    it('does not flag punctuation-only inline fragments centered on a paragraph line', () => {
+      const paragraph = block(100, 100, 260, 14, {
+        text: 'Thunderbird ownCloud Nextcloud',
+        lines: [{ text: 'Thunderbird ownCloud Nextcloud', x: 100, y: 100, width: 260, height: 14, fontSize: 12 }],
+      });
+      const comma = block(168, 101, 3.2, 12, {
+        text: ',',
+        lines: [{ text: ',', x: 168, y: 101, width: 3.2, height: 12, fontSize: 12 }],
+      });
+      const out = detectPageWarnings(page([paragraph, comma]));
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
+    it('does not flag punctuation-only lines inside a neighbouring multi-line block', () => {
+      const body = block(127.52, 397.9, 258.16, 14.1, {
+        text: 'Thunderbird [10] ownCloud [11] Nextcloud [12][13]',
+        lines: [
+          {
+            text: 'Thunderbird [10] ownCloud [11] Nextcloud [12][13]',
+            x: 127.52,
+            y: 397.9,
+            width: 258.16,
+            height: 14.1,
+            fontSize: 9.6,
+          },
+        ],
+      });
+      const continuation = block(35.5, 400.25, 350.18, 28.5, {
+        text: ', and as browser extensions for Google Chrome/Chromium,[14]',
+        lines: [
+          { text: ',', x: 349.14, y: 400.25, width: 3.23, height: 12, fontSize: 12 },
+          {
+            text: 'and as browser extensions for Google Chrome/Chromium,[14]',
+            x: 35.5,
+            y: 414.4,
+            width: 350.18,
+            height: 14.35,
+            fontSize: 12,
+          },
+        ],
+      });
+      const out = detectPageWarnings(page([body, continuation]));
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
     it('does not flag compact labels that share bbox slack with display numbers', () => {
       // JICA report page 50-shaped case: the label and a large
       // display number are visually separated, but the number block's
