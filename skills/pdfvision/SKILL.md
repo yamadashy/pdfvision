@@ -104,7 +104,7 @@ Each page (and each overview row) carries a derived `quality` field that classif
   - `unusable_glyph_indices` — `nonPrintableRatio >= 0.3`. Text is mostly binary garbage even though `charCount` looks healthy. Fall back to `--render` or `--ocr`.
   - `sparse_text_with_visual_content` — native text exists, but it is too sparse to explain a visually populated page (for example, only a page number over an image-heavy slide, or a large `SAMPLE` watermark over a dense static form). Inspect with `--render`.
   - `sparse_text_on_blank_visual` — native text exists, but it is sparse and the rendered page is effectively blank. Treat the text as hidden OCR residue or a render/text-layer mismatch until visually confirmed.
-  - `empty_but_visual_content` — no native text, but the page carries images, vector drawings, visible annotation appearances, or non-blank pixels. Re-run with `--ocr` (or read the rendered PNG via `--render`).
+  - `empty_but_visual_content` — no native text, but the page carries images, vector drawings, visible annotation appearances that are not contradicted by a blank render, or non-blank pixels. Re-run with `--ocr` (or read the rendered PNG via `--render`).
   - `empty` — no text, no detected visual content. Likely a genuinely blank page (or a render failure — combine with `visualStatus` below).
 - `quality.visualStatus` (present only when `--render` or `--ocr` ran):
   - `ok` — renderer drew clearly populated content.

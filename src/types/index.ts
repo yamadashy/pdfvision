@@ -1302,10 +1302,10 @@ export interface PageQuality {
    *     to a human reader.
    *   - `empty_but_visual_content` — `charCount === 0` AND the page has
    *     visual content (`imageCount > 0`, `vectorCount > 0`, a visible
-   *     annotation appearance, or `renderContentRatio` is above the
-   *     blank threshold when --render/--ocr ran). Typical of
-   *     image-flattened slides, scans, vector-only diagrams / forms,
-   *     and annotation-only review pages.
+   *     annotation appearance that is not contradicted by a blank render,
+   *     or `renderContentRatio` is above the blank threshold when
+   *     --render/--ocr ran). Typical of image-flattened slides, scans,
+   *     vector-only diagrams / forms, and annotation-only review pages.
    *   - `empty` — `charCount === 0` and no visual content detected.
    *     Likely a genuinely blank page or a render failure (combine with
    *     `visualStatus` to disambiguate).

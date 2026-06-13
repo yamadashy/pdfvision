@@ -106,7 +106,7 @@ interface PageQuality {
     | 'unusable_glyph_indices'   // nonPrintableRatio >= 0.3 — fall back to --ocr / --render
     | 'sparse_text_on_blank_visual' // sparse native text exists but the rendered page is effectively blank
     | 'sparse_text_with_visual_content' // native text exists but is too sparse for a visual page
-    | 'empty_but_visual_content' // no native text but the page has images / vectors / annotations / non-blank pixels
+    | 'empty_but_visual_content' // no native text but the page has images / vectors / non-blank pixels / visible annotations not contradicted by a blank render
     | 'empty';                   // no text, no detected visual content
   visualStatus?:                 // present iff --render or --ocr triggered a raster
     | 'ok'                       // renderContentRatio > 0.005 — renderer drew clearly populated content

@@ -67,8 +67,9 @@ export function derivePageQuality(p: PageResult, options: DerivePageQualityOptio
   const hasNonTextVisualContent = p.imageCount > 0 || p.vectorCount > 0;
   const hasVisibleAnnotationAppearance =
     options.hasVisibleAnnotationAppearance ?? hasPublicVisibleAnnotationAppearance(p);
+  const hasVisibleAnnotationContent = hasVisibleAnnotationAppearance && !hasBlankVisualRender;
   const hasVisualContent =
-    (hasNonTextVisualContent && !hasBlankVisualRender) || hasVisualRender || hasVisibleAnnotationAppearance;
+    (hasNonTextVisualContent && !hasBlankVisualRender) || hasVisualRender || hasVisibleAnnotationContent;
   const hasDenseVisualStructure = p.vectorCount >= DENSE_VISUAL_STRUCTURE_VECTOR_THRESHOLD;
   const hasSparseText =
     (p.charCount <= SPARSE_VISUAL_TEXT_CHAR_THRESHOLD && p.textCoverage < SPARSE_VISUAL_TEXT_COVERAGE_THRESHOLD) ||

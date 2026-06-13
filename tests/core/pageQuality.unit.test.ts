@@ -160,6 +160,20 @@ describe('derivePageQuality', () => {
     });
   });
 
+  it('does not treat annotation appearances as visual content when the render is fully blank', () => {
+    const quality = derivePageQuality(
+      makePage({
+        annotations: [{ subtype: 'Widget', hasAppearance: true, x: 10, y: 10, width: 80, height: 20 }],
+        renderContentRatio: 0,
+      }),
+    );
+
+    expect(quality).toEqual({
+      nativeTextStatus: 'empty',
+      visualStatus: 'blank',
+    });
+  });
+
   it('keeps near-threshold text-only render traces distinct from blank renders', () => {
     const quality = derivePageQuality(
       makePage({
