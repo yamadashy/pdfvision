@@ -506,6 +506,7 @@ interface PageWarning {
     | 'dense_vector_graphics'
     | 'tabular_numeric_layout'
     | 'raster_backed_text_layer'
+    | 'raster_text_layer_symbol_noise'
     | 'ocr_low_confidence'
     | 'large_raster_low_text_overlap'
     | 'reading_order_divergence';
@@ -517,7 +518,7 @@ interface PageWarning {
 }
 ```
 
-`pages[].warnings[]` is omitted when no rule fired. Geometry warnings require `--layout` because they pin to layout blocks. Image-region warnings can use pdfvision's internal image-box pass even when `--image-boxes` was not requested; `imageBoxIndex` is emitted only when public `pages[].imageBoxes` exists. `large_raster_low_text_overlap` gets stronger overlap evidence when `--image-boxes` is combined with `--layout` or `--geometry`, because it can compare image boxes against native text bboxes. `tabular_numeric_layout` requires `--layout` because it inspects aligned layout lines. `localized_glyph_noise` and `dense_vector_graphics` use always-on page signals and can appear without layout. `raster_backed_text_layer` also uses the internal image-box pass and can appear even when `--image-boxes` was not requested. `ocr_low_confidence` requires `--ocr`.
+`pages[].warnings[]` is omitted when no rule fired. Geometry warnings require `--layout` because they pin to layout blocks. Image-region warnings can use pdfvision's internal image-box pass even when `--image-boxes` was not requested; `imageBoxIndex` is emitted only when public `pages[].imageBoxes` exists. `large_raster_low_text_overlap` gets stronger overlap evidence when `--image-boxes` is combined with `--layout` or `--geometry`, because it can compare image boxes against native text bboxes. `tabular_numeric_layout` requires `--layout` because it inspects aligned layout lines. `localized_glyph_noise` and `dense_vector_graphics` use always-on page signals and can appear without layout. `raster_backed_text_layer` and `raster_text_layer_symbol_noise` use the internal image-box pass and can appear even when `--image-boxes` was not requested. `ocr_low_confidence` requires `--ocr`.
 
 The current rule catalog:
 
@@ -529,6 +530,7 @@ The current rule catalog:
 - `dense_vector_graphics` — the page contains many vector drawing operations; often form boxes, table rules, chart paths, checkboxes, or diagrams whose visible structure is not represented by native text.
 - `tabular_numeric_layout` — many short numeric lines form multiple aligned columns with shared row positions; often financial statements or dense numeric tables whose row/column relationships are visually obvious but can be flattened in plain native text. Chart-axis tick labels and irregular chart data-label rows are suppressed.
 - `raster_backed_text_layer` — native text appears to be an OCR/text layer over a full-page raster image, including sparse OCR layers on scanned covers; text may be useful but error-prone, and bbox/layout geometry can drift from the pixels a human sees.
+- `raster_text_layer_symbol_noise` — a raster-backed native text layer is dominated by printable punctuation/symbol noise; common on old scan OCR title pages where `quality.nativeTextStatus` can still be `ok` even though the native text is visibly unreliable.
 - `ocr_low_confidence` — `--ocr` ran with confidence below 0.5 while native extraction was empty, sparse, glyph-corrupted, or attached to a raster-backed text layer; OCR text is present but should be treated as tentative until checked against the render, language choice, or a focused crop.
 - `large_raster_low_text_overlap` — a large raster image dominates a page whose native text is sparse, or bbox-enabled extraction found little overlapping native text, so labels, chart text, map text, or screenshot text inside it will not appear in native text.
 - `reading_order_divergence` — a heading that leads the visual reading order (early in `layout.blocks`) only appears in the back half of `pages[].text`; the producer emitted columns/frames out of visual order (InDesign magazine layouts, page banners written last). Prefer `layout.blocks` order over `pages[].text` when sequence matters — the Markdown formatter already rebuilds the body from layout blocks on these pages. Requires `--layout`; `blockIndex` points at the displaced heading.

@@ -1230,6 +1230,7 @@ export interface PageWarning {
     | 'dense_vector_graphics'
     | 'tabular_numeric_layout'
     | 'raster_backed_text_layer'
+    | 'raster_text_layer_symbol_noise'
     | 'ocr_low_confidence'
     | 'large_raster_low_text_overlap'
     | 'reading_order_divergence';

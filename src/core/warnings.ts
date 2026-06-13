@@ -42,6 +42,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
 
   detectLocalizedGlyphNoise(page, warnings);
   detectRasterBackedTextLayer(page, context, warnings);
+  detectRasterTextLayerSymbolNoise(page, context, warnings);
   detectLowConfidenceOcr(page, context, warnings);
   detectDenseVectorGraphics(page, warnings);
   detectLargeRasterLowTextOverlap(page, context, warnings);
@@ -84,6 +85,8 @@ const DENSE_VECTOR_GRAPHICS_COUNT_THRESHOLD = 250;
 const LARGE_RASTER_AREA_RATIO_THRESHOLD = 0.2;
 const LARGE_RASTER_TEXT_OVERLAP_RATIO_THRESHOLD = 0.01;
 const LOW_CONFIDENCE_OCR_THRESHOLD = 0.5;
+const RASTER_TEXT_LAYER_SYMBOL_NOISE_MIN_CHARS = 80;
+const RASTER_TEXT_LAYER_SYMBOL_NOISE_RATIO_THRESHOLD = 0.35;
 const TABULAR_NUMERIC_MIN_LINES = 12;
 const TABULAR_NUMERIC_MIN_LINE_RATIO = 0.25;
 const TABULAR_NUMERIC_MIN_ALIGNED_COLUMNS = 2;
@@ -194,6 +197,39 @@ function detectRasterBackedTextLayer(page: PageResult, context: PageWarningConte
     severity: 'warning',
     message: `native text appears to be an OCR/text layer over a full-page raster image (textCoverage ${(page.textCoverage * 100).toFixed(1)}%, imageCount ${page.imageCount}) — text may be useful, but may contain OCR recognition errors, and bboxes/layout can drift from the pixels a human sees`,
   });
+}
+
+function detectRasterTextLayerSymbolNoise(page: PageResult, context: PageWarningContext, out: PageWarning[]): void {
+  if (!context.rasterBackedTextLayer) return;
+  if (page.quality.nativeTextStatus !== 'ok') return;
+  const stats = printableSymbolNoiseStats(page.text);
+  if (stats.total < RASTER_TEXT_LAYER_SYMBOL_NOISE_MIN_CHARS) return;
+  if (stats.ratio < RASTER_TEXT_LAYER_SYMBOL_NOISE_RATIO_THRESHOLD) return;
+
+  out.push({
+    code: 'raster_text_layer_symbol_noise',
+    severity: 'warning',
+    message: `raster-backed native text is ${(stats.ratio * 100).toFixed(1)}% printable symbols/punctuation (samples: ${stats.samples.map((sample) => JSON.stringify(sample)).join(', ')}) — likely noisy OCR text over a scan; compare against the render before trusting the native text`,
+  });
+}
+
+function printableSymbolNoiseStats(text: string): {
+  total: number;
+  symbolCount: number;
+  ratio: number;
+  samples: string[];
+} {
+  let total = 0;
+  let symbolCount = 0;
+  const samples: string[] = [];
+  for (const char of text) {
+    if (/\s/u.test(char)) continue;
+    total++;
+    if (/[\p{Letter}\p{Number}]/u.test(char)) continue;
+    symbolCount++;
+    if (samples.length < 6 && !samples.includes(char)) samples.push(char);
+  }
+  return { total, symbolCount, ratio: total > 0 ? symbolCount / total : 0, samples };
 }
 
 function detectLowConfidenceOcr(page: PageResult, context: PageWarningContext, out: PageWarning[]): void {

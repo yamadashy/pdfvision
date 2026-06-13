@@ -1312,6 +1312,57 @@ describe('detectPageWarnings', () => {
       expect(out[0]).toMatchObject({ code: 'raster_backed_text_layer' });
     });
 
+    it('warns when a raster-backed text layer is dominated by printable symbol noise', () => {
+      const noisyText =
+        'X-693-70-326 RADIO ASTRONOMY EXPLORER-1 DATA DISPLAYS ^ ^ ►,, °^ ^^ _ -- ^- -, . ` ^ ; ^^ (CODE) ^ ^ ^ Q';
+      const out = detectPageWarnings(
+        {
+          page: 1,
+          text: noisyText,
+          charCount: noisyText.length,
+          imageCount: 1,
+          vectorCount: 0,
+          textCoverage: 0.22,
+          nonPrintableRatio: 0,
+          nonPrintableCount: 0,
+          width: 602,
+          height: 874,
+          quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+        },
+        { rasterBackedTextLayer: true },
+      );
+
+      expect(out.some((warning) => warning.code === 'raster_backed_text_layer')).toBe(true);
+      expect(out.some((warning) => warning.code === 'raster_text_layer_symbol_noise')).toBe(true);
+      expect(out.find((warning) => warning.code === 'raster_text_layer_symbol_noise')?.message).toContain(
+        'printable symbols/punctuation',
+      );
+    });
+
+    it('does not add symbol-noise warnings for ordinary raster-backed OCR prose', () => {
+      const prose =
+        'The first Radio Astronomy Explorer spacecraft was placed in a circular orbit and continuously observed low frequency radio noise.';
+      const out = detectPageWarnings(
+        {
+          page: 1,
+          text: prose,
+          charCount: prose.length,
+          imageCount: 1,
+          vectorCount: 0,
+          textCoverage: 0.22,
+          nonPrintableRatio: 0,
+          nonPrintableCount: 0,
+          width: 575,
+          height: 784,
+          quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+        },
+        { rasterBackedTextLayer: true },
+      );
+
+      expect(out.some((warning) => warning.code === 'raster_backed_text_layer')).toBe(true);
+      expect(out.filter((warning) => warning.code === 'raster_text_layer_symbol_noise')).toEqual([]);
+    });
+
     it('suppresses near_bottom_edge when the cross-page chrome pass had no material', () => {
       // Single-page extraction (`--pages 13 --layout`) — markRepeatedBlocks
       // bails on <2 pages so what's really a running footer reads as a
