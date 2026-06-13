@@ -494,6 +494,7 @@ export function formatXml(result: DocumentResult): string {
             `width="${annotation.width}"`,
             `height="${annotation.height}"`,
           ];
+          if (annotation.name !== undefined) annotationAttrs.push(`name="${escapeAttr(annotation.name)}"`);
           if (annotation.contents !== undefined) annotationAttrs.push(`contents="${escapeAttr(annotation.contents)}"`);
           if (annotation.title !== undefined) annotationAttrs.push(`title="${escapeAttr(annotation.title)}"`);
           if (annotation.color !== undefined) annotationAttrs.push(`color="${annotation.color.join(',')}"`);
@@ -506,6 +507,10 @@ export function formatXml(result: DocumentResult): string {
           }
           if (
             annotation.fileAttachment !== undefined ||
+            annotation.border !== undefined ||
+            annotation.line !== undefined ||
+            (annotation.vertices !== undefined && annotation.vertices.length > 0) ||
+            (annotation.inkPaths !== undefined && annotation.inkPaths.length > 0) ||
             (annotation.quadBoxes !== undefined && annotation.quadBoxes.length > 0)
           ) {
             out.push(`<annotation ${annotationAttrs.join(' ')}>`);
@@ -518,6 +523,47 @@ export function formatXml(result: DocumentResult): string {
                 fileAttrs.push(`description="${escapeAttr(annotation.fileAttachment.description)}"`);
               }
               out.push(`<fileAttachment ${fileAttrs.join(' ')}/>`);
+            }
+            if (annotation.border !== undefined) {
+              const borderAttrs: string[] = [];
+              if (annotation.border.width !== undefined) borderAttrs.push(`width="${annotation.border.width}"`);
+              if (annotation.border.style !== undefined) {
+                borderAttrs.push(`style="${escapeAttr(annotation.border.style)}"`);
+              }
+              if (annotation.border.dashArray !== undefined && annotation.border.dashArray.length > 0) {
+                borderAttrs.push(`dashArray="${annotation.border.dashArray.join(',')}"`);
+              }
+              out.push(`<border ${borderAttrs.join(' ')}/>`);
+            }
+            if (annotation.line !== undefined) {
+              const lineAttrs = [
+                `fromX="${annotation.line.from.x}"`,
+                `fromY="${annotation.line.from.y}"`,
+                `toX="${annotation.line.to.x}"`,
+                `toY="${annotation.line.to.y}"`,
+              ];
+              if (annotation.line.endings !== undefined) {
+                lineAttrs.push(`endings="${annotation.line.endings.map(escapeAttr).join(',')}"`);
+              }
+              out.push(`<line ${lineAttrs.join(' ')}/>`);
+            }
+            if (annotation.vertices !== undefined && annotation.vertices.length > 0) {
+              out.push('<vertices>');
+              for (const point of annotation.vertices) {
+                out.push(`<point x="${point.x}" y="${point.y}"/>`);
+              }
+              out.push('</vertices>');
+            }
+            if (annotation.inkPaths !== undefined && annotation.inkPaths.length > 0) {
+              out.push('<inkPaths>');
+              for (const path of annotation.inkPaths) {
+                out.push('<path>');
+                for (const point of path) {
+                  out.push(`<point x="${point.x}" y="${point.y}"/>`);
+                }
+                out.push('</path>');
+              }
+              out.push('</inkPaths>');
             }
             for (const box of annotation.quadBoxes ?? []) {
               out.push(`<quadBox x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}"/>`);

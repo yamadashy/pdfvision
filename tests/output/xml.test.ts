@@ -740,6 +740,7 @@ describe('formatXml', () => {
             annotations: [
               {
                 subtype: 'Highlight',
+                name: 'Highlight',
                 contents: 'A & B',
                 title: 'Markup',
                 color: [255, 255, 11],
@@ -747,11 +748,18 @@ describe('formatXml', () => {
                 hasAppearance: false,
                 fileAttachment: { name: 'A&B.txt', size: 15, description: 'Review file' },
                 flags: ['hidden', 'print'],
+                border: { width: 2, style: 'dashed', dashArray: [3, 2] },
                 x: 100,
                 y: 80,
                 width: 80,
                 height: 12,
                 quadBoxes: [{ x: 100, y: 80, width: 80, height: 12 }],
+                line: { from: { x: 100, y: 80 }, to: { x: 180, y: 92 }, endings: ['None', 'OpenArrow'] },
+                vertices: [
+                  { x: 100, y: 80 },
+                  { x: 180, y: 92 },
+                ],
+                inkPaths: [[{ x: 101, y: 81 }]],
               },
             ],
           }),
@@ -762,9 +770,16 @@ describe('formatXml', () => {
     expect(out).toContain('annotationCount="1"');
     expect(out).toContain('<annotations>');
     expect(out).toContain(
-      '<annotation subtype="Highlight" x="100" y="80" width="80" height="12" contents="A &amp; B" title="Markup" color="255,255,11" modified="D:20140401161700+02\'00\'" hasAppearance="false" flags="hidden,print">',
+      '<annotation subtype="Highlight" x="100" y="80" width="80" height="12" name="Highlight" contents="A &amp; B" title="Markup" color="255,255,11" modified="D:20140401161700+02\'00\'" hasAppearance="false" flags="hidden,print">',
     );
     expect(out).toContain('<fileAttachment name="A&amp;B.txt" size="15" description="Review file"/>');
+    expect(out).toContain('<border width="2" style="dashed" dashArray="3,2"/>');
+    expect(out).toContain('<line fromX="100" fromY="80" toX="180" toY="92" endings="None,OpenArrow"/>');
+    expect(out).toContain('<vertices>');
+    expect(out).toContain('<point x="180" y="92"/>');
+    expect(out).toContain('<inkPaths>');
+    expect(out).toContain('<path>');
+    expect(out).toContain('<point x="101" y="81"/>');
     expect(out).toContain('<quadBox x="100" y="80" width="80" height="12"/>');
   });
 

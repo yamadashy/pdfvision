@@ -99,6 +99,33 @@ function annotationFlags(annotation: NonNullable<PageResult['annotations']>[numb
   return annotation.flags?.join(',') ?? '';
 }
 
+function annotationBorder(annotation: NonNullable<PageResult['annotations']>[number]): string {
+  const border = annotation.border;
+  if (!border) return '';
+  const parts: string[] = [];
+  if (border.width !== undefined) parts.push(`width=${border.width}`);
+  if (border.style !== undefined) parts.push(border.style);
+  if (border.dashArray !== undefined && border.dashArray.length > 0) parts.push(`dash=${border.dashArray.join(',')}`);
+  return parts.join(' ');
+}
+
+function annotationShape(annotation: NonNullable<PageResult['annotations']>[number]): string {
+  const parts: string[] = [];
+  if (annotation.line) {
+    const { from, to, endings } = annotation.line;
+    const endingText = endings ? ` endings=${endings.join(',')}` : '';
+    parts.push(`line ${from.x},${from.y}->${to.x},${to.y}${endingText}`);
+  }
+  if (annotation.vertices) {
+    parts.push(`vertices=${annotation.vertices.length}`);
+  }
+  if (annotation.inkPaths) {
+    const pointCount = annotation.inkPaths.reduce((total, path) => total + path.length, 0);
+    parts.push(`inkPaths=${annotation.inkPaths.length}/${pointCount}pts`);
+  }
+  return parts.join('; ');
+}
+
 function visualRegionSources(region: NonNullable<PageResult['visualRegions']>[number]): string {
   const refs = region.sources.map((source) => `${source.type}[${source.index}]`);
   const hiddenCount = region.sourceCount - region.sources.length;
@@ -584,11 +611,11 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
         lines.push('_No non-link annotations found._');
       } else {
         lines.push('');
-        lines.push('| Type | Contents | Title | File | Flags | BBox | Color | QuadBoxes |');
-        lines.push('| --- | --- | --- | --- | --- | --- | --- | ---: |');
+        lines.push('| Type | Name | Contents | Title | File | Flags | BBox | Color | Border | Shape | QuadBoxes |');
+        lines.push('| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---: |');
         for (const annotation of page.annotations) {
           lines.push(
-            `| ${escapeTableCell(annotation.subtype)} | ${escapeTableCell(annotation.contents ?? '')} | ${escapeTableCell(annotation.title ?? '')} | ${escapeTableCell(annotationFileAttachment(annotation))} | ${annotationFlags(annotation)} | ${formatBox(annotation)} | ${annotationColor(annotation)} | ${annotation.quadBoxes?.length ?? 0} |`,
+            `| ${escapeTableCell(annotation.subtype)} | ${escapeTableCell(annotation.name ?? '')} | ${escapeTableCell(annotation.contents ?? '')} | ${escapeTableCell(annotation.title ?? '')} | ${escapeTableCell(annotationFileAttachment(annotation))} | ${annotationFlags(annotation)} | ${formatBox(annotation)} | ${annotationColor(annotation)} | ${escapeTableCell(annotationBorder(annotation))} | ${escapeTableCell(annotationShape(annotation))} | ${annotation.quadBoxes?.length ?? 0} |`,
           );
         }
       }

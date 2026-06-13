@@ -394,6 +394,7 @@ describe('formatMarkdown', () => {
             annotations: [
               {
                 subtype: 'Highlight',
+                name: 'Highlight',
                 contents: 'important|note',
                 title: 'Markup',
                 color: [255, 255, 11],
@@ -406,8 +407,11 @@ describe('formatMarkdown', () => {
               },
               {
                 subtype: 'FileAttachment',
+                name: 'PushPin',
                 contents: 'Test.txt',
                 title: 'Reviewer',
+                border: { width: 1, style: 'solid' },
+                line: { from: { x: 1, y: 2 }, to: { x: 3, y: 4 }, endings: ['None', 'OpenArrow'] },
                 fileAttachment: { name: 'Test.txt', size: 15, description: 'Supplement' },
                 x: 70,
                 y: 94,
@@ -426,10 +430,10 @@ describe('formatMarkdown', () => {
     expect(out).toMatch(/annotations: 2/);
     expect(out).toContain('### Annotations');
     expect(out).toContain(
-      '| Highlight | important\\|note | Markup |  | print,noView | 100,80,80,12 | 255,255,11 | 1 |',
+      '| Highlight | Highlight | important\\|note | Markup |  | print,noView | 100,80,80,12 | 255,255,11 |  |  | 1 |',
     );
     expect(out).toContain(
-      '| FileAttachment | Test.txt | Reviewer | Test.txt · 15 bytes · Supplement |  | 70,94,20,24 |  | 0 |',
+      '| FileAttachment | PushPin | Test.txt | Reviewer | Test.txt · 15 bytes · Supplement |  | 70,94,20,24 |  | width=1 solid | line 1,2->3,4 endings=None,OpenArrow | 0 |',
     );
     expect(out).toContain('_No non-link annotations found._');
   });

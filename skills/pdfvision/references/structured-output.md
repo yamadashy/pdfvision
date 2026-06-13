@@ -217,6 +217,7 @@ interface PageLink {
 ```ts
 interface PageAnnotation {
   subtype: string;              // Text, Highlight, Underline, StrikeOut, FreeText, Stamp, FileAttachment, Ink, ...
+  name?: string;                 // annotation/icon name such as Note, Comment, PushPin, Paperclip
   contents?: string;            // comment / markup contents
   title?: string;               // author/title label
   color?: [number, number, number];
@@ -229,6 +230,18 @@ interface PageAnnotation {
     size: number;               // byte length; bytes are never embedded in JSON/XML/TOON
   };
   x: number; y: number; width: number; height: number;
+  border?: {
+    width?: number;
+    style?: string;             // solid, dashed, beveled, inset, underline, or raw pdf.js value
+    dashArray?: number[];
+  };
+  line?: {
+    from: { x: number; y: number };
+    to: { x: number; y: number };
+    endings?: [string, string]; // PDF line ending names, e.g. None/OpenArrow
+  };
+  vertices?: { x: number; y: number }[];   // Polygon / PolyLine vertices
+  inkPaths?: { x: number; y: number }[][]; // Ink annotation paths
   quadBoxes?: { x: number; y: number; width: number; height: number }[];
 }
 
@@ -245,7 +258,7 @@ type PageAnnotationFlag =
   | 'lockedContents';
 ```
 
-`annotations[]` surfaces non-link, non-widget PDF annotations: sticky notes, comments, highlights, underlines, strikeouts, stamps, free text, file-attachment icons, ink, and other markup. `flags[]` decodes the PDF annotation flags so agents can distinguish normal screen-visible markup from hidden, print-only, no-view, locked, or otherwise viewer-controlled annotations; for example `["hidden","print"]` means the annotation can exist in the PDF even when the normal screen render is blank. File-attachment annotations include filename / description / byte-size metadata when pdf.js exposes it, but never embed the file bytes in context. `Link`, `Widget`, and `Popup` annotations are intentionally excluded because links and form widgets have dedicated outputs and popups usually duplicate their parent annotation. Coordinates use the same top-left PDF-point system as `spans`, `layout.blocks`, and `imageBoxes`; `quadBoxes[]` gives precise markup regions when the PDF provides QuadPoints.
+`annotations[]` surfaces non-link, non-widget PDF annotations: sticky notes, comments, highlights, underlines, strikeouts, stamps, free text, file-attachment icons, shape markup, ink, and other markup. `name` preserves the PDF annotation/icon name when pdf.js exposes it, such as `Note`, `Comment`, `PushPin`, or `Paperclip`. `flags[]` decodes the PDF annotation flags so agents can distinguish normal screen-visible markup from hidden, print-only, no-view, locked, or otherwise viewer-controlled annotations; for example `["hidden","print"]` means the annotation can exist in the PDF even when the normal screen render is blank. File-attachment annotations include filename / description / byte-size metadata when pdf.js exposes it, but never embed the file bytes in context. Shape annotations include `border`, `line`, `vertices`, or `inkPaths` when pdf.js exposes them, so agents can recover visible endpoints, polygon/polyline geometry, and freehand ink paths instead of only the enclosing bbox. `Link`, `Widget`, and `Popup` annotations are intentionally excluded because links and form widgets have dedicated outputs and popups usually duplicate their parent annotation. Coordinates use the same top-left PDF-point system as `spans`, `layout.blocks`, and `imageBoxes`; `quadBoxes[]` gives precise markup regions when the PDF provides QuadPoints.
 
 ## Structure (`--structure`)
 
@@ -672,4 +685,4 @@ for (const page of result.pages) {
 
 `processFile()` returns the formatted string output (`markdown` / `json` / `xml` / `toon`). `processDocument()` returns the structured object directly.
 
-Exported types: `DocumentResult`, `DocumentMetadata`, `DocumentAttachment`, `DocumentLayerGroup`, `DocumentLayerOrderItem`, `DocumentLayers`, `DocumentLayerUsage`, `DocumentOutlineItem`, `DocumentOutlineTargetType`, `DocumentViewerState`, `DocumentOpenAction`, `DocumentPermissions`, `DocumentPermission`, `DocumentMarkInfo`, `JsonScalar`, `JsonValue`, `PageOverview`, `PageResult`, `PageQuality`, `PageWarning`, `SearchMatch`, `LayoutBlock`, `LayoutLine`, `LayoutTable`, `LayoutTableRow`, `LayoutTableCell`, `PageLayout`, `ImageBox`, `VectorBox`, `PageLink`, `PageLinkTarget`, `PageLinkType`, `FormField`, `FormFieldChoiceOption`, `FormFieldLabel`, `FormFieldLabelRelation`, `FormFieldType`, `PageAnnotation`, `PageAnnotationBox`, `PageAnnotationFileAttachment`, `PageAnnotationFlag`, `PageStructureContent`, `PageStructureItem`, `PageStructureNode`, `VisualRegion`, `VisualRegionAssociatedText`, `VisualRegionAssociatedTextRelation`, `VisualRegionKind`, `VisualRegionSource`, `VisualRegionSourceType`, `RenderRegion`, `TextSpan`, `PageOcr`, `OcrWord`, `OutputFormat`, `ProcessDocumentOptions`, `ProcessOptions`.
+Exported types: `DocumentResult`, `DocumentMetadata`, `DocumentAttachment`, `DocumentLayerGroup`, `DocumentLayerOrderItem`, `DocumentLayers`, `DocumentLayerUsage`, `DocumentOutlineItem`, `DocumentOutlineTargetType`, `DocumentViewerState`, `DocumentOpenAction`, `DocumentPermissions`, `DocumentPermission`, `DocumentMarkInfo`, `JsonScalar`, `JsonValue`, `PageOverview`, `PageResult`, `PageQuality`, `PageWarning`, `SearchMatch`, `LayoutBlock`, `LayoutLine`, `LayoutTable`, `LayoutTableRow`, `LayoutTableCell`, `PageLayout`, `ImageBox`, `VectorBox`, `PageLink`, `PageLinkTarget`, `PageLinkType`, `FormField`, `FormFieldChoiceOption`, `FormFieldLabel`, `FormFieldLabelRelation`, `FormFieldType`, `PageAnnotation`, `PageAnnotationBorder`, `PageAnnotationBox`, `PageAnnotationFileAttachment`, `PageAnnotationFlag`, `PageAnnotationLine`, `PageAnnotationPoint`, `PageStructureContent`, `PageStructureItem`, `PageStructureNode`, `VisualRegion`, `VisualRegionAssociatedText`, `VisualRegionAssociatedTextRelation`, `VisualRegionKind`, `VisualRegionSource`, `VisualRegionSourceType`, `RenderRegion`, `TextSpan`, `PageOcr`, `OcrWord`, `OutputFormat`, `ProcessDocumentOptions`, `ProcessOptions`.

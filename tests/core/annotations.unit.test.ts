@@ -7,6 +7,7 @@ describe('buildAnnotations', () => {
       [
         {
           subtype: 'Highlight',
+          name: 'Ｈｉｇｈｌｉｇｈｔ',
           contentsObj: { str: 'Ｈｉｇｈｌｉｇｈｔ' },
           titleObj: { str: 'Markup' },
           color: { 0: 255, 1: 255, 2: 11 },
@@ -29,6 +30,7 @@ describe('buildAnnotations', () => {
     expect(annotations).toEqual([
       {
         subtype: 'Highlight',
+        name: 'Highlight',
         contents: 'Highlight',
         title: 'Markup',
         color: [255, 255, 11],
@@ -54,6 +56,7 @@ describe('buildAnnotations', () => {
       [
         {
           subtype: 'FileAttachment',
+          name: 'PushPin',
           contentsObj: { str: 'Ｆｉｌｅ attachment' },
           rect: [70, 724, 90, 748],
           file: {
@@ -72,6 +75,7 @@ describe('buildAnnotations', () => {
     expect(annotations).toEqual([
       {
         subtype: 'FileAttachment',
+        name: 'PushPin',
         contents: 'File attachment',
         fileAttachment: {
           name: 'Test.txt',
@@ -85,6 +89,67 @@ describe('buildAnnotations', () => {
       },
     ]);
     expect(JSON.stringify(annotations)).not.toContain('Test attachment');
+  });
+
+  it('surfaces shape annotation geometry in top-left coordinates', () => {
+    const annotations = buildAnnotations(
+      [
+        {
+          subtype: 'Line',
+          rect: [70, 683, 251, 735],
+          lineCoordinates: [75, 688, 246, 730],
+          lineEndings: ['None', 'OpenArrow'],
+          borderStyle: { width: 4, style: 2, dashArray: { 0: 3, 1: 2 } },
+        },
+        {
+          subtype: 'Polygon',
+          rect: [60, 640, 200, 752],
+          vertices: { 0: 72, 1: 713, 2: 103, 3: 747, 4: 158, 5: 646 },
+        },
+        {
+          subtype: 'Ink',
+          rect: [67, 645, 165, 687],
+          inkLists: [
+            { 0: 79, 1: 683, 2: 80, 3: 675 },
+            { 0: 74, 1: 651, 2: 96, 3: 652 },
+          ],
+        },
+      ],
+      792,
+    );
+
+    expect(annotations).toEqual([
+      expect.objectContaining({
+        subtype: 'Polygon',
+        vertices: [
+          { x: 72, y: 79 },
+          { x: 103, y: 45 },
+          { x: 158, y: 146 },
+        ],
+      }),
+      expect.objectContaining({
+        subtype: 'Line',
+        border: { width: 4, style: 'dashed', dashArray: [3, 2] },
+        line: {
+          from: { x: 75, y: 104 },
+          to: { x: 246, y: 62 },
+          endings: ['None', 'OpenArrow'],
+        },
+      }),
+      expect.objectContaining({
+        subtype: 'Ink',
+        inkPaths: [
+          [
+            { x: 79, y: 109 },
+            { x: 80, y: 117 },
+          ],
+          [
+            { x: 74, y: 141 },
+            { x: 96, y: 140 },
+          ],
+        ],
+      }),
+    ]);
   });
 
   it('decodes hidden and print annotation flags', () => {

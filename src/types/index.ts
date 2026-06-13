@@ -220,7 +220,8 @@ export interface ProcessDocumentOptions {
   /**
    * Emit non-link, non-widget PDF annotations in `pages[].annotations`.
    * Useful for comments, sticky notes, highlights, underlines, strikeouts,
-   * stamps, and other annotation markup a human PDF reader can see.
+   * stamps, file-attachment icons, shape markup, ink paths, and other
+   * annotation markup a human PDF reader can see.
    */
   annotations?: boolean;
   /**
@@ -853,6 +854,27 @@ export interface PageAnnotationFileAttachment {
   size: number;
 }
 
+export interface PageAnnotationPoint {
+  x: number;
+  y: number;
+}
+
+export interface PageAnnotationBorder {
+  /** Border width in PDF points. */
+  width?: number;
+  /** PDF border style such as solid, dashed, beveled, inset, or underline. */
+  style?: string;
+  /** Dash pattern for dashed borders when present. */
+  dashArray?: number[];
+}
+
+export interface PageAnnotationLine {
+  from: PageAnnotationPoint;
+  to: PageAnnotationPoint;
+  /** PDF line ending names, e.g. None, Square, Circle, OpenArrow. */
+  endings?: [string, string];
+}
+
 export type PageAnnotationFlag =
   | 'invisible'
   | 'hidden'
@@ -868,6 +890,8 @@ export type PageAnnotationFlag =
 export interface PageAnnotation {
   /** PDF annotation subtype such as Text, Highlight, Underline, StrikeOut, FreeText, Stamp, FileAttachment, or Ink. */
   subtype: string;
+  /** PDF annotation / icon name, such as Note, Comment, PushPin, or Paperclip, when available. */
+  name?: string;
   /** Comment / markup contents when the PDF provides them. */
   contents?: string;
   /** Annotation title / author label when the PDF provides it. */
@@ -882,12 +906,20 @@ export interface PageAnnotation {
   fileAttachment?: PageAnnotationFileAttachment;
   /** Decoded PDF annotation flags, such as hidden, print, noView, or locked. */
   flags?: PageAnnotationFlag[];
+  /** Border styling for shape and markup annotations when pdf.js exposes it. */
+  border?: PageAnnotationBorder;
   x: number;
   y: number;
   width: number;
   height: number;
   /** Precise markup quadrilateral boxes, present when the PDF provides QuadPoints. */
   quadBoxes?: PageAnnotationBox[];
+  /** Line start/end coordinates for Line annotations, in top-left PDF points. */
+  line?: PageAnnotationLine;
+  /** Vertices for Polygon and PolyLine annotations, in top-left PDF points. */
+  vertices?: PageAnnotationPoint[];
+  /** Freehand paths for Ink annotations, in top-left PDF points. */
+  inkPaths?: PageAnnotationPoint[][];
 }
 
 export interface PageStructureContent {
