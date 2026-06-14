@@ -803,17 +803,39 @@ describe('buildVisualRegions', () => {
           { type: 'vectorBox', index: 7 },
         ],
         reason: '4 nearby vector drawing operations',
+        associatedText: [
+          {
+            text: 'Industry data sharing intent',
+            relation: 'label',
+            x: 548.88,
+            y: 240.34,
+            width: 171.93,
+            height: 14.04,
+            blockIndex: 1,
+          },
+        ],
       },
       {
         kind: 'raster',
         x: 3.52,
-        y: 272.56,
+        y: 232.55,
         width: 500.8,
-        height: 177.4,
-        areaRatio: 0.211,
+        height: 217.41,
+        areaRatio: 0.258,
         sourceCount: 1,
         sources: [{ type: 'imageBox', index: 0 }],
         reason: 'raster image covers 18.6% of the page',
+        associatedText: [
+          {
+            text: 'DX progress by operation area',
+            relation: 'label',
+            x: 173.78,
+            y: 240.55,
+            width: 160.35,
+            height: 14.04,
+            blockIndex: 2,
+          },
+        ],
       },
     ]);
   });
@@ -1753,6 +1775,40 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('attaches short plain labels above raster images', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 600,
+      pageHeight: 400,
+      imageBoxes: [{ x: 40, y: 120, width: 420, height: 160 }],
+      layout: {
+        blocks: [
+          {
+            text: 'DX adoption by manufacturing function',
+            x: 174,
+            y: 96,
+            width: 180,
+            height: 14,
+            lines: [
+              { text: 'DX adoption by manufacturing function', x: 174, y: 96, width: 180, height: 14, fontSize: 12 },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0]).toMatchObject({
+      kind: 'raster',
+      associatedText: [
+        {
+          text: 'DX adoption by manufacturing function',
+          relation: 'label',
+          blockIndex: 0,
+        },
+      ],
+    });
+  });
+
   it('attaches short in-region chart titles to mixed visual regions', () => {
     const regions = buildVisualRegions({
       pageWidth: 600,
@@ -1804,6 +1860,59 @@ describe('buildVisualRegions', () => {
           y: 224,
           width: 192,
           height: 12,
+          blockIndex: 0,
+        },
+      ],
+    });
+  });
+
+  it('attaches short in-region chart titles to vector visual regions', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 600,
+      pageHeight: 400,
+      imageBoxes: [],
+      vectorBoxes: [
+        { x: 310, y: 100, width: 220, height: 240 },
+        { x: 330, y: 280, width: 170, height: 1 },
+      ],
+      layout: {
+        blocks: [
+          {
+            text: 'Participation intent for industrial data sharing',
+            x: 350,
+            y: 122,
+            width: 180,
+            height: 14,
+            lines: [
+              {
+                text: 'Participation intent for industrial data sharing',
+                x: 350,
+                y: 122,
+                width: 180,
+                height: 14,
+                fontSize: 12,
+              },
+            ],
+          },
+          {
+            text: 'Not sure, 45.3%',
+            x: 365,
+            y: 230,
+            width: 90,
+            height: 12,
+            lines: [{ text: 'Not sure, 45.3%', x: 365, y: 230, width: 90, height: 12, fontSize: 10 }],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0]).toMatchObject({
+      kind: 'vector',
+      associatedText: [
+        {
+          text: 'Participation intent for industrial data sharing',
+          relation: 'label',
           blockIndex: 0,
         },
       ],

@@ -1110,13 +1110,22 @@ function plainImageLabelScore(
   if (candidate.associatedText && candidate.associatedText.length > 0) return undefined;
   if (block.repeated) return undefined;
   if (!isPlainImageLabelText(block.text)) return undefined;
+  const blockBottom = block.y + block.height;
+  const aboveGap = candidate.y - blockBottom;
   const regionBottom = candidate.y + candidate.height;
   const belowGap = block.y - regionBottom;
-  if (belowGap < -4 || belowGap > PLAIN_IMAGE_LABEL_MAX_GAP_PT) return undefined;
+  let gap: number;
+  if (aboveGap >= -4 && aboveGap <= PLAIN_IMAGE_LABEL_MAX_GAP_PT) {
+    gap = Math.max(0, aboveGap);
+  } else if (belowGap >= -4 && belowGap <= PLAIN_IMAGE_LABEL_MAX_GAP_PT) {
+    gap = Math.max(0, belowGap);
+  } else {
+    return undefined;
+  }
 
   const overlap = horizontalOverlapRatio(candidate, block);
   if (overlap < PLAIN_IMAGE_LABEL_MIN_HORIZONTAL_OVERLAP_RATIO) return undefined;
-  return Math.max(0, belowGap) + (1 - overlap) * 24;
+  return gap + (1 - overlap) * 24;
 }
 
 function attachPlainImageLabels(candidates: Candidate[], layout: PageLayout | undefined): Candidate[] {
@@ -1157,7 +1166,7 @@ function inRegionPlainLabelScore(
   block: NonNullable<PageLayout['blocks']>[number],
   totalArea: number,
 ): number | undefined {
-  if (candidate.kind !== 'raster' && candidate.kind !== 'mixed') return undefined;
+  if (candidate.kind !== 'raster' && candidate.kind !== 'mixed' && candidate.kind !== 'vector') return undefined;
   if (candidate.associatedText && candidate.associatedText.length > 0) return undefined;
   if (areaRatio(candidate, totalArea) < IN_REGION_PLAIN_LABEL_MIN_REGION_AREA_RATIO) return undefined;
   if (block.role === 'heading' || block.repeated) return undefined;
