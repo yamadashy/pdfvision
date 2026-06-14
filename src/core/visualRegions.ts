@@ -115,6 +115,8 @@ const CONTEXTUAL_DUPLICATE_AREA_RATIO = 0.85;
 const CONTEXTUAL_DUPLICATE_CONTAINED_OVERLAP_RATIO = 0.95;
 const MAX_ASSOCIATED_TEXT = 3;
 const CAPTION_SCORE_TOLERANCE_PT = 12;
+const CAPTION_CONTINUATION_MAX_LINES = 2;
+const CAPTION_CONTINUATION_MAX_CHARS = 240;
 const SHALLOW_TABLE_HINT_MAX_ROWS = 2;
 const SHALLOW_TABLE_HINT_MAX_HEIGHT_RATIO = 0.1;
 const SHALLOW_TABLE_HINT_MIN_WIDTH_RATIO = 0.65;
@@ -945,6 +947,20 @@ function isGlobalCaptionText(text: string): boolean {
   return GLOBAL_CAPTION_PATTERN.test(text) && isCaptionText(text);
 }
 
+function allowsCaptionContinuation(text: string): boolean {
+  return /^\s*table\b/iu.test(text);
+}
+
+function isCaptionContinuationText(captionText: string, text: string): boolean {
+  const normalized = normalizeAssociatedText(text);
+  if (normalized.length === 0 || normalized.length > CAPTION_CONTINUATION_MAX_CHARS) return false;
+  if (!/[\p{L}\p{N}]/u.test(normalized)) return false;
+  if (isCaptionText(normalized)) return false;
+  if (/^(?:doi:|https?:\/\/|www\.)/iu.test(normalized)) return false;
+  if (captionText.includes(normalized)) return false;
+  return true;
+}
+
 function isPlainImageLabelText(text: string): boolean {
   const normalized = normalizeAssociatedText(text);
   if (normalized.length === 0 || normalized.length > PLAIN_IMAGE_LABEL_MAX_CHARS) return false;
@@ -993,18 +1009,37 @@ function captionTextsFromBlock(
   block: NonNullable<PageLayout['blocks']>[number],
   blockIndex: number,
 ): VisualRegionAssociatedText[] {
-  const lineCaptions = block.lines
-    .map((line) => ({ line, text: normalizeAssociatedText(line.text) }))
-    .filter(({ text }) => isCaptionText(text))
-    .map(({ line, text }) => ({
-      text,
+  const lines = block.lines.map((line) => ({ line, text: normalizeAssociatedText(line.text) }));
+  const lineCaptions: VisualRegionAssociatedText[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const item = lines[i];
+    if (!item || !isCaptionText(item.text)) continue;
+
+    const textParts = [item.text];
+    let captionBox: BoxLike = item.line;
+    for (
+      let j = i + 1;
+      allowsCaptionContinuation(item.text) && j < lines.length && j <= i + CAPTION_CONTINUATION_MAX_LINES;
+      j++
+    ) {
+      const continuation = lines[j];
+      if (!continuation) break;
+      const captionText = normalizeAssociatedText(textParts.join(' '));
+      if (!isCaptionContinuationText(captionText, continuation.text)) break;
+      textParts.push(continuation.text);
+      captionBox = unionBox(captionBox, continuation.line);
+    }
+
+    lineCaptions.push({
+      text: normalizeAssociatedText(textParts.join(' ')),
       relation: 'caption' as const,
-      x: line.x,
-      y: line.y,
-      width: line.width,
-      height: line.height,
+      x: round2(captionBox.x),
+      y: round2(captionBox.y),
+      width: round2(captionBox.width),
+      height: round2(captionBox.height),
       blockIndex,
-    }));
+    });
+  }
   if (lineCaptions.length > 0) return lineCaptions;
 
   const text = normalizeAssociatedText(block.text);

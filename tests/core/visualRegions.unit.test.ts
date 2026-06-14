@@ -1845,6 +1845,55 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('merges caption continuation lines while ignoring dot leaders', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 600,
+      pageHeight: 760,
+      imageBoxes: [],
+      vectorBoxes: Array.from({ length: 8 }, (_, index) => ({
+        x: 330 + index * 18,
+        y: 590,
+        width: 24,
+        height: 20,
+      })),
+      layout: {
+        blocks: [
+          {
+            text: 'Table 2. Multivariate regression on citation count for 85\npublications\n. . . . . . . .',
+            x: 318.1,
+            y: 551.16,
+            width: 233.88,
+            height: 25.41,
+            lines: [
+              {
+                text: 'Table 2. Multivariate regression on citation count for 85',
+                x: 321.11,
+                y: 551.16,
+                width: 223.59,
+                height: 8.97,
+                fontSize: 8,
+              },
+              { text: 'publications', x: 321.11, y: 561, width: 44, height: 8.97, fontSize: 8 },
+              { text: '. . . . . . . .', x: 321.11, y: 571, width: 120, height: 8.97, fontSize: 8 },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions[0].associatedText).toEqual([
+      {
+        text: 'Table 2. Multivariate regression on citation count for 85 publications',
+        relation: 'caption',
+        x: 321.11,
+        y: 551.16,
+        width: 223.59,
+        height: 18.81,
+        blockIndex: 0,
+      },
+    ]);
+  });
+
   it('attaches only the closest local caption to a visual region', () => {
     const regions = buildVisualRegions({
       pageWidth: 600,
@@ -2021,6 +2070,54 @@ describe('buildVisualRegions', () => {
         width: 250,
         height: 12,
         blockIndex: 2,
+      },
+    ]);
+  });
+
+  it('does not merge Japanese table header cells into a table caption', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 600,
+      pageHeight: 760,
+      imageBoxes: [],
+      vectorBoxes: Array.from({ length: 8 }, (_, index) => ({
+        x: 80 + index * 45,
+        y: 260,
+        width: 36,
+        height: 24,
+      })),
+      layout: {
+        blocks: [
+          {
+            text: '表24-(1)-1 母子世帯の母が抱える子どもについての悩みの内訳\n進学 栄養 身のまわり',
+            x: 80,
+            y: 224,
+            width: 360,
+            height: 24,
+            lines: [
+              {
+                text: '表24-(1)-1 母子世帯の母が抱える子どもについての悩みの内訳',
+                x: 80,
+                y: 224,
+                width: 320,
+                height: 10,
+                fontSize: 9,
+              },
+              { text: '進学 栄養 身のまわり', x: 82, y: 236, width: 110, height: 10, fontSize: 9 },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions[0].associatedText).toEqual([
+      {
+        text: '表24-(1)-1 母子世帯の母が抱える子どもについての悩みの内訳',
+        relation: 'caption',
+        x: 80,
+        y: 224,
+        width: 320,
+        height: 10,
+        blockIndex: 0,
       },
     ]);
   });
