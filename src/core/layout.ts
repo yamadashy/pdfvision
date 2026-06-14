@@ -1775,6 +1775,27 @@ function isRecurringTableGutterCandidate(groupBox: BBox, gap: number, fontSize: 
   return gap >= Math.max(fontSize * RECURRING_GUTTER_GAP_RATIO, RECURRING_GUTTER_MIN_GAP_PT);
 }
 
+function isMisalignedLeftSidePanelBoundaryCandidate(
+  groupBox: BBox,
+  prev: TextSpan,
+  cur: TextSpan,
+  gap: number,
+  fontSize: number,
+  pageWidth: number,
+): boolean {
+  if (pageWidth <= 0) return false;
+  const minHeight = Math.max(Math.min(horizontalLineGroupingHeight(prev), horizontalLineGroupingHeight(cur)), 1);
+  const curStartsFormRow = /^\d+[a-z]?$/iu.test(cur.text.trim());
+  if (Math.abs(prev.y - cur.y) < minHeight * LINE_TOP_ALIGNMENT_RATIO && !curStartsFormRow) return false;
+  if (cur.x < pageWidth * 0.12 || cur.x > pageWidth * 0.3) return false;
+  if (groupBox.width < pageWidth * 0.45) return false;
+  if (gap < Math.max(fontSize * 0.75, 6)) return false;
+
+  const leftWidth = prev.x + prev.width - groupBox.x;
+  const rightWidth = groupBox.x + groupBox.width - cur.x;
+  return leftWidth >= 40 && leftWidth <= pageWidth * 0.22 && rightWidth >= pageWidth * 0.3;
+}
+
 function isTableGutterNumericSpan(span: TextSpan): boolean {
   const text = span.text.trim();
   return text === '-' || isTableNumericCell(text);
@@ -1928,10 +1949,22 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0, pageHeight = 0): P
         isTableGutterNumericSpan(prev) &&
         isTableGutterNumericSpan(cur) &&
         isRecurringTableGutterCandidate(groupBox, gap, fontSize, pageWidth);
+      const misalignedLeftSidePanelBoundary = isMisalignedLeftSidePanelBoundaryCandidate(
+        groupBox,
+        prev,
+        cur,
+        gap,
+        fontSize,
+        pageWidth,
+      );
       if (
         !preserveWideWordSpacing &&
         !preserveCjkDisplaySpacing &&
-        (gap > segmentGap || recurringGutter || recurringSidePanelStart || recurringTableGutter)
+        (gap > segmentGap ||
+          recurringGutter ||
+          recurringSidePanelStart ||
+          recurringTableGutter ||
+          misalignedLeftSidePanelBoundary)
       ) {
         subLines.push([cur]);
       } else {

@@ -648,6 +648,50 @@ describe('buildLayout — multi-column reading order', () => {
     expect(lineTexts.some((text) => text.includes('and Trusts') && text.includes('7a'))).toBe(false);
   });
 
+  it('does not merge small form side notes into misaligned main row text', () => {
+    const spans: TextSpan[] = [
+      span('dividends shown', 36, 555.99, 8, 60.3),
+      span('6', 110.2, 551.92, 9, 5),
+      span(
+        'Add the amounts on line 5. Enter the total here and on Form 1040 or 1040-SR, line 3b',
+        129.6,
+        551.92,
+        9,
+        331.23,
+      ),
+    ];
+    const layout = buildLayout(spans, 612);
+    const lineTexts = layout.blocks.flatMap((block) => block.lines.map((line) => line.text));
+
+    expect(lineTexts).toContain('dividends shown');
+    expect(lineTexts).toContain(
+      '6 Add the amounts on line 5. Enter the total here and on Form 1040 or 1040-SR, line 3b',
+    );
+    expect(lineTexts.some((text) => text.includes('dividends shown') && text.includes('6 Add'))).toBe(false);
+  });
+
+  it('splits form row numbers from aligned left side notes', () => {
+    const spans: TextSpan[] = [
+      span('Financial Assets.', 36, 733.99, 8, 59.85),
+      span('8', 110.2, 733.13, 9, 5),
+      span(
+        'During 2025, did you receive a distribution from, or were you the grantor of, or transferor to, a',
+        129.6,
+        733.13,
+        9,
+        396.03,
+      ),
+    ];
+    const layout = buildLayout(spans, 612);
+    const lineTexts = layout.blocks.flatMap((block) => block.lines.map((line) => line.text));
+
+    expect(lineTexts).toContain('Financial Assets.');
+    expect(lineTexts).toContain(
+      '8 During 2025, did you receive a distribution from, or were you the grantor of, or transferor to, a',
+    );
+    expect(lineTexts.some((text) => text.includes('Financial Assets.') && text.includes('8 During'))).toBe(false);
+  });
+
   it('splits recurring narrow gutters in dense two-column journal text', () => {
     // Nature-style two-column body rows can have only ~13pt between the
     // left and right columns. That is below the default 16pt hard gutter,
