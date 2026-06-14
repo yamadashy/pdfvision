@@ -482,7 +482,7 @@ const MIN_BODY_CHARS_FOR_LOW_TIER = 100;
 const TOP_TITLE_MAX_Y = 120;
 const TOP_TITLE_MIN_WIDTH = 180;
 const TOP_TITLE_MIN_CHARS = 25;
-const TOP_BYLINE_MAX_GAP = 120;
+const TOP_BYLINE_MAX_GAP = 260;
 const TOP_SLIDE_TITLE_MIN_FONT_SIZE = 24;
 const TOP_SLIDE_TITLE_MIN_WIDTH = 120;
 const TOP_CENTERED_ALL_CAPS_TITLE_MAX_CHARS = 180;
@@ -635,6 +635,19 @@ function isPersonBylineText(text: string): boolean {
   return words.every((word) => /^[A-Z][\p{L}.'-]*$/u.test(word) || /^[A-Z]\.$/u.test(word));
 }
 
+function isTopAffiliationMetadataText(text: string): boolean {
+  const trimmed = text.trim().replace(/\s+/gu, ' ');
+  if (trimmed.length === 0 || trimmed.length > 100) return false;
+  if (/[.!?]/u.test(trimmed)) return false;
+  const parts = trimmed.split(',').map((part) => part.trim());
+  if (parts.length < 2 || parts.length > 6) return false;
+  return parts.every((part) => {
+    const words = part.split(/\s+/u).filter(Boolean);
+    if (words.length === 0 || words.length > 4) return false;
+    return /^[\p{Lu}\p{N}][\p{L}\p{N}&.' -]{0,40}$/u.test(part);
+  });
+}
+
 function demoteTopBylineHeadings(blocks: LayoutBlock[]): void {
   const topTitle = blocks.find((b) => b.role === 'heading' && b.level === 1 && b.y <= TOP_TITLE_MAX_Y);
   if (!topTitle) return;
@@ -642,7 +655,7 @@ function demoteTopBylineHeadings(blocks: LayoutBlock[]): void {
   for (const b of blocks) {
     if (b.role !== 'heading') continue;
     if (b.y <= titleBottom || b.y > titleBottom + TOP_BYLINE_MAX_GAP) continue;
-    if (!isPersonBylineText(b.text)) continue;
+    if (!isPersonBylineText(b.text) && !isTopAffiliationMetadataText(b.text)) continue;
     b.role = undefined;
     b.level = undefined;
     b.roleConfidence = undefined;

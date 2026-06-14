@@ -177,6 +177,27 @@ describe('buildLayout — heading classification', () => {
     expect(section?.role).toBe('heading');
   });
 
+  it('demotes short affiliation metadata directly under a document title', () => {
+    const bodyLines: TextSpan[] = [];
+    for (let i = 0; i < 18; i++) {
+      bodyLines.push(span('Body text line that establishes the paper body median.', 72, 250 + i * 12, 9.96));
+    }
+    const spans: TextSpan[] = [
+      span('Llama 2: Open Foundation and Fine-Tuned Chat Models', 98, 72, 17.2, 420),
+      span('GenAI, Meta', 270, 315, 12, 72),
+      span('1 Introduction', 72, 530, 12, 76),
+      ...bodyLines,
+    ];
+    const layout = buildLayout(spans, 612);
+    const title = layout.blocks.find((b) => b.text.includes('Llama 2'));
+    const affiliation = layout.blocks.find((b) => b.text.includes('GenAI'));
+    const section = layout.blocks.find((b) => b.text.includes('Introduction'));
+
+    expect(title?.role).toBe('heading');
+    expect(affiliation?.role).toBeUndefined();
+    expect(section?.role).toBe('heading');
+  });
+
   it('flags arxiv-style 1.20× section headings (12pt over 10pt body) at level 2', () => {
     // The most common LaTeX article layout: 10pt body with 12pt section
     // headings. Ratio 1.20 sits in the 1.15–1.25 band, so the block must
