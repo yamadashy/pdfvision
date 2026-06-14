@@ -864,6 +864,31 @@ describe('detectPageWarnings', () => {
     expect(out[0]).toMatchObject({ code: 'large_raster_low_text_overlap', severity: 'warning' });
   });
 
+  it('flags large raster images on empty visual pages without native text', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '',
+      charCount: 0,
+      imageCount: 1,
+      vectorCount: 0,
+      textCoverage: 0,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 1000,
+      height: 1000,
+      imageBoxes: [{ x: 120, y: 140, width: 600, height: 500 }],
+      quality: { nativeTextStatus: 'empty_but_visual_content' },
+    });
+
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({
+      code: 'large_raster_low_text_overlap',
+      severity: 'warning',
+      imageBoxIndex: 0,
+    });
+    expect(out[0].message).toContain('native text is empty');
+  });
+
   it('uses internal image boxes for sparse visual pages without exposing an imageBoxIndex', () => {
     // Baseline JSON does not include pages[].imageBoxes, but extraction
     // still computes image geometry internally. A scanned or screenshot

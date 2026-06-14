@@ -471,7 +471,7 @@ function detectLargeRasterLowTextOverlap(page: PageResult, context: PageWarningC
   if (pageArea <= 0) return;
 
   const textBoxes = page.layout?.blocks ?? page.spans ?? [];
-  if (textBoxes.length === 0 && page.quality.nativeTextStatus !== 'sparse_text_with_visual_content') return;
+  if (textBoxes.length === 0 && !hasNoOrSparseNativeText(page.quality.nativeTextStatus)) return;
   const exposeImageBoxIndex = page.imageBoxes !== undefined;
   const warnedImages: BoxLike[] = [];
   for (let i = 0; i < imageBoxes.length; i++) {
@@ -488,7 +488,7 @@ function detectLargeRasterLowTextOverlap(page: PageResult, context: PageWarningC
     const message =
       textBoxes.length > 0
         ? `large raster image covers ${(imageAreaRatio * 100).toFixed(1)}% of the page with little native-text overlap (${(textOverlapRatio * 100).toFixed(2)}%) — labels, chart text, or map text inside the image will not appear in native text`
-        : `large raster image covers ${(imageAreaRatio * 100).toFixed(1)}% of the page while native text is sparse — labels, chart text, or map text inside the image will not appear in native text`;
+        : `large raster image covers ${(imageAreaRatio * 100).toFixed(1)}% of the page while native text is ${page.quality.nativeTextStatus === 'empty_but_visual_content' ? 'empty' : 'sparse'} — labels, chart text, or map text inside the image will not appear in native text`;
     out.push({
       code: 'large_raster_low_text_overlap',
       severity: 'warning',
@@ -653,7 +653,11 @@ function sharedNumericRowCenters(columns: { right: number; lines: LayoutLine[] }
 }
 
 function canCompareNativeTextAgainstRaster(status: PageResult['quality']['nativeTextStatus']): boolean {
-  return status === 'ok' || status === 'sparse_text_with_visual_content';
+  return status === 'ok' || hasNoOrSparseNativeText(status);
+}
+
+function hasNoOrSparseNativeText(status: PageResult['quality']['nativeTextStatus']): boolean {
+  return status === 'empty_but_visual_content' || status === 'sparse_text_with_visual_content';
 }
 
 interface BoxLike {
