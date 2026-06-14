@@ -29,6 +29,7 @@ interface BuildLinksOptions {
 }
 
 type Rect = [number, number, number, number];
+const LINK_TEXT_MAX_CHARS = 240;
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
@@ -104,7 +105,13 @@ function linkText(link: BoxLike, lines: readonly LabelLine[]): string | undefine
     .sort((a, b) => a.y - b.y || a.x - b.x)
     .map((line) => line.text.trim());
   const text = parts.join(' ').replace(/\s+/g, ' ').trim();
-  return text.length > 0 ? text : undefined;
+  return text.length > 0 ? truncateLinkText(text) : undefined;
+}
+
+function truncateLinkText(text: string): string {
+  const chars = Array.from(text);
+  if (chars.length <= LINK_TEXT_MAX_CHARS) return text;
+  return `${chars.slice(0, LINK_TEXT_MAX_CHARS - 3).join('')}...`;
 }
 
 function isLineInsideLink(line: LabelLine, link: BoxLike): boolean {

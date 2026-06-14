@@ -81,6 +81,22 @@ describe('buildLinks', () => {
     ]);
   });
 
+  it('truncates very long visible link text', async () => {
+    const longText = 'Chapter '.repeat(60).trim();
+    const links = await buildLinks(
+      [{ subtype: 'Link', url: 'https://example.com', rect: [0, 0, 500, 500] }],
+      600,
+      0,
+      0,
+      {
+        labelLines: [{ text: longText, x: 10, y: 110, width: 400, height: 12 }],
+      },
+    );
+
+    expect(links[0].text?.length).toBe(240);
+    expect(links[0].text?.endsWith('...')).toBe(true);
+  });
+
   it('ignores link annotations with non-finite rect coordinates', async () => {
     const links = await buildLinks(
       [
