@@ -99,6 +99,38 @@ describe('buildLayout — heading classification', () => {
     expect(title?.level).toBe(1);
   });
 
+  it('promotes centered all-caps financial statement titles even at body font size', () => {
+    const spans: TextSpan[] = [
+      span('Apple Inc.', 286.76, 60.08, 8.1, 38.7),
+      span('CONSOLIDATED BALANCE SHEETS', 151.45, 78.3, 8.1, 309.31),
+      span(
+        '(In millions, except number of shares, which are reflected in thousands, and par value)',
+        151.45,
+        88.65,
+        8.1,
+        309.31,
+      ),
+      span('ASSETS:', 288.55, 128.25, 8.1, 35.11),
+      span('Current assets:', 19.12, 139.05, 8.1, 122.02),
+      span('Cash and cash equivalents', 19.12, 149.85, 8.1, 122.02),
+      span('$', 431.83, 149.85, 8.1, 4.5),
+      span('29,965', 476.68, 149.85, 8.1, 29.28),
+      span('Marketable securities', 19.12, 160.65, 8.1, 122.02),
+      span('31,590', 476.68, 160.65, 8.1, 29.28),
+    ];
+
+    const layout = buildLayout(spans, 612);
+    const title = layout.blocks.find((block) => block.text.includes('CONSOLIDATED BALANCE SHEETS'));
+    const company = layout.blocks.find((block) => block.text.includes('Apple Inc.'));
+    const body = layout.blocks.find((block) => block.text.includes('Current assets'));
+
+    expect(title?.role).toBe('heading');
+    expect(title?.level).toBe(1);
+    expect(title?.roleConfidence).toBeGreaterThanOrEqual(0.75);
+    expect(company?.role).toBeUndefined();
+    expect(body?.role).toBeUndefined();
+  });
+
   it('does not promote Japanese body fragments when dense table text lowers the median font size', () => {
     const tableLines: TextSpan[] = [];
     for (let i = 0; i < 24; i++) {
