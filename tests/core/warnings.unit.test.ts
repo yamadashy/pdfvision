@@ -1123,7 +1123,12 @@ describe('detectPageWarnings', () => {
     it('flags two non-repeated blocks whose bboxes overlap', () => {
       // Block A: 50,50 to 350,250. Block B: 200,150 to 500,300.
       // Intersection: 200,150 to 350,250 = 150×100 = 15000 pt².
-      const out = detectPageWarnings(page([block(50, 50, 300, 200), block(200, 150, 300, 150)]));
+      const out = detectPageWarnings(
+        page([
+          block(50, 50, 300, 200, { text: 'left column body text' }),
+          block(200, 150, 300, 150, { text: 'right diagram label' }),
+        ]),
+      );
       const overlap = out.find((w) => w.code === 'text_overlap');
       expect(overlap).toBeDefined();
       expect(overlap?.blockIndex).toBe(0);
@@ -1143,6 +1148,60 @@ describe('detectPageWarnings', () => {
       // shouldn't double-fire; the body_near_repeated_chrome rule is
       // the right channel for that.
       const out = detectPageWarnings(page([block(50, 700, 500, 50), block(50, 720, 500, 30, { repeated: true })]));
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
+    it('does not flag duplicate text extraction blocks with the same bbox', () => {
+      // Japanese manuals can emit the same vertical text run twice with
+      // virtually identical geometry. That is duplicate extraction, not
+      // two visible strings colliding.
+      const text = '風雨にさらされるところには、据え付けない';
+      const out = detectPageWarnings(
+        page([
+          block(525.76, 642.82, 12, 227.98, { text, writingMode: 'vertical' }),
+          block(525.76, 642.82, 12, 228, { text, writingMode: 'vertical' }),
+        ]),
+      );
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
+    it('does not flag short duplicated vertical headings', () => {
+      const text = '安全上のご注意';
+      const out = detectPageWarnings(
+        page([
+          block(775.49, 52.49, 40, 288.32, { text, writingMode: 'vertical' }),
+          block(773.17, 54.19, 40, 288.32, { text, writingMode: 'vertical' }),
+        ]),
+      );
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
+    it('does not flag short CJK vertical fragments contained in a larger extraction block', () => {
+      const out = detectPageWarnings(
+        page([
+          block(260, 100, 20, 220, { text: '雷が鳴り出したら洗濯機やコンセントにはさわらないでください。' }),
+          block(260, 210, 12, 80, { text: 'ください。', writingMode: 'vertical' }),
+        ]),
+      );
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
+    it('does not flag highly similar contained text extraction blocks', () => {
+      // Some CJK PDFs expose a synthetic larger block plus the visual
+      // vertical line blocks. The shorter block is readable content
+      // duplicated from the larger extraction, not an independent
+      // overlapping label.
+      const out = detectPageWarnings(
+        page([
+          block(717.16, 37.36, 29.8, 441.66, {
+            text: '※お読みになった後は、次にお使いになる場合にすぐ見られるところへ大切に保管 ※ご使用になる前に、',
+          }),
+          block(717.16, 166.96, 12, 396.01, {
+            text: '次にお使いになる場合にすぐ見られるところへ大切に保管してください。',
+            writingMode: 'vertical',
+          }),
+        ]),
+      );
       expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
     });
 
@@ -1514,7 +1573,7 @@ describe('detectPageWarnings', () => {
 
     it('caps noisy overlap pages and summarizes omitted pairs', () => {
       const blocks = Array.from({ length: 12 }, (_, index) =>
-        block(50 + index * 2, 50 + index * 2, 120, 120, { text: `overlap block ${index}` }),
+        block(50 + index * 2, 50 + index * 2, 120, 120, { text: String.fromCharCode(65 + index).repeat(24) }),
       );
 
       const overlaps = detectPageWarnings(page(blocks)).filter((w) => w.code === 'text_overlap');
