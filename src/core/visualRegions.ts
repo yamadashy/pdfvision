@@ -100,7 +100,7 @@ const HEADING_LABEL_SCORE_TOLERANCE_PT = 12;
 const TABLE_LEAD_IN_LABEL_MAX_GAP_PT = 36;
 const TABLE_LEAD_IN_LABEL_MAX_CHARS = 240;
 const IN_REGION_PLAIN_LABEL_MIN_REGION_AREA_RATIO = 0.08;
-const IN_REGION_PLAIN_LABEL_MAX_CHARS = 160;
+const IN_REGION_PLAIN_LABEL_MAX_CHARS = 100;
 const IN_REGION_PLAIN_LABEL_MIN_WIDTH_PT = 80;
 const IN_REGION_PLAIN_LABEL_MIN_WIDTH_RATIO = 0.25;
 const IN_REGION_PLAIN_LABEL_TOP_DEPTH_RATIO = 0.3;
@@ -1003,6 +1003,8 @@ function isPlainImageLabelText(text: string): boolean {
   const normalized = normalizeAssociatedText(text);
   if (normalized.length === 0 || normalized.length > PLAIN_IMAGE_LABEL_MAX_CHARS) return false;
   if (isCaptionText(normalized)) return false;
+  if (/[。！？]/u.test(normalized)) return false;
+  if (normalized.length > 80 && /[.!?]\s/u.test(normalized)) return false;
   if (/\b(?:copyright|licensed|cc\s+by|public domain|https?:\/\/|www\.)\b/iu.test(normalized)) return false;
   return /[\p{L}\p{N}]/u.test(normalized);
 }
@@ -1011,6 +1013,8 @@ function isInRegionPlainLabelText(text: string): boolean {
   const normalized = normalizeAssociatedText(text);
   if (normalized.length === 0 || normalized.length > IN_REGION_PLAIN_LABEL_MAX_CHARS) return false;
   if (isCaptionText(normalized)) return false;
+  if (/[。！？]/u.test(normalized)) return false;
+  if (normalized.length > 80 && /[.!?]\s/u.test(normalized)) return false;
   if (/\b(?:copyright|licensed|cc\s+by|public domain|https?:\/\/|www\.)\b/iu.test(normalized)) return false;
   return /\p{L}/u.test(normalized);
 }

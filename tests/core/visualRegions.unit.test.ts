@@ -1919,6 +1919,58 @@ describe('buildVisualRegions', () => {
     });
   });
 
+  it('does not attach Japanese prose inside callout boxes as labels', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 600,
+      pageHeight: 800,
+      imageBoxes: [{ x: 60, y: 50, width: 460, height: 210 }],
+      vectorBoxes: [
+        { x: 60, y: 50, width: 460, height: 210 },
+        { x: 70, y: 60, width: 440, height: 190 },
+      ],
+      layout: {
+        blocks: [
+          {
+            text: '治療期間中に重篤な有害事象は認められなかった。今後は有効性を検証する。',
+            x: 90,
+            y: 78,
+            width: 200,
+            height: 44,
+            lines: [
+              {
+                text: '治療期間中に重篤な有害事象は認められなかった。今後は有効性を検証する。',
+                x: 90,
+                y: 78,
+                width: 200,
+                height: 44,
+                fontSize: 10,
+              },
+            ],
+          },
+          {
+            text: '2 職職場場ででのの取取組組みみ 7 第第依存症の問題を抱えた方の回復と成長の支1144 次次労労働働災災害害防防止止計計画画でではは労労働働者者のの健健康康確確保保対対策策のの推推進進',
+            x: 90,
+            y: 140,
+            width: 400,
+            height: 24,
+            lines: [
+              {
+                text: '2 職職場場ででのの取取組組みみ 7 第第依存症の問題を抱えた方の回復と成長の支1144 次次労労働働災災害害防防止止計計画画でではは労労働働者者のの健健康康確確保保対対策策のの推推進進',
+                x: 90,
+                y: 140,
+                width: 400,
+                height: 24,
+                fontSize: 10,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions[0].associatedText).toBeUndefined();
+  });
+
   it('prefers caption lines over the enclosing block text', () => {
     const regions = buildVisualRegions({
       pageWidth: 200,
