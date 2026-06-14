@@ -254,6 +254,7 @@ function findFieldLabel(
   for (const line of lines) {
     const text = normalizeLabelText(line.text);
     if (!isUsableLabelText(text)) continue;
+    if (isFormLabelChromeText(text)) continue;
     if (overlapRatio(field, line) >= 0.35) continue;
     const candidate = scoreLabelCandidate(field, line, text);
     if (!candidate) continue;
@@ -737,6 +738,14 @@ function normalizePromptLabelText(text: string): string {
 function isUsableLabelText(text: string, maxChars = LABEL_MAX_CHARS): boolean {
   if (text.length === 0 || text.length > maxChars) return false;
   return /[\p{Letter}\p{Number}]/u.test(text);
+}
+
+function isFormLabelChromeText(text: string): boolean {
+  return (
+    /^(?:created|revised)\s+\d{1,2}\/\d{1,2}\/\d{2,4}$/iu.test(text) ||
+    /\bcat\.?\s+no\.?\s+[A-Z0-9-]+/iu.test(text) ||
+    /^schedule\s+[A-Z0-9-]*\s*\(form\s+\d+/iu.test(text)
+  );
 }
 
 function isUsablePromptFragment(text: string): boolean {

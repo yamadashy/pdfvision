@@ -253,6 +253,31 @@ describe('buildFormFields', () => {
     });
   });
 
+  it('does not attach footer chrome as checkbox labels', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'foreignTrustYes',
+          fieldType: 'Btn',
+          checkBox: true,
+          radioButton: false,
+          rect: rectFromTopLeft(539.4, 745, 10, 10),
+          fieldValue: 'Off',
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        { text: 'Created 4/23/25', x: 517.62, y: 757.71, width: 58.38, height: 8, fontSize: 8 },
+        { text: 'Cat. No. 17146N', x: 312.21, y: 759, width: 62, height: 8, fontSize: 8 },
+      ],
+    );
+
+    expect(fields[0].label).toBeUndefined();
+  });
+
   it('prefers a close above label over a side section heading', () => {
     const fields = buildFormFields(
       [{ subtype: 'Widget', fieldName: 'address', fieldType: 'Tx', rect: [94.6, 660, 474.45, 674] }],
