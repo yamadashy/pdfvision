@@ -2298,6 +2298,61 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('trims same-baseline Japanese table headers from table captions', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 600,
+      pageHeight: 760,
+      imageBoxes: [],
+      vectorBoxes: Array.from({ length: 8 }, (_, index) => ({
+        x: 80 + index * 45,
+        y: 260,
+        width: 36,
+        height: 24,
+      })),
+      layout: {
+        blocks: [
+          {
+            text: '表24-(1)-1 母子世帯の母が抱える子どもについての悩みの内訳(最もあてはまるもの)進学\n栄養 身のまわり',
+            x: 80,
+            y: 224,
+            width: 356.66,
+            height: 10,
+            lines: [
+              {
+                text: '表24-(1)-1 母子世帯の母が抱える子どもについての悩みの内訳(最もあてはまるもの)進学',
+                x: 80,
+                y: 224,
+                width: 356.66,
+                height: 8.42,
+                fontSize: 8.28,
+              },
+              {
+                text: '栄養 身のまわり',
+                x: 340,
+                y: 224.1,
+                width: 59.61,
+                height: 8.28,
+                fontSize: 8.28,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions[0].associatedText).toEqual([
+      {
+        text: '表24-(1)-1 母子世帯の母が抱える子どもについての悩みの内訳(最もあてはまるもの)',
+        relation: 'caption',
+        x: 80,
+        y: 224,
+        width: 356.66,
+        height: 8.42,
+        blockIndex: 0,
+      },
+    ]);
+  });
+
   it('ignores bare or tiny figure references inside a visual region while keeping the real caption', () => {
     const regions = buildVisualRegions({
       pageWidth: 600,

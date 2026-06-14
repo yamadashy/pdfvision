@@ -118,6 +118,8 @@ const CAPTION_SCORE_TOLERANCE_PT = 12;
 const TABLE_CAPTION_CONTINUATION_MAX_LINES = 2;
 const ABBREVIATED_FIGURE_CAPTION_CONTINUATION_MAX_LINES = 4;
 const CAPTION_CONTINUATION_MAX_CHARS = 240;
+const SAME_BASELINE_HEADER_MIN_VERTICAL_OVERLAP_RATIO = 0.75;
+const SAME_BASELINE_HEADER_MIN_LEFT_OFFSET_RATIO = 0.45;
 const SHALLOW_TABLE_HINT_MAX_ROWS = 2;
 const SHALLOW_TABLE_HINT_MAX_HEIGHT_RATIO = 0.1;
 const SHALLOW_TABLE_HINT_MIN_WIDTH_RATIO = 0.65;
@@ -135,6 +137,9 @@ const CAPTION_DIGIT_OR_CJK_NUMBER_PATTERN = /[0-9０-９一二三四五六七八
 const CAPTION_ROMAN_NUMERAL_PATTERN = /^[ivxlcdm]+$/iu;
 const CAPTION_SINGLE_LETTER_PATTERN = /^[A-Z]$/u;
 const GLOBAL_CAPTION_PATTERN = /^\s*plate\s+/iu;
+const JAPANESE_TABLE_CAPTION_START_PATTERN = /^\s*(?:表|図表)\s*/u;
+const GLUED_JAPANESE_TABLE_HEADER_SUFFIX_PATTERN = /^(.+[)）])([\p{L}\p{N}%％・／/]{1,8})$/u;
+const TABLE_HEADER_FRAGMENT_PATTERN = /^[\p{L}\p{N}%％().（）・,，.．／/-]+$/u;
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
@@ -980,6 +985,36 @@ function isInRegionPlainLabelText(text: string): boolean {
   return /\p{L}/u.test(normalized);
 }
 
+function verticalOverlapRatio(a: BoxLike, b: BoxLike): number {
+  const overlap = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+  return Math.max(0, overlap) / Math.max(1, Math.min(a.height, b.height));
+}
+
+function isSameBaselineTableHeaderText(text: string): boolean {
+  const cells = normalizeAssociatedText(text).split(/\s+/u).filter(Boolean);
+  if (cells.length < 2) return false;
+  return cells.every((cell) => cell.length <= 12 && TABLE_HEADER_FRAGMENT_PATTERN.test(cell));
+}
+
+function isSameBaselineTableHeaderLine(captionLine: BoxLike, headerLine: BoxLike & { text: string }): boolean {
+  if (verticalOverlapRatio(captionLine, headerLine) < SAME_BASELINE_HEADER_MIN_VERTICAL_OVERLAP_RATIO) return false;
+  const minHeaderX = captionLine.x + captionLine.width * SAME_BASELINE_HEADER_MIN_LEFT_OFFSET_RATIO;
+  if (headerLine.x < minHeaderX) return false;
+  return isSameBaselineTableHeaderText(headerLine.text);
+}
+
+function trimGluedJapaneseTableHeaderFromCaption(
+  text: string,
+  captionLine: BoxLike,
+  nextLine: (BoxLike & { text: string }) | undefined,
+): string {
+  if (!JAPANESE_TABLE_CAPTION_START_PATTERN.test(text)) return text;
+  if (!nextLine || !isSameBaselineTableHeaderLine(captionLine, nextLine)) return text;
+  const match = GLUED_JAPANESE_TABLE_HEADER_SUFFIX_PATTERN.exec(text);
+  if (!match) return text;
+  return match[1]?.trim() ?? text;
+}
+
 function horizontalOverlapRatio(a: BoxLike, b: BoxLike): number {
   const overlap = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
   return Math.max(0, overlap) / Math.max(1, Math.min(a.width, b.width));
@@ -1018,7 +1053,7 @@ function captionTextsFromBlock(
     const item = lines[i];
     if (!item || !isCaptionText(item.text)) continue;
 
-    const textParts = [item.text];
+    const textParts = [trimGluedJapaneseTableHeaderFromCaption(item.text, item.line, lines[i + 1]?.line)];
     let captionBox: BoxLike = item.line;
     const continuationLimit = captionContinuationLineLimit(item.text);
     for (let j = i + 1; continuationLimit > 0 && j < lines.length && j <= i + continuationLimit; j++) {
