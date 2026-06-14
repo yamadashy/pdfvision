@@ -399,6 +399,7 @@ function canShareTextLine(a: TextSpan, b: TextSpan): boolean {
   const bHeight = horizontalLineGroupingHeight(b);
   const minHeight = Math.max(Math.min(aHeight, bHeight), 1);
   if (Math.abs(a.y - b.y) < minHeight * LINE_TOP_ALIGNMENT_RATIO) return true;
+  if (hasMisalignedLargeFontLine(a, b)) return false;
   if (!hasCloseHorizontalLineGap(a, b)) return false;
   const overlap = Math.min(a.y + aHeight, b.y + bHeight) - Math.max(a.y, b.y);
   return overlap >= minHeight * LINE_VERTICAL_OVERLAP_RATIO;
@@ -431,6 +432,22 @@ function hasTinyLineFontMismatch(a: TextSpan, b: TextSpan): boolean {
 
   const smallChars = small.text.replace(/\s/g, '').length;
   return smallChars >= TINY_LINE_MIN_CHARS || small.width >= largeFontSize * 3;
+}
+
+function hasMisalignedLargeFontLine(a: TextSpan, b: TextSpan): boolean {
+  const aFontSize = measuredLineFontSize(a);
+  const bFontSize = measuredLineFontSize(b);
+  if (aFontSize <= 0 || bFontSize <= 0) return false;
+
+  const large = aFontSize >= bFontSize ? a : b;
+  const largeFontSize = Math.max(aFontSize, bFontSize);
+  const smallFontSize = Math.min(aFontSize, bFontSize);
+  if (largeFontSize / smallFontSize < 1.25) return false;
+
+  const largeChars = large.text.replace(/\s/g, '').length;
+  if (largeChars <= 2) return false;
+  if (!/\p{L}/u.test(large.text) && /\d/u.test(large.text)) return false;
+  return /[\p{L}\p{N}]/u.test(large.text);
 }
 
 function measuredLineFontSize(span: TextSpan): number {

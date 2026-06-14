@@ -623,6 +623,31 @@ describe('buildLayout — multi-column reading order', () => {
     );
   });
 
+  it('does not merge larger form side headings into overlapping row text', () => {
+    const spans: TextSpan[] = [
+      span('Foreign', 36, 594.57, 12, 43.55),
+      span('Accounts', 36, 607.57, 12, 54.23),
+      span('and Trusts', 36, 620.56, 12, 60.9),
+      span('7', 110.2, 626.83, 9, 5),
+      span('a', 115.2, 626.83, 9, 5.17),
+      span(
+        'At any time during 2025, did you have a financial interest in or signature authority over a financial',
+        129.6,
+        626.83,
+        9,
+        396.05,
+      ),
+    ];
+    const layout = buildLayout(spans, 612);
+    const lineTexts = layout.blocks.flatMap((block) => block.lines.map((line) => line.text));
+
+    expect(lineTexts).toContain('and Trusts');
+    expect(lineTexts).toContain(
+      '7a At any time during 2025, did you have a financial interest in or signature authority over a financial',
+    );
+    expect(lineTexts.some((text) => text.includes('and Trusts') && text.includes('7a'))).toBe(false);
+  });
+
   it('splits recurring narrow gutters in dense two-column journal text', () => {
     // Nature-style two-column body rows can have only ~13pt between the
     // left and right columns. That is below the default 16pt hard gutter,
