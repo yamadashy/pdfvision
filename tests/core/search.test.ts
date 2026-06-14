@@ -96,6 +96,47 @@ describe('processDocument search', () => {
     expect(matches[0].boxes).toHaveLength(3);
   });
 
+  it('matches Latin phrases across very tight body-text word gaps', () => {
+    const spans: TextSpan[] = [
+      {
+        text: 'Hence, recording and compiling a trace',
+        x: 54,
+        y: 71,
+        width: 139.59,
+        height: 8.97,
+        fontSize: 8.97,
+      },
+      {
+        text: 'speculates',
+        x: 195.46,
+        y: 71,
+        width: 37.35,
+        height: 8.97,
+        fontSize: 8.97,
+      },
+      {
+        text: 'that the path and',
+        x: 234.69,
+        y: 71,
+        width: 58.42,
+        height: 8.97,
+        fontSize: 8.97,
+      },
+    ];
+    const compiled = compileSearch('trace speculates that', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 595, 842, compiled);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'trace speculates that',
+      source: 'native',
+      page: 1,
+    });
+    expect(matches[0].boxes).toHaveLength(3);
+  });
+
   it('matches phrases across Type3-style wide word spacing rows', () => {
     const spans: TextSpan[] = [
       { text: 'ab', x: 50, y: 60, width: 20, height: 10, fontSize: 10 },

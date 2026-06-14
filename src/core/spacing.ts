@@ -5,7 +5,10 @@ const PRECEDING_WORD_RE = /[\p{L}\p{N})\]]$/u;
 const SEMANTIC_SPACE_MIN_GAP_RATIO = 0.1;
 const ARABIC_SCRIPT_RE = /\p{Script=Arabic}/u;
 const ARABIC_WORD_SPACE_MIN_GAP_RATIO = 0.12;
+const LATIN_WORD_SPACE_MIN_GAP_RATIO = 0.18;
 const LATIN_WORD_RE = /^[\p{Script=Latin}\p{M}]+$/u;
+const LATIN_WORD_END_RE = /[\p{Script=Latin}\p{M}]$/u;
+const LATIN_WORD_START_RE = /^[\p{Script=Latin}\p{M}]/u;
 const WIDE_WORD_SPACING_MIN_SPANS = 3;
 const WIDE_WORD_SPACING_MAX_SPANS = 6;
 const WIDE_WORD_SPACING_MAX_LINE_WIDTH_RATIO = 0.85;
@@ -29,6 +32,14 @@ export function shouldInsertSemanticSpace(prevText: string, curText: string, gap
   if (prev.length === 0 || cur.length === 0) return false;
 
   if (gap > fontSize * ARABIC_WORD_SPACE_MIN_GAP_RATIO && ARABIC_SCRIPT_RE.test(prev) && ARABIC_SCRIPT_RE.test(cur)) {
+    return true;
+  }
+
+  if (
+    gap > fontSize * LATIN_WORD_SPACE_MIN_GAP_RATIO &&
+    LATIN_WORD_END_RE.test(prev) &&
+    LATIN_WORD_START_RE.test(cur)
+  ) {
     return true;
   }
 

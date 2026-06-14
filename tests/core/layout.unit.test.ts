@@ -1587,6 +1587,19 @@ describe('buildLayout — multi-column reading order', () => {
     expect(layout.blocks[0].lines[0].text).toBe('Questions about your bill?');
   });
 
+  it('preserves very tight Latin word spaces in paper body text', () => {
+    // Tracemonkey-shaped case: normal word gaps can sit just below the
+    // default geometric threshold, but the line is still readable English.
+    const spans: TextSpan[] = [
+      span('Hence, recording and compiling a trace', 54, 71, 8.97, 139.59),
+      span('speculates', 195.46, 71, 8.97, 37.35),
+      span('that the path and', 234.69, 71, 8.97, 58.42),
+    ];
+    const layout = buildLayout(spans);
+
+    expect(layout.blocks[0].lines[0].text).toBe('Hence, recording and compiling a trace speculates that the path and');
+  });
+
   it('does not attach small punctuation-only spans to the next body line', () => {
     // PDF.js bug1513120 also emits a tiny standalone "." just above
     // the next line. It is not a word prefix for "Monday-Friday".
