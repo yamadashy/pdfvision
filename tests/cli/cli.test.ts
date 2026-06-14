@@ -13,12 +13,16 @@ interface CliCapture {
   exitCode: number | null;
 }
 
+async function* stdinChunks(...chunks: string[]): AsyncIterable<string> {
+  for (const chunk of chunks) yield chunk;
+}
+
 /**
  * Drive the CLI with a fixed argv and capture every console / process.exit
  * call so we can assert on user-visible output without actually killing the
  * test process.
  */
-async function captureRun(argv: string[]): Promise<CliCapture> {
+async function captureRun(argv: string[], options?: Parameters<typeof run>[1]): Promise<CliCapture> {
   const stdout: string[] = [];
   const stderr: string[] = [];
   let exitCode: number | null = null;
@@ -37,7 +41,7 @@ async function captureRun(argv: string[]): Promise<CliCapture> {
   }) as never);
 
   try {
-    await run(argv);
+    await run(argv, options);
   } catch (e) {
     if (!(e instanceof Error) || !e.message.startsWith('__cli_exit__')) throw e;
   } finally {
@@ -132,6 +136,25 @@ describe('cli', () => {
     const parsed = JSON.parse(out);
     expect(parsed.pages[0].text).toContain('Hello pdfvision');
     expect(out).not.toContain('secret');
+  });
+
+  it('passes --password-stdin through without emitting it', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--json', '--password-stdin', '--no-cache'], {
+      stdin: stdinChunks('secret\n'),
+    });
+    expect(r.exitCode).toBeNull();
+    const out = r.stdout.join('\n');
+    const parsed = JSON.parse(out);
+    expect(parsed.pages[0].text).toContain('Hello pdfvision');
+    expect(out).not.toContain('secret');
+  });
+
+  it('rejects --password with --password-stdin', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--json', '--password', 'secret', '--password-stdin'], {
+      stdin: stdinChunks('ignored\n'),
+    });
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr.join('\n')).toMatch(/mutually exclusive/);
   });
 
   it('passes --form-fields through to JSON output', async () => {

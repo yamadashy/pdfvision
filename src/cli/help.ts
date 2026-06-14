@@ -44,6 +44,8 @@ Options
                           \`ﬁ\`) matters for downstream diff / forensics.
       --password <value>  Password for encrypted PDFs. The password is used only for pdf.js
                           decryption and is never emitted in output.
+      --password-stdin    Read the encrypted PDF password from piped stdin. Mutually exclusive
+                          with --password; strips one trailing newline.
       --geometry          Emit per-text-item bbox + font size in \`pages[].spans\`.
                           Only takes effect with -f json / -f xml / -f toon.
       --layout            Reconstruct \`pages[].layout\` (lines, blocks, vertical CJK stacks,
@@ -161,6 +163,7 @@ Examples
   pdfvision report.pdf --toon --geometry                                       # token-efficient spans (TOON)
   pdfvision report.pdf --layout --strip-repeated                               # markdown w/o repeated chrome
   pdfvision encrypted.pdf --password "secret" --json                           # encrypted PDF
+  printf "secret\\n" | pdfvision encrypted.pdf --password-stdin --json          # avoid password in argv
   pdfvision scan.pdf --ocr --json                                              # OCR a scanned PDF
   pdfvision scan-ja.pdf --ocr --ocr-lang eng+jpn --json                        # multi-lang OCR
   pdfvision --remote https://example.com/paper.pdf --json                      # fetch + extract JSON
