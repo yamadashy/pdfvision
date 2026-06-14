@@ -1615,6 +1615,18 @@ describe('buildLayout — multi-column reading order', () => {
     );
   });
 
+  it('preserves tight spaces after numbered figure references', () => {
+    // TaroUTR50SortedList112-shaped case: a figure reference can switch
+    // fonts before the following word with only a ~0.2em visual gap.
+    const spans: TextSpan[] = [
+      span('Figure 1', 469.79, 33.65, 10.5, 33.34),
+      span('on the left', 505.22, 33.65, 10.5, 40.12),
+    ];
+    const layout = buildLayout(spans);
+
+    expect(layout.blocks[0].lines[0].text).toBe('Figure 1 on the left');
+  });
+
   it('preserves tight spaces between Latin words and Greek symbols', () => {
     const spans: TextSpan[] = [
       span('if', 200.01, 454.83, 10, 5.47),

@@ -170,6 +170,25 @@ describe('processDocument search', () => {
     expect(matches[0].boxes).toHaveLength(2);
   });
 
+  it('matches phrases across tight number-to-Latin gaps', () => {
+    const spans: TextSpan[] = [
+      { text: 'Figure 1', x: 469.79, y: 33.65, width: 33.34, height: 10.5, fontSize: 10.5 },
+      { text: 'on the left', x: 505.22, y: 33.65, width: 40.12, height: 10.5, fontSize: 10.5 },
+    ];
+    const compiled = compileSearch('Figure 1 on', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 595, 842, compiled);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'Figure 1 on',
+      source: 'native',
+      page: 1,
+    });
+    expect(matches[0].boxes).toHaveLength(2);
+  });
+
   it('matches phrases across tight Latin-to-Greek symbol gaps', () => {
     const spans: TextSpan[] = [
       { text: 'if', x: 200.01, y: 454.83, width: 5.47, height: 10, fontSize: 10 },
