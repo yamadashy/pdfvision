@@ -85,6 +85,37 @@ describe('buildFormFields', () => {
     });
   });
 
+  it('extracts non-JavaScript reset form actions from button widgets', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'ResetSelected',
+          fieldType: 'Btn',
+          checkBox: false,
+          radioButton: false,
+          rect: [10, 10, 50, 30],
+          resetForm: { fields: ['Text1', 'Group11'], refs: [{ num: 1, gen: 0 }], include: true },
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'ResetAll',
+          fieldType: 'Btn',
+          checkBox: false,
+          radioButton: false,
+          rect: [60, 10, 100, 30],
+          resetForm: { fields: [], refs: [], include: false },
+        },
+      ],
+      100,
+    );
+
+    expect(fields.map((field) => field.resetForm)).toEqual([
+      { fields: ['Text1', 'Group11'], include: true },
+      { fields: [], include: false },
+    ]);
+  });
+
   it('serializes nested values inside choice arrays as readable JSON fragments', () => {
     const fields = buildFormFields(
       [

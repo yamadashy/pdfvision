@@ -83,6 +83,13 @@ function fieldActions(field: NonNullable<PageResult['formFields']>[number]): str
   return field.actions ? formatJavaScriptActions(field.actions) : '';
 }
 
+function fieldResetForm(field: NonNullable<PageResult['formFields']>[number]): string {
+  if (!field.resetForm) return '';
+  const fields = field.resetForm.fields.join(', ');
+  if (field.resetForm.include) return fields.length > 0 ? `reset only ${fields}` : 'reset only listed fields';
+  return fields.length > 0 ? `reset all except ${fields}` : 'reset all fields';
+}
+
 function annotationColor(annotation: NonNullable<PageResult['annotations']>[number]): string {
   return annotation.color ? annotation.color.join(',') : '';
 }
@@ -566,18 +573,20 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
       } else {
         lines.push('');
         const showFieldActions = page.formFields.some((field) => field.actions !== undefined);
+        const showFieldReset = page.formFields.some((field) => field.resetForm !== undefined);
         const showExportValue = page.formFields.some((field) => field.exportValue !== undefined);
         lines.push(
-          `| Type | Name | Label | Value |${showExportValue ? ' Export |' : ''} Options |${showFieldActions ? ' Actions |' : ''} Flags | BBox |`,
+          `| Type | Name | Label | Value |${showExportValue ? ' Export |' : ''} Options |${showFieldReset ? ' Reset |' : ''}${showFieldActions ? ' Actions |' : ''} Flags | BBox |`,
         );
         lines.push(
-          `| --- | --- | --- | --- |${showExportValue ? ' --- |' : ''} --- |${showFieldActions ? ' --- |' : ''} --- | --- |`,
+          `| --- | --- | --- | --- |${showExportValue ? ' --- |' : ''} --- |${showFieldReset ? ' --- |' : ''}${showFieldActions ? ' --- |' : ''} --- | --- |`,
         );
         for (const field of page.formFields) {
+          const resetCell = showFieldReset ? ` ${escapeTableCell(fieldResetForm(field))} |` : '';
           const actionsCell = showFieldActions ? ` ${escapeTableCell(fieldActions(field))} |` : '';
           const exportCell = showExportValue ? ` ${escapeTableCell(fieldExportValue(field))} |` : '';
           lines.push(
-            `| ${field.type} | ${escapeTableCell(field.name)} | ${escapeTableCell(fieldLabel(field))} | ${escapeTableCell(fieldValue(field))} |${exportCell} ${escapeTableCell(fieldOptions(field))} |${actionsCell} ${escapeTableCell(fieldFlags(field))} | ${formatBox(field)} |`,
+            `| ${field.type} | ${escapeTableCell(field.name)} | ${escapeTableCell(fieldLabel(field))} | ${escapeTableCell(fieldValue(field))} |${exportCell} ${escapeTableCell(fieldOptions(field))} |${resetCell}${actionsCell} ${escapeTableCell(fieldFlags(field))} | ${formatBox(field)} |`,
           );
         }
       }

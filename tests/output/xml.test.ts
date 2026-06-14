@@ -651,6 +651,47 @@ describe('formatXml', () => {
     expect(out).toContain('</field>');
   });
 
+  it('emits reset form button actions', () => {
+    const out = formatXml(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 'form page',
+            charCount: 9,
+            formFields: [
+              {
+                name: 'ResetAll',
+                type: 'button',
+                x: 10,
+                y: 20,
+                width: 80,
+                height: 20,
+                resetForm: { fields: [], include: false },
+              },
+              {
+                name: 'ResetSome',
+                type: 'button',
+                x: 10,
+                y: 50,
+                width: 80,
+                height: 20,
+                resetForm: { fields: ['Text1', 'Group11'], include: true },
+              },
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toContain('<field name="ResetAll" type="button" x="10" y="20" width="80" height="20">');
+    expect(out).toContain('<resetForm include="false"/>');
+    expect(out).toContain('<field name="ResetSome" type="button" x="10" y="50" width="80" height="20">');
+    expect(out).toContain('<resetForm include="true">');
+    expect(out).toContain('<fieldName>Text1</fieldName>');
+    expect(out).toContain('<fieldName>Group11</fieldName>');
+  });
+
   it('emits clickable PDF links with escaped targets and overview counts', () => {
     const out = formatXml(
       makeResult({

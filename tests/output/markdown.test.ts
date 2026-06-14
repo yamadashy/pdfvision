@@ -340,6 +340,44 @@ describe('formatMarkdown', () => {
     expect(out).toContain('| button | Execute |  |  |  | Action=line1(); line2(); |  | 10,20,80,20 |');
   });
 
+  it('renders reset form button actions', () => {
+    const out = formatMarkdown(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 'form page',
+            charCount: 9,
+            formFields: [
+              {
+                name: 'ResetAll',
+                type: 'button',
+                x: 10,
+                y: 20,
+                width: 80,
+                height: 20,
+                resetForm: { fields: [], include: false },
+              },
+              {
+                name: 'ResetSome',
+                type: 'button',
+                x: 10,
+                y: 50,
+                width: 80,
+                height: 20,
+                resetForm: { fields: ['Text1', 'Group11'], include: true },
+              },
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toContain('| Type | Name | Label | Value | Options | Reset | Flags | BBox |');
+    expect(out).toContain('| button | ResetAll |  |  |  | reset all fields |  | 10,20,80,20 |');
+    expect(out).toContain('| button | ResetSome |  |  |  | reset only Text1, Group11 |  | 10,50,80,20 |');
+  });
+
   it('adds link counts and a links table when clickable links are present', () => {
     const out = formatMarkdown(
       makeResult({

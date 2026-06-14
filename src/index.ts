@@ -32,6 +32,7 @@ export type {
   FormFieldChoiceOption,
   FormFieldLabel,
   FormFieldLabelRelation,
+  FormFieldResetFormAction,
   FormFieldType,
   ImageBox,
   JsonScalar,

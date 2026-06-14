@@ -442,11 +442,23 @@ export function formatXml(result: DocumentResult): string {
           }
           const hasOptions = field.options !== undefined && field.options.length > 0;
           const hasActions = field.actions !== undefined;
-          if (!hasOptions && !hasActions) {
+          const hasResetForm = field.resetForm !== undefined;
+          if (!hasOptions && !hasActions && !hasResetForm) {
             out.push(`<field ${fieldAttrs.join(' ')}/>`);
             continue;
           }
           out.push(`<field ${fieldAttrs.join(' ')}>`);
+          if (field.resetForm) {
+            if (field.resetForm.fields.length === 0) {
+              out.push(`<resetForm include="${field.resetForm.include}"/>`);
+            } else {
+              out.push(`<resetForm include="${field.resetForm.include}">`);
+              for (const name of field.resetForm.fields) {
+                out.push(`<fieldName>${escapeText(name)}</fieldName>`);
+              }
+              out.push('</resetForm>');
+            }
+          }
           if (field.actions) appendJavaScriptActions(out, field.actions);
           if (field.options && field.options.length > 0) {
             out.push('<options>');

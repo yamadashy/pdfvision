@@ -3,6 +3,7 @@ import type {
   FormFieldChoiceOption,
   FormFieldLabel,
   FormFieldLabelRelation,
+  FormFieldResetFormAction,
   FormFieldType,
 } from '../types/index.js';
 import { annotationFlagNames } from './annotations.js';
@@ -24,6 +25,7 @@ interface PdfAnnotation {
   combo?: unknown;
   multiSelect?: unknown;
   actions?: unknown;
+  resetForm?: unknown;
   exportValue?: unknown;
   buttonValue?: unknown;
 }
@@ -79,6 +81,7 @@ export function buildFormFields(
     const checked = type === 'checkbox' || type === 'radio' ? value !== undefined && value !== 'Off' : undefined;
     const flags = annotationFlagNames(ann.annotationFlags);
     const actions = normalizeJavaScriptActions(ann.actions);
+    const resetForm = formResetAction(ann.resetForm);
     const exportValue = fieldExportValue(ann, type);
 
     const field: FormField = {
@@ -97,6 +100,7 @@ export function buildFormFields(
       ...choiceFieldMetadata(ann),
       ...(flags.length > 0 && { flags }),
       ...(actions !== undefined && { actions }),
+      ...(resetForm !== undefined && { resetForm }),
     };
     fields.push(field);
   }
@@ -109,6 +113,18 @@ export function buildFormFields(
     if (label) field.label = label;
   }
   return fields.sort((a, b) => a.y - b.y || a.x - b.x || a.name.localeCompare(b.name));
+}
+
+function formResetAction(value: unknown): FormFieldResetFormAction | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const raw = value as { fields?: unknown; include?: unknown };
+  const fields = Array.isArray(raw.fields)
+    ? raw.fields.filter((field): field is string => typeof field === 'string')
+    : [];
+  return {
+    fields,
+    include: raw.include === true,
+  };
 }
 
 function fieldRect(value: unknown): Rect | undefined {

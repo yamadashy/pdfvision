@@ -679,6 +679,13 @@ export interface FormFieldChoiceOption {
   displayValue: string;
 }
 
+export interface FormFieldResetFormAction {
+  /** Field names listed by the PDF ResetForm action. */
+  fields: string[];
+  /** True means reset only listed fields; false means reset every field except the listed fields. */
+  include: boolean;
+}
+
 export interface FormField {
   name: string;
   type: FormFieldType;
@@ -703,6 +710,8 @@ export interface FormField {
   flags?: PageAnnotationFlag[];
   /** Widget-level JavaScript actions such as button click scripts. */
   actions?: Record<string, string[]>;
+  /** Non-JavaScript ResetForm button action when pdf.js exposes it. */
+  resetForm?: FormFieldResetFormAction;
   /**
    * Nearby visible text that likely labels this field, reconstructed from
    * layout lines when `--form-fields` is enabled. Stacked above/below label
