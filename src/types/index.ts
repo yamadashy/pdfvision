@@ -652,7 +652,7 @@ export interface VisualRegion {
   sources: VisualRegionSource[];
   /** Short human-readable reason for why the region is worth inspecting. */
   reason: string;
-  /** Nearby text that identifies or explains this visual region, such as a caption, form label, or table lead-in. */
+  /** Nearby or in-region text that identifies this visual region, such as a caption, form label, chart title, or table lead-in. */
   associatedText?: VisualRegionAssociatedText[];
   /** Cropped PNG path for this region when `renderVisualRegions` was requested. */
   image?: string;

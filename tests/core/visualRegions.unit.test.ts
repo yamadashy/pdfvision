@@ -1689,6 +1689,63 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('attaches short in-region chart titles to mixed visual regions', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 600,
+      pageHeight: 800,
+      imageBoxes: [{ x: 80, y: 220, width: 390, height: 200 }],
+      vectorBoxes: [
+        { x: 70, y: 210, width: 410, height: 230 },
+        { x: 90, y: 360, width: 360, height: 1 },
+      ],
+      layout: {
+        blocks: [
+          {
+            text: 'Mental health and distress relationship',
+            x: 204,
+            y: 224,
+            width: 192,
+            height: 12,
+            lines: [
+              {
+                text: 'Mental health and distress relationship',
+                x: 204,
+                y: 224,
+                width: 192,
+                height: 12,
+                fontSize: 10,
+              },
+            ],
+          },
+          {
+            text: '2024',
+            x: 95,
+            y: 246,
+            width: 26,
+            height: 10,
+            lines: [{ text: '2024', x: 95, y: 246, width: 26, height: 10, fontSize: 9 }],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0]).toMatchObject({
+      kind: 'mixed',
+      associatedText: [
+        {
+          text: 'Mental health and distress relationship',
+          relation: 'label',
+          x: 204,
+          y: 224,
+          width: 192,
+          height: 12,
+          blockIndex: 0,
+        },
+      ],
+    });
+  });
+
   it('prefers caption lines over the enclosing block text', () => {
     const regions = buildVisualRegions({
       pageWidth: 200,
