@@ -1440,6 +1440,59 @@ describe('buildLayout — multi-column reading order', () => {
     expect(rows).toContainEqual(['GNMT + RL [38]', '24.6', '39.92', '2.3 · 10^19', '1.4 · 10^20']);
   });
 
+  it('keeps benchmark score and percentile rows in wide table hints', () => {
+    // GPT-4 technical-report-shaped case: early rows use score/total and
+    // percentile cells before the table later switches to plain percent
+    // values. These score cells are still numeric table values.
+    const spans: TextSpan[] = [
+      span('Exam', 160, 112, 7.5, 24),
+      span('GPT-4', 300, 112, 7.5, 28),
+      span('GPT-4 (no vision)', 372, 112, 7.5, 80),
+      span('GPT-3.5', 480, 112, 7.5, 34),
+      span('Uniform Bar Exam', 160, 132, 7.5, 74),
+      span('298 / 400 (~90th)', 288, 132, 7.5, 72),
+      span('298 / 400 (~90th)', 378, 132, 7.5, 72),
+      span('213 / 400 (~10th)', 468, 132, 7.5, 72),
+      span('LSAT', 160, 148, 7.5, 24),
+      span('163 (~88th)', 312, 148, 7.5, 48),
+      span('161 (~83rd)', 402, 148, 7.5, 48),
+      span('149 (~40th)', 492, 148, 7.5, 48),
+      span('SAT Math', 160, 164, 7.5, 42),
+      span('700 / 800 (89th)', 296, 164, 7.5, 64),
+      span('700 / 800 (89th)', 386, 164, 7.5, 64),
+      span('590 / 800 (70th)', 476, 164, 7.5, 64),
+      span('GRE Writing', 160, 180, 7.5, 48),
+      span('4 (54th - 68th)', 298, 180, 7.5, 62),
+      span('4 (54th - 68th)', 388, 180, 7.5, 62),
+      span('4 (31st - 48th)', 478, 180, 7.5, 62),
+      span('Medical Knowledge', 160, 196, 7.5, 78),
+      span('75%', 344, 196, 7.5, 16),
+      span('75%', 434, 196, 7.5, 16),
+      span('53%', 524, 196, 7.5, 16),
+      span('AMC 10', 160, 212, 7.5, 34),
+      span('30 / 150', 328, 212, 7.5, 32),
+      span('36 / 150', 418, 212, 7.5, 32),
+      span('36 / 150', 508, 212, 7.5, 32),
+      span('Codeforces Rating', 160, 228, 7.5, 78),
+      span('392 (below 5th)', 296, 228, 7.5, 64),
+      span('392 (below 5th)', 386, 228, 7.5, 64),
+      span('260 (below 5th)', 476, 228, 7.5, 64),
+    ];
+    const layout = buildLayout(spans, 612);
+    const rows = layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text));
+
+    expect(layout.tables).toHaveLength(1);
+    expect(layout.tables?.[0].y).toBeLessThan(120);
+    expect(rows?.slice(0, 5)).toEqual([
+      ['Exam', 'GPT-4', 'GPT-4 (no vision)', 'GPT-3.5'],
+      ['Uniform Bar Exam', '298 / 400 (~90th)', '298 / 400 (~90th)', '213 / 400 (~10th)'],
+      ['LSAT', '163 (~88th)', '161 (~83rd)', '149 (~40th)'],
+      ['SAT Math', '700 / 800 (89th)', '700 / 800 (89th)', '590 / 800 (70th)'],
+      ['GRE Writing', '4 (54th - 68th)', '4 (54th - 68th)', '4 (31st - 48th)'],
+    ]);
+    expect(rows).toContainEqual(['Codeforces Rating', '392 (below 5th)', '392 (below 5th)', '260 (below 5th)']);
+  });
+
   it('ignores decorative dotted rule text when grouping table rows', () => {
     // PLOS-style tables can encode a left dotted border as one tall
     // punctuation-only text line. That decorative line overlaps every

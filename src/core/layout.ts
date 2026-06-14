@@ -1199,7 +1199,11 @@ function attachLeadingTableRows(rows: LayoutLine[][], firstBaseIndex: number, al
     minColumns: TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS,
     minRows: Math.min(rows.length, Math.max(2, Math.ceil(rows.length * TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROW_RATIO))),
   });
-  if (numericColumnRights.length < TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS) return rows;
+  const leadingColumnRights =
+    numericColumnRights.length >= TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS
+      ? numericColumnRights
+      : firstRowNumericColumnRights(rows);
+  if (leadingColumnRights.length < TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS) return rows;
 
   const labelLeft = recurringLabelColumnLeft(rows);
   const tableBox = unionBox(rows.flat());
@@ -1212,13 +1216,22 @@ function attachLeadingTableRows(rows: LayoutLine[][], firstBaseIndex: number, al
 
     const verticalGap = rowY(nextIncluded) - rowBottom(candidate);
     if (verticalGap < -TABLE_LEADING_ROW_MAX_OVERLAP_PT || verticalGap > TABLE_LEADING_ROW_MAX_GAP_PT) break;
-    if (!isLeadingTableRow(candidate, tableBox, numericColumnRights, labelLeft, leadingRows.length > 0)) break;
+    if (!isLeadingTableRow(candidate, tableBox, leadingColumnRights, labelLeft, leadingRows.length > 0)) break;
 
     leadingRows.unshift(candidate);
     nextIncluded = candidate;
   }
 
   return leadingRows.length > 0 ? [...leadingRows, ...rows] : rows;
+}
+
+function firstRowNumericColumnRights(rows: LayoutLine[][]): number[] {
+  if (rows.length < TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROWS) return [];
+  const firstRow = rows[0];
+  if (!firstRow) return [];
+  const numericCells = firstRow.filter((line) => isTableNumericCell(line.text));
+  if (numericCells.length < TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS) return [];
+  return numericCells.map((line, index) => numericColumnMatchRight(line, numericCells[index + 1]));
 }
 
 function recurringLabelColumnLeft(rows: LayoutLine[][]): number | undefined {
@@ -1266,7 +1279,7 @@ function isCompactLeadingTableCell(line: LayoutLine): boolean {
   if (text.length === 0 || text.length > TABLE_LEADING_HEADER_MAX_CHARS) return false;
   if (isTableNumericCell(text) || isCurrencyOnlyCell(text)) return true;
   if (!/[\p{L}]/u.test(text)) return false;
-  if (/[.!?:;]/u.test(text)) return false;
+  if (/[!?:;]/u.test(text) || /\.(?:\s|$)/u.test(text)) return false;
   if (text.split(/\s+/).filter(Boolean).length > TABLE_LEADING_HEADER_MAX_WORDS) return false;
   return line.width <= TABLE_LEADING_HEADER_MAX_WIDTH_PT;
 }
@@ -1427,7 +1440,10 @@ function isTableNumericCell(text: string): boolean {
   const trimmed = text.trim();
   if (trimmed.length === 0 || !/\d/u.test(trimmed)) return false;
   const withoutRatioSuffix = trimmed.replace(/(?<=\d)\s*[xX]$/u, '');
-  return withoutRatioSuffix.replace(/[0-9.,()%$¥€£+\-\s·⋅∙×^]/gu, '').length === 0;
+  const withoutScoreWords = withoutRatioSuffix
+    .replace(/\b(?:below|under|over|above|about|approximately)\s+(?=\d)/giu, '')
+    .replace(/(?<=\d)(?:st|nd|rd|th)\b/giu, '');
+  return withoutScoreWords.replace(/[0-9.,()%$¥€£+\-/~\s·⋅∙×^]/gu, '').length === 0;
 }
 
 function gutterBin(prev: BBox, cur: BBox): number {
