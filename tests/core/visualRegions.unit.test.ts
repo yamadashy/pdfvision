@@ -2122,6 +2122,67 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('merges abbreviated figure captions without a dot after Fig', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [{ x: 120, y: 160, width: 360, height: 210 }],
+      layout: {
+        blocks: [
+          {
+            text: [
+              'Fig 2. Two particle desynchronization dynamics. Relative position dynamics (upper panel) and relative phase',
+              'dynamics (lower panel) for a two particle system with high diversity.',
+              'https://doi.org/10.1371/journal.pone.0188753.g002',
+            ].join('\n'),
+            x: 155.74,
+            y: 385.9,
+            width: 406.46,
+            height: 42,
+            lines: [
+              {
+                text: 'Fig 2. Two particle desynchronization dynamics. Relative position dynamics (upper panel) and relative phase',
+                x: 155.74,
+                y: 385.9,
+                width: 387.56,
+                height: 8,
+                fontSize: 8,
+              },
+              {
+                text: 'dynamics (lower panel) for a two particle system with high diversity.',
+                x: 155.74,
+                y: 395.43,
+                width: 260,
+                height: 8,
+                fontSize: 8,
+              },
+              {
+                text: 'https://doi.org/10.1371/journal.pone.0188753.g002',
+                x: 155.74,
+                y: 420.43,
+                width: 152.77,
+                height: 8,
+                fontSize: 8,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions[0].associatedText).toEqual([
+      {
+        text: 'Fig 2. Two particle desynchronization dynamics. Relative position dynamics (upper panel) and relative phase dynamics (lower panel) for a two particle system with high diversity.',
+        relation: 'caption',
+        x: 155.74,
+        y: 385.9,
+        width: 387.56,
+        height: 17.53,
+        blockIndex: 0,
+      },
+    ]);
+  });
+
   it('merges full figure caption continuation lines within a bounded block', () => {
     const captionLines = [
       'Figure 2. State machine describing the major activities of Trace-',

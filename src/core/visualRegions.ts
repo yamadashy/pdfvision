@@ -984,7 +984,7 @@ function isGlobalCaptionText(text: string): boolean {
 
 function captionContinuationLineLimit(text: string): number {
   if (/^\s*table\b/iu.test(text)) return TABLE_CAPTION_CONTINUATION_MAX_LINES;
-  if (/^\s*fig\.\s/iu.test(text)) return ABBREVIATED_FIGURE_CAPTION_CONTINUATION_MAX_LINES;
+  if (/^\s*fig\.?\s/iu.test(text)) return ABBREVIATED_FIGURE_CAPTION_CONTINUATION_MAX_LINES;
   if (/^\s*figure\b/iu.test(text)) return FULL_FIGURE_CAPTION_CONTINUATION_MAX_LINES;
   return 0;
 }
