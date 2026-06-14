@@ -520,7 +520,7 @@ function isNumberedHeadingText(text: string): boolean {
 }
 
 function isDecimalSectionHeadingText(text: string): boolean {
-  return /^\s*\d+(?:\.\d+)+\.?\s+\S/u.test(text.trim());
+  return /^\s*\d+(?:\.\d+)+\.?\s+\p{L}/u.test(text.trim());
 }
 
 function isTallNarrowSideLabel(block: LayoutBlock, lineCount: number): boolean {

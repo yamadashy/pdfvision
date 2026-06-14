@@ -241,6 +241,24 @@ describe('buildLayout — heading classification', () => {
     expect(heading?.roleConfidence).toBeGreaterThanOrEqual(0.65);
   });
 
+  it('does not treat decimal numeric table cells as numbered section headings', () => {
+    const bodyLines: TextSpan[] = [];
+    for (let i = 0; i < 10; i++) {
+      bodyLines.push(span('Body paragraph text establishes enough credible body content.', 58, 220 + i * 12, 8));
+    }
+    const spans: TextSpan[] = [
+      span('Odds Ratio (95% confidence interval)', 382.68, 93.66, 6.97, 115.49),
+      span('6.0 (0.6 to 288.5)', 382.68, 154.43, 6.97, 49.97),
+      span('6.4 (2.0 to 21.9)', 382.67, 179.32, 6.97, 46.41),
+      ...bodyLines,
+    ];
+
+    const layout = buildLayout(spans, 612);
+
+    expect(layout.blocks.find((block) => block.text.includes('6.0'))?.role).toBeUndefined();
+    expect(layout.blocks.find((block) => block.text.includes('6.4'))?.role).toBeUndefined();
+  });
+
   it('does NOT flag a 1.10× line at level 3 when surrounded by same-fontSize body', () => {
     // The candidate sits at 1.10× the body median (11 vs 10) — the borderline
     // ratio level 3 is supposed to handle. We pin the y-neighbours at the
