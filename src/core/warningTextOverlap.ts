@@ -46,6 +46,7 @@ interface TextOverlapCandidate {
 
 export function detectTextOverlap(blocks: LayoutBlock[], out: PageWarning[]): void {
   const overlaps: TextOverlapCandidate[] = [];
+  let overlapCount = 0;
   // Only non-repeated pairs — repeated chrome (footers, page numbers)
   // legitimately occupies the bottom margin where body sometimes
   // bleeds, and the `body_near_repeated_chrome` rule covers the case
@@ -70,16 +71,25 @@ export function detectTextOverlap(blocks: LayoutBlock[], out: PageWarning[]): vo
       // typically just adjacent blocks whose bbox includes glyph
       // ascender/descender slack.
       if (overlapArea < 1) continue;
-      overlaps.push({ blockIndex: i, otherBlockIndex: j, overlapArea });
+      overlapCount += 1;
+      rememberTopTextOverlap(overlaps, { blockIndex: i, otherBlockIndex: j, overlapArea });
     }
   }
-  emitTextOverlapWarnings(overlaps, out);
+  emitTextOverlapWarnings(overlaps, overlapCount, out);
 }
 
-function emitTextOverlapWarnings(overlaps: TextOverlapCandidate[], out: PageWarning[]): void {
-  const sorted = [...overlaps].sort(
-    (a, b) => b.overlapArea - a.overlapArea || a.blockIndex - b.blockIndex || a.otherBlockIndex - b.otherBlockIndex,
-  );
+function rememberTopTextOverlap(overlaps: TextOverlapCandidate[], candidate: TextOverlapCandidate): void {
+  overlaps.push(candidate);
+  overlaps.sort(compareTextOverlapCandidates);
+  if (overlaps.length > TEXT_OVERLAP_MAX_DETAILED_WARNINGS) overlaps.pop();
+}
+
+function compareTextOverlapCandidates(a: TextOverlapCandidate, b: TextOverlapCandidate): number {
+  return b.overlapArea - a.overlapArea || a.blockIndex - b.blockIndex || a.otherBlockIndex - b.otherBlockIndex;
+}
+
+function emitTextOverlapWarnings(overlaps: TextOverlapCandidate[], overlapCount: number, out: PageWarning[]): void {
+  const sorted = [...overlaps].sort(compareTextOverlapCandidates);
   for (const overlap of sorted.slice(0, TEXT_OVERLAP_MAX_DETAILED_WARNINGS)) {
     out.push({
       code: 'text_overlap',
@@ -89,7 +99,7 @@ function emitTextOverlapWarnings(overlaps: TextOverlapCandidate[], out: PageWarn
       otherBlockIndex: overlap.otherBlockIndex,
     });
   }
-  const omitted = sorted.length - TEXT_OVERLAP_MAX_DETAILED_WARNINGS;
+  const omitted = overlapCount - sorted.length;
   if (omitted <= 0) return;
   out.push({
     code: 'text_overlap',
