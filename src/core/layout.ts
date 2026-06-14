@@ -477,6 +477,8 @@ const TOP_TITLE_MAX_Y = 120;
 const TOP_TITLE_MIN_WIDTH = 180;
 const TOP_TITLE_MIN_CHARS = 25;
 const TOP_BYLINE_MAX_GAP = 120;
+const TOP_SLIDE_TITLE_MIN_FONT_SIZE = 24;
+const TOP_SLIDE_TITLE_MIN_WIDTH = 120;
 
 /** Tolerance around the body fontSize used when counting how many chars sit
  *  at the body font class. PDFs from LaTeX commonly drift by ±0.5pt between
@@ -539,6 +541,20 @@ function isTopTitleCandidate(block: LayoutBlock, ratio: number, lineCount: numbe
   if (block.y > TOP_TITLE_MAX_Y) return false;
   if (block.width < TOP_TITLE_MIN_WIDTH) return false;
   return lineCount > 1 || nonWsChars >= TOP_TITLE_MIN_CHARS;
+}
+
+function isTopSlideTitleCandidate(
+  block: LayoutBlock,
+  fontSize: number,
+  lineCount: number,
+  nonWsChars: number,
+): boolean {
+  if (block.y > TOP_TITLE_MAX_Y) return false;
+  if (fontSize < TOP_SLIDE_TITLE_MIN_FONT_SIZE) return false;
+  if (block.width < TOP_SLIDE_TITLE_MIN_WIDTH) return false;
+  if (lineCount > 2) return false;
+  if (nonWsChars > MAX_HEADING_CHARS) return false;
+  return true;
 }
 
 function isPersonBylineText(text: string): boolean {
@@ -672,12 +688,13 @@ function classifyHeadings(blocks: LayoutBlock[]): void {
     if (!isHeadingCandidateText(b.text)) continue;
     const repFont = b.lines[0]?.fontSize ?? bodyFontSize;
     const ratio = repFont / bodyFontSize;
-    if (ratio < 1.08) continue;
 
     const nonWsChars = b.lines.reduce((acc, l) => acc + l.text.replace(/\s/g, '').length, 0);
     const isShort = nonWsChars <= MAX_HEADING_CHARS;
     const lineCount = b.lines.length;
     const topTitle = isTopTitleCandidate(b, ratio, lineCount, nonWsChars);
+    const topSlideTitle = isTopSlideTitleCandidate(b, repFont, lineCount, nonWsChars);
+    if (ratio < 1.08 && !topSlideTitle) continue;
     if (isTallNarrowSideLabel(b, lineCount)) continue;
     if (isCompactDiagramLabelText(b.text, nonWsChars, ratio)) continue;
 
@@ -718,7 +735,7 @@ function classifyHeadings(blocks: LayoutBlock[]): void {
     const locallyLarger = neighbours.every((n) => repFont > (dominantFs.get(n) ?? bodyFontSize));
 
     const singleLine = lineCount === 1;
-    if (ratio >= 1.4) {
+    if (ratio >= 1.4 || topSlideTitle) {
       // Level 1: titles. Always classify, even on poster/slide pages with
       // no body text — losing the title hurts more than a rare false
       // positive on a page that's nothing but a single big word.

@@ -249,6 +249,26 @@ describe('buildLayout — heading classification', () => {
     expect(pageLabel?.roleConfidence).toBeUndefined();
   });
 
+  it('marks top-of-slide titles even when bullet text is larger', () => {
+    // CS231n slide-shaped case: slide body bullets are visually larger
+    // than the top title, but the top title is still the page heading.
+    const spans: TextSpan[] = [
+      span('Today’s agenda', 42.75, 30.77, 30, 209.55),
+      span('● A brief history of computer vision', 41.43, 160.49, 32, 499.4),
+      span('● CS231n overview', 41.43, 198.65, 32, 320),
+      span('Lecture 1 - 2', 396.13, 375.57, 20, 120.49),
+      span('March 30, 2021', 570.13, 375.57, 20, 138.9),
+      span('Fei-Fei Li, Ranjay Krishna, Danfei Xu', 12.44, 376.13, 18, 295.88),
+    ];
+    const layout = buildLayout(spans, 720, 405);
+    const title = layout.blocks.find((block) => block.text === 'Today’s agenda');
+    const bullets = layout.blocks.find((block) => block.text.includes('brief history'));
+
+    expect(title?.role).toBe('heading');
+    expect(title?.level).toBe(1);
+    expect(bullets?.role).toBeUndefined();
+  });
+
   it('does not classify arXiv side labels, email metadata, or footnoted bylines as headings', () => {
     const bodyLines: TextSpan[] = [];
     for (let i = 0; i < 20; i++) {
