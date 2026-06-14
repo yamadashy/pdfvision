@@ -531,6 +531,58 @@ describe('buildFormFields', () => {
     expect(fields[0].label?.text).toContain('that value on line 1. Then, skip to line 3 1 $');
   });
 
+  it('expands compact amount markers across two stacked prompt lines', () => {
+    const dotLeaders = Array.from({ length: 7 }, (_, index) => ({
+      text: '.',
+      x: 396 + index * 12,
+      y: 551.93,
+      width: 2.5,
+      height: 9,
+      fontSize: 9,
+    }));
+    const fields = buildFormFields(
+      [{ subtype: 'Widget', fieldName: 'otherIncome', fieldType: 'Tx', rect: [511.2, 228, 576, 240] }],
+      792,
+      0,
+      0,
+      [
+        {
+          text: '(a) Other income (not from jobs). If you want tax withheld for other income you',
+          x: 122.4,
+          y: 530.33,
+          width: 352.79,
+          height: 9,
+          fontSize: 9,
+        },
+        {
+          text: 'expect this year that won’t have withholding, enter the amount of other income here.',
+          x: 136.79,
+          y: 541.13,
+          width: 338.39,
+          height: 9,
+          fontSize: 9,
+        },
+        {
+          text: 'This may include interest, dividends, and retirement income .',
+          x: 136.79,
+          y: 551.93,
+          width: 249.71,
+          height: 9,
+          fontSize: 9,
+        },
+        ...dotLeaders,
+        { text: '4(a) $', x: 485.45, y: 552.42, width: 24.65, height: 9.01, fontSize: 9 },
+      ],
+    );
+
+    expect(fields[0].label).toMatchObject({
+      text: '(a) Other income (not from jobs). If you want tax withheld for other income you expect this year that won’t have withholding, enter the amount of other income here. This may include interest, dividends, and retirement income. 4(a) $',
+      relation: 'left',
+      x: 122.4,
+      y: 530.33,
+    });
+  });
+
   it('does not absorb the previous numbered prompt into a new amount marker row', () => {
     const fields = buildFormFields(
       [{ subtype: 'Widget', fieldName: 'line3bAmount', fieldType: 'Tx', rect: [417.6, 288, 481.65, 300] }],

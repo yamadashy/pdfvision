@@ -235,7 +235,7 @@ const SAME_LINE_TEXT_PROMPT_MAX_GAP_PT = 12;
 const SAME_LINE_TEXT_PROMPT_MAX_FONT_SIZE_PT = 8.5;
 const SAME_LINE_MARKER_PROMPT_MAX_GAP_PT = 30;
 const SAME_LINE_MARKER_PROMPT_STACK_MAX_GAP_PT = 4;
-const SAME_LINE_MARKER_PROMPT_MAX_STACK_LINES = 1;
+const SAME_LINE_MARKER_PROMPT_MAX_STACK_LINES = 2;
 const SAME_LINE_MARKER_PROMPT_X_TOLERANCE_PT = 18;
 
 function findFieldLabel(
@@ -420,7 +420,7 @@ function expandSameLineMarkerPromptLabel(
     .map(({ text }) => normalizePromptLabelText(text))
     .filter((text) => text.length > 0 && !isDotLeaderText(text));
   const text = normalizePromptLabelText(textParts.join(' '));
-  if (!isUsableLabelText(text) || text === candidate.text) return undefined;
+  if (!isUsableLabelText(text, STACKED_LABEL_MAX_CHARS) || text === candidate.text) return undefined;
 
   const boxLines = promptLines
     .filter(({ text }) => !isDotLeaderText(text))
@@ -478,6 +478,7 @@ function collectSameLineMarkerPromptStack(
     ]);
     if (!next) return stack.sort((a, b) => a.line.y - b.line.y || a.line.x - b.line.x);
     stack.push(next);
+    if (startsWithPromptItemMarker(next.text)) return stack.sort((a, b) => a.line.y - b.line.y || a.line.x - b.line.x);
     bounds = unionBox(next.line, bounds);
   }
   return stack.sort((a, b) => a.line.y - b.line.y || a.line.x - b.line.x);
