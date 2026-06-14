@@ -1091,6 +1091,13 @@ function tableCandidateRow(row: LayoutLine[]): LayoutLine[] | undefined {
     if (canTrimSidePanelTableSuffix(row, start, suffix)) return suffix;
   }
   if (isTableLikeSuffix(row)) return row;
+  for (let end = row.length - 1; end >= TABLE_ROW_MIN_CELLS; end--) {
+    const prefix = row.slice(0, end);
+    const trailing = row.slice(end);
+    if (!isLikelyTableRow(prefix)) continue;
+    if (!isTableLikeSuffix(prefix)) continue;
+    if (canTrimTrailingProseTablePrefix(prefix, trailing)) return prefix;
+  }
   return row;
 }
 
@@ -1142,6 +1149,15 @@ function canTrimSidePanelTableSuffix(row: LayoutLine[], start: number, suffix: L
   if (start === 1) return startsWithCompactLabel && isProseBeforeSidePanel(row[0]);
   if (!startsWithCompactLabel && previousCell && isTableNumericCell(previousCell.text)) return false;
   return startsWithCompactLabel || row.slice(0, start).some(isProseBeforeSidePanel);
+}
+
+function canTrimTrailingProseTablePrefix(prefix: LayoutLine[], trailing: LayoutLine[]): boolean {
+  const lastPrefixCell = prefix.at(-1);
+  const firstTrailingCell = trailing[0];
+  if (!lastPrefixCell || !firstTrailingCell) return false;
+  const gap = firstTrailingCell.x - (lastPrefixCell.x + lastPrefixCell.width);
+  if (gap < Math.max(TABLE_SIDE_PANEL_MIN_GAP_PT, firstTrailingCell.fontSize * 4)) return false;
+  return trailing.every(isProseBeforeSidePanel);
 }
 
 function isProseBeforeSidePanel(line: LayoutLine): boolean {

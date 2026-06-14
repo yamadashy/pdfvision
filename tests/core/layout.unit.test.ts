@@ -1622,6 +1622,55 @@ describe('buildLayout — multi-column reading order', () => {
     ]);
   });
 
+  it('trims adjacent prose after compact numeric table prefixes', () => {
+    // ResNet-paper-shaped case: a left-column table can share y-overlap
+    // with right-column body prose. The prose line must not become a
+    // spurious final table cell.
+    const rows = [
+      {
+        label: 'VGG [40] (v5)',
+        y: 291.7,
+        values: ['24.4', '7.1'],
+        prose: 'Table 3 shows that all three options are considerably bet-',
+      },
+      {
+        label: 'PReLU-net [12]',
+        y: 303.75,
+        values: ['21.59', '5.71'],
+        prose: 'ter than the plain counterpart. B is slightly better than A. We',
+      },
+      {
+        label: 'BN-inception [16]',
+        y: 315.81,
+        values: ['21.99', '5.81'],
+        prose: 'argue that this is because the zero-padded dimensions in A',
+      },
+      {
+        label: 'ResNet-34 B',
+        y: 328.26,
+        values: ['21.84', '5.71'],
+        prose: 'indeed have no residual learning. C is marginally better than',
+      },
+    ];
+    const spans = rows.flatMap((row) => [
+      span(row.prose, 320.82, row.y - 4.17, 9.96, 224.3),
+      span(row.label, 67.1, row.y, 8.97, Math.min(70, row.label.length * 4.5)),
+      span(row.values[0], 201.76, row.y, 8.97, row.values[0].length * 4.5),
+      span(row.values[1], 249.16, row.y, 8.97, row.values[1].length * 4.5),
+    ]);
+    const layout = buildLayout(spans, 612);
+    const tableRows = layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text));
+
+    expect(layout.tables).toHaveLength(1);
+    expect(layout.tables?.[0].columnCount).toBe(3);
+    expect(tableRows).toEqual([
+      ['VGG [40] (v5)', '24.4', '7.1'],
+      ['PReLU-net [12]', '21.59', '5.71'],
+      ['BN-inception [16]', '21.99', '5.81'],
+      ['ResNet-34 B', '21.84', '5.71'],
+    ]);
+  });
+
   it('does not trim long financial row labels before recurring numeric columns', () => {
     // Berkshire annual-report-shaped case: a long financial row label can
     // look prose-like, but when it is followed by recurring year columns it
