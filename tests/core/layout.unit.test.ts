@@ -1387,6 +1387,59 @@ describe('buildLayout — multi-column reading order', () => {
     ]);
   });
 
+  it('preserves leading headers and sparse first rows for wide numeric tables', () => {
+    // Attention-paper-shaped case: the table body has stable numeric
+    // columns, but the visible header stack and first rows have fewer
+    // populated values. Agents still need the crop/table hint to start at
+    // the human-visible table top, not at the first fully populated row.
+    const spans: TextSpan[] = [
+      span('BLEU', 311, 95, 7.5, 24),
+      span('Training Cost (FLOPs)', 383, 95, 7.5, 114),
+      span('Model', 136, 103, 7.5, 28),
+      span('EN-DE EN-FR', 288, 111, 7.5, 68),
+      span('EN-DE', 387, 111, 7.5, 28),
+      span('EN-FR', 459, 111, 7.5, 28),
+      span('ByteNet [18]', 136, 122, 7.5, 50),
+      span('23.75', 291, 122, 7.5, 22),
+      span('Deep-Att + PosUnk [39]', 136, 134, 7.5, 94),
+      span('39.2', 336, 134, 7.5, 18),
+      span('1.0 · 10^20', 454, 134, 7.5, 42),
+      span('GNMT + RL [38]', 136, 145, 7.5, 60),
+      span('24.6', 292, 145, 7.5, 18),
+      span('39.92', 336, 145, 7.5, 22),
+      span('2.3 · 10^19', 374, 145, 7.5, 42),
+      span('1.4 · 10^20', 454, 145, 7.5, 42),
+      span('ConvS2S [9]', 136, 156, 7.5, 48),
+      span('25.16', 288, 156, 7.5, 22),
+      span('40.46', 336, 156, 7.5, 22),
+      span('9.6 · 10^18', 374, 156, 7.5, 42),
+      span('1.5 · 10^20', 454, 156, 7.5, 42),
+      span('MoE [32]', 136, 168, 7.5, 36),
+      span('26.03', 288, 168, 7.5, 22),
+      span('40.56', 336, 168, 7.5, 22),
+      span('2.0 · 10^19', 374, 168, 7.5, 42),
+      span('1.2 · 10^20', 454, 168, 7.5, 42),
+      span('Transformer base', 136, 180, 7.5, 66),
+      span('27.3', 292, 180, 7.5, 18),
+      span('38.1', 336, 180, 7.5, 18),
+      span('3.3 · 10^18', 374, 180, 7.5, 42),
+      span('3.3 · 10^18', 454, 180, 7.5, 42),
+    ];
+    const layout = buildLayout(spans, 612);
+    const rows = layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text));
+
+    expect(layout.tables).toHaveLength(1);
+    expect(layout.tables?.[0].y).toBeLessThan(100);
+    expect(rows?.slice(0, 5)).toEqual([
+      ['BLEU', 'Training Cost (FLOPs)'],
+      ['Model'],
+      ['EN-DE EN-FR', 'EN-DE', 'EN-FR'],
+      ['ByteNet [18]', '23.75'],
+      ['Deep-Att + PosUnk [39]', '39.2', '1.0 · 10^20'],
+    ]);
+    expect(rows).toContainEqual(['GNMT + RL [38]', '24.6', '39.92', '2.3 · 10^19', '1.4 · 10^20']);
+  });
+
   it('ignores decorative dotted rule text when grouping table rows', () => {
     // PLOS-style tables can encode a left dotted border as one tall
     // punctuation-only text line. That decorative line overlaps every
