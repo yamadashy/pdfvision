@@ -1134,11 +1134,13 @@ function hasSidePanelTableGap(row: LayoutLine[], start: number): boolean {
 function canTrimSidePanelTableSuffix(row: LayoutLine[], start: number, suffix: LayoutLine[]): boolean {
   if (!hasSidePanelTableGap(row, start)) return false;
   const firstSuffixCell = suffix[0];
+  const previousCell = row[start - 1];
   const startsWithCompactLabel =
     firstSuffixCell !== undefined &&
     !isTableNumericCell(firstSuffixCell.text) &&
     isCompactTableLabelCell(firstSuffixCell);
   if (start === 1) return startsWithCompactLabel && isProseBeforeSidePanel(row[0]);
+  if (!startsWithCompactLabel && previousCell && isTableNumericCell(previousCell.text)) return false;
   return startsWithCompactLabel || row.slice(0, start).some(isProseBeforeSidePanel);
 }
 

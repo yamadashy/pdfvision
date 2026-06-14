@@ -1569,6 +1569,38 @@ describe('buildLayout — multi-column reading order', () => {
     ]);
   });
 
+  it('does not trim long financial row labels before recurring numeric columns', () => {
+    // Berkshire annual-report-shaped case: a long financial row label can
+    // look prose-like, but when it is followed by recurring year columns it
+    // is part of the table. Side-panel trimming must not drop the label and
+    // first value just because there is another numeric gutter later.
+    const rows = [
+      {
+        label: 'Gains (losses) before income taxes and noncontrolling interests',
+        y: 100,
+        values: ['74,855', '(67,899)', '78,542'],
+      },
+      { label: 'Income taxes and noncontrolling interests', y: 112, values: ['15,982', '(14,287)', '16,202'] },
+      { label: 'Net earnings (loss)', y: 124, values: ['58,873', '(53,612)', '62,340'] },
+      { label: 'Effective income tax rate', y: 136, values: ['21.3%', '20.9%', '20.4%'] },
+    ];
+    const valueXs = [369.95, 437.97, 512.65];
+    const spans = rows.flatMap((row) => [
+      span(row.label, 45, row.y, 10, Math.min(260, row.label.length * 4.2)),
+      ...row.values.map((value, index) => span(value, valueXs[index], row.y, 10, value.length * 4.5)),
+    ]);
+    const layout = buildLayout(spans, 612);
+    const tableRows = layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text));
+
+    expect(tableRows).toContainEqual([
+      'Gains (losses) before income taxes and noncontrolling interests',
+      '74,855',
+      '(67,899)',
+      '78,542',
+    ]);
+    expect(tableRows).toContainEqual(['Income taxes and noncontrolling interests', '15,982', '(14,287)', '16,202']);
+  });
+
   it('keeps numeric-only subtotal rows aligned with recurring financial table columns', () => {
     // Berkshire-style balance sheets often show subtotals as unlabeled
     // numeric rows under the year columns. They are human-visible table
