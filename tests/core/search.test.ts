@@ -342,6 +342,24 @@ describe('processDocument search', () => {
     expect(matches[0].bbox).toEqual({ x: 100, y: 20, width: 52, height: 10 });
   });
 
+  it('slices vertical CJK span matches along the y axis', async () => {
+    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const compiled = compileSearch('縦中横', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const matches = searchPage(
+      [{ text: '縦中横は便利です', x: 180, y: 45, width: 9, height: 90, fontSize: 9 }],
+      undefined,
+      1,
+      612,
+      792,
+      compiled,
+    );
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0].boxes).toEqual([{ x: 180, y: 45, width: 9, height: 33.75 }]);
+    expect(matches[0].bbox).toEqual({ x: 180, y: 45, width: 9, height: 33.75 });
+  });
+
   it('does not double-insert a synthetic space when adjacent spans already carry whitespace', async () => {
     const { compileSearch, searchPage } = await import('../../src/core/search.js');
     const compiled = compileSearch('Hello World', {});

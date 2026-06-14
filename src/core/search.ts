@@ -357,6 +357,15 @@ function sliceSpanBox(span: SearchOwner, start: number, end: number): Box {
   if (textLength === 0 || (clampedStart === 0 && clampedEnd === textLength) || span.width <= 0) {
     return { x: round2(span.x), y: round2(span.y), width: round2(span.width), height: round2(span.height) };
   }
+  if (isVerticalSearchOwner(span)) {
+    const charHeight = span.height / textLength;
+    return {
+      x: round2(span.x),
+      y: round2(span.y + charHeight * clampedStart),
+      width: round2(span.width),
+      height: round2(charHeight * (clampedEnd - clampedStart)),
+    };
+  }
   const charWidth = span.width / textLength;
   return {
     x: round2(span.x + charWidth * clampedStart),
@@ -364,6 +373,10 @@ function sliceSpanBox(span: SearchOwner, start: number, end: number): Box {
     width: round2(charWidth * (clampedEnd - clampedStart)),
     height: round2(span.height),
   };
+}
+
+function isVerticalSearchOwner(span: SearchOwner): boolean {
+  return span.height > Math.max(span.width, 1) * 3 && isCjkLeading(span.text);
 }
 
 /**
