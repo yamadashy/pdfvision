@@ -625,13 +625,23 @@ function findAdjacentStackLine(
     if (!isStackCompatibleLine(candidate.line, bounds, line)) continue;
 
     const gap =
-      candidate.relation === 'above' ? bounds.y - (line.y + line.height) : line.y - (bounds.y + bounds.height);
-    if (gap < -1 || gap > STACKED_LABEL_MAX_GAP_PT) continue;
+      candidate.relation === 'above' ? aboveStackLineGap(field, bounds, line) : line.y - (bounds.y + bounds.height);
+    if (gap === undefined || gap < -1 || gap > STACKED_LABEL_MAX_GAP_PT) continue;
     if (!best || gap < best.gap || (gap === best.gap && line.y < best.line.y)) {
       best = { line, text, gap };
     }
   }
   return best ? { line: best.line, text: best.text } : undefined;
+}
+
+function aboveStackLineGap(field: FormField, bounds: BoxLike, line: LabelLine): number | undefined {
+  const upwardGap = bounds.y - (line.y + line.height);
+  if (upwardGap >= -1 && upwardGap <= STACKED_LABEL_MAX_GAP_PT) return upwardGap;
+
+  const downwardGap = line.y - (bounds.y + bounds.height);
+  if (downwardGap < -1 || downwardGap > STACKED_LABEL_MAX_GAP_PT) return undefined;
+  if (line.y + line.height > field.y + 1) return undefined;
+  return downwardGap;
 }
 
 function isStackCompatibleLine(anchor: LabelLine, bounds: BoxLike, line: LabelLine): boolean {

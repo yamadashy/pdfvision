@@ -288,6 +288,42 @@ describe('buildFormFields', () => {
     });
   });
 
+  it('merges wrapped above-label continuation lines below the first candidate line', () => {
+    const fields = buildFormFields(
+      [{ subtype: 'Widget', fieldName: 'entityName', fieldType: 'Tx', rect: [58.6, 660, 576, 674] }],
+      792,
+      0,
+      0,
+      [
+        {
+          text: '1 Name of entity/individual. An entry is required. (For a sole proprietor or disregarded entity, enter the owner’s name on line 1, and enter the business/disregarded',
+          x: 61.6,
+          y: 97,
+          width: 511.1,
+          height: 7,
+          fontSize: 7,
+        },
+        {
+          text: 'entity’s name on line 2.)',
+          x: 73.6,
+          y: 105.4,
+          width: 74.05,
+          height: 7,
+          fontSize: 7,
+        },
+      ],
+    );
+
+    expect(fields[0].label).toEqual({
+      text: '1 Name of entity/individual. An entry is required. (For a sole proprietor or disregarded entity, enter the owner’s name on line 1, and enter the business/disregarded entity’s name on line 2.)',
+      relation: 'above',
+      x: 61.6,
+      y: 97,
+      width: 511.1,
+      height: 15.4,
+    });
+  });
+
   it('keeps two-line checkbox instructions when stacked text just exceeds the single-line cap', () => {
     const fields = buildFormFields(
       [
