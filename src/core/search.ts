@@ -34,6 +34,18 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function literalSearchPattern(s: string): string {
+  const chars = Array.from(s);
+  let pattern = '';
+  for (let i = 0; i < chars.length; i++) {
+    if (i > 0 && isCjkLeading(chars[i - 1]) && isCjkLeading(chars[i])) {
+      pattern += '\\s*';
+    }
+    pattern += escapeRegExp(chars[i]);
+  }
+  return pattern;
+}
+
 /** Apply NFKC the same way `processor.normalizeText` does. Inlined
  *  here so search.ts doesn't reach back into processor.ts. */
 function nfkc(s: string): string {
@@ -84,7 +96,7 @@ export function compileSearch(
       // document text. Escape *after* normalization so a fullwidth
       // dot that normalises to `.` is still treated literally.
       const query = normalize ? nfkc(rawQuery) : rawQuery;
-      pattern = escapeRegExp(query);
+      pattern = literalSearchPattern(query);
     }
     let regex: RegExp;
     try {
@@ -124,6 +136,9 @@ function round2(n: number): number {
 const MAX_MATCHES_PER_QUERY_PER_PAGE = 10000;
 const DEFAULT_SPACE_GAP_RATIO = 0.25;
 const FONT_SIZE_FALLBACK_PT = 12;
+const CJK_DISPLAY_SPACING_MIN_GAP_RATIO = 0.8;
+const CJK_DISPLAY_SPACING_MAX_GAP_RATIO = 4;
+const CJK_DISPLAY_SPACING_MAX_SPANS = 12;
 /** Search segment splitting uses max(SEARCH_SEGMENT_GAP_RATIO * fontSize,
  *  SEARCH_SEGMENT_MIN_GAP_PT) so phrase matching stays within a visual
  *  line or column. These values are intentionally tighter than the
@@ -221,6 +236,7 @@ function buildSearchLines(spans: readonly TextSpan[] | undefined, pageWidth: num
   for (const group of groups) {
     const xSorted = [...group].sort((a, b) => a.x - b.x);
     const preserveWideWordSpacing = isLikelyWideWordSpacingRow(xSorted, pageWidth);
+    const preserveCjkDisplaySpacing = isLikelyCjkDisplaySpacingRow(xSorted);
     let text = '';
     const owners: (SearchOwner | undefined)[] = [];
     const pushLine = (): void => {
@@ -237,7 +253,7 @@ function buildSearchLines(spans: readonly TextSpan[] | undefined, pageWidth: num
         const gap = span.x - (prev.x + prev.width);
         const fontSize = span.fontSize || prev.fontSize || FONT_SIZE_FALLBACK_PT;
         const segmentGap = Math.max(fontSize * SEARCH_SEGMENT_GAP_RATIO, SEARCH_SEGMENT_MIN_GAP_PT);
-        if (!preserveWideWordSpacing && gap > segmentGap) {
+        if (!preserveWideWordSpacing && !preserveCjkDisplaySpacing && gap > segmentGap) {
           pushLine();
         } else if (
           (gap > spaceGapThreshold(prev, span, fontSize) ||
@@ -255,6 +271,30 @@ function buildSearchLines(spans: readonly TextSpan[] | undefined, pageWidth: num
     pushLine();
   }
   return lines;
+}
+
+function isSingleCjkGlyph(text: string): boolean {
+  const chars = Array.from(text.trim());
+  return chars.length === 1 && isCjkLeading(chars[0]);
+}
+
+function isLikelyCjkDisplaySpacingRow(spans: readonly TextSpan[]): boolean {
+  if (spans.length < 2 || spans.length > CJK_DISPLAY_SPACING_MAX_SPANS) return false;
+  const sorted = [...spans].sort((a, b) => a.x - b.x);
+  if (!sorted.every((span) => isSingleCjkGlyph(span.text))) return false;
+
+  const gaps: number[] = [];
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = sorted[i - 1];
+    const cur = sorted[i];
+    const fontSize = cur.fontSize || prev.fontSize || FONT_SIZE_FALLBACK_PT;
+    const gap = cur.x - (prev.x + prev.width);
+    if (gap < fontSize * CJK_DISPLAY_SPACING_MIN_GAP_RATIO) return false;
+    if (gap > fontSize * CJK_DISPLAY_SPACING_MAX_GAP_RATIO) return false;
+    gaps.push(gap);
+  }
+
+  return gaps.length > 0;
 }
 
 function buildOcrSearchLines(words: readonly OcrWord[] | undefined, normalize: boolean): SearchLine[] {

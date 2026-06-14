@@ -265,6 +265,52 @@ describe('processDocument search', () => {
     expect(result.pages[0].matches?.length ?? 0).toBeGreaterThan(0);
   });
 
+  it('matches CJK literal queries across display-spaced glyphs', () => {
+    const compiled = compileSearch('科学', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(
+      [
+        { text: '科', x: 265.44, y: 161.04, width: 15.96, height: 15.96, fontSize: 15.96 },
+        { text: '学', x: 313.68, y: 161.04, width: 15.96, height: 15.96, fontSize: 15.96 },
+      ],
+      undefined,
+      1,
+      595,
+      842,
+      compiled,
+    );
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0].text).toBe('科 学');
+    expect(matches[0].boxes).toEqual([
+      { x: 265.44, y: 161.04, width: 15.96, height: 15.96 },
+      { x: 313.68, y: 161.04, width: 15.96, height: 15.96 },
+    ]);
+    expect(matches[0].bbox).toEqual({ x: 265.44, y: 161.04, width: 64.2, height: 15.96 });
+  });
+
+  it('does not match CJK literals across dense glyph column gutters', () => {
+    const compiled = compileSearch('海道', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(
+      [
+        { text: '北', x: 50, y: 80, width: 10, height: 10, fontSize: 10 },
+        { text: '海', x: 62, y: 80, width: 10, height: 10, fontSize: 10 },
+        { text: '道', x: 110, y: 80, width: 10, height: 10, fontSize: 10 },
+        { text: '東', x: 122, y: 80, width: 10, height: 10, fontSize: 10 },
+      ],
+      undefined,
+      1,
+      300,
+      200,
+      compiled,
+    );
+
+    expect(matches).toHaveLength(0);
+  });
+
   it('mirrors matchCount on the overview when search ran on a multi-page doc', async () => {
     // SAMPLE_JA_PDF is multi-page so an overview is built. matchCount
     // is the per-page hit count and is present-with-`0` on pages
