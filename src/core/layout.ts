@@ -526,14 +526,23 @@ function isCompactDiagramLabelText(text: string, nonWsChars: number, ratio: numb
 }
 
 function isLikelyBodyFragmentForLevel3(text: string): boolean {
+  if (isLikelyBodySentenceFragment(text)) return true;
+  const trimmed = text.trim();
+  if (isNumberedHeadingText(trimmed)) return false;
+  if (/[,;:]/u.test(trimmed)) return true;
+  return trimmed.split(/\s+/u).filter(Boolean).length > 7;
+}
+
+function isLikelyBodySentenceFragment(text: string): boolean {
   const trimmed = text.trim();
   if (isNumberedHeadingText(trimmed)) return false;
   if (/^\p{Ll}/u.test(trimmed)) return true;
   if (/\bet al\./iu.test(trimmed)) return true;
-  if (/[,;:]/u.test(trimmed)) return true;
   if (/[\p{L}\p{N}]-$/u.test(trimmed)) return true;
-  if (/[.!?]$/u.test(trimmed)) return true;
-  return trimmed.split(/\s+/u).filter(Boolean).length > 7;
+  if (/[.!?。！？]$/u.test(trimmed)) return true;
+  const cjkChars = trimmed.match(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/gu)?.length ?? 0;
+  if (/[,;、。，；]/u.test(trimmed) && (trimmed.length > 24 || cjkChars >= 12)) return true;
+  return trimmed.split(/\s+/u).filter(Boolean).length > 16;
 }
 
 function isTopTitleCandidate(block: LayoutBlock, ratio: number, lineCount: number, nonWsChars: number): boolean {
@@ -692,7 +701,8 @@ function classifyHeadings(blocks: LayoutBlock[]): void {
     const nonWsChars = b.lines.reduce((acc, l) => acc + l.text.replace(/\s/g, '').length, 0);
     const isShort = nonWsChars <= MAX_HEADING_CHARS;
     const lineCount = b.lines.length;
-    const topTitle = isTopTitleCandidate(b, ratio, lineCount, nonWsChars);
+    const likelyBodySentenceFragment = isLikelyBodySentenceFragment(b.text);
+    const topTitle = isTopTitleCandidate(b, ratio, lineCount, nonWsChars) && !likelyBodySentenceFragment;
     const topSlideTitle = isTopSlideTitleCandidate(b, repFont, lineCount, nonWsChars);
     if (ratio < 1.08 && !topSlideTitle) continue;
     if (isTallNarrowSideLabel(b, lineCount)) continue;
@@ -739,6 +749,7 @@ function classifyHeadings(blocks: LayoutBlock[]): void {
       // Level 1: titles. Always classify, even on poster/slide pages with
       // no body text — losing the title hurts more than a rare false
       // positive on a page that's nothing but a single big word.
+      if (!topSlideTitle && likelyBodySentenceFragment) continue;
       b.role = 'heading';
       b.level = 1;
       b.roleConfidence = computeRoleConfidence(ratio, isShort, standalone, locallyLarger, singleLine);
@@ -747,6 +758,7 @@ function classifyHeadings(blocks: LayoutBlock[]): void {
       // except for one new guard: if the page lacks a credible body, we
       // demote so a uniform-large page doesn't tag every block.
       if (!hasCredibleBody) continue;
+      if (likelyBodySentenceFragment) continue;
       b.role = 'heading';
       b.level = topTitle ? 1 : 2;
       b.roleConfidence = computeRoleConfidence(ratio, isShort, standalone, locallyLarger, singleLine);

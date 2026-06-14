@@ -99,6 +99,28 @@ describe('buildLayout — heading classification', () => {
     expect(title?.level).toBe(1);
   });
 
+  it('does not promote Japanese body fragments when dense table text lowers the median font size', () => {
+    const tableLines: TextSpan[] = [];
+    for (let i = 0; i < 24; i++) {
+      tableLines.push(span('総 数 (100.0) ( 13.1) ( 58.7) ( 6.0) ( 3.0) ( 5.9)', 80, 220 + i * 11, 8.28, 360));
+    }
+    const spans: TextSpan[] = [
+      span('また、厚生労働省が行った調査によると、こどもについての悩みがある。', 62, 84, 11.34, 442),
+      span('これらの困難があると考えられる。', 62, 104, 11.34, 181),
+      span('1. はじめに', 62, 150, 11.34, 80),
+      ...tableLines,
+    ];
+
+    const layout = buildLayout(spans, 595);
+    const prose = layout.blocks.find((block) => block.text.includes('厚生労働省'));
+    const sentence = layout.blocks.find((block) => block.text.includes('これらの困難'));
+    const heading = layout.blocks.find((block) => block.text.includes('はじめに'));
+
+    expect(prose?.role).toBeUndefined();
+    expect(sentence?.role).toBeUndefined();
+    expect(heading?.role).toBe('heading');
+  });
+
   it('demotes person-name bylines directly under a document title', () => {
     // ResNet / CVPR paper-shaped case: author names sit below the title
     // at section-heading font size, but they are byline metadata, not
