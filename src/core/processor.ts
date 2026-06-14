@@ -295,7 +295,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v100',
+    format: 'structured-v101',
     passwordHash:
       input.password !== undefined ? createHash('sha256').update(input.password).digest('hex').slice(0, 16) : null,
     render: !!input.render,
@@ -485,7 +485,12 @@ async function extractPageData(
   // even though we may only expose them on PageResult when `geometry`
   // is on.
   const wantSpans =
-    flags.geometry || flags.layout || flags.visualRegions || flags.formFields || flags.needSpansForSearch;
+    flags.geometry ||
+    flags.layout ||
+    flags.visualRegions ||
+    flags.formFields ||
+    flags.links ||
+    flags.needSpansForSearch;
 
   // Collect typed items for the CJK-aware page-text joiner. We can't
   // build the final string in this loop because the join decision for
@@ -580,7 +585,7 @@ async function extractPageData(
   // Build layout internally for form-field labels and visual-region table
   // hints, but only expose pages[].layout when --layout is explicitly on.
   const internalLayout =
-    flags.layout || flags.visualRegions || flags.formFields
+    flags.layout || flags.visualRegions || flags.formFields || flags.links
       ? buildLayout(spans, round2(width), round2(height))
       : undefined;
   const layout = flags.layout ? internalLayout : undefined;
@@ -623,6 +628,16 @@ async function extractPageData(
   const links = flags.links
     ? await buildLinks(annotations ?? [], height, xMin, yMin, {
         resolveDestinationPage: (target) => resolveDestinationPage(doc, target),
+        labelLines:
+          internalLayout?.blocks.flatMap((block) =>
+            (block.lines.length > 0 ? block.lines : [block]).map((item) => ({
+              text: item.text,
+              x: item.x,
+              y: item.y,
+              width: item.width,
+              height: item.height,
+            })),
+          ) ?? [],
       })
     : undefined;
   const allPageAnnotations =

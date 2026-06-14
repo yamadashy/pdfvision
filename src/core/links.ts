@@ -8,8 +8,24 @@ interface PdfLinkAnnotation {
   rect?: unknown;
 }
 
+interface LabelLine {
+  text: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface BoxLike {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 interface BuildLinksOptions {
   resolveDestinationPage?: (target: PageLinkTarget) => number | undefined | Promise<number | undefined>;
+  labelLines?: readonly LabelLine[];
 }
 
 type Rect = [number, number, number, number];
@@ -62,18 +78,55 @@ export async function buildLinks(
       page = resolvedPageCache.get(cacheKey);
     }
 
-    links.push({
-      ...target,
-      ...(page !== undefined && { page }),
+    const box = {
       x: round2(minX - viewMinX),
       y: round2(pageHeight - (maxY - viewMinY)),
       width: round2(maxX - minX),
       height: round2(maxY - minY),
+    };
+    const text = linkText(box, options.labelLines ?? []);
+    links.push({
+      ...target,
+      ...(page !== undefined && { page }),
+      ...(text !== undefined && { text }),
+      ...box,
     });
   }
   return links.sort(
     (a, b) => a.y - b.y || a.x - b.x || linkTargetText(a.target).localeCompare(linkTargetText(b.target)),
   );
+}
+
+function linkText(link: BoxLike, lines: readonly LabelLine[]): string | undefined {
+  const parts = lines
+    .filter((line) => line.text.trim().length > 0)
+    .filter((line) => isLineInsideLink(line, link) || overlapRatio(line, link) >= 0.35)
+    .sort((a, b) => a.y - b.y || a.x - b.x)
+    .map((line) => line.text.trim());
+  const text = parts.join(' ').replace(/\s+/g, ' ').trim();
+  return text.length > 0 ? text : undefined;
+}
+
+function isLineInsideLink(line: LabelLine, link: BoxLike): boolean {
+  const centerX = line.x + line.width / 2;
+  const centerY = line.y + line.height / 2;
+  return (
+    centerX >= link.x - 2 &&
+    centerX <= link.x + link.width + 2 &&
+    centerY >= link.y - 2 &&
+    centerY <= link.y + link.height + 2
+  );
+}
+
+function overlapRatio(a: LabelLine, b: BoxLike): number {
+  const area = Math.max(0.001, a.width * a.height);
+  return intersectionArea(a, b) / area;
+}
+
+function intersectionArea(a: BoxLike, b: BoxLike): number {
+  const dx = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+  const dy = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+  return dx > 0 && dy > 0 ? dx * dy : 0;
 }
 
 function linkRect(value: unknown): Rect | undefined {

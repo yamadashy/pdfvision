@@ -726,6 +726,7 @@ describe('processDocument', () => {
       {
         type: 'url',
         target: 'https://example.com/path?q=1',
+        text: 'Example link',
         x: 100,
         y: 72,
         width: 120,
@@ -735,6 +736,7 @@ describe('processDocument', () => {
         type: 'destination',
         target: 'details',
         page: 2,
+        text: 'Details link',
         x: 240,
         y: 72,
         width: 120,

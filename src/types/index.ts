@@ -726,6 +726,8 @@ export interface PageLink {
   target: PageLinkTarget;
   /** 1-based physical destination page for internal PDF links when it can be resolved. */
   page?: number;
+  /** Visible text inside the link rectangle when it can be reconstructed from native text. */
+  text?: string;
   x: number;
   y: number;
   width: number;

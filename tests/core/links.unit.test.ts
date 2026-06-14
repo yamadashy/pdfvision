@@ -70,6 +70,17 @@ describe('buildLinks', () => {
     ]);
   });
 
+  it('attaches visible text inside the link rectangle when label lines are available', async () => {
+    const links = await buildLinks([{ subtype: 'Link', dest: 'page.2', rect: [93, 684.6, 136.2, 710.4] }], 792, 0, 0, {
+      resolveDestinationPage: () => 2,
+      labelLines: [{ text: 'Hello', x: 100.5, y: 87, width: 26.48, height: 12 }],
+    });
+
+    expect(links).toEqual([
+      { type: 'destination', target: 'page.2', page: 2, text: 'Hello', x: 93, y: 81.6, width: 43.2, height: 25.8 },
+    ]);
+  });
+
   it('ignores link annotations with non-finite rect coordinates', async () => {
     const links = await buildLinks(
       [
