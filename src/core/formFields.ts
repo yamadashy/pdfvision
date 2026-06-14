@@ -540,6 +540,8 @@ function collectConnectedLeftPromptLines(
     if (!isUsablePromptFragment(text)) continue;
     const gap = boundaryX - (line.x + line.width);
     if (gap < -2) continue;
+    const alreadyHasPromptText = connected.some((item) => !isDotLeaderText(item.text));
+    if (alreadyHasPromptText && !isDotLeaderText(text) && gap > SAME_LINE_TEXT_PROMPT_MAX_GAP_PT) break;
     if (gap > SAME_LINE_MARKER_PROMPT_MAX_GAP_PT) break;
     connected.unshift({ line, text });
     boundaryX = line.x;

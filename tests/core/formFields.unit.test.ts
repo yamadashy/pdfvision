@@ -556,6 +556,46 @@ describe('buildFormFields', () => {
     });
   });
 
+  it('does not absorb nearby side headings into right-edge amount labels', () => {
+    const dotLeaders = Array.from({ length: 10 }, (_, index) => ({
+      text: '.',
+      x: 360 + index * 12,
+      y: 97.71,
+      width: 2.22,
+      height: 8,
+      fontSize: 8,
+    }));
+    const fields = buildFormFields(
+      [{ subtype: 'Widget', fieldName: 'standardDeduction', fieldType: 'Tx', rect: [504, 684, 576, 696] }],
+      792,
+      0,
+      0,
+      [
+        { text: 'Standard', x: 31.8, y: 91.2, width: 30.47, height: 7, fontSize: 7 },
+        { text: 'deduction for—', x: 31.8, y: 98.95, width: 51.72, height: 7, fontSize: 7 },
+        {
+          text: 'e Standard deduction or itemized deductions (from Schedule A) .',
+          x: 100.8,
+          y: 97.71,
+          width: 249.43,
+          height: 8,
+          fontSize: 8,
+        },
+        ...dotLeaders,
+        { text: '12e', x: 486.46, y: 97.71, width: 13.49, height: 8, fontSize: 8 },
+      ],
+    );
+
+    expect(fields[0].label).toMatchObject({
+      text: 'e Standard deduction or itemized deductions (from Schedule A). 12e',
+      relation: 'left',
+      x: 100.8,
+      y: 97.71,
+      width: 399.15,
+      height: 8,
+    });
+  });
+
   it('expands compact amount markers when the same prompt is also split into spans', () => {
     const dotLeaders = Array.from({ length: 20 }, (_, index) => ({
       text: '.',
