@@ -650,6 +650,22 @@ describe('formatMarkdown', () => {
     expect(out).toContain('- **Preferences:** DisplayDocTitle=true; PrintPageRange=\\[1,2\\]');
   });
 
+  it('truncates long JavaScript action summaries in Markdown', () => {
+    const out = formatMarkdown(
+      makeResult({
+        viewer: {
+          jsActions: { bootstrap: ['x'.repeat(700)] },
+        },
+      }),
+    );
+
+    const line = out.split('\n').find((item) => item.startsWith('- **JavaScript actions:**'));
+    expect(line).toBeDefined();
+    expect(line?.length).toBeLessThan(560);
+    expect(line).toContain('bootstrap=');
+    expect(line).toContain('...');
+  });
+
   it('renders page-level JavaScript actions', () => {
     const out = formatMarkdown(
       makeResult({

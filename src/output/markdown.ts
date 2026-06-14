@@ -13,6 +13,8 @@ export interface MarkdownOptions {
   stripRepeated?: boolean;
 }
 
+const MARKDOWN_JS_ACTIONS_MAX_CHARS = 500;
+
 /** "595×842" — drops trailing .00 so integer dimensions stay readable. */
 function formatSize(page: PageResult): string {
   const trim = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2));
@@ -192,9 +194,16 @@ function jsActionCount(actions: Record<string, string[]> | undefined): number {
 }
 
 function formatJavaScriptActions(actions: Record<string, string[]>): string {
-  return Object.entries(actions)
+  const text = Object.entries(actions)
     .map(([name, scripts]) => `${name}=${scripts.join(' || ')}`)
     .join(' | ');
+  return truncateForMarkdown(text, MARKDOWN_JS_ACTIONS_MAX_CHARS);
+}
+
+function truncateForMarkdown(text: string, maxChars: number): string {
+  const chars = Array.from(text);
+  if (chars.length <= maxChars) return text;
+  return `${chars.slice(0, maxChars - 3).join('')}...`;
 }
 
 function appendViewer(lines: string[], viewer: NonNullable<DocumentResult['viewer']>): void {
