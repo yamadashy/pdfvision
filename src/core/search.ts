@@ -1,6 +1,6 @@
 import type { OcrWord, PageOcr, SearchMatch, TextSpan } from '../types/index.js';
 import { CJK_TIGHT_GAP_RATIO, isCjkLeading } from './cjkJoin.js';
-import { isLikelyWideWordSpacingRow, shouldInsertSemanticSpace } from './spacing.js';
+import { isLikelyCjkDisplaySpacingRow, isLikelyWideWordSpacingRow, shouldInsertSemanticSpace } from './spacing.js';
 
 /**
  * Inputs the processor builds once per request, then passes to
@@ -136,9 +136,6 @@ function round2(n: number): number {
 const MAX_MATCHES_PER_QUERY_PER_PAGE = 10000;
 const DEFAULT_SPACE_GAP_RATIO = 0.25;
 const FONT_SIZE_FALLBACK_PT = 12;
-const CJK_DISPLAY_SPACING_MIN_GAP_RATIO = 0.8;
-const CJK_DISPLAY_SPACING_MAX_GAP_RATIO = 4;
-const CJK_DISPLAY_SPACING_MAX_SPANS = 12;
 /** Search segment splitting uses max(SEARCH_SEGMENT_GAP_RATIO * fontSize,
  *  SEARCH_SEGMENT_MIN_GAP_PT) so phrase matching stays within a visual
  *  line or column. These values are intentionally tighter than the
@@ -271,30 +268,6 @@ function buildSearchLines(spans: readonly TextSpan[] | undefined, pageWidth: num
     pushLine();
   }
   return lines;
-}
-
-function isSingleCjkGlyph(text: string): boolean {
-  const chars = Array.from(text.trim());
-  return chars.length === 1 && isCjkLeading(chars[0]);
-}
-
-function isLikelyCjkDisplaySpacingRow(spans: readonly TextSpan[]): boolean {
-  if (spans.length < 2 || spans.length > CJK_DISPLAY_SPACING_MAX_SPANS) return false;
-  const sorted = [...spans].sort((a, b) => a.x - b.x);
-  if (!sorted.every((span) => isSingleCjkGlyph(span.text))) return false;
-
-  const gaps: number[] = [];
-  for (let i = 1; i < sorted.length; i++) {
-    const prev = sorted[i - 1];
-    const cur = sorted[i];
-    const fontSize = cur.fontSize || prev.fontSize || FONT_SIZE_FALLBACK_PT;
-    const gap = cur.x - (prev.x + prev.width);
-    if (gap < fontSize * CJK_DISPLAY_SPACING_MIN_GAP_RATIO) return false;
-    if (gap > fontSize * CJK_DISPLAY_SPACING_MAX_GAP_RATIO) return false;
-    gaps.push(gap);
-  }
-
-  return gaps.length > 0;
 }
 
 function buildOcrSearchLines(words: readonly OcrWord[] | undefined, normalize: boolean): SearchLine[] {

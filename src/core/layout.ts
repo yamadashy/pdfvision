@@ -1,6 +1,6 @@
 import type { LayoutBlock, LayoutLine, LayoutTable, PageLayout, PageResult, TextSpan } from '../types/index.js';
 import { CJK_TIGHT_GAP_RATIO, isCjkLeading } from './cjkJoin.js';
-import { isLikelyWideWordSpacingRow, shouldInsertSemanticSpace } from './spacing.js';
+import { isLikelyCjkDisplaySpacingRow, isLikelyWideWordSpacingRow, shouldInsertSemanticSpace } from './spacing.js';
 
 interface BBox {
   x: number;
@@ -1645,6 +1645,7 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0, pageHeight = 0): P
     const xSorted = [...group].sort((a, b) => a.x - b.x);
     const groupBox = unionBox(xSorted);
     const preserveWideWordSpacing = isLikelyWideWordSpacingRow(xSorted, pageWidth);
+    const preserveCjkDisplaySpacing = isLikelyCjkDisplaySpacingRow(xSorted);
     const subLines: TextSpan[][] = [[xSorted[0]]];
     for (let i = 1; i < xSorted.length; i++) {
       const prev = xSorted[i - 1];
@@ -1670,6 +1671,7 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0, pageHeight = 0): P
         isRecurringTableGutterCandidate(groupBox, gap, fontSize, pageWidth);
       if (
         !preserveWideWordSpacing &&
+        !preserveCjkDisplaySpacing &&
         (gap > segmentGap || recurringGutter || recurringSidePanelStart || recurringTableGutter)
       ) {
         subLines.push([cur]);

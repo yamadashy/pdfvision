@@ -1,3 +1,5 @@
+import { isCjkLeading } from './cjkJoin.js';
+
 const DETACHED_TOKEN_RE = /^(?:https?:\/\/|www\.|doi:|arxiv:)/iu;
 const PRECEDING_WORD_RE = /[\p{L}\p{N})\]]$/u;
 const SEMANTIC_SPACE_MIN_GAP_RATIO = 0.1;
@@ -10,6 +12,9 @@ const WIDE_WORD_SPACING_MAX_LINE_WIDTH_RATIO = 0.85;
 const WIDE_WORD_SPACING_MAX_GAP_PAGE_RATIO = 0.2;
 const WIDE_WORD_SPACING_MAX_TOKEN_CHARS = 16;
 const WIDE_WORD_SPACING_MAX_TOKEN_WIDTH_RATIO = 1.25;
+const CJK_DISPLAY_SPACING_MIN_GAP_RATIO = 0.8;
+const CJK_DISPLAY_SPACING_MAX_GAP_RATIO = 4;
+const CJK_DISPLAY_SPACING_MAX_SPANS = 12;
 
 interface WordSpacingSpan {
   text: string;
@@ -63,4 +68,28 @@ export function isLikelyWideWordSpacingRow(spans: readonly WordSpacingSpan[], pa
   }
 
   return gaps.some((gap) => gap > Math.max((first.fontSize || 12) * 1.5, 16));
+}
+
+function isSingleCjkGlyph(text: string): boolean {
+  const chars = Array.from(text.trim());
+  return chars.length === 1 && isCjkLeading(chars[0]);
+}
+
+export function isLikelyCjkDisplaySpacingRow(spans: readonly WordSpacingSpan[]): boolean {
+  if (spans.length < 2 || spans.length > CJK_DISPLAY_SPACING_MAX_SPANS) return false;
+  const sorted = [...spans].sort((a, b) => a.x - b.x);
+  if (!sorted.every((span) => isSingleCjkGlyph(span.text))) return false;
+
+  const gaps: number[] = [];
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = sorted[i - 1];
+    const cur = sorted[i];
+    const fontSize = cur.fontSize || prev.fontSize || 12;
+    const gap = cur.x - (prev.x + prev.width);
+    if (gap < fontSize * CJK_DISPLAY_SPACING_MIN_GAP_RATIO) return false;
+    if (gap > fontSize * CJK_DISPLAY_SPACING_MAX_GAP_RATIO) return false;
+    gaps.push(gap);
+  }
+
+  return gaps.length > 0;
 }

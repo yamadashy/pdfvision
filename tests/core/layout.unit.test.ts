@@ -1121,6 +1121,26 @@ describe('buildLayout — multi-column reading order', () => {
     expect(layout.blocks[0].lines[0].text).toBe('序文 第一条');
   });
 
+  it('keeps display-spaced CJK title glyphs on one layout line', () => {
+    const spans: TextSpan[] = [span('科', 265.44, 161.04, 15.96, 15.96), span('学', 313.68, 161.04, 15.96, 15.96)];
+    const layout = buildLayout(spans, 595);
+    expect(layout.blocks).toHaveLength(1);
+    expect(layout.blocks[0].lines[0].text).toBe('科 学');
+    expect(layout.blocks[0].x).toBe(265.44);
+    expect(layout.blocks[0].width).toBe(64.2);
+  });
+
+  it('still splits dense CJK glyph rows at column gutters', () => {
+    const spans: TextSpan[] = [
+      span('北', 50, 80, 10, 10),
+      span('海', 62, 80, 10, 10),
+      span('道', 110, 80, 10, 10),
+      span('東', 122, 80, 10, 10),
+    ];
+    const layout = buildLayout(spans, 300);
+    expect(layout.blocks.flatMap((block) => block.lines.map((line) => line.text))).toEqual(['北海', '道東']);
+  });
+
   it('keeps Japanese vertical glyph stacks as separate top-to-bottom blocks', () => {
     // Japanese slide-title-shaped input from a public government PDF:
     // pdf.js emits one square-ish glyph per span. A y-row-only layout pass
