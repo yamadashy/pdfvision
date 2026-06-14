@@ -2249,6 +2249,85 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('uses table headings instead of first data rows as labels', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      layout: {
+        blocks: [
+          {
+            text: 'CONSOLIDATED STATEMENTS OF CASH FLOWS\n(In millions)',
+            x: 210.94,
+            y: 78.3,
+            width: 190.34,
+            height: 18.23,
+            role: 'heading',
+            level: 1,
+            lines: [
+              {
+                text: 'CONSOLIDATED STATEMENTS OF CASH FLOWS',
+                x: 210.94,
+                y: 78.3,
+                width: 190.34,
+                height: 8.97,
+                fontSize: 9,
+              },
+              {
+                text: '(In millions)',
+                x: 270,
+                y: 87.56,
+                width: 70,
+                height: 8.97,
+                fontSize: 9,
+              },
+            ],
+          },
+          {
+            text: 'Cash, cash equivalents and restricted cash, beginning balances',
+            x: 19.12,
+            y: 133.43,
+            width: 215.97,
+            height: 7.65,
+            lines: [
+              {
+                text: 'Cash, cash equivalents and restricted cash, beginning balances',
+                x: 19.12,
+                y: 133.43,
+                width: 215.97,
+                height: 7.65,
+                fontSize: 8,
+              },
+            ],
+          },
+        ],
+        tables: [
+          {
+            x: 18.22,
+            y: 115.43,
+            width: 575.77,
+            height: 460,
+            rowCount: 30,
+            columnCount: 6,
+            rows: [],
+          },
+        ],
+      },
+    });
+
+    expect(regions[0].associatedText).toEqual([
+      {
+        text: 'CONSOLIDATED STATEMENTS OF CASH FLOWS (In millions)',
+        relation: 'label',
+        x: 210.94,
+        y: 78.3,
+        width: 190.34,
+        height: 18.23,
+        blockIndex: 0,
+      },
+    ]);
+  });
+
   it('attaches only the closest local caption to a visual region', () => {
     const regions = buildVisualRegions({
       pageWidth: 600,

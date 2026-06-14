@@ -1248,6 +1248,7 @@ function inRegionPlainLabelScore(
   totalArea: number,
 ): number | undefined {
   if (candidate.kind !== 'raster' && candidate.kind !== 'mixed' && candidate.kind !== 'vector') return undefined;
+  if (hasSourceType(candidate, 'layoutTable')) return undefined;
   if (candidate.associatedText && candidate.associatedText.length > 0) return undefined;
   if (areaRatio(candidate, totalArea) < IN_REGION_PLAIN_LABEL_MIN_REGION_AREA_RATIO) return undefined;
   if (block.role === 'heading' || block.repeated) return undefined;
