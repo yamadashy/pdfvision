@@ -469,6 +469,45 @@ describe('detectPageWarnings', () => {
     expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
   });
 
+  it('flags a single non-printable glyph in a large display line', () => {
+    const displayLine = { ...line('Symbol: \x93', 495, 500, 228, 50), fontSize: 50 };
+    const out = detectPageWarnings({
+      ...page([
+        block(495, 500, 228, 50, {
+          text: 'Symbol: \x93',
+          lines: [displayLine],
+        }),
+      ]),
+      text: `${'clean title block '.repeat(12)}Symbol: \x93`,
+      charCount: 221,
+      nonPrintableRatio: 0.005,
+      nonPrintableCount: 1,
+    });
+
+    const glyphWarnings = out.filter((w) => w.code === 'localized_glyph_noise');
+    expect(glyphWarnings).toHaveLength(1);
+    expect(glyphWarnings[0]).toMatchObject({ severity: 'warning', blockIndex: 0 });
+    expect(glyphWarnings[0].message).toContain('single non-printable code point in a large display line');
+  });
+
+  it('does not flag a single non-printable glyph in an ordinary body-sized line', () => {
+    const bodyLine = { ...line('mostly clean text\x01', 40, 120, 120, 12), fontSize: 12 };
+    const out = detectPageWarnings({
+      ...page([
+        block(40, 120, 120, 12, {
+          text: 'mostly clean text\x01',
+          lines: [bodyLine],
+        }),
+      ]),
+      text: `${'mostly clean text '.repeat(60)}\x01`,
+      charCount: 1081,
+      nonPrintableRatio: 0.001,
+      nonPrintableCount: 1,
+    });
+
+    expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
+  });
+
   it('flags Unicode replacement characters as localized glyph noise', () => {
     // PLOS article page-shaped case: a relation symbol visually renders,
     // but the native text stream exposes U+FFFD in prose. The page is

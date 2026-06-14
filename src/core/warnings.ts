@@ -1,4 +1,5 @@
 import type { ImageBox, LayoutBlock, LayoutLine, PageResult, PageWarning } from '../types/index.js';
+import { isNonPrintableCodePoint } from './nonPrintable.js';
 import { detectTextOverlap, horizontalOverlap } from './warningTextOverlap.js';
 
 /** Context flags the orchestrator passes to the detector so the
@@ -87,6 +88,8 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
 
 const LOCALIZED_GLYPH_NOISE_RATIO_THRESHOLD = 0.05;
 const LOCALIZED_GLYPH_NOISE_COUNT_THRESHOLD = 2;
+const SINGLE_DISPLAY_NONPRINTABLE_FONT_SIZE_THRESHOLD = 18;
+const SINGLE_DISPLAY_NONPRINTABLE_MAX_LINE_CHARS = 32;
 const PRIVATE_USE_GLYPH_GARBAGE_MIN_COUNT = 2;
 const PRIVATE_USE_GLYPH_GARBAGE_RATIO_THRESHOLD = 0.6;
 const GEOMETRY_SUPPRESSION_GLYPH_NOISE_RATIO = 0.1;
@@ -218,6 +221,17 @@ function detectLocalizedGlyphNoise(page: PageResult, out: PageWarning[]): void {
     });
   }
 
+  const displayNonPrintable = findSingleDisplayNonPrintableGlyph(page);
+  if (displayNonPrintable) {
+    out.push({
+      code: 'localized_glyph_noise',
+      severity: 'warning',
+      blockIndex: displayNonPrintable.blockIndex,
+      message:
+        'native text contains a single non-printable code point in a large display line — likely a localized symbol-font mapping failure; inspect the render if exact symbols matter',
+    });
+  }
+
   const privateUse = privateUseGlyphStats(page.text);
   const isPageWidePrivateUseGarbage =
     privateUse.count >= PRIVATE_USE_GLYPH_GARBAGE_MIN_COUNT &&
@@ -252,6 +266,54 @@ function detectLocalizedGlyphNoise(page: PageResult, out: PageWarning[]): void {
       message: `native text is ${(latin1Mojibake.ratio * 100).toFixed(1)}% Latin-1 supplement glyphs (samples: ${latin1Mojibake.samples.map((s) => JSON.stringify(s)).join(', ')}) — likely printable mojibake from a missing or custom font map; inspect the render if exact text matters`,
     });
   }
+}
+
+function findSingleDisplayNonPrintableGlyph(page: PageResult): { blockIndex: number } | undefined {
+  if (page.nonPrintableCount !== 1) return undefined;
+  if (page.nonPrintableRatio >= LOCALIZED_GLYPH_NOISE_RATIO_THRESHOLD) return undefined;
+  if (
+    page.quality.nativeTextStatus === 'mixed_glyph_indices' ||
+    page.quality.nativeTextStatus === 'unusable_glyph_indices'
+  ) {
+    return undefined;
+  }
+
+  const blocks = page.layout?.blocks ?? [];
+  for (let blockIndex = 0; blockIndex < blocks.length; blockIndex++) {
+    const block = blocks[blockIndex];
+    for (const line of block.lines) {
+      if (countNonPrintableCodePoints(line.text) !== 1) continue;
+      if (!isDisplayLine(line)) continue;
+      return { blockIndex };
+    }
+  }
+  return undefined;
+}
+
+function isDisplayLine(line: LayoutLine): boolean {
+  const trimmed = line.text.trim();
+  if (codePointLength(trimmed) > SINGLE_DISPLAY_NONPRINTABLE_MAX_LINE_CHARS) return false;
+  return Math.max(line.fontSize, line.height) >= SINGLE_DISPLAY_NONPRINTABLE_FONT_SIZE_THRESHOLD;
+}
+
+function countNonPrintableCodePoints(text: string): number {
+  let count = 0;
+  for (let i = 0; i < text.length; ) {
+    const cp = text.codePointAt(i) as number;
+    if (isNonPrintableCodePoint(cp)) count++;
+    i += cp > 0xffff ? 2 : 1;
+  }
+  return count;
+}
+
+function codePointLength(text: string): number {
+  let count = 0;
+  for (let i = 0; i < text.length; ) {
+    const cp = text.codePointAt(i) as number;
+    count++;
+    i += cp > 0xffff ? 2 : 1;
+  }
+  return count;
 }
 
 function detectFontMappingWarning(page: PageResult, context: PageWarningContext, out: PageWarning[]): void {
