@@ -130,7 +130,7 @@ const FONT_SIZE_FALLBACK_PT = 12;
  *  layout column detector: search context and phrase matching should
  *  avoid stitching neighbouring columns even when a magazine-style
  *  gutter is only a couple of body-font widths. */
-const SEARCH_SEGMENT_GAP_RATIO = 1.5;
+const SEARCH_SEGMENT_GAP_RATIO = 1.25;
 const SEARCH_SEGMENT_MIN_GAP_PT = 14;
 
 interface SearchLine {

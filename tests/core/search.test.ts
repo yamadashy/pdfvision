@@ -116,6 +116,36 @@ describe('processDocument search', () => {
     expect(matches[0].boxes).toHaveLength(3);
   });
 
+  it('does not match phrases across narrow recurring column gutters', () => {
+    const spans: TextSpan[] = [
+      {
+        text: 'recommendation for Kreate following the Q4 report. In 2024,',
+        x: 27,
+        y: 74.47,
+        width: 293.09,
+        height: 11.04,
+        fontSize: 11.04,
+      },
+      {
+        text: 'earnings forecasts were moderate. The outlook for infrastructure',
+        x: 334.85,
+        y: 74.47,
+        width: 285.67,
+        height: 11.04,
+        fontSize: 11.04,
+      },
+    ];
+
+    const crossColumn = compileSearch('2024, earnings', {});
+    const leftColumn = compileSearch('Q4 report. In 2024', {});
+    const rightColumn = compileSearch('earnings forecasts', {});
+    if (!crossColumn || !leftColumn || !rightColumn) throw new Error('expected compiled search');
+
+    expect(searchPage(spans, undefined, 1, 960, 540, crossColumn)).toHaveLength(0);
+    expect(searchPage(spans, undefined, 1, 960, 540, leftColumn)).toHaveLength(1);
+    expect(searchPage(spans, undefined, 1, 960, 540, rightColumn)).toHaveLength(1);
+  });
+
   it('omits matches[] entirely when no search was requested', async () => {
     // Default extraction never carries a stray matches field.
     const result = await processDocument(SAMPLE_PDF, { noCache: true });
