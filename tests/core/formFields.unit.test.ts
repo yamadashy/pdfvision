@@ -126,6 +126,29 @@ describe('buildFormFields', () => {
     ]);
   });
 
+  it('keeps widget JavaScript source raw', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'RunScript',
+          fieldType: 'Btn',
+          checkBox: false,
+          radioButton: false,
+          rect: [10, 10, 50, 30],
+          actions: {
+            ＭｏｕｓｅＵｐ: ['var Ａ = "Ｆｕｌｌｗｉｄｔｈ"; app.alert(Ａ);'],
+          },
+        },
+      ],
+      100,
+    );
+
+    expect(fields[0].actions).toEqual({
+      ＭｏｕｓｅＵｐ: ['var Ａ = "Ｆｕｌｌｗｉｄｔｈ"; app.alert(Ａ);'],
+    });
+  });
+
   it('serializes nested values inside choice arrays as readable JSON fragments', () => {
     const fields = buildFormFields(
       [

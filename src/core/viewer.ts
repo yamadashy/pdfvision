@@ -122,7 +122,10 @@ export function normalizeJavaScriptActions(
     const name = normalizeTarget(rawName, options);
     if (!name) continue;
     const scripts = (Array.isArray(rawScripts) ? rawScripts : [rawScripts])
-      .map((script) => textValue(script, options.normalizeText))
+      // JavaScript bodies are executable source, not display text. Keep
+      // them byte-for-byte after pdf.js decoding so NFKC normalization
+      // does not rewrite identifiers or string literals.
+      .map((script) => textValue(script, undefined))
       .filter((script): script is string => script !== undefined);
     if (scripts.length > 0) actions[name] = [...(actions[name] ?? []), ...scripts];
   }

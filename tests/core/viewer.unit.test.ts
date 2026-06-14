@@ -37,7 +37,7 @@ describe('buildViewerState', () => {
       },
       jsActions: {
         printMe: ['this.print(true);'],
-        bad: ['OK'],
+        bad: ['ＯＫ'],
       },
       permissions: {
         flags: [0x04, 0x10, 0x800, 999],
@@ -48,6 +48,26 @@ describe('buildViewerState', () => {
         userProperties: true,
         suspects: true,
       },
+    });
+  });
+
+  it('normalizes JavaScript action names without rewriting script source', async () => {
+    const doc = {
+      getPageLayout: async () => '',
+      getPageMode: async () => 'UseNone',
+      getViewerPreferences: async () => null,
+      getOpenAction: async () => null,
+      getJSActions: async () => ({
+        Ｏｐｅｎ: ['var Ａ = "Ｆｕｌｌｗｉｄｔｈ"; app.alert(Ａ);'],
+      }),
+      getPermissions: async () => null,
+      getMarkInfo: async () => null,
+    } as unknown as PDFDocumentProxy;
+
+    const viewer = await buildViewerState(doc, { normalizeText: (value) => value.normalize('NFKC') });
+
+    expect(viewer.jsActions).toEqual({
+      Open: ['var Ａ = "Ｆｕｌｌｗｉｄｔｈ"; app.alert(Ａ);'],
     });
   });
 

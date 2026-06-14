@@ -499,7 +499,7 @@ async function extractPageData(
   const joinItems: JoinItem[] = [];
   let textArea = 0;
   const spans: TextSpan[] = [];
-  const seenTextItems = new Set<string>();
+  const seenTextItems = new Map<string, number>();
   for (const item of content.items) {
     if (!('str' in item)) continue;
     const w = typeof item.width === 'number' ? item.width : 0;
@@ -510,8 +510,14 @@ async function extractPageData(
     const transform = item.transform;
     const h = reportedH > 0 ? reportedH : transform ? textMatrixFontSize(transform) : 0;
     const itemKey = textItemDedupeKey(item.str, w, h, transform, item.fontName);
-    if (seenTextItems.has(itemKey)) continue;
-    seenTextItems.add(itemKey);
+    const seenIndex = seenTextItems.get(itemKey);
+    if (seenIndex !== undefined) {
+      // Overprinted text often appears twice with identical geometry,
+      // sometimes differing only in pdf.js' hard-EOL flag. Keep one text
+      // run, but preserve the line-break signal if any duplicate carries it.
+      if (item.hasEOL) joinItems[seenIndex].hasEOL = true;
+      continue;
+    }
     textArea += Math.abs(w * h);
 
     // Feed the page-text joiner. x/fontSize default to 0 when the
@@ -520,6 +526,7 @@ async function extractPageData(
     // to a neighbour.
     const itemX = transform ? transform[4] : 0;
     const itemFontSize = transform ? textMatrixFontSize(transform, h) : h;
+    seenTextItems.set(itemKey, joinItems.length);
     joinItems.push({
       str: item.str,
       x: itemX,

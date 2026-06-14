@@ -134,6 +134,16 @@ function pdfHexString(value: string): string {
   return `<${Buffer.from(value, 'utf8').toString('hex')}>`;
 }
 
+function pdfUtf16HexString(value: string): string {
+  const bytes = Buffer.alloc(2 + value.length * 2);
+  bytes[0] = 0xfe;
+  bytes[1] = 0xff;
+  for (let i = 0; i < value.length; i += 1) {
+    bytes.writeUInt16BE(value.charCodeAt(i), 2 + i * 2);
+  }
+  return `<${bytes.toString('hex')}>`;
+}
+
 function buildPdfWithPageLabels(): Uint8Array {
   return buildRawPdf([
     '<< /Type /Catalog /Pages 2 0 R /PageLabels << /Nums [ 0 << /S /r >> 2 << /S /D /St 1 >> ] >> >>',
@@ -167,14 +177,14 @@ function buildPdfWithViewerState(): Uint8Array {
 function buildPdfWithPageJavaScriptActions(): Uint8Array {
   const stream = 'BT /F1 12 Tf 72 720 Td (Page JS) Tj ET';
   const length = Buffer.byteLength(stream, 'binary');
-  const pageOpen = 'this.getField("Text1").value = "PageOpen";';
+  const pageOpen = 'var Ａ = "PageOpen"; this.getField("Text1").value = Ａ;';
   const pageClose = 'this.getField("Text2").value = "PageClose";';
 
   return buildRawPdf([
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
     '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 7 0 R >> >> /Contents 6 0 R /AA << /O 4 0 R /C 5 0 R >> >>',
-    `<< /S /JavaScript /JS ${pdfHexString(pageOpen)} >>`,
+    `<< /S /JavaScript /JS ${pdfUtf16HexString(pageOpen)} >>`,
     `<< /S /JavaScript /JS ${pdfHexString(pageClose)} >>`,
     `<< /Length ${length} >>\nstream\n${stream}\nendstream`,
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
@@ -267,6 +277,31 @@ describe('processDocument', () => {
     });
 
     expect(result.pages[0].text).toContain('Encrypted hello');
+  });
+
+  it('does not reuse a password-warmed encrypted PDF cache entry without the password', async () => {
+    const sourceData = await buildEncryptedPdf();
+    const cacheRoot = mkdtempSync(resolve(tmpdir(), 'pdfvision-encrypted-cache-'));
+    const previousCacheDir = process.env.PDFVISION_CACHE_DIR;
+    process.env.PDFVISION_CACHE_DIR = cacheRoot;
+
+    try {
+      const warmed = await processDocument('memory://encrypted-cache.pdf', {
+        sourceData,
+        password: 'test',
+      });
+      expect(warmed.pages[0].text).toContain('Encrypted hello');
+
+      await expect(
+        processDocument('memory://encrypted-cache.pdf', {
+          sourceData,
+        }),
+      ).rejects.toThrow(/password/i);
+    } finally {
+      if (previousCacheDir === undefined) delete process.env.PDFVISION_CACHE_DIR;
+      else process.env.PDFVISION_CACHE_DIR = previousCacheDir;
+      rmSync(cacheRoot, { recursive: true, force: true });
+    }
   });
 
   it('passes encrypted PDF passwords through processFile', async () => {
@@ -429,7 +464,7 @@ describe('processDocument', () => {
 
     expect(result.pages[0].jsActions).toEqual({
       PageClose: ['this.getField("Text2").value = "PageClose";'],
-      PageOpen: ['this.getField("Text1").value = "PageOpen";'],
+      PageOpen: ['var Ａ = "PageOpen"; this.getField("Text1").value = Ａ;'],
     });
   });
 
