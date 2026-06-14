@@ -502,6 +502,11 @@ const TOP_TITLE_MIN_CHARS = 25;
 const TOP_BYLINE_MAX_GAP = 260;
 const TOP_SLIDE_TITLE_MIN_FONT_SIZE = 24;
 const TOP_SLIDE_TITLE_MIN_WIDTH = 120;
+const SPARSE_COVER_TITLE_MIN_FONT_SIZE = 24;
+const SPARSE_COVER_TITLE_MAX_Y_RATIO = 0.4;
+const SPARSE_COVER_TITLE_MAX_Y_PT = 220;
+const SPARSE_COVER_TITLE_MIN_WIDTH = 160;
+const SPARSE_COVER_TITLE_CENTER_TOLERANCE_RATIO = 0.35;
 const TOP_CENTERED_ALL_CAPS_TITLE_MAX_CHARS = 180;
 const TOP_CENTERED_ALL_CAPS_TITLE_CENTER_TOLERANCE_RATIO = 0.12;
 
@@ -617,6 +622,27 @@ function isTopSlideTitleCandidate(
   return true;
 }
 
+function isSparseCoverTitleCandidate(
+  block: LayoutBlock,
+  pageWidth: number,
+  pageHeight: number,
+  fontSize: number,
+  lineCount: number,
+  nonWsChars: number,
+  hasCredibleBody: boolean,
+): boolean {
+  if (hasCredibleBody) return false;
+  if (fontSize < SPARSE_COVER_TITLE_MIN_FONT_SIZE) return false;
+  if (lineCount > 2) return false;
+  if (nonWsChars > MAX_HEADING_CHARS) return false;
+  if (pageWidth > 0 && block.width < Math.min(pageWidth * 0.25, SPARSE_COVER_TITLE_MIN_WIDTH)) return false;
+  const maxY = pageHeight > 0 ? pageHeight * SPARSE_COVER_TITLE_MAX_Y_RATIO : SPARSE_COVER_TITLE_MAX_Y_PT;
+  if (block.y > maxY) return false;
+  if (pageWidth <= 0) return true;
+  const center = block.x + block.width / 2;
+  return Math.abs(center - pageWidth / 2) <= pageWidth * SPARSE_COVER_TITLE_CENTER_TOLERANCE_RATIO;
+}
+
 function isAllCapsTitleLine(text: string): boolean {
   const letters = text.match(/[A-Za-z]/gu) ?? [];
   if (letters.length < 8) return false;
@@ -717,7 +743,7 @@ function demoteTopBylineHeadings(blocks: LayoutBlock[]): void {
  * Mutates each qualifying block in place by setting `role = 'heading'`
  * and `level`. Blocks that don't qualify keep both fields undefined.
  */
-function classifyHeadings(blocks: LayoutBlock[], pageWidth = 0): void {
+function classifyHeadings(blocks: LayoutBlock[], pageWidth = 0, pageHeight = 0): void {
   if (blocks.length === 0) return;
   const charWeighted: number[] = [];
   for (const b of blocks) {
@@ -800,10 +826,26 @@ function classifyHeadings(blocks: LayoutBlock[], pageWidth = 0): void {
     const likelyBodySentenceFragment = isLikelyBodySentenceFragment(b.text);
     const topTitle = isTopTitleCandidate(b, ratio, lineCount, nonWsChars) && !likelyBodySentenceFragment;
     const topSlideTitle = isTopSlideTitleCandidate(b, repFont, lineCount, nonWsChars);
+    const sparseCoverTitle = isSparseCoverTitleCandidate(
+      b,
+      pageWidth,
+      pageHeight,
+      repFont,
+      lineCount,
+      nonWsChars,
+      hasCredibleBody,
+    );
     const topCenteredAllCapsTitle = isTopCenteredAllCapsTitleCandidate(b, pageWidth, lineCount, nonWsChars);
     const decimalSectionHeading = isDecimalSectionHeadingText(b.text);
     const letteredSectionHeading = isLetteredSectionHeadingText(b.text);
-    if (ratio < 1.08 && !topSlideTitle && !topCenteredAllCapsTitle && !decimalSectionHeading && !letteredSectionHeading)
+    if (
+      ratio < 1.08 &&
+      !topSlideTitle &&
+      !sparseCoverTitle &&
+      !topCenteredAllCapsTitle &&
+      !decimalSectionHeading &&
+      !letteredSectionHeading
+    )
       continue;
     if (isTallNarrowSideLabel(b, lineCount)) continue;
     if (isCompactDiagramLabelText(b.text, nonWsChars, ratio)) continue;
@@ -854,7 +896,7 @@ function classifyHeadings(blocks: LayoutBlock[], pageWidth = 0): void {
       b.role = 'heading';
       b.level = 2;
       b.roleConfidence = Math.max(0.65, computeRoleConfidence(1.15, isShort, standalone, locallyLarger, singleLine));
-    } else if (ratio >= 1.4 || topSlideTitle || topCenteredAllCapsTitle) {
+    } else if (ratio >= 1.4 || topSlideTitle || sparseCoverTitle || topCenteredAllCapsTitle) {
       // Level 1: titles. Always classify, even on poster/slide pages with
       // no body text — losing the title hurts more than a rare false
       // positive on a page that's nothing but a single big word.
@@ -868,7 +910,7 @@ function classifyHeadings(blocks: LayoutBlock[], pageWidth = 0): void {
         locallyLarger,
         singleLine,
       );
-      b.roleConfidence = topCenteredAllCapsTitle ? Math.max(0.75, confidence) : confidence;
+      b.roleConfidence = topCenteredAllCapsTitle || sparseCoverTitle ? Math.max(0.75, confidence) : confidence;
     } else if (ratio >= 1.25) {
       // Level 2 (legacy band). The historical 1.25× rule, kept intact
       // except for one new guard: if the page lacks a credible body, we
@@ -2053,7 +2095,7 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0, pageHeight = 0): P
     ...vertical.blocks,
   ].sort(compareLayoutBlocks);
 
-  classifyHeadings(blocks, pageWidth);
+  classifyHeadings(blocks, pageWidth, pageHeight);
   const ordered = pageWidth > 0 ? reorderForColumns(blocks, pageWidth, pageHeight) : blocks;
   if (ordered !== blocks)
     return { blocks: mergeAdjacentColumnBlocks(ordered, pageWidth), ...(tables !== undefined && { tables }) };

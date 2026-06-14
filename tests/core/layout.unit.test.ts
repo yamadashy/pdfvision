@@ -457,6 +457,27 @@ describe('buildLayout — heading classification', () => {
     expect(bullets?.role).toBeUndefined();
   });
 
+  it('marks sparse landscape cover titles below the fixed top band', () => {
+    const spans: TextSpan[] = [
+      span('2024年版 ものづくり白書', 161.26, 152.11, 36, 457.58),
+      span('(令和5年度 ものづくり基盤技術の振興施策)', 82.27, 196.61, 27.98, 615.75),
+      span('概 要', 338.62, 239.74, 36.02, 102),
+      span('令和6年5月', 315.37, 337.46, 24, 149.27),
+      span('経済産業省 厚生労働省 文部科学省', 186.02, 378.29, 24, 408.05),
+    ];
+
+    const layout = buildLayout(spans, 780, 540);
+    const title = layout.blocks.find((block) => block.text.includes('ものづくり白書'));
+    const subtitle = layout.blocks.find((block) => block.text.includes('概 要'));
+    const ministry = layout.blocks.find((block) => block.text.includes('経済産業省'));
+
+    expect(title?.role).toBe('heading');
+    expect(title?.level).toBe(1);
+    expect(subtitle?.role).toBe('heading');
+    expect(subtitle?.level).toBe(1);
+    expect(ministry?.role).toBeUndefined();
+  });
+
   it('does not classify arXiv side labels, email metadata, or footnoted bylines as headings', () => {
     const bodyLines: TextSpan[] = [];
     for (let i = 0; i < 20; i++) {
