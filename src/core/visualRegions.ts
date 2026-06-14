@@ -940,9 +940,7 @@ function joinCaptionTextParts(parts: readonly string[]): string {
       text = normalizedPart;
       continue;
     }
-    if (text.endsWith('-') && /^\p{Ll}/u.test(normalizedPart)) {
-      text = `${text.slice(0, -1)}${normalizedPart}`;
-    } else if (text.endsWith('-') && /^[\p{L}\p{N}]/u.test(normalizedPart)) {
+    if (text.endsWith('-') && /^[\p{L}\p{N}]/u.test(normalizedPart)) {
       text = `${text}${normalizedPart}`;
     } else {
       text = `${text} ${normalizedPart}`;
