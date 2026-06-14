@@ -468,6 +468,20 @@ describe('buildLayout — heading classification', () => {
     expect(sideLabel?.role).toBeUndefined();
   });
 
+  it('does not classify OMB form metadata as a title heading', () => {
+    const spans: TextSpan[] = [
+      span('2025 OMB No. 1545-0074', 298, 23.28, 20, 123.29),
+      span('Form 1040 Department of the Treasury', 34.6, 19.94, 7, 160),
+      span('Your first name and middle initial', 36, 85, 7, 102.56),
+      span('Body form label text keeps the page from being title-only.', 36, 133, 7, 220),
+      span('Additional form label text keeps the body font class credible.', 36, 157, 7, 240),
+    ];
+
+    const layout = buildLayout(spans, 612);
+
+    expect(layout.blocks.find((block) => block.text.includes('OMB No.'))?.role).toBeUndefined();
+  });
+
   it('does not classify compact diagram labels as headings', () => {
     const bodyLines: TextSpan[] = [];
     for (let i = 0; i < 20; i++) {

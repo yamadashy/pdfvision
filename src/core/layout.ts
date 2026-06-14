@@ -512,7 +512,11 @@ function isHeadingCandidateText(text: string): boolean {
 }
 
 function isReferenceMetadataText(text: string): boolean {
-  return /\b(?:https?:\/\/|www\.|doi:|arxiv:)/iu.test(text) || /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/iu.test(text);
+  return (
+    /\b(?:https?:\/\/|www\.|doi:|arxiv:)/iu.test(text) ||
+    /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/iu.test(text) ||
+    /\bOMB\s+No\.?\s+\d/iu.test(text)
+  );
 }
 
 function isNumberedHeadingText(text: string): boolean {
