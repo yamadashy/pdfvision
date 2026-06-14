@@ -474,8 +474,9 @@ export function formatXml(result: DocumentResult): string {
         out.push('<links>');
         for (const link of page.links) {
           const pageAttr = link.page !== undefined ? ` page="${link.page}"` : '';
+          const textAttr = link.text !== undefined ? ` text="${escapeAttr(link.text)}"` : '';
           out.push(
-            `<link type="${link.type}" target="${escapeAttr(linkTarget(link.target))}"${pageAttr} x="${link.x}" y="${link.y}" width="${link.width}" height="${link.height}"/>`,
+            `<link type="${link.type}" target="${escapeAttr(linkTarget(link.target))}"${pageAttr}${textAttr} x="${link.x}" y="${link.y}" width="${link.width}" height="${link.height}"/>`,
           );
         }
         out.push('</links>');
