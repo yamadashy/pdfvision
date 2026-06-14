@@ -170,6 +170,26 @@ describe('processDocument search', () => {
     expect(matches[0].boxes).toHaveLength(2);
   });
 
+  it('matches phrases across tight Latin-to-Greek symbol gaps', () => {
+    const spans: TextSpan[] = [
+      { text: 'if', x: 200.01, y: 454.83, width: 5.47, height: 10, fontSize: 10 },
+      { text: 'γ', x: 207.55, y: 454.83, width: 4.65, height: 10, fontSize: 10 },
+      { text: '= 1 the fixed point', x: 214.19, y: 454.83, width: 76, height: 10, fontSize: 10 },
+    ];
+    const compiled = compileSearch('if γ= 1', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 595, 842, compiled);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'if γ= 1',
+      source: 'native',
+      page: 1,
+    });
+    expect(matches[0].boxes).toHaveLength(3);
+  });
+
   it('matches phrases across Type3-style wide word spacing rows', () => {
     const spans: TextSpan[] = [
       { text: 'ab', x: 50, y: 60, width: 20, height: 10, fontSize: 10 },

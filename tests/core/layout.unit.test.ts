@@ -1615,6 +1615,17 @@ describe('buildLayout — multi-column reading order', () => {
     );
   });
 
+  it('preserves tight spaces between Latin words and Greek symbols', () => {
+    const spans: TextSpan[] = [
+      span('if', 200.01, 454.83, 10, 5.47),
+      span('γ', 207.55, 454.83, 10, 4.65),
+      span('= 1 the fixed point', 214.19, 454.83, 10, 76),
+    ];
+    const layout = buildLayout(spans);
+
+    expect(layout.blocks[0].lines[0].text).toBe('if γ= 1 the fixed point');
+  });
+
   it('does not attach small punctuation-only spans to the next body line', () => {
     // PDF.js bug1513120 also emits a tiny standalone "." just above
     // the next line. It is not a word prefix for "Monday-Friday".
