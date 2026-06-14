@@ -2082,6 +2082,13 @@ describe('buildVisualRegions', () => {
       'edge are the same as the types on entry--then TM can stay in native',
       'code until the loop is done.',
     ];
+    const expectedCaptionText = [
+      'Figure 2. State machine describing the major activities of Trace-Monkey and the conditions that cause transitions to a new activity.',
+      'In the dark box, TM executes JS as compiled traces. In the light gray boxes, TM executes JS in the standard interpreter. White',
+      'boxes are overhead. Thus, to maximize performance, we need to maximize time spent in the darkest box and minimize time spent in',
+      'the white boxes. The best case is a loop where the types at the loop edge are the same as the types on entry--then TM can stay in native',
+      'code until the loop is done.',
+    ].join(' ');
     const regions = buildVisualRegions({
       pageWidth: 612,
       pageHeight: 792,
@@ -2110,7 +2117,7 @@ describe('buildVisualRegions', () => {
 
     expect(regions[0].associatedText).toEqual([
       {
-        text: captionLines.join(' '),
+        text: expectedCaptionText,
         relation: 'caption',
         x: 318,
         y: 247,

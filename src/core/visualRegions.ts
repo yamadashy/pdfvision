@@ -929,6 +929,26 @@ function normalizeAssociatedText(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
 }
 
+function joinCaptionTextParts(parts: readonly string[]): string {
+  let text = '';
+  for (const part of parts) {
+    const normalizedPart = normalizeAssociatedText(part);
+    if (normalizedPart.length === 0) continue;
+    if (text.length === 0) {
+      text = normalizedPart;
+      continue;
+    }
+    if (text.endsWith('-') && /^\p{Ll}/u.test(normalizedPart)) {
+      text = `${text.slice(0, -1)}${normalizedPart}`;
+    } else if (text.endsWith('-') && /^[\p{L}\p{N}]/u.test(normalizedPart)) {
+      text = `${text}${normalizedPart}`;
+    } else {
+      text = `${text} ${normalizedPart}`;
+    }
+  }
+  return normalizeAssociatedText(text);
+}
+
 function isCaptionText(text: string): boolean {
   const match = CAPTION_PATTERN.exec(text);
   return match !== null && isCaptionIdentifier(match[1] ?? '');
@@ -1062,16 +1082,16 @@ function captionTextsFromBlock(
     for (let j = i + 1; continuationLimit > 0 && j < lines.length && j <= i + continuationLimit; j++) {
       const continuation = lines[j];
       if (!continuation) break;
-      const captionText = normalizeAssociatedText(textParts.join(' '));
+      const captionText = joinCaptionTextParts(textParts);
       if (!isCaptionContinuationText(captionText, continuation.text)) break;
-      const continuedCaption = normalizeAssociatedText(`${captionText} ${continuation.text}`);
+      const continuedCaption = joinCaptionTextParts([...textParts, continuation.text]);
       if (continuedCaption.length > CAPTION_CONTINUATION_TOTAL_MAX_CHARS) break;
       textParts.push(continuation.text);
       captionBox = unionBox(captionBox, continuation.line);
     }
 
     lineCaptions.push({
-      text: normalizeAssociatedText(textParts.join(' ')),
+      text: joinCaptionTextParts(textParts),
       relation: 'caption' as const,
       x: round2(captionBox.x),
       y: round2(captionBox.y),
