@@ -53,6 +53,9 @@ export interface JoinItem {
  */
 export const CJK_TIGHT_GAP_RATIO = 0.3;
 const RTL_WORD_SPACE_MIN_GAP_RATIO = 0.12;
+const LATIN_TIGHT_ARTIFACT_SPACE_RATIO = 0.12;
+const LATIN_WORD_FRAGMENT_END_RE = /[\p{Script=Latin}\p{M}\p{N}]$/u;
+const LATIN_WORD_FRAGMENT_START_RE = /^[\p{Script=Latin}\p{M}\p{N}]/u;
 
 /**
  * Returns `true` if `s`'s first code point is in a CJK script we want
@@ -91,11 +94,10 @@ function isWhitespaceOnly(s: string): boolean {
  * Build the page-level text string from pdf.js items.
  *
  * - Hard line breaks (`hasEOL`) always emit `\n`.
- * - Whitespace-only items between two CJK glyphs are dropped when the
- *   visual gap looks like a positioning artifact (see
- *   {@link CJK_TIGHT_GAP_RATIO}). Everything else (latin words, wide
- *   CJK column gaps, mixed-script boundaries) keeps its whitespace,
- *   preserving the pre-fix behaviour.
+ * - Whitespace-only items between two CJK glyphs, or tightly packed
+ *   Latin word fragments, are dropped when the visual gap looks like a
+ *   positioning artifact. Wide CJK column gaps, real Latin word spaces,
+ *   and mixed-script boundaries keep their whitespace.
  */
 export function joinPageText(items: readonly JoinItem[]): string {
   const parts: string[] = [];
@@ -210,9 +212,22 @@ function joinLtrLineItems(items: readonly JoinItem[]): string {
           }
         }
       }
+      if (prev && next && isTightLatinArtifactSpace(prev, next)) continue;
     }
 
     parts.push(cur.str);
   }
   return parts.join('');
+}
+
+function isTightLatinArtifactSpace(prev: JoinItem, next: JoinItem): boolean {
+  const prevText = prev.str.trimEnd();
+  const nextText = next.str.trimStart();
+  if (!LATIN_WORD_FRAGMENT_END_RE.test(prevText) || !LATIN_WORD_FRAGMENT_START_RE.test(nextText)) return false;
+
+  const fontSize = next.fontSize || prev.fontSize;
+  if (fontSize <= 0) return false;
+
+  const gap = next.x - (prev.x + prev.width);
+  return gap <= fontSize * LATIN_TIGHT_ARTIFACT_SPACE_RATIO;
 }

@@ -58,6 +58,32 @@ describe('joinPageText (CJK-aware whitespace handling)', () => {
     expect(joinPageText(items)).toBe('hello world');
   });
 
+  it('drops tight synthetic spaces inside Latin words', () => {
+    // PDF.js issue9655-shaped case: the visible heading reads
+    // "Property Insurance", but getTextContent inserts whitespace-only
+    // items between tightly packed Latin word fragments.
+    const items: JoinItem[] = [
+      { str: 'P', x: 192.24, width: 8.88, fontSize: 17.28, hasEOL: false },
+      { str: ' ', x: 201.12, width: 0.72, fontSize: 17.28, hasEOL: false },
+      { str: 'ro', x: 201.84, width: 13.44, fontSize: 17.28, hasEOL: false },
+      { str: ' ', x: 215.28, width: 0.24, fontSize: 17.28, hasEOL: false },
+      { str: 'p', x: 215.52, width: 8.16, fontSize: 17.28, hasEOL: false },
+      { str: ' ', x: 223.68, width: 0.24, fontSize: 17.28, hasEOL: false },
+      { str: 'e', x: 223.92, width: 7.44, fontSize: 17.28, hasEOL: false },
+      { str: ' ', x: 231.36, width: 0.96, fontSize: 17.28, hasEOL: false },
+      { str: 'rt', x: 232.32, width: 9.84, fontSize: 17.28, hasEOL: false },
+      { str: ' ', x: 242.16, width: 0, fontSize: 17.28, hasEOL: false },
+      { str: 'y', x: 241.92, width: 7.44, fontSize: 17.28, hasEOL: false },
+      { str: ' ', x: 249.36, width: 4.56, fontSize: 17.28, hasEOL: false },
+      { str: 'Ins', x: 253.92, width: 19.44, fontSize: 17.28, hasEOL: false },
+      { str: ' ', x: 273.36, width: 0.48, fontSize: 17.28, hasEOL: false },
+      { str: 'ura', x: 273.84, width: 20.88, fontSize: 17.28, hasEOL: false },
+      { str: ' ', x: 294.72, width: 0.96, fontSize: 17.28, hasEOL: false },
+      { str: 'nce', x: 295.68, width: 23.04, fontSize: 17.28, hasEOL: false },
+    ];
+    expect(joinPageText(items)).toBe('Property Insurance');
+  });
+
   it('drops the synthetic whitespace between tight CJK glyphs', () => {
     // The Chinese-UDHR case: every Han glyph is followed by a
     // whitespace item with effectively zero visual gap. Pdfvision
