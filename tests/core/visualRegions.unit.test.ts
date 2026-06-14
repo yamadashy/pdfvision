@@ -616,6 +616,70 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('suppresses vector footer clusters that sit inside repeated chrome', () => {
+    const footerBlock = (text: string, x: number, width: number) => ({
+      text,
+      x,
+      y: 378.56,
+      width,
+      height: 20,
+      lines: [{ text, x, y: 378.56, width, height: 20, fontSize: 18 }],
+      repeated: true,
+    });
+
+    const regions = buildVisualRegions({
+      pageWidth: 720,
+      pageHeight: 405,
+      imageBoxes: [],
+      vectorBoxes: [
+        { x: 47.29, y: 9.6, width: 470.23, height: 312.53 },
+        { x: 395.38, y: 372.61, width: 129.83, height: 42.64 },
+        { x: 575.38, y: 372.61, width: 275.69, height: 42.64 },
+      ],
+      layout: {
+        blocks: [
+          { text: 'f', x: 365.27, y: 145.82, width: 13.3, height: 48, lines: [] },
+          footerBlock('Lecture 5 -6', 402.13, 100.66),
+          footerBlock('April 13, 2021', 582.13, 123.32),
+        ],
+      },
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0]).toMatchObject({
+      kind: 'vector',
+      x: 39.29,
+      y: 1.6,
+      width: 486.23,
+      height: 328.53,
+      sourceCount: 1,
+    });
+  });
+
+  it('suppresses vector footer clusters inside horizontal edge chrome', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 720,
+      pageHeight: 405,
+      imageBoxes: [],
+      vectorBoxes: [
+        { x: 47.29, y: 9.6, width: 470.23, height: 312.53 },
+        { x: 0, y: 376.1, width: 720, height: 29.67 },
+        { x: 395.38, y: 372.61, width: 129.83, height: 42.64 },
+        { x: 575.38, y: 372.61, width: 275.69, height: 42.64 },
+      ],
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0]).toMatchObject({
+      kind: 'vector',
+      x: 39.29,
+      y: 1.6,
+      width: 486.23,
+      height: 328.53,
+      sourceCount: 1,
+    });
+  });
+
   it('does not merge a full-page vector background into a foreground raster crop', () => {
     const regions = buildVisualRegions({
       pageWidth: 600,
