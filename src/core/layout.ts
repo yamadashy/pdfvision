@@ -523,6 +523,13 @@ function isDecimalSectionHeadingText(text: string): boolean {
   return /^\s*\d+(?:\.\d+)+\.?\s+\p{L}/u.test(text.trim());
 }
 
+function isLetteredSectionHeadingText(text: string): boolean {
+  const trimmed = text.trim();
+  if (!/^[A-Z]\.\s+\p{Lu}/u.test(trimmed)) return false;
+  if (!/[.!?]$/u.test(trimmed)) return false;
+  return trimmed.split(/\s+/u).filter(Boolean).length >= 3;
+}
+
 function isTallNarrowSideLabel(block: LayoutBlock, lineCount: number): boolean {
   if (lineCount !== 1 || block.writingMode === 'vertical') return false;
   if (block.width > TALL_SIDE_LABEL_MAX_WIDTH_PT || block.height < TALL_SIDE_LABEL_MIN_HEIGHT_PT) return false;
@@ -547,7 +554,7 @@ function isLikelyBodyFragmentForLevel3(text: string): boolean {
 
 function isLikelyBodySentenceFragment(text: string): boolean {
   const trimmed = text.trim();
-  if (isNumberedHeadingText(trimmed)) return false;
+  if (isNumberedHeadingText(trimmed) || isLetteredSectionHeadingText(trimmed)) return false;
   if (/^\p{Ll}/u.test(trimmed)) return true;
   if (/\bet al\./iu.test(trimmed)) return true;
   if (/[\p{L}\p{N}]-$/u.test(trimmed)) return true;
@@ -750,7 +757,9 @@ function classifyHeadings(blocks: LayoutBlock[], pageWidth = 0): void {
     const topSlideTitle = isTopSlideTitleCandidate(b, repFont, lineCount, nonWsChars);
     const topCenteredAllCapsTitle = isTopCenteredAllCapsTitleCandidate(b, pageWidth, lineCount, nonWsChars);
     const decimalSectionHeading = isDecimalSectionHeadingText(b.text);
-    if (ratio < 1.08 && !topSlideTitle && !topCenteredAllCapsTitle && !decimalSectionHeading) continue;
+    const letteredSectionHeading = isLetteredSectionHeadingText(b.text);
+    if (ratio < 1.08 && !topSlideTitle && !topCenteredAllCapsTitle && !decimalSectionHeading && !letteredSectionHeading)
+      continue;
     if (isTallNarrowSideLabel(b, lineCount)) continue;
     if (isCompactDiagramLabelText(b.text, nonWsChars, ratio)) continue;
 
@@ -791,7 +800,7 @@ function classifyHeadings(blocks: LayoutBlock[], pageWidth = 0): void {
     const locallyLarger = neighbours.every((n) => repFont > (dominantFs.get(n) ?? bodyFontSize));
 
     const singleLine = lineCount === 1;
-    if (decimalSectionHeading && ratio < 1.08) {
+    if ((decimalSectionHeading || letteredSectionHeading) && ratio < 1.08) {
       if (!hasCredibleBody) continue;
       if (!isShort) continue;
       if (!singleLine) continue;

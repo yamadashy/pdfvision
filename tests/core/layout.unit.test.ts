@@ -241,6 +241,45 @@ describe('buildLayout — heading classification', () => {
     expect(heading?.roleConfidence).toBeGreaterThanOrEqual(0.65);
   });
 
+  it('marks standalone lettered report sections even when font size matches body', () => {
+    const bodyLines: TextSpan[] = [];
+    for (let i = 0; i < 10; i++) {
+      bodyLines.push(
+        span('Report instruction body text establishes a credible body font class.', 97, 220 + i * 14, 12),
+      );
+    }
+    const spans: TextSpan[] = [
+      span('A paragraph above the section heading provides surrounding body text.', 97, 100, 12, 390),
+      span('C. Preparation of Report.', 72, 152.16, 12, 142.08),
+      ...bodyLines,
+    ];
+
+    const layout = buildLayout(spans, 612);
+    const heading = layout.blocks.find((block) => block.text.includes('Preparation of Report'));
+
+    expect(heading?.role).toBe('heading');
+    expect(heading?.level).toBe(2);
+    expect(heading?.roleConfidence).toBeGreaterThanOrEqual(0.65);
+  });
+
+  it('does not mark tight lettered list items as section headings', () => {
+    const spans: TextSpan[] = [
+      span('The following alternatives are available to the applicant.', 72, 100, 12, 360),
+      span('A. First listed condition.', 97, 115, 12, 150),
+      span('B. Second listed condition.', 97, 129, 12, 160),
+      span('Body text continues immediately after the lettered list items.', 72, 143, 12, 360),
+      span('Additional body text establishes a credible body font class.', 72, 180, 12, 360),
+      span('Additional body text establishes a credible body font class.', 72, 194, 12, 360),
+      span('Additional body text establishes a credible body font class.', 72, 208, 12, 360),
+      span('Additional body text establishes a credible body font class.', 72, 222, 12, 360),
+    ];
+
+    const layout = buildLayout(spans, 612);
+
+    expect(layout.blocks.find((block) => block.text.includes('First listed'))?.role).toBeUndefined();
+    expect(layout.blocks.find((block) => block.text.includes('Second listed'))?.role).toBeUndefined();
+  });
+
   it('does not treat decimal numeric table cells as numbered section headings', () => {
     const bodyLines: TextSpan[] = [];
     for (let i = 0; i < 10; i++) {
