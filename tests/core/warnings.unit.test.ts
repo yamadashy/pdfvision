@@ -889,6 +889,67 @@ describe('detectPageWarnings', () => {
     expect(out[0].message).toContain('native text is empty');
   });
 
+  it('flags tiled raster pages when each tile is below the single-image threshold', () => {
+    const out = detectPageWarnings(
+      {
+        page: 1,
+        text: '',
+        charCount: 0,
+        imageCount: 4,
+        vectorCount: 72,
+        textCoverage: 0,
+        nonPrintableRatio: 0,
+        nonPrintableCount: 0,
+        width: 1000,
+        height: 1000,
+        quality: { nativeTextStatus: 'empty_but_visual_content' },
+      },
+      {
+        imageBoxes: [
+          { x: 0, y: 0, width: 400, height: 400 },
+          { x: 400, y: 0, width: 400, height: 400 },
+          { x: 0, y: 400, width: 400, height: 400 },
+          { x: 400, y: 400, width: 400, height: 400 },
+        ],
+      },
+    );
+
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({
+      code: 'large_raster_low_text_overlap',
+      severity: 'warning',
+    });
+    expect(out[0].imageBoxIndex).toBeUndefined();
+    expect(out[0].message).toContain('64.0%');
+  });
+
+  it('does not aggregate tiny raster icons into a large-raster warning', () => {
+    const imageBoxes = Array.from({ length: 30 }, (_, index) => ({
+      x: (index % 10) * 50,
+      y: Math.floor(index / 10) * 50,
+      width: 20,
+      height: 20,
+    }));
+    const out = detectPageWarnings(
+      {
+        page: 1,
+        text: '',
+        charCount: 0,
+        imageCount: imageBoxes.length,
+        vectorCount: 0,
+        textCoverage: 0,
+        nonPrintableRatio: 0,
+        nonPrintableCount: 0,
+        width: 1000,
+        height: 1000,
+        quality: { nativeTextStatus: 'empty_but_visual_content' },
+      },
+      { imageBoxes },
+    );
+
+    expect(out.filter((w) => w.code === 'large_raster_low_text_overlap')).toEqual([]);
+  });
+
   it('uses internal image boxes for sparse visual pages without exposing an imageBoxIndex', () => {
     // Baseline JSON does not include pages[].imageBoxes, but extraction
     // still computes image geometry internally. A scanned or screenshot

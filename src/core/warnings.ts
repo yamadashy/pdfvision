@@ -102,6 +102,8 @@ const LATIN1_MOJIBAKE_RATIO_THRESHOLD = 0.6;
 const FONT_MAPPING_WARNING_PATTERNS = [/no cmap table available/iu, /toUnicode/i, /font.*cmap/iu];
 const DENSE_VECTOR_GRAPHICS_COUNT_THRESHOLD = 250;
 const LARGE_RASTER_AREA_RATIO_THRESHOLD = 0.2;
+const AGGREGATE_RASTER_AREA_RATIO_THRESHOLD = 0.2;
+const AGGREGATE_RASTER_TILE_MIN_AREA_RATIO = 0.02;
 const LARGE_RASTER_TEXT_OVERLAP_RATIO_THRESHOLD = 0.01;
 const LOW_CONFIDENCE_OCR_THRESHOLD = 0.5;
 const OCR_NATIVE_MISMATCH_MIN_CONFIDENCE = 0.85;
@@ -497,6 +499,52 @@ function detectLargeRasterLowTextOverlap(page: PageResult, context: PageWarningC
     });
     warnedImages.push(image);
   }
+  if (warnedImages.length === 0) {
+    detectAggregateRasterLowTextOverlap(page, imageBoxes, textBoxes, pageArea, out);
+  }
+}
+
+function detectAggregateRasterLowTextOverlap(
+  page: PageResult,
+  imageBoxes: readonly BoxLike[],
+  textBoxes: readonly BoxLike[],
+  pageArea: number,
+  out: PageWarning[],
+): void {
+  const candidates: BoxLike[] = [];
+  for (const image of imageBoxes) {
+    const imageArea = clippedArea(image, { x: 0, y: 0, width: page.width, height: page.height });
+    const imageAreaRatio = imageArea / pageArea;
+    if (imageAreaRatio < AGGREGATE_RASTER_TILE_MIN_AREA_RATIO) continue;
+    if (candidates.some((candidate) => overlapRatio(image, candidate) >= 0.95)) continue;
+    candidates.push(image);
+  }
+  if (candidates.length < 2) return;
+
+  const aggregateArea = candidates.reduce(
+    (sum, image) => sum + clippedArea(image, { x: 0, y: 0, width: page.width, height: page.height }),
+    0,
+  );
+  const aggregateAreaRatio = aggregateArea / pageArea;
+  if (aggregateAreaRatio < AGGREGATE_RASTER_AREA_RATIO_THRESHOLD) return;
+
+  const textOverlap = candidates.reduce(
+    (sum, image) => sum + textBoxes.reduce((boxSum, box) => boxSum + clippedArea(box, image), 0),
+    0,
+  );
+  const textOverlapRatio = aggregateArea > 0 ? textOverlap / aggregateArea : 0;
+  if (textOverlapRatio >= LARGE_RASTER_TEXT_OVERLAP_RATIO_THRESHOLD) return;
+
+  const nativeText = page.quality.nativeTextStatus === 'empty_but_visual_content' ? 'empty' : 'sparse';
+  const textContext =
+    textBoxes.length > 0
+      ? `with little native-text overlap (${(textOverlapRatio * 100).toFixed(2)}%)`
+      : `while native text is ${nativeText}`;
+  out.push({
+    code: 'large_raster_low_text_overlap',
+    severity: 'warning',
+    message: `${candidates.length} raster images together cover ${(aggregateAreaRatio * 100).toFixed(1)}% of the page ${textContext} — labels, chart text, map text, or drawing text inside the images will not appear in native text`,
+  });
 }
 
 function detectTabularNumericLayout(blocks: LayoutBlock[], out: PageWarning[]): void {
