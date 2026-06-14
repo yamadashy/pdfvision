@@ -117,7 +117,9 @@ const MAX_ASSOCIATED_TEXT = 3;
 const CAPTION_SCORE_TOLERANCE_PT = 12;
 const TABLE_CAPTION_CONTINUATION_MAX_LINES = 2;
 const ABBREVIATED_FIGURE_CAPTION_CONTINUATION_MAX_LINES = 4;
+const FULL_FIGURE_CAPTION_CONTINUATION_MAX_LINES = 8;
 const CAPTION_CONTINUATION_MAX_CHARS = 240;
+const CAPTION_CONTINUATION_TOTAL_MAX_CHARS = 600;
 const SAME_BASELINE_HEADER_MIN_VERTICAL_OVERLAP_RATIO = 0.75;
 const SAME_BASELINE_HEADER_MIN_LEFT_OFFSET_RATIO = 0.45;
 const SHALLOW_TABLE_HINT_MAX_ROWS = 2;
@@ -956,6 +958,7 @@ function isGlobalCaptionText(text: string): boolean {
 function captionContinuationLineLimit(text: string): number {
   if (/^\s*table\b/iu.test(text)) return TABLE_CAPTION_CONTINUATION_MAX_LINES;
   if (/^\s*fig\.\s/iu.test(text)) return ABBREVIATED_FIGURE_CAPTION_CONTINUATION_MAX_LINES;
+  if (/^\s*figure\b/iu.test(text)) return FULL_FIGURE_CAPTION_CONTINUATION_MAX_LINES;
   return 0;
 }
 
@@ -1061,6 +1064,8 @@ function captionTextsFromBlock(
       if (!continuation) break;
       const captionText = normalizeAssociatedText(textParts.join(' '));
       if (!isCaptionContinuationText(captionText, continuation.text)) break;
+      const continuedCaption = normalizeAssociatedText(`${captionText} ${continuation.text}`);
+      if (continuedCaption.length > CAPTION_CONTINUATION_TOTAL_MAX_CHARS) break;
       textParts.push(continuation.text);
       captionBox = unionBox(captionBox, continuation.line);
     }

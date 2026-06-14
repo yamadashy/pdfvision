@@ -2070,6 +2070,57 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('merges full figure caption continuation lines within a bounded block', () => {
+    const captionLines = [
+      'Figure 2. State machine describing the major activities of Trace-',
+      'Monkey and the conditions that cause transitions to a new activ-',
+      'ity. In the dark box, TM executes JS as compiled traces. In the',
+      'light gray boxes, TM executes JS in the standard interpreter. White',
+      'boxes are overhead. Thus, to maximize performance, we need to',
+      'maximize time spent in the darkest box and minimize time spent in',
+      'the white boxes. The best case is a loop where the types at the loop',
+      'edge are the same as the types on entry--then TM can stay in native',
+      'code until the loop is done.',
+    ];
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      vectorBoxes: [{ x: 317, y: 90, width: 180, height: 145 }],
+      layout: {
+        blocks: [
+          {
+            text: captionLines.join('\n'),
+            x: 318,
+            y: 247,
+            width: 190,
+            height: 92,
+            lines: captionLines.map((text, index) => ({
+              text,
+              x: 318,
+              y: 247 + index * 10,
+              width: index === 8 ? 120 : 188,
+              height: 8.97,
+              fontSize: 8.97,
+            })),
+          },
+        ],
+      },
+    });
+
+    expect(regions[0].associatedText).toEqual([
+      {
+        text: captionLines.join(' '),
+        relation: 'caption',
+        x: 318,
+        y: 247,
+        width: 188,
+        height: 88.97,
+        blockIndex: 0,
+      },
+    ]);
+  });
+
   it('attaches only the closest local caption to a visual region', () => {
     const regions = buildVisualRegions({
       pageWidth: 600,
