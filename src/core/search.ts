@@ -376,7 +376,7 @@ function sliceSpanBox(span: SearchOwner, start: number, end: number): Box {
 }
 
 function isVerticalSearchOwner(span: SearchOwner): boolean {
-  return span.height > Math.max(span.width, 1) * 3 && isCjkLeading(span.text);
+  return span.height > Math.max(span.width, 1) * 3;
 }
 
 /**

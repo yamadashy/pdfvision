@@ -390,6 +390,24 @@ describe('processDocument search', () => {
     expect(matches[0].bbox).toEqual({ x: 180, y: 45, width: 9, height: 33.75 });
   });
 
+  it('slices rotated Latin span matches along the y axis', async () => {
+    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const compiled = compileSearch('cd', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const matches = searchPage(
+      [{ text: 'abcdef', x: 90, y: 20, width: 12, height: 60, fontSize: 12 }],
+      undefined,
+      1,
+      612,
+      792,
+      compiled,
+    );
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0].boxes).toEqual([{ x: 90, y: 40, width: 12, height: 20 }]);
+    expect(matches[0].bbox).toEqual({ x: 90, y: 40, width: 12, height: 20 });
+  });
+
   it('does not double-insert a synthetic space when adjacent spans already carry whitespace', async () => {
     const { compileSearch, searchPage } = await import('../../src/core/search.js');
     const compiled = compileSearch('Hello World', {});
