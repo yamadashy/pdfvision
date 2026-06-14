@@ -1,6 +1,7 @@
 import type { OcrWord, PageOcr, SearchMatch, TextSpan } from '../types/index.js';
 import { CJK_TIGHT_GAP_RATIO, isCjkLeading } from './cjkJoin.js';
 import { isLikelyCjkDisplaySpacingRow, isLikelyWideWordSpacingRow, shouldInsertSemanticSpace } from './spacing.js';
+import { isRtlDominantPositionedText, textOrder } from './textDirection.js';
 
 /**
  * Inputs the processor builds once per request, then passes to
@@ -239,38 +240,47 @@ function buildSearchLines(spans: readonly TextSpan[] | undefined, pageWidth: num
     const xSorted = [...group].sort((a, b) => a.x - b.x);
     const preserveWideWordSpacing = isLikelyWideWordSpacingRow(xSorted, pageWidth);
     const preserveCjkDisplaySpacing = isLikelyCjkDisplaySpacingRow(xSorted);
-    let text = '';
-    const owners: (SearchOwner | undefined)[] = [];
-    const pushLine = (): void => {
-      if (text.length === 0) return;
-      lines.push({ text, owners: [...owners] });
-      text = '';
-      owners.length = 0;
-    };
+    const segments: TextSpan[][] = [[xSorted[0]]];
 
-    for (let i = 0; i < xSorted.length; i++) {
+    for (let i = 1; i < xSorted.length; i++) {
       const span = xSorted[i];
-      if (i > 0) {
-        const prev = xSorted[i - 1];
-        const gap = span.x - (prev.x + prev.width);
-        const fontSize = span.fontSize || prev.fontSize || FONT_SIZE_FALLBACK_PT;
-        const segmentGap = Math.max(fontSize * SEARCH_SEGMENT_GAP_RATIO, SEARCH_SEGMENT_MIN_GAP_PT);
-        if (!preserveWideWordSpacing && !preserveCjkDisplaySpacing && gap > segmentGap) {
-          pushLine();
-        } else if (
-          (gap > spaceGapThreshold(prev, span, fontSize) ||
-            shouldInsertSemanticSpace(prev.text, span.text, gap, fontSize)) &&
-          !/\s$/.test(text) &&
-          !/^\s/.test(span.text)
-        ) {
-          text += ' ';
-          owners.push(undefined);
-        }
+      const prev = xSorted[i - 1];
+      const gap = span.x - (prev.x + prev.width);
+      const fontSize = span.fontSize || prev.fontSize || FONT_SIZE_FALLBACK_PT;
+      const segmentGap = Math.max(fontSize * SEARCH_SEGMENT_GAP_RATIO, SEARCH_SEGMENT_MIN_GAP_PT);
+      if (!preserveWideWordSpacing && !preserveCjkDisplaySpacing && gap > segmentGap) {
+        segments.push([span]);
+        continue;
       }
-      text += span.text;
-      for (let j = 0; j < span.text.length; j++) owners.push(span);
+      segments[segments.length - 1].push(span);
     }
-    pushLine();
+
+    for (const segment of segments) {
+      const rtl = isRtlDominantPositionedText(segment);
+      const ordered = textOrder(segment);
+      let text = '';
+      const owners: (SearchOwner | undefined)[] = [];
+      for (let i = 0; i < ordered.length; i++) {
+        const span = ordered[i];
+        if (i > 0) {
+          const prev = ordered[i - 1];
+          const gap = rtl ? prev.x - (span.x + span.width) : span.x - (prev.x + prev.width);
+          const fontSize = span.fontSize || prev.fontSize || FONT_SIZE_FALLBACK_PT;
+          if (
+            (gap > spaceGapThreshold(prev, span, fontSize) ||
+              shouldInsertSemanticSpace(prev.text, span.text, gap, fontSize)) &&
+            !/\s$/.test(text) &&
+            !/^\s/.test(span.text)
+          ) {
+            text += ' ';
+            owners.push(undefined);
+          }
+        }
+        text += span.text;
+        for (let j = 0; j < span.text.length; j++) owners.push(span);
+      }
+      if (text.length > 0) lines.push({ text, owners });
+    }
   }
   return withHyphenatedSearchLines(lines);
 }
@@ -340,10 +350,11 @@ function buildOcrSearchLines(words: readonly OcrWord[] | undefined, normalize: b
   const lines: SearchLine[] = [];
   for (const group of groups) {
     const xSorted = [...group].sort((a, b) => a.x - b.x);
+    const ordered = textOrder(xSorted);
     let text = '';
     const owners: (SearchOwner | undefined)[] = [];
     let previousWordText = '';
-    for (const word of xSorted) {
+    for (const word of ordered) {
       const wordText = normalize ? nfkc(word.text) : word.text;
       if (wordText.length === 0) continue;
       const owner = wordText === word.text ? word : { ...word, text: wordText };

@@ -1,6 +1,7 @@
 import type { LayoutBlock, LayoutLine, LayoutTable, PageLayout, PageResult, TextSpan } from '../types/index.js';
 import { CJK_TIGHT_GAP_RATIO, isCjkLeading } from './cjkJoin.js';
 import { isLikelyCjkDisplaySpacingRow, isLikelyWideWordSpacingRow, shouldInsertSemanticSpace } from './spacing.js';
+import { isRtlDominantPositionedText, textOrder } from './textDirection.js';
 
 interface BBox {
   x: number;
@@ -175,13 +176,15 @@ const COLUMN_BOTTOM_NOTE_MIN_CHARS = 40;
  * tighter shared threshold so the layout-side classification matches
  * the primary `joinPageText` behavior on the same gap.
  */
-function joinLineSpans(xSorted: TextSpan[]): string {
-  if (xSorted.length === 0) return '';
-  let out = xSorted[0].text;
-  for (let i = 1; i < xSorted.length; i++) {
-    const prev = xSorted[i - 1];
-    const cur = xSorted[i];
-    const gap = cur.x - (prev.x + prev.width);
+function joinLineSpans(spans: TextSpan[]): string {
+  if (spans.length === 0) return '';
+  const rtl = isRtlDominantPositionedText(spans);
+  const ordered = textOrder(spans);
+  let out = ordered[0].text;
+  for (let i = 1; i < ordered.length; i++) {
+    const prev = ordered[i - 1];
+    const cur = ordered[i];
+    const gap = rtl ? prev.x - (cur.x + cur.width) : cur.x - (prev.x + prev.width);
     const bothCjk = isCjkLeading(prev.text) && isCjkLeading(cur.text);
     // Prefer the current span's fontSize; fall back to the previous
     // span's, then to a Western-body default. A 0 fontSize on both

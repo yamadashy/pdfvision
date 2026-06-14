@@ -427,8 +427,8 @@ export interface TextSpan {
 }
 
 /**
- * One visual line of text — a group of spans that share a baseline,
- * sorted left-to-right. Built from spans by clustering on the y axis;
+ * One visual line of text — a group of spans that share a baseline.
+ * Text is reconstructed in the detected script direction for the line;
  * the bbox is the union of its spans' bboxes.
  */
 export interface LayoutLine {

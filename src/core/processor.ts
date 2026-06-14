@@ -526,6 +526,7 @@ async function extractPageData(
       width: w,
       fontSize: itemFontSize,
       hasEOL: !!item.hasEOL,
+      ...(typeof item.dir === 'string' && { dir: item.dir }),
     });
 
     // Skip whitespace-only items in spans output — pdf.js emits a span

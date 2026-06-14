@@ -113,4 +113,19 @@ describe('joinPageText (CJK-aware whitespace handling)', () => {
   it('returns the empty string for empty input', () => {
     expect(joinPageText([])).toBe('');
   });
+
+  it('orders RTL text runs right-to-left within each visual line', () => {
+    const items: JoinItem[] = [
+      { str: 'اﻟﻌﺮﺑﻴﺔ', x: 160.26, width: 117.32, fontSize: 36, hasEOL: false, dir: 'rtl' },
+      { str: ' ', x: 277.58, width: 0.3, fontSize: 36, hasEOL: false, dir: 'ltr' },
+      { str: 'اخلﻄﻮط', x: 288.3, width: 120.92, fontSize: 36, hasEOL: false, dir: 'rtl' },
+      { str: ' ', x: 409.22, width: 0.3, fontSize: 36, hasEOL: false, dir: 'ltr' },
+      { str: 'اﻧﻮاع', x: 419.87, width: 82.04, fontSize: 36, hasEOL: false, dir: 'rtl' },
+      { str: '', x: 0, width: 0, fontSize: 36, hasEOL: true, dir: 'ltr' },
+      { str: 'اﻟﻌﺮﺑﻴﺔ', x: 269.75, width: 72.94, fontSize: 36, hasEOL: false, dir: 'rtl' },
+      { str: 'اﻧﻮاع', x: 443.66, width: 58.32, fontSize: 36, hasEOL: false, dir: 'rtl' },
+    ];
+
+    expect(joinPageText(items).normalize('NFKC')).toBe('انواع اخلطوط العربية\nانواع العربية');
+  });
 });

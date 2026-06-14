@@ -1645,7 +1645,8 @@ describe('buildLayout — multi-column reading order', () => {
   it('keeps Arabic word spaces when shaped word boxes have tight gaps', () => {
     // Arabic shaping can make pdf.js word boxes sit closer than the
     // Latin-oriented font-size gap threshold even though the source
-    // text has spaces between words.
+    // text has spaces between words. The visually rightmost word is
+    // first in the logical line.
     const spans: TextSpan[] = [
       span('العربية', 257.55, 184, 36, 83.92),
       span('اخلطوط', 346.8, 184, 36, 86.94),
@@ -1653,7 +1654,7 @@ describe('buildLayout — multi-column reading order', () => {
     ];
     const layout = buildLayout(spans);
 
-    expect(layout.blocks[0].lines[0].text).toBe('العربية اخلطوط انواع');
+    expect(layout.blocks[0].lines[0].text).toBe('انواع اخلطوط العربية');
   });
 
   it('does not split Type3-style wide word spacing rows into columns', () => {

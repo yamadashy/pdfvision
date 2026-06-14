@@ -73,23 +73,23 @@ describe('processDocument search', () => {
     expect(matches[0].boxes.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('matches Arabic phrases across tight shaped word gaps', () => {
+  it('matches RTL Arabic phrases across tight shaped word gaps', () => {
     // Arabic CID fonts can report word boxes with a gap well below the
     // Latin 0.25x font-size threshold. Phrase search should still see the
-    // source-space word boundary.
+    // source-space word boundary in right-to-left reading order.
     const spans: TextSpan[] = [
       { text: 'العربية', x: 257.55, y: 184, width: 83.92, height: 36, fontSize: 36 },
       { text: 'اخلطوط', x: 346.8, y: 184, width: 86.94, height: 36, fontSize: 36 },
       { text: 'انواع', x: 439.06, y: 184, width: 62.93, height: 36, fontSize: 36 },
     ];
-    const compiled = compileSearch('العربية اخلطوط انواع', {});
+    const compiled = compileSearch('انواع اخلطوط العربية', {});
     if (!compiled) throw new Error('expected compiled search');
 
     const matches = searchPage(spans, undefined, 1, 595, 842, compiled);
 
     expect(matches).toHaveLength(1);
     expect(matches[0]).toMatchObject({
-      text: 'العربية اخلطوط انواع',
+      text: 'انواع اخلطوط العربية',
       source: 'native',
       page: 1,
     });
