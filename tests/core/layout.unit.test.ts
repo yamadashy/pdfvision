@@ -1284,6 +1284,45 @@ describe('buildLayout — multi-column reading order', () => {
     ]);
   });
 
+  it('splits recurring narrow gutters on wide pages with side panels', () => {
+    // A landscape financial-report page can reserve the right third for
+    // a numeric side table, so the two body columns span only about 60%
+    // of the physical page width. Their gutter is still a recurring visual
+    // column break and must not be treated as a wide word space.
+    const spans: TextSpan[] = [
+      span('left row one contains prose', 27, 70, 11.04, 293),
+      span('right row one contains prose', 334.85, 70, 11.04, 285),
+      span('left row two contains prose', 27, 83.2, 11.04, 293),
+      span('right row two contains prose', 334.85, 83.2, 11.04, 285),
+      span('left row three contains prose', 27, 96.4, 11.04, 293),
+      span('right row three contains prose', 334.85, 96.4, 11.04, 285),
+      span('left row four contains prose', 27, 109.6, 11.04, 293),
+      span('right row four contains prose', 334.85, 109.6, 11.04, 285),
+      span('Revenue', 669.89, 109.6, 9, 37),
+      span('2025e', 805.34, 109.6, 9, 27),
+    ];
+    const layout = buildLayout(spans, 960);
+
+    const texts = layout.blocks.map((block) => block.text);
+    expect(texts).toContain(
+      [
+        'left row one contains prose',
+        'left row two contains prose',
+        'left row three contains prose',
+        'left row four contains prose',
+      ].join('\n'),
+    );
+    expect(texts).toContain(
+      [
+        'right row one contains prose',
+        'right row two contains prose',
+        'right row three contains prose',
+        'right row four contains prose',
+      ].join('\n'),
+    );
+    expect(texts.some((text) => text.includes('left row one') && text.includes('right row one'))).toBe(false);
+  });
+
   it('splits large numeric callouts from small annotation lines while keeping the unit', () => {
     // Japanese infographic-shaped case: a small "75%" annotation sits
     // above a large "9,308万枚" KPI. The large number's tall bbox used
