@@ -25,6 +25,8 @@ interface Candidate extends BoxLike {
   associatedText?: VisualRegionAssociatedText[];
 }
 
+type CaptionKind = 'figure' | 'table' | 'plate';
+
 export interface BuildVisualRegionsInput {
   pageWidth: number;
   pageHeight: number;
@@ -971,6 +973,13 @@ function isCaptionIdentifier(text: string): boolean {
   return CAPTION_SINGLE_LETTER_PATTERN.test(normalized);
 }
 
+function captionKind(text: string): CaptionKind | undefined {
+  if (/^\s*table\b/iu.test(text) || /^\s*表/u.test(text)) return 'table';
+  if (/^\s*plate\b/iu.test(text)) return 'plate';
+  if (/^\s*fig(?:ure)?\.?(?=\s|[:：．、]|$)/iu.test(text) || /^\s*図/u.test(text)) return 'figure';
+  return undefined;
+}
+
 function isGlobalCaptionText(text: string): boolean {
   return GLOBAL_CAPTION_PATTERN.test(text) && isCaptionText(text);
 }
@@ -1125,6 +1134,7 @@ function attachCaptionText(candidates: Candidate[], layout: PageLayout | undefin
       ? []
       : captionTextsFromBlock(block, index).map((associatedText) => ({
           text: associatedText,
+          kind: captionKind(associatedText.text),
           global: isGlobalCaptionText(associatedText.text),
         })),
   );
@@ -1133,15 +1143,24 @@ function attachCaptionText(candidates: Candidate[], layout: PageLayout | undefin
     const scoredCaptions = captionItems
       .map((item) => ({
         text: item.text,
+        kind: item.kind,
         score: captionScore(candidate, item.text),
       }))
-      .filter((item): item is { text: VisualRegionAssociatedText; score: number } => item.score !== undefined)
+      .filter(
+        (item): item is { text: VisualRegionAssociatedText; kind: CaptionKind | undefined; score: number } =>
+          item.score !== undefined,
+      )
       .sort((a, b) => a.score - b.score);
-    const bestCaptionScore = scoredCaptions[0]?.score;
+    const preferredCaptionKind = candidate.kind === 'table' ? 'table' : undefined;
+    const preferredCaptions = preferredCaptionKind
+      ? scoredCaptions.filter((caption) => caption.kind === preferredCaptionKind)
+      : [];
+    const captionPool = preferredCaptions.length > 0 ? preferredCaptions : scoredCaptions;
+    const bestCaptionScore = captionPool[0]?.score;
     const captions =
       bestCaptionScore === undefined
         ? []
-        : scoredCaptions
+        : captionPool
             .filter((caption) => caption.score <= bestCaptionScore + CAPTION_SCORE_TOLERANCE_PT)
             .slice(0, MAX_ASSOCIATED_TEXT);
     if (captions.length === 0) {

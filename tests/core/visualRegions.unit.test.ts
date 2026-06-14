@@ -2128,6 +2128,75 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('prefers table captions over nearby figure captions for table regions', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 420,
+      pageHeight: 360,
+      imageBoxes: [],
+      layout: {
+        blocks: [
+          {
+            text: 'Figure 5. A deeper residual function for ImageNet.',
+            x: 52,
+            y: 82,
+            width: 220,
+            height: 10,
+            lines: [
+              {
+                text: 'Figure 5. A deeper residual function for ImageNet.',
+                x: 52,
+                y: 82,
+                width: 220,
+                height: 10,
+                fontSize: 9,
+              },
+            ],
+          },
+          {
+            text: 'Table 3. Error rates on ImageNet validation.',
+            x: 52,
+            y: 96,
+            width: 210,
+            height: 10,
+            lines: [
+              {
+                text: 'Table 3. Error rates on ImageNet validation.',
+                x: 52,
+                y: 96,
+                width: 210,
+                height: 10,
+                fontSize: 9,
+              },
+            ],
+          },
+        ],
+        tables: [
+          {
+            x: 50,
+            y: 112,
+            width: 260,
+            height: 90,
+            rowCount: 6,
+            columnCount: 5,
+            rows: [],
+          },
+        ],
+      },
+    });
+
+    expect(regions[0].associatedText).toEqual([
+      {
+        text: 'Table 3. Error rates on ImageNet validation.',
+        relation: 'caption',
+        x: 52,
+        y: 96,
+        width: 210,
+        height: 10,
+        blockIndex: 1,
+      },
+    ]);
+  });
+
   it('attaches only the closest local caption to a visual region', () => {
     const regions = buildVisualRegions({
       pageWidth: 600,
