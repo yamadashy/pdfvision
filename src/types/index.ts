@@ -715,9 +715,10 @@ export interface FormField {
   /**
    * Nearby visible text that likely labels this field, reconstructed from
    * layout lines when `--form-fields` is enabled. Stacked above/below label
-   * lines can be merged into one visible prompt. This helps agents map
-   * anonymous AcroForm names such as `f1_01[0]` or checkbox arrays to the
-   * human-readable prompt a person sees next to or above the widget.
+   * lines and left-side checkbox/radio continuation lines can be merged into
+   * one visible prompt. This helps agents map anonymous AcroForm names such
+   * as `f1_01[0]` or checkbox arrays to the human-readable prompt a person
+   * sees next to or above the widget.
    */
   label?: FormFieldLabel;
 }

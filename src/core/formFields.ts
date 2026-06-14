@@ -237,6 +237,10 @@ const SAME_LINE_MARKER_PROMPT_MAX_GAP_PT = 30;
 const SAME_LINE_MARKER_PROMPT_STACK_MAX_GAP_PT = 4;
 const SAME_LINE_MARKER_PROMPT_MAX_STACK_LINES = 2;
 const SAME_LINE_MARKER_PROMPT_X_TOLERANCE_PT = 18;
+const SIDE_LABEL_CONTINUATION_MAX_CHARS = 360;
+const SIDE_LABEL_CONTINUATION_MAX_GAP_PT = 4;
+const SIDE_LABEL_CONTINUATION_MAX_LINES = 3;
+const SIDE_LABEL_CONTINUATION_X_TOLERANCE_PT = 18;
 
 function findFieldLabel(
   field: FormField,
@@ -255,7 +259,11 @@ function findFieldLabel(
     if (!best || candidate.score < best.score) best = candidate;
   }
   if (!best) return undefined;
-  return expandSameLineMarkerPromptLabel(field, best, lines) ?? expandStackedLabel(field, best, lines);
+  return (
+    expandSameLineMarkerPromptLabel(field, best, lines) ??
+    expandSideLabelContinuation(field, best, lines) ??
+    expandStackedLabel(field, best, lines)
+  );
 }
 
 /** Penalty per sibling widget a side-relation label line runs across.
@@ -435,6 +443,83 @@ function expandSameLineMarkerPromptLabel(
     width: round2(labelBox.width),
     height: round2(labelBox.height),
   };
+}
+
+function expandSideLabelContinuation(
+  field: FormField,
+  candidate: LabelCandidate,
+  lines: readonly LabelLine[],
+): FormFieldLabel | undefined {
+  if (candidate.relation !== 'left') return undefined;
+  if (field.type !== 'checkbox' && field.type !== 'radio' && field.type !== 'button') return undefined;
+
+  const continuation = collectSideLabelContinuationLines(field, candidate, lines);
+  if (continuation.length === 0) return undefined;
+
+  const promptLines = [...continuation, { line: candidate.line, text: candidate.text }];
+  const text = normalizePromptLabelText(promptLines.map(({ text }) => text).join(' '));
+  if (!isUsableLabelText(text, SIDE_LABEL_CONTINUATION_MAX_CHARS) || text === candidate.text) return undefined;
+
+  const boxLines = promptLines.map(({ line }) => line).sort((a, b) => a.y - b.y || a.x - b.x);
+  const labelBox = boxLines.slice(1).reduce<BoxLike>((box, line) => unionBox(box, line), boxLines[0] ?? candidate.line);
+  return {
+    text,
+    relation: candidate.relation,
+    x: round2(labelBox.x),
+    y: round2(labelBox.y),
+    width: round2(labelBox.width),
+    height: round2(labelBox.height),
+  };
+}
+
+function collectSideLabelContinuationLines(
+  field: FormField,
+  candidate: LabelCandidate,
+  lines: readonly LabelLine[],
+): { line: LabelLine; text: string }[] {
+  const stack: { line: LabelLine; text: string }[] = [];
+  let bounds: BoxLike = candidate.line;
+
+  while (stack.length < SIDE_LABEL_CONTINUATION_MAX_LINES) {
+    const next = findSideLabelContinuationLine(
+      field,
+      bounds,
+      [candidate.line, ...stack.map((item) => item.line)],
+      lines,
+    );
+    if (!next) return stack.sort((a, b) => a.line.y - b.line.y || a.line.x - b.line.x);
+    stack.push(next);
+    bounds = unionBox(next.line, bounds);
+  }
+  return stack.sort((a, b) => a.line.y - b.line.y || a.line.x - b.line.x);
+}
+
+function findSideLabelContinuationLine(
+  field: FormField,
+  bounds: BoxLike,
+  excluded: readonly LabelLine[],
+  lines: readonly LabelLine[],
+): { line: LabelLine; text: string } | undefined {
+  let best: { line: LabelLine; text: string; gap: number } | undefined;
+  for (const line of lines) {
+    if (excluded.includes(line)) continue;
+    if (line.x + line.width > field.x + 1) continue;
+
+    const text = normalizeLabelText(line.text);
+    if (!isUsablePromptFragment(text) || isDotLeaderText(text)) continue;
+
+    const gap = bounds.y - (line.y + line.height);
+    if (gap < -1 || gap > SIDE_LABEL_CONTINUATION_MAX_GAP_PT) continue;
+
+    const leftAligned = Math.abs(line.x - bounds.x) <= SIDE_LABEL_CONTINUATION_X_TOLERANCE_PT;
+    const overlapsExisting = horizontalOverlapRatio(bounds, line) >= MIN_HORIZONTAL_OVERLAP_RATIO;
+    if (!leftAligned && !overlapsExisting) continue;
+
+    if (!best || gap < best.gap || (gap === best.gap && line.y < best.line.y)) {
+      best = { line, text, gap };
+    }
+  }
+  return best ? { line: best.line, text: best.text } : undefined;
 }
 
 function collectConnectedLeftPromptLines(

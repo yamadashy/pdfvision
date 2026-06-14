@@ -333,6 +333,75 @@ describe('buildFormFields', () => {
     });
   });
 
+  it('merges left-side checkbox labels that continue from preceding lines', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'foreignPartners',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: [440.6, 521, 448.6, 529],
+          fieldValue: 'Off',
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        {
+          text: '3b If on line 3a you checked “Partnership” or “Trust/estate,” or checked “LLC” and entered “P” as its tax classification,',
+          x: 61.6,
+          y: 246.2,
+          width: 372.56,
+          height: 7,
+          fontSize: 7,
+        },
+        {
+          text: '(Applies to accounts maintained',
+          x: 464.88,
+          y: 250.6,
+          width: 99.84,
+          height: 7,
+          fontSize: 7,
+        },
+        {
+          text: 'and you are providing this form to a partnership, trust, or estate in which you have an ownership interest, check',
+          x: 73.6,
+          y: 254.6,
+          width: 360.63,
+          height: 7,
+          fontSize: 7,
+        },
+        {
+          text: 'outside the United States.)',
+          x: 473.44,
+          y: 259,
+          width: 82.72,
+          height: 7,
+          fontSize: 7,
+        },
+        {
+          text: 'this box if you have any foreign partners, owners, or beneficiaries. See instructions . . . . . . . . .',
+          x: 73.63,
+          y: 263,
+          width: 360.33,
+          height: 7,
+          fontSize: 7,
+        },
+      ],
+    );
+
+    expect(fields[0].label).toEqual({
+      text: '3b If on line 3a you checked “Partnership” or “Trust/estate,” or checked “LLC” and entered “P” as its tax classification, and you are providing this form to a partnership, trust, or estate in which you have an ownership interest, check this box if you have any foreign partners, owners, or beneficiaries. See instructions',
+      relation: 'left',
+      x: 61.6,
+      y: 246.2,
+      width: 372.63,
+      height: 23.8,
+    });
+  });
+
   it('prefers fine-grained label spans over merged adjacent label lines', () => {
     const fields = buildFormFields(
       [
