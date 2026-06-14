@@ -526,6 +526,27 @@ describe('buildLayout — heading classification', () => {
     }
   });
 
+  it('does not classify numbered figure or table captions as headings', () => {
+    const bodyLines: TextSpan[] = [];
+    for (let i = 0; i < 20; i++) {
+      bodyLines.push(span('Body paragraph line that keeps the median near ten points.', 72, 320 + i * 12, 10, 420));
+    }
+    const spans: TextSpan[] = [
+      span('Figure 1. Training error on CIFAR-10', 72, 100, 14, 230),
+      span('Table 4. Error rates of single-model results', 72, 140, 14, 260),
+      span('図1 主要日米欧製造業企業の海外売上比率', 72, 180, 14, 270),
+      span('表24-(1)-1 母子世帯の母が抱える子どもについての悩みの内訳', 72, 220, 14, 330),
+      ...bodyLines,
+    ];
+
+    const layout = buildLayout(spans, 612);
+    for (const caption of ['Figure 1.', 'Table 4.', '図1', '表24']) {
+      const block = layout.blocks.find((candidate) => candidate.text.includes(caption));
+      expect(block?.role).toBeUndefined();
+      expect(block?.roleConfidence).toBeUndefined();
+    }
+  });
+
   it('does not classify sentence fragments with small font jitter as level-3 headings', () => {
     const bodyLines: TextSpan[] = [];
     for (let i = 0; i < 20; i++) {

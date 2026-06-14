@@ -518,6 +518,12 @@ const COMPACT_LABEL_MAX_HEADING_CHARS = 4;
 const TALL_SIDE_LABEL_MIN_HEIGHT_PT = 80;
 const TALL_SIDE_LABEL_MAX_WIDTH_PT = 48;
 const TALL_SIDE_LABEL_MIN_ASPECT = 4;
+const CAPTION_IDENTIFIER_ATOM = '[A-Za-z\\p{N}０-９一二三四五六七八九十]+';
+const CAPTION_NUMBER_PATTERN = `${CAPTION_IDENTIFIER_ATOM}(?:(?:[.-]${CAPTION_IDENTIFIER_ATOM})|(?:-?\\(${CAPTION_IDENTIFIER_ATOM}\\)))*\\.?`;
+const CAPTION_HEADING_PATTERN = new RegExp(
+  `^\\s*(?:fig(?:ure)?\\.?|table|plate|図表|図|表)\\s*(${CAPTION_NUMBER_PATTERN})(?=\\s|[:：．、]|$)`,
+  'iu',
+);
 
 function isHeadingCandidateText(text: string): boolean {
   const trimmed = text.trim();
@@ -525,7 +531,12 @@ function isHeadingCandidateText(text: string): boolean {
   if (/^[\p{N}\s.-]{1,12}$/u.test(trimmed)) return false;
   if (/^@[A-Za-z0-9_.-]{2,}$/u.test(trimmed)) return false;
   if (isReferenceMetadataText(trimmed)) return false;
+  if (isCaptionHeadingText(trimmed)) return false;
   return !/^[•●◦▪■‣]\s*/u.test(trimmed);
+}
+
+function isCaptionHeadingText(text: string): boolean {
+  return CAPTION_HEADING_PATTERN.test(text);
 }
 
 function isReferenceMetadataText(text: string): boolean {
