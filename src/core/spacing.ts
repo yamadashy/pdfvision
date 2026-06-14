@@ -9,6 +9,7 @@ const LATIN_WORD_SPACE_MIN_GAP_RATIO = 0.18;
 const LATIN_WORD_RE = /^[\p{Script=Latin}\p{M}]+$/u;
 const LATIN_WORD_END_RE = /[\p{Script=Latin}\p{M}]$/u;
 const LATIN_WORD_START_RE = /^[\p{Script=Latin}\p{M}]/u;
+const SENTENCE_PUNCTUATION_END_RE = /[.!?。．]$/u;
 const WIDE_WORD_SPACING_MIN_SPANS = 3;
 const WIDE_WORD_SPACING_MAX_SPANS = 6;
 const WIDE_WORD_SPACING_MAX_LINE_WIDTH_RATIO = 0.85;
@@ -38,6 +39,14 @@ export function shouldInsertSemanticSpace(prevText: string, curText: string, gap
   if (
     gap > fontSize * LATIN_WORD_SPACE_MIN_GAP_RATIO &&
     LATIN_WORD_END_RE.test(prev) &&
+    LATIN_WORD_START_RE.test(cur)
+  ) {
+    return true;
+  }
+
+  if (
+    gap > fontSize * LATIN_WORD_SPACE_MIN_GAP_RATIO &&
+    SENTENCE_PUNCTUATION_END_RE.test(prev) &&
     LATIN_WORD_START_RE.test(cur)
   ) {
     return true;

@@ -1600,6 +1600,21 @@ describe('buildLayout — multi-column reading order', () => {
     expect(layout.blocks[0].lines[0].text).toBe('Hence, recording and compiling a trace speculates that the path and');
   });
 
+  it('preserves tight spaces after sentence punctuation in captions', () => {
+    // PLOS-shaped case: the gap after a sentence period can sit just
+    // below the default threshold even though the next span starts a new
+    // sentence.
+    const spans: TextSpan[] = [
+      span('Fig 2. Two particle desynchronization dynamics.', 155.74, 385.9, 8, 180.6),
+      span('Relative position dynamics (upper panel)', 338.06, 385.9, 8, 130),
+    ];
+    const layout = buildLayout(spans);
+
+    expect(layout.blocks[0].lines[0].text).toBe(
+      'Fig 2. Two particle desynchronization dynamics. Relative position dynamics (upper panel)',
+    );
+  });
+
   it('does not attach small punctuation-only spans to the next body line', () => {
     // PDF.js bug1513120 also emits a tiny standalone "." just above
     // the next line. It is not a word prefix for "Monday-Friday".

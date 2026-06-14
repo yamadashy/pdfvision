@@ -137,6 +137,39 @@ describe('processDocument search', () => {
     expect(matches[0].boxes).toHaveLength(3);
   });
 
+  it('matches Latin phrases across tight sentence-punctuation gaps', () => {
+    const spans: TextSpan[] = [
+      {
+        text: 'Fig 2. Two particle desynchronization dynamics.',
+        x: 155.74,
+        y: 385.9,
+        width: 180.6,
+        height: 8,
+        fontSize: 8,
+      },
+      {
+        text: 'Relative position dynamics (upper panel)',
+        x: 338.06,
+        y: 385.9,
+        width: 130,
+        height: 8,
+        fontSize: 8,
+      },
+    ];
+    const compiled = compileSearch('dynamics. Relative position', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 595, 842, compiled);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'dynamics. Relative position',
+      source: 'native',
+      page: 1,
+    });
+    expect(matches[0].boxes).toHaveLength(2);
+  });
+
   it('matches phrases across Type3-style wide word spacing rows', () => {
     const spans: TextSpan[] = [
       { text: 'ab', x: 50, y: 60, width: 20, height: 10, fontSize: 10 },
