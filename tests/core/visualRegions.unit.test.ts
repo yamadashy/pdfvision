@@ -1894,6 +1894,73 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('merges abbreviated figure caption continuation lines before DOI metadata', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [{ x: 82, y: 62, width: 426, height: 336 }],
+      layout: {
+        blocks: [
+          {
+            text: [
+              'Fig. 2. Lifecycle and Key Dimensions of an AI System. Modified from OECD (2022) OECD',
+              'Framework for the Classification of AI systems -- OECD Digital Economy Papers. The two inner',
+              'circles show AI systems key dimensions and the outer circle shows AI lifecycle stages.',
+              'doi:10.6028/NIST.AI.100-1',
+            ].join('\n'),
+            x: 90,
+            y: 379.78,
+            width: 429.35,
+            height: 51.56,
+            lines: [
+              {
+                text: 'Fig. 2. Lifecycle and Key Dimensions of an AI System. Modified from OECD (2022) OECD',
+                x: 90,
+                y: 379.78,
+                width: 407.47,
+                height: 10.91,
+                fontSize: 10.91,
+              },
+              {
+                text: 'Framework for the Classification of AI systems -- OECD Digital Economy Papers. The two inner',
+                x: 90,
+                y: 393.33,
+                width: 429.35,
+                height: 10.91,
+                fontSize: 10.91,
+              },
+              {
+                text: 'circles show AI systems key dimensions and the outer circle shows AI lifecycle stages.',
+                x: 90,
+                y: 406.87,
+                width: 418.28,
+                height: 10.91,
+                fontSize: 10.91,
+              },
+              { text: 'doi:10.6028/NIST.AI.100-1', x: 90, y: 420.42, width: 160, height: 10.91, fontSize: 10.91 },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions[0].associatedText).toEqual([
+      {
+        text: [
+          'Fig. 2. Lifecycle and Key Dimensions of an AI System. Modified from OECD (2022) OECD',
+          'Framework for the Classification of AI systems -- OECD Digital Economy Papers. The two inner',
+          'circles show AI systems key dimensions and the outer circle shows AI lifecycle stages.',
+        ].join(' '),
+        relation: 'caption',
+        x: 90,
+        y: 379.78,
+        width: 429.35,
+        height: 38,
+        blockIndex: 0,
+      },
+    ]);
+  });
+
   it('attaches only the closest local caption to a visual region', () => {
     const regions = buildVisualRegions({
       pageWidth: 600,

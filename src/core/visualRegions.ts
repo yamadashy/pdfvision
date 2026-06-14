@@ -115,7 +115,8 @@ const CONTEXTUAL_DUPLICATE_AREA_RATIO = 0.85;
 const CONTEXTUAL_DUPLICATE_CONTAINED_OVERLAP_RATIO = 0.95;
 const MAX_ASSOCIATED_TEXT = 3;
 const CAPTION_SCORE_TOLERANCE_PT = 12;
-const CAPTION_CONTINUATION_MAX_LINES = 2;
+const TABLE_CAPTION_CONTINUATION_MAX_LINES = 2;
+const ABBREVIATED_FIGURE_CAPTION_CONTINUATION_MAX_LINES = 4;
 const CAPTION_CONTINUATION_MAX_CHARS = 240;
 const SHALLOW_TABLE_HINT_MAX_ROWS = 2;
 const SHALLOW_TABLE_HINT_MAX_HEIGHT_RATIO = 0.1;
@@ -947,8 +948,10 @@ function isGlobalCaptionText(text: string): boolean {
   return GLOBAL_CAPTION_PATTERN.test(text) && isCaptionText(text);
 }
 
-function allowsCaptionContinuation(text: string): boolean {
-  return /^\s*table\b/iu.test(text);
+function captionContinuationLineLimit(text: string): number {
+  if (/^\s*table\b/iu.test(text)) return TABLE_CAPTION_CONTINUATION_MAX_LINES;
+  if (/^\s*fig\.\s/iu.test(text)) return ABBREVIATED_FIGURE_CAPTION_CONTINUATION_MAX_LINES;
+  return 0;
 }
 
 function isCaptionContinuationText(captionText: string, text: string): boolean {
@@ -1017,11 +1020,8 @@ function captionTextsFromBlock(
 
     const textParts = [item.text];
     let captionBox: BoxLike = item.line;
-    for (
-      let j = i + 1;
-      allowsCaptionContinuation(item.text) && j < lines.length && j <= i + CAPTION_CONTINUATION_MAX_LINES;
-      j++
-    ) {
+    const continuationLimit = captionContinuationLineLimit(item.text);
+    for (let j = i + 1; continuationLimit > 0 && j < lines.length && j <= i + continuationLimit; j++) {
       const continuation = lines[j];
       if (!continuation) break;
       const captionText = normalizeAssociatedText(textParts.join(' '));
