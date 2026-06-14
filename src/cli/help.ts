@@ -44,8 +44,8 @@ Options
                           \`ﬁ\`) matters for downstream diff / forensics.
       --password <value>  Password for encrypted PDFs. The password is used only for pdf.js
                           decryption and is never emitted in output.
-      --password-stdin    Read the encrypted PDF password from piped stdin. Mutually exclusive
-                          with --password; strips one trailing newline.
+      --password-stdin    Read the encrypted PDF password from piped stdin, stripping one
+                          trailing newline. If stdin is empty, --password is used as fallback.
       --geometry          Emit per-text-item bbox + font size in \`pages[].spans\`.
                           Only takes effect with -f json / -f xml / -f toon.
       --layout            Reconstruct \`pages[].layout\` (lines, blocks, vertical CJK stacks,

@@ -21,9 +21,9 @@ function exitWithError(message: string): never {
   process.exit(1);
 }
 
-async function readPasswordFromStdin(stdin: RunOptions['stdin'] = process.stdin): Promise<string> {
+async function readPasswordFromStdin(stdin: RunOptions['stdin'] = process.stdin): Promise<string | undefined> {
   if (stdin?.isTTY) {
-    exitWithError('--password-stdin requires piped stdin');
+    return undefined;
   }
   const chunks: Buffer[] = [];
   for await (const chunk of stdin ?? []) {
@@ -267,10 +267,11 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
   const noCache = (values['no-cache'] as boolean | undefined) ?? false;
   const passwordFromArg = values.password as string | undefined;
   const passwordStdin = (values['password-stdin'] as boolean | undefined) ?? false;
-  if (passwordFromArg !== undefined && passwordStdin) {
-    exitWithError('--password and --password-stdin are mutually exclusive');
+  const passwordFromStdin = passwordStdin ? await readPasswordFromStdin(options.stdin) : undefined;
+  const password = passwordFromStdin && passwordFromStdin.length > 0 ? passwordFromStdin : passwordFromArg;
+  if (passwordStdin && password === undefined) {
+    exitWithError('--password-stdin requires piped stdin or --password fallback');
   }
-  const password = passwordStdin ? await readPasswordFromStdin(options.stdin) : passwordFromArg;
 
   let filePath: string;
   let sourceData: Uint8Array | undefined;

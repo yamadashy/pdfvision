@@ -149,12 +149,23 @@ describe('cli', () => {
     expect(out).not.toContain('secret');
   });
 
-  it('rejects --password with --password-stdin', async () => {
+  it('uses --password as an explicit fallback when --password-stdin is empty', async () => {
     const r = await captureRun([SAMPLE_PDF, '--json', '--password', 'secret', '--password-stdin'], {
-      stdin: stdinChunks('ignored\n'),
+      stdin: stdinChunks('\n'),
+    });
+    expect(r.exitCode).toBeNull();
+    const out = r.stdout.join('\n');
+    const parsed = JSON.parse(out);
+    expect(parsed.pages[0].text).toContain('Hello pdfvision');
+    expect(out).not.toContain('secret');
+  });
+
+  it('rejects --password-stdin when neither stdin nor fallback password is provided', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--json', '--password-stdin'], {
+      stdin: stdinChunks('\n'),
     });
     expect(r.exitCode).toBe(1);
-    expect(r.stderr.join('\n')).toMatch(/mutually exclusive/);
+    expect(r.stderr.join('\n')).toMatch(/requires piped stdin or --password fallback/);
   });
 
   it('passes --form-fields through to JSON output', async () => {
