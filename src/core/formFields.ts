@@ -220,6 +220,8 @@ interface LabelCandidate {
 const LABEL_MAX_CHARS = 220;
 const STACKED_LABEL_MAX_CHARS = 260;
 const SIDE_LABEL_MAX_GAP_PT = 80;
+const WIDE_ROW_HEADER_LABEL_MAX_GAP_PT = 340;
+const WIDE_ROW_HEADER_LABEL_GAP_WEIGHT = 0.12;
 const ABOVE_LABEL_MAX_GAP_PT = 42;
 const BELOW_LABEL_MAX_GAP_PT = 24;
 const MIN_HORIZONTAL_OVERLAP_RATIO = 0.18;
@@ -323,7 +325,9 @@ function sideLabelCandidate(
   const fieldRight = field.x + field.width;
   const lineRight = line.x + line.width;
   const gap = relation === 'right' ? line.x - fieldRight : field.x - lineRight;
-  if (gap < -2 || gap > SIDE_LABEL_MAX_GAP_PT) return undefined;
+  const wideRowHeader = relation === 'left' && isWideRowHeaderLabelText(text);
+  const maxGap = wideRowHeader ? WIDE_ROW_HEADER_LABEL_MAX_GAP_PT : SIDE_LABEL_MAX_GAP_PT;
+  if (gap < -2 || gap > maxGap) return undefined;
   const centerDelta = Math.abs(centerY(field) - centerY(line));
   const maxCenterDelta = Math.max(7, Math.max(field.height, line.height) * 0.9);
   if (centerDelta > maxCenterDelta) return undefined;
@@ -333,8 +337,12 @@ function sideLabelCandidate(
     gap <= SAME_LINE_TEXT_PROMPT_MAX_GAP_PT &&
     centerDelta <= Math.max(4, field.height * 0.35) &&
     (line.fontSize ?? SAME_LINE_TEXT_PROMPT_MAX_FONT_SIZE_PT) <= SAME_LINE_TEXT_PROMPT_MAX_FONT_SIZE_PT;
-  const scoreBase = sameLineTextPrompt ? Math.min(baseScore, 0) : baseScore;
-  const scoreGapWeight = sameLineTextPrompt ? Math.min(gapWeight, 0.45) : gapWeight;
+  const scoreBase = sameLineTextPrompt || wideRowHeader ? Math.min(baseScore, 0) : baseScore;
+  const scoreGapWeight = wideRowHeader
+    ? Math.min(gapWeight, WIDE_ROW_HEADER_LABEL_GAP_WEIGHT)
+    : sameLineTextPrompt
+      ? Math.min(gapWeight, 0.45)
+      : gapWeight;
 
   return {
     label: makeLabel(line, text, relation),
@@ -751,6 +759,12 @@ function isTrailingPromptFragment(text: string): boolean {
   if (normalized.length > 60) return false;
   return /^(?:code|number|classification|name|address|date|amount|total|identifier)(?:\s*\([^)]{1,40}\))?\.?$/iu.test(
     normalized,
+  );
+}
+
+function isWideRowHeaderLabelText(text: string): boolean {
+  return /^(?:Document Title(?:\s+\d+)?(?:\s+\(if any\))?|Issuing Authority|Document Number(?:\s+\(if any\))?|Expiration Date(?:\s+\(if any\))?)$/iu.test(
+    normalizePromptLabelText(text),
   );
 }
 

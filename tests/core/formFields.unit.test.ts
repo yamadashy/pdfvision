@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { buildFormFields } from '../../src/core/formFields.js';
 
+function rectFromTopLeft(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  pageHeight = 792,
+): [number, number, number, number] {
+  return [x, pageHeight - y - height, x + width, pageHeight - y];
+}
+
 describe('buildFormFields', () => {
   it('extracts widget fields with top-left coordinates and checkbox state', () => {
     const fields = buildFormFields(
@@ -456,6 +466,60 @@ describe('buildFormFields', () => {
 
     expect(fields[0].label?.text).toBe('Middle Initial');
     expect(fields[1].label?.text).toBe('Other Last Names Used');
+  });
+
+  it('uses distant same-row headers for wide document-list form grids', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'List B Document 1 Title',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(276.84, 432.27, 142.36, 17.32),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'List C Document Title 1',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(420.77, 432.55, 154.65, 17.04),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'List B Document Number 1',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(276.84, 468.14, 142.22, 17.04),
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        {
+          text: 'documentation from List A OR a combination of documentation from List B and List C. Enter any additional',
+          x: 168.4,
+          y: 402.18,
+          width: 378.85,
+          height: 8,
+          fontSize: 8,
+        },
+        { text: 'Document Title 1', x: 38, y: 436.22, width: 56.4, height: 7, fontSize: 7 },
+        { text: 'Document Number (if any)', x: 38, y: 472.03, width: 82.08, height: 7, fontSize: 7 },
+        { text: 'Additional Information', x: 267.03, y: 504.12, width: 85.34, height: 8, fontSize: 8 },
+      ],
+    );
+
+    expect(fields.find((field) => field.name === 'List B Document 1 Title')?.label).toEqual({
+      text: 'Document Title 1',
+      relation: 'left',
+      x: 38,
+      y: 436.22,
+      width: 56.4,
+      height: 7,
+    });
+    expect(fields.find((field) => field.name === 'List C Document Title 1')?.label?.text).toBe('Document Title 1');
+    expect(fields.find((field) => field.name === 'List B Document Number 1')?.label?.text).toBe(
+      'Document Number (if any)',
+    );
   });
 
   it('stops a checkbox label at the next checkbox on the same row', () => {
