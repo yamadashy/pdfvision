@@ -548,6 +548,30 @@ describe('buildFormFields', () => {
     });
   });
 
+  it('merges stacked prompt text above a trailing inline text-field label', () => {
+    const fields = buildFormFields(
+      [{ subtype: 'Widget', fieldName: 'fatcaCode', fieldType: 'Tx', rect: [500.6, 552, 576, 564] }],
+      792,
+      0,
+      0,
+      [
+        { text: 'Exemption from Foreign Account Tax', x: 457.6, y: 210.6, width: 116.68, height: 7, fontSize: 7 },
+        { text: 'Compliance Act (FATCA) reporting', x: 457.6, y: 219, width: 108.12, height: 7, fontSize: 7 },
+        { text: 'code (if any)', x: 458.05, y: 228, width: 37.98, height: 7, fontSize: 7 },
+        { text: 'Other (see instructions)', x: 86.4, y: 228, width: 76, height: 7, fontSize: 7 },
+      ],
+    );
+
+    expect(fields[0].label).toEqual({
+      text: 'Exemption from Foreign Account Tax Compliance Act (FATCA) reporting code (if any)',
+      relation: 'left',
+      x: 457.6,
+      y: 210.6,
+      width: 116.68,
+      height: 24.4,
+    });
+  });
+
   it('expands compact amount markers across same-line dot leaders', () => {
     const dotLeaders = Array.from({ length: 19 }, (_, index) => ({
       text: '.',

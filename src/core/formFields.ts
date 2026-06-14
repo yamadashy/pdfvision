@@ -261,6 +261,7 @@ function findFieldLabel(
   if (!best) return undefined;
   return (
     expandSameLineMarkerPromptLabel(field, best, lines) ??
+    expandLeftTrailingPromptStack(field, best, lines) ??
     expandSideLabelContinuation(field, best, lines) ??
     expandStackedLabel(field, best, lines)
   );
@@ -470,6 +471,48 @@ function expandSideLabelContinuation(
     width: round2(labelBox.width),
     height: round2(labelBox.height),
   };
+}
+
+function expandLeftTrailingPromptStack(
+  field: FormField,
+  candidate: LabelCandidate,
+  lines: readonly LabelLine[],
+): FormFieldLabel | undefined {
+  if (field.type !== 'text' || candidate.relation !== 'left') return undefined;
+  if (!isTrailingPromptFragment(candidate.text)) return undefined;
+
+  const stack = collectTrailingPromptStack(candidate.line, lines);
+  if (stack.length === 0) return undefined;
+
+  const promptLines = [...stack, { line: candidate.line, text: candidate.text }];
+  const text = normalizePromptLabelText(promptLines.map(({ text }) => text).join(' '));
+  if (!isUsableLabelText(text, STACKED_LABEL_MAX_CHARS) || text === candidate.text) return undefined;
+
+  const boxLines = promptLines.map(({ line }) => line).sort((a, b) => a.y - b.y || a.x - b.x);
+  const labelBox = boxLines.slice(1).reduce<BoxLike>((box, line) => unionBox(box, line), boxLines[0] ?? candidate.line);
+  return {
+    text,
+    relation: candidate.relation,
+    x: round2(labelBox.x),
+    y: round2(labelBox.y),
+    width: round2(labelBox.width),
+    height: round2(labelBox.height),
+  };
+}
+
+function collectTrailingPromptStack(
+  candidateLine: LabelLine,
+  lines: readonly LabelLine[],
+): { line: LabelLine; text: string }[] {
+  const stack: { line: LabelLine; text: string }[] = [];
+  let bounds: BoxLike = candidateLine;
+  while (stack.length < SAME_LINE_MARKER_PROMPT_MAX_STACK_LINES) {
+    const next = findPromptStackLine(bounds, lines, [candidateLine, ...stack.map((item) => item.line)]);
+    if (!next) return stack.sort((a, b) => a.line.y - b.line.y || a.line.x - b.line.x);
+    stack.push(next);
+    bounds = unionBox(next.line, bounds);
+  }
+  return stack.sort((a, b) => a.line.y - b.line.y || a.line.x - b.line.x);
 }
 
 function collectSideLabelContinuationLines(
@@ -701,6 +744,14 @@ function isCompactFieldMarker(text: string): boolean {
   const normalized = normalizePromptLabelText(text);
   if (normalized.length > 16) return false;
   return /^(?:\d+(?:\([a-z]\)|[a-z])?|\([a-z]\))\s*\$?$/iu.test(normalized);
+}
+
+function isTrailingPromptFragment(text: string): boolean {
+  const normalized = normalizePromptLabelText(text);
+  if (normalized.length > 60) return false;
+  return /^(?:code|number|classification|name|address|date|amount|total|identifier)(?:\s*\([^)]{1,40}\))?\.?$/iu.test(
+    normalized,
+  );
 }
 
 function startsWithPromptItemMarker(text: string): boolean {
