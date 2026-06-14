@@ -213,6 +213,34 @@ describe('buildLayout — heading classification', () => {
     expect(heading?.level).toBe(3);
   });
 
+  it('marks standalone decimal-numbered paper sections even when font size matches body', () => {
+    const bodyLines: TextSpan[] = [];
+    for (let i = 0; i < 10; i++) {
+      bodyLines.push(
+        span('The paragraph text uses the same font size as the numbered section heading.', 108, 520 + i * 11, 9.96),
+      );
+    }
+    const spans: TextSpan[] = [
+      span(
+        'The Transformer follows this overall architecture using stacked self-attention and point-wise, fully',
+        108,
+        434,
+        9.96,
+        398,
+      ),
+      span('connected layers for both the encoder and decoder, shown in Figure 1.', 108, 445, 9.96, 360),
+      span('3.1 Encoder and Decoder Stacks', 108, 480.68, 9.96, 145.01),
+      ...bodyLines,
+    ];
+
+    const layout = buildLayout(spans, 612);
+    const heading = layout.blocks.find((block) => block.text.includes('3.1 Encoder'));
+
+    expect(heading?.role).toBe('heading');
+    expect(heading?.level).toBe(2);
+    expect(heading?.roleConfidence).toBeGreaterThanOrEqual(0.65);
+  });
+
   it('does NOT flag a 1.10× line at level 3 when surrounded by same-fontSize body', () => {
     // The candidate sits at 1.10× the body median (11 vs 10) — the borderline
     // ratio level 3 is supposed to handle. We pin the y-neighbours at the

@@ -519,6 +519,10 @@ function isNumberedHeadingText(text: string): boolean {
   return /^\s*\d+(?:\.\d+)*\.?\s+\S/u.test(text);
 }
 
+function isDecimalSectionHeadingText(text: string): boolean {
+  return /^\s*\d+(?:\.\d+)+\.?\s+\S/u.test(text.trim());
+}
+
 function isTallNarrowSideLabel(block: LayoutBlock, lineCount: number): boolean {
   if (lineCount !== 1 || block.writingMode === 'vertical') return false;
   if (block.width > TALL_SIDE_LABEL_MAX_WIDTH_PT || block.height < TALL_SIDE_LABEL_MIN_HEIGHT_PT) return false;
@@ -745,7 +749,8 @@ function classifyHeadings(blocks: LayoutBlock[], pageWidth = 0): void {
     const topTitle = isTopTitleCandidate(b, ratio, lineCount, nonWsChars) && !likelyBodySentenceFragment;
     const topSlideTitle = isTopSlideTitleCandidate(b, repFont, lineCount, nonWsChars);
     const topCenteredAllCapsTitle = isTopCenteredAllCapsTitleCandidate(b, pageWidth, lineCount, nonWsChars);
-    if (ratio < 1.08 && !topSlideTitle && !topCenteredAllCapsTitle) continue;
+    const decimalSectionHeading = isDecimalSectionHeadingText(b.text);
+    if (ratio < 1.08 && !topSlideTitle && !topCenteredAllCapsTitle && !decimalSectionHeading) continue;
     if (isTallNarrowSideLabel(b, lineCount)) continue;
     if (isCompactDiagramLabelText(b.text, nonWsChars, ratio)) continue;
 
@@ -786,7 +791,16 @@ function classifyHeadings(blocks: LayoutBlock[], pageWidth = 0): void {
     const locallyLarger = neighbours.every((n) => repFont > (dominantFs.get(n) ?? bodyFontSize));
 
     const singleLine = lineCount === 1;
-    if (ratio >= 1.4 || topSlideTitle || topCenteredAllCapsTitle) {
+    if (decimalSectionHeading && ratio < 1.08) {
+      if (!hasCredibleBody) continue;
+      if (!isShort) continue;
+      if (!singleLine) continue;
+      if (!standalone) continue;
+      if (likelyBodySentenceFragment) continue;
+      b.role = 'heading';
+      b.level = 2;
+      b.roleConfidence = Math.max(0.65, computeRoleConfidence(1.15, isShort, standalone, locallyLarger, singleLine));
+    } else if (ratio >= 1.4 || topSlideTitle || topCenteredAllCapsTitle) {
       // Level 1: titles. Always classify, even on poster/slide pages with
       // no body text — losing the title hurts more than a rare false
       // positive on a page that's nothing but a single big word.
