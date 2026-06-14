@@ -4,7 +4,7 @@ Reference for `-f json`, `-f xml`, and `-f toon` consumers. Read this when an ag
 
 The shape of `-f json` is the `DocumentResult` interface exported by the `pdfvision` package. `-f xml` carries the same data as `<document>` / `<page>` / nested tags, and `-f toon` carries it as [Token-Oriented Object Notation](https://toonformat.dev). All three are isomorphic to the same `DocumentResult` — pick whichever is easier for the consumer to parse (`toon` is the most token-frugal on span/array-heavy output; see "TOON output shape" below).
 
-Encrypted PDFs require `--password <value>` or `processDocument(..., { password })` when pdf.js asks for a document password. The password is used only for decryption and is never emitted in JSON/XML/TOON/Markdown.
+Encrypted PDFs require `--password <value>`, `--password-stdin`, or `processDocument(..., { password })` when pdf.js asks for a document password. The password is used only for decryption and is never emitted in JSON/XML/TOON/Markdown. Prefer `--password-stdin` for CLI workflows where argv or shell history exposure matters.
 
 ## DocumentResult (top level)
 

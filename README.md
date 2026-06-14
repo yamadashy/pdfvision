@@ -49,7 +49,7 @@ Every page reports `charCount`, `imageCount`, `vectorCount`, `textCoverage`, and
 - **`--viewer`** exposes viewer-level document settings such as initial page mode/layout, viewer preferences, open action, document/page JavaScript actions, permissions, and tagged-PDF MarkInfo.
 - **`--layers`** emits PDF optional content groups shown by viewer layer panels, including layer names, visibility, usage states, radio groups, and panel order for maps, CAD/design files, and variants.
 - **`--geometry`** emits per-text-item `bbox` + `fontSize` so callers can reconstruct visual hierarchy themselves.
-- **`--password`** opens encrypted PDFs when the caller knows the document password; the password is used for decryption and is never included in output.
+- **`--password` / `--password-stdin`** opens encrypted PDFs when the caller knows the document password; the password is used for decryption and is never included in output. Use `--password-stdin` to keep the password out of argv and shell history.
 
 Every page always includes `vectorCount` — the number of non-text vector drawing operations such as rules, form boxes, chart paths, and slide shapes.
 
@@ -128,6 +128,7 @@ Options:
       --render-visual-regions
                           Render visual region crops to PNG and attach paths
       --password <value>  Password for encrypted PDFs; never emitted in output
+      --password-stdin    Read the encrypted PDF password from piped stdin
       --form-fields       Emit interactive PDF widget fields, flags, actions, export values, choice options, and labels in pages[].formFields
       --links             Emit clickable link annotations in pages[].links with bboxes and resolved destination pages
       --annotations       Emit non-link PDF annotations, flags, attachments, and shape geometry in pages[].annotations
@@ -187,6 +188,7 @@ pdfvision document.pdf -f toon --geometry
 
 # Open an encrypted PDF when you know the document password
 pdfvision encrypted.pdf --password "secret" -f json
+printf "secret\n" | pdfvision encrypted.pdf --password-stdin -f json
 
 # OCR a scanned PDF (multi-language)
 pdfvision scan.pdf --ocr --ocr-lang eng+jpn -f json
