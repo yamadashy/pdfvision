@@ -256,6 +256,34 @@ describe('buildLayout — heading classification', () => {
     expect(icon?.roleConfidence).toBeUndefined();
   });
 
+  it('keeps long rotated text spans as separate layout lines', () => {
+    const spans: TextSpan[] = [
+      {
+        text: 'This is my second page. It will have a landscape layout.',
+        x: 89.04,
+        y: 449.12,
+        width: 12,
+        height: 270.88,
+        fontSize: 12,
+      },
+      {
+        text: 'Second line here.',
+        x: 102.84,
+        y: 636.96,
+        width: 12,
+        height: 83.04,
+        fontSize: 12,
+      },
+    ];
+
+    const layout = buildLayout(spans, 612, 792);
+
+    expect(layout.blocks.map((block) => block.text)).toEqual([
+      'This is my second page. It will have a landscape layout.',
+      'Second line here.',
+    ]);
+  });
+
   it('does not classify digit-only page labels as headings', () => {
     const spans: TextSpan[] = [
       span('Software tools', 56, 21, 10.5, 62),

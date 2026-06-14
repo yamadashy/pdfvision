@@ -387,6 +387,7 @@ function canShareTextLine(a: TextSpan, b: TextSpan): boolean {
   if (hasVerticalTextShape(a) || hasVerticalTextShape(b)) {
     const minHeight = Math.max(Math.min(a.height, b.height), 1);
     if (Math.abs(a.y - b.y) < minHeight * LINE_TOP_ALIGNMENT_RATIO) return true;
+    if (isLongNonCjkVerticalShapeSpan(a) && isLongNonCjkVerticalShapeSpan(b)) return false;
     if (!hasCloseHorizontalLineGap(a, b)) return false;
     const overlap = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
     return overlap >= minHeight * LINE_VERTICAL_OVERLAP_RATIO;
@@ -401,6 +402,11 @@ function canShareTextLine(a: TextSpan, b: TextSpan): boolean {
   if (!hasCloseHorizontalLineGap(a, b)) return false;
   const overlap = Math.min(a.y + aHeight, b.y + bHeight) - Math.max(a.y, b.y);
   return overlap >= minHeight * LINE_VERTICAL_OVERLAP_RATIO;
+}
+
+function isLongNonCjkVerticalShapeSpan(span: TextSpan): boolean {
+  const trimmed = span.text.trim();
+  return trimmed.length > 8 && !isCjkLeading(trimmed) && hasVerticalTextShape(span);
 }
 
 function hasTinyLineFontMismatch(a: TextSpan, b: TextSpan): boolean {
