@@ -119,10 +119,10 @@ const SHALLOW_TABLE_HINT_MAX_ROWS = 2;
 const SHALLOW_TABLE_HINT_MAX_HEIGHT_RATIO = 0.1;
 const SHALLOW_TABLE_HINT_MIN_WIDTH_RATIO = 0.65;
 const OCR_FRAGMENT_TABLE_HINT_MIN_COLUMNS = 20;
-const CAPTION_NUMBER_PATTERN =
-  '[\\p{L}\\p{N}０-９一二三四五六七八九十ivxlcdm]+(?:[.-][\\p{L}\\p{N}０-９一二三四五六七八九十ivxlcdm]+)*\\.?';
+const CAPTION_IDENTIFIER_ATOM = '[A-Za-z\\p{N}０-９一二三四五六七八九十]+';
+const CAPTION_NUMBER_PATTERN = `${CAPTION_IDENTIFIER_ATOM}(?:(?:[.-]${CAPTION_IDENTIFIER_ATOM})|(?:-?\\(${CAPTION_IDENTIFIER_ATOM}\\)))*\\.?`;
 const CAPTION_PATTERN = new RegExp(
-  `^\\s*(?:fig(?:ure)?\\.?|table|plate|図表|図|表)\\s*(${CAPTION_NUMBER_PATTERN})(?=\\s|[:：．、-]|$)`,
+  `^\\s*(?:fig(?:ure)?\\.?|table|plate|図表|図|表)\\s*(${CAPTION_NUMBER_PATTERN})(?=\\s|[:：．、]|$)`,
   'iu',
 );
 const CAPTION_DIGIT_OR_CJK_NUMBER_PATTERN = /[0-9０-９一二三四五六七八九十]/u;

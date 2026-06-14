@@ -1886,6 +1886,81 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('does not treat Japanese prose glued to figure numbers as captions', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 400,
+      pageHeight: 400,
+      imageBoxes: [{ x: 80, y: 120, width: 220, height: 110 }],
+      layout: {
+        blocks: [
+          {
+            text: '図表 1-1-6ている。母子世帯の悩みの内訳',
+            x: 90,
+            y: 92,
+            width: 220,
+            height: 12,
+            lines: [
+              {
+                text: '図表 1-1-6ている。母子世帯の悩みの内訳',
+                x: 90,
+                y: 92,
+                width: 220,
+                height: 12,
+                fontSize: 10,
+              },
+            ],
+          },
+          {
+            text: '表24-(1)-1悩みの内容について',
+            x: 90,
+            y: 106,
+            width: 150,
+            height: 12,
+            lines: [
+              {
+                text: '表24-(1)-1悩みの内容について',
+                x: 90,
+                y: 106,
+                width: 150,
+                height: 12,
+                fontSize: 10,
+              },
+            ],
+          },
+          {
+            text: '表24-(1)-1 母子世帯の母が抱える子どもについての悩みの内訳',
+            x: 90,
+            y: 236,
+            width: 250,
+            height: 12,
+            lines: [
+              {
+                text: '表24-(1)-1 母子世帯の母が抱える子どもについての悩みの内訳',
+                x: 90,
+                y: 236,
+                width: 250,
+                height: 12,
+                fontSize: 10,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions[0].associatedText).toEqual([
+      {
+        text: '表24-(1)-1 母子世帯の母が抱える子どもについての悩みの内訳',
+        relation: 'caption',
+        x: 90,
+        y: 236,
+        width: 250,
+        height: 12,
+        blockIndex: 2,
+      },
+    ]);
+  });
+
   it('ignores bare or tiny figure references inside a visual region while keeping the real caption', () => {
     const regions = buildVisualRegions({
       pageWidth: 600,
