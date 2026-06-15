@@ -126,9 +126,11 @@ Options
                           (each match carries the source query). Literal substring
                           by default; case-insensitive; NFKC-aware (matches
                           compatibility codepoints like \`ﬁ\` (U+FB01 ligature) for
-                          \`fi\`). Also searches OCR text when --ocr is on
-                          (marked source:'ocr'); duplicate OCR hits already
-                          covered by native matches are suppressed.
+                          \`fi\`). Also searches text/choice form field values
+                          (marked source:'formField') and OCR text when --ocr
+                          is on (marked source:'ocr'); duplicate OCR hits
+                          already covered by native/form-field matches are
+                          suppressed.
       --search-regex      Treat each --search query as a JavaScript regular expression
                           (default: literal substring).
       --search-case-sensitive

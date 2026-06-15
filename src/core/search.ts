@@ -1,4 +1,4 @@
-import type { OcrWord, PageOcr, SearchMatch, TextSpan } from '../types/index.js';
+import type { FormField, OcrWord, PageOcr, SearchMatch, TextSpan } from '../types/index.js';
 import { CJK_TIGHT_GAP_RATIO, isCjkLeading } from './cjkJoin.js';
 import { isLikelyCjkDisplaySpacingRow, isLikelyWideWordSpacingRow, shouldInsertSemanticSpace } from './spacing.js';
 import { isRtlDominantPositionedText, textOrder } from './textDirection.js';
@@ -193,13 +193,13 @@ function duplicateKeyForMatch(compiled: CompiledSearch, match: SearchMatch): str
   return duplicateKey(match.queryIndex, match.query, match.text, matcher?.regex.ignoreCase ?? false);
 }
 
-function nativeDuplicateBudget(
-  nativeMatches: readonly SearchMatch[] | undefined,
+function preciseDuplicateBudget(
+  preciseMatches: readonly SearchMatch[] | undefined,
   compiled: CompiledSearch,
 ): Map<string, number> {
   const budget = new Map<string, number>();
-  for (const match of nativeMatches ?? []) {
-    if (match.source !== 'native') continue;
+  for (const match of preciseMatches ?? []) {
+    if (match.source === 'ocr') continue;
     const key = duplicateKeyForMatch(compiled, match);
     budget.set(key, (budget.get(key) ?? 0) + 1);
   }
@@ -211,7 +211,7 @@ export function suppressDuplicateOcrMatches(
   ocrMatches: readonly SearchMatch[],
   compiled: CompiledSearch,
 ): SearchMatch[] {
-  const budget = nativeDuplicateBudget(nativeMatches, compiled);
+  const budget = preciseDuplicateBudget(nativeMatches, compiled);
   const out: SearchMatch[] = [];
   for (const match of ocrMatches) {
     if (match.source !== 'ocr') {
@@ -604,6 +604,11 @@ function isVerticalSearchOwner(span: SearchOwner): boolean {
  * raw `pages[].ocr.text` with a page-level bbox when word-level
  * reconstruction misses one or more occurrences. Marked `source: 'ocr'`
  * so the consumer can tell them apart from native text-stream matches.
+ *
+ * Form field value matches are included when the processor supplies
+ * form fields. They use the widget bbox and are marked
+ * `source: 'formField'` because widget appearance text is not always
+ * part of the native text stream.
  */
 export function searchPage(
   spans: readonly TextSpan[] | undefined,
@@ -613,6 +618,7 @@ export function searchPage(
   pageHeight: number,
   compiled: CompiledSearch,
   onWarning?: (message: string) => void,
+  formFields?: readonly FormField[],
 ): SearchMatch[] {
   const matches: SearchMatch[] = [];
 
@@ -679,6 +685,8 @@ export function searchPage(
       }
     }
   }
+
+  appendFormFieldMatches(matches, formFields, pageNum, compiled, onWarning);
 
   // OCR pass — prefer word-level OCR geometry when available, then
   // supplement from the post-trim OCR text with a page-level bbox for
@@ -756,4 +764,74 @@ export function searchPage(
 
   matches.push(...suppressDuplicateOcrMatches(matches, ocrMatches, compiled));
   return matches;
+}
+
+function appendFormFieldMatches(
+  matches: SearchMatch[],
+  formFields: readonly FormField[] | undefined,
+  pageNum: number,
+  compiled: CompiledSearch,
+  onWarning?: (message: string) => void,
+): void {
+  if (!formFields || formFields.length === 0) return;
+  const duplicateBudget = preciseDuplicateBudget(matches, compiled);
+  const formFieldCount = new Map<number, number>();
+  const formFieldCapped = new Set<number>();
+  for (const field of formFields) {
+    if (field.type !== 'text' && field.type !== 'choice') continue;
+    if (!field.value) continue;
+    const haystack = compiled.normalize ? nfkc(field.value) : field.value;
+    if (haystack.length === 0) continue;
+    for (let mi = 0; mi < compiled.matchers.length; mi++) {
+      if (formFieldCapped.has(mi)) continue;
+      const m = compiled.matchers[mi];
+      m.regex.lastIndex = 0;
+      while (true) {
+        const hit = m.regex.exec(haystack);
+        if (hit === null) break;
+        if (hit[0].length === 0) {
+          m.regex.lastIndex++;
+          continue;
+        }
+        const hitKey = duplicateKey(m.queryIndex, m.query, hit[0], m.regex.ignoreCase);
+        const remainingDuplicates = duplicateBudget.get(hitKey) ?? 0;
+        if (remainingDuplicates > 0) {
+          duplicateBudget.set(hitKey, remainingDuplicates - 1);
+          continue;
+        }
+        const box = {
+          x: round2(field.x),
+          y: round2(field.y),
+          width: round2(field.width),
+          height: round2(field.height),
+        };
+        const context = formFieldMatchContext(field, haystack);
+        matches.push({
+          page: pageNum,
+          query: m.query,
+          ...(m.queryIndex !== undefined && { queryIndex: m.queryIndex }),
+          bbox: box,
+          boxes: [box],
+          text: hit[0],
+          source: 'formField',
+          context,
+        });
+        const next = (formFieldCount.get(mi) ?? 0) + 1;
+        formFieldCount.set(mi, next);
+        if (next >= MAX_MATCHES_PER_QUERY_PER_PAGE) {
+          formFieldCapped.add(mi);
+          onWarning?.(
+            `search query ${JSON.stringify(m.query)} hit the per-page form-field match cap of ${MAX_MATCHES_PER_QUERY_PER_PAGE} on page ${pageNum}; subsequent form-field matches for this query on this page were dropped.`,
+          );
+          break;
+        }
+      }
+    }
+    if (formFieldCapped.size === compiled.matchers.length) break;
+  }
+}
+
+function formFieldMatchContext(field: FormField, value: string): string {
+  const text = field.label?.text ? `${field.label.text}: ${value}` : value;
+  return text.replace(/\s+/g, ' ').trim().slice(0, 160);
 }

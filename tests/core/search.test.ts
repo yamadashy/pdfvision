@@ -2,7 +2,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { processDocument } from '../../src/core/processor.js';
 import { compileSearch, searchPage } from '../../src/core/search.js';
-import type { TextSpan } from '../../src/types/index.js';
+import type { FormField, TextSpan } from '../../src/types/index.js';
 
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
 const SAMPLE_JA_PDF = resolve(__dirname, '../fixtures/sample-ja.pdf');
@@ -186,6 +186,54 @@ describe('processDocument search', () => {
     if (!singleSpanCompiled) throw new Error('expected compiled search');
     const singleSpanMatches = searchPage(spans, undefined, 1, 595, 842, singleSpanCompiled);
     expect(singleSpanMatches).toHaveLength(1);
+  });
+
+  it('matches visible text form field values with widget bboxes', () => {
+    const fields: FormField[] = [
+      {
+        name: 'Text1',
+        type: 'text',
+        value: 'abcdefghijklmnopqrstuvwxyz',
+        x: 145.98,
+        y: 200.84,
+        width: 445.48,
+        height: 19.84,
+        label: {
+          text: 'Single line, combs',
+          relation: 'left',
+          x: 10,
+          y: 200.84,
+          width: 100,
+          height: 10,
+        },
+      },
+      {
+        name: 'Check1',
+        type: 'checkbox',
+        value: 'Off',
+        checked: false,
+        x: 20,
+        y: 20,
+        width: 12,
+        height: 12,
+      },
+    ];
+    const compiled = compileSearch(['abcdefghijklmnopqrstuvwxyz', 'Off'], {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage([], undefined, 1, 612, 792, compiled, undefined, fields);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      query: 'abcdefghijklmnopqrstuvwxyz',
+      queryIndex: 0,
+      text: 'abcdefghijklmnopqrstuvwxyz',
+      source: 'formField',
+      page: 1,
+      bbox: { x: 145.98, y: 200.84, width: 445.48, height: 19.84 },
+      boxes: [{ x: 145.98, y: 200.84, width: 445.48, height: 19.84 }],
+      context: 'Single line, combs: abcdefghijklmnopqrstuvwxyz',
+    });
   });
 
   it('matches Latin phrases across tight sentence-punctuation gaps', () => {

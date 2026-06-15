@@ -295,7 +295,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v110',
+    format: 'structured-v111',
     passwordHash:
       input.password !== undefined ? createHash('sha256').update(input.password).digest('hex').slice(0, 16) : null,
     render: !!input.render,
@@ -430,6 +430,7 @@ interface PageData {
   _visualRegionInput?: BuildVisualRegionsInput;
   hasVisibleAnnotationAppearance?: boolean;
   formFields?: FormField[];
+  _internalFormFields?: FormField[];
   links?: PageLink[];
   annotations?: PageAnnotation[];
   structure?: PageStructureNode | null;
@@ -453,6 +454,9 @@ interface PageFlags {
    *  was requested. Search needs them for per-match bbox; the public
    *  `pages[].spans` payload still requires `geometry`. */
   needSpansForSearch: boolean;
+  /** Build form fields internally so search can find visible widget
+   *  values without forcing pages[].formFields into the public payload. */
+  needFormFieldsForSearch: boolean;
 }
 
 /**
@@ -490,7 +494,8 @@ async function extractPageData(
     flags.visualRegions ||
     flags.formFields ||
     flags.links ||
-    flags.needSpansForSearch;
+    flags.needSpansForSearch ||
+    flags.needFormFieldsForSearch;
 
   // Collect typed items for the CJK-aware page-text joiner. We can't
   // build the final string in this loop because the join decision for
@@ -593,22 +598,27 @@ async function extractPageData(
   // Build layout internally for form-field labels and visual-region table
   // hints, but only expose pages[].layout when --layout is explicitly on.
   const internalLayout =
-    flags.layout || flags.visualRegions || flags.formFields || flags.links
+    flags.layout || flags.visualRegions || flags.formFields || flags.links || flags.needFormFieldsForSearch
       ? buildLayout(spans, round2(width), round2(height))
       : undefined;
   const layout = flags.layout ? internalLayout : undefined;
   const needsAnnotations =
-    flags.formFields || flags.links || flags.annotations || flags.visualRegions || flags.annotationAppearanceHints;
+    flags.formFields ||
+    flags.links ||
+    flags.annotations ||
+    flags.visualRegions ||
+    flags.annotationAppearanceHints ||
+    flags.needFormFieldsForSearch;
   const annotations = needsAnnotations ? await page.getAnnotations({ intent: 'display' }) : undefined;
   const visibleAnnotationAppearance = annotations ? hasVisibleAnnotationAppearance(annotations) : false;
   const allFormFields =
-    flags.formFields || flags.visualRegions
+    flags.formFields || flags.visualRegions || flags.needFormFieldsForSearch
       ? buildFormFields(
           annotations ?? [],
           height,
           xMin,
           yMin,
-          flags.formFields || flags.visualRegions
+          flags.formFields || flags.visualRegions || flags.needFormFieldsForSearch
             ? [
                 ...(internalLayout?.blocks.flatMap((block) =>
                   (block.lines.length > 0 ? block.lines : [block]).map((item) => ({
@@ -633,6 +643,7 @@ async function extractPageData(
         )
       : undefined;
   const formFields = flags.formFields ? allFormFields : undefined;
+  const internalFormFields = flags.needFormFieldsForSearch ? allFormFields : undefined;
   const links = flags.links
     ? await buildLinks(annotations ?? [], height, xMin, yMin, {
         resolveDestinationPage: (target) => resolveDestinationPage(doc, target),
@@ -730,6 +741,7 @@ async function extractPageData(
     ...(visualRegionInput !== undefined && { _visualRegionInput: visualRegionInput }),
     ...(visibleAnnotationAppearance && { hasVisibleAnnotationAppearance: true }),
     ...(formFields !== undefined && { formFields }),
+    ...(internalFormFields !== undefined && { _internalFormFields: internalFormFields }),
     ...(links !== undefined && { links }),
     ...(pageAnnotations !== undefined && { annotations: pageAnnotations }),
     ...(structure !== undefined && { structure }),
@@ -1163,6 +1175,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       // build spans internally even if the caller didn't ask for the
       // full `pages[].spans` payload via --geometry.
       needSpansForSearch: compiledSearch !== undefined,
+      needFormFieldsForSearch: compiledSearch !== undefined,
     };
     const ocrEnabled = !!options.ocr;
     const ocrLang = options.ocrLang ?? 'eng';
@@ -1254,6 +1267,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
           data.height,
           compiledSearch,
           options.onWarning,
+          data._internalFormFields,
         );
         page.matches = nativeMatches;
       }
