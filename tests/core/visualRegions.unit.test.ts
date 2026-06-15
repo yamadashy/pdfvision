@@ -487,6 +487,72 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('keeps separate raster panels instead of a broad vector backplane crop', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 900,
+      pageHeight: 900,
+      imageBoxes: [
+        { x: 40, y: 40, width: 300, height: 300 },
+        { x: 450, y: 40, width: 300, height: 300 },
+        { x: 40, y: 450, width: 300, height: 300 },
+        { x: 450, y: 450, width: 300, height: 300 },
+      ],
+      vectorBoxes: Array.from({ length: 40 }, (_, index) => ({
+        x: 20,
+        y: 20 + index * 20,
+        width: 760,
+        height: 0.5,
+      })),
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'raster',
+        x: 32,
+        y: 32,
+        width: 316,
+        height: 316,
+        areaRatio: 0.123,
+        sourceCount: 1,
+        sources: [{ type: 'imageBox', index: 0 }],
+        reason: 'raster image covers 11.1% of the page',
+      },
+      {
+        kind: 'raster',
+        x: 442,
+        y: 32,
+        width: 316,
+        height: 316,
+        areaRatio: 0.123,
+        sourceCount: 1,
+        sources: [{ type: 'imageBox', index: 1 }],
+        reason: 'raster image covers 11.1% of the page',
+      },
+      {
+        kind: 'raster',
+        x: 32,
+        y: 442,
+        width: 316,
+        height: 316,
+        areaRatio: 0.123,
+        sourceCount: 1,
+        sources: [{ type: 'imageBox', index: 2 }],
+        reason: 'raster image covers 11.1% of the page',
+      },
+      {
+        kind: 'raster',
+        x: 442,
+        y: 442,
+        width: 316,
+        height: 316,
+        areaRatio: 0.123,
+        sourceCount: 1,
+        sources: [{ type: 'imageBox', index: 3 }],
+        reason: 'raster image covers 11.1% of the page',
+      },
+    ]);
+  });
+
   it('does not let slide header and footer bands swallow dense vector diagrams', () => {
     const vectorBoxes = [
       { x: 0, y: 0, width: 400, height: 40 },

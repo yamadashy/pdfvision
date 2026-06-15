@@ -74,6 +74,8 @@ const FORM_TALL_CLUSTER_HEIGHT_RATIO = 0.2;
 const FORM_BACKPLANE_AREA_RATIO = 0.3;
 const FORM_BACKPLANE_SINGLE_FORM_AREA_RATIO = 0.5;
 const FORM_BACKPLANE_MIN_FORM_OVERLAPS = 2;
+const VECTOR_BACKPLANE_MIN_RASTER_OVERLAPS = 2;
+const VECTOR_BACKPLANE_MIN_AREA_RATIO = 0.25;
 const BACKGROUND_BOX_AREA_RATIO = 0.9;
 const BACKGROUND_BOX_SPAN_RATIO = 0.95;
 const PAGE_EDGE_CHROME_SPAN_RATIO = 0.8;
@@ -911,6 +913,28 @@ function suppressFormBackplaneCandidates(candidates: Candidate[], totalArea: num
   });
 }
 
+function suppressBroadVectorBackplaneCandidates(candidates: Candidate[], totalArea: number): Candidate[] {
+  const rasterCandidates = candidates.filter(isStandaloneRasterCandidate);
+  if (rasterCandidates.length < VECTOR_BACKPLANE_MIN_RASTER_OVERLAPS) return candidates;
+
+  return candidates.filter((candidate) => {
+    if (!isStandaloneVectorCandidate(candidate)) return true;
+    if (areaRatio(candidate, totalArea) < VECTOR_BACKPLANE_MIN_AREA_RATIO) return true;
+    const overlappingRasters = rasterCandidates.filter(
+      (raster) => overlapOfSmaller(raster, candidate) >= CONTEXTUAL_DUPLICATE_CONTAINED_OVERLAP_RATIO,
+    );
+    return overlappingRasters.length < VECTOR_BACKPLANE_MIN_RASTER_OVERLAPS;
+  });
+}
+
+function isStandaloneRasterCandidate(candidate: Candidate): boolean {
+  return candidate.kind === 'raster' && candidate.sources.every((source) => source.type === 'imageBox');
+}
+
+function isStandaloneVectorCandidate(candidate: Candidate): boolean {
+  return candidate.kind === 'vector' && candidate.sources.every((source) => source.type === 'vectorBox');
+}
+
 function associatedTextKey(text: VisualRegionAssociatedText): string {
   return `${text.relation}:${text.x}:${text.y}:${text.width}:${text.height}:${text.text}`;
 }
@@ -1692,8 +1716,9 @@ export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion
     input.pageWidth,
     input.pageHeight,
   );
+  const rasterPanelAwareCandidates = suppressBroadVectorBackplaneCandidates(foregroundCandidates, totalArea);
   const deduped = suppressBackgroundLikeCandidates(
-    dedupeCandidates(foregroundCandidates),
+    dedupeCandidates(rasterPanelAwareCandidates),
     input.pageWidth,
     input.pageHeight,
   );
