@@ -295,7 +295,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v111',
+    format: 'structured-v112',
     passwordHash:
       input.password !== undefined ? createHash('sha256').update(input.password).digest('hex').slice(0, 16) : null,
     render: !!input.render,
@@ -433,6 +433,7 @@ interface PageData {
   _internalFormFields?: FormField[];
   links?: PageLink[];
   annotations?: PageAnnotation[];
+  _internalAnnotations?: PageAnnotation[];
   structure?: PageStructureNode | null;
   jsActions?: Record<string, string[]>;
 }
@@ -457,6 +458,9 @@ interface PageFlags {
   /** Build form fields internally so search can find visible widget
    *  values without forcing pages[].formFields into the public payload. */
   needFormFieldsForSearch: boolean;
+  /** Build annotations internally so search can find visible FreeText
+   *  annotations without forcing pages[].annotations into the payload. */
+  needAnnotationsForSearch: boolean;
 }
 
 /**
@@ -608,6 +612,7 @@ async function extractPageData(
     flags.annotations ||
     flags.visualRegions ||
     flags.annotationAppearanceHints ||
+    flags.needAnnotationsForSearch ||
     flags.needFormFieldsForSearch;
   const annotations = needsAnnotations ? await page.getAnnotations({ intent: 'display' }) : undefined;
   const visibleAnnotationAppearance = annotations ? hasVisibleAnnotationAppearance(annotations) : false;
@@ -660,12 +665,13 @@ async function extractPageData(
       })
     : undefined;
   const allPageAnnotations =
-    flags.annotations || flags.visualRegions
+    flags.annotations || flags.visualRegions || flags.needAnnotationsForSearch
       ? buildAnnotations(annotations ?? [], height, xMin, yMin, {
           normalizeText: flags.normalize ? normalizeText : undefined,
         })
       : undefined;
   const pageAnnotations = flags.annotations ? allPageAnnotations : undefined;
+  const internalAnnotations = flags.needAnnotationsForSearch ? allPageAnnotations : undefined;
   const structure = flags.structure
     ? buildPageStructure(await page.getStructTree(), {
         normalizeText: flags.normalize ? normalizeText : undefined,
@@ -744,6 +750,7 @@ async function extractPageData(
     ...(internalFormFields !== undefined && { _internalFormFields: internalFormFields }),
     ...(links !== undefined && { links }),
     ...(pageAnnotations !== undefined && { annotations: pageAnnotations }),
+    ...(internalAnnotations !== undefined && { _internalAnnotations: internalAnnotations }),
     ...(structure !== undefined && { structure }),
     ...(jsActions !== undefined && { jsActions }),
   };
@@ -1176,6 +1183,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       // full `pages[].spans` payload via --geometry.
       needSpansForSearch: compiledSearch !== undefined,
       needFormFieldsForSearch: compiledSearch !== undefined,
+      needAnnotationsForSearch: compiledSearch !== undefined,
     };
     const ocrEnabled = !!options.ocr;
     const ocrLang = options.ocrLang ?? 'eng';
@@ -1268,6 +1276,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
           compiledSearch,
           options.onWarning,
           data._internalFormFields,
+          data._internalAnnotations,
         );
         page.matches = nativeMatches;
       }

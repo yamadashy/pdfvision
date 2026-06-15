@@ -559,10 +559,10 @@ interface SearchMatch {
   page: number;                // 1-based, mirrors PageResult.page
   query: string;               // verbatim source query
   queryIndex?: number;         // 0-based into the search array; omitted for single-query calls
-  bbox: { x, y, width, height }; // union bbox of contributing spans/words/widget; feed into --render-region
-  boxes: { x, y, width, height }[]; // per-span/word/widget bboxes; phrase matches across spans carry multiple boxes
+  bbox: { x, y, width, height }; // union bbox of contributing spans/words/widget/annotation
+  boxes: { x, y, width, height }[]; // per-span/word/widget/annotation bboxes
   text: string;                // matched substring in the same form as pages[].text (NFKC when normalize is on)
-  source: 'native' | 'formField' | 'ocr'; // native = span bbox; formField = widget bbox; ocr = word/page bbox
+  source: 'native' | 'formField' | 'annotation' | 'ocr'; // native/span, formField/widget, annotation, or OCR
   context?: string;            // surrounding line text for human / LLM readability
 }
 ```
@@ -588,7 +588,8 @@ pdfvision doc.pdf -p <m.page> --render --render-region <m.bbox.x>,<m.bbox.y>,<m.
 - **Native text is searched at reconstructed visual-line level**. A query can cross pdf.js span / font-run boundaries on the same line (e.g. `"Hello World"` split into `Hello` + `World`) and returns a union `bbox` plus per-span `boxes[]`, but narrow column gutters are treated as line breaks so matches do not stitch the end of one column to the start of another. Multi-line phrase stitching is intentionally not modelled yet because the resulting region is usually too broad for visual zoom.
 - **Partial native-span matches are sliced inside the span bbox**: horizontal spans are sliced along x, while tall vertical/rotated spans are sliced along y so `--render-region` can zoom to the matched word instead of the whole line.
 - **Text/choice form field values are searched too**. Form-field matches come back with `source: 'formField'` and use the widget bbox, even when `--form-fields` was not requested for output. Internal values that are not visible text, such as unchecked checkbox `Off`, are not searched.
-- **OCR text is searched too when `--ocr` is on**. OCR-derived matches come back with `source: 'ocr'`; when `ocr.words[]` is present, `bbox`/`boxes[]` use OCR word geometry in the same page-point coordinate system as native spans. If word-level reconstruction misses one or more occurrences, pdfvision supplements from full `ocr.text` with a page-level bbox so no-space scripts and OCR line-boundary differences still remain searchable. If native text or a form-field value already produced the same query/text hit on that page, the duplicate OCR hit is suppressed so the precise non-OCR bbox wins; OCR-only extra hits are still emitted.
+- **Visible FreeText annotation contents are searched too**. Annotation matches come back with `source: 'annotation'` and use the annotation bbox, even when `--annotations` was not requested for output. Sticky-note popup contents and other normally closed annotation comments are not searched.
+- **OCR text is searched too when `--ocr` is on**. OCR-derived matches come back with `source: 'ocr'`; when `ocr.words[]` is present, `bbox`/`boxes[]` use OCR word geometry in the same page-point coordinate system as native spans. If word-level reconstruction misses one or more occurrences, pdfvision supplements from full `ocr.text` with a page-level bbox so no-space scripts and OCR line-boundary differences still remain searchable. If native text, a form-field value, or visible annotation text already produced the same query/text hit on that page, the duplicate OCR hit is suppressed so the precise non-OCR bbox wins; OCR-only extra hits are still emitted.
 
 `pages[].matches` is **present-with-`[]`** when `--search` ran but the page had no hits — distinct from the field being absent entirely (search wasn't requested). The same posture extends to the overview, which gains a `matchCount` mirror field with the same present-with-`0` semantics.
 

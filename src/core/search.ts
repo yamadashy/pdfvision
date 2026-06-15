@@ -1,4 +1,4 @@
-import type { FormField, OcrWord, PageOcr, SearchMatch, TextSpan } from '../types/index.js';
+import type { FormField, OcrWord, PageAnnotation, PageOcr, SearchMatch, TextSpan } from '../types/index.js';
 import { CJK_TIGHT_GAP_RATIO, isCjkLeading } from './cjkJoin.js';
 import { isLikelyCjkDisplaySpacingRow, isLikelyWideWordSpacingRow, shouldInsertSemanticSpace } from './spacing.js';
 import { isRtlDominantPositionedText, textOrder } from './textDirection.js';
@@ -609,6 +609,10 @@ function isVerticalSearchOwner(span: SearchOwner): boolean {
  * form fields. They use the widget bbox and are marked
  * `source: 'formField'` because widget appearance text is not always
  * part of the native text stream.
+ *
+ * FreeText annotation contents are included when the processor supplies
+ * annotations. They use the annotation bbox and are marked
+ * `source: 'annotation'`.
  */
 export function searchPage(
   spans: readonly TextSpan[] | undefined,
@@ -619,6 +623,7 @@ export function searchPage(
   compiled: CompiledSearch,
   onWarning?: (message: string) => void,
   formFields?: readonly FormField[],
+  annotations?: readonly PageAnnotation[],
 ): SearchMatch[] {
   const matches: SearchMatch[] = [];
 
@@ -687,6 +692,7 @@ export function searchPage(
   }
 
   appendFormFieldMatches(matches, formFields, pageNum, compiled, onWarning);
+  appendAnnotationMatches(matches, annotations, pageNum, compiled, onWarning);
 
   // OCR pass — prefer word-level OCR geometry when available, then
   // supplement from the post-trim OCR text with a page-level bbox for
@@ -766,6 +772,69 @@ export function searchPage(
   return matches;
 }
 
+function appendAnnotationMatches(
+  matches: SearchMatch[],
+  annotations: readonly PageAnnotation[] | undefined,
+  pageNum: number,
+  compiled: CompiledSearch,
+  onWarning?: (message: string) => void,
+): void {
+  if (!annotations || annotations.length === 0) return;
+  const duplicateBudget = preciseDuplicateBudget(matches, compiled);
+  const annotationCount = new Map<number, number>();
+  const annotationCapped = new Set<number>();
+  for (const annotation of annotations) {
+    if (!isSearchableAnnotationText(annotation)) continue;
+    const haystack = compiled.normalize ? nfkc(annotation.contents) : annotation.contents;
+    if (haystack.length === 0) continue;
+    for (let mi = 0; mi < compiled.matchers.length; mi++) {
+      if (annotationCapped.has(mi)) continue;
+      const m = compiled.matchers[mi];
+      m.regex.lastIndex = 0;
+      while (true) {
+        const hit = m.regex.exec(haystack);
+        if (hit === null) break;
+        if (hit[0].length === 0) {
+          m.regex.lastIndex++;
+          continue;
+        }
+        const hitKey = duplicateKey(m.queryIndex, m.query, hit[0], m.regex.ignoreCase);
+        const remainingDuplicates = duplicateBudget.get(hitKey) ?? 0;
+        if (remainingDuplicates > 0) {
+          duplicateBudget.set(hitKey, remainingDuplicates - 1);
+          continue;
+        }
+        const box = {
+          x: round2(annotation.x),
+          y: round2(annotation.y),
+          width: round2(annotation.width),
+          height: round2(annotation.height),
+        };
+        matches.push({
+          page: pageNum,
+          query: m.query,
+          ...(m.queryIndex !== undefined && { queryIndex: m.queryIndex }),
+          bbox: box,
+          boxes: [box],
+          text: hit[0],
+          source: 'annotation',
+          context: annotationMatchContext(annotation, haystack),
+        });
+        const next = (annotationCount.get(mi) ?? 0) + 1;
+        annotationCount.set(mi, next);
+        if (next >= MAX_MATCHES_PER_QUERY_PER_PAGE) {
+          annotationCapped.add(mi);
+          onWarning?.(
+            `search query ${JSON.stringify(m.query)} hit the per-page annotation match cap of ${MAX_MATCHES_PER_QUERY_PER_PAGE} on page ${pageNum}; subsequent annotation matches for this query on this page were dropped.`,
+          );
+          break;
+        }
+      }
+    }
+    if (annotationCapped.size === compiled.matchers.length) break;
+  }
+}
+
 function appendFormFieldMatches(
   matches: SearchMatch[],
   formFields: readonly FormField[] | undefined,
@@ -834,4 +903,15 @@ function appendFormFieldMatches(
 function formFieldMatchContext(field: FormField, value: string): string {
   const text = field.label?.text ? `${field.label.text}: ${value}` : value;
   return text.replace(/\s+/g, ' ').trim().slice(0, 160);
+}
+
+function isSearchableAnnotationText(annotation: PageAnnotation): annotation is PageAnnotation & { contents: string } {
+  if (annotation.subtype !== 'FreeText') return false;
+  if (!annotation.contents) return false;
+  const flags = annotation.flags ?? [];
+  return !flags.some((flag) => flag === 'hidden' || flag === 'invisible' || flag === 'noView');
+}
+
+function annotationMatchContext(annotation: PageAnnotation, contents: string): string {
+  return `${annotation.subtype} annotation: ${contents}`.replace(/\s+/g, ' ').trim().slice(0, 160);
 }

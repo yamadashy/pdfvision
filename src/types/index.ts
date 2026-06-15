@@ -114,13 +114,15 @@ export interface ProcessDocumentOptions {
    * Internally enables span extraction so per-match bboxes are
    * available; the public `pages[].spans` still requires `geometry`,
    * and the public `pages[].layout` still requires `layout`. Form field
-   * text/choice values are searched too, even when `formFields` was not
-   * requested for output; those hits use the widget bbox and carry
-   * `source: 'formField'`. OCR text is also searched when {@link ocr}
-   * is on — those matches come back with `source: 'ocr'` and use OCR
-   * word boxes when available, with a page-level bbox fallback when OCR
-   * output lacks word layout or word-level reconstruction misses a
-   * query that exists in full `ocr.text`.
+   * text/choice values and visible FreeText annotation contents are
+   * searched too, even when `formFields` / `annotations` were not
+   * requested for output; those hits use the widget/annotation bbox and
+   * carry `source: 'formField'` / `source: 'annotation'`. OCR text is
+   * also searched when {@link ocr} is on — those matches come back with
+   * `source: 'ocr'` and use OCR word boxes when available, with a
+   * page-level bbox fallback when OCR output lacks word layout or
+   * word-level reconstruction misses a query that exists in full
+   * `ocr.text`.
    */
   search?: string | string[];
   /** Treat each {@link search} query as a JavaScript regular expression
@@ -1227,10 +1229,11 @@ export interface SearchMatch {
   text: string;
   /** Where the match came from. `'native'` = pdf.js text stream
    *  (precise bbox via spans). `'formField'` = a text/choice widget
-   *  value (widget bbox). `'ocr'` = `pages[].ocr.text` (word-level bbox
-   *  when `pages[].ocr.words` exists and matches, otherwise page-level
-   *  fallback). */
-  source: 'native' | 'formField' | 'ocr';
+   *  value (widget bbox). `'annotation'` = visible FreeText annotation
+   *  contents (annotation bbox). `'ocr'` = `pages[].ocr.text`
+   *  (word-level bbox when `pages[].ocr.words` exists and matches,
+   *  otherwise page-level fallback). */
+  source: 'native' | 'formField' | 'annotation' | 'ocr';
   /** Optional surrounding-line text (typically ±N characters from the
    *  match) for human / LLM readability. Trimmed and de-newlined. */
   context?: string;

@@ -2,7 +2,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { processDocument } from '../../src/core/processor.js';
 import { compileSearch, searchPage } from '../../src/core/search.js';
-import type { FormField, TextSpan } from '../../src/types/index.js';
+import type { FormField, PageAnnotation, TextSpan } from '../../src/types/index.js';
 
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
 const SAMPLE_JA_PDF = resolve(__dirname, '../fixtures/sample-ja.pdf');
@@ -233,6 +233,43 @@ describe('processDocument search', () => {
       bbox: { x: 145.98, y: 200.84, width: 445.48, height: 19.84 },
       boxes: [{ x: 145.98, y: 200.84, width: 445.48, height: 19.84 }],
       context: 'Single line, combs: abcdefghijklmnopqrstuvwxyz',
+    });
+  });
+
+  it('matches visible FreeText annotation contents with annotation bboxes', () => {
+    const annotations: PageAnnotation[] = [
+      {
+        subtype: 'FreeText',
+        contents: 'this is a text anotation',
+        x: 169.6,
+        y: 115.79,
+        width: 240.01,
+        height: 27.26,
+      },
+      {
+        subtype: 'Text',
+        contents: 'sticky popup contents',
+        x: 191.79,
+        y: 420.58,
+        width: 19,
+        height: 19,
+      },
+    ];
+    const compiled = compileSearch(['this is a text anotation', 'sticky popup contents'], {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage([], undefined, 1, 612, 792, compiled, undefined, undefined, annotations);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      query: 'this is a text anotation',
+      queryIndex: 0,
+      text: 'this is a text anotation',
+      source: 'annotation',
+      page: 1,
+      bbox: { x: 169.6, y: 115.79, width: 240.01, height: 27.26 },
+      boxes: [{ x: 169.6, y: 115.79, width: 240.01, height: 27.26 }],
+      context: 'FreeText annotation: this is a text anotation',
     });
   });
 
