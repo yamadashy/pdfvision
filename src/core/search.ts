@@ -156,6 +156,7 @@ const VERTICAL_SEARCH_MIN_SPAN_HEIGHT_RATIO = 2;
 const LATIN_OR_NUMBER_END_RE = /[\p{Script=Latin}\p{M}\p{N}]$/u;
 const LATIN_OR_NUMBER_START_RE = /^[\p{Script=Latin}\p{M}\p{N}]/u;
 const LOWERCASE_START_RE = /^\p{Ll}/u;
+const PRECISE_DUPLICATE_MIN_OVERLAP_RATIO = 0.5;
 
 interface SearchLine {
   text: string;
@@ -204,6 +205,33 @@ function preciseDuplicateBudget(
     budget.set(key, (budget.get(key) ?? 0) + 1);
   }
   return budget;
+}
+
+function hasPreciseDuplicateAtBox(
+  preciseMatches: readonly SearchMatch[] | undefined,
+  compiled: CompiledSearch,
+  key: string,
+  box: Box,
+): boolean {
+  for (const match of preciseMatches ?? []) {
+    if (match.source === 'ocr') continue;
+    if (duplicateKeyForMatch(compiled, match) !== key) continue;
+    if (boxOverlapRatio(match.bbox, box) >= PRECISE_DUPLICATE_MIN_OVERLAP_RATIO) return true;
+  }
+  return false;
+}
+
+function boxOverlapRatio(a: Box, b: Box): number {
+  const areaA = Math.max(0, a.width) * Math.max(0, a.height);
+  const areaB = Math.max(0, b.width) * Math.max(0, b.height);
+  const smallerArea = Math.min(areaA, areaB);
+  if (smallerArea <= 0) return 0;
+  const x1 = Math.max(a.x, b.x);
+  const y1 = Math.max(a.y, b.y);
+  const x2 = Math.min(a.x + a.width, b.x + b.width);
+  const y2 = Math.min(a.y + a.height, b.y + b.height);
+  const overlap = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
+  return overlap / smallerArea;
 }
 
 export function suppressDuplicateOcrMatches(
@@ -780,7 +808,6 @@ function appendAnnotationMatches(
   onWarning?: (message: string) => void,
 ): void {
   if (!annotations || annotations.length === 0) return;
-  const duplicateBudget = preciseDuplicateBudget(matches, compiled);
   const annotationCount = new Map<number, number>();
   const annotationCapped = new Set<number>();
   for (const annotation of annotations) {
@@ -799,17 +826,13 @@ function appendAnnotationMatches(
           continue;
         }
         const hitKey = duplicateKey(m.queryIndex, m.query, hit[0], m.regex.ignoreCase);
-        const remainingDuplicates = duplicateBudget.get(hitKey) ?? 0;
-        if (remainingDuplicates > 0) {
-          duplicateBudget.set(hitKey, remainingDuplicates - 1);
-          continue;
-        }
         const box = {
           x: round2(annotation.x),
           y: round2(annotation.y),
           width: round2(annotation.width),
           height: round2(annotation.height),
         };
+        if (hasPreciseDuplicateAtBox(matches, compiled, hitKey, box)) continue;
         matches.push({
           page: pageNum,
           query: m.query,
@@ -843,7 +866,6 @@ function appendFormFieldMatches(
   onWarning?: (message: string) => void,
 ): void {
   if (!formFields || formFields.length === 0) return;
-  const duplicateBudget = preciseDuplicateBudget(matches, compiled);
   const formFieldCount = new Map<number, number>();
   const formFieldCapped = new Set<number>();
   for (const field of formFields) {
@@ -863,17 +885,13 @@ function appendFormFieldMatches(
           continue;
         }
         const hitKey = duplicateKey(m.queryIndex, m.query, hit[0], m.regex.ignoreCase);
-        const remainingDuplicates = duplicateBudget.get(hitKey) ?? 0;
-        if (remainingDuplicates > 0) {
-          duplicateBudget.set(hitKey, remainingDuplicates - 1);
-          continue;
-        }
         const box = {
           x: round2(field.x),
           y: round2(field.y),
           width: round2(field.width),
           height: round2(field.height),
         };
+        if (hasPreciseDuplicateAtBox(matches, compiled, hitKey, box)) continue;
         const context = formFieldMatchContext(field, haystack);
         matches.push({
           page: pageNum,

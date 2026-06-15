@@ -307,6 +307,79 @@ describe('processDocument search', () => {
     });
   });
 
+  it('keeps visible FreeText annotation matches when the same text appears elsewhere', () => {
+    const spans: TextSpan[] = [
+      {
+        text: 'FreeText',
+        x: 70.86,
+        y: 70.32,
+        width: 39.08,
+        height: 10.98,
+        fontSize: 10.98,
+      },
+    ];
+    const annotations: PageAnnotation[] = [
+      {
+        subtype: 'FreeText',
+        contents: 'FreeText content',
+        x: 71,
+        y: 94.62,
+        width: 67.98,
+        height: 10.04,
+      },
+    ];
+    const compiled = compileSearch('FreeText', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 595.32, 841.92, compiled, undefined, undefined, annotations);
+
+    expect(matches).toHaveLength(2);
+    expect(matches[0]).toMatchObject({
+      text: 'FreeText',
+      source: 'native',
+      bbox: { x: 70.86, y: 70.32, width: 39.08, height: 10.98 },
+    });
+    expect(matches[1]).toMatchObject({
+      text: 'FreeText',
+      source: 'annotation',
+      bbox: { x: 71, y: 94.62, width: 67.98, height: 10.04 },
+      context: 'FreeText annotation: FreeText content',
+    });
+  });
+
+  it('suppresses overlapping FreeText annotation duplicates already present in native text', () => {
+    const spans: TextSpan[] = [
+      {
+        text: 'FreeText content',
+        x: 71,
+        y: 94.62,
+        width: 67.98,
+        height: 10.04,
+        fontSize: 10.04,
+      },
+    ];
+    const annotations: PageAnnotation[] = [
+      {
+        subtype: 'FreeText',
+        contents: 'FreeText content',
+        x: 71,
+        y: 94.62,
+        width: 67.98,
+        height: 10.04,
+      },
+    ];
+    const compiled = compileSearch('FreeText content', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 595.32, 841.92, compiled, undefined, undefined, annotations);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'FreeText content',
+      source: 'native',
+    });
+  });
+
   it('matches Latin phrases across tight sentence-punctuation gaps', () => {
     const spans: TextSpan[] = [
       {
