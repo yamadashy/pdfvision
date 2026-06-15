@@ -104,14 +104,27 @@ function linkText(link: BoxLike, lines: readonly LabelLine[]): string | undefine
     .filter((line) => isLineInsideLink(line, link) || overlapRatio(line, link) >= 0.35)
     .sort((a, b) => a.y - b.y || a.x - b.x)
     .map((line) => line.text.trim());
-  const text = parts.join(' ').replace(/\s+/g, ' ').trim();
-  return text.length > 0 ? truncateLinkText(text) : undefined;
+  const text = normalizeLinkText(parts);
+  if (text.length > 0) return truncateLinkText(text);
+
+  const clippedText = normalizeLinkText(
+    lines
+      .map((line) => clippedLineText(line, link))
+      .filter((part): part is LabelLine => part !== undefined)
+      .sort((a, b) => a.y - b.y || a.x - b.x)
+      .map((part) => part.text),
+  );
+  return clippedText.length > 0 ? truncateLinkText(clippedText) : undefined;
 }
 
 function truncateLinkText(text: string): string {
   const chars = Array.from(text);
   if (chars.length <= LINK_TEXT_MAX_CHARS) return text;
   return `${chars.slice(0, LINK_TEXT_MAX_CHARS - 3).join('')}...`;
+}
+
+function normalizeLinkText(parts: readonly string[]): string {
+  return parts.join(' ').replace(/\s+/g, ' ').trim();
 }
 
 function isLineInsideLink(line: LabelLine, link: BoxLike): boolean {
@@ -130,9 +143,72 @@ function overlapRatio(a: LabelLine, b: BoxLike): number {
   return intersectionArea(a, b) / area;
 }
 
+function clippedLineText(line: LabelLine, link: BoxLike): (LabelLine & { text: string }) | undefined {
+  const text = line.text.trim();
+  if (text.length === 0 || line.width <= 0 || line.height <= 0) return undefined;
+  const verticalOverlap = intersectionHeight(line, link) / Math.max(0.001, Math.min(line.height, link.height));
+  if (verticalOverlap < 0.45) return undefined;
+  const horizontalOverlap = intersectionWidth(line, link) / Math.max(0.001, Math.min(line.width, link.width));
+  if (horizontalOverlap < 0.45) return undefined;
+
+  const clipped = clippedTextByHorizontalPosition(line.text, link, line);
+  if (!clipped) return undefined;
+  return { ...line, text: clipped };
+}
+
+function clippedTextByHorizontalPosition(text: string, link: BoxLike, line: BoxLike): string | undefined {
+  const chars = Array.from(text);
+  if (chars.length === 0) return undefined;
+
+  const startRatio = clamp((link.x - line.x) / line.width, 0, 1);
+  const endRatio = clamp((link.x + link.width - line.x) / line.width, 0, 1);
+  let start = Math.min(chars.length - 1, Math.max(0, Math.floor(startRatio * chars.length)));
+  let end = Math.min(chars.length, Math.max(start + 1, Math.ceil(endRatio * chars.length)));
+
+  start = expandTokenStart(chars, start);
+  end = expandTokenEnd(chars, end);
+
+  let clipped = chars.slice(start, end).join('').trim();
+  if (clipped.length > 0) return clipped;
+
+  const center = Math.min(chars.length - 1, Math.max(0, Math.floor(((startRatio + endRatio) / 2) * chars.length)));
+  start = expandTokenStart(chars, center);
+  end = expandTokenEnd(chars, center + 1);
+  clipped = chars.slice(start, end).join('').trim();
+  return clipped.length > 0 ? clipped : undefined;
+}
+
+function expandTokenStart(chars: readonly string[], start: number): number {
+  let out = start;
+  while (out > 0 && out < chars.length && !isWhitespace(chars[out]) && !isWhitespace(chars[out - 1])) out--;
+  return out;
+}
+
+function expandTokenEnd(chars: readonly string[], end: number): number {
+  let out = end;
+  while (out < chars.length && out > 0 && !isWhitespace(chars[out - 1]) && !isWhitespace(chars[out])) out++;
+  return out;
+}
+
+function isWhitespace(value: string): boolean {
+  return /\s/u.test(value);
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function intersectionWidth(a: BoxLike, b: BoxLike): number {
+  return Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x));
+}
+
+function intersectionHeight(a: BoxLike, b: BoxLike): number {
+  return Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y));
+}
+
 function intersectionArea(a: BoxLike, b: BoxLike): number {
-  const dx = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
-  const dy = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+  const dx = intersectionWidth(a, b);
+  const dy = intersectionHeight(a, b);
   return dx > 0 && dy > 0 ? dx * dy : 0;
 }
 

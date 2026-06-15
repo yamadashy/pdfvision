@@ -222,7 +222,7 @@ interface PageLink {
 }
 ```
 
-`links[]` surfaces clickable PDF link annotations: external URLs, citation jumps, table-of-contents destinations, and cross-reference targets. Internal destinations include `page` when pdfvision can resolve the target to a 1-based physical page number. `text` is the visible native text inside the link rectangle when it can be reconstructed, capped to a short label when a broad link rectangle spans a long table-of-contents region. Coordinates use the same top-left PDF-point system as `spans`, `layout.blocks`, and `imageBoxes`, so a link bbox can feed directly into `--render-region`.
+`links[]` surfaces clickable PDF link annotations: external URLs, citation jumps, table-of-contents destinations, and cross-reference targets. Internal destinations include `page` when pdfvision can resolve the target to a 1-based physical page number. `text` is the visible native text inside the link rectangle when it can be reconstructed, capped to a short label when a broad link rectangle spans a long table-of-contents region, and clipped from the surrounding line when the PDF places a narrow link over one inline token. Coordinates use the same top-left PDF-point system as `spans`, `layout.blocks`, and `imageBoxes`, so a link bbox can feed directly into `--render-region`.
 
 ## Annotations (`--annotations`)
 

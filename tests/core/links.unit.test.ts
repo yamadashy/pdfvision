@@ -81,6 +81,31 @@ describe('buildLinks', () => {
     ]);
   });
 
+  it('clips inline text for narrow links inside a wider label line', async () => {
+    const labelLine = {
+      text: 'Appendix A: Descriptions of AI Actor Tasks from Figures 2 and 3',
+      x: 90,
+      y: 50,
+      width: 334.57,
+      height: 12,
+    };
+    const links = await buildLinks(
+      [
+        { subtype: 'Link', dest: 'figure.caption.2', rect: [386.36, 138, 394.33, 150] },
+        { subtype: 'Link', dest: 'figure.caption.3', rect: [417.59, 138, 425.56, 150] },
+      ],
+      200,
+      0,
+      0,
+      { labelLines: [labelLine] },
+    );
+
+    expect(links).toEqual([
+      { type: 'destination', target: 'figure.caption.2', text: '2', x: 386.36, y: 50, width: 7.97, height: 12 },
+      { type: 'destination', target: 'figure.caption.3', text: '3', x: 417.59, y: 50, width: 7.97, height: 12 },
+    ]);
+  });
+
   it('truncates very long visible link text', async () => {
     const longText = 'Chapter '.repeat(60).trim();
     const links = await buildLinks(
