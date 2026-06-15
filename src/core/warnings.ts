@@ -807,6 +807,8 @@ const READING_ORDER_BOTTOM_Y_RATIO = 0.85;
 const READING_ORDER_MIN_BLOCKS = 4;
 const READING_ORDER_MIN_HEADING_CHARS = 10;
 const READING_ORDER_PROBE_CHARS = 40;
+const READING_ORDER_CONTEXT_PROBE_MIN_CHARS = 32;
+const READING_ORDER_CONTEXT_MAX_Y_DELTA = 80;
 const LOCAL_READING_ORDER_MIN_COMPACT_CHARS = 4;
 const LOCAL_READING_ORDER_MAX_COMPACT_CHARS = 40;
 const LOCAL_READING_ORDER_PROBE_CHARS = 50;
@@ -864,6 +866,8 @@ function detectTrailingBlockStartsNativeText(page: PageResult, blocks: LayoutBlo
   let layoutOffset = 0;
   const totalChars = blocks.reduce((sum, block) => sum + block.text.length, 0);
   if (totalChars === 0 || page.height <= 0) return false;
+  const nativeText = collapseReadingOrderWhitespace(page.text);
+  if (nativeText.length === 0) return false;
 
   for (let i = 0; i < blocks.length; i++) {
     const block = blocks[i];
@@ -873,21 +877,44 @@ function detectTrailingBlockStartsNativeText(page: PageResult, blocks: LayoutBlo
     if (block.repeated) continue;
     if (block.y < page.height * READING_ORDER_BOTTOM_Y_RATIO) continue;
 
-    const probe = block.text.split('\n', 1)[0].trim().slice(0, READING_ORDER_PROBE_CHARS);
+    const probe = buildTrailingBlockNativeProbe(blocks, i);
     if (probe.length < READING_ORDER_MIN_HEADING_CHARS) continue;
-    const nativeIndex = page.text.indexOf(probe);
+    const nativeIndex = nativeText.indexOf(probe);
     if (nativeIndex < 0) continue;
-    const nativePos = nativeIndex / page.text.length;
+    const nativePos = nativeIndex / nativeText.length;
     if (nativePos > READING_ORDER_NATIVE_EARLY_RATIO) continue;
+    const label = collapseReadingOrderWhitespace(block.text).slice(0, READING_ORDER_PROBE_CHARS);
     out.push({
       code: 'reading_order_divergence',
       severity: 'warning',
-      message: `bottom block "${probe}" appears at the start of the native text stream despite sitting late in the visual reading order — native text order diverges from what a human reads; prefer layout.blocks order when sequence matters`,
+      message: `bottom block "${label}" appears at the start of the native text stream despite sitting late in the visual reading order — native text order diverges from what a human reads; prefer layout.blocks order when sequence matters`,
       blockIndex: i,
     });
     return true;
   }
   return false;
+}
+
+function buildTrailingBlockNativeProbe(blocks: LayoutBlock[], index: number): string {
+  const block = blocks[index];
+  const parts = [block.text];
+  let probe = collapseReadingOrderWhitespace(parts.join(' '));
+  if (probe.length < READING_ORDER_CONTEXT_PROBE_MIN_CHARS || block.role === 'heading') {
+    for (let i = index + 1; i < blocks.length && probe.length < READING_ORDER_CONTEXT_PROBE_MIN_CHARS; i++) {
+      const candidate = blocks[i];
+      if (candidate.repeated) continue;
+      if (candidate.y < block.y) continue;
+      if (candidate.y - block.y > READING_ORDER_CONTEXT_MAX_Y_DELTA) break;
+      if (!horizontalOverlap(block, candidate)) continue;
+      parts.push(candidate.text);
+      probe = collapseReadingOrderWhitespace(parts.join(' '));
+    }
+  }
+  return probe.slice(0, READING_ORDER_PROBE_CHARS);
+}
+
+function collapseReadingOrderWhitespace(text: string): string {
+  return text.replace(/\s+/gu, ' ').trim();
 }
 
 function detectLocalMathReadingOrderDivergence(page: PageResult, blocks: LayoutBlock[], out: PageWarning[]): void {

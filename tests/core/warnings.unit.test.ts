@@ -1215,6 +1215,29 @@ describe('detectPageWarnings', () => {
       expect(divergence?.message).toContain('bottom block');
     });
 
+    it('does not flag bottom headings only referenced near the start of the native text stream', () => {
+      // IRS W-9-shaped case: the top instructions refer to "Purpose
+      // of Form" before the actual bottom section. A one-line heading
+      // probe would confuse the cross-reference with the section.
+      const body = 'Main form field text and instructions before the bottom explanation. '.repeat(25);
+      const bottomHeading = 'Purpose of Form';
+      const bottomBody = 'An individual or entity requester files an information return with the IRS.';
+      const blocks = [
+        block(36, 40, 260, 20, { text: 'Request for Taxpayer Identification Number', role: 'heading' }),
+        block(36, 80, 260, 500, { text: body }),
+        block(316, 618, 246, 72, { text: 'New line instructions continue in the right column.' }),
+        block(316, 704, 96, 12, { text: bottomHeading, role: 'heading' }),
+        block(316, 722, 246, 18, { text: bottomBody }),
+      ];
+      const p = {
+        ...page(blocks, 612, 792),
+        text: `Request for Taxpayer Identification Number\nBefore you begin, see ${bottomHeading}, below.\n${body}\nNew line instructions continue in the right column.\n${bottomHeading}\n${bottomBody}`,
+      };
+
+      const out = detectPageWarnings(p);
+      expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
+    });
+
     it('flags compact math blocks whose native text stream reorders visible characters', () => {
       // PDF.js bug2004951-shaped case: the visual line is "3√x + y",
       // but the native text stream can emit the superscript after the
