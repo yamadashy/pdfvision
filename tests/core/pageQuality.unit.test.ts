@@ -226,6 +226,24 @@ describe('derivePageQuality', () => {
     });
   });
 
+  it('keeps rounded-to-zero text-only render traces distinct from blank renders', () => {
+    const quality = derivePageQuality(
+      makePage({
+        text: 'ОЗЗА\nPowered by TCPDF (www.tcpdf.org)',
+        charCount: 37,
+        textCoverage: 0,
+        imageCount: 0,
+        vectorCount: 0,
+        renderContentRatio: 0.000069,
+      }),
+    );
+
+    expect(quality).toEqual({
+      nativeTextStatus: 'ok',
+      visualStatus: 'sparse',
+    });
+  });
+
   it('classifies low render ratios above the blank threshold as sparse', () => {
     const quality = derivePageQuality(
       makePage({
