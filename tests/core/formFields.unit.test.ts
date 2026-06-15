@@ -903,6 +903,55 @@ describe('buildFormFields', () => {
     expect(fields[0].label?.text).toBe('(b) Multiply the number of other dependents by $500 3(b) $');
   });
 
+  it('does not absorb previous subitem rows into bare total amount markers', () => {
+    const dotLeaders = Array.from({ length: 8 }, (_, index) => ({
+      text: '.',
+      x: 383.99 + index * 12,
+      y: 515.93,
+      width: 2.5,
+      height: 9,
+      fontSize: 9,
+    }));
+    const fields = buildFormFields(
+      [{ subtype: 'Widget', fieldName: 'line3Total', fieldType: 'Tx', rect: [511.2, 264, 576, 276] }],
+      792,
+      0,
+      0,
+      [
+        {
+          text: '(b) Multiply the number of other dependents by $500 .',
+          x: 122.4,
+          y: 492.43,
+          width: 228.13,
+          height: 9,
+          fontSize: 9,
+        },
+        {
+          text: 'Add the amounts from Steps 3(a) and 3(b), plus the amount for other credits. Enter the',
+          x: 122.4,
+          y: 505.13,
+          width: 352.84,
+          height: 9,
+          fontSize: 9,
+        },
+        {
+          text: 'total here . . . . . . . . . . . . . . . . . .',
+          x: 122.44,
+          y: 515.93,
+          width: 252.05,
+          height: 9,
+          fontSize: 9,
+        },
+        ...dotLeaders,
+        { text: '3', x: 490.7, y: 516.42, width: 5, height: 9, fontSize: 9 },
+      ],
+    );
+
+    expect(fields[0].label?.text).toBe(
+      'Add the amounts from Steps 3(a) and 3(b), plus the amount for other credits. Enter the total here 3',
+    );
+  });
+
   it('ignores short offset labels above wide text fields', () => {
     const fields = buildFormFields(
       [{ subtype: 'Widget', fieldName: 'otherText', fieldType: 'Tx', rect: [68.4, 708.5, 236.6, 719.5] }],

@@ -454,7 +454,7 @@ function expandSameLineMarkerPromptLabel(
   const sameLinePrompt = collectConnectedLeftPromptLines(candidate.line, lines);
   if (sameLinePrompt.length === 0) return undefined;
 
-  const stackedPrompt = collectSameLineMarkerPromptStack(sameLinePrompt, lines);
+  const stackedPrompt = collectSameLineMarkerPromptStack(candidate.text, sameLinePrompt, lines);
   const promptLines = [...stackedPrompt, ...sameLinePrompt, { line: candidate.line, text: candidate.text }];
   const textParts = promptLines
     .map(({ text }) => normalizePromptLabelText(text))
@@ -624,6 +624,7 @@ function collectConnectedLeftPromptLines(
 }
 
 function collectSameLineMarkerPromptStack(
+  markerText: string,
   sameLinePrompt: readonly { line: LabelLine; text: string }[],
   lines: readonly LabelLine[],
 ): { line: LabelLine; text: string }[] {
@@ -638,6 +639,9 @@ function collectSameLineMarkerPromptStack(
       ...sameLinePrompt.map((item) => item.line),
     ]);
     if (!next) return stack.sort((a, b) => a.line.y - b.line.y || a.line.x - b.line.x);
+    if (isBareNumericFieldMarker(markerText) && startsWithPromptItemMarker(next.text)) {
+      return stack.sort((a, b) => a.line.y - b.line.y || a.line.x - b.line.x);
+    }
     stack.push(next);
     if (startsWithPromptItemMarker(next.text)) return stack.sort((a, b) => a.line.y - b.line.y || a.line.x - b.line.x);
     bounds = unionBox(next.line, bounds);
@@ -783,6 +787,11 @@ function isCompactFieldMarker(text: string): boolean {
   const normalized = normalizePromptLabelText(text);
   if (normalized.length > 16) return false;
   return /^(?:\d+(?:\([a-z]\)|[a-z])?|\([a-z]\))\s*\$?$/iu.test(normalized);
+}
+
+function isBareNumericFieldMarker(text: string): boolean {
+  const normalized = normalizePromptLabelText(text);
+  return /^\d+\s*\$?$/u.test(normalized);
 }
 
 function isTrailingPromptFragment(text: string): boolean {
