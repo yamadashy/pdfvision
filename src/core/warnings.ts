@@ -52,6 +52,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
   detectHighConfidenceOcrNativeMismatch(page, warnings);
   detectDenseVectorGraphics(page, warnings);
   detectLargeRasterLowTextOverlap(page, context, warnings);
+  detectVisibleAnnotationTextMissingFromNative(page, warnings);
 
   if (
     !page.layout ||
@@ -480,6 +481,31 @@ function detectHighConfidenceOcrNativeMismatch(page: PageResult, out: PageWarnin
     code: 'ocr_native_text_mismatch',
     severity: 'warning',
     message: `high-confidence OCR text (${JSON.stringify(shortTextSample(page.ocr.text))}, ${(page.ocr.confidence * 100).toFixed(1)}%) differs from native text (${JSON.stringify(shortTextSample(page.text))}) — native text may be a printable glyph substitution; compare against the render before trusting exact text`,
+  });
+}
+
+function detectVisibleAnnotationTextMissingFromNative(page: PageResult, out: PageWarning[]): void {
+  const annotations =
+    page.annotations?.filter((annotation) => {
+      if (annotation.subtype !== 'FreeText') return false;
+      if (annotation.hasAppearance !== true) return false;
+      if (!annotation.contents?.trim()) return false;
+      return !annotation.flags?.some((flag) => flag === 'hidden' || flag === 'invisible' || flag === 'noView');
+    }) ?? [];
+  if (annotations.length === 0) return;
+
+  const nativeText = normalizeComparableText(page.text);
+  const missing = annotations.filter((annotation) => {
+    const contents = normalizeComparableText(annotation.contents ?? '');
+    return contents.length > 0 && !nativeText.includes(contents);
+  });
+  if (missing.length === 0) return;
+
+  const sample = shortTextSample(missing[0]?.contents ?? '');
+  out.push({
+    code: 'annotation_text_missing_from_native',
+    severity: 'warning',
+    message: `${missing.length} visible FreeText annotation${missing.length === 1 ? '' : 's'} ${missing.length === 1 ? 'is' : 'are'} not present in native page text (sample: ${JSON.stringify(sample)}) — read pages[].annotations or search annotation matches before trusting pages[].text as the full visible text`,
   });
 }
 

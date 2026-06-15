@@ -1268,6 +1268,7 @@ export interface PageWarning {
     | 'ocr_low_confidence'
     | 'ocr_native_text_mismatch'
     | 'large_raster_low_text_overlap'
+    | 'annotation_text_missing_from_native'
     | 'reading_order_divergence';
   /**
    * `'error'` means likely data-integrity issue (off-page bbox usually

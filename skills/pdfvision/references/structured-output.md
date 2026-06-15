@@ -521,6 +521,7 @@ interface PageWarning {
     | 'ocr_low_confidence'
     | 'ocr_native_text_mismatch'
     | 'large_raster_low_text_overlap'
+    | 'annotation_text_missing_from_native'
     | 'reading_order_divergence';
   severity: 'warning' | 'error';
   message: string;
@@ -530,7 +531,7 @@ interface PageWarning {
 }
 ```
 
-`pages[].warnings[]` is omitted when no rule fired. Geometry warnings require `--layout` because they pin to layout blocks, and are suppressed on heavily glyph-corrupted pages where native bboxes are not trustworthy. Image-region warnings can use pdfvision's internal image-box pass even when `--image-boxes` was not requested; `imageBoxIndex` is emitted only when public `pages[].imageBoxes` exists. `large_raster_low_text_overlap` gets stronger overlap evidence when `--image-boxes` is combined with `--layout` or `--geometry`, because it can compare image boxes against native text bboxes. `tabular_numeric_layout` requires `--layout` because it inspects aligned layout lines. `glyph_garbage_text`, `localized_glyph_noise`, `font_mapping_warning`, and `dense_vector_graphics` use always-on page/document signals and can appear without layout. `raster_backed_text_layer` and `raster_text_layer_symbol_noise` use the internal image-box pass and can appear even when `--image-boxes` was not requested. `ocr_low_confidence` and `ocr_native_text_mismatch` require `--ocr`.
+`pages[].warnings[]` is omitted when no rule fired. Geometry warnings require `--layout` because they pin to layout blocks, and are suppressed on heavily glyph-corrupted pages where native bboxes are not trustworthy. Image-region warnings can use pdfvision's internal image-box pass even when `--image-boxes` was not requested; `imageBoxIndex` is emitted only when public `pages[].imageBoxes` exists. `large_raster_low_text_overlap` gets stronger overlap evidence when `--image-boxes` is combined with `--layout` or `--geometry`, because it can compare image boxes against native text bboxes. `tabular_numeric_layout` requires `--layout` because it inspects aligned layout lines. `annotation_text_missing_from_native` requires `--annotations` because it compares public FreeText annotation contents against `pages[].text`. `glyph_garbage_text`, `localized_glyph_noise`, `font_mapping_warning`, and `dense_vector_graphics` use always-on page/document signals and can appear without layout. `raster_backed_text_layer` and `raster_text_layer_symbol_noise` use the internal image-box pass and can appear even when `--image-boxes` was not requested. `ocr_low_confidence` and `ocr_native_text_mismatch` require `--ocr`.
 
 The current rule catalog:
 
@@ -548,6 +549,7 @@ The current rule catalog:
 - `ocr_low_confidence` — `--ocr` ran with confidence below 0.5 while native extraction was empty, sparse, glyph-corrupted, or attached to a raster-backed text layer; OCR text is present but should be treated as tentative until checked against the render, language choice, or a focused crop.
 - `ocr_native_text_mismatch` — `--ocr` ran with high confidence and short OCR text of comparable length strongly disagrees with otherwise-ok native text; often a custom font that renders a word correctly while extracting as printable glyph substitutions.
 - `large_raster_low_text_overlap` — a large raster image dominates a page whose native text is empty or sparse, or bbox-enabled extraction found little overlapping native text, so labels, chart text, map text, or screenshot text inside it will not appear in native text.
+- `annotation_text_missing_from_native` — one or more visible FreeText annotation appearances have `contents` that are not represented in `pages[].text`; read `pages[].annotations` or use `--search` / `--render-region` before treating native text as complete. Requires `--annotations`.
 - `reading_order_divergence` — visual reading order differs from `pages[].text`. This fires when a heading that leads `layout.blocks` only appears in the back half of the native text stream, or when a compact math-like block appears with reordered characters such as a superscript emitted after the baseline expression; form date placeholders such as `MM / DD / YYYY` are suppressed. Prefer `layout.blocks` order over `pages[].text` when sequence matters — the Markdown formatter already rebuilds the body from layout blocks on these pages. Requires `--layout`; `blockIndex` points at the displaced heading or local block.
 
 Same observational posture as `quality`: pdfvision tells the agent what it saw; the agent decides whether to surface, re-OCR, or zoom in via `--render-region`.
