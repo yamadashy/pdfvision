@@ -80,6 +80,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
   detectTextOverlap(blocks, warnings);
   detectTabularNumericLayout(blocks, warnings);
   detectReadingOrderDivergence(page, blocks, warnings);
+  detectFormLabelReadingOrderDivergence(page, blocks, warnings);
   // `near_bottom_edge` only distinguishes body from chrome via the
   // `repeated` flag, which is meaningless when chrome detection
   // didn't run reliably (single-page extraction, or every layout
@@ -876,6 +877,43 @@ function detectReadingOrderDivergence(page: PageResult, blocks: LayoutBlock[], o
   if (blocks.length >= READING_ORDER_MIN_BLOCKS && detectHeadingReadingOrderDivergence(page, blocks, out)) return;
   if (blocks.length >= READING_ORDER_MIN_BLOCKS && detectTrailingBlockStartsNativeText(page, blocks, out)) return;
   detectLocalMathReadingOrderDivergence(page, blocks, out);
+}
+
+function detectFormLabelReadingOrderDivergence(page: PageResult, blocks: LayoutBlock[], out: PageWarning[]): void {
+  if (!page.formFields || page.formFields.length < 2) return;
+  if (out.some((warning) => warning.code === 'reading_order_divergence')) return;
+
+  const labelCounts = new Map<string, number>();
+  for (const field of page.formFields) {
+    const label = collapseReadingOrderWhitespace((field.label?.text ?? '').normalize('NFKC'));
+    if (label.length < 5) continue;
+    labelCounts.set(label, (labelCounts.get(label) ?? 0) + 1);
+  }
+  const uniqueLabels = new Set([...labelCounts].filter(([, count]) => count === 1).map(([label]) => label));
+  if (uniqueLabels.size < 3) return;
+
+  const nativeText = collapseReadingOrderWhitespace(page.text.normalize('NFKC'));
+  const probes = blocks
+    .map((block, index) => ({ block, index, text: collapseReadingOrderWhitespace(block.text.normalize('NFKC')) }))
+    .filter((probe) => uniqueLabels.has(probe.text))
+    .map((probe) => ({ ...probe, nativeIndex: nativeText.indexOf(probe.text) }))
+    .filter((probe) => probe.nativeIndex >= 0);
+  if (probes.length < 3) return;
+
+  let previous = probes[0];
+  for (const probe of probes.slice(1)) {
+    if (probe.nativeIndex + 2 >= previous.nativeIndex) {
+      previous = probe;
+      continue;
+    }
+    out.push({
+      code: 'reading_order_divergence',
+      severity: 'warning',
+      blockIndex: probe.index,
+      message: `form label "${shortTextSample(probe.block.text)}" appears after "${shortTextSample(previous.block.text)}" visually but earlier in the native text stream — native form text order diverges from what a human reads; prefer layout.blocks order when sequence matters`,
+    });
+    return;
+  }
 }
 
 function detectHeadingReadingOrderDivergence(page: PageResult, blocks: LayoutBlock[], out: PageWarning[]): boolean {

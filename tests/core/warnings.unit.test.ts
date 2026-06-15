@@ -1306,6 +1306,42 @@ describe('detectPageWarnings', () => {
       expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
     });
 
+    it('flags form labels whose native text order differs from visual layout order', () => {
+      const labels = [
+        block(32, 19, 94, 10, { text: 'Check box, unchecked' }),
+        block(32, 46, 83, 10, { text: 'Check box, checked' }),
+        block(32, 73, 88, 10, { text: 'Check box, read-only' }),
+      ];
+      const p: PageResult = {
+        ...page(labels),
+        text: 'Check box, unchecked\nCheck box, read-only\nCheck box, checked',
+        formFields: labels.map((label, index) => ({
+          name: `checkbox${index}`,
+          type: 'checkbox',
+          x: 20,
+          y: label.y,
+          width: 10,
+          height: 10,
+          label: {
+            text: label.text,
+            relation: 'right',
+            x: label.x,
+            y: label.y,
+            width: label.width,
+            height: label.height,
+          },
+        })),
+      };
+
+      const out = detectPageWarnings(p);
+      const divergence = out.find((w) => w.code === 'reading_order_divergence');
+      expect(divergence).toMatchObject({
+        blockIndex: 2,
+        severity: 'warning',
+      });
+      expect(divergence?.message).toContain('native form text order diverges');
+    });
+
     it('does not flag headings that are late in BOTH orders (right-column section heads)', () => {
       // A section heading at the top of the right column is visually
       // high on the page but legitimately late in the reading flow.
