@@ -848,7 +848,8 @@ function appendFormFieldMatches(
   const formFieldCapped = new Set<number>();
   for (const field of formFields) {
     if (!isSearchableFormFieldText(field)) continue;
-    const haystack = compiled.normalize ? nfkc(field.value) : field.value;
+    const rawSearchValue = formFieldSearchValue(field);
+    const haystack = compiled.normalize ? nfkc(rawSearchValue) : rawSearchValue;
     if (haystack.length === 0) continue;
     for (let mi = 0; mi < compiled.matchers.length; mi++) {
       if (formFieldCapped.has(mi)) continue;
@@ -902,6 +903,19 @@ function appendFormFieldMatches(
 function formFieldMatchContext(field: FormField, value: string): string {
   const text = field.label?.text ? `${field.label.text}: ${value}` : value;
   return text.replace(/\s+/g, ' ').trim().slice(0, 160);
+}
+
+function formFieldSearchValue(field: FormField & { value: string }): string {
+  if (field.type !== 'choice') return field.value;
+  const selectedValues = field.value.split(/\s*,\s*/u).filter((value) => value.length > 0);
+  const displayValues = selectedValues.map((value) => choiceDisplayValue(field, value));
+  if (displayValues.length === 0) return field.value;
+  return displayValues.join(', ');
+}
+
+function choiceDisplayValue(field: FormField, value: string): string {
+  const option = field.options?.find((item) => item.exportValue === value || item.displayValue === value);
+  return option?.displayValue ?? value;
 }
 
 function isSearchableFormFieldText(field: FormField): field is FormField & { value: string } {

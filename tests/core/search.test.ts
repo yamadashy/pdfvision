@@ -227,13 +227,29 @@ describe('processDocument search', () => {
         height: 20,
         flags: ['hidden', 'print'],
       },
+      {
+        name: 'ListBox1',
+        type: 'choice',
+        value: 'Export1',
+        x: 60,
+        y: 80,
+        width: 120,
+        height: 80,
+        options: [
+          { exportValue: 'Export1', displayValue: 'Item1' },
+          { exportValue: 'Export2', displayValue: 'Item2' },
+        ],
+      },
     ];
-    const compiled = compileSearch(['abcdefghijklmnopqrstuvwxyz', 'Off', 'hidden printable value'], {});
+    const compiled = compileSearch(
+      ['abcdefghijklmnopqrstuvwxyz', 'Off', 'hidden printable value', 'Item1', 'Export1'],
+      {},
+    );
     if (!compiled) throw new Error('expected compiled search');
 
     const matches = searchPage([], undefined, 1, 612, 792, compiled, undefined, fields);
 
-    expect(matches).toHaveLength(1);
+    expect(matches).toHaveLength(2);
     expect(matches[0]).toMatchObject({
       query: 'abcdefghijklmnopqrstuvwxyz',
       queryIndex: 0,
@@ -243,6 +259,14 @@ describe('processDocument search', () => {
       bbox: { x: 145.98, y: 200.84, width: 445.48, height: 19.84 },
       boxes: [{ x: 145.98, y: 200.84, width: 445.48, height: 19.84 }],
       context: 'Single line, combs: abcdefghijklmnopqrstuvwxyz',
+    });
+    expect(matches[1]).toMatchObject({
+      query: 'Item1',
+      queryIndex: 3,
+      text: 'Item1',
+      source: 'formField',
+      bbox: { x: 60, y: 80, width: 120, height: 80 },
+      context: 'Item1',
     });
   });
 
