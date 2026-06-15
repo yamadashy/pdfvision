@@ -800,7 +800,10 @@ function overlapRatio(a: BoxLike, b: BoxLike): number {
  *  magazine layouts are the common case — PLoS Medicine emits the
  *  page title AFTER all three body columns). */
 const READING_ORDER_LAYOUT_EARLY_RATIO = 0.25;
+const READING_ORDER_LAYOUT_LATE_RATIO = 0.75;
 const READING_ORDER_NATIVE_LATE_RATIO = 0.5;
+const READING_ORDER_NATIVE_EARLY_RATIO = 0.1;
+const READING_ORDER_BOTTOM_Y_RATIO = 0.85;
 const READING_ORDER_MIN_BLOCKS = 4;
 const READING_ORDER_MIN_HEADING_CHARS = 10;
 const READING_ORDER_PROBE_CHARS = 40;
@@ -826,6 +829,7 @@ const LOCAL_READING_ORDER_NUMBER = /\p{Number}/u;
 function detectReadingOrderDivergence(page: PageResult, blocks: LayoutBlock[], out: PageWarning[]): void {
   if (page.text.length === 0) return;
   if (blocks.length >= READING_ORDER_MIN_BLOCKS && detectHeadingReadingOrderDivergence(page, blocks, out)) return;
+  if (blocks.length >= READING_ORDER_MIN_BLOCKS && detectTrailingBlockStartsNativeText(page, blocks, out)) return;
   detectLocalMathReadingOrderDivergence(page, blocks, out);
 }
 
@@ -849,6 +853,36 @@ function detectHeadingReadingOrderDivergence(page: PageResult, blocks: LayoutBlo
       code: 'reading_order_divergence',
       severity: 'warning',
       message: `heading "${probe}" leads the visual reading order but only appears ${(nativePos * 100).toFixed(0)}% of the way through the native text stream — native text order diverges from what a human reads; prefer layout.blocks order when sequence matters`,
+      blockIndex: i,
+    });
+    return true;
+  }
+  return false;
+}
+
+function detectTrailingBlockStartsNativeText(page: PageResult, blocks: LayoutBlock[], out: PageWarning[]): boolean {
+  let layoutOffset = 0;
+  const totalChars = blocks.reduce((sum, block) => sum + block.text.length, 0);
+  if (totalChars === 0 || page.height <= 0) return false;
+
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i];
+    const layoutPos = layoutOffset / totalChars;
+    layoutOffset += block.text.length;
+    if (layoutPos < READING_ORDER_LAYOUT_LATE_RATIO) continue;
+    if (block.repeated) continue;
+    if (block.y < page.height * READING_ORDER_BOTTOM_Y_RATIO) continue;
+
+    const probe = block.text.split('\n', 1)[0].trim().slice(0, READING_ORDER_PROBE_CHARS);
+    if (probe.length < READING_ORDER_MIN_HEADING_CHARS) continue;
+    const nativeIndex = page.text.indexOf(probe);
+    if (nativeIndex < 0) continue;
+    const nativePos = nativeIndex / page.text.length;
+    if (nativePos > READING_ORDER_NATIVE_EARLY_RATIO) continue;
+    out.push({
+      code: 'reading_order_divergence',
+      severity: 'warning',
+      message: `bottom block "${probe}" appears at the start of the native text stream despite sitting late in the visual reading order — native text order diverges from what a human reads; prefer layout.blocks order when sequence matters`,
       blockIndex: i,
     });
     return true;

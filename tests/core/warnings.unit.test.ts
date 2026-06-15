@@ -1194,6 +1194,27 @@ describe('detectPageWarnings', () => {
       expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
     });
 
+    it('flags bottom notes that appear at the start of the native text stream', () => {
+      // Chinese journal PDF-shaped case: the visual page begins with
+      // the article title, but the producer emits bottom submission
+      // notes before the title and body in pages[].text.
+      const title = 'Comparison of Metformin and Polyene Phosphatidylcholine';
+      const body = 'Main article body text follows the visible title and abstract. '.repeat(18);
+      const bottomNote = 'Received date: 2014-11-03';
+      const blocks = [
+        block(40, 20, 300, 12, { text: 'Journal running header' }),
+        block(80, 64, 360, 32, { text: title, role: 'heading' }),
+        block(40, 120, 420, 470, { text: body }),
+        block(20, 716, 260, 18, { text: bottomNote }),
+      ];
+      const p = { ...page(blocks, 501, 740), text: `${bottomNote}\n${title}\n${body}` };
+
+      const out = detectPageWarnings(p);
+      const divergence = out.find((w) => w.code === 'reading_order_divergence');
+      expect(divergence).toMatchObject({ severity: 'warning', blockIndex: 3 });
+      expect(divergence?.message).toContain('bottom block');
+    });
+
     it('flags compact math blocks whose native text stream reorders visible characters', () => {
       // PDF.js bug2004951-shaped case: the visual line is "3√x + y",
       // but the native text stream can emit the superscript after the
