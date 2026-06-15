@@ -295,7 +295,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v121',
+    format: 'structured-v122',
     passwordHash:
       input.password !== undefined ? createHash('sha256').update(input.password).digest('hex').slice(0, 16) : null,
     render: !!input.render,
@@ -675,6 +675,9 @@ async function extractPageData(
   const structure = flags.structure
     ? buildPageStructure(await page.getStructTree(), {
         normalizeText: flags.normalize ? normalizeText : undefined,
+        pageHeight: height,
+        viewMinX: xMin,
+        viewMinY: yMin,
       })
     : undefined;
   const jsActions = flags.viewer

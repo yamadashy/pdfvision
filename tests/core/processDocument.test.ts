@@ -606,6 +606,23 @@ describe('processDocument', () => {
     });
   });
 
+  it('converts tagged structure bboxes to top-left page coordinates', () => {
+    const structure = buildPageStructure(
+      {
+        role: 'Root',
+        bbox: [84.11, 446.51, 545.89, 648.25],
+        children: [],
+      },
+      { pageHeight: 792 },
+    );
+
+    expect(structure).toEqual({
+      role: 'Root',
+      bbox: [84.11, 143.75, 461.78, 201.74],
+      children: [],
+    });
+  });
+
   it('drops control bytes from tagged structure strings', () => {
     const structure = buildPageStructure({
       role: 'Root',

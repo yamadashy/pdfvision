@@ -969,7 +969,7 @@ export interface PageStructureNode {
   mathML?: string;
   /** Language hint for this structure node. */
   lang?: string;
-  /** Optional bbox emitted by pdf.js for structure nodes that carry one. */
+  /** Optional structure-node bbox as [x, y, width, height] in top-left PDF points when pdf.js exposes one. */
   bbox?: number[];
   /** Nested structure nodes or marked-content/object references. */
   children: PageStructureItem[];
