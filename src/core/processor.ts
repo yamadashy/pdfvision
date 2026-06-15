@@ -295,7 +295,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v122',
+    format: 'structured-v123',
     passwordHash:
       input.password !== undefined ? createHash('sha256').update(input.password).digest('hex').slice(0, 16) : null,
     render: !!input.render,
@@ -411,6 +411,7 @@ interface PageData {
   charCount: number;
   imageCount: number;
   rasterBackedTextLayer: boolean;
+  optionalContentText: boolean;
   vectorCount: number;
   textCoverage: number;
   nonPrintableRatio: number;
@@ -477,7 +478,8 @@ async function extractPageData(
   flags: PageFlags,
 ): Promise<PageData> {
   const page = await doc.getPage(pageNum);
-  const content = await page.getTextContent();
+  const content = await page.getTextContent({ includeMarkedContent: true });
+  const optionalContentText = content.items.some(isOptionalContentTextMarker);
 
   const view = page.view;
   // MediaBox is normally [minX, minY, maxX, maxY] but the spec allows the
@@ -727,6 +729,7 @@ async function extractPageData(
     charCount: text.length,
     imageCount,
     rasterBackedTextLayer,
+    optionalContentText,
     vectorCount,
     textCoverage: Math.round(textCoverage * 1000) / 1000,
     nonPrintableRatio: npStats.ratio,
@@ -757,6 +760,12 @@ async function extractPageData(
     ...(structure !== undefined && { structure }),
     ...(jsActions !== undefined && { jsActions }),
   };
+}
+
+function isOptionalContentTextMarker(item: unknown): boolean {
+  if (!item || typeof item !== 'object') return false;
+  const marker = item as { type?: unknown; tag?: unknown };
+  return marker.type === 'beginMarkedContentProps' && marker.tag === 'OC';
 }
 
 /** Render a structured DocumentResult into the caller-requested string format. */
@@ -1138,11 +1147,14 @@ export async function processDocument(filePath: string, options: ProcessDocument
           normalizeText: options.normalize !== false ? normalizeText : undefined,
         })
       : undefined;
-    const layers: DocumentLayers | undefined = options.layers
-      ? await buildLayers(doc, {
-          normalizeText: options.normalize !== false ? normalizeText : undefined,
-        })
-      : undefined;
+    const layerStateOptions = {
+      normalizeText: options.normalize !== false ? normalizeText : undefined,
+    };
+    const layerState = options.layers
+      ? await buildLayers(doc, layerStateOptions)
+      : await buildLayers(doc, layerStateOptions).catch((): DocumentLayers => ({ groups: [] }));
+    const layers: DocumentLayers | undefined = options.layers ? layerState : undefined;
+    const hasHiddenOptionalContent = layerState.groups.some((group) => !group.visible);
 
     let imagePaths: string[] | null = null;
     // Parallel array to imagePaths: renderContentRatio for each rendered
@@ -1191,6 +1203,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     const ocrEnabled = !!options.ocr;
     const ocrLang = options.ocrLang ?? 'eng';
     const rasterBackedTextLayerByPage = new Map<number, boolean>();
+    const optionalContentTextByPage = new Map<number, boolean>();
     const warningImageBoxesByPage = new Map<number, ImageBox[]>();
     const visualRegionInputsByPage = new Map<number, BuildVisualRegionsInput>();
     const annotationAppearanceByPage = new Map<number, boolean>();
@@ -1228,6 +1241,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     const pages: PageResult[] = await runParallel(pageNumbers, async (pageNum, i) => {
       const data = await extractPageData(doc, pageNum, imageOps, flags);
       rasterBackedTextLayerByPage.set(pageNum, data.rasterBackedTextLayer);
+      optionalContentTextByPage.set(pageNum, data.optionalContentText);
       warningImageBoxesByPage.set(pageNum, data._warningImageBoxes ?? []);
       if (data._visualRegionInput) visualRegionInputsByPage.set(pageNum, data._visualRegionInput);
       if (data.hasVisibleAnnotationAppearance) annotationAppearanceByPage.set(pageNum, true);
@@ -1362,6 +1376,8 @@ export async function processDocument(filePath: string, options: ProcessDocument
       const warnings = detectPageWarnings(p, {
         chromeDetectionReliable,
         rasterBackedTextLayer: rasterBackedTextLayerByPage.get(p.page),
+        optionalContentText: optionalContentTextByPage.get(p.page),
+        hasHiddenOptionalContent,
         imageBoxes: warningImageBoxesByPage.get(p.page),
         pdfJsWarnings,
       });

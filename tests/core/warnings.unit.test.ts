@@ -61,6 +61,29 @@ describe('detectPageWarnings', () => {
     expect(detectPageWarnings(noLayout)).toEqual([]);
   });
 
+  it('warns when optional-content text may include default-hidden layers', () => {
+    const out = detectPageWarnings(page([]), {
+      optionalContentText: true,
+      hasHiddenOptionalContent: true,
+    });
+
+    expect(out).toEqual([
+      expect.objectContaining({
+        code: 'optional_content_text_may_include_hidden_layers',
+        severity: 'warning',
+      }),
+    ]);
+  });
+
+  it('does not warn for optional-content text when all layers are visible', () => {
+    const out = detectPageWarnings(page([]), {
+      optionalContentText: true,
+      hasHiddenOptionalContent: false,
+    });
+
+    expect(out.some((w) => w.code === 'optional_content_text_may_include_hidden_layers')).toBe(false);
+  });
+
   it('suppresses geometry warnings when glyph garbage makes layout bboxes unreliable', () => {
     const out = detectPageWarnings({
       ...page([block(50, -10, 100, 50), block(60, 0, 100, 50)]),

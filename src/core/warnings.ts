@@ -15,6 +15,12 @@ export interface PageWarningContext {
    *  that case layout bboxes describe hidden OCR text, not the pixels a
    *  human sees, so geometry-driven warnings are more noise than signal. */
   rasterBackedTextLayer?: boolean;
+  /** True when the page text stream contains optional-content marked
+   *  text items. */
+  optionalContentText?: boolean;
+  /** True when the document has at least one hidden optional-content
+   *  group in the default viewer state. */
+  hasHiddenOptionalContent?: boolean;
   /** Internal raster bboxes used for warnings even when public
    *  `pages[].imageBoxes` was not requested. */
   imageBoxes?: ImageBox[];
@@ -53,6 +59,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
   detectDenseVectorGraphics(page, warnings);
   detectLargeRasterLowTextOverlap(page, context, warnings);
   detectVisibleAnnotationTextMissingFromNative(page, warnings);
+  detectOptionalContentTextHiddenLayerRisk(context, warnings);
 
   if (
     !page.layout ||
@@ -506,6 +513,16 @@ function detectVisibleAnnotationTextMissingFromNative(page: PageResult, out: Pag
     code: 'annotation_text_missing_from_native',
     severity: 'warning',
     message: `${missing.length} visible FreeText annotation${missing.length === 1 ? '' : 's'} ${missing.length === 1 ? 'is' : 'are'} not present in native page text (sample: ${JSON.stringify(sample)}) — read pages[].annotations or search annotation matches before trusting pages[].text as the full visible text`,
+  });
+}
+
+function detectOptionalContentTextHiddenLayerRisk(context: PageWarningContext, out: PageWarning[]): void {
+  if (!context.optionalContentText || !context.hasHiddenOptionalContent) return;
+  out.push({
+    code: 'optional_content_text_may_include_hidden_layers',
+    severity: 'warning',
+    message:
+      'page text contains optional-content marked text while the PDF has hidden layers; native text may include layer content that is not visible in the default viewer state, so inspect --layers or a render before trusting the text',
   });
 }
 
