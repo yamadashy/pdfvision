@@ -137,6 +137,57 @@ describe('processDocument search', () => {
     expect(matches[0].boxes).toHaveLength(3);
   });
 
+  it('matches Latin phrases split across vertical Japanese columns', () => {
+    // TaroUTR50SortedList112 page-2-shaped case: Japanese vertical text
+    // carries "Johannes Gutenberg" across two narrow vertical columns,
+    // with "Jo" ending the right column and "hannes" starting the next.
+    const spans: TextSpan[] = [
+      {
+        text: 'タイポグラフィ、すなわちtypographyの歴史は長い。Jo',
+        x: 151.6,
+        y: 263.62,
+        width: 9.21,
+        height: 294.88,
+        fontSize: 9.21,
+      },
+      {
+        text: 'hannes',
+        x: 135.48,
+        y: 263.62,
+        width: 9.21,
+        height: 56.88,
+        fontSize: 9.21,
+      },
+      {
+        text: 'Gutenbergが1440年代なかばに発明した',
+        x: 135.48,
+        y: 330.01,
+        width: 9.21,
+        height: 228.48,
+        fontSize: 9.21,
+      },
+    ];
+    const compiled = compileSearch('Johannes Gutenberg', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 595, 842, compiled);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'Johannes Gutenberg',
+      source: 'native',
+      page: 1,
+    });
+    expect(matches[0].boxes.length).toBeGreaterThanOrEqual(3);
+    expect(matches[0].bbox.width).toBeGreaterThan(0);
+    expect(matches[0].bbox.height).toBeGreaterThan(0);
+
+    const singleSpanCompiled = compileSearch('hannes', {});
+    if (!singleSpanCompiled) throw new Error('expected compiled search');
+    const singleSpanMatches = searchPage(spans, undefined, 1, 595, 842, singleSpanCompiled);
+    expect(singleSpanMatches).toHaveLength(1);
+  });
+
   it('matches Latin phrases across tight sentence-punctuation gaps', () => {
     const spans: TextSpan[] = [
       {
