@@ -193,6 +193,7 @@ describe('buildFormFields', () => {
       name: 'choice',
       type: 'choice',
       value: 'A',
+      displayValue: 'Alpha',
       combo: false,
       multiSelect: true,
       options: [

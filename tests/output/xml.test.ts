@@ -585,6 +585,7 @@ describe('formatXml', () => {
                 width: 120,
                 height: 20,
                 value: 'B',
+                displayValue: 'Beta',
                 combo: false,
                 multiSelect: true,
                 options: [
@@ -607,7 +608,7 @@ describe('formatXml', () => {
       '<field name="agree" type="checkbox" x="10" y="40" width="8" height="8" value="Off" checked="false" exportValue="Yes" flags="hidden,print"/>',
     );
     expect(out).toContain(
-      '<field name="choice" type="choice" x="20" y="60" width="120" height="20" value="B" combo="false" multiSelect="true">',
+      '<field name="choice" type="choice" x="20" y="60" width="120" height="20" value="B" displayValue="Beta" combo="false" multiSelect="true">',
     );
     expect(out).toContain('<options>');
     expect(out).toContain('<option exportValue="A&amp;B" displayValue="Alpha &lt;A&gt;"/>');

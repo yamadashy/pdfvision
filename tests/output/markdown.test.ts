@@ -264,7 +264,8 @@ describe('formatMarkdown', () => {
                 y: 48.5,
                 width: 88,
                 height: 11,
-                value: 'B',
+                value: 'A',
+                displayValue: 'Alpha',
                 readOnly: true,
                 combo: true,
                 multiSelect: false,
@@ -305,7 +306,7 @@ describe('formatMarkdown', () => {
     expect(out).toMatch(/formFields: 2/);
     expect(out).toContain('### Form fields');
     expect(out).toContain('| Type | Name | Label | Value | Export | Options | Flags | BBox |');
-    expect(out).toContain('| choice | choice |  | B |  | Alpha=A, B | readOnly, combo | 228.8,48.5,88,11 |');
+    expect(out).toContain('| choice | choice |  | Alpha | A | Alpha=A, B | readOnly, combo | 228.8,48.5,88,11 |');
     expect(out).toContain(
       '| checkbox | agree\\|box | Agree \\| certify (right) | unchecked | Yes |  | hidden, print | 36,62,8,8 |',
     );

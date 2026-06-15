@@ -924,6 +924,7 @@ function formFieldMatchContext(field: FormField, value: string): string {
 }
 
 function formFieldSearchValue(field: FormField & { value: string }): string {
+  if (field.type === 'choice' && field.displayValue) return field.displayValue;
   if (field.type !== 'choice') return field.value;
   const selectedValues = field.value.split(/\s*,\s*/u).filter((value) => value.length > 0);
   const displayValues = selectedValues.map((value) => choiceDisplayValue(field, value));

@@ -48,6 +48,7 @@ function escapeInline(value: string): string {
 
 function fieldValue(field: NonNullable<PageResult['formFields']>[number]): string {
   if (field.checked !== undefined) return field.checked ? 'checked' : 'unchecked';
+  if (field.type === 'choice' && field.displayValue) return field.displayValue;
   return field.value ?? '';
 }
 
@@ -68,6 +69,9 @@ function fieldOptions(field: NonNullable<PageResult['formFields']>[number]): str
 }
 
 function fieldExportValue(field: NonNullable<PageResult['formFields']>[number]): string {
+  if (field.type === 'choice' && field.displayValue && field.value && field.displayValue !== field.value) {
+    return field.value;
+  }
   return field.exportValue ?? '';
 }
 
@@ -583,7 +587,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
         lines.push('');
         const showFieldActions = page.formFields.some((field) => field.actions !== undefined);
         const showFieldReset = page.formFields.some((field) => field.resetForm !== undefined);
-        const showExportValue = page.formFields.some((field) => field.exportValue !== undefined);
+        const showExportValue = page.formFields.some((field) => fieldExportValue(field).length > 0);
         lines.push(
           `| Type | Name | Label | Value |${showExportValue ? ' Export |' : ''} Options |${showFieldReset ? ' Reset |' : ''}${showFieldActions ? ' Actions |' : ''} Flags | BBox |`,
         );

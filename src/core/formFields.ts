@@ -83,6 +83,9 @@ export function buildFormFields(
     const actions = normalizeJavaScriptActions(ann.actions);
     const resetForm = formResetAction(ann.resetForm);
     const exportValue = fieldExportValue(ann, type);
+    const choiceMetadata = choiceFieldMetadata(ann);
+    const displayValue =
+      type === 'choice' && value !== undefined ? choiceDisplayValue(value, choiceMetadata.options) : undefined;
 
     const field: FormField = {
       name: ann.fieldName,
@@ -96,8 +99,9 @@ export function buildFormFields(
       ...(typeof ann.readOnly === 'boolean' && { readOnly: ann.readOnly }),
       ...(typeof ann.required === 'boolean' && { required: ann.required }),
       ...(typeof ann.multiline === 'boolean' && { multiline: ann.multiline }),
+      ...(displayValue !== undefined && displayValue !== value && { displayValue }),
       ...(exportValue !== undefined && { exportValue }),
-      ...choiceFieldMetadata(ann),
+      ...choiceMetadata,
       ...(flags.length > 0 && { flags }),
       ...(actions !== undefined && { actions }),
       ...(resetForm !== undefined && { resetForm }),
@@ -180,6 +184,18 @@ function choiceFieldMetadata(annotation: PdfAnnotation): Pick<FormField, 'combo'
     ...(typeof annotation.multiSelect === 'boolean' && { multiSelect: annotation.multiSelect }),
     ...(options.length > 0 && { options }),
   };
+}
+
+function choiceDisplayValue(value: string, options: readonly FormFieldChoiceOption[] | undefined): string | undefined {
+  if (!options || options.length === 0) return undefined;
+  const selectedValues = value.split(/\s*,\s*/u).filter((item) => item.length > 0);
+  if (selectedValues.length === 0) return undefined;
+  return selectedValues.map((item) => selectedChoiceDisplayValue(item, options)).join(', ');
+}
+
+function selectedChoiceDisplayValue(value: string, options: readonly FormFieldChoiceOption[]): string {
+  const option = options.find((item) => item.exportValue === value || item.displayValue === value);
+  return option?.displayValue ?? value;
 }
 
 function choiceOptions(value: unknown): FormFieldChoiceOption[] {
