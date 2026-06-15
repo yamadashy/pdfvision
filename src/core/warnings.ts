@@ -1216,6 +1216,7 @@ function isSourceFootnoteCaption(block: LayoutBlock): boolean {
   if (text.startsWith('※')) return true;
   if (SOURCE_FOOTNOTE_PREFIX.test(text)) return true;
   if (SOURCE_FOOTNOTE_SUFFIX.test(text)) return true;
+  if (text.length <= 180 && /資料/u.test(text) && /[」』][）)]?$/u.test(text)) return true;
   // Bare citation shape: organization + quoted publication title,
   // e.g. 総務省「情報通信メディアの利用時間と情報行動に関する調査」.
   if (text.length <= 100 && /^[^「」]{0,30}「[^「」]+」$/u.test(text)) return true;

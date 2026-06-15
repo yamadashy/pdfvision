@@ -2096,6 +2096,19 @@ describe('detectPageWarnings', () => {
           text: '(出典)Reuters Institute for the Study of Journalism「Digital News Report」(2024) を基に作成',
         }),
         block(420, 582, 280, 8, { text: '総務省「情報通信メディアの利用時間と情報行動に関する調査」' }),
+        block(42.29, 523.85, 145.21, 9, {
+          text: 'CX研究会 資料3事務局提出資料」)',
+          lines: [
+            {
+              text: 'CX研究会 資料3事務局提出資料」)',
+              x: 42.29,
+              y: 523.85,
+              width: 145.21,
+              height: 9,
+              fontSize: 9,
+            },
+          ],
+        }),
       ];
       const out = detectPageWarnings(page(captions, 841.92, 595.32));
       expect(out.filter((w) => w.code === 'near_bottom_edge')).toEqual([]);
