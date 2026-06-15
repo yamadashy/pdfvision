@@ -847,8 +847,7 @@ function appendFormFieldMatches(
   const formFieldCount = new Map<number, number>();
   const formFieldCapped = new Set<number>();
   for (const field of formFields) {
-    if (field.type !== 'text' && field.type !== 'choice') continue;
-    if (!field.value) continue;
+    if (!isSearchableFormFieldText(field)) continue;
     const haystack = compiled.normalize ? nfkc(field.value) : field.value;
     if (haystack.length === 0) continue;
     for (let mi = 0; mi < compiled.matchers.length; mi++) {
@@ -903,6 +902,13 @@ function appendFormFieldMatches(
 function formFieldMatchContext(field: FormField, value: string): string {
   const text = field.label?.text ? `${field.label.text}: ${value}` : value;
   return text.replace(/\s+/g, ' ').trim().slice(0, 160);
+}
+
+function isSearchableFormFieldText(field: FormField): field is FormField & { value: string } {
+  if (field.type !== 'text' && field.type !== 'choice') return false;
+  if (!field.value) return false;
+  const flags = field.flags ?? [];
+  return !flags.some((flag) => flag === 'hidden' || flag === 'invisible' || flag === 'noView');
 }
 
 function isSearchableAnnotationText(annotation: PageAnnotation): annotation is PageAnnotation & { contents: string } {

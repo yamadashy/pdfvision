@@ -217,8 +217,18 @@ describe('processDocument search', () => {
         width: 12,
         height: 12,
       },
+      {
+        name: 'HiddenText',
+        type: 'text',
+        value: 'hidden printable value',
+        x: 40,
+        y: 40,
+        width: 100,
+        height: 20,
+        flags: ['hidden', 'print'],
+      },
     ];
-    const compiled = compileSearch(['abcdefghijklmnopqrstuvwxyz', 'Off'], {});
+    const compiled = compileSearch(['abcdefghijklmnopqrstuvwxyz', 'Off', 'hidden printable value'], {});
     if (!compiled) throw new Error('expected compiled search');
 
     const matches = searchPage([], undefined, 1, 612, 792, compiled, undefined, fields);
