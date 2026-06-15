@@ -236,6 +236,7 @@ interface LabelCandidate {
 const LABEL_MAX_CHARS = 220;
 const STACKED_LABEL_MAX_CHARS = 260;
 const SIDE_LABEL_MAX_GAP_PT = 80;
+const TALL_TEXT_FIELD_SIDE_LABEL_MAX_GAP_PT = 110;
 const WIDE_ROW_HEADER_LABEL_MAX_GAP_PT = 340;
 const WIDE_ROW_HEADER_LABEL_GAP_WEIGHT = 0.12;
 const ABOVE_LABEL_MAX_GAP_PT = 42;
@@ -343,7 +344,12 @@ function sideLabelCandidate(
   const lineRight = line.x + line.width;
   const gap = relation === 'right' ? line.x - fieldRight : field.x - lineRight;
   const wideRowHeader = relation === 'left' && isWideRowHeaderLabelText(text);
-  const maxGap = wideRowHeader ? WIDE_ROW_HEADER_LABEL_MAX_GAP_PT : SIDE_LABEL_MAX_GAP_PT;
+  const tallTextFieldLeftLabel = relation === 'left' && field.type === 'text' && field.height >= 30;
+  const maxGap = wideRowHeader
+    ? WIDE_ROW_HEADER_LABEL_MAX_GAP_PT
+    : tallTextFieldLeftLabel
+      ? TALL_TEXT_FIELD_SIDE_LABEL_MAX_GAP_PT
+      : SIDE_LABEL_MAX_GAP_PT;
   if (gap < -2 || gap > maxGap) return undefined;
   const centerDelta = Math.abs(centerY(field) - centerY(line));
   const maxCenterDelta = Math.max(7, Math.max(field.height, line.height) * 0.9);

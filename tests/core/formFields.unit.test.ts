@@ -921,6 +921,33 @@ describe('buildFormFields', () => {
     });
   });
 
+  it('captures left labels for tall multiline text fields across a wider gap', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'multilineText',
+          fieldType: 'Tx',
+          rect: [145.6, 506.83, 591.47, 555.16],
+          fieldValue: 'Line one\rLine two',
+        },
+      ],
+      792,
+      0,
+      0,
+      [{ text: 'Multiline', x: 20.68, y: 240.51, width: 36.12, height: 10, fontSize: 10 }],
+    );
+
+    expect(fields[0].label).toEqual({
+      text: 'Multiline',
+      relation: 'left',
+      x: 20.68,
+      y: 240.51,
+      width: 36.12,
+      height: 10,
+    });
+  });
+
   it('prefers wide descriptive above labels over tiny line numbers', () => {
     const fields = buildFormFields(
       [{ subtype: 'Widget', fieldName: 'entityName', fieldType: 'Tx', rect: [58.6, 660, 576, 674] }],
