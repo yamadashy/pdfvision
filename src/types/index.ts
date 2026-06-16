@@ -704,6 +704,8 @@ export interface FormField {
   multiline?: boolean;
   /** Human-visible selected choice label when it differs from the submitted value. */
   displayValue?: string;
+  /** Human-visible push-button caption from Widget appearance characteristics when available. */
+  caption?: string;
   /** Submitted/exported value for checkbox/radio button widgets when pdf.js exposes it. */
   exportValue?: string;
   /** Choice-field options, present when pdf.js exposes combo/list box entries. */

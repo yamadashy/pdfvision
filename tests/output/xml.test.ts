@@ -637,6 +637,7 @@ describe('formatXml', () => {
                 y: 20,
                 width: 80,
                 height: 20,
+                caption: 'Run <now>',
                 actions: { Action: ['app.alert("clicked");'] },
               },
             ],
@@ -645,7 +646,9 @@ describe('formatXml', () => {
       }),
     );
 
-    expect(out).toContain('<field name="Execute" type="button" x="10" y="20" width="80" height="20">');
+    expect(out).toContain(
+      '<field name="Execute" type="button" x="10" y="20" width="80" height="20" caption="Run &lt;now&gt;">',
+    );
     expect(out).toContain('<jsActions>');
     expect(out).toContain('<action name="Action">');
     expect(out).toContain('<script>app.alert("clicked");</script>');

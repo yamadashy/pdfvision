@@ -329,6 +329,7 @@ describe('formatMarkdown', () => {
                 y: 20,
                 width: 80,
                 height: 20,
+                caption: 'Run now',
                 actions: { Action: ['line1();\r\nline2();'] },
               },
             ],
@@ -338,7 +339,7 @@ describe('formatMarkdown', () => {
     );
 
     expect(out).toContain('| Type | Name | Label | Value | Options | Actions | Flags | BBox |');
-    expect(out).toContain('| button | Execute |  |  |  | Action=line1(); line2(); |  | 10,20,80,20 |');
+    expect(out).toContain('| button | Execute |  | Run now |  | Action=line1(); line2(); |  | 10,20,80,20 |');
   });
 
   it('renders reset form button actions', () => {

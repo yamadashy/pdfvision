@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildFormFields } from '../../src/core/formFields.js';
+import { extractWidgetAppearanceCaptions } from '../../src/core/widgetAppearance.js';
 
 function rectFromTopLeft(
   x: number,
@@ -12,6 +13,69 @@ function rectFromTopLeft(
 }
 
 describe('buildFormFields', () => {
+  it('extracts push-button captions from widget appearance characteristics', () => {
+    const pdfBytes = Buffer.from(
+      [
+        '11 0 obj',
+        '<< /Subtype /Widget /FT /Btn /Ff 65536 /MK << /BG [ 0.75293 ] /CA (Show \\(now\\)) >> /T (Button1) >>',
+        'endobj',
+      ].join('\n'),
+      'latin1',
+    );
+    const captions = extractWidgetAppearanceCaptions(pdfBytes);
+    expect(captions.get('11R')).toBe('Show (now)');
+  });
+
+  it('extracts push-button captions from uncompressed object streams', () => {
+    const first = 5;
+    const objectBody = '<< /Subtype /Widget /FT /Btn /Ff 65536 /MK << /BG [ 0.75293 ] /CA (Show) >> /T (Button1) >>';
+    const objectStream = `11 0\n${objectBody}`;
+    const pdfBytes = Buffer.from(
+      [
+        '4 0 obj',
+        `<< /Type /ObjStm /Length ${objectStream.length} /N 1 /First ${first} >>`,
+        'stream',
+        objectStream,
+        'endstream',
+        'endobj',
+      ].join('\n'),
+      'latin1',
+    );
+
+    const captions = extractWidgetAppearanceCaptions(pdfBytes);
+    expect(captions.get('11R')).toBe('Show');
+  });
+
+  it('attaches push-button captions from appearance maps', () => {
+    const fields = buildFormFields(
+      [
+        {
+          id: '11R',
+          subtype: 'Widget',
+          fieldName: 'Button1',
+          fieldType: 'Btn',
+          pushButton: true,
+          rect: [285.317, 733.065, 357.317, 753.065],
+        },
+      ],
+      792,
+      0,
+      0,
+      [],
+      { widgetAppearanceCaptions: new Map([['11R', 'Show']]) },
+    );
+
+    expect(fields[0]).toMatchObject({
+      name: 'Button1',
+      type: 'button',
+      caption: 'Show',
+      x: 285.32,
+      y: 38.93,
+      width: 72,
+      height: 20,
+    });
+  });
+
   it('extracts widget fields with top-left coordinates and checkbox state', () => {
     const fields = buildFormFields(
       [

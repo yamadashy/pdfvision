@@ -48,6 +48,7 @@ function escapeInline(value: string): string {
 
 function fieldValue(field: NonNullable<PageResult['formFields']>[number]): string {
   if (field.checked !== undefined) return field.checked ? 'checked' : 'unchecked';
+  if (field.type === 'button' && field.caption) return field.caption;
   if (field.type === 'choice' && field.displayValue) return field.displayValue;
   return field.value ?? '';
 }

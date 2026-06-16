@@ -240,16 +240,25 @@ describe('processDocument search', () => {
           { exportValue: 'Export2', displayValue: 'Item2' },
         ],
       },
+      {
+        name: 'Button1',
+        type: 'button',
+        caption: 'Show',
+        x: 200,
+        y: 40,
+        width: 72,
+        height: 20,
+      },
     ];
     const compiled = compileSearch(
-      ['abcdefghijklmnopqrstuvwxyz', 'Off', 'hidden printable value', 'Item1', 'Export1'],
+      ['abcdefghijklmnopqrstuvwxyz', 'Off', 'hidden printable value', 'Item1', 'Export1', 'Show'],
       {},
     );
     if (!compiled) throw new Error('expected compiled search');
 
     const matches = searchPage([], undefined, 1, 612, 792, compiled, undefined, fields);
 
-    expect(matches).toHaveLength(2);
+    expect(matches).toHaveLength(3);
     expect(matches[0]).toMatchObject({
       query: 'abcdefghijklmnopqrstuvwxyz',
       queryIndex: 0,
@@ -267,6 +276,14 @@ describe('processDocument search', () => {
       source: 'formField',
       bbox: { x: 60, y: 80, width: 120, height: 80 },
       context: 'Item1',
+    });
+    expect(matches[2]).toMatchObject({
+      query: 'Show',
+      queryIndex: 5,
+      text: 'Show',
+      source: 'formField',
+      bbox: { x: 200, y: 40, width: 72, height: 20 },
+      context: 'Show',
     });
   });
 

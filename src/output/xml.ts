@@ -429,6 +429,7 @@ export function formatXml(result: DocumentResult): string {
           if (field.required !== undefined) fieldAttrs.push(`required="${field.required}"`);
           if (field.multiline !== undefined) fieldAttrs.push(`multiline="${field.multiline}"`);
           if (field.displayValue !== undefined) fieldAttrs.push(`displayValue="${escapeAttr(field.displayValue)}"`);
+          if (field.caption !== undefined) fieldAttrs.push(`caption="${escapeAttr(field.caption)}"`);
           if (field.exportValue !== undefined) fieldAttrs.push(`exportValue="${escapeAttr(field.exportValue)}"`);
           if (field.combo !== undefined) fieldAttrs.push(`combo="${field.combo}"`);
           if (field.multiSelect !== undefined) fieldAttrs.push(`multiSelect="${field.multiSelect}"`);

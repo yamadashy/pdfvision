@@ -10,6 +10,7 @@ import { annotationFlagNames } from './annotations.js';
 import { normalizeJavaScriptActions } from './viewer.js';
 
 interface PdfAnnotation {
+  id?: unknown;
   subtype?: unknown;
   fieldName?: unknown;
   fieldType?: unknown;
@@ -28,6 +29,10 @@ interface PdfAnnotation {
   resetForm?: unknown;
   exportValue?: unknown;
   buttonValue?: unknown;
+}
+
+interface BuildFormFieldsOptions {
+  widgetAppearanceCaptions?: ReadonlyMap<string, string>;
 }
 
 interface LabelLine {
@@ -60,6 +65,7 @@ export function buildFormFields(
   viewMinX = 0,
   viewMinY = 0,
   labelLines: readonly LabelLine[] = [],
+  options: BuildFormFieldsOptions = {},
 ): FormField[] {
   validatePageGeometry(pageHeight, viewMinX, viewMinY);
 
@@ -83,6 +89,7 @@ export function buildFormFields(
     const actions = normalizeJavaScriptActions(ann.actions);
     const resetForm = formResetAction(ann.resetForm);
     const exportValue = fieldExportValue(ann, type);
+    const caption = fieldCaption(ann, type, options);
     const choiceMetadata = choiceFieldMetadata(ann);
     const displayValue =
       type === 'choice' && value !== undefined ? choiceDisplayValue(value, choiceMetadata.options) : undefined;
@@ -101,6 +108,7 @@ export function buildFormFields(
       ...(typeof ann.multiline === 'boolean' && { multiline: ann.multiline }),
       ...(displayValue !== undefined && displayValue !== value && { displayValue }),
       ...(exportValue !== undefined && { exportValue }),
+      ...(caption !== undefined && { caption }),
       ...choiceMetadata,
       ...(flags.length > 0 && { flags }),
       ...(actions !== undefined && { actions }),
@@ -117,6 +125,18 @@ export function buildFormFields(
     if (label) field.label = label;
   }
   return fields.sort((a, b) => a.y - b.y || a.x - b.x || a.name.localeCompare(b.name));
+}
+
+function fieldCaption(
+  annotation: PdfAnnotation,
+  type: FormFieldType,
+  options: BuildFormFieldsOptions,
+): string | undefined {
+  if (type !== 'button' || typeof annotation.id !== 'string') return undefined;
+  const caption = options.widgetAppearanceCaptions?.get(annotation.id);
+  if (caption === undefined) return undefined;
+  const normalized = caption.trim().replace(/\s+/gu, ' ');
+  return normalized.length > 0 ? normalized : undefined;
 }
 
 function formResetAction(value: unknown): FormFieldResetFormAction | undefined {

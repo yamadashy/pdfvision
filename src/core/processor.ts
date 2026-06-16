@@ -6,6 +6,7 @@ import {
   mkdirSync,
   mkdtempSync,
   openSync,
+  readFileSync,
   readSync,
   realpathSync,
   statSync,
@@ -69,6 +70,7 @@ import { countVectorPaintOps } from './vectorOps.js';
 import { buildViewerState, normalizeJavaScriptActions } from './viewer.js';
 import { type BuildVisualRegionsInput, buildVisualRegions } from './visualRegions.js';
 import { detectPageWarnings } from './warnings.js';
+import { extractWidgetAppearanceCaptions } from './widgetAppearance.js';
 
 /** Inputs that determine which cached entry a request maps to. */
 interface CacheKeyInput {
@@ -295,7 +297,7 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v123',
+    format: 'structured-v124',
     passwordHash:
       input.password !== undefined ? createHash('sha256').update(input.password).digest('hex').slice(0, 16) : null,
     render: !!input.render,
@@ -464,6 +466,12 @@ interface PageFlags {
   needAnnotationsForSearch: boolean;
 }
 
+function hasPushButtonWidget(annotation: unknown): boolean {
+  if (!annotation || typeof annotation !== 'object') return false;
+  const raw = annotation as { subtype?: unknown; fieldType?: unknown; pushButton?: unknown };
+  return raw.subtype === 'Widget' && raw.fieldType === 'Btn' && raw.pushButton === true;
+}
+
 /**
  * Extract a page's text plus rough density metadata.
  *
@@ -476,6 +484,7 @@ async function extractPageData(
   pageNum: number,
   ops: ImageOps,
   flags: PageFlags,
+  getWidgetAppearanceCaptions?: () => ReadonlyMap<string, string>,
 ): Promise<PageData> {
   const page = await doc.getPage(pageNum);
   const content = await page.getTextContent({ includeMarkedContent: true });
@@ -618,6 +627,7 @@ async function extractPageData(
     flags.needFormFieldsForSearch;
   const annotations = needsAnnotations ? await page.getAnnotations({ intent: 'display' }) : undefined;
   const visibleAnnotationAppearance = annotations ? hasVisibleAnnotationAppearance(annotations) : false;
+  const widgetAppearanceCaptions = annotations?.some(hasPushButtonWidget) ? getWidgetAppearanceCaptions?.() : undefined;
   const allFormFields =
     flags.formFields || flags.visualRegions || flags.needFormFieldsForSearch
       ? buildFormFields(
@@ -647,6 +657,7 @@ async function extractPageData(
                 })),
               ]
             : [],
+          { widgetAppearanceCaptions },
         )
       : undefined;
   const formFields = flags.formFields ? allFormFields : undefined;
@@ -1232,6 +1243,19 @@ export async function processDocument(filePath: string, options: ProcessDocument
       paintImageMaskXObjectGroup: OPS.paintImageMaskXObjectGroup,
       paintInlineImageXObjectGroup: OPS.paintInlineImageXObjectGroup,
     };
+    let widgetAppearanceCaptions: ReadonlyMap<string, string> | undefined;
+    const getWidgetAppearanceCaptions = (): ReadonlyMap<string, string> => {
+      if (widgetAppearanceCaptions !== undefined) return widgetAppearanceCaptions;
+      try {
+        const rawCaptions = extractWidgetAppearanceCaptions(pdfData ?? readFileSync(filePath));
+        widgetAppearanceCaptions = flags.normalize
+          ? new Map(Array.from(rawCaptions, ([id, caption]) => [id, normalizeText(caption)]))
+          : rawCaptions;
+      } catch {
+        widgetAppearanceCaptions = new Map();
+      }
+      return widgetAppearanceCaptions;
+    };
     // Parallelise per-page extraction. pdfjs's PDFDocumentProxy is safe
     // to call concurrently — each `getPage` resolves through its own
     // worker queue — and runParallel preserves input order so the output
@@ -1239,7 +1263,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     // (defaultConcurrency) keeps memory bounded on large multi-page
     // docs where every concurrent page builds its own canvas / op list.
     const pages: PageResult[] = await runParallel(pageNumbers, async (pageNum, i) => {
-      const data = await extractPageData(doc, pageNum, imageOps, flags);
+      const data = await extractPageData(doc, pageNum, imageOps, flags, getWidgetAppearanceCaptions);
       rasterBackedTextLayerByPage.set(pageNum, data.rasterBackedTextLayer);
       optionalContentTextByPage.set(pageNum, data.optionalContentText);
       warningImageBoxesByPage.set(pageNum, data._warningImageBoxes ?? []);

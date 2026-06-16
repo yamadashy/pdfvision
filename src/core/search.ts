@@ -869,8 +869,8 @@ function appendFormFieldMatches(
   const formFieldCount = new Map<number, number>();
   const formFieldCapped = new Set<number>();
   for (const field of formFields) {
-    if (!isSearchableFormFieldText(field)) continue;
     const rawSearchValue = formFieldSearchValue(field);
+    if (rawSearchValue === undefined) continue;
     const haystack = compiled.normalize ? nfkc(rawSearchValue) : rawSearchValue;
     if (haystack.length === 0) continue;
     for (let mi = 0; mi < compiled.matchers.length; mi++) {
@@ -923,7 +923,11 @@ function formFieldMatchContext(field: FormField, value: string): string {
   return text.replace(/\s+/g, ' ').trim().slice(0, 160);
 }
 
-function formFieldSearchValue(field: FormField & { value: string }): string {
+function formFieldSearchValue(field: FormField): string | undefined {
+  if (!isVisibleFormField(field)) return undefined;
+  if (field.type === 'button') return field.caption && field.caption.length > 0 ? field.caption : undefined;
+  if (field.type !== 'text' && field.type !== 'choice') return undefined;
+  if (!field.value) return undefined;
   if (field.type === 'choice' && field.displayValue) return field.displayValue;
   if (field.type !== 'choice') return field.value;
   const selectedValues = field.value.split(/\s*,\s*/u).filter((value) => value.length > 0);
@@ -937,9 +941,7 @@ function choiceDisplayValue(field: FormField, value: string): string {
   return option?.displayValue ?? value;
 }
 
-function isSearchableFormFieldText(field: FormField): field is FormField & { value: string } {
-  if (field.type !== 'text' && field.type !== 'choice') return false;
-  if (!field.value) return false;
+function isVisibleFormField(field: FormField): boolean {
   const flags = field.flags ?? [];
   return !flags.some((flag) => flag === 'hidden' || flag === 'invisible' || flag === 'noView');
 }
