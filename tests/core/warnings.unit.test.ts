@@ -1379,6 +1379,32 @@ describe('detectPageWarnings', () => {
       expect(divergence?.message).toContain('bottom block');
     });
 
+    it('flags right sidebars that appear at the start of the native text stream', () => {
+      // PDF.js marked-content financial report-shaped case: the visual
+      // flow starts with the main article, but the native stream begins
+      // with a right-sidebar guidance card.
+      const leftBody = 'Main article text begins on the left and continues through the first column. '.repeat(18);
+      const middleBody = 'Second column continues the article before the sidebar should be read. '.repeat(18);
+      const sidebarHeading = 'Guidance';
+      const sidebarBody =
+        'Kreate estimates that its revenue in 2025 will increase and be in the range of 290-310 MEUR.';
+      const blocks = [
+        block(27, 61, 294, 450, { text: leftBody }),
+        block(335, 61, 294, 450, { text: middleBody }),
+        block(670, 426, 49, 12, { text: sidebarHeading, role: 'heading' }),
+        block(670, 445, 245, 28, { text: sidebarBody }),
+      ];
+      const p = {
+        ...page(blocks, 960, 540),
+        text: `${sidebarHeading} ${sidebarBody}\n${leftBody}\n${middleBody}`,
+      };
+
+      const out = detectPageWarnings(p);
+      const divergence = out.find((w) => w.code === 'reading_order_divergence');
+      expect(divergence).toMatchObject({ severity: 'warning', blockIndex: 2 });
+      expect(divergence?.message).toContain('side block');
+    });
+
     it('does not flag bottom headings only referenced near the start of the native text stream', () => {
       // IRS W-9-shaped case: the top instructions refer to "Purpose
       // of Form" before the actual bottom section. A one-line heading

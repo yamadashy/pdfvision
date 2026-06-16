@@ -848,6 +848,7 @@ const READING_ORDER_LAYOUT_LATE_RATIO = 0.75;
 const READING_ORDER_NATIVE_LATE_RATIO = 0.5;
 const READING_ORDER_NATIVE_EARLY_RATIO = 0.1;
 const READING_ORDER_BOTTOM_Y_RATIO = 0.85;
+const READING_ORDER_SIDE_X_RATIO = 0.6;
 const READING_ORDER_MIN_BLOCKS = 4;
 const READING_ORDER_MIN_HEADING_CHARS = 10;
 const READING_ORDER_PROBE_CHARS = 40;
@@ -875,7 +876,7 @@ const LOCAL_READING_ORDER_NUMBER = /\p{Number}/u;
 function detectReadingOrderDivergence(page: PageResult, blocks: LayoutBlock[], out: PageWarning[]): void {
   if (page.text.length === 0) return;
   if (blocks.length >= READING_ORDER_MIN_BLOCKS && detectHeadingReadingOrderDivergence(page, blocks, out)) return;
-  if (blocks.length >= READING_ORDER_MIN_BLOCKS && detectTrailingBlockStartsNativeText(page, blocks, out)) return;
+  if (blocks.length >= READING_ORDER_MIN_BLOCKS && detectLateBlockStartsNativeText(page, blocks, out)) return;
   detectLocalMathReadingOrderDivergence(page, blocks, out);
 }
 
@@ -943,10 +944,10 @@ function detectHeadingReadingOrderDivergence(page: PageResult, blocks: LayoutBlo
   return false;
 }
 
-function detectTrailingBlockStartsNativeText(page: PageResult, blocks: LayoutBlock[], out: PageWarning[]): boolean {
+function detectLateBlockStartsNativeText(page: PageResult, blocks: LayoutBlock[], out: PageWarning[]): boolean {
   let layoutOffset = 0;
   const totalChars = blocks.reduce((sum, block) => sum + block.text.length, 0);
-  if (totalChars === 0 || page.height <= 0) return false;
+  if (totalChars === 0 || page.width <= 0 || page.height <= 0) return false;
   const nativeText = collapseReadingOrderWhitespace(page.text);
   if (nativeText.length === 0) return false;
 
@@ -956,19 +957,22 @@ function detectTrailingBlockStartsNativeText(page: PageResult, blocks: LayoutBlo
     layoutOffset += block.text.length;
     if (layoutPos < READING_ORDER_LAYOUT_LATE_RATIO) continue;
     if (block.repeated) continue;
-    if (block.y < page.height * READING_ORDER_BOTTOM_Y_RATIO) continue;
+    const isBottomBlock = block.y >= page.height * READING_ORDER_BOTTOM_Y_RATIO;
+    const isSideBlock = block.x >= page.width * READING_ORDER_SIDE_X_RATIO;
+    if (!isBottomBlock && !isSideBlock) continue;
 
-    const probe = buildTrailingBlockNativeProbe(blocks, i);
+    const probe = buildLateBlockNativeProbe(blocks, i);
     if (probe.length < READING_ORDER_MIN_HEADING_CHARS) continue;
     const nativeIndex = nativeText.indexOf(probe);
     if (nativeIndex < 0) continue;
     const nativePos = nativeIndex / nativeText.length;
     if (nativePos > READING_ORDER_NATIVE_EARLY_RATIO) continue;
     const label = collapseReadingOrderWhitespace(block.text).slice(0, READING_ORDER_PROBE_CHARS);
+    const regionLabel = isBottomBlock ? 'bottom block' : 'side block';
     out.push({
       code: 'reading_order_divergence',
       severity: 'warning',
-      message: `bottom block "${label}" appears at the start of the native text stream despite sitting late in the visual reading order — native text order diverges from what a human reads; prefer layout.blocks order when sequence matters`,
+      message: `${regionLabel} "${label}" appears at the start of the native text stream despite sitting late in the visual reading order — native text order diverges from what a human reads; prefer layout.blocks order when sequence matters`,
       blockIndex: i,
     });
     return true;
@@ -976,7 +980,7 @@ function detectTrailingBlockStartsNativeText(page: PageResult, blocks: LayoutBlo
   return false;
 }
 
-function buildTrailingBlockNativeProbe(blocks: LayoutBlock[], index: number): string {
+function buildLateBlockNativeProbe(blocks: LayoutBlock[], index: number): string {
   const block = blocks[index];
   const parts = [block.text];
   let probe = collapseReadingOrderWhitespace(parts.join(' '));
