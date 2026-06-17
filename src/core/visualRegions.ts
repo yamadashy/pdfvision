@@ -74,6 +74,8 @@ const FORM_TALL_CLUSTER_HEIGHT_RATIO = 0.2;
 const FORM_BACKPLANE_AREA_RATIO = 0.3;
 const FORM_BACKPLANE_SINGLE_FORM_AREA_RATIO = 0.5;
 const FORM_BACKPLANE_MIN_FORM_OVERLAPS = 2;
+const FORM_WIDGET_LOCAL_ORIGIN_TOLERANCE_PT = 2;
+const FORM_WIDGET_VECTOR_DIMENSION_TOLERANCE_PT = 3;
 const VECTOR_BACKPLANE_MIN_RASTER_OVERLAPS = 2;
 const VECTOR_BACKPLANE_MIN_AREA_RATIO = 0.25;
 const BACKGROUND_BOX_AREA_RATIO = 0.9;
@@ -344,6 +346,20 @@ function isLikelyVectorBackplane(box: BoxLike, pageWidth: number, pageHeight: nu
   );
 }
 
+function isLikelyUnpositionedFormWidgetVector(box: BoxLike, input: BuildVisualRegionsInput): boolean {
+  const fields = input.formFields?.filter(isVisuallyDispatchableFormField) ?? [];
+  if (fields.length < 2) return false;
+  const atLocalOrigin =
+    box.x <= FORM_WIDGET_LOCAL_ORIGIN_TOLERANCE_PT &&
+    Math.abs(box.y + box.height - input.pageHeight) <= FORM_WIDGET_LOCAL_ORIGIN_TOLERANCE_PT;
+  if (!atLocalOrigin) return false;
+  return fields.some(
+    (field) =>
+      Math.abs(field.width - box.width) <= FORM_WIDGET_VECTOR_DIMENSION_TOLERANCE_PT &&
+      Math.abs(field.height - box.height) <= FORM_WIDGET_VECTOR_DIMENSION_TOLERANCE_PT,
+  );
+}
+
 function denseVectorItems(input: BuildVisualRegionsInput): { box: VectorBox; index: number }[] {
   return (input.vectorBoxes ?? [])
     .map((box, index) => ({ box, index }))
@@ -352,7 +368,8 @@ function denseVectorItems(input: BuildVisualRegionsInput): { box: VectorBox; ind
         isUsefulDenseVectorBox(box) &&
         !isNearFullPageBox(box, input.pageWidth, input.pageHeight) &&
         !isLikelySideChrome(box, input.pageWidth, input.pageHeight) &&
-        !isLikelyHorizontalChrome(box, input.pageWidth, input.pageHeight),
+        !isLikelyHorizontalChrome(box, input.pageWidth, input.pageHeight) &&
+        !isLikelyUnpositionedFormWidgetVector(box, input),
     );
 }
 
@@ -364,7 +381,8 @@ function denseMicroVectorItems(input: BuildVisualRegionsInput): { box: VectorBox
         isUsefulMicroVectorBox(box) &&
         !isNearFullPageBox(box, input.pageWidth, input.pageHeight) &&
         !isLikelySideChrome(box, input.pageWidth, input.pageHeight) &&
-        !isLikelyHorizontalChrome(box, input.pageWidth, input.pageHeight),
+        !isLikelyHorizontalChrome(box, input.pageWidth, input.pageHeight) &&
+        !isLikelyUnpositionedFormWidgetVector(box, input),
     );
 }
 
@@ -624,6 +642,7 @@ function clusterVectorBoxes(
   pageWidth: number,
   pageHeight: number,
   skipBackgroundBoxes: boolean,
+  input: BuildVisualRegionsInput,
 ): Candidate[] {
   const clusters: Candidate[] = [];
   for (const [index, box] of vectorBoxes.entries()) {
@@ -631,6 +650,7 @@ function clusterVectorBoxes(
     if (isLikelySideChrome(box, pageWidth, pageHeight)) continue;
     if (isLikelyHorizontalChrome(box, pageWidth, pageHeight)) continue;
     if (skipBackgroundBoxes && isLikelyVectorBackplane(box, pageWidth, pageHeight)) continue;
+    if (isLikelyUnpositionedFormWidgetVector(box, input)) continue;
     const matches: number[] = [];
     for (let i = 0; i < clusters.length; i++) {
       if (touches(clusters[i], box, CLUSTER_GAP_PT)) matches.push(i);
@@ -661,7 +681,13 @@ function addVectorCandidates(input: BuildVisualRegionsInput, candidates: Candida
   const totalArea = pageArea(input);
   const skipBackgroundBoxes =
     hasNonBackgroundBox(input.vectorBoxes, input.pageWidth, input.pageHeight) || hasDenseVectorStructure(input);
-  for (const cluster of clusterVectorBoxes(input.vectorBoxes, input.pageWidth, input.pageHeight, skipBackgroundBoxes)) {
+  for (const cluster of clusterVectorBoxes(
+    input.vectorBoxes,
+    input.pageWidth,
+    input.pageHeight,
+    skipBackgroundBoxes,
+    input,
+  )) {
     const ratio = areaRatio(cluster, totalArea);
     if (cluster.sources.length < MIN_VECTOR_CLUSTER_SOURCES && ratio < MIN_VECTOR_CLUSTER_AREA_RATIO) continue;
     candidates.push({

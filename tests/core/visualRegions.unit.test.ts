@@ -1240,6 +1240,40 @@ describe('buildVisualRegions', () => {
     expect(regions.every((region) => region.width < 220 && region.height < 80)).toBe(true);
   });
 
+  it('suppresses unpositioned widget appearance vectors when form fields carry page positions', () => {
+    const formFields = [
+      { name: 'Text2', type: 'text' as const, x: 311.91, y: 82.73, width: 150, height: 22 },
+      { name: 'Text4', type: 'text' as const, x: 132.53, y: 83.15, width: 150, height: 22 },
+      { name: 'Text3', type: 'text' as const, x: 149.41, y: 174.74, width: 150, height: 22 },
+      { name: 'Text6', type: 'text' as const, x: 325.84, y: 175.16, width: 150, height: 22 },
+      { name: 'Text5', type: 'text' as const, x: 258.31, y: 288.7, width: 150, height: 22 },
+      { name: 'Text1', type: 'text' as const, x: 73.02, y: 289.12, width: 150, height: 22 },
+    ];
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      vectorBoxes: Array.from({ length: formFields.length }, () => ({
+        x: 0.5,
+        y: 770.5,
+        width: 149,
+        height: 21,
+      })),
+      formFields,
+    });
+
+    expect(regions.every((region) => region.kind === 'form')).toBe(true);
+    expect(regions).toHaveLength(formFields.length);
+    expect(regions.map((region) => region.sources[0])).toEqual([
+      { type: 'formField', index: 1 },
+      { type: 'formField', index: 0 },
+      { type: 'formField', index: 2 },
+      { type: 'formField', index: 3 },
+      { type: 'formField', index: 5 },
+      { type: 'formField', index: 4 },
+    ]);
+  });
+
   it('suppresses vector-only regions contained inside a form region', () => {
     const regions = buildVisualRegions({
       pageWidth: 300,
