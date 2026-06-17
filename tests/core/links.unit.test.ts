@@ -106,6 +106,28 @@ describe('buildLinks', () => {
     ]);
   });
 
+  it('clips citation labels when a link sits near the center of a wider prose line', async () => {
+    const labelLine = {
+      text: 'cosine schedule (Loshchilov & Hutter, 2016). Initial hyper-',
+      x: 307.44,
+      y: 337.99,
+      width: 235.66,
+      height: 9.96,
+    };
+    const links = await buildLinks(
+      [{ subtype: 'Link', dest: 'cite.loshchilov2016sgdr', rect: [374.57, 440.89, 458.83, 451.83] }],
+      792,
+      0,
+      0,
+      { labelLines: [labelLine] },
+    );
+
+    expect(links).toHaveLength(1);
+    expect(links[0].text).toContain('Loshchilov');
+    expect(links[0].text).not.toContain('cosine schedule');
+    expect(links[0].text).not.toContain('Initial hyper');
+  });
+
   it('truncates very long visible link text', async () => {
     const longText = 'Chapter '.repeat(60).trim();
     const links = await buildLinks(

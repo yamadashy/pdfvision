@@ -101,7 +101,7 @@ export async function buildLinks(
 function linkText(link: BoxLike, lines: readonly LabelLine[]): string | undefined {
   const parts = lines
     .filter((line) => line.text.trim().length > 0)
-    .filter((line) => isLineInsideLink(line, link) || overlapRatio(line, link) >= 0.35)
+    .filter((line) => isLineCoveredByLink(line, link))
     .sort((a, b) => a.y - b.y || a.x - b.x)
     .map((line) => line.text.trim());
   const text = normalizeLinkText(parts);
@@ -127,20 +127,14 @@ function normalizeLinkText(parts: readonly string[]): string {
   return parts.join(' ').replace(/\s+/g, ' ').trim();
 }
 
-function isLineInsideLink(line: LabelLine, link: BoxLike): boolean {
-  const centerX = line.x + line.width / 2;
+function isLineCoveredByLink(line: LabelLine, link: BoxLike): boolean {
   const centerY = line.y + line.height / 2;
   return (
-    centerX >= link.x - 2 &&
-    centerX <= link.x + link.width + 2 &&
+    line.x >= link.x - 2 &&
+    line.x + line.width <= link.x + link.width + 2 &&
     centerY >= link.y - 2 &&
     centerY <= link.y + link.height + 2
   );
-}
-
-function overlapRatio(a: LabelLine, b: BoxLike): number {
-  const area = Math.max(0.001, a.width * a.height);
-  return intersectionArea(a, b) / area;
 }
 
 function clippedLineText(line: LabelLine, link: BoxLike): (LabelLine & { text: string }) | undefined {
@@ -204,12 +198,6 @@ function intersectionWidth(a: BoxLike, b: BoxLike): number {
 
 function intersectionHeight(a: BoxLike, b: BoxLike): number {
   return Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y));
-}
-
-function intersectionArea(a: BoxLike, b: BoxLike): number {
-  const dx = intersectionWidth(a, b);
-  const dy = intersectionHeight(a, b);
-  return dx > 0 && dy > 0 ? dx * dy : 0;
 }
 
 function linkRect(value: unknown): Rect | undefined {
