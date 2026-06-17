@@ -820,6 +820,7 @@ function addAnnotationCandidates(annotations: readonly PageAnnotation[] | undefi
 }
 
 function isVisuallyDispatchableAnnotation(annotation: PageAnnotation): boolean {
+  if (annotation.subtype === 'FreeText' && annotation.hasAppearance === false) return false;
   return !annotation.flags?.some((flag) => flag === 'invisible' || flag === 'hidden' || flag === 'noView');
 }
 

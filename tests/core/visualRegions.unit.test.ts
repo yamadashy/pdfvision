@@ -80,6 +80,7 @@ describe('buildVisualRegions', () => {
       annotations: [
         {
           subtype: 'Highlight',
+          hasAppearance: false,
           flags: ['print'],
           x: 56.52,
           y: 88.94,
@@ -103,6 +104,28 @@ describe('buildVisualRegions', () => {
         reason: 'Highlight annotation markup',
       },
     ]);
+  });
+
+  it('does not dispatch FreeText annotations without appearance streams as visual regions', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      annotations: [
+        {
+          subtype: 'FreeText',
+          contents: 'Annotation contents without a renderable appearance',
+          hasAppearance: false,
+          flags: ['print'],
+          x: 140,
+          y: 231.87,
+          width: 224.4,
+          height: 166.01,
+        },
+      ],
+    });
+
+    expect(regions).toEqual([]);
   });
 
   it('does not dispatch hidden annotations as visual regions', () => {
