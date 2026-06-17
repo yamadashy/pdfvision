@@ -1,3 +1,4 @@
+import { deflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { buildFormFields } from '../../src/core/formFields.js';
 import { extractWidgetAppearanceCaptions } from '../../src/core/widgetAppearance.js';
@@ -44,6 +45,30 @@ describe('buildFormFields', () => {
 
     const captions = extractWidgetAppearanceCaptions(pdfBytes);
     expect(captions.get('11R')).toBe('Show');
+  });
+
+  it('extracts push-button captions from FlateDecode object streams', () => {
+    const first = 5;
+    const objectBody =
+      '<< /AP << /N 67 0 R >> /FT /Btn /Ff 65536 /MK << /BG [ 0.75293 ] /CA (Action) >> /Subtype /Widget /T (Button3) >>';
+    const objectStream = `97 0\n${objectBody}`;
+    const compressed = deflateSync(Buffer.from(objectStream, 'latin1'));
+    const pdfBytes = Buffer.concat([
+      Buffer.from(
+        [
+          '68 0 obj',
+          `<< /Type /ObjStm /Filter[/FlateDecode] /Length ${compressed.length} /N 1 /First ${first} >>`,
+          'stream',
+        ].join('\n'),
+        'latin1',
+      ),
+      Buffer.from('\n', 'latin1'),
+      compressed,
+      Buffer.from('\nendstream\nendobj', 'latin1'),
+    ]);
+
+    const captions = extractWidgetAppearanceCaptions(pdfBytes);
+    expect(captions.get('97R')).toBe('Action');
   });
 
   it('attaches push-button captions from appearance maps', () => {

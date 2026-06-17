@@ -3,8 +3,12 @@
  * not surface push-button captions from Widget appearance characteristics
  * (`/MK << /CA (...) >>`). This best-effort scanner covers the common
  * uncompressed indirect-object case without trying to become a full PDF
- * parser. When it cannot prove a caption, callers simply omit it.
+ * parser. It covers plain indirect objects and object streams compressed
+ * with FlateDecode, which is common for optimized forms. When it cannot
+ * prove a caption, callers simply omit it.
  */
+
+import { inflateSync } from 'node:zlib';
 
 const MAX_WIDGET_CAPTION_CHARS = 500;
 
@@ -60,11 +64,12 @@ function extractMarkerCaption(body: string): string | undefined {
 }
 
 function extractObjectStreamBodies(body: string): { objectNumber: string; body: string }[] {
-  if (!body.includes('/ObjStm') || body.includes('/Filter')) return [];
+  if (!body.includes('/ObjStm')) return [];
   const objectCount = pdfNumberAfterName(body, 'N');
   const firstObjectOffset = pdfNumberAfterName(body, 'First');
   if (objectCount === undefined || firstObjectOffset === undefined) return [];
-  const stream = extractRawStream(body);
+  const rawStream = extractRawStream(body);
+  const stream = rawStream ? decodeObjectStream(body, rawStream) : undefined;
   if (!stream || firstObjectOffset < 0 || firstObjectOffset >= stream.length) return [];
   const header = stream
     .slice(0, firstObjectOffset)
@@ -84,6 +89,33 @@ function extractObjectStreamBodies(body: string): { objectNumber: string; body: 
     if (start < firstObjectOffset || start >= stream.length || end <= start) return [];
     return [{ objectNumber: item.objectNumber, body: stream.slice(start, Math.min(end, stream.length)) }];
   });
+}
+
+function decodeObjectStream(body: string, stream: string): string | undefined {
+  const dictionary = dictionaryBeforeStream(body);
+  const filters = pdfFilterNames(dictionary);
+  if (filters.length === 0) return stream;
+  if (filters.length !== 1 || !isFlateDecodeFilter(filters[0])) return undefined;
+  try {
+    return inflateSync(Buffer.from(stream, 'latin1')).toString('latin1');
+  } catch {
+    return undefined;
+  }
+}
+
+function dictionaryBeforeStream(body: string): string {
+  const streamIndex = body.indexOf('stream');
+  return streamIndex < 0 ? body : body.slice(0, streamIndex);
+}
+
+function pdfFilterNames(dictionary: string): string[] {
+  const match = /\/Filter\s*(\[[^\]]+\]|\/[A-Za-z0-9]+)/u.exec(dictionary);
+  if (!match) return [];
+  return Array.from(match[1].matchAll(/\/([A-Za-z0-9]+)/gu), (filterMatch) => filterMatch[1]);
+}
+
+function isFlateDecodeFilter(name: string): boolean {
+  return name === 'FlateDecode' || name === 'Fl';
 }
 
 function pdfNumberAfterName(body: string, name: string): number | undefined {
