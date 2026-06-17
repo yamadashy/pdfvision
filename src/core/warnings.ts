@@ -111,6 +111,8 @@ const CJK_MOJIBAKE_COUNT_THRESHOLD = 5;
 const CJK_MOJIBAKE_RATIO_THRESHOLD = 0.05;
 const LATIN1_MOJIBAKE_MIN_COUNT = 4;
 const LATIN1_MOJIBAKE_RATIO_THRESHOLD = 0.6;
+const INLINE_UPPERCASE_DIGRAPH_GLYPH_PATTERN = /\b[\p{Ll}\p{Nd}]+LJ[\p{Ll}\p{Nd}]+\b/gu;
+const INLINE_UPPERCASE_DIGRAPH_SAMPLE_LIMIT = 3;
 const FONT_MAPPING_WARNING_PATTERNS = [/no cmap table available/iu, /toUnicode/i, /font.*cmap/iu];
 const DENSE_VECTOR_GRAPHICS_COUNT_THRESHOLD = 250;
 const LARGE_RASTER_AREA_RATIO_THRESHOLD = 0.2;
@@ -275,6 +277,25 @@ function detectLocalizedGlyphNoise(page: PageResult, out: PageWarning[]): void {
       message: `native text is ${(latin1Mojibake.ratio * 100).toFixed(1)}% Latin-1 supplement glyphs (samples: ${latin1Mojibake.samples.map((s) => JSON.stringify(s)).join(', ')}) — likely printable mojibake from a missing or custom font map; inspect the render if exact text matters`,
     });
   }
+
+  const inlineUppercaseDigraphs = detectInlineUppercaseDigraphGlyphNoise(page.text);
+  if (inlineUppercaseDigraphs.length > 0) {
+    out.push({
+      code: 'localized_glyph_noise',
+      severity: 'warning',
+      message: `native text contains uppercase "LJ" inside otherwise lowercase word${inlineUppercaseDigraphs.length === 1 ? '' : 's'} (samples: ${inlineUppercaseDigraphs.map((s) => JSON.stringify(s)).join(', ')}) — likely printable ligature or font-map noise; inspect the render if exact text matters`,
+    });
+  }
+}
+
+function detectInlineUppercaseDigraphGlyphNoise(text: string): string[] {
+  const samples: string[] = [];
+  for (const match of text.matchAll(INLINE_UPPERCASE_DIGRAPH_GLYPH_PATTERN)) {
+    const sample = match[0];
+    if (!samples.includes(sample)) samples.push(sample);
+    if (samples.length >= INLINE_UPPERCASE_DIGRAPH_SAMPLE_LIMIT) break;
+  }
+  return samples;
 }
 
 function findSingleDisplayNonPrintableGlyph(page: PageResult): { blockIndex: number } | undefined {

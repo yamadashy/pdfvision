@@ -771,6 +771,44 @@ describe('detectPageWarnings', () => {
     expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
   });
 
+  it('flags uppercase LJ inside lowercase words as printable glyph noise', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: 'Plan generation\nCost-optimal planning\nPlan veriLJcation',
+      charCount: 59,
+      imageCount: 0,
+      vectorCount: 39,
+      textCoverage: 0.12,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+    });
+
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'localized_glyph_noise', severity: 'warning' });
+    expect(out[0].message).toContain('veriLJcation');
+  });
+
+  it('does not flag standalone LJ acronyms as printable glyph noise', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: 'The LJ benchmark and LJ model family are listed separately.',
+      charCount: 60,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.12,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+    });
+
+    expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
+  });
+
   it('flags dense vector graphics that may carry form or chart structure outside text', () => {
     // IRS Form 1040-shaped case: text extraction is healthy, but the
     // checkbox/table/form geometry is mostly vector drawing operations.
