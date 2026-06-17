@@ -1110,4 +1110,45 @@ describe('buildFormFields', () => {
       relation: 'left',
     });
   });
+
+  it('prefers close above column labels over offset labels from the next row', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'middleInitial',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(395.01, 145.41, 22.72, 16.56),
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        {
+          text: 'Section 1. Employee Information and Verification',
+          x: 36,
+          y: 120.72,
+          width: 212.77,
+          height: 10,
+          fontSize: 10,
+        },
+        {
+          text: '(To be completed and signed by employee at the time employment begins.)',
+          x: 251.26,
+          y: 120.72,
+          width: 297.72,
+          height: 10,
+          fontSize: 10,
+        },
+        { text: 'Middle Initial', x: 373.95, y: 134.37, width: 44.22, height: 8, fontSize: 8 },
+        { text: 'Apt. #', x: 357.73, y: 162.69, width: 20, height: 8, fontSize: 8 },
+      ],
+    );
+
+    expect(fields[0].label).toMatchObject({
+      text: 'Middle Initial',
+      relation: 'above',
+    });
+  });
 });

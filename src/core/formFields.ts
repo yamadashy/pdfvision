@@ -265,6 +265,9 @@ const MIN_HORIZONTAL_OVERLAP_RATIO = 0.18;
 const STACKED_LABEL_MAX_GAP_PT = 4;
 const STACKED_LABEL_X_TOLERANCE_PT = 5;
 const STACKED_LABEL_FONT_TOLERANCE_PT = 2;
+const STACKED_LABEL_NARROW_ANCHOR_MAX_WIDTH_PT = 120;
+const BROAD_STACKED_LABEL_WIDTH_RATIO = 3;
+const BROAD_STACKED_LABEL_MIN_EXTRA_WIDTH_PT = 160;
 const INLINE_TEXT_FIELD_MAX_WIDTH_PT = 60;
 const INLINE_TEXT_FIELD_MAX_HEIGHT_PT = 18;
 const SHORT_VERTICAL_LABEL_FIELD_COVERAGE = 0.35;
@@ -337,14 +340,7 @@ function scoreLabelCandidate(field: FormField, line: LabelLine, text: string): L
     field.height <= INLINE_TEXT_FIELD_MAX_HEIGHT_PT;
   const candidates = [
     sideLabelCandidate(field, line, text, 'right', sidePreferred ? 0 : 28),
-    sideLabelCandidate(
-      field,
-      line,
-      text,
-      'left',
-      sidePreferred ? 12 : inlineTextField ? 0 : 18,
-      inlineTextField ? 0.45 : 1.4,
-    ),
+    sideLabelCandidate(field, line, text, 'left', sidePreferred ? 12 : 18, 1.4),
     verticalLabelCandidate(field, line, text, 'above', sidePreferred ? 70 : inlineTextField ? 45 : 0),
     verticalLabelCandidate(field, line, text, 'below', 95),
   ].filter((candidate): candidate is LabelCandidate => candidate !== undefined);
@@ -374,16 +370,22 @@ function sideLabelCandidate(
   const centerDelta = Math.abs(centerY(field) - centerY(line));
   const maxCenterDelta = Math.max(7, Math.max(field.height, line.height) * 0.9);
   if (centerDelta > maxCenterDelta) return undefined;
-  const sameLineTextPrompt =
+  const inlineTextField =
+    field.type === 'text' &&
+    field.width <= INLINE_TEXT_FIELD_MAX_WIDTH_PT &&
+    field.height <= INLINE_TEXT_FIELD_MAX_HEIGHT_PT;
+  const sameRowTextCandidate =
     field.type === 'text' &&
     relation === 'left' &&
-    gap <= SAME_LINE_TEXT_PROMPT_MAX_GAP_PT &&
     centerDelta <= Math.max(4, field.height * 0.35) &&
     (line.fontSize ?? SAME_LINE_TEXT_PROMPT_MAX_FONT_SIZE_PT) <= SAME_LINE_TEXT_PROMPT_MAX_FONT_SIZE_PT;
-  const scoreBase = sameLineTextPrompt || wideRowHeader ? Math.min(baseScore, 0) : baseScore;
+  const sameRowTextPrompt =
+    sameRowTextCandidate &&
+    (inlineTextField || isTrailingPromptFragment(text) || gap <= SAME_LINE_TEXT_PROMPT_MAX_GAP_PT);
+  const scoreBase = sameRowTextPrompt || wideRowHeader ? Math.min(baseScore, 0) : baseScore;
   const scoreGapWeight = wideRowHeader
     ? Math.min(gapWeight, WIDE_ROW_HEADER_LABEL_GAP_WEIGHT)
-    : sameLineTextPrompt
+    : sameRowTextPrompt
       ? Math.min(gapWeight, 0.45)
       : gapWeight;
 
@@ -720,6 +722,7 @@ function findAdjacentStackLine(
     const text = normalizeLabelText(line.text);
     if (!isUsableLabelText(text)) continue;
     if (overlapRatio(field, line) >= 0.35) continue;
+    if (candidate.relation === 'above' && isBroadStackedHeaderLine(text, bounds, line)) continue;
     if (!isStackCompatibleLine(candidate.line, bounds, line)) continue;
 
     const gap =
@@ -748,6 +751,15 @@ function isStackCompatibleLine(anchor: LabelLine, bounds: BoxLike, line: LabelLi
   const leftAligned = Math.abs(line.x - anchor.x) <= STACKED_LABEL_X_TOLERANCE_PT;
   const overlapsExisting = horizontalOverlapRatio(bounds, line) >= MIN_HORIZONTAL_OVERLAP_RATIO;
   return leftAligned || overlapsExisting;
+}
+
+function isBroadStackedHeaderLine(text: string, bounds: BoxLike, line: LabelLine): boolean {
+  if (isFormSectionHeadingText(text)) return true;
+  if (bounds.width > STACKED_LABEL_NARROW_ANCHOR_MAX_WIDTH_PT) return false;
+  const muchWider =
+    line.width >
+    Math.max(bounds.width * BROAD_STACKED_LABEL_WIDTH_RATIO, bounds.width + BROAD_STACKED_LABEL_MIN_EXTRA_WIDTH_PT);
+  return muchWider && Math.abs(line.x - bounds.x) > STACKED_LABEL_X_TOLERANCE_PT;
 }
 
 function makeLabel(line: LabelLine, text: string, relation: FormFieldLabelRelation): FormFieldLabel {
@@ -826,6 +838,10 @@ function isWideRowHeaderLabelText(text: string): boolean {
   return /^(?:Document Title(?:\s+\d+)?(?:\s+\(if any\))?|Issuing Authority|Document Number(?:\s+\(if any\))?|Expiration Date(?:\s+\(if any\))?)$/iu.test(
     normalizePromptLabelText(text),
   );
+}
+
+function isFormSectionHeadingText(text: string): boolean {
+  return /^(?:section|part)\s+(?:\d+|[ivxlcdm]+)\b[.:]?/iu.test(normalizePromptLabelText(text));
 }
 
 function startsWithPromptItemMarker(text: string): boolean {
