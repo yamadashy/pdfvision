@@ -30,6 +30,8 @@ interface BuildLinksOptions {
 
 type Rect = [number, number, number, number];
 const LINK_TEXT_MAX_CHARS = 240;
+const LINK_CLIPPED_TEXT_MAX_WIDTH_RATIO = 3;
+const LINK_CLIPPED_TEXT_MAX_EXTRA_WIDTH_PT = 12;
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
@@ -159,17 +161,17 @@ function clippedTextByHorizontalPosition(text: string, link: BoxLike, line: BoxL
   let start = Math.min(chars.length - 1, Math.max(0, Math.floor(startRatio * chars.length)));
   let end = Math.min(chars.length, Math.max(start + 1, Math.ceil(endRatio * chars.length)));
 
-  start = expandTokenStart(chars, start);
-  end = expandTokenEnd(chars, end);
+  if (startsInsideWord(chars, start)) start = expandTokenStart(chars, start);
+  if (endsInsideWord(chars, end)) end = expandTokenEnd(chars, end);
 
-  let clipped = chars.slice(start, end).join('').trim();
-  if (clipped.length > 0) return clipped;
+  let clipped = cleanClippedTextFragment(chars.slice(start, end).join(''));
+  if (isUsefulClippedText(clipped, link, estimatedSliceWidth(chars, line, start, end))) return clipped;
 
   const center = Math.min(chars.length - 1, Math.max(0, Math.floor(((startRatio + endRatio) / 2) * chars.length)));
-  start = expandTokenStart(chars, center);
-  end = expandTokenEnd(chars, center + 1);
-  clipped = chars.slice(start, end).join('').trim();
-  return clipped.length > 0 ? clipped : undefined;
+  start = startsInsideWord(chars, center) ? expandTokenStart(chars, center) : center;
+  end = endsInsideWord(chars, center + 1) ? expandTokenEnd(chars, center + 1) : center + 1;
+  clipped = cleanClippedTextFragment(chars.slice(start, end).join(''));
+  return isUsefulClippedText(clipped, link, estimatedSliceWidth(chars, line, start, end)) ? clipped : undefined;
 }
 
 function expandTokenStart(chars: readonly string[], start: number): number {
@@ -186,6 +188,39 @@ function expandTokenEnd(chars: readonly string[], end: number): number {
 
 function isWhitespace(value: string): boolean {
   return /\s/u.test(value);
+}
+
+function startsInsideWord(chars: readonly string[], start: number): boolean {
+  return start > 0 && start < chars.length && isWordCharacter(chars[start - 1]) && isWordCharacter(chars[start]);
+}
+
+function endsInsideWord(chars: readonly string[], end: number): boolean {
+  return end > 0 && end < chars.length && isWordCharacter(chars[end - 1]) && isWordCharacter(chars[end]);
+}
+
+function isWordCharacter(value: string): boolean {
+  return /[\p{Letter}\p{Number}]/u.test(value);
+}
+
+function cleanClippedTextFragment(text: string): string {
+  return text.replace(/^[\s,.;:)\]}]+/u, '').trim();
+}
+
+function isUsefulClippedText(text: string, link: BoxLike, estimatedWidth: number): boolean {
+  if (
+    estimatedWidth >
+    Math.max(link.width * LINK_CLIPPED_TEXT_MAX_WIDTH_RATIO, link.width + LINK_CLIPPED_TEXT_MAX_EXTRA_WIDTH_PT)
+  ) {
+    return false;
+  }
+  const wordChars = Array.from(text).filter(isWordCharacter);
+  if (wordChars.length >= 2) return true;
+  if (/^\d+[.)]?$/u.test(text)) return true;
+  return wordChars.length === 1 && link.width >= 10;
+}
+
+function estimatedSliceWidth(chars: readonly string[], line: BoxLike, start: number, end: number): number {
+  return (line.width * Math.max(0, end - start)) / Math.max(1, chars.length);
 }
 
 function clamp(value: number, min: number, max: number): number {

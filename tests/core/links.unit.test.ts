@@ -128,6 +128,41 @@ describe('buildLinks', () => {
     expect(links[0].text).not.toContain('Initial hyper');
   });
 
+  it('does not expand narrow citation punctuation into a neighboring token', async () => {
+    const links = await buildLinks(
+      [
+        { subtype: 'Link', dest: 'cite.JapaneseStableVLM', rect: [205.68, 756.71, 213.24, 768.46] },
+        { subtype: 'Link', dest: 'cite.JapaneseStableVLM', rect: [129.68, 716.85, 137.02, 727.81] },
+      ],
+      841.89,
+      0,
+      0,
+      {
+        labelLines: [
+          {
+            text: 'data (Shing and Akiba, 2023a,b; Tanahashi et al.,',
+            x: 70.87,
+            y: 70.92,
+            width: 219.63,
+            height: 10.91,
+          },
+          {
+            text: 'Akiba, 2023a,b; Tanahashi et al., 2023; Inoue et al.,',
+            x: 70.47,
+            y: 111.56,
+            width: 220.03,
+            height: 10.91,
+          },
+        ],
+      },
+    );
+
+    expect(links).toEqual([
+      { type: 'destination', target: 'cite.JapaneseStableVLM', x: 205.68, y: 73.43, width: 7.56, height: 11.75 },
+      { type: 'destination', target: 'cite.JapaneseStableVLM', x: 129.68, y: 114.08, width: 7.34, height: 10.96 },
+    ]);
+  });
+
   it('truncates very long visible link text', async () => {
     const longText = 'Chapter '.repeat(60).trim();
     const links = await buildLinks(
