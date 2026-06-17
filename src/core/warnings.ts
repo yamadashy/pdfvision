@@ -60,6 +60,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
   detectLargeRasterLowTextOverlap(page, context, warnings);
   detectVisibleAnnotationTextMissingFromNative(page, warnings);
   detectOptionalContentTextHiddenLayerRisk(context, warnings);
+  detectDotLeaderNoise(page, warnings);
 
   if (
     !page.layout ||
@@ -140,6 +141,8 @@ const TABULAR_NUMERIC_ROW_CADENCE_MIN_TOLERANCE_PT = 2;
 const TABULAR_NUMERIC_RECURRING_COLUMN_MIN_ROWS = 4;
 const TABULAR_NUMERIC_RECURRING_COLUMN_MIN_COLUMNS = 3;
 const TABULAR_NUMERIC_RECURRING_COLUMN_MIN_ROW_RATIO = 0.6;
+const DOT_LEADER_NOISE_MIN_LINES = 8;
+const DOT_LEADER_NOISE_MIN_DOTS = 80;
 
 function detectGlyphGarbageText(page: PageResult, out: PageWarning[]): void {
   const status = page.quality.nativeTextStatus;
@@ -701,6 +704,49 @@ function detectTabularNumericLayout(blocks: LayoutBlock[], out: PageWarning[]): 
     severity: 'warning',
     message: `page contains ${numericLines.length} short numeric lines in ${alignedColumns.length} aligned columns and ${sharedRows} shared numeric rows — table rows/columns may be flattened in native text; inspect the render or geometry when values matter`,
   });
+}
+
+function detectDotLeaderNoise(page: PageResult, out: PageWarning[]): void {
+  const sources = [
+    page.layout?.blocks.flatMap((block) =>
+      block.lines.length > 0 ? block.lines.map((line) => line.text) : [block.text],
+    ) ?? [],
+    page.spans?.map((span) => span.text) ?? [],
+    page.text.split(/\n+/u),
+  ];
+  const stats = sources
+    .map(dotLeaderStats)
+    .find((item) => item.lineCount >= DOT_LEADER_NOISE_MIN_LINES && item.dotCount >= DOT_LEADER_NOISE_MIN_DOTS);
+  if (!stats) return;
+
+  out.push({
+    code: 'dot_leader_noise',
+    severity: 'warning',
+    message: `page contains ${stats.lineCount} standalone dotted leader lines (${stats.dotCount} leader marks) — table-of-contents or table leaders may have been extracted away from their labels; inspect layout or render when page numbers or row associations matter`,
+  });
+}
+
+function dotLeaderStats(lines: readonly string[]): { lineCount: number; dotCount: number } {
+  return lines.reduce(
+    (stats, text) => {
+      const token = dotLeaderToken(text);
+      if (isStandaloneDotLeaderToken(token)) {
+        stats.lineCount++;
+        stats.dotCount += token.length;
+      }
+      return stats;
+    },
+    { lineCount: 0, dotCount: 0 },
+  );
+}
+
+function isStandaloneDotLeaderToken(token: string): boolean {
+  if (token.length < 3) return false;
+  return /^[.\u00b7\u2022\u2024\u2025\u2026]+$/u.test(token);
+}
+
+function dotLeaderToken(text: string): string {
+  return text.replace(/\s+/gu, '');
 }
 
 function hasRegularNumericRowCadence(rowCenters: number[]): boolean {

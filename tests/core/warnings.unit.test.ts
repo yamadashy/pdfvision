@@ -908,6 +908,42 @@ describe('detectPageWarnings', () => {
     expect(out.filter((w) => w.code === 'tabular_numeric_layout')).toEqual([]);
   });
 
+  it('flags standalone dotted leader lines that were separated from table-of-contents labels', () => {
+    const dotLines = Array.from({ length: 9 }, (_, i) => line('. . . . . . . . . . . .', 120, 120 + i * 12, 220));
+    const out = detectPageWarnings(
+      page([
+        block(50, 100, 500, 160, {
+          text: 'Table of Contents',
+          lines: [line('Item 1. Business Description K-1', 50, 100, 180), ...dotLines],
+        }),
+      ]),
+    );
+
+    expect(out).toEqual([
+      expect.objectContaining({
+        code: 'dot_leader_noise',
+        severity: 'warning',
+      }),
+    ]);
+    expect(out[0].message).toContain('standalone dotted leader lines');
+  });
+
+  it('does not flag ordinary ellipsis prose as dotted leader noise', () => {
+    const out = detectPageWarnings(
+      page([
+        block(50, 100, 500, 80, {
+          text: 'prose',
+          lines: [
+            line('The discussion pauses ... then continues.', 50, 100, 180),
+            line('Another sentence with ... an ellipsis.', 50, 112, 170),
+          ],
+        }),
+      ]),
+    );
+
+    expect(out.filter((w) => w.code === 'dot_leader_noise')).toEqual([]);
+  });
+
   it('does not flag chart-axis labels without shared numeric rows', () => {
     const out = detectPageWarnings(
       page([

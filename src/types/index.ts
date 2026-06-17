@@ -1268,6 +1268,7 @@ export interface PageWarning {
     | 'font_mapping_warning'
     | 'dense_vector_graphics'
     | 'tabular_numeric_layout'
+    | 'dot_leader_noise'
     | 'raster_backed_text_layer'
     | 'raster_text_layer_symbol_noise'
     | 'ocr_low_confidence'
