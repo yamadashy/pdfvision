@@ -34,7 +34,10 @@
     "lint-ts": "tsgo --noEmit",
     "lint-secretlint": "secretlint \"**/*\" --secretlintignore .gitignore",
     "test": "vitest run",
-    "test-coverage": "vitest run --coverage"
+    "test-coverage": "vitest run --coverage",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
   },
   "keywords": [
     "pdf",
@@ -83,6 +86,8 @@
     "secretlint": "^13.0.2",
     "tsdown": "^0.22.2",
     "typescript": "^6.0.3",
+    "vitepress": "^1.6.4",
+    "vitepress-plugin-llms": "^1.13.1",
     "vitest": "^4.1.8"
   }
 }

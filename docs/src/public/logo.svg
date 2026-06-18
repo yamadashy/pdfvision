@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke="#AB4472" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-label="pdfvision">
+  <path d="M14 8 L40 8 L50 18 L50 50 L14 50 Z" />
+  <path d="M40 8 L40 18 L50 18" />
+  <circle cx="36" cy="36" r="10" />
+  <line x1="43" y1="43" x2="54" y2="54" />
+</svg>
