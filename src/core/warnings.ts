@@ -1269,8 +1269,16 @@ function detectLineReadingOrderDivergence(page: PageResult, blocks: LayoutBlock[
       )
       .filter((probe) => probe.length >= LINE_READING_ORDER_MIN_PROBE_CHARS);
     if (probes.length < LINE_READING_ORDER_MIN_LINES || new Set(probes).size !== probes.length) continue;
-    const indexed = probes.map((probe) => ({ probe, nativeIndex: nativeText.indexOf(probe) }));
-    if (indexed.some((item) => item.nativeIndex < 0)) continue;
+    const indexed: { probe: string; nativeIndex: number }[] = [];
+    for (const probe of probes) {
+      const nativeIndex = uniqueNativeTextIndex(nativeText, probe);
+      if (nativeIndex === undefined) {
+        indexed.length = 0;
+        break;
+      }
+      indexed.push({ probe, nativeIndex });
+    }
+    if (indexed.length === 0) continue;
     let previous = indexed[0];
     for (const item of indexed.slice(1)) {
       if (item.nativeIndex + 2 >= previous.nativeIndex) {
@@ -1287,6 +1295,13 @@ function detectLineReadingOrderDivergence(page: PageResult, blocks: LayoutBlock[
     }
   }
   return false;
+}
+
+function uniqueNativeTextIndex(text: string, probe: string): number | undefined {
+  const first = text.indexOf(probe);
+  if (first < 0) return undefined;
+  const second = text.indexOf(probe, first + Math.max(1, probe.length));
+  return second < 0 ? first : undefined;
 }
 
 function detectLocalMathReadingOrderDivergence(page: PageResult, blocks: LayoutBlock[], out: PageWarning[]): void {

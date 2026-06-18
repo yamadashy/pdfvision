@@ -1759,6 +1759,22 @@ describe('detectPageWarnings', () => {
       expect(divergence).toMatchObject({ severity: 'warning', blockIndex: 0 });
       expect(divergence?.message).toContain('native line order diverges');
     });
+
+    it('does not flag line order divergence when line probes are ambiguous in native text', () => {
+      const lines = [
+        line('layout analysis locates each image region', 50, 120, 240, 12),
+        line('the corresponding image than other text', 50, 136, 240, 12),
+        line('et al., 2023).', 50, 152, 80, 12),
+      ];
+      const visualText = lines.map((item) => item.text).join('\n');
+      const p = {
+        ...page([block(50, 120, 240, 46, { text: visualText, lines })], 612, 792),
+        text: `Earlier citation et al., 2023). ${visualText}`,
+      };
+
+      const out = detectPageWarnings(p);
+      expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
+    });
   });
 
   describe('text_overlap', () => {
