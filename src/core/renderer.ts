@@ -2,7 +2,7 @@ import { existsSync, lstatSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
-import type { RenderRegion } from '../types/index.js';
+import type { RenderedContentBox, RenderRegion } from '../types/index.js';
 import { atomicWrite } from './cache.js';
 import { runParallel } from './parallel.js';
 
@@ -43,6 +43,19 @@ export interface ViewportCrop {
 
 interface PageViewportLike {
   convertToViewportRectangle(rect: [number, number, number, number]): number[];
+  convertToPdfPoint(x: number, y: number): number[];
+}
+
+interface PixelContentBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface RenderStats {
+  contentRatio: number;
+  contentBoxPx?: PixelContentBox;
 }
 
 function isReusableImage(path: string): boolean {
@@ -109,8 +122,12 @@ export function viewportCropForRegion(
  * the agent decides what to do.
  */
 export function computeContentRatio(rgba: Uint8ClampedArray): number {
+  return computeContentStats(rgba).contentRatio;
+}
+
+function computeContentStats(rgba: Uint8ClampedArray, width?: number, height?: number): RenderStats {
   const totalPx = rgba.length / 4;
-  if (totalPx === 0) return 0;
+  if (totalPx === 0) return { contentRatio: 0 };
 
   // Pass 1: luminance histogram of non-transparent pixels.
   const bucketCount = Math.ceil(256 / LUM_BUCKET_SIZE);
@@ -123,7 +140,7 @@ export function computeContentRatio(rgba: Uint8ClampedArray): number {
     hist[Math.min(bucketCount - 1, lum / LUM_BUCKET_SIZE) | 0]++;
     opaque++;
   }
-  if (opaque === 0) return 0;
+  if (opaque === 0) return { contentRatio: 0 };
 
   // Pick the heaviest bucket as background.
   let bgBucket = 0;
@@ -140,12 +157,42 @@ export function computeContentRatio(rgba: Uint8ClampedArray): number {
   // CONTENT_LUM_DELTA away from background. Operating on totalPx (not
   // opaque) keeps blank transparent canvases at 0 instead of NaN.
   let content = 0;
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = -1;
+  let maxY = -1;
+  const imageWidth = width ?? 0;
+  const imageHeight = height ?? 0;
+  const canTrackBox = imageWidth > 0 && imageHeight > 0 && imageWidth * imageHeight === totalPx;
   for (let i = 0; i < rgba.length; i += 4) {
     if (rgba[i + 3] < ALPHA_THRESHOLD) continue;
     const lum = (rgba[i] * 299 + rgba[i + 1] * 587 + rgba[i + 2] * 114) / 1000;
-    if (Math.abs(lum - bgLum) >= CONTENT_LUM_DELTA) content++;
+    if (Math.abs(lum - bgLum) >= CONTENT_LUM_DELTA) {
+      content++;
+      if (canTrackBox) {
+        const pixel = i / 4;
+        const x = pixel % imageWidth;
+        const y = Math.floor(pixel / imageWidth);
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+      }
+    }
   }
-  return Math.round((content / totalPx) * 1_000_000) / 1_000_000;
+  const contentRatio = Math.round((content / totalPx) * 1_000_000) / 1_000_000;
+  return {
+    contentRatio,
+    ...(content > 0 &&
+      canTrackBox && {
+        contentBoxPx: {
+          x: minX,
+          y: minY,
+          width: maxX - minX + 1,
+          height: maxY - minY + 1,
+        },
+      }),
+  };
 }
 
 /**
@@ -175,7 +222,7 @@ export async function renderPageToBuffer(
   pageNum: number,
   scale = DEFAULT_SCALE,
   region?: RenderRegion,
-): Promise<{ buffer: Buffer; contentRatio: number }> {
+): Promise<{ buffer: Buffer; contentRatio: number; renderedContentBox?: RenderedContentBox }> {
   const page = await doc.getPage(pageNum);
   const viewport = page.getViewport({ scale });
   const crop = region ? viewportCropForRegion(page, viewport, region) : undefined;
@@ -206,9 +253,15 @@ export async function renderPageToBuffer(
   // Read the RGBA buffer BEFORE PNG encode — the post-encode round trip
   // would otherwise re-decode the PNG just to count pixels.
   const imageData = context.getImageData(0, 0, canvasW, canvasH);
-  const contentRatio = computeContentRatio(imageData.data);
+  const stats = computeContentStats(imageData.data, canvasW, canvasH);
   const buffer = canvas.toBuffer('image/png');
-  return { buffer, contentRatio };
+  return {
+    buffer,
+    contentRatio: stats.contentRatio,
+    ...(stats.contentBoxPx && {
+      renderedContentBox: contentBoxFromViewportPixels(page, viewport, crop, stats.contentBoxPx),
+    }),
+  };
 }
 
 /**
@@ -219,13 +272,50 @@ export async function renderPageToBuffer(
  * intact (e.g. a cache-key bump like v10 → v11). Costs one PNG decode
  * per page, which is much cheaper than re-rastering through pdf.js.
  */
-async function computeContentRatioFromPng(path: string): Promise<number> {
+async function computeContentStatsFromPng(path: string): Promise<RenderStats> {
   const img = await loadImage(path);
   const canvas = createCanvas(img.width, img.height);
   const context = canvas.getContext('2d');
   context.drawImage(img, 0, 0);
   const rgba = context.getImageData(0, 0, img.width, img.height).data;
-  return computeContentRatio(rgba);
+  return computeContentStats(rgba, img.width, img.height);
+}
+
+function contentBoxFromViewportPixels(
+  page: PDFPageProxy,
+  viewport: PageViewportLike,
+  crop: ViewportCrop | undefined,
+  box: PixelContentBox,
+): RenderedContentBox {
+  const left = (crop?.x ?? 0) + box.x;
+  const top = (crop?.y ?? 0) + box.y;
+  const right = left + box.width;
+  const bottom = top + box.height;
+  const corners = [
+    viewport.convertToPdfPoint(left, top),
+    viewport.convertToPdfPoint(right, top),
+    viewport.convertToPdfPoint(right, bottom),
+    viewport.convertToPdfPoint(left, bottom),
+  ];
+  const xs = corners.map((point) => point[0]);
+  const ys = corners.map((point) => point[1]);
+  const view = page.view;
+  const viewMinX = Math.min(view[0], view[2]);
+  const viewMaxY = Math.max(view[1], view[3]);
+  const pdfLeft = Math.min(...xs);
+  const pdfRight = Math.max(...xs);
+  const pdfTop = Math.max(...ys);
+  const pdfBottom = Math.min(...ys);
+  return {
+    x: round2(pdfLeft - viewMinX),
+    y: round2(viewMaxY - pdfTop),
+    width: round2(Math.max(0, pdfRight - pdfLeft)),
+    height: round2(Math.max(0, pdfTop - pdfBottom)),
+  };
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
 }
 
 /**
@@ -257,12 +347,20 @@ export async function renderPageWithStats(
   outputDir: string,
   scale = DEFAULT_SCALE,
   region?: RenderRegion,
-): Promise<{ path: string; contentRatio: number }> {
+): Promise<{ path: string; contentRatio: number; renderedContentBox?: RenderedContentBox }> {
   const outputPath = join(outputDir, pngFilename(pageNum, region));
   if (isReusableImage(outputPath)) {
     try {
-      const contentRatio = await computeContentRatioFromPng(outputPath);
-      return { path: outputPath, contentRatio };
+      const stats = await computeContentStatsFromPng(outputPath);
+      if (!stats.contentBoxPx) return { path: outputPath, contentRatio: stats.contentRatio };
+      const page = await doc.getPage(pageNum);
+      const viewport = page.getViewport({ scale });
+      const crop = region ? viewportCropForRegion(page, viewport, region) : undefined;
+      return {
+        path: outputPath,
+        contentRatio: stats.contentRatio,
+        renderedContentBox: contentBoxFromViewportPixels(page, viewport, crop, stats.contentBoxPx),
+      };
     } catch {
       // Corrupt or partially-written cached PNG (e.g. disk error mid-write
       // that still produced a non-zero file). Fall through to a fresh
@@ -270,9 +368,9 @@ export async function renderPageWithStats(
       // cache entry; atomicWrite below replaces the bad file.
     }
   }
-  const { buffer, contentRatio } = await renderPageToBuffer(doc, pageNum, scale, region);
+  const { buffer, contentRatio, renderedContentBox } = await renderPageToBuffer(doc, pageNum, scale, region);
   atomicWrite(outputPath, buffer);
-  return { path: outputPath, contentRatio };
+  return { path: outputPath, contentRatio, ...(renderedContentBox && { renderedContentBox }) };
 }
 
 /**
@@ -295,7 +393,7 @@ export async function renderPagesWithStats(
   outputDir: string,
   scale?: number,
   region?: RenderRegion,
-): Promise<{ path: string; contentRatio: number }[]> {
+): Promise<{ path: string; contentRatio: number; renderedContentBox?: RenderedContentBox }[]> {
   return runParallel(pageNumbers, (pageNum) => renderPageWithStats(doc, pageNum, outputDir, scale, region));
 }
 

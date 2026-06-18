@@ -633,6 +633,13 @@ export interface VisualRegionAssociatedText {
   fieldIndex?: number;
 }
 
+export interface RenderedContentBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 /**
  * Human-meaningful visual region that can be passed directly to
  * `--render-region x,y,width,height` for a high-detail crop. Regions are
@@ -662,6 +669,14 @@ export interface VisualRegion {
   image?: string;
   /** Content ratio measured from the cropped region PNG when rendered. */
   renderContentRatio?: number;
+  /**
+   * Tight bbox of non-background pixels measured from the rendered crop,
+   * in page coordinates. Present only when `renderVisualRegions` was
+   * requested and the crop contains measurable content. The region's
+   * own `x/y/width/height` remains the source-geometry crop; this box
+   * is a rendered-pixel hint for sparse or transparent raster content.
+   */
+  renderedContentBox?: RenderedContentBox;
 }
 
 export type FormFieldType = 'text' | 'checkbox' | 'radio' | 'choice' | 'signature' | 'button' | 'unknown';

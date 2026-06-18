@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { createCanvas } from '@napi-rs/canvas';
 import PDFDocument from 'pdfkit';
 import { describe, expect, it } from 'vitest';
 import { processDocument } from '../../src/core/processor.js';
@@ -19,6 +20,25 @@ async function buildPdfWithLargeImage(): Promise<Uint8Array> {
   );
   doc.text('Large image', 72, 48);
   doc.image(png, 72, 120, { width: 240, height: 180 });
+  doc.end();
+
+  await done;
+  return new Uint8Array(Buffer.concat(chunks));
+}
+
+async function buildPdfWithSparseRasterImage(): Promise<Uint8Array> {
+  const chunks: Buffer[] = [];
+  const doc = new PDFDocument({ size: [612, 792], margin: 0 });
+  doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+  const done = new Promise<void>((resolveDone) => doc.on('end', resolveDone));
+
+  const canvas = createCanvas(100, 100);
+  const context = canvas.getContext('2d');
+  context.fillStyle = 'white';
+  context.fillRect(0, 0, 100, 100);
+  context.fillStyle = 'black';
+  context.fillRect(10, 20, 40, 30);
+  doc.image(canvas.toBuffer('image/png'), 72, 120, { width: 240, height: 180 });
   doc.end();
 
   await done;
@@ -124,6 +144,29 @@ describe('processDocument visualRegions: true', () => {
     expect(region.renderContentRatio).toBeTypeOf('number');
     expect(page.imageBoxes).toBeUndefined();
     expect(page.layout).toBeUndefined();
+  });
+
+  it('reports tight rendered content boxes for sparse raster crops', async () => {
+    const result = await processDocument('memory://sparse-raster-render-regions.pdf', {
+      sourceData: await buildPdfWithSparseRasterImage(),
+      noCache: true,
+      renderVisualRegions: true,
+      renderScale: 2,
+    });
+    const region = result.pages[0].visualRegions?.[0];
+
+    expect(region).toBeDefined();
+    if (!region) return;
+    expect(region).toMatchObject({ kind: 'raster' });
+    expect(region.renderedContentBox).toBeDefined();
+    const contentBox = region.renderedContentBox;
+    if (!contentBox) return;
+    expect(contentBox.x).toBeGreaterThan(region.x);
+    expect(contentBox.y).toBeGreaterThan(region.y);
+    expect(contentBox.width).toBeLessThan(region.width);
+    expect(contentBox.height).toBeLessThan(region.height);
+    expect(contentBox.x + contentBox.width).toBeLessThanOrEqual(region.x + region.width);
+    expect(contentBox.y + contentBox.height).toBeLessThanOrEqual(region.y + region.height);
   });
 
   it('emits and renders visual regions for rotated image-only pages', async () => {

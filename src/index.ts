@@ -65,6 +65,7 @@ export type {
   PageWarning,
   ProcessDocumentOptions,
   ProcessOptions,
+  RenderedContentBox,
   RenderRegion,
   SearchMatch,
   TextSpan,

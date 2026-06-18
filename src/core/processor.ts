@@ -1366,6 +1366,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
           const rendered = await renderPageWithStats(doc, page.page, imagesDir as string, renderScale, region);
           region.image = rendered.path;
           region.renderContentRatio = rendered.contentRatio;
+          if (rendered.renderedContentBox) region.renderedContentBox = rendered.renderedContentBox;
         });
       }
     }

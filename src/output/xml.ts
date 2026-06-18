@@ -378,6 +378,14 @@ export function formatXml(result: DocumentResult): string {
           if (region.renderContentRatio !== undefined) {
             attrs.push(`renderContentRatio="${region.renderContentRatio}"`);
           }
+          if (region.renderedContentBox !== undefined) {
+            attrs.push(
+              `renderedContentBoxX="${region.renderedContentBox.x}"`,
+              `renderedContentBoxY="${region.renderedContentBox.y}"`,
+              `renderedContentBoxWidth="${region.renderedContentBox.width}"`,
+              `renderedContentBoxHeight="${region.renderedContentBox.height}"`,
+            );
+          }
           const associatedText = region.associatedText ?? [];
           if (region.sources.length === 0 && associatedText.length === 0) {
             out.push(`<region ${attrs.join(' ')}/>`);
