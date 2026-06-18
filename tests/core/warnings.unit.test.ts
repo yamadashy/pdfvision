@@ -836,6 +836,44 @@ describe('detectPageWarnings', () => {
     expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
   });
 
+  it('flags likely artificial spaces between CJK glyphs', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '全 世 界 无 产 者,联 合 起 来A',
+      charCount: 20,
+      imageCount: 0,
+      vectorCount: 2,
+      textCoverage: 0.007,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 462.5,
+      height: 625.9,
+      quality: { nativeTextStatus: 'sparse_text_with_visual_content', visualStatus: 'sparse' },
+    });
+
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'localized_glyph_noise', severity: 'warning' });
+    expect(out[0].message).toContain('spaces between 8 adjacent CJK glyph pairs');
+  });
+
+  it('does not flag a small number of deliberate CJK spacing boundaries', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '令和 6 年 給与所得者の扶養控除等申告書',
+      charCount: 20,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.02,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok' },
+    });
+
+    expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
+  });
+
   it('flags dense vector graphics that may carry form or chart structure outside text', () => {
     // IRS Form 1040-shaped case: text extraction is healthy, but the
     // checkbox/table/form geometry is mostly vector drawing operations.

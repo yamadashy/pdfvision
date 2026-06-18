@@ -116,6 +116,10 @@ const LATIN1_MOJIBAKE_MIN_COUNT = 4;
 const LATIN1_MOJIBAKE_RATIO_THRESHOLD = 0.6;
 const INLINE_UPPERCASE_DIGRAPH_GLYPH_PATTERN = /\b[\p{Ll}\p{Nd}]+LJ[\p{Ll}\p{Nd}]+\b/gu;
 const INLINE_UPPERCASE_DIGRAPH_SAMPLE_LIMIT = 3;
+const CJK_INTERGLYPH_SPACE_MIN_CJK_COUNT = 8;
+const CJK_INTERGLYPH_SPACE_MIN_PAIR_COUNT = 5;
+const CJK_INTERGLYPH_SPACE_PAIR_RATIO_THRESHOLD = 0.45;
+const CJK_INTERGLYPH_SPACE_SAMPLE_LIMIT = 3;
 const FONT_MAPPING_WARNING_PATTERNS = [/no cmap table available/iu, /toUnicode/i, /font.*cmap/iu];
 const DENSE_VECTOR_GRAPHICS_COUNT_THRESHOLD = 250;
 const LARGE_RASTER_AREA_RATIO_THRESHOLD = 0.2;
@@ -324,6 +328,15 @@ function detectLocalizedGlyphNoise(page: PageResult, out: PageWarning[]): void {
       message: `native text contains uppercase "LJ" inside otherwise lowercase word${inlineUppercaseDigraphs.length === 1 ? '' : 's'} (samples: ${inlineUppercaseDigraphs.map((s) => JSON.stringify(s)).join(', ')}) — likely printable ligature or font-map noise; inspect the render if exact text matters`,
     });
   }
+
+  const cjkInterglyphSpaces = detectCjkInterglyphSpacingNoise(page.text);
+  if (cjkInterglyphSpaces) {
+    out.push({
+      code: 'localized_glyph_noise',
+      severity: 'warning',
+      message: `native text contains spaces between ${cjkInterglyphSpaces.pairCount} adjacent CJK glyph pairs (samples: ${cjkInterglyphSpaces.samples.map((s) => JSON.stringify(s)).join(', ')}) — likely PDF text-positioning artifacts; inspect the render or normalize CJK spacing before using exact text`,
+    });
+  }
 }
 
 function detectInlineUppercaseDigraphGlyphNoise(text: string): string[] {
@@ -334,6 +347,38 @@ function detectInlineUppercaseDigraphGlyphNoise(text: string): string[] {
     if (samples.length >= INLINE_UPPERCASE_DIGRAPH_SAMPLE_LIMIT) break;
   }
   return samples;
+}
+
+function detectCjkInterglyphSpacingNoise(text: string): { pairCount: number; samples: string[] } | undefined {
+  const chars = Array.from(text);
+  const cjkCount = chars.filter(isCjkTextChar).length;
+  if (cjkCount < CJK_INTERGLYPH_SPACE_MIN_CJK_COUNT) return undefined;
+
+  let pairCount = 0;
+  const samples: string[] = [];
+  for (let i = 0; i < chars.length; i++) {
+    const left = chars[i];
+    if (!isCjkTextChar(left)) continue;
+    let j = i + 1;
+    let sawSpace = false;
+    while (isInlineSpacingChar(chars[j])) {
+      sawSpace = true;
+      j++;
+    }
+    const right = chars[j];
+    if (!sawSpace || !isCjkTextChar(right)) continue;
+    pairCount++;
+    const sample = `${left} ${right}`;
+    if (!samples.includes(sample) && samples.length < CJK_INTERGLYPH_SPACE_SAMPLE_LIMIT) samples.push(sample);
+  }
+  if (pairCount < CJK_INTERGLYPH_SPACE_MIN_PAIR_COUNT) return undefined;
+  const ratio = pairCount / Math.max(1, cjkCount - 1);
+  if (ratio < CJK_INTERGLYPH_SPACE_PAIR_RATIO_THRESHOLD) return undefined;
+  return { pairCount, samples };
+}
+
+function isInlineSpacingChar(ch: string | undefined): boolean {
+  return ch === ' ' || ch === '\t' || ch === '\u3000';
 }
 
 function findSingleDisplayNonPrintableGlyph(page: PageResult): { blockIndex: number } | undefined {
