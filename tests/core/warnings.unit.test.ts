@@ -1577,6 +1577,25 @@ describe('detectPageWarnings', () => {
       const out = detectPageWarnings(p);
       expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
     });
+
+    it('flags line order divergence inside a reconstructed layout block', () => {
+      const lines = [
+        line('1 Helvetica Helvetica Helvetica Helvetica H', 50, 362, 573, 30),
+        line('2 Arial Arial Arial Arial Arial Arial Arial', 50, 412, 495, 30),
+        line('3 Helvetica Helvetica Helvetica', 50, 462, 412, 30),
+        line('4 Arial Arial Arial Arial Arial Arial', 50, 512, 427, 30),
+      ];
+      const visualText = lines.map((item) => item.text).join('\n');
+      const p = {
+        ...page([block(50, 362, 573, 180, { text: visualText, lines })], 612, 792),
+        text: `${lines[1].text}\n${lines[0].text}\n${lines[3].text}\n${lines[2].text}`,
+      };
+
+      const out = detectPageWarnings(p);
+      const divergence = out.find((w) => w.code === 'reading_order_divergence');
+      expect(divergence).toMatchObject({ severity: 'warning', blockIndex: 0 });
+      expect(divergence?.message).toContain('native line order diverges');
+    });
   });
 
   describe('text_overlap', () => {

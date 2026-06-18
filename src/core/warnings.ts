@@ -955,6 +955,9 @@ const READING_ORDER_MIN_HEADING_CHARS = 10;
 const READING_ORDER_PROBE_CHARS = 40;
 const READING_ORDER_CONTEXT_PROBE_MIN_CHARS = 32;
 const READING_ORDER_CONTEXT_MAX_Y_DELTA = 80;
+const LINE_READING_ORDER_MIN_LINES = 3;
+const LINE_READING_ORDER_MIN_PROBE_CHARS = 4;
+const LINE_READING_ORDER_PROBE_CHARS = 60;
 const LOCAL_READING_ORDER_MIN_COMPACT_CHARS = 4;
 const LOCAL_READING_ORDER_MAX_COMPACT_CHARS = 40;
 const LOCAL_READING_ORDER_PROBE_CHARS = 50;
@@ -978,6 +981,7 @@ function detectReadingOrderDivergence(page: PageResult, blocks: LayoutBlock[], o
   if (page.text.length === 0) return;
   if (blocks.length >= READING_ORDER_MIN_BLOCKS && detectHeadingReadingOrderDivergence(page, blocks, out)) return;
   if (blocks.length >= READING_ORDER_MIN_BLOCKS && detectLateBlockStartsNativeText(page, blocks, out)) return;
+  if (detectLineReadingOrderDivergence(page, blocks, out)) return;
   detectLocalMathReadingOrderDivergence(page, blocks, out);
 }
 
@@ -1101,6 +1105,38 @@ function buildLateBlockNativeProbe(blocks: LayoutBlock[], index: number): string
 
 function collapseReadingOrderWhitespace(text: string): string {
   return text.replace(/\s+/gu, ' ').trim();
+}
+
+function detectLineReadingOrderDivergence(page: PageResult, blocks: LayoutBlock[], out: PageWarning[]): boolean {
+  const nativeText = collapseReadingOrderWhitespace(page.text.normalize('NFKC'));
+  if (nativeText.length === 0) return false;
+  for (let blockIndex = 0; blockIndex < blocks.length; blockIndex++) {
+    const block = blocks[blockIndex];
+    if (block.repeated || block.lines.length < LINE_READING_ORDER_MIN_LINES) continue;
+    const probes = block.lines
+      .map((line) =>
+        collapseReadingOrderWhitespace(line.text.normalize('NFKC')).slice(0, LINE_READING_ORDER_PROBE_CHARS),
+      )
+      .filter((probe) => probe.length >= LINE_READING_ORDER_MIN_PROBE_CHARS);
+    if (probes.length < LINE_READING_ORDER_MIN_LINES || new Set(probes).size !== probes.length) continue;
+    const indexed = probes.map((probe) => ({ probe, nativeIndex: nativeText.indexOf(probe) }));
+    if (indexed.some((item) => item.nativeIndex < 0)) continue;
+    let previous = indexed[0];
+    for (const item of indexed.slice(1)) {
+      if (item.nativeIndex + 2 >= previous.nativeIndex) {
+        previous = item;
+        continue;
+      }
+      out.push({
+        code: 'reading_order_divergence',
+        severity: 'warning',
+        blockIndex,
+        message: `layout line "${shortTextSample(item.probe)}" appears after "${shortTextSample(previous.probe)}" visually but earlier in the native text stream — native line order diverges from what a human reads; prefer layout.blocks order when sequence matters`,
+      });
+      return true;
+    }
+  }
+  return false;
 }
 
 function detectLocalMathReadingOrderDivergence(page: PageResult, blocks: LayoutBlock[], out: PageWarning[]): void {
