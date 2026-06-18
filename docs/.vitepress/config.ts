@@ -5,6 +5,7 @@ const siteName = 'pdfvision';
 const siteDescription = 'Extract text, layout, OCR, and rendered page images from PDFs for AI agents.';
 const siteBase = process.env.PDFVISION_DOCS_BASE ?? '/pdfvision/';
 const siteUrl = (process.env.PDFVISION_DOCS_URL ?? 'https://yamadashy.github.io/pdfvision').replace(/\/+$/, '');
+const siteOrigin = new URL(siteUrl).origin;
 const githubUrl = 'https://github.com/yamadashy/pdfvision';
 const npmUrl = 'https://www.npmjs.com/package/pdfvision';
 
@@ -367,7 +368,7 @@ export default defineConfig({
     plugins: [
       ...llmstxt({
         workDir: 'en',
-        domain: siteUrl,
+        domain: siteOrigin,
       }),
     ],
   },
