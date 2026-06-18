@@ -2,6 +2,9 @@ import type { PageStructureContent, PageStructureItem, PageStructureNode } from 
 
 interface BuildStructureOptions {
   normalizeText?: (value: string) => string;
+  pageHeight?: number;
+  viewMinX?: number;
+  viewMinY?: number;
 }
 
 interface PdfStructTreeNode {
@@ -20,13 +23,50 @@ interface PdfStructTreeContent {
 
 function textValue(value: unknown, options: BuildStructureOptions): string | undefined {
   if (typeof value !== 'string' || value.length === 0) return undefined;
-  return options.normalizeText ? options.normalizeText(value) : value;
+  const normalized = options.normalizeText ? options.normalizeText(value) : value;
+  const sanitized = dropControlBytes(normalized);
+  return sanitized.length > 0 ? sanitized : undefined;
 }
 
-function bboxValue(value: unknown): number[] | undefined {
+function dropControlBytes(value: string): string {
+  let out = '';
+  for (const char of value) {
+    const cp = char.codePointAt(0) as number;
+    if (!isControlByte(cp)) out += char;
+  }
+  return out;
+}
+
+function isControlByte(cp: number): boolean {
+  if (cp < 0x20) return cp !== 0x09 && cp !== 0x0a && cp !== 0x0d;
+  return cp === 0x7f || (cp >= 0x80 && cp <= 0x9f);
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+function bboxValue(value: unknown, options: BuildStructureOptions): number[] | undefined {
   if (!Array.isArray(value)) return undefined;
   const numbers = value.filter((item): item is number => typeof item === 'number' && Number.isFinite(item));
-  return numbers.length === value.length && numbers.length > 0 ? numbers : undefined;
+  if (numbers.length !== value.length || numbers.length === 0) return undefined;
+  if (numbers.length !== 4 || !Number.isFinite(options.pageHeight) || (options.pageHeight as number) <= 0) {
+    return numbers;
+  }
+
+  const [x1, y1, x2, y2] = numbers;
+  const minX = Math.min(x1, x2);
+  const maxX = Math.max(x1, x2);
+  const minY = Math.min(y1, y2);
+  const maxY = Math.max(y1, y2);
+  const viewMinX = options.viewMinX ?? 0;
+  const viewMinY = options.viewMinY ?? 0;
+  return [
+    round2(minX - viewMinX),
+    round2((options.pageHeight as number) - (maxY - viewMinY)),
+    round2(maxX - minX),
+    round2(maxY - minY),
+  ];
 }
 
 function contentValue(value: PdfStructTreeContent, options: BuildStructureOptions): PageStructureContent | undefined {
@@ -48,7 +88,7 @@ function structureNode(value: PdfStructTreeNode, options: BuildStructureOptions)
   const alt = textValue(value.alt, options);
   const mathML = textValue(value.mathML, options);
   const lang = textValue(value.lang, options);
-  const bbox = bboxValue(value.bbox);
+  const bbox = bboxValue(value.bbox, options);
   const children = Array.isArray(value.children)
     ? value.children
         .map((child) => structureItem(child, options))

@@ -104,6 +104,36 @@ describe('derivePageQuality', () => {
     });
   });
 
+  it('flags dense native text that is not visible on a blank render', () => {
+    const quality = derivePageQuality(
+      makePage({
+        text: 'A broken TrueType font has extractable text but no rendered glyph outlines.',
+        charCount: 72,
+        textCoverage: 0.285,
+        renderContentRatio: 0,
+      }),
+    );
+
+    expect(quality).toEqual({
+      nativeTextStatus: 'sparse_text_on_blank_visual',
+      visualStatus: 'blank',
+    });
+  });
+
+  it('treats image-only blank renders as empty pages', () => {
+    const quality = derivePageQuality(
+      makePage({
+        imageCount: 2,
+        renderContentRatio: 0.000002,
+      }),
+    );
+
+    expect(quality).toEqual({
+      nativeTextStatus: 'empty',
+      visualStatus: 'blank',
+    });
+  });
+
   it('keeps tiny corroborated visual traces distinct from blank renders', () => {
     const quality = derivePageQuality(
       makePage({
@@ -118,6 +148,48 @@ describe('derivePageQuality', () => {
     });
   });
 
+  it('keeps tiny visible annotation appearances distinct from blank renders', () => {
+    const quality = derivePageQuality(
+      makePage({
+        renderContentRatio: 0.000167,
+      }),
+      { hasVisibleAnnotationAppearance: true },
+    );
+
+    expect(quality).toEqual({
+      nativeTextStatus: 'empty_but_visual_content',
+      visualStatus: 'sparse',
+    });
+  });
+
+  it('uses public annotation appearances as visual-content evidence', () => {
+    const quality = derivePageQuality(
+      makePage({
+        annotations: [{ subtype: 'FreeText', hasAppearance: true, x: 10, y: 10, width: 8, height: 8 }],
+        renderContentRatio: 0.000167,
+      }),
+    );
+
+    expect(quality).toEqual({
+      nativeTextStatus: 'empty_but_visual_content',
+      visualStatus: 'sparse',
+    });
+  });
+
+  it('does not treat annotation appearances as visual content when the render is fully blank', () => {
+    const quality = derivePageQuality(
+      makePage({
+        annotations: [{ subtype: 'Widget', hasAppearance: true, x: 10, y: 10, width: 80, height: 20 }],
+        renderContentRatio: 0,
+      }),
+    );
+
+    expect(quality).toEqual({
+      nativeTextStatus: 'empty',
+      visualStatus: 'blank',
+    });
+  });
+
   it('keeps near-threshold text-only render traces distinct from blank renders', () => {
     const quality = derivePageQuality(
       makePage({
@@ -127,6 +199,42 @@ describe('derivePageQuality', () => {
         imageCount: 0,
         vectorCount: 0,
         renderContentRatio: 0.000983,
+      }),
+    );
+
+    expect(quality).toEqual({
+      nativeTextStatus: 'ok',
+      visualStatus: 'sparse',
+    });
+  });
+
+  it('keeps tiny text-only render traces distinct from blank renders', () => {
+    const quality = derivePageQuality(
+      makePage({
+        text: 'Hello PDF.js World',
+        charCount: 18,
+        textCoverage: 0.001,
+        imageCount: 0,
+        vectorCount: 0,
+        renderContentRatio: 0.000021,
+      }),
+    );
+
+    expect(quality).toEqual({
+      nativeTextStatus: 'ok',
+      visualStatus: 'sparse',
+    });
+  });
+
+  it('keeps rounded-to-zero text-only render traces distinct from blank renders', () => {
+    const quality = derivePageQuality(
+      makePage({
+        text: 'ОЗЗА\nPowered by TCPDF (www.tcpdf.org)',
+        charCount: 37,
+        textCoverage: 0,
+        imageCount: 0,
+        vectorCount: 0,
+        renderContentRatio: 0.000069,
       }),
     );
 

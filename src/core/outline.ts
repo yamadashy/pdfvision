@@ -5,6 +5,7 @@ import { destinationTarget, resolveDestinationPage } from './destinations.js';
 interface PdfOutlineNode {
   title?: unknown;
   dest?: unknown;
+  action?: unknown;
   url?: unknown;
   unsafeUrl?: unknown;
   items?: unknown;
@@ -65,5 +66,8 @@ function outlineTarget(node: PdfOutlineNode): { type: DocumentOutlineTargetType;
   }
   const destination = destinationTarget(node.dest);
   if (destination) return { type: 'destination', target: destination };
+  if (typeof node.action === 'string' && node.action.length > 0) {
+    return { type: 'action', target: node.action };
+  }
   return undefined;
 }

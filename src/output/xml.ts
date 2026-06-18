@@ -43,6 +43,16 @@ function viewerValue(value: unknown): string {
   return JSON.stringify(value);
 }
 
+function appendJavaScriptActions(out: string[], actions: Record<string, string[]>): void {
+  out.push('<jsActions>');
+  for (const [name, scripts] of Object.entries(actions)) {
+    out.push(`<action name="${escapeAttr(name)}">`);
+    for (const script of scripts) out.push(`<script>${escapeText(script)}</script>`);
+    out.push('</action>');
+  }
+  out.push('</jsActions>');
+}
+
 function linkTarget(value: NonNullable<DocumentResult['pages'][number]['links']>[number]['target']): string {
   return typeof value === 'string' ? value : JSON.stringify(value);
 }
@@ -110,6 +120,9 @@ export function formatXml(result: DocumentResult): string {
           actionAttrs.push(`target="${escapeAttr(result.viewer.openAction.target)}"`);
         }
         out.push(`<openAction ${actionAttrs.join(' ')}/>`);
+      }
+      if (result.viewer.jsActions) {
+        appendJavaScriptActions(out, result.viewer.jsActions);
       }
       if (result.viewer.permissions) {
         out.push(
@@ -365,6 +378,14 @@ export function formatXml(result: DocumentResult): string {
           if (region.renderContentRatio !== undefined) {
             attrs.push(`renderContentRatio="${region.renderContentRatio}"`);
           }
+          if (region.renderedContentBox !== undefined) {
+            attrs.push(
+              `renderedContentBoxX="${region.renderedContentBox.x}"`,
+              `renderedContentBoxY="${region.renderedContentBox.y}"`,
+              `renderedContentBoxWidth="${region.renderedContentBox.width}"`,
+              `renderedContentBoxHeight="${region.renderedContentBox.height}"`,
+            );
+          }
           const associatedText = region.associatedText ?? [];
           if (region.sources.length === 0 && associatedText.length === 0) {
             out.push(`<region ${attrs.join(' ')}/>`);
@@ -415,6 +436,12 @@ export function formatXml(result: DocumentResult): string {
           if (field.readOnly !== undefined) fieldAttrs.push(`readOnly="${field.readOnly}"`);
           if (field.required !== undefined) fieldAttrs.push(`required="${field.required}"`);
           if (field.multiline !== undefined) fieldAttrs.push(`multiline="${field.multiline}"`);
+          if (field.displayValue !== undefined) fieldAttrs.push(`displayValue="${escapeAttr(field.displayValue)}"`);
+          if (field.caption !== undefined) fieldAttrs.push(`caption="${escapeAttr(field.caption)}"`);
+          if (field.exportValue !== undefined) fieldAttrs.push(`exportValue="${escapeAttr(field.exportValue)}"`);
+          if (field.combo !== undefined) fieldAttrs.push(`combo="${field.combo}"`);
+          if (field.multiSelect !== undefined) fieldAttrs.push(`multiSelect="${field.multiSelect}"`);
+          if (field.flags !== undefined) fieldAttrs.push(`flags="${escapeAttr(field.flags.join(','))}"`);
           if (field.label !== undefined) {
             fieldAttrs.push(`label="${escapeAttr(field.label.text)}"`);
             fieldAttrs.push(`labelRelation="${field.label.relation}"`);
@@ -423,10 +450,43 @@ export function formatXml(result: DocumentResult): string {
             fieldAttrs.push(`labelWidth="${field.label.width}"`);
             fieldAttrs.push(`labelHeight="${field.label.height}"`);
           }
-          out.push(`<field ${fieldAttrs.join(' ')}/>`);
+          const hasOptions = field.options !== undefined && field.options.length > 0;
+          const hasActions = field.actions !== undefined;
+          const hasResetForm = field.resetForm !== undefined;
+          if (!hasOptions && !hasActions && !hasResetForm) {
+            out.push(`<field ${fieldAttrs.join(' ')}/>`);
+            continue;
+          }
+          out.push(`<field ${fieldAttrs.join(' ')}>`);
+          if (field.resetForm) {
+            if (field.resetForm.fields.length === 0) {
+              out.push(`<resetForm include="${field.resetForm.include}"/>`);
+            } else {
+              out.push(`<resetForm include="${field.resetForm.include}">`);
+              for (const name of field.resetForm.fields) {
+                out.push(`<fieldName>${escapeText(name)}</fieldName>`);
+              }
+              out.push('</resetForm>');
+            }
+          }
+          if (field.actions) appendJavaScriptActions(out, field.actions);
+          if (field.options && field.options.length > 0) {
+            out.push('<options>');
+            for (const option of field.options) {
+              out.push(
+                `<option exportValue="${escapeAttr(option.exportValue)}" displayValue="${escapeAttr(option.displayValue)}"/>`,
+              );
+            }
+            out.push('</options>');
+          }
+          out.push('</field>');
         }
         out.push('</formFields>');
       }
+    }
+
+    if (page.jsActions) {
+      appendJavaScriptActions(out, page.jsActions);
     }
 
     if (page.links) {
@@ -435,8 +495,10 @@ export function formatXml(result: DocumentResult): string {
       } else {
         out.push('<links>');
         for (const link of page.links) {
+          const pageAttr = link.page !== undefined ? ` page="${link.page}"` : '';
+          const textAttr = link.text !== undefined ? ` text="${escapeAttr(link.text)}"` : '';
           out.push(
-            `<link type="${link.type}" target="${escapeAttr(linkTarget(link.target))}" x="${link.x}" y="${link.y}" width="${link.width}" height="${link.height}"/>`,
+            `<link type="${link.type}" target="${escapeAttr(linkTarget(link.target))}"${pageAttr}${textAttr} x="${link.x}" y="${link.y}" width="${link.width}" height="${link.height}"/>`,
           );
         }
         out.push('</links>');
@@ -456,6 +518,7 @@ export function formatXml(result: DocumentResult): string {
             `width="${annotation.width}"`,
             `height="${annotation.height}"`,
           ];
+          if (annotation.name !== undefined) annotationAttrs.push(`name="${escapeAttr(annotation.name)}"`);
           if (annotation.contents !== undefined) annotationAttrs.push(`contents="${escapeAttr(annotation.contents)}"`);
           if (annotation.title !== undefined) annotationAttrs.push(`title="${escapeAttr(annotation.title)}"`);
           if (annotation.color !== undefined) annotationAttrs.push(`color="${annotation.color.join(',')}"`);
@@ -463,9 +526,70 @@ export function formatXml(result: DocumentResult): string {
           if (annotation.hasAppearance !== undefined) {
             annotationAttrs.push(`hasAppearance="${annotation.hasAppearance}"`);
           }
-          if (annotation.quadBoxes && annotation.quadBoxes.length > 0) {
+          if (annotation.flags !== undefined && annotation.flags.length > 0) {
+            annotationAttrs.push(`flags="${annotation.flags.join(',')}"`);
+          }
+          if (
+            annotation.fileAttachment !== undefined ||
+            annotation.border !== undefined ||
+            annotation.line !== undefined ||
+            (annotation.vertices !== undefined && annotation.vertices.length > 0) ||
+            (annotation.inkPaths !== undefined && annotation.inkPaths.length > 0) ||
+            (annotation.quadBoxes !== undefined && annotation.quadBoxes.length > 0)
+          ) {
             out.push(`<annotation ${annotationAttrs.join(' ')}>`);
-            for (const box of annotation.quadBoxes) {
+            if (annotation.fileAttachment !== undefined) {
+              const fileAttrs = [
+                `name="${escapeAttr(annotation.fileAttachment.name)}"`,
+                `size="${annotation.fileAttachment.size}"`,
+              ];
+              if (annotation.fileAttachment.description !== undefined) {
+                fileAttrs.push(`description="${escapeAttr(annotation.fileAttachment.description)}"`);
+              }
+              out.push(`<fileAttachment ${fileAttrs.join(' ')}/>`);
+            }
+            if (annotation.border !== undefined) {
+              const borderAttrs: string[] = [];
+              if (annotation.border.width !== undefined) borderAttrs.push(`width="${annotation.border.width}"`);
+              if (annotation.border.style !== undefined) {
+                borderAttrs.push(`style="${escapeAttr(annotation.border.style)}"`);
+              }
+              if (annotation.border.dashArray !== undefined && annotation.border.dashArray.length > 0) {
+                borderAttrs.push(`dashArray="${annotation.border.dashArray.join(',')}"`);
+              }
+              out.push(`<border ${borderAttrs.join(' ')}/>`);
+            }
+            if (annotation.line !== undefined) {
+              const lineAttrs = [
+                `fromX="${annotation.line.from.x}"`,
+                `fromY="${annotation.line.from.y}"`,
+                `toX="${annotation.line.to.x}"`,
+                `toY="${annotation.line.to.y}"`,
+              ];
+              if (annotation.line.endings !== undefined) {
+                lineAttrs.push(`endings="${annotation.line.endings.map(escapeAttr).join(',')}"`);
+              }
+              out.push(`<line ${lineAttrs.join(' ')}/>`);
+            }
+            if (annotation.vertices !== undefined && annotation.vertices.length > 0) {
+              out.push('<vertices>');
+              for (const point of annotation.vertices) {
+                out.push(`<point x="${point.x}" y="${point.y}"/>`);
+              }
+              out.push('</vertices>');
+            }
+            if (annotation.inkPaths !== undefined && annotation.inkPaths.length > 0) {
+              out.push('<inkPaths>');
+              for (const path of annotation.inkPaths) {
+                out.push('<path>');
+                for (const point of path) {
+                  out.push(`<point x="${point.x}" y="${point.y}"/>`);
+                }
+                out.push('</path>');
+              }
+              out.push('</inkPaths>');
+            }
+            for (const box of annotation.quadBoxes ?? []) {
               out.push(`<quadBox x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}"/>`);
             }
             out.push('</annotation>');

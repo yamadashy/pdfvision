@@ -97,6 +97,28 @@ describe('processFile', () => {
     ).rejects.toThrow();
   });
 
+  it('labels a truncated PDF as likely truncated when parsing fails', async () => {
+    // Interrupted downloads leave a file whose %PDF header is valid but
+    // whose xref/trailer (and the spec-required %%EOF) are gone. pdf.js
+    // surfaces that as an opaque parse error ("Invalid Root reference");
+    // the truncation probe should append an actionable hint.
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const truncated = join(tmpdir(), `pdfvision-truncated-${process.pid}.pdf`);
+    const bytes = readFileSync(SAMPLE_PDF);
+    writeFileSync(truncated, bytes.subarray(0, Math.floor(bytes.length / 2)));
+    try {
+      await expect(
+        processFile(truncated, {
+          format: 'json',
+          noCache: true,
+        }),
+      ).rejects.toThrow(/likely truncated/);
+    } finally {
+      rmSync(truncated, { force: true });
+    }
+  });
+
   it('recovers when the cache file is corrupted', async () => {
     // Populate cache, then corrupt it. processFile should drop the corrupt
     // entry and re-extract instead of bubbling a JSON parse error.

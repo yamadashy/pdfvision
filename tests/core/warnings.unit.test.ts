@@ -61,6 +61,85 @@ describe('detectPageWarnings', () => {
     expect(detectPageWarnings(noLayout)).toEqual([]);
   });
 
+  it('flags long native text runs that are too tiny to read normally', () => {
+    const out = detectPageWarnings(
+      page(
+        [
+          block(254, 76, 86, 18, { text: 'AcroForm', lines: [line('AcroForm', 254, 76, 86, 18)] }),
+          block(2.84, 839.67, 16.17, 1, {
+            text: 'Powered by TCPDF (www.tcpdf.org)',
+            repeated: true,
+            lines: [
+              { text: 'Powered by TCPDF (www.tcpdf.org)', x: 2.84, y: 839.67, width: 16.17, height: 1, fontSize: 1 },
+            ],
+          }),
+        ],
+        595.28,
+        841.89,
+      ),
+    );
+
+    expect(out).toEqual([
+      expect.objectContaining({
+        code: 'tiny_native_text_noise',
+        severity: 'warning',
+      }),
+    ]);
+    expect(out[0].message).toContain('Powered by TCPDF');
+  });
+
+  it('warns when optional-content text may include default-hidden layers', () => {
+    const out = detectPageWarnings(page([]), {
+      optionalContentText: true,
+      hasHiddenOptionalContent: true,
+    });
+
+    expect(out).toEqual([
+      expect.objectContaining({
+        code: 'optional_content_text_may_include_hidden_layers',
+        severity: 'warning',
+      }),
+    ]);
+  });
+
+  it('does not warn for optional-content text when all layers are visible', () => {
+    const out = detectPageWarnings(page([]), {
+      optionalContentText: true,
+      hasHiddenOptionalContent: false,
+    });
+
+    expect(out.some((w) => w.code === 'optional_content_text_may_include_hidden_layers')).toBe(false);
+  });
+
+  it('suppresses geometry warnings when glyph garbage makes layout bboxes unreliable', () => {
+    const out = detectPageWarnings({
+      ...page([block(50, -10, 100, 50), block(60, 0, 100, 50)]),
+      text: `${'\u0003'.repeat(20)} readable text`,
+      charCount: 34,
+      nonPrintableCount: 20,
+      nonPrintableRatio: 0.2,
+      quality: { nativeTextStatus: 'mixed_glyph_indices', visualStatus: 'ok' },
+    });
+
+    expect(out.some((w) => w.code === 'glyph_garbage_text')).toBe(true);
+    expect(out.filter((w) => w.code === 'off_page')).toEqual([]);
+    expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+  });
+
+  it('keeps geometry warnings on low-ratio mixed glyph pages', () => {
+    const out = detectPageWarnings({
+      ...page([block(50, -10, 100, 50)]),
+      text: `${'\u0003'.repeat(6)} mostly readable text with localized symbols`,
+      charCount: 47,
+      nonPrintableCount: 6,
+      nonPrintableRatio: 0.06,
+      quality: { nativeTextStatus: 'mixed_glyph_indices', visualStatus: 'ok' },
+    });
+
+    expect(out.some((w) => w.code === 'glyph_garbage_text')).toBe(true);
+    expect(out.some((w) => w.code === 'off_page')).toBe(true);
+  });
+
   it('flags low-confidence OCR when native extraction needs OCR', () => {
     const out = detectPageWarnings({
       page: 1,
@@ -97,6 +176,168 @@ describe('detectPageWarnings', () => {
       ocr: { text: 'usable native text', confidence: 0.31, lang: 'eng' },
     });
     expect(out.filter((w) => w.code === 'ocr_low_confidence')).toEqual([]);
+  });
+
+  it('flags visible FreeText annotation contents missing from native page text', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '',
+      charCount: 0,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'empty_but_visual_content', visualStatus: 'ok' },
+      annotations: [
+        {
+          subtype: 'FreeText',
+          contents: 'Hello World from Acrobat',
+          hasAppearance: true,
+          flags: ['print'],
+          x: 46.5,
+          y: 151.98,
+          width: 156.39,
+          height: 18.97,
+        },
+      ],
+    });
+
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({
+      code: 'annotation_text_missing_from_native',
+      severity: 'warning',
+    });
+    expect(out[0].message).toContain('Hello World from Acrobat');
+  });
+
+  it('does not flag FreeText annotations already represented in native page text', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: 'Hello World from Acrobat',
+      charCount: 24,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.01,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+      annotations: [
+        {
+          subtype: 'FreeText',
+          contents: 'Hello World from Acrobat',
+          hasAppearance: true,
+          flags: ['print'],
+          x: 46.5,
+          y: 151.98,
+          width: 156.39,
+          height: 18.97,
+        },
+      ],
+    });
+
+    expect(out.filter((w) => w.code === 'annotation_text_missing_from_native')).toEqual([]);
+  });
+
+  it('does not flag hidden or appearance-less FreeText annotations', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '',
+      charCount: 0,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'empty' },
+      annotations: [
+        {
+          subtype: 'FreeText',
+          contents: 'Hidden comment',
+          hasAppearance: true,
+          flags: ['hidden'],
+          x: 10,
+          y: 20,
+          width: 100,
+          height: 20,
+        },
+        {
+          subtype: 'FreeText',
+          contents: 'No appearance comment',
+          hasAppearance: false,
+          flags: ['print'],
+          x: 10,
+          y: 50,
+          width: 100,
+          height: 20,
+        },
+      ],
+    });
+
+    expect(out.filter((w) => w.code === 'annotation_text_missing_from_native')).toEqual([]);
+  });
+
+  it('flags high-confidence OCR that disagrees with short native text', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '6XPPD',
+      charCount: 5,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.003,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'sparse' },
+      ocr: { text: 'Summa', confidence: 0.94, lang: 'eng' },
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'ocr_native_text_mismatch', severity: 'warning' });
+    expect(out[0].message).toContain('Summa');
+    expect(out[0].message).toContain('6XPPD');
+  });
+
+  it('does not flag OCR-native mismatches when OCR confidence is low', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '6XPPD',
+      charCount: 5,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.003,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'sparse' },
+      ocr: { text: 'Summa', confidence: 0.62, lang: 'eng' },
+    });
+    expect(out.filter((w) => w.code === 'ocr_native_text_mismatch')).toEqual([]);
+  });
+
+  it('does not flag OCR-native mismatches when OCR only captured part of the native text', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: 'Project 2061 Science for All Americans Floyd James Rutherford and Andrew Ahlgren',
+      charCount: 76,
+      imageCount: 0,
+      vectorCount: 22,
+      textCoverage: 0.03,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+      ocr: { text: 'Project 2061 Science for All Americans', confidence: 0.93, lang: 'eng+jpn' },
+    });
+    expect(out.filter((w) => w.code === 'ocr_native_text_mismatch')).toEqual([]);
   });
 
   it('flags low-confidence OCR on raster-backed text layers even when native status is ok', () => {
@@ -163,6 +404,187 @@ describe('detectPageWarnings', () => {
     expect(out[0].message).toContain('18 non-printable');
   });
 
+  it('flags page-wide glyph garbage when native text is mixed or unusable', () => {
+    const mixed = detectPageWarnings({
+      page: 1,
+      text: 'mixed garbage',
+      charCount: 1330,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.128,
+      nonPrintableRatio: 0.141,
+      nonPrintableCount: 188,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'mixed_glyph_indices' },
+    });
+    expect(mixed[0]).toMatchObject({ code: 'glyph_garbage_text', severity: 'warning' });
+    expect(mixed[0].message).toContain('partly raw glyph-index garbage');
+    expect(mixed[0].message).toContain('14.1%');
+
+    const unusable = detectPageWarnings({
+      page: 1,
+      text: '￿￿￿￿',
+      charCount: 4,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.004,
+      nonPrintableRatio: 1,
+      nonPrintableCount: 4,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'unusable_glyph_indices' },
+    });
+    expect(unusable[0]).toMatchObject({ code: 'glyph_garbage_text', severity: 'warning' });
+    expect(unusable[0].message).toContain('mostly raw glyph-index garbage');
+    expect(unusable[0].message).toContain('100.0%');
+  });
+
+  it('flags private-use glyph code text when the whole page is PUA-dominant', () => {
+    // PDF.js issue215-shaped case: the visible page says "OPENMAGAZIN",
+    // but the text stream is printable PUA glyph IDs with no usable
+    // Unicode mapping. `nonPrintableRatio` intentionally stays 0.
+    const out = detectPageWarnings({
+      page: 1,
+      text: '\uf76f\uf770\uf765\uf76e\uf76d\uf761\uf767\uf761\uf77a\uf769\uf76e',
+      charCount: 11,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.03,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 595.28,
+      height: 841.89,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'glyph_garbage_text', severity: 'warning' });
+    expect(out[0].message).toContain('private-use glyph codes');
+    expect(out[0].message).toContain('100.0% PUA');
+  });
+
+  it('flags short private-use glyph code pages when all text is PUA', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '\uf8f2\uf8f3',
+      charCount: 2,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.07,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 200,
+      height: 50,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'glyph_garbage_text', severity: 'warning' });
+    expect(out[0].message).toContain('100.0% PUA');
+  });
+
+  it('does not flag isolated private-use icon glyphs in otherwise readable text', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: 'Download \uf019 report',
+      charCount: 17,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.03,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+    });
+    expect(out.filter((w) => w.code === 'glyph_garbage_text')).toEqual([]);
+    expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
+  });
+
+  it('flags localized private-use glyphs when they dominate a short text run', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '\ue0e0cm',
+      charCount: 3,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.06,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 200,
+      height: 50,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'localized_glyph_noise', severity: 'warning' });
+    expect(out[0].message).toContain('private-use glyph code');
+    expect(out[0].message).toContain('33.3% PUA');
+  });
+
+  it('flags repeated private-use glyphs inside otherwise readable math text', () => {
+    const text =
+      'Readable vector worksheet '.repeat(8) +
+      '\uf0d7 \uf076 \uf02d \uf02b \uf0b1 \uf03d \uf0b0 \uf0e5 \uf076 \uf02b \uf03d \uf0b1';
+    const out = detectPageWarnings({
+      page: 1,
+      text,
+      charCount: text.length,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.12,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'localized_glyph_noise', severity: 'warning' });
+    expect(out[0].message).toContain('12 private-use glyph codes');
+  });
+
+  it('flags pdf.js font mapping warnings when printable native text otherwise looks ok', () => {
+    const out = detectPageWarnings(
+      {
+        page: 1,
+        text: '’>in',
+        charCount: 4,
+        imageCount: 0,
+        vectorCount: 0,
+        textCoverage: 0.04,
+        nonPrintableRatio: 0,
+        nonPrintableCount: 0,
+        width: 120,
+        height: 40,
+        quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+      },
+      { pdfJsWarnings: ['Warning: No cmap table available.'] },
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'font_mapping_warning', severity: 'warning' });
+    expect(out[0].message).toContain('No cmap table available');
+  });
+
+  it('does not duplicate font mapping warnings on pages already flagged as glyph noise', () => {
+    const out = detectPageWarnings(
+      {
+        page: 1,
+        text: '\ue0e0cm',
+        charCount: 3,
+        imageCount: 0,
+        vectorCount: 0,
+        textCoverage: 0.06,
+        nonPrintableRatio: 0,
+        nonPrintableCount: 0,
+        width: 200,
+        height: 50,
+        quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+      },
+      { pdfJsWarnings: ['Warning: No cmap table available.'] },
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'localized_glyph_noise', severity: 'warning' });
+  });
+
   it('flags two localized non-printable glyphs when exact symbols may matter', () => {
     // ResNet figure-equation-shaped case: only two control characters,
     // but they sit inside a visible formula (`F(x)+x`) where exact
@@ -199,6 +621,45 @@ describe('detectPageWarnings', () => {
       height: 792,
       quality: { nativeTextStatus: 'ok' },
     });
+    expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
+  });
+
+  it('flags a single non-printable glyph in a large display line', () => {
+    const displayLine = { ...line('Symbol: \x93', 495, 500, 228, 50), fontSize: 50 };
+    const out = detectPageWarnings({
+      ...page([
+        block(495, 500, 228, 50, {
+          text: 'Symbol: \x93',
+          lines: [displayLine],
+        }),
+      ]),
+      text: `${'clean title block '.repeat(12)}Symbol: \x93`,
+      charCount: 221,
+      nonPrintableRatio: 0.005,
+      nonPrintableCount: 1,
+    });
+
+    const glyphWarnings = out.filter((w) => w.code === 'localized_glyph_noise');
+    expect(glyphWarnings).toHaveLength(1);
+    expect(glyphWarnings[0]).toMatchObject({ severity: 'warning', blockIndex: 0 });
+    expect(glyphWarnings[0].message).toContain('single non-printable code point in a large display line');
+  });
+
+  it('does not flag a single non-printable glyph in an ordinary body-sized line', () => {
+    const bodyLine = { ...line('mostly clean text\x01', 40, 120, 120, 12), fontSize: 12 };
+    const out = detectPageWarnings({
+      ...page([
+        block(40, 120, 120, 12, {
+          text: 'mostly clean text\x01',
+          lines: [bodyLine],
+        }),
+      ]),
+      text: `${'mostly clean text '.repeat(60)}\x01`,
+      charCount: 1081,
+      nonPrintableRatio: 0.001,
+      nonPrintableCount: 1,
+    });
+
     expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
   });
 
@@ -282,6 +743,176 @@ describe('detectPageWarnings', () => {
     expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
   });
 
+  it('flags Latin-1 supplement dominated printable mojibake', () => {
+    // PDF.js issue3025-shaped case: the render shows Devanagari glyphs,
+    // but the native text is printable Latin-1 code noise.
+    const out = detectPageWarnings({
+      page: 1,
+      text: 'ã½ãá Ìãã',
+      charCount: 9,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.071,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 200,
+      height: 50,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'localized_glyph_noise', severity: 'warning' });
+    expect(out[0].message).toContain('Latin-1 supplement glyphs');
+  });
+
+  it('does not flag ordinary accented Latin prose as Latin-1 mojibake', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: 'KÖNYVAJÁNLÓ: Think Like A Programmer',
+      charCount: 36,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.011,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+    });
+    expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
+  });
+
+  it('does not flag standalone French diacritics as Latin-1 mojibake', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: 'à À â Â ä Ä ç Ç é É è È ê Ê ë Ë î Î ï Ï ô Ô ù Ù û Û ü Ü\n1',
+      charCount: 57,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.006,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 595.28,
+      height: 841.89,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'sparse' },
+    });
+    expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
+  });
+
+  it('flags uppercase LJ inside lowercase words as printable glyph noise', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: 'Plan generation\nCost-optimal planning\nPlan veriLJcation',
+      charCount: 59,
+      imageCount: 0,
+      vectorCount: 39,
+      textCoverage: 0.12,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+    });
+
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'localized_glyph_noise', severity: 'warning' });
+    expect(out[0].message).toContain('veriLJcation');
+  });
+
+  it('does not flag standalone LJ acronyms as printable glyph noise', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: 'The LJ benchmark and LJ model family are listed separately.',
+      charCount: 60,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.12,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+    });
+
+    expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
+  });
+
+  it('flags likely artificial spaces between CJK glyphs', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '全 世 界 无 产 者,联 合 起 来A',
+      charCount: 20,
+      imageCount: 0,
+      vectorCount: 2,
+      textCoverage: 0.007,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 462.5,
+      height: 625.9,
+      quality: { nativeTextStatus: 'sparse_text_with_visual_content', visualStatus: 'sparse' },
+    });
+
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'localized_glyph_noise', severity: 'warning' });
+    expect(out[0].message).toContain('spaces between 8 adjacent CJK glyph pairs');
+  });
+
+  it('does not flag a small number of deliberate CJK spacing boundaries', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '令和 6 年 給与所得者の扶養控除等申告書',
+      charCount: 20,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.02,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok' },
+    });
+
+    expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
+  });
+
+  it('flags sequential rare CJK extension glyph runs as printable glyph noise', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '㐂㐄㐆㐈㐊㐌㐎㐐㐒㐔㐖㐘',
+      charCount: 12,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.029,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 595.28,
+      height: 841.89,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+    });
+
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'localized_glyph_noise', severity: 'warning' });
+    expect(out[0].message).toContain('sequential run of rare CJK extension code points');
+    expect(out[0].message).toContain('"㐂"');
+  });
+
+  it('does not flag non-sequential rare CJK extension text', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '㐂㔾㚡㝵㠯㣇㥯㩻 alongside annotations',
+      charCount: 29,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.04,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+    });
+
+    expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
+  });
+
   it('flags dense vector graphics that may carry form or chart structure outside text', () => {
     // IRS Form 1040-shaped case: text extraction is healthy, but the
     // checkbox/table/form geometry is mostly vector drawing operations.
@@ -318,6 +949,92 @@ describe('detectPageWarnings', () => {
       quality: { nativeTextStatus: 'ok' },
     });
     expect(out.filter((w) => w.code === 'dense_vector_graphics')).toEqual([]);
+  });
+
+  it('flags vector-only visual pages without native text', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '',
+      charCount: 0,
+      imageCount: 0,
+      vectorCount: 1,
+      textCoverage: 0,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 200,
+      height: 200,
+      quality: { nativeTextStatus: 'empty_but_visual_content', visualStatus: 'ok' },
+    });
+
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'vector_graphics_no_native_text', severity: 'warning' });
+    expect(out[0].message).toContain('1 vector drawing operation');
+  });
+
+  it('does not flag vector-only pages whose only vector boxes are page-edge hairlines', () => {
+    const out = detectPageWarnings(
+      {
+        page: 1,
+        text: '',
+        charCount: 0,
+        imageCount: 0,
+        vectorCount: 2,
+        textCoverage: 0,
+        nonPrintableRatio: 0,
+        nonPrintableCount: 0,
+        width: 249.45,
+        height: 321.22,
+        quality: { nativeTextStatus: 'empty_but_visual_content', visualStatus: 'sparse' },
+      },
+      {
+        vectorBoxes: [
+          { x: 0, y: -0.2, width: 249.45, height: 0.5 },
+          { x: 0, y: 320.72, width: 249.45, height: 0.5 },
+        ],
+      },
+    );
+
+    expect(out.filter((w) => w.code === 'vector_graphics_no_native_text')).toEqual([]);
+  });
+
+  it('still flags vector-only pages with an internal hairline diagram', () => {
+    const out = detectPageWarnings(
+      {
+        page: 1,
+        text: '',
+        charCount: 0,
+        imageCount: 0,
+        vectorCount: 1,
+        textCoverage: 0,
+        nonPrintableRatio: 0,
+        nonPrintableCount: 0,
+        width: 200,
+        height: 200,
+        quality: { nativeTextStatus: 'empty_but_visual_content', visualStatus: 'sparse' },
+      },
+      { vectorBoxes: [{ x: 40, y: 90, width: 120, height: 0.5 }] },
+    );
+
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'vector_graphics_no_native_text', severity: 'warning' });
+  });
+
+  it('does not flag blank vector-only pages without render evidence', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '',
+      charCount: 0,
+      imageCount: 0,
+      vectorCount: 1,
+      textCoverage: 0,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 200,
+      height: 200,
+      quality: { nativeTextStatus: 'empty_but_visual_content', visualStatus: 'blank' },
+    });
+
+    expect(out.filter((w) => w.code === 'vector_graphics_no_native_text')).toEqual([]);
   });
 
   it('flags dense aligned numeric tables that native text can flatten', () => {
@@ -379,6 +1096,42 @@ describe('detectPageWarnings', () => {
       ]),
     );
     expect(out.filter((w) => w.code === 'tabular_numeric_layout')).toEqual([]);
+  });
+
+  it('flags standalone dotted leader lines that were separated from table-of-contents labels', () => {
+    const dotLines = Array.from({ length: 9 }, (_, i) => line('. . . . . . . . . . . .', 120, 120 + i * 12, 220));
+    const out = detectPageWarnings(
+      page([
+        block(50, 100, 500, 160, {
+          text: 'Table of Contents',
+          lines: [line('Item 1. Business Description K-1', 50, 100, 180), ...dotLines],
+        }),
+      ]),
+    );
+
+    expect(out).toEqual([
+      expect.objectContaining({
+        code: 'dot_leader_noise',
+        severity: 'warning',
+      }),
+    ]);
+    expect(out[0].message).toContain('standalone dotted leader lines');
+  });
+
+  it('does not flag ordinary ellipsis prose as dotted leader noise', () => {
+    const out = detectPageWarnings(
+      page([
+        block(50, 100, 500, 80, {
+          text: 'prose',
+          lines: [
+            line('The discussion pauses ... then continues.', 50, 100, 180),
+            line('Another sentence with ... an ellipsis.', 50, 112, 170),
+          ],
+        }),
+      ]),
+    );
+
+    expect(out.filter((w) => w.code === 'dot_leader_noise')).toEqual([]);
   });
 
   it('does not flag chart-axis labels without shared numeric rows', () => {
@@ -542,6 +1295,119 @@ describe('detectPageWarnings', () => {
     expect(out[0]).toMatchObject({ code: 'large_raster_low_text_overlap', severity: 'warning' });
   });
 
+  it('flags large raster images on empty visual pages without native text', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '',
+      charCount: 0,
+      imageCount: 1,
+      vectorCount: 0,
+      textCoverage: 0,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 1000,
+      height: 1000,
+      imageBoxes: [{ x: 120, y: 140, width: 600, height: 500 }],
+      quality: { nativeTextStatus: 'empty_but_visual_content' },
+    });
+
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({
+      code: 'large_raster_low_text_overlap',
+      severity: 'warning',
+      imageBoxIndex: 0,
+    });
+    expect(out[0].message).toContain('native text is empty');
+  });
+
+  it('flags tiled raster pages when each tile is below the single-image threshold', () => {
+    const out = detectPageWarnings(
+      {
+        page: 1,
+        text: '',
+        charCount: 0,
+        imageCount: 4,
+        vectorCount: 72,
+        textCoverage: 0,
+        nonPrintableRatio: 0,
+        nonPrintableCount: 0,
+        width: 1000,
+        height: 1000,
+        quality: { nativeTextStatus: 'empty_but_visual_content' },
+      },
+      {
+        imageBoxes: [
+          { x: 0, y: 0, width: 400, height: 400 },
+          { x: 400, y: 0, width: 400, height: 400 },
+          { x: 0, y: 400, width: 400, height: 400 },
+          { x: 400, y: 400, width: 400, height: 400 },
+        ],
+      },
+    );
+
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({
+      code: 'large_raster_low_text_overlap',
+      severity: 'warning',
+    });
+    expect(out[0].imageBoxIndex).toBeUndefined();
+    expect(out[0].message).toContain('64.0%');
+  });
+
+  it('does not aggregate tiny raster icons into a large-raster warning', () => {
+    const imageBoxes = Array.from({ length: 30 }, (_, index) => ({
+      x: (index % 10) * 50,
+      y: Math.floor(index / 10) * 50,
+      width: 20,
+      height: 20,
+    }));
+    const out = detectPageWarnings(
+      {
+        page: 1,
+        text: '',
+        charCount: 0,
+        imageCount: imageBoxes.length,
+        vectorCount: 0,
+        textCoverage: 0,
+        nonPrintableRatio: 0,
+        nonPrintableCount: 0,
+        width: 1000,
+        height: 1000,
+        quality: { nativeTextStatus: 'empty_but_visual_content' },
+      },
+      { imageBoxes },
+    );
+
+    expect(out.filter((w) => w.code === 'large_raster_low_text_overlap')).toEqual([]);
+  });
+
+  it('uses internal image boxes for sparse visual pages without exposing an imageBoxIndex', () => {
+    // Baseline JSON does not include pages[].imageBoxes, but extraction
+    // still computes image geometry internally. A scanned or screenshot
+    // page with only tiny native text should warn even before the caller
+    // knows to re-run with --image-boxes.
+    const out = detectPageWarnings(
+      {
+        page: 1,
+        text: 'tiny native text',
+        charCount: 16,
+        imageCount: 1,
+        vectorCount: 0,
+        textCoverage: 0.001,
+        nonPrintableRatio: 0,
+        nonPrintableCount: 0,
+        width: 612,
+        height: 792,
+        quality: { nativeTextStatus: 'sparse_text_with_visual_content' },
+      },
+      { imageBoxes: [{ x: 0, y: 0, width: 612, height: 792 }] },
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'large_raster_low_text_overlap', severity: 'warning' });
+    expect(out[0].imageBoxIndex).toBeUndefined();
+    expect(out[0].message).toContain('native text is sparse');
+  });
+
   it('does not add large-raster warnings when native text is already glyph-garbage', () => {
     const out = detectPageWarnings({
       ...page([block(20, 20, 300, 40, { text: '\x00\x01\x02' })], 1000, 1000),
@@ -632,13 +1498,295 @@ describe('detectPageWarnings', () => {
       const out = detectPageWarnings(page([block(260, -20, 1400, 67)], 1920, 1080));
       expect(out.some((w) => w.code === 'off_page' && w.message.includes('top'))).toBe(true);
     });
+
+    it('does not flag right overhang from a trailing full-width closing paren advance', () => {
+      // 総務省白書 title slide: 34.56pt CJK title ends in （概要）flush
+      // against the right edge of an 842pt landscape page. The closing
+      // paren's advance pushes the reported right edge to 857pt, but
+      // its ink ends on the page — a human sees nothing clipped.
+      const title = block(349.8, 257.9, 507.25, 34.56, {
+        text: '令和7年版情報通信白書(概要)',
+        lines: [
+          { text: '令和7年版情報通信白書(概要)', x: 349.8, y: 257.9, width: 507.25, height: 34.56, fontSize: 34.56 },
+        ],
+      });
+      const out = detectPageWarnings(page([title], 841.92, 595.32));
+      expect(out.filter((w) => w.code === 'off_page')).toEqual([]);
+    });
+
+    it('still flags right overhang past the trailing-advance allowance', () => {
+      // Same shape but the overhang is a full em — more than trailing
+      // punctuation advance can explain, so something really is off-page.
+      const title = block(349.8, 257.9, 530, 34.56, {
+        text: '令和7年版情報通信白書(概要)',
+        lines: [
+          { text: '令和7年版情報通信白書(概要)', x: 349.8, y: 257.9, width: 530, height: 34.56, fontSize: 34.56 },
+        ],
+      });
+      const out = detectPageWarnings(page([title], 841.92, 595.32));
+      expect(out.some((w) => w.code === 'off_page' && w.message.includes('right'))).toBe(true);
+    });
+
+    it('still flags right overhang on a Latin line ending with a paren', () => {
+      // ASCII ")" has a narrow advance — a half-em overhang on a Latin
+      // line is real bleed, not a font-metric phantom.
+      const latin = block(349.8, 257.9, 507.25, 34.56, {
+        text: 'Annual Report (Summary)',
+        lines: [{ text: 'Annual Report (Summary)', x: 349.8, y: 257.9, width: 507.25, height: 34.56, fontSize: 34.56 }],
+      });
+      const out = detectPageWarnings(page([latin], 841.92, 595.32));
+      expect(out.some((w) => w.code === 'off_page' && w.message.includes('right'))).toBe(true);
+    });
+  });
+
+  describe('reading_order_divergence', () => {
+    /** Page shaped like PLoS Medicine p.1: the title heading leads the
+     *  visual flow but the producer emitted it after the body columns. */
+    function divergentPage(): PageResult {
+      const title = 'Why Most Published Research Findings Are False';
+      const body = 'Published research findings are sometimes refuted by subsequent evidence. '.repeat(20);
+      const blocks = [
+        block(45, 61, 433, 40, { text: title, role: 'heading' }),
+        block(45, 121, 156, 300, { text: body.slice(0, 500) }),
+        block(219, 141, 153, 500, { text: body.slice(500, 1000) }),
+        block(393, 141, 156, 500, { text: body.slice(1000) }),
+      ];
+      return { ...page(blocks, 594, 783), text: `${body}${title}`, charCount: body.length + title.length };
+    }
+
+    it('flags a leading heading that only appears late in the native text stream', () => {
+      const out = detectPageWarnings(divergentPage());
+      const divergence = out.find((w) => w.code === 'reading_order_divergence');
+      expect(divergence).toBeDefined();
+      expect(divergence?.blockIndex).toBe(0);
+      expect(divergence?.message).toContain('Why Most Published Research Findings');
+    });
+
+    it('does not flag when native order matches the layout order', () => {
+      const aligned = divergentPage();
+      const title = 'Why Most Published Research Findings Are False';
+      aligned.text = `${title}\n${aligned.text.slice(0, aligned.text.length - title.length)}`;
+      const out = detectPageWarnings(aligned);
+      expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
+    });
+
+    it('flags form labels whose native text order differs from visual layout order', () => {
+      const labels = [
+        block(32, 19, 94, 10, { text: 'Check box, unchecked' }),
+        block(32, 46, 83, 10, { text: 'Check box, checked' }),
+        block(32, 73, 88, 10, { text: 'Check box, read-only' }),
+      ];
+      const p: PageResult = {
+        ...page(labels),
+        text: 'Check box, unchecked\nCheck box, read-only\nCheck box, checked',
+        formFields: labels.map((label, index) => ({
+          name: `checkbox${index}`,
+          type: 'checkbox',
+          x: 20,
+          y: label.y,
+          width: 10,
+          height: 10,
+          label: {
+            text: label.text,
+            relation: 'right',
+            x: label.x,
+            y: label.y,
+            width: label.width,
+            height: label.height,
+          },
+        })),
+      };
+
+      const out = detectPageWarnings(p);
+      const divergence = out.find((w) => w.code === 'reading_order_divergence');
+      expect(divergence).toMatchObject({
+        blockIndex: 2,
+        severity: 'warning',
+      });
+      expect(divergence?.message).toContain('native form text order diverges');
+    });
+
+    it('does not flag headings that are late in BOTH orders (right-column section heads)', () => {
+      // A section heading at the top of the right column is visually
+      // high on the page but legitimately late in the reading flow.
+      const body = 'Body paragraph text for the left column. '.repeat(30);
+      const heading = 'Modeling the Framework for False Positives';
+      const blocks = [
+        block(45, 50, 156, 600, { text: body }),
+        block(219, 50, 153, 20, { text: heading, role: 'heading' }),
+        block(219, 80, 153, 570, { text: body }),
+        block(393, 50, 156, 600, { text: body }),
+      ];
+      const p = { ...page(blocks, 594, 783), text: `${body}${heading}${body}${body}` };
+      const out = detectPageWarnings(p);
+      expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
+    });
+
+    it('flags bottom notes that appear at the start of the native text stream', () => {
+      // Chinese journal PDF-shaped case: the visual page begins with
+      // the article title, but the producer emits bottom submission
+      // notes before the title and body in pages[].text.
+      const title = 'Comparison of Metformin and Polyene Phosphatidylcholine';
+      const body = 'Main article body text follows the visible title and abstract. '.repeat(18);
+      const bottomNote = 'Received date: 2014-11-03';
+      const blocks = [
+        block(40, 20, 300, 12, { text: 'Journal running header' }),
+        block(80, 64, 360, 32, { text: title, role: 'heading' }),
+        block(40, 120, 420, 470, { text: body }),
+        block(20, 716, 260, 18, { text: bottomNote }),
+      ];
+      const p = { ...page(blocks, 501, 740), text: `${bottomNote}\n${title}\n${body}` };
+
+      const out = detectPageWarnings(p);
+      const divergence = out.find((w) => w.code === 'reading_order_divergence');
+      expect(divergence).toMatchObject({ severity: 'warning', blockIndex: 3 });
+      expect(divergence?.message).toContain('bottom block');
+    });
+
+    it('flags right sidebars that appear at the start of the native text stream', () => {
+      // PDF.js marked-content financial report-shaped case: the visual
+      // flow starts with the main article, but the native stream begins
+      // with a right-sidebar guidance card.
+      const leftBody = 'Main article text begins on the left and continues through the first column. '.repeat(18);
+      const middleBody = 'Second column continues the article before the sidebar should be read. '.repeat(18);
+      const sidebarHeading = 'Guidance';
+      const sidebarBody =
+        'Kreate estimates that its revenue in 2025 will increase and be in the range of 290-310 MEUR.';
+      const blocks = [
+        block(27, 61, 294, 450, { text: leftBody }),
+        block(335, 61, 294, 450, { text: middleBody }),
+        block(670, 426, 49, 12, { text: sidebarHeading, role: 'heading' }),
+        block(670, 445, 245, 28, { text: sidebarBody }),
+      ];
+      const p = {
+        ...page(blocks, 960, 540),
+        text: `${sidebarHeading} ${sidebarBody}\n${leftBody}\n${middleBody}`,
+      };
+
+      const out = detectPageWarnings(p);
+      const divergence = out.find((w) => w.code === 'reading_order_divergence');
+      expect(divergence).toMatchObject({ severity: 'warning', blockIndex: 2 });
+      expect(divergence?.message).toContain('side block');
+    });
+
+    it('does not flag bottom headings only referenced near the start of the native text stream', () => {
+      // IRS W-9-shaped case: the top instructions refer to "Purpose
+      // of Form" before the actual bottom section. A one-line heading
+      // probe would confuse the cross-reference with the section.
+      const body = 'Main form field text and instructions before the bottom explanation. '.repeat(25);
+      const bottomHeading = 'Purpose of Form';
+      const bottomBody = 'An individual or entity requester files an information return with the IRS.';
+      const blocks = [
+        block(36, 40, 260, 20, { text: 'Request for Taxpayer Identification Number', role: 'heading' }),
+        block(36, 80, 260, 500, { text: body }),
+        block(316, 618, 246, 72, { text: 'New line instructions continue in the right column.' }),
+        block(316, 704, 96, 12, { text: bottomHeading, role: 'heading' }),
+        block(316, 722, 246, 18, { text: bottomBody }),
+      ];
+      const p = {
+        ...page(blocks, 612, 792),
+        text: `Request for Taxpayer Identification Number\nBefore you begin, see ${bottomHeading}, below.\n${body}\nNew line instructions continue in the right column.\n${bottomHeading}\n${bottomBody}`,
+      };
+
+      const out = detectPageWarnings(p);
+      expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
+    });
+
+    it('flags compact math blocks whose native text stream reorders visible characters', () => {
+      // PDF.js bug2004951-shaped case: the visual line is "3√x + y",
+      // but the native text stream can emit the superscript after the
+      // baseline expression as "√x + y3".
+      const blocks = [
+        block(72, 88, 85, 20, { text: '1 Example', role: 'heading' }),
+        block(72, 121, 52, 12, { text: 'Some text' }),
+        block(288, 148, 37, 13, { text: '3√x + y' }),
+      ];
+      const p = {
+        ...page(blocks, 612, 792),
+        text: '1 Example\nSome text\n√x + y3',
+        charCount: 27,
+        vectorCount: 1,
+        quality: { nativeTextStatus: 'sparse_text_with_visual_content' as const },
+      };
+
+      const out = detectPageWarnings(p);
+      const divergence = out.find((w) => w.code === 'reading_order_divergence');
+      expect(divergence).toMatchObject({ severity: 'warning', blockIndex: 2 });
+      expect(divergence?.message).toContain('3√x + y');
+    });
+
+    it('does not flag compact math blocks when native and visual order agree', () => {
+      const blocks = [
+        block(72, 88, 85, 20, { text: '1 Example', role: 'heading' }),
+        block(288, 148, 37, 13, { text: '3√x + y' }),
+      ];
+      const p = { ...page(blocks, 612, 792), text: '1 Example\n3√x + y', charCount: 17 };
+      const out = detectPageWarnings(p);
+      expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
+    });
+
+    it('does not treat form date placeholder slashes as compact math order divergence', () => {
+      const dateLabel = 'Deceased MM / DD / YYYY Spouse MM / DD / YYYY';
+      const blocks = [
+        block(72, 88, 85, 20, { text: 'Form 1040', role: 'heading' }),
+        block(385, 61, 189, 7, { text: dateLabel }),
+      ];
+      const p = {
+        ...page(blocks, 612, 792),
+        text: `Form 1040\nDeceased MM DD YYYY Spouse MM DD YYYY////`,
+        charCount: 58,
+        vectorCount: 502,
+      };
+      const out = detectPageWarnings(p);
+      expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
+    });
+
+    it('flags line order divergence inside a reconstructed layout block', () => {
+      const lines = [
+        line('1 Helvetica Helvetica Helvetica Helvetica H', 50, 362, 573, 30),
+        line('2 Arial Arial Arial Arial Arial Arial Arial', 50, 412, 495, 30),
+        line('3 Helvetica Helvetica Helvetica', 50, 462, 412, 30),
+        line('4 Arial Arial Arial Arial Arial Arial', 50, 512, 427, 30),
+      ];
+      const visualText = lines.map((item) => item.text).join('\n');
+      const p = {
+        ...page([block(50, 362, 573, 180, { text: visualText, lines })], 612, 792),
+        text: `${lines[1].text}\n${lines[0].text}\n${lines[3].text}\n${lines[2].text}`,
+      };
+
+      const out = detectPageWarnings(p);
+      const divergence = out.find((w) => w.code === 'reading_order_divergence');
+      expect(divergence).toMatchObject({ severity: 'warning', blockIndex: 0 });
+      expect(divergence?.message).toContain('native line order diverges');
+    });
+
+    it('does not flag line order divergence when line probes are ambiguous in native text', () => {
+      const lines = [
+        line('layout analysis locates each image region', 50, 120, 240, 12),
+        line('the corresponding image than other text', 50, 136, 240, 12),
+        line('et al., 2023).', 50, 152, 80, 12),
+      ];
+      const visualText = lines.map((item) => item.text).join('\n');
+      const p = {
+        ...page([block(50, 120, 240, 46, { text: visualText, lines })], 612, 792),
+        text: `Earlier citation et al., 2023). ${visualText}`,
+      };
+
+      const out = detectPageWarnings(p);
+      expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
+    });
   });
 
   describe('text_overlap', () => {
     it('flags two non-repeated blocks whose bboxes overlap', () => {
       // Block A: 50,50 to 350,250. Block B: 200,150 to 500,300.
       // Intersection: 200,150 to 350,250 = 150×100 = 15000 pt².
-      const out = detectPageWarnings(page([block(50, 50, 300, 200), block(200, 150, 300, 150)]));
+      const out = detectPageWarnings(
+        page([
+          block(50, 50, 300, 200, { text: 'left column body text' }),
+          block(200, 150, 300, 150, { text: 'right diagram label' }),
+        ]),
+      );
       const overlap = out.find((w) => w.code === 'text_overlap');
       expect(overlap).toBeDefined();
       expect(overlap?.blockIndex).toBe(0);
@@ -661,6 +1809,60 @@ describe('detectPageWarnings', () => {
       expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
     });
 
+    it('does not flag duplicate text extraction blocks with the same bbox', () => {
+      // Japanese manuals can emit the same vertical text run twice with
+      // virtually identical geometry. That is duplicate extraction, not
+      // two visible strings colliding.
+      const text = '風雨にさらされるところには、据え付けない';
+      const out = detectPageWarnings(
+        page([
+          block(525.76, 642.82, 12, 227.98, { text, writingMode: 'vertical' }),
+          block(525.76, 642.82, 12, 228, { text, writingMode: 'vertical' }),
+        ]),
+      );
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
+    it('does not flag short duplicated vertical headings', () => {
+      const text = '安全上のご注意';
+      const out = detectPageWarnings(
+        page([
+          block(775.49, 52.49, 40, 288.32, { text, writingMode: 'vertical' }),
+          block(773.17, 54.19, 40, 288.32, { text, writingMode: 'vertical' }),
+        ]),
+      );
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
+    it('does not flag short CJK vertical fragments contained in a larger extraction block', () => {
+      const out = detectPageWarnings(
+        page([
+          block(260, 100, 20, 220, { text: '雷が鳴り出したら洗濯機やコンセントにはさわらないでください。' }),
+          block(260, 210, 12, 80, { text: 'ください。', writingMode: 'vertical' }),
+        ]),
+      );
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
+    it('does not flag highly similar contained text extraction blocks', () => {
+      // Some CJK PDFs expose a synthetic larger block plus the visual
+      // vertical line blocks. The shorter block is readable content
+      // duplicated from the larger extraction, not an independent
+      // overlapping label.
+      const out = detectPageWarnings(
+        page([
+          block(717.16, 37.36, 29.8, 441.66, {
+            text: '※お読みになった後は、次にお使いになる場合にすぐ見られるところへ大切に保管 ※ご使用になる前に、',
+          }),
+          block(717.16, 166.96, 12, 396.01, {
+            text: '次にお使いになる場合にすぐ見られるところへ大切に保管してください。',
+            writingMode: 'vertical',
+          }),
+        ]),
+      );
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
     it('does not flag tiny inline math fragments that sit inside a paragraph bbox', () => {
       // arXiv PDFs often emit subscripts / superscripts (`t-1`, `1 n`,
       // footnote markers) as separate tiny blocks whose bboxes overlap
@@ -679,6 +1881,45 @@ describe('detectPageWarnings', () => {
       });
       const out = detectPageWarnings(page([paragraph, subscript]));
       expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
+    it('does not flag multi-line math annotations sitting on prose lines', () => {
+      // PMLR AudioLDM p.3 emits a compact superscript/subscript cluster
+      // as a two-line block over the paragraph lines that define E^y and
+      // f_audio(.). The visual text is inline notation, not a collision.
+      const paragraph = block(55, 677, 234, 35, {
+        text: 'We denote audio samples as x and the text description as y. A text encoder f (·) and an audio encoder f (·) are used to extract a text embedding E ∈ R and an audio',
+        lines: [
+          line('We denote audio samples as x and the text description as', 55, 678, 234, 10),
+          line('y. A text encoder f (·) and an audio encoder f (·) are', 55, 690, 234, 10),
+          line('used to extract a text embedding E ∈ R and an audio', 55, 702, 234, 10),
+        ],
+      });
+      const annotation = block(201, 694, 118, 14, {
+        text: 'audio\ny L N',
+        lines: [line('audio', 248, 694, 16, 7), line('y L N', 201, 698, 118, 10)],
+      });
+      const out = detectPageWarnings(page([paragraph, annotation]));
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
+    it('still flags overlapping compact diagram label groups', () => {
+      // Dense figure labels can overlap because the diagram itself is
+      // spatial, not a prose line with inline math annotations.
+      const upperLabels = block(122, 70, 363, 27, {
+        text: 'Text Encoder Audio VAE VAE VAE',
+        lines: [
+          line('Text Encoder', 122, 70, 60, 8),
+          line('Audio VAE', 200, 84, 55, 8),
+          line('VAE VAE', 400, 90, 80, 8),
+        ],
+      });
+      const lowerLabels = block(119, 94, 372, 11, {
+        text: 'E*ε R) Encoder Encoder Encoder Decoder',
+        lines: [line('E*ε R)', 119, 94, 45, 7), line('Encoder Encoder Encoder Decoder', 170, 94, 250, 8)],
+      });
+      const out = detectPageWarnings(page([upperLabels, lowerLabels]));
+      expect(out.filter((w) => w.code === 'text_overlap')).toHaveLength(1);
     });
 
     it('still flags a small independent label that collides with a text line', () => {
@@ -723,6 +1964,51 @@ describe('detectPageWarnings', () => {
       });
       const out = detectPageWarnings(page([paragraph, label]));
       expect(out.some((w) => w.code === 'text_overlap')).toBe(true);
+    });
+
+    it('does not flag punctuation-only inline fragments centered on a paragraph line', () => {
+      const paragraph = block(100, 100, 260, 14, {
+        text: 'Thunderbird ownCloud Nextcloud',
+        lines: [{ text: 'Thunderbird ownCloud Nextcloud', x: 100, y: 100, width: 260, height: 14, fontSize: 12 }],
+      });
+      const comma = block(168, 101, 3.2, 12, {
+        text: ',',
+        lines: [{ text: ',', x: 168, y: 101, width: 3.2, height: 12, fontSize: 12 }],
+      });
+      const out = detectPageWarnings(page([paragraph, comma]));
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
+    it('does not flag punctuation-only lines inside a neighbouring multi-line block', () => {
+      const body = block(127.52, 397.9, 258.16, 14.1, {
+        text: 'Thunderbird [10] ownCloud [11] Nextcloud [12][13]',
+        lines: [
+          {
+            text: 'Thunderbird [10] ownCloud [11] Nextcloud [12][13]',
+            x: 127.52,
+            y: 397.9,
+            width: 258.16,
+            height: 14.1,
+            fontSize: 9.6,
+          },
+        ],
+      });
+      const continuation = block(35.5, 400.25, 350.18, 28.5, {
+        text: ', and as browser extensions for Google Chrome/Chromium,[14]',
+        lines: [
+          { text: ',', x: 349.14, y: 400.25, width: 3.23, height: 12, fontSize: 12 },
+          {
+            text: 'and as browser extensions for Google Chrome/Chromium,[14]',
+            x: 35.5,
+            y: 414.4,
+            width: 350.18,
+            height: 14.35,
+            fontSize: 12,
+          },
+        ],
+      });
+      const out = detectPageWarnings(page([body, continuation]));
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
     });
 
     it('does not flag compact labels that share bbox slack with display numbers', () => {
@@ -811,6 +2097,107 @@ describe('detectPageWarnings', () => {
       expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
     });
 
+    it('does not flag an indented continuation line under a triangle callout marker', () => {
+      const marker = block(465.1, 122.36, 108.51, 14.28, {
+        text: '▲ Make sure the SSN(s) above',
+        lines: [
+          {
+            text: '▲ Make sure the SSN(s) above',
+            x: 465.1,
+            y: 122.36,
+            width: 108.51,
+            height: 14.28,
+            fontSize: 13,
+          },
+        ],
+      });
+      const continuation = block(488.3, 130.76, 81.81, 7, {
+        text: 'and on line 6c are correct.',
+        lines: [
+          {
+            text: 'and on line 6c are correct.',
+            x: 488.3,
+            y: 130.76,
+            width: 81.81,
+            height: 7,
+            fontSize: 7,
+          },
+        ],
+      });
+      const out = detectPageWarnings(page([marker, continuation]));
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
+    it('does not flag adjacent prose blocks when the lower line bbox is inflated by inline math', () => {
+      const upper = block(55.44, 416.22, 236.01, 45.82, {
+        text: 'A second advantage of using a learned linear reward function.\nfunction in Equation (4). If we do not represent R as a',
+        lines: [
+          {
+            text: 'A second advantage of using a learned linear reward function.',
+            x: 55.08,
+            y: 416.22,
+            width: 236.01,
+            height: 9.96,
+            fontSize: 10.15,
+          },
+          {
+            text: 'function in Equation (4). If we do not represent R as a',
+            x: 55.44,
+            y: 452.08,
+            width: 234,
+            height: 9.96,
+            fontSize: 10.16,
+          },
+        ],
+      });
+      const lower = block(55.44, 456.57, 234.35, 29.38, {
+        text: 'linear combination of pretrained features, and instead let anyθ\nparameter in R change during each proposal, then for m',
+        lines: [
+          {
+            text: 'linear combination of pretrained features, and instead let anyθ',
+            x: 55.44,
+            y: 456.57,
+            width: 234.35,
+            height: 17.43,
+            fontSize: 9.96,
+          },
+          {
+            text: 'parameter in R change during each proposal, then for m',
+            x: 55.44,
+            y: 475.99,
+            width: 234,
+            height: 9.96,
+            fontSize: 10.16,
+          },
+        ],
+      });
+
+      const out = detectPageWarnings(page([upper, lower]));
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
+    it('does not flag icon markers overlapping the leading edge of callout text', () => {
+      const icon = block(317.56, 292.76, 22.48, 21.6, {
+        text: '▲',
+        lines: [{ text: '▲', x: 317.56, y: 292.76, width: 22.48, height: 21.6, fontSize: 25.2 }],
+      });
+      const callout = block(326.48, 294.92, 235.51, 18.28, {
+        text: '! Multiple jobs. Complete Steps 3 through 4(b) on only',
+        lines: [
+          {
+            text: '! Multiple jobs. Complete Steps 3 through 4(b) on only',
+            x: 326.48,
+            y: 294.92,
+            width: 235.51,
+            height: 18.28,
+            fontSize: 9,
+          },
+        ],
+      });
+      const out = detectPageWarnings(page([icon, callout]));
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
     it('does not treat a trailing exclamation mark as a loose continuation marker', () => {
       const upper = block(236, 458, 152, 10, {
         text: 'Important!',
@@ -840,6 +2227,19 @@ describe('detectPageWarnings', () => {
       });
       const out = detectPageWarnings(page([upper, lower]));
       expect(out.some((w) => w.code === 'text_overlap')).toBe(true);
+    });
+
+    it('caps noisy overlap pages and summarizes omitted pairs', () => {
+      const blocks = Array.from({ length: 12 }, (_, index) =>
+        block(50 + index * 2, 50 + index * 2, 120, 120, { text: String.fromCharCode(65 + index).repeat(24) }),
+      );
+
+      const overlaps = detectPageWarnings(page(blocks)).filter((w) => w.code === 'text_overlap');
+      const detailed = overlaps.filter((w) => w.blockIndex !== undefined);
+      const summary = overlaps.find((w) => w.blockIndex === undefined);
+
+      expect(detailed).toHaveLength(8);
+      expect(summary?.message).toMatch(/additional block bbox overlaps omitted/);
     });
 
     it('does not flag compact subscript blocks embedded in a displayed formula', () => {
@@ -1036,6 +2436,11 @@ describe('detectPageWarnings', () => {
       expect(out.filter((w) => w.code === 'near_bottom_edge')).toEqual([]);
     });
 
+    it('does not flag short centered bottom labels on slide-like pages', () => {
+      const out = detectPageWarnings(page([block(328, 517, 123, 12, { text: 'ものづくり振興施策を掲載' })], 780, 540));
+      expect(out.filter((w) => w.code === 'near_bottom_edge')).toEqual([]);
+    });
+
     it('does not flag centered roman numeral page numbers at the bottom edge', () => {
       const out = detectPageWarnings(page([block(294, 758, 8, 9, { text: 'iv' })], 594, 774));
       expect(out.filter((w) => w.code === 'near_bottom_edge')).toEqual([]);
@@ -1063,6 +2468,97 @@ describe('detectPageWarnings', () => {
 
     it('still flags non-reference body text near the bottom edge', () => {
       const out = detectPageWarnings(page([block(50, 758, 80, 9, { text: 'closing note' })], 594, 774));
+      expect(out.some((w) => w.code === 'near_bottom_edge')).toBe(true);
+    });
+
+    it('does not flag Japanese source-attribution captions at the bottom edge', () => {
+      // Government white-paper chart slides park 「(出典)…」/「…を基に作成」
+      // attributions at the bottom of every chart box by design.
+      const captions = [
+        block(60, 580, 200, 10, { text: '総務省「通信利用動向調査」を基に作成' }),
+        block(420, 580, 350, 10, {
+          text: '(出典)Reuters Institute for the Study of Journalism「Digital News Report」(2024) を基に作成',
+        }),
+        block(420, 582, 280, 8, { text: '総務省「情報通信メディアの利用時間と情報行動に関する調査」' }),
+        block(42.29, 523.85, 145.21, 9, {
+          text: 'CX研究会 資料3事務局提出資料」)',
+          lines: [
+            {
+              text: 'CX研究会 資料3事務局提出資料」)',
+              x: 42.29,
+              y: 523.85,
+              width: 145.21,
+              height: 9,
+              fontSize: 9,
+            },
+          ],
+        }),
+      ];
+      const out = detectPageWarnings(page(captions, 841.92, 595.32));
+      expect(out.filter((w) => w.code === 'near_bottom_edge')).toEqual([]);
+    });
+
+    it('does not flag ※ footnote captions at the bottom edge', () => {
+      const footnote = block(60, 582, 700, 10, {
+        text: '※主要な事業者のシェアから推計。端数処理の関係や、本推計対象から外れる企業があり得ること等から、例えば、0%と表記されていても、当該国・地域のシェアが全く無いとは限らない。',
+      });
+      const out = detectPageWarnings(page([footnote], 841.92, 595.32));
+      expect(out.filter((w) => w.code === 'near_bottom_edge')).toEqual([]);
+    });
+
+    it('does not flag English Source:/Note: captions at the bottom edge', () => {
+      const out = detectPageWarnings(
+        page([block(60, 580, 300, 10, { text: 'Source: OECD Digital Economy Outlook 2024' })], 841.92, 595.32),
+      );
+      expect(out.filter((w) => w.code === 'near_bottom_edge')).toEqual([]);
+    });
+
+    it('does not flag tiny-font caption tails well below the page body size', () => {
+      // 総務省白書 p10: a wrapped citation tail (6.5pt) sits at the very
+      // bottom of a slide whose body text runs at 9.6pt. Tiny type at the
+      // bottom edge is intentional caption design, not crowded body text.
+      const body = block(60, 60, 700, 400, {
+        text: 'デジタル空間における情報流通の健全性確保に向けた取組が進められている。',
+        lines: [
+          {
+            text: 'デジタル空間における情報流通の健全性確保に向けた取組が進められている。',
+            x: 60,
+            y: 60,
+            width: 700,
+            height: 11,
+            fontSize: 9.6,
+          },
+        ],
+      });
+      const tail = block(268.9, 578.8, 62.4, 6.5, {
+        text: '(第1回)事務局資料',
+        lines: [{ text: '(第1回)事務局資料', x: 268.9, y: 578.8, width: 62.4, height: 6.5, fontSize: 6.24 }],
+      });
+      const out = detectPageWarnings(page([body, tail], 841.92, 595.32));
+      expect(out.filter((w) => w.code === 'near_bottom_edge')).toEqual([]);
+    });
+
+    it('still flags body-sized text near the bottom edge when line data is present', () => {
+      const body = block(60, 60, 700, 400, {
+        text: 'main body paragraph text that fills the slide',
+        lines: [
+          {
+            text: 'main body paragraph text that fills the slide',
+            x: 60,
+            y: 60,
+            width: 700,
+            height: 11,
+            fontSize: 9.6,
+          },
+        ],
+      });
+      const crowded = block(60, 580, 400, 10, {
+        text: 'closing body sentence pushed to the margin',
+        lines: [
+          { text: 'closing body sentence pushed to the margin', x: 60, y: 580, width: 400, height: 10, fontSize: 9.6 },
+        ],
+      });
+      const out = detectPageWarnings(page([body, crowded], 841.92, 595.32));
       expect(out.some((w) => w.code === 'near_bottom_edge')).toBe(true);
     });
 
@@ -1118,6 +2614,57 @@ describe('detectPageWarnings', () => {
       const out = detectPageWarnings(noLayout, { rasterBackedTextLayer: true });
       expect(out).toHaveLength(1);
       expect(out[0]).toMatchObject({ code: 'raster_backed_text_layer' });
+    });
+
+    it('warns when a raster-backed text layer is dominated by printable symbol noise', () => {
+      const noisyText =
+        'X-693-70-326 RADIO ASTRONOMY EXPLORER-1 DATA DISPLAYS ^ ^ ►,, °^ ^^ _ -- ^- -, . ` ^ ; ^^ (CODE) ^ ^ ^ Q';
+      const out = detectPageWarnings(
+        {
+          page: 1,
+          text: noisyText,
+          charCount: noisyText.length,
+          imageCount: 1,
+          vectorCount: 0,
+          textCoverage: 0.22,
+          nonPrintableRatio: 0,
+          nonPrintableCount: 0,
+          width: 602,
+          height: 874,
+          quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+        },
+        { rasterBackedTextLayer: true },
+      );
+
+      expect(out.some((warning) => warning.code === 'raster_backed_text_layer')).toBe(true);
+      expect(out.some((warning) => warning.code === 'raster_text_layer_symbol_noise')).toBe(true);
+      expect(out.find((warning) => warning.code === 'raster_text_layer_symbol_noise')?.message).toContain(
+        'printable symbols/punctuation',
+      );
+    });
+
+    it('does not add symbol-noise warnings for ordinary raster-backed OCR prose', () => {
+      const prose =
+        'The first Radio Astronomy Explorer spacecraft was placed in a circular orbit and continuously observed low frequency radio noise.';
+      const out = detectPageWarnings(
+        {
+          page: 1,
+          text: prose,
+          charCount: prose.length,
+          imageCount: 1,
+          vectorCount: 0,
+          textCoverage: 0.22,
+          nonPrintableRatio: 0,
+          nonPrintableCount: 0,
+          width: 575,
+          height: 784,
+          quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+        },
+        { rasterBackedTextLayer: true },
+      );
+
+      expect(out.some((warning) => warning.code === 'raster_backed_text_layer')).toBe(true);
+      expect(out.filter((warning) => warning.code === 'raster_text_layer_symbol_noise')).toEqual([]);
     });
 
     it('suppresses near_bottom_edge when the cross-page chrome pass had no material', () => {

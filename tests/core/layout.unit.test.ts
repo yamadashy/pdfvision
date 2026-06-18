@@ -99,6 +99,60 @@ describe('buildLayout — heading classification', () => {
     expect(title?.level).toBe(1);
   });
 
+  it('promotes centered all-caps financial statement titles even at body font size', () => {
+    const spans: TextSpan[] = [
+      span('Apple Inc.', 286.76, 60.08, 8.1, 38.7),
+      span('CONSOLIDATED BALANCE SHEETS', 151.45, 78.3, 8.1, 309.31),
+      span(
+        '(In millions, except number of shares, which are reflected in thousands, and par value)',
+        151.45,
+        88.65,
+        8.1,
+        309.31,
+      ),
+      span('ASSETS:', 288.55, 128.25, 8.1, 35.11),
+      span('Current assets:', 19.12, 139.05, 8.1, 122.02),
+      span('Cash and cash equivalents', 19.12, 149.85, 8.1, 122.02),
+      span('$', 431.83, 149.85, 8.1, 4.5),
+      span('29,965', 476.68, 149.85, 8.1, 29.28),
+      span('Marketable securities', 19.12, 160.65, 8.1, 122.02),
+      span('31,590', 476.68, 160.65, 8.1, 29.28),
+    ];
+
+    const layout = buildLayout(spans, 612);
+    const title = layout.blocks.find((block) => block.text.includes('CONSOLIDATED BALANCE SHEETS'));
+    const company = layout.blocks.find((block) => block.text.includes('Apple Inc.'));
+    const body = layout.blocks.find((block) => block.text.includes('Current assets'));
+
+    expect(title?.role).toBe('heading');
+    expect(title?.level).toBe(1);
+    expect(title?.roleConfidence).toBeGreaterThanOrEqual(0.75);
+    expect(company?.role).toBeUndefined();
+    expect(body?.role).toBeUndefined();
+  });
+
+  it('does not promote Japanese body fragments when dense table text lowers the median font size', () => {
+    const tableLines: TextSpan[] = [];
+    for (let i = 0; i < 24; i++) {
+      tableLines.push(span('総 数 (100.0) ( 13.1) ( 58.7) ( 6.0) ( 3.0) ( 5.9)', 80, 220 + i * 11, 8.28, 360));
+    }
+    const spans: TextSpan[] = [
+      span('また、厚生労働省が行った調査によると、こどもについての悩みがある。', 62, 84, 11.34, 442),
+      span('これらの困難があると考えられる。', 62, 104, 11.34, 181),
+      span('1. はじめに', 62, 150, 11.34, 80),
+      ...tableLines,
+    ];
+
+    const layout = buildLayout(spans, 595);
+    const prose = layout.blocks.find((block) => block.text.includes('厚生労働省'));
+    const sentence = layout.blocks.find((block) => block.text.includes('これらの困難'));
+    const heading = layout.blocks.find((block) => block.text.includes('はじめに'));
+
+    expect(prose?.role).toBeUndefined();
+    expect(sentence?.role).toBeUndefined();
+    expect(heading?.role).toBe('heading');
+  });
+
   it('demotes person-name bylines directly under a document title', () => {
     // ResNet / CVPR paper-shaped case: author names sit below the title
     // at section-heading font size, but they are byline metadata, not
@@ -120,6 +174,27 @@ describe('buildLayout — heading classification', () => {
     const section = layout.blocks.find((b) => b.text.includes('Introduction'));
     expect(title?.level).toBe(1);
     expect(author?.role).toBeUndefined();
+    expect(section?.role).toBe('heading');
+  });
+
+  it('demotes short affiliation metadata directly under a document title', () => {
+    const bodyLines: TextSpan[] = [];
+    for (let i = 0; i < 18; i++) {
+      bodyLines.push(span('Body text line that establishes the paper body median.', 72, 250 + i * 12, 9.96));
+    }
+    const spans: TextSpan[] = [
+      span('Llama 2: Open Foundation and Fine-Tuned Chat Models', 98, 72, 17.2, 420),
+      span('GenAI, Meta', 270, 315, 12, 72),
+      span('1 Introduction', 72, 530, 12, 76),
+      ...bodyLines,
+    ];
+    const layout = buildLayout(spans, 612);
+    const title = layout.blocks.find((b) => b.text.includes('Llama 2'));
+    const affiliation = layout.blocks.find((b) => b.text.includes('GenAI'));
+    const section = layout.blocks.find((b) => b.text.includes('Introduction'));
+
+    expect(title?.role).toBe('heading');
+    expect(affiliation?.role).toBeUndefined();
     expect(section?.role).toBe('heading');
   });
 
@@ -157,6 +232,91 @@ describe('buildLayout — heading classification', () => {
     const heading = layout.blocks.find((b) => b.text.includes('Subsection'));
     expect(heading?.role).toBe('heading');
     expect(heading?.level).toBe(3);
+  });
+
+  it('marks standalone decimal-numbered paper sections even when font size matches body', () => {
+    const bodyLines: TextSpan[] = [];
+    for (let i = 0; i < 10; i++) {
+      bodyLines.push(
+        span('The paragraph text uses the same font size as the numbered section heading.', 108, 520 + i * 11, 9.96),
+      );
+    }
+    const spans: TextSpan[] = [
+      span(
+        'The Transformer follows this overall architecture using stacked self-attention and point-wise, fully',
+        108,
+        434,
+        9.96,
+        398,
+      ),
+      span('connected layers for both the encoder and decoder, shown in Figure 1.', 108, 445, 9.96, 360),
+      span('3.1 Encoder and Decoder Stacks', 108, 480.68, 9.96, 145.01),
+      ...bodyLines,
+    ];
+
+    const layout = buildLayout(spans, 612);
+    const heading = layout.blocks.find((block) => block.text.includes('3.1 Encoder'));
+
+    expect(heading?.role).toBe('heading');
+    expect(heading?.level).toBe(2);
+    expect(heading?.roleConfidence).toBeGreaterThanOrEqual(0.65);
+  });
+
+  it('marks standalone lettered report sections even when font size matches body', () => {
+    const bodyLines: TextSpan[] = [];
+    for (let i = 0; i < 10; i++) {
+      bodyLines.push(
+        span('Report instruction body text establishes a credible body font class.', 97, 220 + i * 14, 12),
+      );
+    }
+    const spans: TextSpan[] = [
+      span('A paragraph above the section heading provides surrounding body text.', 97, 100, 12, 390),
+      span('C. Preparation of Report.', 72, 152.16, 12, 142.08),
+      ...bodyLines,
+    ];
+
+    const layout = buildLayout(spans, 612);
+    const heading = layout.blocks.find((block) => block.text.includes('Preparation of Report'));
+
+    expect(heading?.role).toBe('heading');
+    expect(heading?.level).toBe(2);
+    expect(heading?.roleConfidence).toBeGreaterThanOrEqual(0.65);
+  });
+
+  it('does not mark tight lettered list items as section headings', () => {
+    const spans: TextSpan[] = [
+      span('The following alternatives are available to the applicant.', 72, 100, 12, 360),
+      span('A. First listed condition.', 97, 115, 12, 150),
+      span('B. Second listed condition.', 97, 129, 12, 160),
+      span('Body text continues immediately after the lettered list items.', 72, 143, 12, 360),
+      span('Additional body text establishes a credible body font class.', 72, 180, 12, 360),
+      span('Additional body text establishes a credible body font class.', 72, 194, 12, 360),
+      span('Additional body text establishes a credible body font class.', 72, 208, 12, 360),
+      span('Additional body text establishes a credible body font class.', 72, 222, 12, 360),
+    ];
+
+    const layout = buildLayout(spans, 612);
+
+    expect(layout.blocks.find((block) => block.text.includes('First listed'))?.role).toBeUndefined();
+    expect(layout.blocks.find((block) => block.text.includes('Second listed'))?.role).toBeUndefined();
+  });
+
+  it('does not treat decimal numeric table cells as numbered section headings', () => {
+    const bodyLines: TextSpan[] = [];
+    for (let i = 0; i < 10; i++) {
+      bodyLines.push(span('Body paragraph text establishes enough credible body content.', 58, 220 + i * 12, 8));
+    }
+    const spans: TextSpan[] = [
+      span('Odds Ratio (95% confidence interval)', 382.68, 93.66, 6.97, 115.49),
+      span('6.0 (0.6 to 288.5)', 382.68, 154.43, 6.97, 49.97),
+      span('6.4 (2.0 to 21.9)', 382.67, 179.32, 6.97, 46.41),
+      ...bodyLines,
+    ];
+
+    const layout = buildLayout(spans, 612);
+
+    expect(layout.blocks.find((block) => block.text.includes('6.0'))?.role).toBeUndefined();
+    expect(layout.blocks.find((block) => block.text.includes('6.4'))?.role).toBeUndefined();
   });
 
   it('does NOT flag a 1.10× line at level 3 when surrounded by same-fontSize body', () => {
@@ -234,6 +394,34 @@ describe('buildLayout — heading classification', () => {
     expect(icon?.roleConfidence).toBeUndefined();
   });
 
+  it('keeps long rotated text spans as separate layout lines', () => {
+    const spans: TextSpan[] = [
+      {
+        text: 'This is my second page. It will have a landscape layout.',
+        x: 89.04,
+        y: 449.12,
+        width: 12,
+        height: 270.88,
+        fontSize: 12,
+      },
+      {
+        text: 'Second line here.',
+        x: 102.84,
+        y: 636.96,
+        width: 12,
+        height: 83.04,
+        fontSize: 12,
+      },
+    ];
+
+    const layout = buildLayout(spans, 612, 792);
+
+    expect(layout.blocks.map((block) => block.text)).toEqual([
+      'This is my second page. It will have a landscape layout.',
+      'Second line here.',
+    ]);
+  });
+
   it('does not classify digit-only page labels as headings', () => {
     const spans: TextSpan[] = [
       span('Software tools', 56, 21, 10.5, 62),
@@ -247,6 +435,47 @@ describe('buildLayout — heading classification', () => {
     expect(pageLabel?.role).toBeUndefined();
     expect(pageLabel?.level).toBeUndefined();
     expect(pageLabel?.roleConfidence).toBeUndefined();
+  });
+
+  it('marks top-of-slide titles even when bullet text is larger', () => {
+    // CS231n slide-shaped case: slide body bullets are visually larger
+    // than the top title, but the top title is still the page heading.
+    const spans: TextSpan[] = [
+      span('Today’s agenda', 42.75, 30.77, 30, 209.55),
+      span('● A brief history of computer vision', 41.43, 160.49, 32, 499.4),
+      span('● CS231n overview', 41.43, 198.65, 32, 320),
+      span('Lecture 1 - 2', 396.13, 375.57, 20, 120.49),
+      span('March 30, 2021', 570.13, 375.57, 20, 138.9),
+      span('Fei-Fei Li, Ranjay Krishna, Danfei Xu', 12.44, 376.13, 18, 295.88),
+    ];
+    const layout = buildLayout(spans, 720, 405);
+    const title = layout.blocks.find((block) => block.text === 'Today’s agenda');
+    const bullets = layout.blocks.find((block) => block.text.includes('brief history'));
+
+    expect(title?.role).toBe('heading');
+    expect(title?.level).toBe(1);
+    expect(bullets?.role).toBeUndefined();
+  });
+
+  it('marks sparse landscape cover titles below the fixed top band', () => {
+    const spans: TextSpan[] = [
+      span('2024年版 ものづくり白書', 161.26, 152.11, 36, 457.58),
+      span('(令和5年度 ものづくり基盤技術の振興施策)', 82.27, 196.61, 27.98, 615.75),
+      span('概 要', 338.62, 239.74, 36.02, 102),
+      span('令和6年5月', 315.37, 337.46, 24, 149.27),
+      span('経済産業省 厚生労働省 文部科学省', 186.02, 378.29, 24, 408.05),
+    ];
+
+    const layout = buildLayout(spans, 780, 540);
+    const title = layout.blocks.find((block) => block.text.includes('ものづくり白書'));
+    const subtitle = layout.blocks.find((block) => block.text.includes('概 要'));
+    const ministry = layout.blocks.find((block) => block.text.includes('経済産業省'));
+
+    expect(title?.role).toBe('heading');
+    expect(title?.level).toBe(1);
+    expect(subtitle?.role).toBe('heading');
+    expect(subtitle?.level).toBe(1);
+    expect(ministry?.role).toBeUndefined();
   });
 
   it('does not classify arXiv side labels, email metadata, or footnoted bylines as headings', () => {
@@ -281,6 +510,20 @@ describe('buildLayout — heading classification', () => {
     expect(sideLabel?.role).toBeUndefined();
   });
 
+  it('does not classify OMB form metadata as a title heading', () => {
+    const spans: TextSpan[] = [
+      span('2025 OMB No. 1545-0074', 298, 23.28, 20, 123.29),
+      span('Form 1040 Department of the Treasury', 34.6, 19.94, 7, 160),
+      span('Your first name and middle initial', 36, 85, 7, 102.56),
+      span('Body form label text keeps the page from being title-only.', 36, 133, 7, 220),
+      span('Additional form label text keeps the body font class credible.', 36, 157, 7, 240),
+    ];
+
+    const layout = buildLayout(spans, 612);
+
+    expect(layout.blocks.find((block) => block.text.includes('OMB No.'))?.role).toBeUndefined();
+  });
+
   it('does not classify compact diagram labels as headings', () => {
     const bodyLines: TextSpan[] = [];
     for (let i = 0; i < 20; i++) {
@@ -299,6 +542,27 @@ describe('buildLayout — heading classification', () => {
     const layout = buildLayout(spans, 612);
     for (const text of ['A', 'B', 'C', 'h!"#', 'h!', 'y!']) {
       const block = layout.blocks.find((candidate) => candidate.text === text);
+      expect(block?.role).toBeUndefined();
+      expect(block?.roleConfidence).toBeUndefined();
+    }
+  });
+
+  it('does not classify numbered figure or table captions as headings', () => {
+    const bodyLines: TextSpan[] = [];
+    for (let i = 0; i < 20; i++) {
+      bodyLines.push(span('Body paragraph line that keeps the median near ten points.', 72, 320 + i * 12, 10, 420));
+    }
+    const spans: TextSpan[] = [
+      span('Figure 1. Training error on CIFAR-10', 72, 100, 14, 230),
+      span('Table 4. Error rates of single-model results', 72, 140, 14, 260),
+      span('図1 主要日米欧製造業企業の海外売上比率', 72, 180, 14, 270),
+      span('表24-(1)-1 母子世帯の母が抱える子どもについての悩みの内訳', 72, 220, 14, 330),
+      ...bodyLines,
+    ];
+
+    const layout = buildLayout(spans, 612);
+    for (const caption of ['Figure 1.', 'Table 4.', '図1', '表24']) {
+      const block = layout.blocks.find((candidate) => candidate.text.includes(caption));
       expect(block?.role).toBeUndefined();
       expect(block?.roleConfidence).toBeUndefined();
     }
@@ -378,6 +642,98 @@ describe('buildLayout — multi-column reading order', () => {
     ]);
   });
 
+  it('does not merge tiny embedded thumbnail text into a normal caption line', () => {
+    const spans: TextSpan[] = [
+      span('Figure 2: Title page of the DocLayNet paper - left PDF, right rendered', 108, 369.47, 9.96, 396),
+      span(
+        'Despite the substantial improvements achieved with machine-learning approaches, document',
+        329.6,
+        373.21,
+        3,
+        187.31,
+      ),
+    ];
+    const layout = buildLayout(spans, 595);
+    const lineTexts = layout.blocks.flatMap((block) => block.lines.map((line) => line.text));
+
+    expect(lineTexts).toContain('Figure 2: Title page of the DocLayNet paper - left PDF, right rendered');
+    expect(lineTexts).toContain(
+      'Despite the substantial improvements achieved with machine-learning approaches, document',
+    );
+    expect(lineTexts).not.toContain(
+      'Figure 2: Title page of the DocLayNet paper - left PDF, right renderedDespite the substantial improvements achieved with machine-learning approaches, document',
+    );
+  });
+
+  it('does not merge larger form side headings into overlapping row text', () => {
+    const spans: TextSpan[] = [
+      span('Foreign', 36, 594.57, 12, 43.55),
+      span('Accounts', 36, 607.57, 12, 54.23),
+      span('and Trusts', 36, 620.56, 12, 60.9),
+      span('7', 110.2, 626.83, 9, 5),
+      span('a', 115.2, 626.83, 9, 5.17),
+      span(
+        'At any time during 2025, did you have a financial interest in or signature authority over a financial',
+        129.6,
+        626.83,
+        9,
+        396.05,
+      ),
+    ];
+    const layout = buildLayout(spans, 612);
+    const lineTexts = layout.blocks.flatMap((block) => block.lines.map((line) => line.text));
+
+    expect(lineTexts).toContain('and Trusts');
+    expect(lineTexts).toContain(
+      '7a At any time during 2025, did you have a financial interest in or signature authority over a financial',
+    );
+    expect(lineTexts.some((text) => text.includes('and Trusts') && text.includes('7a'))).toBe(false);
+  });
+
+  it('does not merge small form side notes into misaligned main row text', () => {
+    const spans: TextSpan[] = [
+      span('dividends shown', 36, 555.99, 8, 60.3),
+      span('6', 110.2, 551.92, 9, 5),
+      span(
+        'Add the amounts on line 5. Enter the total here and on Form 1040 or 1040-SR, line 3b',
+        129.6,
+        551.92,
+        9,
+        331.23,
+      ),
+    ];
+    const layout = buildLayout(spans, 612);
+    const lineTexts = layout.blocks.flatMap((block) => block.lines.map((line) => line.text));
+
+    expect(lineTexts).toContain('dividends shown');
+    expect(lineTexts).toContain(
+      '6 Add the amounts on line 5. Enter the total here and on Form 1040 or 1040-SR, line 3b',
+    );
+    expect(lineTexts.some((text) => text.includes('dividends shown') && text.includes('6 Add'))).toBe(false);
+  });
+
+  it('splits form row numbers from aligned left side notes', () => {
+    const spans: TextSpan[] = [
+      span('Financial Assets.', 36, 733.99, 8, 59.85),
+      span('8', 110.2, 733.13, 9, 5),
+      span(
+        'During 2025, did you receive a distribution from, or were you the grantor of, or transferor to, a',
+        129.6,
+        733.13,
+        9,
+        396.03,
+      ),
+    ];
+    const layout = buildLayout(spans, 612);
+    const lineTexts = layout.blocks.flatMap((block) => block.lines.map((line) => line.text));
+
+    expect(lineTexts).toContain('Financial Assets.');
+    expect(lineTexts).toContain(
+      '8 During 2025, did you receive a distribution from, or were you the grantor of, or transferor to, a',
+    );
+    expect(lineTexts.some((text) => text.includes('Financial Assets.') && text.includes('8 During'))).toBe(false);
+  });
+
   it('splits recurring narrow gutters in dense two-column journal text', () => {
     // Nature-style two-column body rows can have only ~13pt between the
     // left and right columns. That is below the default 16pt hard gutter,
@@ -416,6 +772,39 @@ describe('buildLayout — multi-column reading order', () => {
     expect(layout.blocks[0].lines[0].text).toBe(
       'Single column text before a wide justified space continues after the same wide space',
     );
+  });
+
+  it('splits recurring right side-panel starts away from adjacent body lines', () => {
+    // Wikipedia export-shaped case: body prose and a right infobox table
+    // share baselines with only a ~15pt gap. The repeated side-panel start
+    // at x≈400 should split even though the gap is just under the hard
+    // single-row gutter threshold.
+    const spans: TextSpan[] = [
+      span('PDF.js is used in', 35.5, 400.25, 12, 88.89),
+      span('Thunderbird', 127.52, 400, 12, 68.05),
+      span('[10]', 198.8, 397.9, 9.6, 17.22),
+      span('ownCloud', 219.16, 400, 12, 53.81),
+      span('[11]', 276.2, 397.9, 9.6, 15.45),
+      span('Nextcloud', 294.79, 400, 12, 54.35),
+      span('[12]', 352.38, 397.9, 9.6, 16.69),
+      span('[13]', 369.06, 397.9, 9.6, 16.62),
+      span('Original author(s)', 400.75, 394.69, 10.56, 88.59),
+      span('Andreas Gal', 496.84, 394.69, 10.56, 58.7),
+      span('and as browser extensions for', 35.5, 416.75, 12, 173.58),
+      span('Google Chrome', 216.05, 416.5, 12, 86.39),
+      span('/', 302.44, 416.75, 12, 5.63),
+      span('Chromium', 308.07, 416.5, 12, 57.63),
+      span('[14]', 368.93, 414.4, 9.6, 16.75),
+      span('Developer(s)', 400.75, 414.19, 10.56, 63.97),
+      span('Mozilla', 496.84, 414.19, 10.56, 32.86),
+    ];
+    const layout = buildLayout(spans, 612);
+    const lineTexts = layout.blocks.flatMap((block) => block.lines.map((line) => line.text));
+
+    expect(lineTexts).toContain('Original author(s) Andreas Gal');
+    expect(lineTexts).toContain('Developer(s)');
+    expect(lineTexts.some((text) => text.includes('Nextcloud') && text.includes('Original author(s)'))).toBe(false);
+    expect(lineTexts.some((text) => text.includes('Chromium') && text.includes('Developer(s)'))).toBe(false);
   });
 
   it('reorders narrow blocks by (column, y) when two columns are detected', () => {
@@ -630,6 +1019,42 @@ describe('buildLayout — multi-column reading order', () => {
     expect(proceedingsIndex).toBeGreaterThan(-1);
   });
 
+  it('moves first-page bottom permission notes after the main two-column body', () => {
+    const spans: TextSpan[] = [
+      span('Abstract', 54, 333, 10.96, 40),
+      span('Left abstract line that begins the main paper body.', 54, 349, 8.97, 239),
+      span('Left abstract line that continues before the introduction.', 54, 361, 8.97, 239),
+      span('1. Introduction', 54, 566, 10.96, 78),
+      span('Left introduction reaches the handoff to the right column.', 54, 582, 8.97, 239),
+      span('for example, is the de facto standard for client-side web programming', 54, 618, 8.97, 239),
+      span('Permission to make digital or hard copies of all or part of this work for personal or', 54, 665, 6.97, 239),
+      span('classroom use is granted without fee provided that copies are not made or distributed', 54, 673, 6.97, 239),
+      span(
+        'for profit or commercial advantage and that copies bear this notice and the full citation',
+        54,
+        681,
+        6.97,
+        239,
+      ),
+      span('PLDI’09, June 15–20, 2009, Dublin, Ireland.', 54, 707, 6.97, 130),
+      span('and is used for the application logic of browser-based productivity', 317, 335, 8.97, 239),
+      span('applications such as Google Mail and Google Docs.', 317, 347, 8.97, 239),
+      span('Compilers for statically typed languages rely on type information.', 317, 385, 8.97, 239),
+    ];
+
+    const layout = buildLayout(spans, 612, 792);
+    const texts = layout.blocks.map((block) => block.text);
+    const permissionIndex = texts.findIndex((text) => text.includes('Permission to make digital'));
+    const venueIndex = texts.findIndex((text) => text.includes('PLDI’09'));
+    const rightColumnIndex = texts.findIndex((text) => text.includes('and is used for the application logic'));
+
+    expect(permissionIndex).toBeGreaterThan(-1);
+    expect(venueIndex).toBeGreaterThan(-1);
+    expect(rightColumnIndex).toBeGreaterThan(-1);
+    expect(rightColumnIndex).toBeLessThan(permissionIndex);
+    expect(rightColumnIndex).toBeLessThan(venueIndex);
+  });
+
   it('leaves a single-column page in plain top-down order', () => {
     const spans: TextSpan[] = [
       span(`Paragraph one. ${'Long enough text. '.repeat(10)}`, 50, 50, 12, 500),
@@ -708,6 +1133,66 @@ describe('buildLayout — multi-column reading order', () => {
       // Body blocks (different text per page) stay non-repeated and
       // keep whatever role they had.
       expect(body?.repeated).toBeUndefined();
+    }
+  });
+
+  it('does not mark repeated short form control labels as page chrome', () => {
+    function makePage(pageNum: number, bodyText: string): PageResult {
+      const bodyBlock: LayoutBlock = {
+        text: bodyText,
+        x: 327,
+        y: 38,
+        width: 230,
+        height: 34,
+        lines: [
+          { text: bodyText.slice(0, 50), x: 327, y: 38, width: 230, height: 10, fontSize: 10 },
+          { text: 'Yes. Continue', x: 350, y: 62.5, width: 62, height: 10, fontSize: 10 },
+        ],
+      };
+      const noBlock: LayoutBlock = {
+        text: 'No.',
+        x: 466,
+        y: 62.9,
+        width: 16,
+        height: 10,
+        lines: [{ text: 'No.', x: 466, y: 62.9, width: 16, height: 10, fontSize: 10 }],
+      };
+      const stopBlock: LayoutBlock = {
+        text: 'STOP',
+        x: 488,
+        y: 67.3,
+        width: 12,
+        height: 5.4,
+        lines: [{ text: 'STOP', x: 488, y: 67.3, width: 12, height: 5.4, fontSize: 5.4 }],
+      };
+      return {
+        page: pageNum,
+        text: `${bodyText}\nNo.\nSTOP`,
+        charCount: bodyText.length + 9,
+        imageCount: 0,
+        vectorCount: 10,
+        textCoverage: 0.2,
+        nonPrintableRatio: 0,
+        nonPrintableCount: 0,
+        width: 612,
+        height: 792,
+        quality: { nativeTextStatus: 'ok' },
+        layout: { blocks: [bodyBlock, noBlock, stopBlock] },
+      };
+    }
+
+    const pages = [
+      makePage(20, 'Can you claim the credit for this relative?'),
+      makePage(40, 'Is your social security number valid for EIC purposes?'),
+      makePage(41, 'Did you have investment income above the threshold?'),
+    ];
+    markRepeatedBlocks(pages);
+
+    for (const page of pages) {
+      expect(page.layout?.blocks[1].repeated).toBeUndefined();
+      expect(page.layout?.blocks[2].repeated).toBeUndefined();
+      const warnings = detectPageWarnings(page, { chromeDetectionReliable: true });
+      expect(warnings.filter((w) => w.code === 'body_near_repeated_chrome')).toEqual([]);
     }
   });
 
@@ -969,6 +1454,26 @@ describe('buildLayout — multi-column reading order', () => {
     expect(layout.blocks[0].lines[0].text).toBe('序文 第一条');
   });
 
+  it('keeps display-spaced CJK title glyphs on one layout line', () => {
+    const spans: TextSpan[] = [span('科', 265.44, 161.04, 15.96, 15.96), span('学', 313.68, 161.04, 15.96, 15.96)];
+    const layout = buildLayout(spans, 595);
+    expect(layout.blocks).toHaveLength(1);
+    expect(layout.blocks[0].lines[0].text).toBe('科 学');
+    expect(layout.blocks[0].x).toBe(265.44);
+    expect(layout.blocks[0].width).toBe(64.2);
+  });
+
+  it('still splits dense CJK glyph rows at column gutters', () => {
+    const spans: TextSpan[] = [
+      span('北', 50, 80, 10, 10),
+      span('海', 62, 80, 10, 10),
+      span('道', 110, 80, 10, 10),
+      span('東', 122, 80, 10, 10),
+    ];
+    const layout = buildLayout(spans, 300);
+    expect(layout.blocks.flatMap((block) => block.lines.map((line) => line.text))).toEqual(['北海', '道東']);
+  });
+
   it('keeps Japanese vertical glyph stacks as separate top-to-bottom blocks', () => {
     // Japanese slide-title-shaped input from a public government PDF:
     // pdf.js emits one square-ish glyph per span. A y-row-only layout pass
@@ -989,6 +1494,22 @@ describe('buildLayout — multi-column reading order', () => {
     expect(verticalBlocks.map((block) => block.text)).toEqual(expect.arrayContaining(['縦書き', '書籍の']));
     expect(verticalBlocks.every((block) => block.lines[0]?.writingMode === 'vertical')).toBe(true);
     expect(layout.blocks.map((block) => block.text)).not.toContain('縦 書\n書 籍\nき の');
+  });
+
+  it('marks tall CJK spans as vertical columns in right-to-left order', () => {
+    // PDF.js vertical.pdf-shaped input: each vertical column arrives as
+    // one tall span whose text is already top-to-bottom.
+    const spans: TextSpan[] = [
+      span('あいうえお', 233.86, 21.97, 9.21, 9.21),
+      span('日本語', 218.27, 21.97, 9.21, 9.21),
+    ];
+    spans[0].height = 46.06;
+    spans[1].height = 27.64;
+
+    const layout = buildLayout(spans, 300);
+    expect(layout.blocks.map((block) => block.text)).toEqual(['あいうえお', '日本語']);
+    expect(layout.blocks.every((block) => block.writingMode === 'vertical')).toBe(true);
+    expect(layout.blocks.every((block) => block.lines[0]?.writingMode === 'vertical')).toBe(true);
   });
 
   it('does not treat aligned first glyphs of horizontal CJK lines as vertical writing', () => {
@@ -1052,6 +1573,161 @@ describe('buildLayout — multi-column reading order', () => {
     expect(layout.blocks[0].lines[0].text).toBe('els are available at https://github.com/');
   });
 
+  it('preserves tight Latin word spaces in separated word spans', () => {
+    // PDF.js bug1513120-shaped case: word spans are separated by only
+    // ~0.24em, but the rendered line is normal English with spaces.
+    const spans: TextSpan[] = [
+      span('Questions', 23.04, 159.84, 12.96, 53.52),
+      span('about', 79.68, 159.84, 12.96, 30),
+      span('your', 112.8, 159.84, 12.96, 23.76),
+      span('bill?', 139.68, 159.84, 12.96, 22.08),
+    ];
+    const layout = buildLayout(spans);
+
+    expect(layout.blocks[0].lines[0].text).toBe('Questions about your bill?');
+  });
+
+  it('preserves very tight Latin word spaces in paper body text', () => {
+    // Tracemonkey-shaped case: normal word gaps can sit just below the
+    // default geometric threshold, but the line is still readable English.
+    const spans: TextSpan[] = [
+      span('Hence, recording and compiling a trace', 54, 71, 8.97, 139.59),
+      span('speculates', 195.46, 71, 8.97, 37.35),
+      span('that the path and', 234.69, 71, 8.97, 58.42),
+    ];
+    const layout = buildLayout(spans);
+
+    expect(layout.blocks[0].lines[0].text).toBe('Hence, recording and compiling a trace speculates that the path and');
+  });
+
+  it('preserves tight spaces after sentence punctuation in captions', () => {
+    // PLOS-shaped case: the gap after a sentence period can sit just
+    // below the default threshold even though the next span starts a new
+    // sentence.
+    const spans: TextSpan[] = [
+      span('Fig 2. Two particle desynchronization dynamics.', 155.74, 385.9, 8, 180.6),
+      span('Relative position dynamics (upper panel)', 338.06, 385.9, 8, 130),
+    ];
+    const layout = buildLayout(spans);
+
+    expect(layout.blocks[0].lines[0].text).toBe(
+      'Fig 2. Two particle desynchronization dynamics. Relative position dynamics (upper panel)',
+    );
+  });
+
+  it('preserves tight spaces after numbered figure references', () => {
+    // TaroUTR50SortedList112-shaped case: a figure reference can switch
+    // fonts before the following word with only a ~0.2em visual gap.
+    const spans: TextSpan[] = [
+      span('Figure 1', 469.79, 33.65, 10.5, 33.34),
+      span('on the left', 505.22, 33.65, 10.5, 40.12),
+    ];
+    const layout = buildLayout(spans);
+
+    expect(layout.blocks[0].lines[0].text).toBe('Figure 1 on the left');
+  });
+
+  it('preserves tight spaces between Latin words and Greek symbols', () => {
+    const spans: TextSpan[] = [
+      span('if', 200.01, 454.83, 10, 5.47),
+      span('γ', 207.55, 454.83, 10, 4.65),
+      span('= 1 the fixed point', 214.19, 454.83, 10, 76),
+    ];
+    const layout = buildLayout(spans);
+
+    expect(layout.blocks[0].lines[0].text).toBe('if γ= 1 the fixed point');
+  });
+
+  it('does not attach small punctuation-only spans to the next body line', () => {
+    // PDF.js bug1513120 also emits a tiny standalone "." just above
+    // the next line. It is not a word prefix for "Monday-Friday".
+    const spans: TextSpan[] = [
+      span('.', 23.04, 175.44, 6.72, 1.68),
+      span('Monday-Friday', 23.04, 178.8, 11.28, 66.96),
+      span('7', 92.88, 178.8, 11.28, 5.52),
+      span('a.m.-9', 101.28, 178.8, 11.28, 28.8),
+      span('p.m.', 132.96, 178.8, 11.28, 19.92),
+    ];
+    const layout = buildLayout(spans);
+    const lines = layout.blocks.flatMap((block) => block.lines.map((line) => line.text));
+
+    expect(lines).toEqual(['.', 'Monday-Friday 7 a.m.-9 p.m.']);
+  });
+
+  it('keeps Arabic word spaces when shaped word boxes have tight gaps', () => {
+    // Arabic shaping can make pdf.js word boxes sit closer than the
+    // Latin-oriented font-size gap threshold even though the source
+    // text has spaces between words. The visually rightmost word is
+    // first in the logical line.
+    const spans: TextSpan[] = [
+      span('العربية', 257.55, 184, 36, 83.92),
+      span('اخلطوط', 346.8, 184, 36, 86.94),
+      span('انواع', 439.06, 184, 36, 62.93),
+    ];
+    const layout = buildLayout(spans);
+
+    expect(layout.blocks[0].lines[0].text).toBe('انواع اخلطوط العربية');
+  });
+
+  it('does not split Type3-style wide word spacing rows into columns', () => {
+    // PDF.js Type3WordSpacing-shaped case: synthetic word spacing can be
+    // much wider than ordinary Latin text, but the short word sequence is
+    // still one visual line rather than three columns.
+    const spans: TextSpan[] = [
+      span('ab', 20, 30, 10, 20),
+      span('ba', 60, 30, 10, 20),
+      span('abba', 100, 30, 10, 40),
+      span('ab', 50, 60, 10, 20),
+      span('ba', 120, 60, 10, 20),
+      span('abba', 190, 60, 10, 40),
+    ];
+    const layout = buildLayout(spans, 300);
+
+    expect(layout.blocks.flatMap((block) => block.lines.map((line) => line.text))).toEqual([
+      'ab ba abba',
+      'ab ba abba',
+    ]);
+  });
+
+  it('splits recurring narrow gutters on wide pages with side panels', () => {
+    // A landscape financial-report page can reserve the right third for
+    // a numeric side table, so the two body columns span only about 60%
+    // of the physical page width. Their gutter is still a recurring visual
+    // column break and must not be treated as a wide word space.
+    const spans: TextSpan[] = [
+      span('left row one contains prose', 27, 70, 11.04, 293),
+      span('right row one contains prose', 334.85, 70, 11.04, 285),
+      span('left row two contains prose', 27, 83.2, 11.04, 293),
+      span('right row two contains prose', 334.85, 83.2, 11.04, 285),
+      span('left row three contains prose', 27, 96.4, 11.04, 293),
+      span('right row three contains prose', 334.85, 96.4, 11.04, 285),
+      span('left row four contains prose', 27, 109.6, 11.04, 293),
+      span('right row four contains prose', 334.85, 109.6, 11.04, 285),
+      span('Revenue', 669.89, 109.6, 9, 37),
+      span('2025e', 805.34, 109.6, 9, 27),
+    ];
+    const layout = buildLayout(spans, 960);
+
+    const texts = layout.blocks.map((block) => block.text);
+    expect(texts).toContain(
+      [
+        'left row one contains prose',
+        'left row two contains prose',
+        'left row three contains prose',
+        'left row four contains prose',
+      ].join('\n'),
+    );
+    expect(texts).toContain(
+      [
+        'right row one contains prose',
+        'right row two contains prose',
+        'right row three contains prose',
+        'right row four contains prose',
+      ].join('\n'),
+    );
+    expect(texts.some((text) => text.includes('left row one') && text.includes('right row one'))).toBe(false);
+  });
+
   it('splits large numeric callouts from small annotation lines while keeping the unit', () => {
     // Japanese infographic-shaped case: a small "75%" annotation sits
     // above a large "9,308万枚" KPI. The large number's tall bbox used
@@ -1094,6 +1770,364 @@ describe('buildLayout — multi-column reading order', () => {
       ['Services', '85,200', '78,129', '68,425'],
       ['Total net sales', '383,285', '394,328', '365,817'],
     ]);
+  });
+
+  it('preserves leading headers and sparse first rows for wide numeric tables', () => {
+    // Attention-paper-shaped case: the table body has stable numeric
+    // columns, but the visible header stack and first rows have fewer
+    // populated values. Agents still need the crop/table hint to start at
+    // the human-visible table top, not at the first fully populated row.
+    const spans: TextSpan[] = [
+      span('BLEU', 311, 95, 7.5, 24),
+      span('Training Cost (FLOPs)', 383, 95, 7.5, 114),
+      span('Model', 136, 103, 7.5, 28),
+      span('EN-DE EN-FR', 288, 111, 7.5, 68),
+      span('EN-DE', 387, 111, 7.5, 28),
+      span('EN-FR', 459, 111, 7.5, 28),
+      span('ByteNet [18]', 136, 122, 7.5, 50),
+      span('23.75', 291, 122, 7.5, 22),
+      span('Deep-Att + PosUnk [39]', 136, 134, 7.5, 94),
+      span('39.2', 336, 134, 7.5, 18),
+      span('1.0 · 10^20', 454, 134, 7.5, 42),
+      span('GNMT + RL [38]', 136, 145, 7.5, 60),
+      span('24.6', 292, 145, 7.5, 18),
+      span('39.92', 336, 145, 7.5, 22),
+      span('2.3 · 10^19', 374, 145, 7.5, 42),
+      span('1.4 · 10^20', 454, 145, 7.5, 42),
+      span('ConvS2S [9]', 136, 156, 7.5, 48),
+      span('25.16', 288, 156, 7.5, 22),
+      span('40.46', 336, 156, 7.5, 22),
+      span('9.6 · 10^18', 374, 156, 7.5, 42),
+      span('1.5 · 10^20', 454, 156, 7.5, 42),
+      span('MoE [32]', 136, 168, 7.5, 36),
+      span('26.03', 288, 168, 7.5, 22),
+      span('40.56', 336, 168, 7.5, 22),
+      span('2.0 · 10^19', 374, 168, 7.5, 42),
+      span('1.2 · 10^20', 454, 168, 7.5, 42),
+      span('Transformer base', 136, 180, 7.5, 66),
+      span('27.3', 292, 180, 7.5, 18),
+      span('38.1', 336, 180, 7.5, 18),
+      span('3.3 · 10^18', 374, 180, 7.5, 42),
+      span('3.3 · 10^18', 454, 180, 7.5, 42),
+    ];
+    const layout = buildLayout(spans, 612);
+    const rows = layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text));
+
+    expect(layout.tables).toHaveLength(1);
+    expect(layout.tables?.[0].y).toBeLessThan(100);
+    expect(rows?.slice(0, 5)).toEqual([
+      ['BLEU', 'Training Cost (FLOPs)'],
+      ['Model'],
+      ['EN-DE EN-FR', 'EN-DE', 'EN-FR'],
+      ['ByteNet [18]', '23.75'],
+      ['Deep-Att + PosUnk [39]', '39.2', '1.0 · 10^20'],
+    ]);
+    expect(rows).toContainEqual(['GNMT + RL [38]', '24.6', '39.92', '2.3 · 10^19', '1.4 · 10^20']);
+  });
+
+  it('keeps benchmark score and percentile rows in wide table hints', () => {
+    // GPT-4 technical-report-shaped case: early rows use score/total and
+    // percentile cells before the table later switches to plain percent
+    // values. These score cells are still numeric table values.
+    const spans: TextSpan[] = [
+      span('Exam', 160, 112, 7.5, 24),
+      span('GPT-4', 300, 112, 7.5, 28),
+      span('GPT-4 (no vision)', 372, 112, 7.5, 80),
+      span('GPT-3.5', 480, 112, 7.5, 34),
+      span('Uniform Bar Exam', 160, 132, 7.5, 74),
+      span('298 / 400 (~90th)', 288, 132, 7.5, 72),
+      span('298 / 400 (~90th)', 378, 132, 7.5, 72),
+      span('213 / 400 (~10th)', 468, 132, 7.5, 72),
+      span('LSAT', 160, 148, 7.5, 24),
+      span('163 (~88th)', 312, 148, 7.5, 48),
+      span('161 (~83rd)', 402, 148, 7.5, 48),
+      span('149 (~40th)', 492, 148, 7.5, 48),
+      span('SAT Math', 160, 164, 7.5, 42),
+      span('700 / 800 (89th)', 296, 164, 7.5, 64),
+      span('700 / 800 (89th)', 386, 164, 7.5, 64),
+      span('590 / 800 (70th)', 476, 164, 7.5, 64),
+      span('GRE Writing', 160, 180, 7.5, 48),
+      span('4 (54th - 68th)', 298, 180, 7.5, 62),
+      span('4 (54th - 68th)', 388, 180, 7.5, 62),
+      span('4 (31st - 48th)', 478, 180, 7.5, 62),
+      span('Medical Knowledge', 160, 196, 7.5, 78),
+      span('75%', 344, 196, 7.5, 16),
+      span('75%', 434, 196, 7.5, 16),
+      span('53%', 524, 196, 7.5, 16),
+      span('AMC 10', 160, 212, 7.5, 34),
+      span('30 / 150', 328, 212, 7.5, 32),
+      span('36 / 150', 418, 212, 7.5, 32),
+      span('36 / 150', 508, 212, 7.5, 32),
+      span('Codeforces Rating', 160, 228, 7.5, 78),
+      span('392 (below 5th)', 296, 228, 7.5, 64),
+      span('392 (below 5th)', 386, 228, 7.5, 64),
+      span('260 (below 5th)', 476, 228, 7.5, 64),
+    ];
+    const layout = buildLayout(spans, 612);
+    const rows = layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text));
+
+    expect(layout.tables).toHaveLength(1);
+    expect(layout.tables?.[0].y).toBeLessThan(120);
+    expect(rows?.slice(0, 5)).toEqual([
+      ['Exam', 'GPT-4', 'GPT-4 (no vision)', 'GPT-3.5'],
+      ['Uniform Bar Exam', '298 / 400 (~90th)', '298 / 400 (~90th)', '213 / 400 (~10th)'],
+      ['LSAT', '163 (~88th)', '161 (~83rd)', '149 (~40th)'],
+      ['SAT Math', '700 / 800 (89th)', '700 / 800 (89th)', '590 / 800 (70th)'],
+      ['GRE Writing', '4 (54th - 68th)', '4 (54th - 68th)', '4 (31st - 48th)'],
+    ]);
+    expect(rows).toContainEqual(['Codeforces Rating', '392 (below 5th)', '392 (below 5th)', '260 (below 5th)']);
+  });
+
+  it('ignores decorative dotted rule text when grouping table rows', () => {
+    // PLOS-style tables can encode a left dotted border as one tall
+    // punctuation-only text line. That decorative line overlaps every
+    // data row vertically and must not become the row-grouping anchor.
+    const dottedRule: TextSpan = {
+      text: '. . . . . . . . . . . . . . . . . . . . . . . . . . . . . .',
+      x: 50.11,
+      y: 547.81,
+      width: 8.97,
+      height: 183.47,
+      fontSize: 8.97,
+    };
+    const spans: TextSpan[] = [
+      dottedRule,
+      span('Table 3. Exploratory regressions on citation count', 64.06, 550.42, 8.97, 220),
+      span('Number of articles (% of total)', 174.33, 575.32, 6.97, 94.96),
+      span('Number of citations (% of total)', 291.96, 575.32, 6.97, 99.27),
+      span('Percent increase in citation count', 409.6, 575.32, 6.97, 105),
+      span('p-value', 527.24, 575.32, 6.97, 24),
+      span('TOTAL', 66.5, 590.29, 6.97, 20.03),
+      span('41', 174.33, 590.29, 6.97, 7.41),
+      span('5334', 291.97, 590.29, 6.97, 14.81),
+      span('Trial size.25 patients', 66.5, 602.76, 6.97, 64.43),
+      span('26 (63%)', 174.33, 602.76, 6.97, 26.02),
+      span('3704 (69%)', 291.97, 602.76, 6.97, 33.16),
+      span('122%', 409.61, 602.76, 6.97, 16.19),
+      span('0.001', 527.24, 602.76, 6.97, 18),
+      span('Clinical endpoint', 66.5, 615.17, 6.97, 50.07),
+      span('18 (44%)', 174.33, 615.17, 6.97, 26.02),
+      span('3404 (64%)', 291.97, 615.17, 6.97, 33.16),
+      span('79%', 409.61, 615.17, 6.97, 12.63),
+      span('0.01', 527.25, 615.17, 6.97, 12.12),
+      span('Affymetrix platform', 66.5, 627.65, 6.97, 57.84),
+      span('22 (54%)', 174.33, 627.65, 6.97, 26.02),
+      span('2735 (51%)', 291.96, 627.65, 6.97, 33.16),
+      span('18%', 409.6, 627.65, 6.97, 12.63),
+      span('0.43', 527.24, 627.65, 6.97, 12.12),
+    ];
+    const layout = buildLayout(spans, 612);
+    const rows = layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text));
+
+    expect(layout.tables).toHaveLength(1);
+    expect(layout.tables?.[0].columnCount).toBe(5);
+    expect(rows).toContainEqual(['TOTAL', '41', '5334']);
+    expect(rows).toContainEqual(['Trial size.25 patients', '26 (63%)', '3704 (69%)', '122%', '0.001']);
+    expect(rows).toContainEqual(['Clinical endpoint', '18 (44%)', '3404 (64%)', '79%', '0.01']);
+  });
+
+  it('emits row-major table hints for two-column numeric year/value rows', () => {
+    // Berkshire annual-report-shaped case: a compact year/value table
+    // has only two semantic columns, with a detached currency marker on
+    // the first value row. It is still a human-visible table whose rows
+    // should survive separately from surrounding prose.
+    const spans: TextSpan[] = [
+      span('it has grown, as the following table shows:', 27, 180.5, 9.5, 156.41),
+      span('Year', 91, 195, 9.5, 17.95),
+      span('Float (in millions)', 414.25, 195, 9.5, 69.73),
+      span('1970', 91, 209.55, 9.5, 19),
+      span('$', 402.8, 209.55, 9.5, 4.75),
+      span('39', 476.45, 209.55, 9.5, 9.5),
+      span('1980', 91, 220.1, 9.5, 19),
+      span('237', 471.7, 220.1, 9.5, 14.25),
+      span('1990', 91, 230.65, 9.5, 19),
+      span('1,632', 464.55, 230.65, 9.5, 21.38),
+      span('2000', 91, 241.2, 9.5, 19),
+      span('27,871', 459.8, 241.2, 9.5, 26.13),
+      span('2010', 91, 251.75, 9.5, 19),
+      span('65,832', 459.8, 251.75, 9.5, 26.13),
+      span('2020', 91, 262.3, 9.5, 19),
+      span('138,503', 455.05, 262.3, 9.5, 30.88),
+      span('2022', 91, 272.85, 9.5, 19),
+      span('164,109', 455.05, 272.85, 9.5, 30.88),
+      span('2023', 91, 283.4, 9.5, 19),
+      span('168,895', 455.05, 283.4, 9.5, 30.88),
+      span('We may in time experience a decline in float.', 51, 297.4, 9.5, 160),
+    ];
+    const layout = buildLayout(spans, 594);
+
+    expect(layout.tables).toHaveLength(1);
+    expect(layout.tables?.[0].rowCount).toBe(8);
+    expect(layout.tables?.[0].columnCount).toBe(2);
+    expect(layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text))).toEqual([
+      ['1970', '$ 39'],
+      ['1980', '237'],
+      ['1990', '1,632'],
+      ['2000', '27,871'],
+      ['2010', '65,832'],
+      ['2020', '138,503'],
+      ['2022', '164,109'],
+      ['2023', '168,895'],
+    ]);
+  });
+
+  it('trims side-panel financial table rows away from adjacent prose columns', () => {
+    // PDF.js marked-content-shaped case: prose columns and a compact
+    // financial side panel share y positions. Table hints should describe
+    // the side panel, not the full visual row spanning body text.
+    const rows = [
+      { label: 'Revenue', y: 100, values: ['275.5', '295.6', '319.4', '330.7'] },
+      { label: 'EBITA', y: 112, values: ['8.8', '10.3', '12.2', '12.7'] },
+      { label: 'Net income', y: 124, values: ['4.4', '5.6', '7.1', '7.5'] },
+    ];
+    const valueXs = [765, 807, 850, 892];
+    const spans = rows.flatMap((row, index) => {
+      const prose =
+        index === 1
+          ? [span("Kreate's EBITA increased to 2.8 MEUR during the quarter.", 335, row.y, 11, 260)]
+          : [
+              span(`left prose row ${index} with many words`, 27, row.y, 11, 260),
+              span(`middle prose row ${index} with many words`, 335, row.y, 11, 260),
+            ];
+      return [
+        ...prose,
+        span(row.label, 670, row.y + 1, 9, Math.min(90, row.label.length * 5)),
+        ...row.values.map((value, valueIndex) => span(value, valueXs[valueIndex], row.y + 1, 9, value.length * 5)),
+      ];
+    });
+    const layout = buildLayout(spans, 960);
+
+    expect(layout.tables).toHaveLength(1);
+    expect(layout.tables?.[0].x).toBeGreaterThanOrEqual(660);
+    expect(layout.tables?.[0].columnCount).toBe(5);
+    expect(layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text))).toEqual([
+      ['Revenue', '275.5', '295.6', '319.4', '330.7'],
+      ['EBITA', '8.8', '10.3', '12.2', '12.7'],
+      ['Net income', '4.4', '5.6', '7.1', '7.5'],
+    ]);
+  });
+
+  it('trims adjacent prose after compact numeric table prefixes', () => {
+    // ResNet-paper-shaped case: a left-column table can share y-overlap
+    // with right-column body prose. The prose line must not become a
+    // spurious final table cell.
+    const rows = [
+      {
+        label: 'VGG [40] (v5)',
+        y: 291.7,
+        values: ['24.4', '7.1'],
+        prose: 'Table 3 shows that all three options are considerably bet-',
+      },
+      {
+        label: 'PReLU-net [12]',
+        y: 303.75,
+        values: ['21.59', '5.71'],
+        prose: 'ter than the plain counterpart. B is slightly better than A. We',
+      },
+      {
+        label: 'BN-inception [16]',
+        y: 315.81,
+        values: ['21.99', '5.81'],
+        prose: 'argue that this is because the zero-padded dimensions in A',
+      },
+      {
+        label: 'ResNet-34 B',
+        y: 328.26,
+        values: ['21.84', '5.71'],
+        prose: 'indeed have no residual learning. C is marginally better than',
+      },
+    ];
+    const spans = rows.flatMap((row) => [
+      span(row.prose, 320.82, row.y - 4.17, 9.96, 224.3),
+      span(row.label, 67.1, row.y, 8.97, Math.min(70, row.label.length * 4.5)),
+      span(row.values[0], 201.76, row.y, 8.97, row.values[0].length * 4.5),
+      span(row.values[1], 249.16, row.y, 8.97, row.values[1].length * 4.5),
+    ]);
+    const layout = buildLayout(spans, 612);
+    const tableRows = layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text));
+
+    expect(layout.tables).toHaveLength(1);
+    expect(layout.tables?.[0].columnCount).toBe(3);
+    expect(tableRows).toEqual([
+      ['VGG [40] (v5)', '24.4', '7.1'],
+      ['PReLU-net [12]', '21.59', '5.71'],
+      ['BN-inception [16]', '21.99', '5.81'],
+      ['ResNet-34 B', '21.84', '5.71'],
+    ]);
+  });
+
+  it('does not trim long financial row labels before recurring numeric columns', () => {
+    // Berkshire annual-report-shaped case: a long financial row label can
+    // look prose-like, but when it is followed by recurring year columns it
+    // is part of the table. Side-panel trimming must not drop the label and
+    // first value just because there is another numeric gutter later.
+    const rows = [
+      {
+        label: 'Gains (losses) before income taxes and noncontrolling interests',
+        y: 100,
+        values: ['74,855', '(67,899)', '78,542'],
+      },
+      { label: 'Income taxes and noncontrolling interests', y: 112, values: ['15,982', '(14,287)', '16,202'] },
+      { label: 'Net earnings (loss)', y: 124, values: ['58,873', '(53,612)', '62,340'] },
+      { label: 'Effective income tax rate', y: 136, values: ['21.3%', '20.9%', '20.4%'] },
+    ];
+    const valueXs = [369.95, 437.97, 512.65];
+    const spans = rows.flatMap((row) => [
+      span(row.label, 45, row.y, 10, Math.min(260, row.label.length * 4.2)),
+      ...row.values.map((value, index) => span(value, valueXs[index], row.y, 10, value.length * 4.5)),
+    ]);
+    const layout = buildLayout(spans, 612);
+    const tableRows = layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text));
+
+    expect(tableRows).toContainEqual([
+      'Gains (losses) before income taxes and noncontrolling interests',
+      '74,855',
+      '(67,899)',
+      '78,542',
+    ]);
+    expect(tableRows).toContainEqual(['Income taxes and noncontrolling interests', '15,982', '(14,287)', '16,202']);
+  });
+
+  it('keeps numeric-only subtotal rows aligned with recurring financial table columns', () => {
+    // Berkshire-style balance sheets often show subtotals as unlabeled
+    // numeric rows under the year columns. They are human-visible table
+    // rows even though they do not have a label cell.
+    const spans: TextSpan[] = [
+      span('Assets', 50, 96, 8, 28),
+      span('2023', 443, 108, 8, 28),
+      span('2022', 516, 108, 8, 28),
+      span('Cash and cash equivalents', 55, 120, 8, 120),
+      span('33,672', 443, 120, 8, 28),
+      span('32,260', 516, 120, 8, 28),
+      span('Short-term investments', 55, 132, 8, 108),
+      span('31,397', 443, 132, 8, 28),
+      span('9,138', 522, 132, 8, 22),
+      span('Other', 55, 144, 8, 28),
+      span('19,568', 443, 144, 8, 28),
+      span('19,657', 516, 144, 8, 28),
+      span('811,206', 438, 156, 8, 33),
+      span('726,002', 511, 156, 8, 33),
+      span('Railroad, Utilities and Energy:', 45, 168, 8, 140),
+      span('Cash and cash equivalents*', 55, 180, 8, 124),
+      span('2,290', 449, 180, 8, 22),
+      span('2,545', 522, 180, 8, 22),
+      span('Property, plant and equipment', 55, 192, 8, 132),
+      span('170,224', 438, 192, 8, 33),
+      span('160,579', 511, 192, 8, 33),
+      span('Other', 55, 204, 8, 28),
+      span('30,397', 443, 204, 8, 28),
+      span('22,190', 516, 204, 8, 28),
+      span('258,772', 438, 216, 8, 33),
+      span('222,463', 511, 216, 8, 33),
+      span('$ 1,069,978 $', 411.65, 228, 8, 78),
+      span('948,465', 511, 228, 8, 33),
+    ];
+    const layout = buildLayout(spans, 612);
+    const rows = layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text));
+
+    expect(rows).toContainEqual(['811,206', '726,002']);
+    expect(rows).toContainEqual(['258,772', '222,463']);
+    expect(rows).toContainEqual(['$ 1,069,978', '$ 948,465']);
   });
 
   it('suppresses chart-like numeric labels with irregular row cadence', () => {
@@ -1187,6 +2221,42 @@ describe('buildLayout — multi-column reading order', () => {
     );
     const layout = buildLayout(spans, 300);
     expect(layout.tables?.[0].rows[0].cells.map((cell) => cell.text)).toEqual(['2015', '57.6', '73.3', '40.7', '81.2']);
+  });
+
+  it('splits compact numeric side-table gutters with comma and ratio values', () => {
+    // PDF.js issue10900-shaped case: a small table can sit far from the
+    // page edge and still have recurring numeric gutters that should
+    // survive as row-major cells.
+    const rows = [
+      { y: 178.44, values: ['3', '3', '3', '3'], widths: [4.19, 4.19, 4.19, 4.19] },
+      { y: 187.8, values: ['851.5', '854.9', '839.3', '837.5'], widths: [18.95, 18.95, 18.95, 18.95] },
+      { y: 198.83, values: ['633.6', '727.8', '789.9', '796.2'], widths: [18.95, 18.95, 18.95, 18.95] },
+      { y: 209.03, values: ['1,485.1', '1,582.7', '1,629.2', '1,633.7'], widths: [25.32, 25.31, 25.31, 25.31] },
+      { y: 219.23, values: ['114.2', '121.7', '125.3', '130.7'], widths: [18.96, 18.95, 18.95, 18.95] },
+      { y: 228.6, values: ['13.0x', '13.0x', '13.0x', '12.5x'], widths: [18.53, 18.53, 18.53, 18.53] },
+    ];
+    const xs = [
+      [474.35, 510.49, 546.61, 582.73],
+      [459.6, 495.73, 531.84, 567.96],
+      [459.59, 495.72, 531.84, 567.95],
+      [453.23, 489.35, 525.46, 561.57],
+      [459.59, 495.72, 531.84, 567.95],
+      [462.6, 498.72, 534.83, 570.95],
+    ];
+    const spans = rows.flatMap((row, rowIndex) =>
+      row.values.map((value, columnIndex) =>
+        span(value, xs[rowIndex][columnIndex], row.y, 7.56, row.widths[columnIndex]),
+      ),
+    );
+
+    const layout = buildLayout(spans, 612);
+
+    expect(layout.tables).toHaveLength(1);
+    expect(layout.tables?.[0].rowCount).toBe(6);
+    expect(layout.tables?.[0].columnCount).toBe(4);
+    expect(layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text))).toEqual(
+      rows.map((row) => row.values),
+    );
   });
 
   it('moves currency symbols that were joined onto the previous table value', () => {

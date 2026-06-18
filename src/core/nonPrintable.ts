@@ -32,7 +32,7 @@
  *     we want, but mixing it in here would dilute the "raw bytes" signal.
  */
 
-function isNonPrintableCodePoint(cp: number): boolean {
+export function isNonPrintableCodePoint(cp: number): boolean {
   // C0 controls except TAB / LF / CR — those three are legitimately used
   // by pdf.js for line / paragraph breaks and have to stay printable.
   if (cp < 0x20) return cp !== 0x09 && cp !== 0x0a && cp !== 0x0d;

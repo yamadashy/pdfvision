@@ -10,6 +10,7 @@ const OP = {
   clip: 5,
   shadingFill: 6,
   rawFillPath: 7,
+  setFillRGBColor: 8,
 } as const;
 
 const ops: ImageOps = {
@@ -18,10 +19,14 @@ const ops: ImageOps = {
   transform: 12,
   formBegin: 13,
   formEnd: 14,
+  setFillColorN: 15,
+  fillColorOps: new Set<number>([15, OP.setFillRGBColor]),
   singleImageOps: new Set<number>(),
   constructPath: OP.constructPath,
   pathPaintOps: new Set<number>([OP.stroke, OP.fill]),
+  pathFillOps: new Set<number>([OP.fill]),
   vectorPaintOps: new Set<number>([OP.shadingFill, OP.rawFillPath]),
+  shadingFill: OP.shadingFill,
   paintImageXObjectRepeat: 20,
   paintImageMaskXObjectRepeat: 21,
   paintImageMaskXObjectGroup: 22,
@@ -49,5 +54,17 @@ describe('countVectorPaintOps', () => {
       [OP.stroke, [0, 0, 10, 10], [0, 0, 10, 10]],
     ];
     expect(countVectorPaintOps(fnArray, argsArray, ops)).toBe(1);
+  });
+
+  it('does not count white full-page fill backgrounds when page dimensions are available', () => {
+    const fnArray = [OP.setFillRGBColor, OP.constructPath, OP.constructPath];
+    const argsArray: unknown[][] = [
+      ['#ffffff'],
+      [OP.fill, [0, 0, 612, 792], [0, 0, 612, 792]],
+      [OP.fill, [10, 10, 20, 20], [10, 10, 20, 20]],
+    ];
+
+    expect(countVectorPaintOps(fnArray, argsArray, ops, 612, 792)).toBe(1);
+    expect(countVectorPaintOps(fnArray, argsArray, ops)).toBe(2);
   });
 });

@@ -42,42 +42,53 @@ Options
                           Markdown output shows only the normalized form — pass --no-normalize if
                           original codepoint fidelity (e.g. fullwidth punctuation \`（\`, ligatures
                           \`ﬁ\`) matters for downstream diff / forensics.
+      --password <value>  Password for encrypted PDFs. The password is used only for pdf.js
+                          decryption and is never emitted in output.
+      --password-stdin    Read the encrypted PDF password from piped stdin, stripping one
+                          trailing newline. If stdin is empty, --password is used as fallback.
       --geometry          Emit per-text-item bbox + font size in \`pages[].spans\`.
                           Only takes effect with -f json / -f xml / -f toon.
       --layout            Reconstruct \`pages[].layout\` (lines, blocks, vertical CJK stacks,
                           and numeric-table hints
                           in approximate reading order) from the same span data. Structured layout fields
-                          appear in -f json / -f xml / -f toon; Markdown uses recovered vertical text blocks.
+                          appear in -f json / -f xml / -f toon; Markdown uses recovered vertical text
+                          blocks, and rebuilds the page body in layout order when the native text
+                          stream diverges from the visual reading order.
                           Also enables layout warnings: overlapping text, off-page bboxes,
-                          body crowded against repeated chrome, or flattened numeric tables
-                          in \`pages[].warnings\`.
+                          body crowded against repeated chrome, flattened numeric tables,
+                          or native-vs-visual reading-order divergence in \`pages[].warnings\`.
       --image-boxes       Emit \`pages[].imageBoxes\` — bounding box of every raster image
                           draw on the page. Enables large-raster warnings with --layout or
                           --geometry. Only -f json / -f xml / -f toon.
                           Full-page scan/OCR-layer and dense-vector warnings can appear
                           even without this flag.
-      --vector-boxes      Emit \`pages[].vectorBoxes\` — bounding boxes of painted vector
-                          paths such as map symbols, chart paths, table rules, form
-                          boxes, and slide shapes. Only -f json / -f xml / -f toon.
+      --vector-boxes      Emit \`pages[].vectorBoxes\` — bounding boxes of vector drawings
+                          such as map symbols, chart paths, clipped shading fills, table
+                          rules, form boxes, and slide shapes. Only -f json / -f xml / -f toon.
       --visual-regions    Emit \`pages[].visualRegions\` — padded, crop-ready bboxes
                           for important figures, charts, diagrams, tables, forms, and
                           raster/vector clusters. Feed x,y,width,height directly into
                           --render-region for a visual zoom.
       --render-visual-regions
                           Render each visual region crop to PNG and attach
-                          \`visualRegions[].image\` / \`renderContentRatio\`.
+                          \`visualRegions[].image\`, \`renderContentRatio\`,
+                          and \`renderedContentBox\` when visible pixels are tighter.
                           Implies --visual-regions and does not require --render.
       --form-fields       Emit \`pages[].formFields\` — interactive PDF widget fields
-                          such as text boxes, checkboxes, radio buttons, choices, and
-                          signatures with values, bboxes, and nearby visible labels.
+                          such as text boxes, checkboxes, radio buttons, choices,
+                          buttons, and signatures with values, export values,
+                          flags, actions, choice options, bboxes, and nearby visible labels.
                           Useful for government forms.
                           Markdown also renders a form-field table.
       --links             Emit \`pages[].links\` — clickable PDF link annotations such as
                           external URLs, citation jumps, and table-of-contents destinations
-                          with bboxes. Markdown also renders a links table.
+                          with bboxes and resolved destination pages when available.
+                          Markdown also renders a links table.
       --annotations       Emit \`pages[].annotations\` — non-link PDF annotations such as
                           comments, sticky notes, highlights, underlines, strikeouts, stamps,
-                          and other markup with bboxes and comment text.
+                          file-attachment icons, shape markup, and ink with bboxes, comment
+                          text, icon names, PDF flags such as hidden/print, attachment
+                          metadata, and shape geometry when available.
       --structure         Emit tagged-PDF structure trees in \`pages[].structure\`,
                           including role hierarchy, figure alt text, language hints,
                           bboxes, and marked-content ids when the PDF provides them.
@@ -89,11 +100,12 @@ Options
       --attachment-output <dir>
                           Directory to write embedded attachment files into. Requires
                           --attachments; files land under a per-PDF fingerprint subdir.
-      --outline           Emit top-level \`outline\` document bookmarks, preserving hierarchy
-                          and resolving destination pages when possible. Markdown also renders
-                          an outline section.
+      --outline           Emit top-level \`outline\` document bookmarks, preserving hierarchy,
+                          URLs, named actions, and resolved destination pages when possible.
+                          Markdown also renders an outline section.
       --viewer            Emit top-level \`viewer\` settings: initial page mode/layout,
-                          viewer preferences, open action, permissions, and MarkInfo.
+                          viewer preferences, open action, document/page JavaScript
+                          actions, permissions, and MarkInfo.
       --layers            Emit top-level \`layers\` from PDF optional content groups:
                           layer names, visibility, usage states, radio groups, and
                           viewer panel order for maps, CAD/design PDFs, and variants.
@@ -115,9 +127,11 @@ Options
                           (each match carries the source query). Literal substring
                           by default; case-insensitive; NFKC-aware (matches
                           compatibility codepoints like \`ﬁ\` (U+FB01 ligature) for
-                          \`fi\`). Also searches OCR text when --ocr is on
-                          (marked source:'ocr'); duplicate OCR hits already
-                          covered by native matches are suppressed.
+                          \`fi\`). Also searches text/choice form field values
+                          (marked source:'formField'), visible FreeText
+                          annotations (source:'annotation'), and OCR text when
+                          --ocr is on (source:'ocr'); duplicate OCR hits
+                          already covered by non-OCR matches are suppressed.
       --search-regex      Treat each --search query as a JavaScript regular expression
                           (default: literal substring).
       --search-case-sensitive
@@ -151,6 +165,8 @@ Examples
   pdfvision slides.pdf --xml --geometry                                        # layout / geometry as XML
   pdfvision report.pdf --toon --geometry                                       # token-efficient spans (TOON)
   pdfvision report.pdf --layout --strip-repeated                               # markdown w/o repeated chrome
+  pdfvision encrypted.pdf --password "secret" --json                           # encrypted PDF
+  printf "secret\\n" | pdfvision encrypted.pdf --password-stdin --json          # avoid password in argv
   pdfvision scan.pdf --ocr --json                                              # OCR a scanned PDF
   pdfvision scan-ja.pdf --ocr --ocr-lang eng+jpn --json                        # multi-lang OCR
   pdfvision --remote https://example.com/paper.pdf --json                      # fetch + extract JSON

@@ -1,4 +1,4 @@
-import { accessSync } from 'node:fs';
+import { accessSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import type { OutputFormat, RenderRegion } from '../types/index.js';
@@ -6,6 +6,10 @@ import { HELP_TEXT } from './help.js';
 import { getVersion } from './version.js';
 
 const VALID_FORMATS: readonly OutputFormat[] = ['markdown', 'json', 'xml', 'toon'];
+
+interface RunOptions {
+  stdin?: AsyncIterable<Buffer | Uint8Array | string> & { isTTY?: boolean };
+}
 
 function isValidFormat(value: string): value is OutputFormat {
   return (VALID_FORMATS as readonly string[]).includes(value);
@@ -17,7 +21,20 @@ function exitWithError(message: string): never {
   process.exit(1);
 }
 
-export async function run(argv: string[] = process.argv.slice(2)): Promise<void> {
+async function readPasswordFromStdin(stdin: RunOptions['stdin'] = process.stdin): Promise<string | undefined> {
+  if (stdin?.isTTY) {
+    return undefined;
+  }
+  const chunks: Buffer[] = [];
+  for await (const chunk of stdin ?? []) {
+    chunks.push(typeof chunk === 'string' ? Buffer.from(chunk, 'utf8') : Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks)
+    .toString('utf8')
+    .replace(/\r?\n$/, '');
+}
+
+export async function run(argv: string[] = process.argv.slice(2), options: RunOptions = {}): Promise<void> {
   let values: Record<string, string | string[] | boolean | undefined>;
   let positionals: string[];
   try {
@@ -46,6 +63,8 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
         'render-region': { type: 'string' },
         'no-cache': { type: 'boolean' },
         'no-normalize': { type: 'boolean' },
+        password: { type: 'string' },
+        'password-stdin': { type: 'boolean' },
         geometry: { type: 'boolean' },
         layout: { type: 'boolean' },
         'image-boxes': { type: 'boolean' },
@@ -246,6 +265,13 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
   }
 
   const noCache = (values['no-cache'] as boolean | undefined) ?? false;
+  const passwordFromArg = values.password as string | undefined;
+  const passwordStdin = (values['password-stdin'] as boolean | undefined) ?? false;
+  const passwordFromStdin = passwordStdin ? await readPasswordFromStdin(options.stdin) : undefined;
+  const password = passwordFromStdin && passwordFromStdin.length > 0 ? passwordFromStdin : passwordFromArg;
+  if (passwordStdin && password === undefined) {
+    exitWithError('--password-stdin requires piped stdin or --password fallback');
+  }
 
   let filePath: string;
   let sourceData: Uint8Array | undefined;
@@ -256,7 +282,9 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
         sourceData = await downloadRemoteData(remoteUrl);
         filePath = remoteUrl;
       } else {
-        filePath = await downloadRemote(remoteUrl);
+        const cachedPath = await downloadRemote(remoteUrl);
+        sourceData = readFileSync(cachedPath);
+        filePath = remoteUrl;
       }
     } catch (error) {
       exitWithError(error instanceof Error ? error.message : String(error));
@@ -278,6 +306,7 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
     const result = await processFile(filePath, {
       pages: values.pages as string | undefined,
       sourceData,
+      password,
       format,
       render,
       renderOutput,

@@ -1,7 +1,9 @@
 import type {
   FormField,
   ImageBox,
+  PageAnnotation,
   PageLayout,
+  PageQuality,
   VectorBox,
   VisualRegion,
   VisualRegionAssociatedText,
@@ -24,6 +26,8 @@ interface Candidate extends BoxLike {
   associatedText?: VisualRegionAssociatedText[];
 }
 
+type CaptionKind = 'figure' | 'table' | 'plate';
+
 export interface BuildVisualRegionsInput {
   pageWidth: number;
   pageHeight: number;
@@ -31,7 +35,9 @@ export interface BuildVisualRegionsInput {
   vectorBoxes?: readonly VectorBox[];
   layout?: PageLayout;
   formFields?: readonly FormField[];
+  annotations?: readonly PageAnnotation[];
   visualStatus?: 'ok' | 'sparse' | 'blank';
+  nativeTextStatus?: PageQuality['nativeTextStatus'];
 }
 
 const REGION_PADDING_PT = 8;
@@ -41,6 +47,14 @@ const MAX_SOURCE_REFS = 16;
 const MIN_REGION_DIMENSION_PT = 18;
 const MIN_IMAGE_AREA_RATIO = 0.015;
 const MIN_FOREGROUND_RASTER_AREA_RATIO = 0.015;
+const SMALL_RASTER_TEXT_STRIP_MIN_HEIGHT_PT = 8;
+const SMALL_RASTER_TEXT_STRIP_MAX_HEIGHT_PT = 36;
+const SMALL_RASTER_TEXT_STRIP_MIN_WIDTH_PT = 70;
+const SMALL_RASTER_TEXT_STRIP_SINGLE_MIN_WIDTH_RATIO = 0.18;
+const SMALL_RASTER_TEXT_STRIP_CLUSTER_MIN_WIDTH_RATIO = 0.12;
+const SMALL_RASTER_TEXT_STRIP_MIN_ASPECT_RATIO = 3.5;
+const SMALL_RASTER_TEXT_STRIP_CLUSTER_GAP_PT = 12;
+const SMALL_RASTER_TEXT_FRAGMENT_MIN_WIDTH_PT = 2;
 const MIN_VECTOR_CLUSTER_SOURCES = 6;
 const MIN_VECTOR_CLUSTER_AREA_RATIO = 0.01;
 const MIN_DENSE_VECTOR_BOXES = 40;
@@ -57,38 +71,85 @@ const FORM_CLUSTER_GAP_PT = 18;
 const FORM_LARGE_CLUSTER_MIN_FIELDS = 16;
 const FORM_LARGE_CLUSTER_SPLIT_GAP_PT = 13;
 const FORM_LARGE_CLUSTER_HEIGHT_RATIO = 0.35;
+const FORM_TALL_CLUSTER_MIN_FIELDS = 8;
+const FORM_TALL_CLUSTER_HEIGHT_RATIO = 0.2;
 const FORM_BACKPLANE_AREA_RATIO = 0.3;
+const FORM_BACKPLANE_SINGLE_FORM_AREA_RATIO = 0.5;
 const FORM_BACKPLANE_MIN_FORM_OVERLAPS = 2;
+const FORM_WIDGET_LOCAL_ORIGIN_TOLERANCE_PT = 2;
+const FORM_WIDGET_VECTOR_DIMENSION_TOLERANCE_PT = 3;
+const VECTOR_BACKPLANE_MIN_RASTER_OVERLAPS = 2;
+const VECTOR_BACKPLANE_MIN_AREA_RATIO = 0.25;
 const BACKGROUND_BOX_AREA_RATIO = 0.9;
 const BACKGROUND_BOX_SPAN_RATIO = 0.95;
 const PAGE_EDGE_CHROME_SPAN_RATIO = 0.8;
 const PAGE_EDGE_CHROME_THICKNESS_RATIO = 0.16;
+const HORIZONTAL_LABEL_BAND_MIN_WIDTH_RATIO = 0.25;
+const HORIZONTAL_LABEL_BAND_MAX_HEIGHT_RATIO = 0.08;
+const HORIZONTAL_LABEL_BAND_MIN_HEIGHT_PT = 8;
+const HORIZONTAL_LABEL_BAND_MIN_ASPECT_RATIO = 8;
+const WIDE_TEXT_PANEL_MIN_WIDTH_RATIO = 0.85;
+const WIDE_TEXT_PANEL_MIN_HEIGHT_RATIO = 0.12;
+const WIDE_TEXT_PANEL_MAX_HEIGHT_RATIO = 0.45;
+const WIDE_TEXT_PANEL_EDGE_RATIO = 0.15;
 const CAPTION_MAX_GAP_PT = 54;
 const CAPTION_MIN_HORIZONTAL_OVERLAP_RATIO = 0.2;
+const MIN_CONTAINED_CAPTION_HEIGHT_PT = 6;
 const HEADING_LABEL_MAX_GAP_PT = 96;
 const HEADING_LABEL_MIN_REGION_AREA_RATIO = 0.08;
 const HEADING_LABEL_MAX_CHARS = 220;
+const HEADING_LABEL_INSIDE_TOP_DEPTH_RATIO = 0.3;
+const HEADING_LABEL_INSIDE_TOP_DEPTH_MAX_PT = 72;
+const HEADING_LABEL_INSIDE_BONUS = 48;
+const HEADING_LABEL_LEVEL_PENALTY = 8;
+const HEADING_LABEL_SCORE_TOLERANCE_PT = 12;
+const TABLE_LEAD_IN_LABEL_MAX_GAP_PT = 36;
+const TABLE_LEAD_IN_LABEL_MAX_CHARS = 240;
+const IN_REGION_PLAIN_LABEL_MIN_REGION_AREA_RATIO = 0.08;
+const IN_REGION_PLAIN_LABEL_MAX_CHARS = 100;
+const IN_REGION_PLAIN_LABEL_MIN_WIDTH_PT = 80;
+const IN_REGION_PLAIN_LABEL_MIN_WIDTH_RATIO = 0.25;
+const IN_REGION_PLAIN_LABEL_TOP_DEPTH_RATIO = 0.3;
+const IN_REGION_PLAIN_LABEL_TOP_DEPTH_MAX_PT = 96;
+const IN_REGION_PLAIN_LABEL_MIN_HORIZONTAL_OVERLAP_RATIO = 0.35;
+const IN_REGION_PLAIN_LABEL_SCORE_TOLERANCE_PT = 12;
 const PLAIN_IMAGE_LABEL_MAX_GAP_PT = 28;
 const PLAIN_IMAGE_LABEL_MIN_HORIZONTAL_OVERLAP_RATIO = 0.45;
 const PLAIN_IMAGE_LABEL_MAX_CHARS = 120;
 const EQUIVALENT_CANDIDATE_OVERLAP_RATIO = 0.98;
 const EQUIVALENT_CANDIDATE_AREA_RATIO = 0.98;
+const CONTEXTUAL_DUPLICATE_OVERLAP_RATIO = 0.85;
+const CONTEXTUAL_DUPLICATE_AREA_RATIO = 0.85;
+const CONTEXTUAL_DUPLICATE_CONTAINED_OVERLAP_RATIO = 0.95;
 const MAX_ASSOCIATED_TEXT = 3;
 const CAPTION_SCORE_TOLERANCE_PT = 12;
+const TABLE_CAPTION_CONTINUATION_MAX_LINES = 2;
+const ABBREVIATED_FIGURE_CAPTION_CONTINUATION_MAX_LINES = 4;
+const FULL_FIGURE_CAPTION_CONTINUATION_MAX_LINES = 8;
+const CAPTION_CONTINUATION_MAX_CHARS = 240;
+const CAPTION_CONTINUATION_TOTAL_MAX_CHARS = 600;
+const SAME_BASELINE_HEADER_MIN_VERTICAL_OVERLAP_RATIO = 0.75;
+const SAME_BASELINE_HEADER_MIN_LEFT_OFFSET_RATIO = 0.45;
 const SHALLOW_TABLE_HINT_MAX_ROWS = 2;
 const SHALLOW_TABLE_HINT_MAX_HEIGHT_RATIO = 0.1;
 const SHALLOW_TABLE_HINT_MIN_WIDTH_RATIO = 0.65;
 const OCR_FRAGMENT_TABLE_HINT_MIN_COLUMNS = 20;
-const CAPTION_NUMBER_PATTERN =
-  '[\\p{L}\\p{N}０-９一二三四五六七八九十ivxlcdm]+(?:[.-][\\p{L}\\p{N}０-９一二三四五六七八九十ivxlcdm]+)*\\.?';
+const REPEATED_CHROME_EDGE_RATIO = 0.12;
+const REPEATED_CHROME_BAND_PADDING_PT = 18;
+const REPEATED_CHROME_CANDIDATE_OVERLAP_RATIO = 0.55;
+const CAPTION_IDENTIFIER_ATOM = '[A-Za-z\\p{N}０-９一二三四五六七八九十]+';
+const CAPTION_NUMBER_PATTERN = `${CAPTION_IDENTIFIER_ATOM}(?:(?:[.-]${CAPTION_IDENTIFIER_ATOM})|(?:-?\\(${CAPTION_IDENTIFIER_ATOM}\\)))*\\.?`;
 const CAPTION_PATTERN = new RegExp(
-  `^\\s*(?:fig(?:ure)?\\.?|table|plate|図表|図|表)\\s*(${CAPTION_NUMBER_PATTERN})(?=\\s|[:：．、-]|$)`,
+  `^\\s*(?:fig(?:ure)?\\.?|table|plate|図表|図|表)\\s*(${CAPTION_NUMBER_PATTERN})(?=\\s|[:：．、]|$)`,
   'iu',
 );
 const CAPTION_DIGIT_OR_CJK_NUMBER_PATTERN = /[0-9０-９一二三四五六七八九十]/u;
 const CAPTION_ROMAN_NUMERAL_PATTERN = /^[ivxlcdm]+$/iu;
 const CAPTION_SINGLE_LETTER_PATTERN = /^[A-Z]$/u;
 const GLOBAL_CAPTION_PATTERN = /^\s*plate\s+/iu;
+const JAPANESE_TABLE_CAPTION_START_PATTERN = /^\s*(?:表|図表)\s*/u;
+const GLUED_JAPANESE_TABLE_HEADER_SUFFIX_PATTERN = /^(.+[)）])([\p{L}\p{N}%％・／/]{1,8})$/u;
+const TABLE_HEADER_FRAGMENT_PATTERN = /^[\p{L}\p{N}%％().（）・,，.．／/-]+$/u;
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
@@ -119,6 +180,10 @@ function isUsableBox(box: BoxLike): boolean {
     box.width >= MIN_REGION_DIMENSION_PT &&
     box.height >= MIN_REGION_DIMENSION_PT
   );
+}
+
+function isUsableVectorConnectorBox(box: BoxLike): boolean {
+  return isFinitePositiveBox(box) && Math.max(box.width, box.height) >= MIN_REGION_DIMENSION_PT;
 }
 
 function isFinitePositiveBox(box: BoxLike): boolean {
@@ -249,11 +314,55 @@ function isLikelyHorizontalChrome(box: BoxLike, pageWidth: number, pageHeight: n
   );
 }
 
+function isLikelyHorizontalLabelBand(box: BoxLike, pageWidth: number, pageHeight: number): boolean {
+  const visible = visiblePageBox(box, pageWidth, pageHeight);
+  return (
+    visible.width >= pageWidth * HORIZONTAL_LABEL_BAND_MIN_WIDTH_RATIO &&
+    visible.height >= HORIZONTAL_LABEL_BAND_MIN_HEIGHT_PT &&
+    visible.height <= pageHeight * HORIZONTAL_LABEL_BAND_MAX_HEIGHT_RATIO &&
+    visible.width / Math.max(1, visible.height) >= HORIZONTAL_LABEL_BAND_MIN_ASPECT_RATIO
+  );
+}
+
+function isLikelyWideTextPanelBackplane(box: BoxLike, pageWidth: number, pageHeight: number): boolean {
+  const visible = visiblePageBox(box, pageWidth, pageHeight);
+  const heightRatio = pageHeight > 0 ? visible.height / pageHeight : 0;
+  return (
+    visible.width >= pageWidth * WIDE_TEXT_PANEL_MIN_WIDTH_RATIO &&
+    heightRatio >= WIDE_TEXT_PANEL_MIN_HEIGHT_RATIO &&
+    heightRatio <= WIDE_TEXT_PANEL_MAX_HEIGHT_RATIO &&
+    (visible.y <= pageHeight * WIDE_TEXT_PANEL_EDGE_RATIO ||
+      visible.y + visible.height >= pageHeight * (1 - WIDE_TEXT_PANEL_EDGE_RATIO))
+  );
+}
+
 function isBackgroundLikeCandidate(box: BoxLike, pageWidth: number, pageHeight: number): boolean {
   return (
     isNearFullPageBox(box, pageWidth, pageHeight) ||
     isLikelySideChrome(box, pageWidth, pageHeight) ||
     isLikelyHorizontalChrome(box, pageWidth, pageHeight)
+  );
+}
+
+function isLikelyVectorBackplane(box: BoxLike, pageWidth: number, pageHeight: number): boolean {
+  return (
+    isBackgroundLikeCandidate(box, pageWidth, pageHeight) ||
+    isLikelyHorizontalLabelBand(box, pageWidth, pageHeight) ||
+    isLikelyWideTextPanelBackplane(box, pageWidth, pageHeight)
+  );
+}
+
+function isLikelyUnpositionedFormWidgetVector(box: BoxLike, input: BuildVisualRegionsInput): boolean {
+  const fields = input.formFields?.filter(isVisuallyDispatchableFormField) ?? [];
+  if (fields.length < 2) return false;
+  const atLocalOrigin =
+    box.x <= FORM_WIDGET_LOCAL_ORIGIN_TOLERANCE_PT &&
+    Math.abs(box.y + box.height - input.pageHeight) <= FORM_WIDGET_LOCAL_ORIGIN_TOLERANCE_PT;
+  if (!atLocalOrigin) return false;
+  return fields.some(
+    (field) =>
+      Math.abs(field.width - box.width) <= FORM_WIDGET_VECTOR_DIMENSION_TOLERANCE_PT &&
+      Math.abs(field.height - box.height) <= FORM_WIDGET_VECTOR_DIMENSION_TOLERANCE_PT,
   );
 }
 
@@ -265,7 +374,8 @@ function denseVectorItems(input: BuildVisualRegionsInput): { box: VectorBox; ind
         isUsefulDenseVectorBox(box) &&
         !isNearFullPageBox(box, input.pageWidth, input.pageHeight) &&
         !isLikelySideChrome(box, input.pageWidth, input.pageHeight) &&
-        !isLikelyHorizontalChrome(box, input.pageWidth, input.pageHeight),
+        !isLikelyHorizontalChrome(box, input.pageWidth, input.pageHeight) &&
+        !isLikelyUnpositionedFormWidgetVector(box, input),
     );
 }
 
@@ -277,7 +387,8 @@ function denseMicroVectorItems(input: BuildVisualRegionsInput): { box: VectorBox
         isUsefulMicroVectorBox(box) &&
         !isNearFullPageBox(box, input.pageWidth, input.pageHeight) &&
         !isLikelySideChrome(box, input.pageWidth, input.pageHeight) &&
-        !isLikelyHorizontalChrome(box, input.pageWidth, input.pageHeight),
+        !isLikelyHorizontalChrome(box, input.pageWidth, input.pageHeight) &&
+        !isLikelyUnpositionedFormWidgetVector(box, input),
     );
 }
 
@@ -354,6 +465,58 @@ function mergeCandidates(a: Candidate, b: Candidate): Candidate {
   };
 }
 
+function mergeCandidateMetadataInto(primary: Candidate, duplicate: Candidate): Candidate {
+  const sources = mergeSources([...primary.sources, ...duplicate.sources]);
+  const associatedText = mergeAssociatedText([...(primary.associatedText ?? []), ...(duplicate.associatedText ?? [])]);
+  return {
+    ...primary,
+    kind: primary.kind === duplicate.kind ? primary.kind : 'mixed',
+    priority: Math.max(primary.priority, duplicate.priority),
+    reason: mergeCandidateReasons(primary, duplicate, sources),
+    sources,
+    ...(associatedText.length > 0 && { associatedText }),
+  };
+}
+
+function mergeCandidateReasons(
+  primary: Candidate,
+  duplicate: Candidate,
+  sources: readonly VisualRegionSource[],
+): string {
+  if (primary.reason === duplicate.reason) {
+    return normalizeMergedReason(primary.reason, sources);
+  }
+  return normalizeMergedReason(
+    mergeReasonsBySourceCoverage(primary, duplicate) ?? `${primary.reason}; ${duplicate.reason}`,
+    sources,
+  );
+}
+
+function normalizeMergedReason(reason: string, sources: readonly VisualRegionSource[]): string {
+  const vectorSourceCount = sources.filter((source) => source.type === 'vectorBox').length;
+  const segments = reason.split('; ');
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  let emittedVectorSegment = false;
+  for (const segment of segments) {
+    if (/^\d+ nearby vector drawing operations$/u.test(segment) && vectorSourceCount > 0) {
+      if (!emittedVectorSegment) normalized.push(`${vectorSourceCount} nearby vector drawing operations`);
+      emittedVectorSegment = true;
+      continue;
+    }
+    if (seen.has(segment)) continue;
+    seen.add(segment);
+    normalized.push(segment);
+  }
+  return normalized.join('; ');
+}
+
+function mergeReasonsBySourceCoverage(primary: Candidate, duplicate: Candidate): string | undefined {
+  if (primary.reason.startsWith(duplicate.reason)) return primary.reason;
+  if (duplicate.reason.startsWith(primary.reason)) return duplicate.reason;
+  return undefined;
+}
+
 function visualScore(candidate: Candidate, totalArea: number): number {
   const ratio = totalArea > 0 ? area(candidate) / totalArea : 0;
   return candidate.priority * 100 + ratio * 20 + Math.min(candidate.sources.length, 50);
@@ -403,6 +566,81 @@ function addRasterCandidates(input: BuildVisualRegionsInput, candidates: Candida
       sources: [{ type: 'imageBox', index }],
     });
   }
+  addSmallRasterTextStripCandidates(input, candidates);
+}
+
+function addSmallRasterTextStripCandidates(input: BuildVisualRegionsInput, candidates: Candidate[]): void {
+  const totalArea = pageArea(input);
+  const items = input.imageBoxes
+    .map((box, index) => {
+      const visible = visiblePageBox(box, input.pageWidth, input.pageHeight);
+      return { box: visible, index, strong: isSmallRasterTextStripBox(visible, input.pageWidth, input.pageHeight) };
+    })
+    .filter(({ box }) => {
+      if (!isSmallRasterTextFragmentBox(box, input.pageWidth, input.pageHeight)) return false;
+      const ratio = areaRatio(box, totalArea);
+      return ratio < MIN_IMAGE_AREA_RATIO;
+    })
+    .sort((a, b) => a.box.y - b.box.y || a.box.x - b.box.x);
+
+  const clusters: { box: BoxLike; items: typeof items }[] = [];
+  for (const item of items) {
+    const cluster = clusters.find((candidate) => canShareSmallRasterTextStripCluster(candidate.box, item.box));
+    if (cluster) {
+      cluster.box = unionBox(cluster.box, item.box);
+      cluster.items.push(item);
+    } else {
+      clusters.push({ box: item.box, items: [item] });
+    }
+  }
+
+  for (const cluster of clusters) {
+    if (!cluster.items.some((item) => item.strong)) continue;
+    const widthRatio = input.pageWidth > 0 ? cluster.box.width / input.pageWidth : 0;
+    const minWidthRatio =
+      cluster.items.length > 1
+        ? SMALL_RASTER_TEXT_STRIP_CLUSTER_MIN_WIDTH_RATIO
+        : SMALL_RASTER_TEXT_STRIP_SINGLE_MIN_WIDTH_RATIO;
+    if (cluster.box.width < SMALL_RASTER_TEXT_STRIP_MIN_WIDTH_PT && widthRatio < minWidthRatio) continue;
+    if (widthRatio < minWidthRatio) continue;
+
+    candidates.push({
+      ...cluster.box,
+      kind: 'raster',
+      priority: 2,
+      reason:
+        cluster.items.length === 1
+          ? 'small horizontal raster text strip'
+          : `${cluster.items.length} small raster text fragments in one horizontal band`,
+      sources: cluster.items.map(({ index }) => ({ type: 'imageBox', index })),
+    });
+  }
+}
+
+function isSmallRasterTextStripBox(box: BoxLike, pageWidth: number, pageHeight: number): boolean {
+  if (!isSmallRasterTextFragmentBox(box, pageWidth, pageHeight)) return false;
+  return box.width / Math.max(1, box.height) >= SMALL_RASTER_TEXT_STRIP_MIN_ASPECT_RATIO;
+}
+
+function isSmallRasterTextFragmentBox(box: BoxLike, pageWidth: number, pageHeight: number): boolean {
+  if (!isFinitePositiveBox(box)) return false;
+  if (isLikelySideChrome(box, pageWidth, pageHeight)) return false;
+  if (isLikelyHorizontalChrome(box, pageWidth, pageHeight)) return false;
+  if (box.width < SMALL_RASTER_TEXT_FRAGMENT_MIN_WIDTH_PT) return false;
+  if (box.height < SMALL_RASTER_TEXT_STRIP_MIN_HEIGHT_PT || box.height > SMALL_RASTER_TEXT_STRIP_MAX_HEIGHT_PT) {
+    return false;
+  }
+  return true;
+}
+
+function canShareSmallRasterTextStripCluster(a: BoxLike, b: BoxLike): boolean {
+  const verticalOverlap = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+  const minHeight = Math.min(a.height, b.height);
+  const centerDistance = Math.abs(a.y + a.height / 2 - (b.y + b.height / 2));
+  if (verticalOverlap < minHeight * 0.45 && centerDistance > Math.max(a.height, b.height) * 0.65) return false;
+
+  const horizontalGap = Math.max(a.x - (b.x + b.width), b.x - (a.x + a.width), 0);
+  return horizontalGap <= SMALL_RASTER_TEXT_STRIP_CLUSTER_GAP_PT;
 }
 
 function clusterVectorBoxes(
@@ -410,17 +648,21 @@ function clusterVectorBoxes(
   pageWidth: number,
   pageHeight: number,
   skipBackgroundBoxes: boolean,
+  input: BuildVisualRegionsInput,
 ): Candidate[] {
   const clusters: Candidate[] = [];
   for (const [index, box] of vectorBoxes.entries()) {
-    if (!isUsableBox(box)) continue;
+    const usableRegionBox = isUsableBox(box);
+    if (!usableRegionBox && !isUsableVectorConnectorBox(box)) continue;
     if (isLikelySideChrome(box, pageWidth, pageHeight)) continue;
     if (isLikelyHorizontalChrome(box, pageWidth, pageHeight)) continue;
-    if (skipBackgroundBoxes && isNearFullPageBox(box, pageWidth, pageHeight)) continue;
+    if (skipBackgroundBoxes && isLikelyVectorBackplane(box, pageWidth, pageHeight)) continue;
+    if (isLikelyUnpositionedFormWidgetVector(box, input)) continue;
     const matches: number[] = [];
     for (let i = 0; i < clusters.length; i++) {
       if (touches(clusters[i], box, CLUSTER_GAP_PT)) matches.push(i);
     }
+    if (!usableRegionBox && matches.length < 2) continue;
     const next: Candidate = {
       ...box,
       kind: 'vector',
@@ -429,6 +671,7 @@ function clusterVectorBoxes(
       sources: [{ type: 'vectorBox', index }],
     };
     if (matches.length === 0) {
+      if (!usableRegionBox) continue;
       clusters.push(next);
       continue;
     }
@@ -447,7 +690,13 @@ function addVectorCandidates(input: BuildVisualRegionsInput, candidates: Candida
   const totalArea = pageArea(input);
   const skipBackgroundBoxes =
     hasNonBackgroundBox(input.vectorBoxes, input.pageWidth, input.pageHeight) || hasDenseVectorStructure(input);
-  for (const cluster of clusterVectorBoxes(input.vectorBoxes, input.pageWidth, input.pageHeight, skipBackgroundBoxes)) {
+  for (const cluster of clusterVectorBoxes(
+    input.vectorBoxes,
+    input.pageWidth,
+    input.pageHeight,
+    skipBackgroundBoxes,
+    input,
+  )) {
     const ratio = areaRatio(cluster, totalArea);
     if (cluster.sources.length < MIN_VECTOR_CLUSTER_SOURCES && ratio < MIN_VECTOR_CLUSTER_AREA_RATIO) continue;
     candidates.push({
@@ -546,7 +795,7 @@ function addFormCandidate(
   if (!formFields || formFields.length === 0) return;
   const usableFields = formFields
     .map((field, index) => ({ field, index }))
-    .filter(({ field }) => isFinitePositiveBox(field));
+    .filter(({ field }) => isFinitePositiveBox(field) && isVisuallyDispatchableFormField(field));
   if (usableFields.length === 0) return;
   for (const cluster of formFieldClusters(usableFields, pageHeight)) {
     const associatedText = cluster.flatMap(({ field, index }) =>
@@ -583,6 +832,39 @@ function addFormCandidate(
       ...(associatedText.length > 0 && { associatedText }),
     });
   }
+}
+
+function isVisuallyDispatchableFormField(field: FormField): boolean {
+  return !field.flags?.some((flag) => flag === 'invisible' || flag === 'hidden' || flag === 'noView');
+}
+
+function addAnnotationCandidates(annotations: readonly PageAnnotation[] | undefined, candidates: Candidate[]): void {
+  if (!annotations || annotations.length === 0) return;
+  for (const [index, annotation] of annotations.entries()) {
+    if (!isVisuallyDispatchableAnnotation(annotation)) continue;
+    const box = annotationVisualBox(annotation);
+    if (!box) continue;
+    candidates.push({
+      ...box,
+      kind: 'annotation',
+      priority: 3,
+      reason: `${annotation.subtype} annotation markup`,
+      sources: [{ type: 'annotation', index }],
+    });
+  }
+}
+
+function isVisuallyDispatchableAnnotation(annotation: PageAnnotation): boolean {
+  if (annotation.subtype === 'FreeText' && annotation.hasAppearance === false) return false;
+  return !annotation.flags?.some((flag) => flag === 'invisible' || flag === 'hidden' || flag === 'noView');
+}
+
+function annotationVisualBox(annotation: PageAnnotation): BoxLike | undefined {
+  const boxes = (annotation.quadBoxes && annotation.quadBoxes.length > 0 ? annotation.quadBoxes : [annotation]).filter(
+    isFinitePositiveBox,
+  );
+  if (boxes.length === 0) return undefined;
+  return boxes.slice(1).reduce<BoxLike>((acc, box) => unionBox(acc, box), boxes[0]);
 }
 
 function formFieldBox(field: FormField): BoxLike {
@@ -628,7 +910,11 @@ function splitLargeFormCluster<T extends { field: FormField; index: number }>(
   const sorted = [...fields].sort((a, b) => a.field.y - b.field.y || a.field.x - b.field.x);
   if (sorted.length === 0) return [];
   const box = sorted.slice(1).reduce<BoxLike>((acc, item) => unionBox(acc, item.field), sorted[0].field);
-  if (sorted.length < FORM_LARGE_CLUSTER_MIN_FIELDS && box.height < pageHeight * FORM_LARGE_CLUSTER_HEIGHT_RATIO) {
+  const shouldSplit =
+    sorted.length >= FORM_LARGE_CLUSTER_MIN_FIELDS ||
+    box.height >= pageHeight * FORM_LARGE_CLUSTER_HEIGHT_RATIO ||
+    (sorted.length >= FORM_TALL_CLUSTER_MIN_FIELDS && box.height >= pageHeight * FORM_TALL_CLUSTER_HEIGHT_RATIO);
+  if (!shouldSplit) {
     return [sorted];
   }
 
@@ -650,15 +936,39 @@ function splitLargeFormCluster<T extends { field: FormField; index: number }>(
 
 function suppressFormBackplaneCandidates(candidates: Candidate[], totalArea: number): Candidate[] {
   const formCandidates = candidates.filter((candidate) => hasSourceType(candidate, 'formField'));
-  if (formCandidates.length < FORM_BACKPLANE_MIN_FORM_OVERLAPS) return candidates;
+  if (formCandidates.length === 0) return candidates;
 
   return candidates.filter((candidate) => {
     if (hasSourceType(candidate, 'formField')) return true;
     if (candidate.kind !== 'vector') return true;
-    if (areaRatio(candidate, totalArea) < FORM_BACKPLANE_AREA_RATIO) return true;
+    const candidateAreaRatio = areaRatio(candidate, totalArea);
+    if (candidateAreaRatio < FORM_BACKPLANE_AREA_RATIO) return true;
     const overlappingForms = formCandidates.filter((form) => overlapOfSmaller(form, candidate) >= 0.75).length;
+    if (candidateAreaRatio >= FORM_BACKPLANE_SINGLE_FORM_AREA_RATIO && overlappingForms >= 1) return false;
     return overlappingForms < FORM_BACKPLANE_MIN_FORM_OVERLAPS;
   });
+}
+
+function suppressBroadVectorBackplaneCandidates(candidates: Candidate[], totalArea: number): Candidate[] {
+  const rasterCandidates = candidates.filter(isStandaloneRasterCandidate);
+  if (rasterCandidates.length < VECTOR_BACKPLANE_MIN_RASTER_OVERLAPS) return candidates;
+
+  return candidates.filter((candidate) => {
+    if (!isStandaloneVectorCandidate(candidate)) return true;
+    if (areaRatio(candidate, totalArea) < VECTOR_BACKPLANE_MIN_AREA_RATIO) return true;
+    const overlappingRasters = rasterCandidates.filter(
+      (raster) => overlapOfSmaller(raster, candidate) >= CONTEXTUAL_DUPLICATE_CONTAINED_OVERLAP_RATIO,
+    );
+    return overlappingRasters.length < VECTOR_BACKPLANE_MIN_RASTER_OVERLAPS;
+  });
+}
+
+function isStandaloneRasterCandidate(candidate: Candidate): boolean {
+  return candidate.kind === 'raster' && candidate.sources.every((source) => source.type === 'imageBox');
+}
+
+function isStandaloneVectorCandidate(candidate: Candidate): boolean {
+  return candidate.kind === 'vector' && candidate.sources.every((source) => source.type === 'vectorBox');
 }
 
 function associatedTextKey(text: VisualRegionAssociatedText): string {
@@ -681,9 +991,37 @@ function normalizeAssociatedText(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
 }
 
+function joinCaptionTextParts(parts: readonly string[]): string {
+  let text = '';
+  for (const part of parts) {
+    const normalizedPart = normalizeAssociatedText(part);
+    if (normalizedPart.length === 0) continue;
+    if (text.length === 0) {
+      text = normalizedPart;
+      continue;
+    }
+    if (text.endsWith('-') && /^[\p{L}\p{N}]/u.test(normalizedPart)) {
+      text = `${text}${normalizedPart}`;
+    } else {
+      text = `${text} ${normalizedPart}`;
+    }
+  }
+  return normalizeAssociatedText(text);
+}
+
 function isCaptionText(text: string): boolean {
   const match = CAPTION_PATTERN.exec(text);
   return match !== null && isCaptionIdentifier(match[1] ?? '');
+}
+
+function isBareCaptionReferenceText(text: string): boolean {
+  const match = CAPTION_PATTERN.exec(text);
+  if (match === null || !isCaptionIdentifier(match[1] ?? '')) return false;
+  const remainder = text
+    .slice(match[0].length)
+    .replace(/^[\s:：．。、.-]+/u, '')
+    .trim();
+  return !/[\p{L}\p{N}]/u.test(remainder);
 }
 
 function isCaptionIdentifier(text: string): boolean {
@@ -693,16 +1031,82 @@ function isCaptionIdentifier(text: string): boolean {
   return CAPTION_SINGLE_LETTER_PATTERN.test(normalized);
 }
 
+function captionKind(text: string): CaptionKind | undefined {
+  if (/^\s*table\b/iu.test(text) || /^\s*表/u.test(text)) return 'table';
+  if (/^\s*plate\b/iu.test(text)) return 'plate';
+  if (/^\s*fig(?:ure)?\.?(?=\s|[:：．、]|$)/iu.test(text) || /^\s*図/u.test(text)) return 'figure';
+  return undefined;
+}
+
 function isGlobalCaptionText(text: string): boolean {
   return GLOBAL_CAPTION_PATTERN.test(text) && isCaptionText(text);
+}
+
+function captionContinuationLineLimit(text: string): number {
+  if (/^\s*table\b/iu.test(text)) return TABLE_CAPTION_CONTINUATION_MAX_LINES;
+  if (/^\s*fig\.?\s/iu.test(text)) return ABBREVIATED_FIGURE_CAPTION_CONTINUATION_MAX_LINES;
+  if (/^\s*figure\b/iu.test(text)) return FULL_FIGURE_CAPTION_CONTINUATION_MAX_LINES;
+  return 0;
+}
+
+function isCaptionContinuationText(captionText: string, text: string): boolean {
+  const normalized = normalizeAssociatedText(text);
+  if (normalized.length === 0 || normalized.length > CAPTION_CONTINUATION_MAX_CHARS) return false;
+  if (!/[\p{L}\p{N}]/u.test(normalized)) return false;
+  if (isCaptionText(normalized)) return false;
+  if (/^(?:doi:|https?:\/\/|www\.)/iu.test(normalized)) return false;
+  if (captionText.includes(normalized)) return false;
+  return true;
 }
 
 function isPlainImageLabelText(text: string): boolean {
   const normalized = normalizeAssociatedText(text);
   if (normalized.length === 0 || normalized.length > PLAIN_IMAGE_LABEL_MAX_CHARS) return false;
   if (isCaptionText(normalized)) return false;
+  if (/[。！？]/u.test(normalized)) return false;
+  if (normalized.length > 80 && /[.!?]\s/u.test(normalized)) return false;
   if (/\b(?:copyright|licensed|cc\s+by|public domain|https?:\/\/|www\.)\b/iu.test(normalized)) return false;
   return /[\p{L}\p{N}]/u.test(normalized);
+}
+
+function isInRegionPlainLabelText(text: string): boolean {
+  const normalized = normalizeAssociatedText(text);
+  if (normalized.length === 0 || normalized.length > IN_REGION_PLAIN_LABEL_MAX_CHARS) return false;
+  if (isCaptionText(normalized)) return false;
+  if (/[。！？]/u.test(normalized)) return false;
+  if (normalized.length > 80 && /[.!?]\s/u.test(normalized)) return false;
+  if (/\b(?:copyright|licensed|cc\s+by|public domain|https?:\/\/|www\.)\b/iu.test(normalized)) return false;
+  return /\p{L}/u.test(normalized);
+}
+
+function verticalOverlapRatio(a: BoxLike, b: BoxLike): number {
+  const overlap = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+  return Math.max(0, overlap) / Math.max(1, Math.min(a.height, b.height));
+}
+
+function isSameBaselineTableHeaderText(text: string): boolean {
+  const cells = normalizeAssociatedText(text).split(/\s+/u).filter(Boolean);
+  if (cells.length < 2) return false;
+  return cells.every((cell) => cell.length <= 12 && TABLE_HEADER_FRAGMENT_PATTERN.test(cell));
+}
+
+function isSameBaselineTableHeaderLine(captionLine: BoxLike, headerLine: BoxLike & { text: string }): boolean {
+  if (verticalOverlapRatio(captionLine, headerLine) < SAME_BASELINE_HEADER_MIN_VERTICAL_OVERLAP_RATIO) return false;
+  const minHeaderX = captionLine.x + captionLine.width * SAME_BASELINE_HEADER_MIN_LEFT_OFFSET_RATIO;
+  if (headerLine.x < minHeaderX) return false;
+  return isSameBaselineTableHeaderText(headerLine.text);
+}
+
+function trimGluedJapaneseTableHeaderFromCaption(
+  text: string,
+  captionLine: BoxLike,
+  nextLine: (BoxLike & { text: string }) | undefined,
+): string {
+  if (!JAPANESE_TABLE_CAPTION_START_PATTERN.test(text)) return text;
+  if (!nextLine || !isSameBaselineTableHeaderLine(captionLine, nextLine)) return text;
+  const match = GLUED_JAPANESE_TABLE_HEADER_SUFFIX_PATTERN.exec(text);
+  if (!match) return text;
+  return match[1]?.trim() ?? text;
 }
 
 function horizontalOverlapRatio(a: BoxLike, b: BoxLike): number {
@@ -711,6 +1115,14 @@ function horizontalOverlapRatio(a: BoxLike, b: BoxLike): number {
 }
 
 function captionScore(candidate: Candidate, textBox: BoxLike): number | undefined {
+  const contained = overlapOfSmaller(candidate, textBox) >= 0.9;
+  if (contained) {
+    if (textBox.height < MIN_CONTAINED_CAPTION_HEIGHT_PT) return undefined;
+    if ('text' in textBox && typeof textBox.text === 'string' && isBareCaptionReferenceText(textBox.text)) {
+      return undefined;
+    }
+  }
+
   const captionBottom = textBox.y + textBox.height;
   const regionBottom = candidate.y + candidate.height;
   const belowGap = textBox.y - regionBottom;
@@ -729,18 +1141,36 @@ function captionTextsFromBlock(
   block: NonNullable<PageLayout['blocks']>[number],
   blockIndex: number,
 ): VisualRegionAssociatedText[] {
-  const lineCaptions = block.lines
-    .map((line) => ({ line, text: normalizeAssociatedText(line.text) }))
-    .filter(({ text }) => isCaptionText(text))
-    .map(({ line, text }) => ({
-      text,
+  const lines = block.lines.map((line) => ({ line, text: normalizeAssociatedText(line.text) }));
+  const lineCaptions: VisualRegionAssociatedText[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const item = lines[i];
+    if (!item || !isCaptionText(item.text)) continue;
+
+    const textParts = [trimGluedJapaneseTableHeaderFromCaption(item.text, item.line, lines[i + 1]?.line)];
+    let captionBox: BoxLike = item.line;
+    const continuationLimit = captionContinuationLineLimit(item.text);
+    for (let j = i + 1; continuationLimit > 0 && j < lines.length && j <= i + continuationLimit; j++) {
+      const continuation = lines[j];
+      if (!continuation) break;
+      const captionText = joinCaptionTextParts(textParts);
+      if (!isCaptionContinuationText(captionText, continuation.text)) break;
+      const continuedCaption = joinCaptionTextParts([...textParts, continuation.text]);
+      if (continuedCaption.length > CAPTION_CONTINUATION_TOTAL_MAX_CHARS) break;
+      textParts.push(continuation.text);
+      captionBox = unionBox(captionBox, continuation.line);
+    }
+
+    lineCaptions.push({
+      text: joinCaptionTextParts(textParts),
       relation: 'caption' as const,
-      x: line.x,
-      y: line.y,
-      width: line.width,
-      height: line.height,
+      x: round2(captionBox.x),
+      y: round2(captionBox.y),
+      width: round2(captionBox.width),
+      height: round2(captionBox.height),
       blockIndex,
-    }));
+    });
+  }
   if (lineCaptions.length > 0) return lineCaptions;
 
   const text = normalizeAssociatedText(block.text);
@@ -766,6 +1196,7 @@ function attachCaptionText(candidates: Candidate[], layout: PageLayout | undefin
       ? []
       : captionTextsFromBlock(block, index).map((associatedText) => ({
           text: associatedText,
+          kind: captionKind(associatedText.text),
           global: isGlobalCaptionText(associatedText.text),
         })),
   );
@@ -774,15 +1205,24 @@ function attachCaptionText(candidates: Candidate[], layout: PageLayout | undefin
     const scoredCaptions = captionItems
       .map((item) => ({
         text: item.text,
+        kind: item.kind,
         score: captionScore(candidate, item.text),
       }))
-      .filter((item): item is { text: VisualRegionAssociatedText; score: number } => item.score !== undefined)
+      .filter(
+        (item): item is { text: VisualRegionAssociatedText; kind: CaptionKind | undefined; score: number } =>
+          item.score !== undefined,
+      )
       .sort((a, b) => a.score - b.score);
-    const bestCaptionScore = scoredCaptions[0]?.score;
+    const preferredCaptionKind = candidate.kind === 'table' ? 'table' : undefined;
+    const preferredCaptions = preferredCaptionKind
+      ? scoredCaptions.filter((caption) => caption.kind === preferredCaptionKind)
+      : [];
+    const captionPool = preferredCaptions.length > 0 ? preferredCaptions : scoredCaptions;
+    const bestCaptionScore = captionPool[0]?.score;
     const captions =
       bestCaptionScore === undefined
         ? []
-        : scoredCaptions
+        : captionPool
             .filter((caption) => caption.score <= bestCaptionScore + CAPTION_SCORE_TOLERANCE_PT)
             .slice(0, MAX_ASSOCIATED_TEXT);
     if (captions.length === 0) {
@@ -811,13 +1251,22 @@ function plainImageLabelScore(
   if (candidate.associatedText && candidate.associatedText.length > 0) return undefined;
   if (block.repeated) return undefined;
   if (!isPlainImageLabelText(block.text)) return undefined;
+  const blockBottom = block.y + block.height;
+  const aboveGap = candidate.y - blockBottom;
   const regionBottom = candidate.y + candidate.height;
   const belowGap = block.y - regionBottom;
-  if (belowGap < -4 || belowGap > PLAIN_IMAGE_LABEL_MAX_GAP_PT) return undefined;
+  let gap: number;
+  if (aboveGap >= -4 && aboveGap <= PLAIN_IMAGE_LABEL_MAX_GAP_PT) {
+    gap = Math.max(0, aboveGap);
+  } else if (belowGap >= -4 && belowGap <= PLAIN_IMAGE_LABEL_MAX_GAP_PT) {
+    gap = Math.max(0, belowGap);
+  } else {
+    return undefined;
+  }
 
   const overlap = horizontalOverlapRatio(candidate, block);
   if (overlap < PLAIN_IMAGE_LABEL_MIN_HORIZONTAL_OVERLAP_RATIO) return undefined;
-  return Math.max(0, belowGap) + (1 - overlap) * 24;
+  return gap + (1 - overlap) * 24;
 }
 
 function attachPlainImageLabels(candidates: Candidate[], layout: PageLayout | undefined): Candidate[] {
@@ -853,6 +1302,82 @@ function attachPlainImageLabels(candidates: Candidate[], layout: PageLayout | un
   });
 }
 
+function inRegionPlainLabelScore(
+  candidate: Candidate,
+  block: NonNullable<PageLayout['blocks']>[number],
+  totalArea: number,
+): number | undefined {
+  if (candidate.kind !== 'raster' && candidate.kind !== 'mixed' && candidate.kind !== 'vector') return undefined;
+  if (hasSourceType(candidate, 'layoutTable')) return undefined;
+  if (candidate.associatedText && candidate.associatedText.length > 0) return undefined;
+  if (areaRatio(candidate, totalArea) < IN_REGION_PLAIN_LABEL_MIN_REGION_AREA_RATIO) return undefined;
+  if (block.role === 'heading' || block.repeated) return undefined;
+  if (!isInRegionPlainLabelText(block.text)) return undefined;
+  if (
+    block.width < IN_REGION_PLAIN_LABEL_MIN_WIDTH_PT &&
+    block.width / Math.max(1, candidate.width) < IN_REGION_PLAIN_LABEL_MIN_WIDTH_RATIO
+  ) {
+    return undefined;
+  }
+
+  const blockBottom = block.y + block.height;
+  const insideDepth = block.y - candidate.y;
+  const insideTopDepth = Math.min(
+    candidate.height * IN_REGION_PLAIN_LABEL_TOP_DEPTH_RATIO,
+    IN_REGION_PLAIN_LABEL_TOP_DEPTH_MAX_PT,
+  );
+  if (insideDepth < -4 || insideDepth > insideTopDepth || blockBottom > candidate.y + candidate.height + 4) {
+    return undefined;
+  }
+
+  const overlap = horizontalOverlapRatio(candidate, block);
+  if (overlap < IN_REGION_PLAIN_LABEL_MIN_HORIZONTAL_OVERLAP_RATIO) return undefined;
+  const candidateCenter = candidate.x + candidate.width / 2;
+  const blockCenter = block.x + block.width / 2;
+  const centerPenalty = (Math.abs(candidateCenter - blockCenter) / Math.max(1, candidate.width)) * 20;
+  return Math.max(0, insideDepth) + (1 - overlap) * 24 + centerPenalty;
+}
+
+function attachInRegionPlainLabels(
+  candidates: Candidate[],
+  layout: PageLayout | undefined,
+  totalArea: number,
+): Candidate[] {
+  const blocks = layout?.blocks ?? [];
+  if (blocks.length === 0) return candidates;
+  return candidates.map((candidate) => {
+    const scoredLabels = blocks
+      .map((block, blockIndex) => ({
+        block,
+        blockIndex,
+        score: inRegionPlainLabelScore(candidate, block, totalArea),
+      }))
+      .filter(
+        (item): item is { block: NonNullable<PageLayout['blocks']>[number]; blockIndex: number; score: number } =>
+          item.score !== undefined,
+      )
+      .sort((a, b) => a.score - b.score);
+    const bestScore = scoredLabels[0]?.score;
+    const labels = scoredLabels
+      .filter((item) => bestScore !== undefined && item.score <= bestScore + IN_REGION_PLAIN_LABEL_SCORE_TOLERANCE_PT)
+      .slice(0, MAX_ASSOCIATED_TEXT)
+      .map(({ block, blockIndex }) => ({
+        text: normalizeAssociatedText(block.text),
+        relation: 'label' as const,
+        x: block.x,
+        y: block.y,
+        width: block.width,
+        height: block.height,
+        blockIndex,
+      }));
+    if (labels.length === 0) return candidate;
+
+    const associatedText = mergeAssociatedText([...(candidate.associatedText ?? []), ...labels]);
+    const box = labels.reduce<BoxLike>((acc, label) => unionBox(acc, label), candidate);
+    return { ...candidate, ...box, associatedText };
+  });
+}
+
 function headingLabelScore(
   candidate: Candidate,
   block: NonNullable<PageLayout['blocks']>[number],
@@ -865,13 +1390,91 @@ function headingLabelScore(
   if (text.length === 0 || text.length > HEADING_LABEL_MAX_CHARS) return undefined;
   const blockBottom = block.y + block.height;
   const gap = candidate.y - blockBottom;
+  const overlap = horizontalOverlapRatio(candidate, block);
+  if (overlap < CAPTION_MIN_HORIZONTAL_OVERLAP_RATIO) return undefined;
+  const overlapPenalty = (1 - overlap) * 24;
+  const levelPenalty = Math.max(0, (block.level ?? 1) - 1) * HEADING_LABEL_LEVEL_PENALTY;
+  const insideDepth = block.y - candidate.y;
+  const insideTopDepth = Math.min(
+    candidate.height * HEADING_LABEL_INSIDE_TOP_DEPTH_RATIO,
+    HEADING_LABEL_INSIDE_TOP_DEPTH_MAX_PT,
+  );
+  if (insideDepth >= -4 && insideDepth <= insideTopDepth && blockBottom <= candidate.y + candidate.height + 4) {
+    return -HEADING_LABEL_INSIDE_BONUS + Math.max(0, insideDepth) * 0.25 + overlapPenalty + levelPenalty;
+  }
   if (gap < -4 || gap > HEADING_LABEL_MAX_GAP_PT) return undefined;
+  return gap + overlapPenalty + levelPenalty;
+}
+
+function attachHeadingLabels(candidates: Candidate[], layout: PageLayout | undefined, totalArea: number): Candidate[] {
+  const blocks = layout?.blocks ?? [];
+  if (blocks.length === 0) return candidates;
+  return candidates.map((candidate) => {
+    const scoredLabels = blocks
+      .map((block, blockIndex) => ({
+        block,
+        blockIndex,
+        score: headingLabelScore(candidate, block, totalArea),
+      }))
+      .filter(
+        (item): item is { block: NonNullable<PageLayout['blocks']>[number]; blockIndex: number; score: number } =>
+          item.score !== undefined,
+      )
+      .sort((a, b) => a.score - b.score);
+    const bestScore = scoredLabels[0]?.score;
+    const labels = scoredLabels
+      .filter((item) => bestScore !== undefined && item.score <= bestScore + HEADING_LABEL_SCORE_TOLERANCE_PT)
+      .slice(0, MAX_ASSOCIATED_TEXT)
+      .map(({ block, blockIndex }) => ({
+        text: normalizeAssociatedText(block.text),
+        relation: 'label' as const,
+        x: block.x,
+        y: block.y,
+        width: block.width,
+        height: block.height,
+        blockIndex,
+      }));
+    if (labels.length === 0) return candidate;
+
+    const associatedText = mergeAssociatedText([...(candidate.associatedText ?? []), ...labels]);
+    const box = labels.reduce<BoxLike>((acc, label) => unionBox(acc, label), candidate);
+    return { ...candidate, ...box, associatedText };
+  });
+}
+
+function isTableLeadInLabelText(text: string): boolean {
+  const normalized = normalizeAssociatedText(text);
+  if (normalized.length === 0 || normalized.length > TABLE_LEAD_IN_LABEL_MAX_CHARS) return false;
+  if (isCaptionText(normalized)) return false;
+  if (/\b(?:copyright|licensed|cc\s+by|public domain|https?:\/\/|www\.)\b/iu.test(normalized)) return false;
+  if (!/[\p{L}\p{N}]/u.test(normalized)) return false;
+  return (
+    /\btable\b/iu.test(normalized) ||
+    /(?:as follows|following|below)\b/iu.test(normalized) ||
+    /[:：]\s*$/u.test(normalized)
+  );
+}
+
+function tableLeadInLabelScore(
+  candidate: Candidate,
+  block: NonNullable<PageLayout['blocks']>[number],
+): number | undefined {
+  if (candidate.associatedText && candidate.associatedText.length > 0) return undefined;
+  if (!hasSourceType(candidate, 'layoutTable')) return undefined;
+  if (block.repeated) return undefined;
+  if (!isTableLeadInLabelText(block.text)) return undefined;
+
+  const blockBottom = block.y + block.height;
+  const aboveGap = candidate.y - blockBottom;
+  const gap = aboveGap >= -4 ? Math.max(0, aboveGap) : Number.POSITIVE_INFINITY;
+  if (gap > TABLE_LEAD_IN_LABEL_MAX_GAP_PT) return undefined;
+
   const overlap = horizontalOverlapRatio(candidate, block);
   if (overlap < CAPTION_MIN_HORIZONTAL_OVERLAP_RATIO) return undefined;
   return gap + (1 - overlap) * 24;
 }
 
-function attachHeadingLabels(candidates: Candidate[], layout: PageLayout | undefined, totalArea: number): Candidate[] {
+function attachTableLeadInLabels(candidates: Candidate[], layout: PageLayout | undefined): Candidate[] {
   const blocks = layout?.blocks ?? [];
   if (blocks.length === 0) return candidates;
   return candidates.map((candidate) => {
@@ -879,7 +1482,7 @@ function attachHeadingLabels(candidates: Candidate[], layout: PageLayout | undef
       .map((block, blockIndex) => ({
         block,
         blockIndex,
-        score: headingLabelScore(candidate, block, totalArea),
+        score: tableLeadInLabelScore(candidate, block),
       }))
       .filter(
         (item): item is { block: NonNullable<PageLayout['blocks']>[number]; blockIndex: number; score: number } =>
@@ -928,12 +1531,56 @@ function dedupeEquivalentCandidates(candidates: Candidate[]): Candidate[] {
   return deduped;
 }
 
+function dedupeContextualDuplicates(candidates: Candidate[]): Candidate[] {
+  const deduped: Candidate[] = [];
+  for (const candidate of candidates) {
+    const index = deduped.findIndex((existing) => areContextualDuplicates(existing, candidate));
+    if (index === -1) {
+      deduped.push(candidate);
+      continue;
+    }
+
+    const existing = deduped[index];
+    const primary = area(candidate) > area(existing) ? candidate : existing;
+    const duplicate = primary === candidate ? existing : candidate;
+    deduped[index] = mergeCandidateMetadataInto(primary, duplicate);
+  }
+  return deduped;
+}
+
+function areContextualDuplicates(a: Candidate, b: Candidate): boolean {
+  if (!shareAssociatedText(a, b)) return false;
+  const overlapRatio = overlapOfSmaller(a, b);
+  if (overlapRatio < CONTEXTUAL_DUPLICATE_OVERLAP_RATIO) return false;
+  if (areaSimilarity(a, b) >= CONTEXTUAL_DUPLICATE_AREA_RATIO) return true;
+  return (
+    a.kind !== b.kind && shareAssociatedCaption(a, b) && overlapRatio >= CONTEXTUAL_DUPLICATE_CONTAINED_OVERLAP_RATIO
+  );
+}
+
+function shareAssociatedText(a: Candidate, b: Candidate): boolean {
+  if (!a.associatedText || !b.associatedText) return false;
+  const aKeys = new Set(a.associatedText.map(associatedTextKey));
+  return b.associatedText.some((text) => aKeys.has(associatedTextKey(text)));
+}
+
+function shareAssociatedCaption(a: Candidate, b: Candidate): boolean {
+  if (!a.associatedText || !b.associatedText) return false;
+  const aCaptionKeys = new Set(a.associatedText.filter((text) => text.relation === 'caption').map(associatedTextKey));
+  return b.associatedText.some((text) => text.relation === 'caption' && aCaptionKeys.has(associatedTextKey(text)));
+}
+
 function suppressBackgroundLikeCandidates(candidates: Candidate[], pageWidth: number, pageHeight: number): Candidate[] {
   const hasForegroundRegion = candidates.some(
-    (candidate) => !isBackgroundLikeCandidate(candidate, pageWidth, pageHeight),
+    (candidate) => !isSuppressibleBackgroundLikeCandidate(candidate, pageWidth, pageHeight),
   );
   if (!hasForegroundRegion) return candidates;
-  return candidates.filter((candidate) => !isBackgroundLikeCandidate(candidate, pageWidth, pageHeight));
+  return candidates.filter((candidate) => !isSuppressibleBackgroundLikeCandidate(candidate, pageWidth, pageHeight));
+}
+
+function isSuppressibleBackgroundLikeCandidate(candidate: Candidate, pageWidth: number, pageHeight: number): boolean {
+  if (hasSourceType(candidate, 'layoutTable') || hasSourceType(candidate, 'formField')) return false;
+  return isBackgroundLikeCandidate(candidate, pageWidth, pageHeight);
 }
 
 function suppressBlankFullPageCandidates(
@@ -946,19 +1593,28 @@ function suppressBlankFullPageCandidates(
   return candidates.filter((candidate) => !isNearFullPageBox(candidate, pageWidth, pageHeight));
 }
 
-function suppressLoneFullPageVectorBackplanes(
-  candidates: Candidate[],
-  pageWidth: number,
-  pageHeight: number,
-): Candidate[] {
+function suppressLoneFullPageVectorBackplanes(candidates: Candidate[], input: BuildVisualRegionsInput): Candidate[] {
   return candidates.filter(
     (candidate) =>
       !(
         candidate.kind === 'vector' &&
         candidate.sources.length === 1 &&
         hasSourceType(candidate, 'vectorBox') &&
-        isNearFullPageBox(candidate, pageWidth, pageHeight)
+        isNearFullPageBox(candidate, input.pageWidth, input.pageHeight) &&
+        !isOnlyNonblankVisualEvidence(candidate, input)
       ),
+  );
+}
+
+function isOnlyNonblankVisualEvidence(candidate: Candidate, input: BuildVisualRegionsInput): boolean {
+  return (
+    input.nativeTextStatus === 'empty_but_visual_content' &&
+    input.visualStatus !== 'blank' &&
+    (input.layout?.blocks.length ?? 0) === 0 &&
+    input.imageBoxes.length === 0 &&
+    candidate.kind === 'vector' &&
+    candidate.sources.length === 1 &&
+    hasSourceType(candidate, 'vectorBox')
   );
 }
 
@@ -986,14 +1642,106 @@ function canSuppressContainedCandidate(candidate: Candidate, other: Candidate): 
   );
 }
 
+function edgeChromeBandForBox(box: BoxLike, pageWidth: number, pageHeight: number): BoxLike | undefined {
+  const visible = visiblePageBox(box, pageWidth, pageHeight);
+  const edge =
+    visible.y <= pageHeight * REPEATED_CHROME_EDGE_RATIO
+      ? 'top'
+      : visible.y + visible.height >= pageHeight * (1 - REPEATED_CHROME_EDGE_RATIO)
+        ? 'bottom'
+        : undefined;
+  if (!edge) return undefined;
+  return edge === 'top'
+    ? {
+        x: 0,
+        y: 0,
+        width: pageWidth,
+        height: Math.min(pageHeight, visible.y + visible.height + REPEATED_CHROME_BAND_PADDING_PT),
+      }
+    : {
+        x: 0,
+        y: Math.max(0, visible.y - REPEATED_CHROME_BAND_PADDING_PT),
+        width: pageWidth,
+        height: pageHeight - Math.max(0, visible.y - REPEATED_CHROME_BAND_PADDING_PT),
+      };
+}
+
+function pushMergedChromeBand(bands: BoxLike[], band: BoxLike): void {
+  const existingIndex = bands.findIndex((existing) => (band.y === 0 ? existing.y === 0 : existing.y > 0));
+  if (existingIndex >= 0) {
+    bands[existingIndex] = unionBox(bands[existingIndex], band);
+  } else {
+    bands.push(band);
+  }
+}
+
+function repeatedChromeBands(layout: PageLayout | undefined, pageWidth: number, pageHeight: number): BoxLike[] {
+  const bands: BoxLike[] = [];
+  for (const block of layout?.blocks ?? []) {
+    if (!block.repeated || !isFinitePositiveBox(block)) continue;
+    const padded = edgeChromeBandForBox(block, pageWidth, pageHeight);
+    if (!padded) continue;
+    pushMergedChromeBand(bands, padded);
+  }
+  return bands;
+}
+
+function vectorChromeBands(
+  vectorBoxes: readonly VectorBox[] | undefined,
+  pageWidth: number,
+  pageHeight: number,
+): BoxLike[] {
+  const bands: BoxLike[] = [];
+  for (const box of vectorBoxes ?? []) {
+    if (!isUsableBox(box) || !isLikelyHorizontalChrome(box, pageWidth, pageHeight)) continue;
+    const padded = edgeChromeBandForBox(box, pageWidth, pageHeight);
+    if (!padded) continue;
+    pushMergedChromeBand(bands, padded);
+  }
+  return bands;
+}
+
+function isSuppressibleRepeatedChromeCandidate(candidate: Candidate): boolean {
+  return (
+    candidate.kind === 'vector' &&
+    hasSourceType(candidate, 'vectorBox') &&
+    !hasSourceType(candidate, 'layoutTable') &&
+    !hasSourceType(candidate, 'formField') &&
+    !hasSourceType(candidate, 'annotation')
+  );
+}
+
+function suppressRepeatedChromeCandidates(
+  candidates: Candidate[],
+  layout: PageLayout | undefined,
+  vectorBoxes: readonly VectorBox[] | undefined,
+  pageWidth: number,
+  pageHeight: number,
+): Candidate[] {
+  const bands = [
+    ...repeatedChromeBands(layout, pageWidth, pageHeight),
+    ...vectorChromeBands(vectorBoxes, pageWidth, pageHeight),
+  ];
+  if (bands.length === 0) return candidates;
+  return candidates.filter((candidate) => {
+    if (!isSuppressibleRepeatedChromeCandidate(candidate)) return true;
+    const visible = visiblePageBox(candidate, pageWidth, pageHeight);
+    const candidateArea = area(visible);
+    if (candidateArea <= 0) return true;
+    return !bands.some((band) => overlapArea(visible, band) / candidateArea >= REPEATED_CHROME_CANDIDATE_OVERLAP_RATIO);
+  });
+}
+
 export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion[] {
   if (input.pageWidth <= 0 || input.pageHeight <= 0) return [];
+  if (input.visualStatus === 'blank') return [];
 
   const candidates: Candidate[] = [];
   addRasterCandidates(input, candidates);
   addVectorCandidates(input, candidates);
   addTableCandidates(input.layout, candidates, input.pageWidth, input.pageHeight);
   addFormCandidate(input.formFields, input.pageHeight, candidates);
+  addAnnotationCandidates(input.annotations, candidates);
 
   const totalArea = pageArea(input);
   const formAwareCandidates = suppressFormBackplaneCandidates(candidates, totalArea);
@@ -1003,25 +1751,31 @@ export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion
     input.pageHeight,
     input.visualStatus,
   );
-  const backplaneAwareCandidates = suppressLoneFullPageVectorBackplanes(
-    blankAwareCandidates,
-    input.pageWidth,
-    input.pageHeight,
-  );
+  const backplaneAwareCandidates = suppressLoneFullPageVectorBackplanes(blankAwareCandidates, input);
   const foregroundCandidates = suppressBackgroundLikeCandidates(
     backplaneAwareCandidates,
     input.pageWidth,
     input.pageHeight,
   );
+  const rasterPanelAwareCandidates = suppressBroadVectorBackplaneCandidates(foregroundCandidates, totalArea);
   const deduped = suppressBackgroundLikeCandidates(
-    dedupeCandidates(foregroundCandidates),
+    dedupeCandidates(rasterPanelAwareCandidates),
     input.pageWidth,
     input.pageHeight,
   );
-  const withCaptions = attachCaptionText(suppressContainedCandidates(deduped), input.layout);
-  const withPlainImageLabels = attachPlainImageLabels(withCaptions, input.layout);
-  const withHeadingLabels = attachHeadingLabels(withPlainImageLabels, input.layout, totalArea);
-  const contextDeduped = dedupeEquivalentCandidates(withHeadingLabels);
+  const chromeAwareCandidates = suppressRepeatedChromeCandidates(
+    suppressContainedCandidates(deduped),
+    input.layout,
+    input.vectorBoxes,
+    input.pageWidth,
+    input.pageHeight,
+  );
+  const withCaptions = attachCaptionText(chromeAwareCandidates, input.layout);
+  const withTableLeadInLabels = attachTableLeadInLabels(withCaptions, input.layout);
+  const withPlainImageLabels = attachPlainImageLabels(withTableLeadInLabels, input.layout);
+  const withInRegionPlainLabels = attachInRegionPlainLabels(withPlainImageLabels, input.layout, totalArea);
+  const withHeadingLabels = attachHeadingLabels(withInRegionPlainLabels, input.layout, totalArea);
+  const contextDeduped = dedupeContextualDuplicates(dedupeEquivalentCandidates(withHeadingLabels));
   return suppressContainedCandidates(contextDeduped)
     .filter((candidate) => isUsableFinalCandidate(candidate, input.pageWidth, input.pageHeight))
     .sort((a, b) => visualScore(b, totalArea) - visualScore(a, totalArea))

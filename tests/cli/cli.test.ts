@@ -13,12 +13,16 @@ interface CliCapture {
   exitCode: number | null;
 }
 
+async function* stdinChunks(...chunks: string[]): AsyncIterable<string> {
+  for (const chunk of chunks) yield chunk;
+}
+
 /**
  * Drive the CLI with a fixed argv and capture every console / process.exit
  * call so we can assert on user-visible output without actually killing the
  * test process.
  */
-async function captureRun(argv: string[]): Promise<CliCapture> {
+async function captureRun(argv: string[], options?: Parameters<typeof run>[1]): Promise<CliCapture> {
   const stdout: string[] = [];
   const stderr: string[] = [];
   let exitCode: number | null = null;
@@ -37,7 +41,7 @@ async function captureRun(argv: string[]): Promise<CliCapture> {
   }) as never);
 
   try {
-    await run(argv);
+    await run(argv, options);
   } catch (e) {
     if (!(e instanceof Error) || !e.message.startsWith('__cli_exit__')) throw e;
   } finally {
@@ -123,6 +127,45 @@ describe('cli', () => {
     expect(r.exitCode).toBeNull();
     const parsed = JSON.parse(r.stdout.join('\n'));
     expect(parsed.totalPages).toBe(1);
+  });
+
+  it('passes --password through without emitting it', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--json', '--password', 'secret', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    const out = r.stdout.join('\n');
+    const parsed = JSON.parse(out);
+    expect(parsed.pages[0].text).toContain('Hello pdfvision');
+    expect(out).not.toContain('secret');
+  });
+
+  it('passes --password-stdin through without emitting it', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--json', '--password-stdin', '--no-cache'], {
+      stdin: stdinChunks('secret\n'),
+    });
+    expect(r.exitCode).toBeNull();
+    const out = r.stdout.join('\n');
+    const parsed = JSON.parse(out);
+    expect(parsed.pages[0].text).toContain('Hello pdfvision');
+    expect(out).not.toContain('secret');
+  });
+
+  it('uses --password as an explicit fallback when --password-stdin is empty', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--json', '--password', 'secret', '--password-stdin'], {
+      stdin: stdinChunks('\n'),
+    });
+    expect(r.exitCode).toBeNull();
+    const out = r.stdout.join('\n');
+    const parsed = JSON.parse(out);
+    expect(parsed.pages[0].text).toContain('Hello pdfvision');
+    expect(out).not.toContain('secret');
+  });
+
+  it('rejects --password-stdin when neither stdin nor fallback password is provided', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--json', '--password-stdin'], {
+      stdin: stdinChunks('\n'),
+    });
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr.join('\n')).toMatch(/requires piped stdin or --password fallback/);
   });
 
   it('passes --form-fields through to JSON output', async () => {
@@ -418,6 +461,39 @@ describe('cli', () => {
       expect(r.stdout.join('\n')).toContain('Hello pdfvision');
       expect(r.stdout.join('\n')).toMatch(/^# http:\/\/127\.0\.0\.1:/);
       expect(existsSync(join(cacheRoot, 'remote'))).toBe(false);
+    } finally {
+      if (prevCacheDir === undefined) {
+        delete process.env.PDFVISION_CACHE_DIR;
+      } else {
+        process.env.PDFVISION_CACHE_DIR = prevCacheDir;
+      }
+      rmSync(cacheRoot, { recursive: true, force: true });
+      await new Promise<void>((resolveClose, reject) => server.close((err) => (err ? reject(err) : resolveClose())));
+    }
+  });
+
+  it('reads cached remote PDFs as bytes and keeps the remote URL as the output file label', async () => {
+    const { existsSync, mkdtempSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const fixtureBytes = await import('node:fs').then(({ readFileSync }) => readFileSync(SAMPLE_PDF));
+    const server = createServer((_req, res) => {
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/pdf');
+      res.end(fixtureBytes);
+    });
+    await new Promise<void>((resolveListen) => server.listen(0, '127.0.0.1', resolveListen));
+    const port = (server.address() as AddressInfo).port;
+    const prevCacheDir = process.env.PDFVISION_CACHE_DIR;
+    const cacheRoot = mkdtempSync(join(tmpdir(), 'pdfvision-cli-remote-cached-'));
+    process.env.PDFVISION_CACHE_DIR = cacheRoot;
+    try {
+      const url = `http://127.0.0.1:${port}/doc.pdf`;
+      const r = await captureRun(['--remote', url]);
+      expect(r.exitCode).toBeNull();
+      expect(r.stdout.join('\n')).toContain('Hello pdfvision');
+      expect(r.stdout.join('\n').startsWith(`# ${url}`)).toBe(true);
+      expect(existsSync(join(cacheRoot, 'remote'))).toBe(true);
     } finally {
       if (prevCacheDir === undefined) {
         delete process.env.PDFVISION_CACHE_DIR;

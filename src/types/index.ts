@@ -25,10 +25,15 @@ export interface ProcessDocumentOptions {
   /**
    * In-memory PDF bytes. When provided, pdfvision parses these bytes
    * instead of reading `filePath` from disk; `filePath` remains a label
-   * in the returned `DocumentResult.file`. Used by `--remote --no-cache`
-   * so the downloaded PDF does not have to be written to the remote cache.
+   * in the returned `DocumentResult.file`. Used by `--remote` so the
+   * extractor is isolated from remote-cache cleanup after download.
    */
   sourceData?: Uint8Array;
+  /**
+   * Password for encrypted PDFs. Omit for unencrypted PDFs; pass the
+   * document user password when pdf.js reports that a password is required.
+   */
+  password?: string;
   /** Render each selected page to PNG and include the path in `pages[].image`. */
   render?: boolean;
   /** Skip the on-disk cache, always re-extract. Defaults to `false`. */
@@ -108,9 +113,13 @@ export interface ProcessDocumentOptions {
    *
    * Internally enables span extraction so per-match bboxes are
    * available; the public `pages[].spans` still requires `geometry`,
-   * and the public `pages[].layout` still requires `layout`. OCR text
-   * is also searched when {@link ocr} is on — those matches come back
-   * with `source: 'ocr'` and use OCR word boxes when available, with a
+   * and the public `pages[].layout` still requires `layout`. Form field
+   * text/choice values and visible FreeText annotation contents are
+   * searched too, even when `formFields` / `annotations` were not
+   * requested for output; those hits use the widget/annotation bbox and
+   * carry `source: 'formField'` / `source: 'annotation'`. OCR text is
+   * also searched when {@link ocr} is on — those matches come back with
+   * `source: 'ocr'` and use OCR word boxes when available, with a
    * page-level bbox fallback when OCR output lacks word layout or
    * word-level reconstruction misses a query that exists in full
    * `ocr.text`.
@@ -183,10 +192,10 @@ export interface ProcessDocumentOptions {
    */
   imageBoxes?: boolean;
   /**
-   * Emit bounding boxes for painted vector paths in `pages[].vectorBoxes`.
-   * Useful for maps, diagrams, chart paths, table rules, slide shapes, and
-   * other non-raster visual marks that are visible to humans but absent
-   * from native text.
+   * Emit bounding boxes for painted vector paths and clipped shading fills
+   * in `pages[].vectorBoxes`. Useful for maps, diagrams, chart paths,
+   * gradient panels, table rules, slide shapes, and other non-raster visual
+   * marks that are visible to humans but absent from native text.
    */
   vectorBoxes?: boolean;
   /**
@@ -206,8 +215,9 @@ export interface ProcessDocumentOptions {
   /**
    * Emit interactive PDF form/widget fields in `pages[].formFields`.
    * Useful for government forms and applications where blank text boxes,
-   * checkboxes, radio buttons, signatures, and choice fields are part of
-   * the human-visible document even when native text extraction succeeds.
+   * checkboxes, radio buttons, buttons, signatures, choice fields, export
+   * values, and widget actions are part of the human-visible document even
+   * when native text extraction succeeds.
    */
   formFields?: boolean;
   /**
@@ -219,7 +229,8 @@ export interface ProcessDocumentOptions {
   /**
    * Emit non-link, non-widget PDF annotations in `pages[].annotations`.
    * Useful for comments, sticky notes, highlights, underlines, strikeouts,
-   * stamps, and other annotation markup a human PDF reader can see.
+   * stamps, file-attachment icons, shape markup, ink paths, and other
+   * annotation markup a human PDF reader can see.
    */
   annotations?: boolean;
   /**
@@ -256,7 +267,8 @@ export interface ProcessDocumentOptions {
   outline?: boolean;
   /**
    * Emit viewer-level document settings in `viewer`, including initial page
-   * mode/layout, viewer preferences, open action, permissions, and MarkInfo.
+   * mode/layout, viewer preferences, open action, JavaScript actions,
+   * page-level JavaScript actions, permissions, and MarkInfo.
    * Useful when the way a human PDF viewer opens or navigates the document is
    * itself part of the reading context.
    */
@@ -296,6 +308,8 @@ export interface ProcessOptions {
   pages?: string;
   /** See {@link ProcessDocumentOptions.sourceData}. */
   sourceData?: Uint8Array;
+  /** See {@link ProcessDocumentOptions.password}. */
+  password?: string;
   format: OutputFormat;
   noCache: boolean;
   render?: boolean;
@@ -417,8 +431,8 @@ export interface TextSpan {
 }
 
 /**
- * One visual line of text — a group of spans that share a baseline,
- * sorted left-to-right. Built from spans by clustering on the y axis;
+ * One visual line of text — a group of spans that share a baseline.
+ * Text is reconstructed in the detected script direction for the line;
  * the bbox is the union of its spans' bboxes.
  */
 export interface LayoutLine {
@@ -574,7 +588,9 @@ export interface LayoutTableCell {
  * multiple draws of the same XObject into a single op carrying a
  * `positions` array (or per-instance transforms). `buildImageBoxes` in
  * `core/imageBoxes.ts` walks those ops and emits one entry per drawn
- * instance, so a tiled hero surfaces as N per-instance bboxes — and
+ * instance, so a tiled hero surfaces as N per-instance bboxes. Image-
+ * bearing tiling patterns painted through fill paths surface as the
+ * painted path bbox so masked/pattern images still become crop targets.
  * `imageCount === imageBoxes.length` holds for every page. Form XObject
  * (`paintFormXObjectBegin/End`) CTM-stack tracking ensures images drawn
  * inside a Form XObject map to the correct page-space position.
@@ -593,14 +609,14 @@ export interface VectorBox {
   height: number;
 }
 
-export type VisualRegionKind = 'raster' | 'vector' | 'table' | 'form' | 'mixed';
-export type VisualRegionSourceType = 'imageBox' | 'vectorBox' | 'layoutTable' | 'formField';
+export type VisualRegionKind = 'raster' | 'vector' | 'table' | 'form' | 'annotation' | 'mixed';
+export type VisualRegionSourceType = 'imageBox' | 'vectorBox' | 'layoutTable' | 'formField' | 'annotation';
 export type VisualRegionAssociatedTextRelation = 'caption' | 'label';
 
 export interface VisualRegionSource {
   /** Source geometry collection this region was derived from. */
   type: VisualRegionSourceType;
-  /** 0-based index into the source collection on the same page. */
+  /** 0-based index into the source collection on the same page; the collection may be internal if not emitted. */
   index: number;
 }
 
@@ -611,18 +627,25 @@ export interface VisualRegionAssociatedText {
   y: number;
   width: number;
   height: number;
-  /** 0-based index into `layout.blocks` when relation is `caption`. */
+  /** 0-based index into `layout.blocks` when the text came from page layout. */
   blockIndex?: number;
-  /** 0-based index into `formFields` when relation is `label`. */
+  /** 0-based index into `formFields` when the label came from a form field. */
   fieldIndex?: number;
+}
+
+export interface RenderedContentBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 /**
  * Human-meaningful visual region that can be passed directly to
  * `--render-region x,y,width,height` for a high-detail crop. Regions are
  * derived from existing page geometry (raster image boxes, vector path
- * clusters, layout table hints, and form widgets), padded and clamped to
- * page bounds.
+ * clusters, layout table hints, form widgets, and visible annotation
+ * markup), padded and clamped to page bounds.
  */
 export interface VisualRegion {
   /** Stable page-local identifier such as `p3-vr0`, present in extracted page results. */
@@ -640,12 +663,20 @@ export interface VisualRegion {
   sources: VisualRegionSource[];
   /** Short human-readable reason for why the region is worth inspecting. */
   reason: string;
-  /** Nearby text that identifies or explains this visual region, such as a caption or form label. */
+  /** Nearby or in-region text that identifies this visual region, such as a caption, form label, chart title, or table lead-in. */
   associatedText?: VisualRegionAssociatedText[];
   /** Cropped PNG path for this region when `renderVisualRegions` was requested. */
   image?: string;
   /** Content ratio measured from the cropped region PNG when rendered. */
   renderContentRatio?: number;
+  /**
+   * Tight bbox of non-background pixels measured from the rendered crop,
+   * in page coordinates. Present only when `renderVisualRegions` was
+   * requested and the crop contains measurable content. The region's
+   * own `x/y/width/height` remains the source-geometry crop; this box
+   * is a rendered-pixel hint for sparse or transparent raster content.
+   */
+  renderedContentBox?: RenderedContentBox;
 }
 
 export type FormFieldType = 'text' | 'checkbox' | 'radio' | 'choice' | 'signature' | 'button' | 'unknown';
@@ -660,6 +691,20 @@ export interface FormFieldLabel {
   height: number;
 }
 
+export interface FormFieldChoiceOption {
+  /** Value submitted/exported by the PDF form. */
+  exportValue: string;
+  /** Human-visible choice label shown by a PDF viewer. */
+  displayValue: string;
+}
+
+export interface FormFieldResetFormAction {
+  /** Field names listed by the PDF ResetForm action. */
+  fields: string[];
+  /** True means reset only listed fields; false means reset every field except the listed fields. */
+  include: boolean;
+}
+
 export interface FormField {
   name: string;
   type: FormFieldType;
@@ -672,12 +717,31 @@ export interface FormField {
   readOnly?: boolean;
   required?: boolean;
   multiline?: boolean;
+  /** Human-visible selected choice label when it differs from the submitted value. */
+  displayValue?: string;
+  /** Human-visible push-button caption from Widget appearance characteristics when available. */
+  caption?: string;
+  /** Submitted/exported value for checkbox/radio button widgets when pdf.js exposes it. */
+  exportValue?: string;
+  /** Choice-field options, present when pdf.js exposes combo/list box entries. */
+  options?: FormFieldChoiceOption[];
+  /** True for combo boxes, false for list boxes. Present for choice fields when pdf.js exposes it. */
+  combo?: boolean;
+  /** True when a choice field allows selecting multiple options. */
+  multiSelect?: boolean;
+  /** Decoded PDF widget annotation flags, such as hidden, print, noView, or locked. */
+  flags?: PageAnnotationFlag[];
+  /** Widget-level JavaScript actions such as button click scripts. */
+  actions?: Record<string, string[]>;
+  /** Non-JavaScript ResetForm button action when pdf.js exposes it. */
+  resetForm?: FormFieldResetFormAction;
   /**
    * Nearby visible text that likely labels this field, reconstructed from
    * layout lines when `--form-fields` is enabled. Stacked above/below label
-   * lines can be merged into one visible prompt. This helps agents map
-   * anonymous AcroForm names such as `f1_01[0]` or checkbox arrays to the
-   * human-readable prompt a person sees next to or above the widget.
+   * lines and left-side checkbox/radio continuation lines can be merged into
+   * one visible prompt. This helps agents map anonymous AcroForm names such
+   * as `f1_01[0]` or checkbox arrays to the human-readable prompt a person
+   * sees next to or above the widget.
    */
   label?: FormFieldLabel;
 }
@@ -693,22 +757,27 @@ export interface PageLink {
   type: PageLinkType;
   /** URL, destination name, or raw destination array when pdf.js exposes one. */
   target: PageLinkTarget;
+  /** 1-based physical destination page for internal PDF links when it can be resolved. */
+  page?: number;
+  /** Visible text inside the link rectangle when it can be reconstructed from native text. */
+  text?: string;
   x: number;
   y: number;
   width: number;
   height: number;
 }
 
-export type DocumentOutlineTargetType = 'destination' | 'url';
+export type DocumentOutlineTargetType = 'destination' | 'url' | 'action';
 
 export interface DocumentOutlineItem {
   title: string;
   /**
    * `url` for external outline links, `destination` for named/internal PDF
-   * destinations. Omitted when an outline node is only a parent label.
+   * destinations, or `action` for named PDF viewer actions such as NextPage.
+   * Omitted when an outline node is only a parent label.
    */
   type?: DocumentOutlineTargetType;
-  /** URL or destination identifier / explicit-destination JSON string. */
+  /** URL, action name, or destination identifier / explicit-destination JSON string. */
   target?: string;
   /** 1-based page number resolved from `target` when pdf.js can map it. */
   page?: number;
@@ -761,6 +830,8 @@ export interface DocumentViewerState {
   viewerPreferences?: Record<string, JsonValue>;
   /** Catalog OpenAction resolved to a page when possible. */
   openAction?: DocumentOpenAction;
+  /** Document-level JavaScript actions such as auto-print scripts. */
+  jsActions?: Record<string, string[]>;
   /** Document permission flags when the PDF defines them. */
   permissions?: DocumentPermissions;
   /** Tagged-PDF MarkInfo flags when present. */
@@ -820,9 +891,53 @@ export interface PageAnnotationBox {
   height: number;
 }
 
+export interface PageAnnotationFileAttachment {
+  /** Embedded filename shown by the file-attachment annotation. */
+  name: string;
+  /** Optional attachment description when the PDF provides one. */
+  description?: string;
+  /** Attachment byte length. Bytes are intentionally not embedded in output. */
+  size: number;
+}
+
+export interface PageAnnotationPoint {
+  x: number;
+  y: number;
+}
+
+export interface PageAnnotationBorder {
+  /** Border width in PDF points. */
+  width?: number;
+  /** PDF border style such as solid, dashed, beveled, inset, or underline. */
+  style?: string;
+  /** Dash pattern for dashed borders when present. */
+  dashArray?: number[];
+}
+
+export interface PageAnnotationLine {
+  from: PageAnnotationPoint;
+  to: PageAnnotationPoint;
+  /** PDF line ending names, e.g. None, Square, Circle, OpenArrow. */
+  endings?: [string, string];
+}
+
+export type PageAnnotationFlag =
+  | 'invisible'
+  | 'hidden'
+  | 'print'
+  | 'noZoom'
+  | 'noRotate'
+  | 'noView'
+  | 'readOnly'
+  | 'locked'
+  | 'toggleNoView'
+  | 'lockedContents';
+
 export interface PageAnnotation {
-  /** PDF annotation subtype such as Text, Highlight, Underline, StrikeOut, FreeText, Stamp, or Ink. */
+  /** PDF annotation subtype such as Text, Highlight, Underline, StrikeOut, FreeText, Stamp, FileAttachment, or Ink. */
   subtype: string;
+  /** PDF annotation / icon name, such as Note, Comment, PushPin, or Paperclip, when available. */
+  name?: string;
   /** Comment / markup contents when the PDF provides them. */
   contents?: string;
   /** Annotation title / author label when the PDF provides it. */
@@ -833,12 +948,24 @@ export interface PageAnnotation {
   modified?: string;
   /** Whether pdf.js reports an appearance stream for this annotation. */
   hasAppearance?: boolean;
+  /** File metadata for FileAttachment annotations. Bytes are never embedded in structured output. */
+  fileAttachment?: PageAnnotationFileAttachment;
+  /** Decoded PDF annotation flags, such as hidden, print, noView, or locked. */
+  flags?: PageAnnotationFlag[];
+  /** Border styling for shape and markup annotations when pdf.js exposes it. */
+  border?: PageAnnotationBorder;
   x: number;
   y: number;
   width: number;
   height: number;
   /** Precise markup quadrilateral boxes, present when the PDF provides QuadPoints. */
   quadBoxes?: PageAnnotationBox[];
+  /** Line start/end coordinates for Line annotations, in top-left PDF points. */
+  line?: PageAnnotationLine;
+  /** Vertices for Polygon and PolyLine annotations, in top-left PDF points. */
+  vertices?: PageAnnotationPoint[];
+  /** Freehand paths for Ink annotations, in top-left PDF points. */
+  inkPaths?: PageAnnotationPoint[][];
 }
 
 export interface PageStructureContent {
@@ -853,13 +980,13 @@ export type PageStructureItem = PageStructureNode | PageStructureContent;
 export interface PageStructureNode {
   /** Tagged-PDF role, already role-map-resolved by pdf.js when possible. */
   role: string;
-  /** Alternate text, commonly used for figures or formula descriptions. */
+  /** Alternate text, commonly used for figures or formula descriptions; control bytes are removed. */
   alt?: string;
   /** MathML emitted by pdf.js for tagged Formula nodes when available. */
   mathML?: string;
   /** Language hint for this structure node. */
   lang?: string;
-  /** Optional bbox emitted by pdf.js for structure nodes that carry one. */
+  /** Optional structure-node bbox as [x, y, width, height] in top-left PDF points when pdf.js exposes one. */
   bbox?: number[];
   /** Nested structure nodes or marked-content/object references. */
   children: PageStructureItem[];
@@ -923,7 +1050,9 @@ export interface PageResult {
    * to `--render` or `--ocr` when this appears. Counts NUL, C0 (except
    * `\t\n\r`), DEL, C1, unpaired surrogates, and Unicode noncharacters.
    * Private Use Area, format controls, and combining marks are
-   * intentionally excluded.
+   * intentionally excluded. PUA-dominant pages can still surface through
+   * `warnings[].code === 'glyph_garbage_text'` because icon fonts may use
+   * sparse PUA glyphs legitimately.
    */
   nonPrintableRatio: number;
   /**
@@ -954,7 +1083,7 @@ export interface PageResult {
    *
    * Rough thresholds (skill doc):
    *   - ≤ 0.001 → effectively blank unless corroborated object geometry
-   *     shows a tiny visible trace
+   *     or visible annotation appearance shows a tiny visible trace
    *   - 0.001 – 0.005, or a corroborated tiny trace below 0.001 →
    *     sparse marks only
    *   - > 0.005 → renderer produced visible content
@@ -982,14 +1111,17 @@ export interface PageResult {
   /**
    * Bounding boxes of raster image draws on the page, only present when
    * `imageBoxes: true` was passed. One entry per draw operation (a tiled
-   * hero image yields multiple entries).
+   * hero image yields multiple entries); image-bearing tiling pattern
+   * fills use the painted path bbox.
    */
   imageBoxes?: ImageBox[];
   /**
-   * Bounding boxes of painted vector paths on the page, only present when
+   * Bounding boxes of vector drawings on the page, only present when
    * `vectorBoxes: true` was passed. One entry per path paint operation
-   * where pdf.js reports a path bbox. Coordinates use the same top-left
-   * PDF-point system as `spans`, `layout.blocks`, and `imageBoxes`.
+   * where pdf.js reports a path bbox, plus shading fills when pdf.js
+   * exposes the active clipping bbox, excluding page-sized white
+   * background fills. Coordinates use the same top-left PDF-point system
+   * as `spans`, `layout.blocks`, and `imageBoxes`.
    */
   vectorBoxes?: VectorBox[];
   /**
@@ -1024,6 +1156,11 @@ export interface PageResult {
    */
   structure?: PageStructureNode | null;
   /**
+   * Page-level JavaScript actions such as PageOpen/PageClose scripts, present
+   * when `viewer: true` was passed and the page defines them.
+   */
+  jsActions?: Record<string, string[]>;
+  /**
    * OCR-derived text + confidence + language, only present when
    * `ocr: true` was passed. The pdfjs-derived `text` field is preserved
    * alongside, so an agent can pick whichever signal it trusts more for
@@ -1053,11 +1190,15 @@ export interface PageResult {
   /**
    * Page anomalies detected from layout geometry, text-quality signals,
    * or image boxes. Layout-specific warnings require `layout: true`;
-   * image-region warnings require `imageBoxes: true` plus `layout: true`
-   * or `geometry: true`; localized glyph noise can surface from
-   * always-on text-quality signals such as non-printable counters or
-   * isolated mojibake in CJK text. Empty array is omitted; a populated
-   * array means at least one rule fired.
+   * image-region warnings can use internal image boxes even when
+   * `imageBoxes` is false, while `imageBoxIndex` is only emitted when
+   * public `pages[].imageBoxes` exists. Localized glyph noise and
+   * PUA-dominant glyph-code text can surface from always-on text-quality
+   * signals such as non-printable counters, private-use glyph counts/ratios,
+   * isolated mojibake in CJK text, Latin-1 printable mojibake, pdf.js
+   * font character-map warnings, or high-confidence OCR/native text
+   * disagreement. Empty array is omitted; a populated array means at
+   * least one rule fired.
    *
    * Same observational stance as {@link PageQuality}: the warning
    * describes what pdfvision saw, not what the agent should do. See
@@ -1106,10 +1247,12 @@ export interface SearchMatch {
    *  bbox offsets — V1 doesn't dual-emit per match. */
   text: string;
   /** Where the match came from. `'native'` = pdf.js text stream
-   *  (precise bbox via spans). `'ocr'` = `pages[].ocr.text` (word-level bbox
-   *  when `pages[].ocr.words` exists and matches, otherwise page-level
-   *  fallback). */
-  source: 'native' | 'ocr';
+   *  (precise bbox via spans). `'formField'` = a text/choice widget
+   *  value (widget bbox). `'annotation'` = visible FreeText annotation
+   *  contents (annotation bbox). `'ocr'` = `pages[].ocr.text`
+   *  (word-level bbox when `pages[].ocr.words` exists and matches,
+   *  otherwise page-level fallback). */
+  source: 'native' | 'formField' | 'annotation' | 'ocr';
   /** Optional surrounding-line text (typically ±N characters from the
    *  match) for human / LLM readability. Trimmed and de-newlined. */
   context?: string;
@@ -1120,9 +1263,13 @@ export interface SearchMatch {
  * that raw text alone hides: overlapping layout blocks, bodies crowded
  * against chrome, off-page bboxes, localized glyph noise / replacement
  * characters / CJK mojibake,
+ * page-wide glyph-index garbage, tiny native text that may not be human-visible,
  * dense vector graphics whose form fields or chart paths are not text,
+ * vector-only visual pages with no native text,
  * numeric table-like layouts whose rows/columns may flatten into plain text,
+ * local math/text-order divergences whose visual order differs from native text,
  * large image regions whose internal labels will not appear in native text,
+ * optional-content layer text that may include default-hidden content,
  * OCR-backed scan layers whose bboxes may drift from pixels, etc.
  */
 export interface PageWarning {
@@ -1132,12 +1279,22 @@ export interface PageWarning {
     | 'near_bottom_edge'
     | 'body_near_repeated_chrome'
     | 'off_page'
+    | 'glyph_garbage_text'
     | 'localized_glyph_noise'
+    | 'font_mapping_warning'
     | 'dense_vector_graphics'
+    | 'vector_graphics_no_native_text'
     | 'tabular_numeric_layout'
+    | 'dot_leader_noise'
+    | 'tiny_native_text_noise'
     | 'raster_backed_text_layer'
+    | 'raster_text_layer_symbol_noise'
     | 'ocr_low_confidence'
-    | 'large_raster_low_text_overlap';
+    | 'ocr_native_text_mismatch'
+    | 'large_raster_low_text_overlap'
+    | 'annotation_text_missing_from_native'
+    | 'optional_content_text_may_include_hidden_layers'
+    | 'reading_order_divergence';
   /**
    * `'error'` means likely data-integrity issue (off-page bbox usually
    * indicates a broken render or pathological PDF), `'warning'` means
@@ -1188,15 +1345,16 @@ export interface PageQuality {
    *     too sparse to explain a visually populated page (often just a page
    *     number, decorative label, large watermark, or thin OCR residue over
    *     images/vectors).
-   *   - `sparse_text_on_blank_visual` — native text exists, but it is
-   *     sparse and the rendered page is effectively blank. Common in
-   *     scanned-book front matter where hidden OCR residue is not visible
-   *     to a human reader.
+   *   - `sparse_text_on_blank_visual` — native text exists, but the
+   *     rendered page is effectively blank. Common in scanned-book front
+   *     matter with hidden OCR residue, invisible/broken-font text, or
+   *     render/text-layer mismatches.
    *   - `empty_but_visual_content` — `charCount === 0` AND the page has
-   *     visual content (`imageCount > 0`, `vectorCount > 0`, or
-   *     `renderContentRatio` is above the blank threshold when
+   *     visual content (`imageCount > 0`, `vectorCount > 0`, a visible
+   *     annotation appearance that is not contradicted by a blank render,
+   *     or `renderContentRatio` is above the blank threshold when
    *     --render/--ocr ran). Typical of image-flattened slides, scans,
-   *     and vector-only diagrams / forms.
+   *     vector-only diagrams / forms, and annotation-only review pages.
    *   - `empty` — `charCount === 0` and no visual content detected.
    *     Likely a genuinely blank page or a render failure (combine with
    *     `visualStatus` to disambiguate).
@@ -1216,7 +1374,7 @@ export interface PageQuality {
    *     clearly populated content.
    *   - `sparse` — the renderer drew only sparse visible marks, either
    *     `0.001 < renderContentRatio <= 0.005` or a tiny but corroborated
-   *     image/vector trace below the blank threshold.
+   *     image/vector/annotation trace below the blank threshold.
    *   - `blank` — the page came out
    *     effectively blank against its own dominant background;
    *     typically a render-pipeline failure (unsupported image format,

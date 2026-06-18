@@ -39,11 +39,12 @@ export async function buildViewerState(
   doc: PDFDocumentProxy,
   options: BuildViewerStateOptions = {},
 ): Promise<DocumentViewerState> {
-  const [pageLayout, pageMode, viewerPreferences, openAction, permissions, markInfo] = await Promise.all([
+  const [pageLayout, pageMode, viewerPreferences, openAction, jsActions, permissions, markInfo] = await Promise.all([
     doc.getPageLayout(),
     doc.getPageMode(),
     doc.getViewerPreferences(),
     doc.getOpenAction(),
+    doc.getJSActions(),
     doc.getPermissions(),
     doc.getMarkInfo(),
   ]);
@@ -55,6 +56,7 @@ export async function buildViewerState(
     ...(normalizedPageMode !== undefined && normalizedPageMode !== 'UseNone' && { pageMode: normalizedPageMode }),
     ...viewerPreferencesValue(viewerPreferences, options),
     ...(await openActionValue(openAction, doc, options)),
+    ...jsActionsValue(jsActions, options),
     ...permissionsValue(permissions),
     ...markInfoValue(markInfo),
   };
@@ -108,6 +110,31 @@ function permissionsValue(value: unknown): Pick<DocumentViewerState, 'permission
     allowed: PERMISSION_FLAGS.filter((flag) => flagSet.has(flag.value)).map((flag) => flag.name),
   };
   return { permissions };
+}
+
+export function normalizeJavaScriptActions(
+  value: unknown,
+  options: BuildViewerStateOptions = {},
+): Record<string, string[]> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const actions: Record<string, string[]> = {};
+  for (const [rawName, rawScripts] of Object.entries(value)) {
+    const name = normalizeTarget(rawName, options);
+    if (!name) continue;
+    const scripts = (Array.isArray(rawScripts) ? rawScripts : [rawScripts])
+      // JavaScript bodies are executable source, not display text. Keep
+      // them byte-for-byte after pdf.js decoding so NFKC normalization
+      // does not rewrite identifiers or string literals.
+      .map((script) => textValue(script, undefined))
+      .filter((script): script is string => script !== undefined);
+    if (scripts.length > 0) actions[name] = [...(actions[name] ?? []), ...scripts];
+  }
+  return Object.keys(actions).length > 0 ? actions : undefined;
+}
+
+function jsActionsValue(value: unknown, options: BuildViewerStateOptions): Pick<DocumentViewerState, 'jsActions'> {
+  const jsActions = normalizeJavaScriptActions(value, options);
+  return jsActions ? { jsActions } : {};
 }
 
 function markInfoValue(value: unknown): Pick<DocumentViewerState, 'markInfo'> {

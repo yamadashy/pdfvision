@@ -21,6 +21,10 @@ describe('buildOutline', () => {
           title: 'Explicit',
           dest: [1, { name: 'Fit' }],
         },
+        {
+          title: 'Next page',
+          action: 'NextPage',
+        },
       ],
       doc,
       { normalizeText: (value) => value.normalize('NFKC') },
@@ -39,6 +43,11 @@ describe('buildOutline', () => {
         type: 'destination',
         target: '[1,{"name":"Fit"}]',
         page: 2,
+      },
+      {
+        title: 'Next page',
+        type: 'action',
+        target: 'NextPage',
       },
     ]);
   });

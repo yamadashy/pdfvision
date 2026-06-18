@@ -12,9 +12,13 @@ const OP = {
   formBegin: 4,
   formEnd: 5,
   constructPath: 6,
+  fill: 7,
+  setFillColorN: 8,
+  setFillRGBColor: 9,
   paintImageXObject: 10,
   paintImageMaskXObject: 11,
   paintInlineImageXObject: 12,
+  shadingFill: 13,
   paintImageXObjectRepeat: 20,
   paintImageMaskXObjectRepeat: 21,
   paintImageMaskXObjectGroup: 22,
@@ -27,10 +31,14 @@ const ops: ImageOps = {
   transform: OP.transform,
   formBegin: OP.formBegin,
   formEnd: OP.formEnd,
+  setFillColorN: OP.setFillColorN,
+  fillColorOps: new Set<number>([OP.setFillColorN, OP.setFillRGBColor]),
   singleImageOps: new Set<number>([OP.paintImageXObject, OP.paintImageMaskXObject, OP.paintInlineImageXObject]),
   constructPath: OP.constructPath,
-  pathPaintOps: new Set<number>(),
+  pathPaintOps: new Set<number>([OP.fill]),
+  pathFillOps: new Set<number>([OP.fill]),
   vectorPaintOps: new Set<number>(),
+  shadingFill: OP.shadingFill,
   paintImageXObjectRepeat: OP.paintImageXObjectRepeat,
   paintImageMaskXObjectRepeat: OP.paintImageMaskXObjectRepeat,
   paintImageMaskXObjectGroup: OP.paintImageMaskXObjectGroup,
@@ -218,5 +226,40 @@ describe('buildImageBoxes — Form XObjects', () => {
     const fnArray = [OP.formBegin, OP.paintImageXObject, OP.formEnd];
     const argsArray: unknown[][] = [[null, null], ['img'], []];
     expect(() => buildImageBoxes(fnArray, argsArray, ops, PAGE_HEIGHT, 0, 0)).not.toThrow();
+  });
+});
+
+describe('buildImageBoxes — image-bearing tiling patterns', () => {
+  it('emits the filled path bbox when the active fill pattern paints an image', () => {
+    const imagePattern = {
+      fnArray: [OP.save, OP.paintImageXObject, OP.restore],
+      argsArray: [[], ['img'], []],
+    };
+    const fnArray = [OP.setFillColorN, OP.constructPath];
+    const argsArray: unknown[][] = [
+      ['TilingPattern', null, imagePattern],
+      [OP.fill, null, [18, 500, 218, 700]],
+    ];
+
+    const boxes = buildImageBoxes(fnArray, argsArray, ops, PAGE_HEIGHT, 0, 0);
+
+    expect(boxes).toEqual([{ x: 18, y: 92, width: 200, height: 200 }]);
+  });
+
+  it('clears image-bearing fill patterns when a normal fill color is selected', () => {
+    const imagePattern = {
+      fnArray: [OP.paintImageXObject],
+      argsArray: [['img']],
+    };
+    const fnArray = [OP.setFillColorN, OP.setFillRGBColor, OP.constructPath];
+    const argsArray: unknown[][] = [
+      ['TilingPattern', null, imagePattern],
+      [0, 0, 0],
+      [OP.fill, null, [18, 500, 218, 700]],
+    ];
+
+    const boxes = buildImageBoxes(fnArray, argsArray, ops, PAGE_HEIGHT, 0, 0);
+
+    expect(boxes).toEqual([]);
   });
 });

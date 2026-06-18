@@ -2,7 +2,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { processDocument } from '../../src/core/processor.js';
 import { compileSearch, searchPage } from '../../src/core/search.js';
-import type { TextSpan } from '../../src/types/index.js';
+import type { FormField, PageAnnotation, TextSpan } from '../../src/types/index.js';
 
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
 const SAMPLE_JA_PDF = resolve(__dirname, '../fixtures/sample-ja.pdf');
@@ -71,6 +71,471 @@ describe('processDocument search', () => {
       page: 1,
     });
     expect(matches[0].boxes.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('matches RTL Arabic phrases across tight shaped word gaps', () => {
+    // Arabic CID fonts can report word boxes with a gap well below the
+    // Latin 0.25x font-size threshold. Phrase search should still see the
+    // source-space word boundary in right-to-left reading order.
+    const spans: TextSpan[] = [
+      { text: 'العربية', x: 257.55, y: 184, width: 83.92, height: 36, fontSize: 36 },
+      { text: 'اخلطوط', x: 346.8, y: 184, width: 86.94, height: 36, fontSize: 36 },
+      { text: 'انواع', x: 439.06, y: 184, width: 62.93, height: 36, fontSize: 36 },
+    ];
+    const compiled = compileSearch('انواع اخلطوط العربية', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 595, 842, compiled);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'انواع اخلطوط العربية',
+      source: 'native',
+      page: 1,
+    });
+    expect(matches[0].boxes).toHaveLength(3);
+  });
+
+  it('matches Latin phrases across very tight body-text word gaps', () => {
+    const spans: TextSpan[] = [
+      {
+        text: 'Hence, recording and compiling a trace',
+        x: 54,
+        y: 71,
+        width: 139.59,
+        height: 8.97,
+        fontSize: 8.97,
+      },
+      {
+        text: 'speculates',
+        x: 195.46,
+        y: 71,
+        width: 37.35,
+        height: 8.97,
+        fontSize: 8.97,
+      },
+      {
+        text: 'that the path and',
+        x: 234.69,
+        y: 71,
+        width: 58.42,
+        height: 8.97,
+        fontSize: 8.97,
+      },
+    ];
+    const compiled = compileSearch('trace speculates that', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 595, 842, compiled);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'trace speculates that',
+      source: 'native',
+      page: 1,
+    });
+    expect(matches[0].boxes).toHaveLength(3);
+  });
+
+  it('matches Latin phrases split across vertical Japanese columns', () => {
+    // TaroUTR50SortedList112 page-2-shaped case: Japanese vertical text
+    // carries "Johannes Gutenberg" across two narrow vertical columns,
+    // with "Jo" ending the right column and "hannes" starting the next.
+    const spans: TextSpan[] = [
+      {
+        text: 'タイポグラフィ、すなわちtypographyの歴史は長い。Jo',
+        x: 151.6,
+        y: 263.62,
+        width: 9.21,
+        height: 294.88,
+        fontSize: 9.21,
+      },
+      {
+        text: 'hannes',
+        x: 135.48,
+        y: 263.62,
+        width: 9.21,
+        height: 56.88,
+        fontSize: 9.21,
+      },
+      {
+        text: 'Gutenbergが1440年代なかばに発明した',
+        x: 135.48,
+        y: 330.01,
+        width: 9.21,
+        height: 228.48,
+        fontSize: 9.21,
+      },
+    ];
+    const compiled = compileSearch('Johannes Gutenberg', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 595, 842, compiled);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'Johannes Gutenberg',
+      source: 'native',
+      page: 1,
+    });
+    expect(matches[0].boxes.length).toBeGreaterThanOrEqual(3);
+    expect(matches[0].bbox.width).toBeGreaterThan(0);
+    expect(matches[0].bbox.height).toBeGreaterThan(0);
+
+    const singleSpanCompiled = compileSearch('hannes', {});
+    if (!singleSpanCompiled) throw new Error('expected compiled search');
+    const singleSpanMatches = searchPage(spans, undefined, 1, 595, 842, singleSpanCompiled);
+    expect(singleSpanMatches).toHaveLength(1);
+  });
+
+  it('matches visible text form field values with widget bboxes', () => {
+    const fields: FormField[] = [
+      {
+        name: 'Text1',
+        type: 'text',
+        value: 'abcdefghijklmnopqrstuvwxyz',
+        x: 145.98,
+        y: 200.84,
+        width: 445.48,
+        height: 19.84,
+        label: {
+          text: 'Single line, combs',
+          relation: 'left',
+          x: 10,
+          y: 200.84,
+          width: 100,
+          height: 10,
+        },
+      },
+      {
+        name: 'Check1',
+        type: 'checkbox',
+        value: 'Off',
+        checked: false,
+        x: 20,
+        y: 20,
+        width: 12,
+        height: 12,
+      },
+      {
+        name: 'HiddenText',
+        type: 'text',
+        value: 'hidden printable value',
+        x: 40,
+        y: 40,
+        width: 100,
+        height: 20,
+        flags: ['hidden', 'print'],
+      },
+      {
+        name: 'ListBox1',
+        type: 'choice',
+        value: 'Export1',
+        x: 60,
+        y: 80,
+        width: 120,
+        height: 80,
+        options: [
+          { exportValue: 'Export1', displayValue: 'Item1' },
+          { exportValue: 'Export2', displayValue: 'Item2' },
+        ],
+      },
+      {
+        name: 'Button1',
+        type: 'button',
+        caption: 'Show',
+        x: 200,
+        y: 40,
+        width: 72,
+        height: 20,
+      },
+    ];
+    const compiled = compileSearch(
+      ['abcdefghijklmnopqrstuvwxyz', 'Off', 'hidden printable value', 'Item1', 'Export1', 'Show'],
+      {},
+    );
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage([], undefined, 1, 612, 792, compiled, undefined, fields);
+
+    expect(matches).toHaveLength(3);
+    expect(matches[0]).toMatchObject({
+      query: 'abcdefghijklmnopqrstuvwxyz',
+      queryIndex: 0,
+      text: 'abcdefghijklmnopqrstuvwxyz',
+      source: 'formField',
+      page: 1,
+      bbox: { x: 145.98, y: 200.84, width: 445.48, height: 19.84 },
+      boxes: [{ x: 145.98, y: 200.84, width: 445.48, height: 19.84 }],
+      context: 'Single line, combs: abcdefghijklmnopqrstuvwxyz',
+    });
+    expect(matches[1]).toMatchObject({
+      query: 'Item1',
+      queryIndex: 3,
+      text: 'Item1',
+      source: 'formField',
+      bbox: { x: 60, y: 80, width: 120, height: 80 },
+      context: 'Item1',
+    });
+    expect(matches[2]).toMatchObject({
+      query: 'Show',
+      queryIndex: 5,
+      text: 'Show',
+      source: 'formField',
+      bbox: { x: 200, y: 40, width: 72, height: 20 },
+      context: 'Show',
+    });
+  });
+
+  it('matches visible FreeText annotation contents with annotation bboxes', () => {
+    const annotations: PageAnnotation[] = [
+      {
+        subtype: 'FreeText',
+        contents: 'this is a text anotation',
+        x: 169.6,
+        y: 115.79,
+        width: 240.01,
+        height: 27.26,
+      },
+      {
+        subtype: 'Text',
+        contents: 'sticky popup contents',
+        x: 191.79,
+        y: 420.58,
+        width: 19,
+        height: 19,
+      },
+    ];
+    const compiled = compileSearch(['this is a text anotation', 'sticky popup contents'], {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage([], undefined, 1, 612, 792, compiled, undefined, undefined, annotations);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      query: 'this is a text anotation',
+      queryIndex: 0,
+      text: 'this is a text anotation',
+      source: 'annotation',
+      page: 1,
+      bbox: { x: 169.6, y: 115.79, width: 240.01, height: 27.26 },
+      boxes: [{ x: 169.6, y: 115.79, width: 240.01, height: 27.26 }],
+      context: 'FreeText annotation: this is a text anotation',
+    });
+  });
+
+  it('keeps visible FreeText annotation matches when the same text appears elsewhere', () => {
+    const spans: TextSpan[] = [
+      {
+        text: 'FreeText',
+        x: 70.86,
+        y: 70.32,
+        width: 39.08,
+        height: 10.98,
+        fontSize: 10.98,
+      },
+    ];
+    const annotations: PageAnnotation[] = [
+      {
+        subtype: 'FreeText',
+        contents: 'FreeText content',
+        x: 71,
+        y: 94.62,
+        width: 67.98,
+        height: 10.04,
+      },
+    ];
+    const compiled = compileSearch('FreeText', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 595.32, 841.92, compiled, undefined, undefined, annotations);
+
+    expect(matches).toHaveLength(2);
+    expect(matches[0]).toMatchObject({
+      text: 'FreeText',
+      source: 'native',
+      bbox: { x: 70.86, y: 70.32, width: 39.08, height: 10.98 },
+    });
+    expect(matches[1]).toMatchObject({
+      text: 'FreeText',
+      source: 'annotation',
+      bbox: { x: 71, y: 94.62, width: 67.98, height: 10.04 },
+      context: 'FreeText annotation: FreeText content',
+    });
+  });
+
+  it('suppresses overlapping FreeText annotation duplicates already present in native text', () => {
+    const spans: TextSpan[] = [
+      {
+        text: 'FreeText content',
+        x: 71,
+        y: 94.62,
+        width: 67.98,
+        height: 10.04,
+        fontSize: 10.04,
+      },
+    ];
+    const annotations: PageAnnotation[] = [
+      {
+        subtype: 'FreeText',
+        contents: 'FreeText content',
+        x: 71,
+        y: 94.62,
+        width: 67.98,
+        height: 10.04,
+      },
+    ];
+    const compiled = compileSearch('FreeText content', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 595.32, 841.92, compiled, undefined, undefined, annotations);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'FreeText content',
+      source: 'native',
+    });
+  });
+
+  it('matches Latin phrases across tight sentence-punctuation gaps', () => {
+    const spans: TextSpan[] = [
+      {
+        text: 'Fig 2. Two particle desynchronization dynamics.',
+        x: 155.74,
+        y: 385.9,
+        width: 180.6,
+        height: 8,
+        fontSize: 8,
+      },
+      {
+        text: 'Relative position dynamics (upper panel)',
+        x: 338.06,
+        y: 385.9,
+        width: 130,
+        height: 8,
+        fontSize: 8,
+      },
+    ];
+    const compiled = compileSearch('dynamics. Relative position', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 595, 842, compiled);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'dynamics. Relative position',
+      source: 'native',
+      page: 1,
+    });
+    expect(matches[0].boxes).toHaveLength(2);
+  });
+
+  it('matches phrases across tight number-to-Latin gaps', () => {
+    const spans: TextSpan[] = [
+      { text: 'Figure 1', x: 469.79, y: 33.65, width: 33.34, height: 10.5, fontSize: 10.5 },
+      { text: 'on the left', x: 505.22, y: 33.65, width: 40.12, height: 10.5, fontSize: 10.5 },
+    ];
+    const compiled = compileSearch('Figure 1 on', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 595, 842, compiled);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'Figure 1 on',
+      source: 'native',
+      page: 1,
+    });
+    expect(matches[0].boxes).toHaveLength(2);
+  });
+
+  it('matches phrases across tight Latin-to-Greek symbol gaps', () => {
+    const spans: TextSpan[] = [
+      { text: 'if', x: 200.01, y: 454.83, width: 5.47, height: 10, fontSize: 10 },
+      { text: 'γ', x: 207.55, y: 454.83, width: 4.65, height: 10, fontSize: 10 },
+      { text: '= 1 the fixed point', x: 214.19, y: 454.83, width: 76, height: 10, fontSize: 10 },
+    ];
+    const compiled = compileSearch('if γ= 1', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 595, 842, compiled);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'if γ= 1',
+      source: 'native',
+      page: 1,
+    });
+    expect(matches[0].boxes).toHaveLength(3);
+  });
+
+  it('matches hyphenated terms across adjacent line breaks', () => {
+    const spans: TextSpan[] = [
+      { text: 'according to exam-', x: 122.94, y: 664.47, width: 80, height: 8.97, fontSize: 9.15 },
+      { text: 'specific rubrics', x: 122.94, y: 674.03, width: 70, height: 8.97, fontSize: 8.97 },
+    ];
+    const compiled = compileSearch('exam-specific', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 595, 842, compiled);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'exam-specific',
+      source: 'native',
+      page: 1,
+    });
+    expect(matches[0].boxes).toHaveLength(2);
+  });
+
+  it('matches phrases across Type3-style wide word spacing rows', () => {
+    const spans: TextSpan[] = [
+      { text: 'ab', x: 50, y: 60, width: 20, height: 10, fontSize: 10 },
+      { text: 'ba', x: 120, y: 60, width: 20, height: 10, fontSize: 10 },
+      { text: 'abba', x: 190, y: 60, width: 40, height: 10, fontSize: 10 },
+    ];
+    const compiled = compileSearch('ab ba abba', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 300, 80, compiled);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'ab ba abba',
+      source: 'native',
+      page: 1,
+    });
+    expect(matches[0].boxes).toHaveLength(3);
+  });
+
+  it('does not match phrases across narrow recurring column gutters', () => {
+    const spans: TextSpan[] = [
+      {
+        text: 'recommendation for Kreate following the Q4 report. In 2024,',
+        x: 27,
+        y: 74.47,
+        width: 293.09,
+        height: 11.04,
+        fontSize: 11.04,
+      },
+      {
+        text: 'earnings forecasts were moderate. The outlook for infrastructure',
+        x: 334.85,
+        y: 74.47,
+        width: 285.67,
+        height: 11.04,
+        fontSize: 11.04,
+      },
+    ];
+
+    const crossColumn = compileSearch('2024, earnings', {});
+    const leftColumn = compileSearch('Q4 report. In 2024', {});
+    const rightColumn = compileSearch('earnings forecasts', {});
+    if (!crossColumn || !leftColumn || !rightColumn) throw new Error('expected compiled search');
+
+    expect(searchPage(spans, undefined, 1, 960, 540, crossColumn)).toHaveLength(0);
+    expect(searchPage(spans, undefined, 1, 960, 540, leftColumn)).toHaveLength(1);
+    expect(searchPage(spans, undefined, 1, 960, 540, rightColumn)).toHaveLength(1);
   });
 
   it('omits matches[] entirely when no search was requested', async () => {
@@ -192,6 +657,52 @@ describe('processDocument search', () => {
     expect(result.pages[0].matches?.length ?? 0).toBeGreaterThan(0);
   });
 
+  it('matches CJK literal queries across display-spaced glyphs', () => {
+    const compiled = compileSearch('科学', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(
+      [
+        { text: '科', x: 265.44, y: 161.04, width: 15.96, height: 15.96, fontSize: 15.96 },
+        { text: '学', x: 313.68, y: 161.04, width: 15.96, height: 15.96, fontSize: 15.96 },
+      ],
+      undefined,
+      1,
+      595,
+      842,
+      compiled,
+    );
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0].text).toBe('科 学');
+    expect(matches[0].boxes).toEqual([
+      { x: 265.44, y: 161.04, width: 15.96, height: 15.96 },
+      { x: 313.68, y: 161.04, width: 15.96, height: 15.96 },
+    ]);
+    expect(matches[0].bbox).toEqual({ x: 265.44, y: 161.04, width: 64.2, height: 15.96 });
+  });
+
+  it('does not match CJK literals across dense glyph column gutters', () => {
+    const compiled = compileSearch('海道', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(
+      [
+        { text: '北', x: 50, y: 80, width: 10, height: 10, fontSize: 10 },
+        { text: '海', x: 62, y: 80, width: 10, height: 10, fontSize: 10 },
+        { text: '道', x: 110, y: 80, width: 10, height: 10, fontSize: 10 },
+        { text: '東', x: 122, y: 80, width: 10, height: 10, fontSize: 10 },
+      ],
+      undefined,
+      1,
+      300,
+      200,
+      compiled,
+    );
+
+    expect(matches).toHaveLength(0);
+  });
+
   it('mirrors matchCount on the overview when search ran on a multi-page doc', async () => {
     // SAMPLE_JA_PDF is multi-page so an overview is built. matchCount
     // is the per-page hit count and is present-with-`0` on pages
@@ -297,6 +808,42 @@ describe('processDocument search', () => {
       { x: 142, y: 20, width: 10, height: 10 },
     ]);
     expect(matches[0].bbox).toEqual({ x: 100, y: 20, width: 52, height: 10 });
+  });
+
+  it('slices vertical CJK span matches along the y axis', async () => {
+    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const compiled = compileSearch('縦中横', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const matches = searchPage(
+      [{ text: '縦中横は便利です', x: 180, y: 45, width: 9, height: 90, fontSize: 9 }],
+      undefined,
+      1,
+      612,
+      792,
+      compiled,
+    );
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0].boxes).toEqual([{ x: 180, y: 45, width: 9, height: 33.75 }]);
+    expect(matches[0].bbox).toEqual({ x: 180, y: 45, width: 9, height: 33.75 });
+  });
+
+  it('slices rotated Latin span matches along the y axis', async () => {
+    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const compiled = compileSearch('cd', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const matches = searchPage(
+      [{ text: 'abcdef', x: 90, y: 20, width: 12, height: 60, fontSize: 12 }],
+      undefined,
+      1,
+      612,
+      792,
+      compiled,
+    );
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0].boxes).toEqual([{ x: 90, y: 40, width: 12, height: 20 }]);
+    expect(matches[0].bbox).toEqual({ x: 90, y: 40, width: 12, height: 20 });
   });
 
   it('does not double-insert a synthetic space when adjacent spans already carry whitespace', async () => {

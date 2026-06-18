@@ -1,5 +1,16 @@
 import { createHash } from 'node:crypto';
-import { lstatSync, mkdirSync, mkdtempSync, realpathSync, statSync } from 'node:fs';
+import {
+  closeSync,
+  fstatSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  openSync,
+  readFileSync,
+  readSync,
+  realpathSync,
+  statSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import {
   join,
@@ -35,10 +46,11 @@ import type {
   TextSpan,
   VectorBox,
 } from '../types/index.js';
-import { buildAnnotations } from './annotations.js';
+import { buildAnnotations, hasVisibleAnnotationAppearance } from './annotations.js';
 import { buildAttachments } from './attachments.js';
 import { dropCached, ensurePrivateDir, getCacheDir, getCached, pdfFingerprint, setCache } from './cache.js';
 import { type JoinItem, joinPageText } from './cjkJoin.js';
+import { resolveDestinationPage } from './destinations.js';
 import { buildFormFields } from './formFields.js';
 import { buildImageBoxes, type ImageOps } from './imageBoxes.js';
 import { buildLayers } from './layers.js';
@@ -55,13 +67,15 @@ import { buildPageStructure, countStructureNodes } from './structure.js';
 import { textMatrixFontSize, textRunGeometryFromTransform } from './textGeometry.js';
 import { buildVectorBoxes } from './vectorBoxes.js';
 import { countVectorPaintOps } from './vectorOps.js';
-import { buildViewerState } from './viewer.js';
+import { buildViewerState, normalizeJavaScriptActions } from './viewer.js';
 import { type BuildVisualRegionsInput, buildVisualRegions } from './visualRegions.js';
 import { detectPageWarnings } from './warnings.js';
+import { extractWidgetAppearanceCaptions } from './widgetAppearance.js';
 
 /** Inputs that determine which cached entry a request maps to. */
 interface CacheKeyInput {
   pages?: string;
+  password?: string;
   render?: boolean;
   renderOutput?: string;
   renderScale?: number;
@@ -149,6 +163,12 @@ function assertSafeRenderDir(dir: string): void {
   }
 }
 
+function assertRenderAncestorDir(dir: string): void {
+  if (!statSync(dir).isDirectory()) {
+    throw new Error(`Refusing to render into ${dir}: path exists but is not a directory`);
+  }
+}
+
 function ensureSafeRenderRoot(dir: string): void {
   const resolved = resolve(dir);
   const missing: string[] = [];
@@ -156,7 +176,8 @@ function ensureSafeRenderRoot(dir: string): void {
 
   while (true) {
     try {
-      assertSafeRenderDir(current);
+      if (current === resolved) assertSafeRenderDir(current);
+      else assertRenderAncestorDir(current);
       break;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
@@ -276,7 +297,9 @@ function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when the on-disk DocumentResult shape changes so older entries
     // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v68',
+    format: 'structured-v125',
+    passwordHash:
+      input.password !== undefined ? createHash('sha256').update(input.password).digest('hex').slice(0, 16) : null,
     render: !!input.render,
     // Including the resolved render-output dir keeps two invocations with
     // different `--render-output` targets from sharing image paths.
@@ -347,6 +370,22 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+function textItemDedupeKey(
+  text: string,
+  width: number,
+  height: number,
+  transform: readonly number[] | undefined,
+  fontName: unknown,
+): string {
+  const geometry = transform ? transform.map((value) => Math.round(value * 1000) / 1000).join(',') : 'no-transform';
+  const font = typeof fontName === 'string' ? fontName : '';
+  return JSON.stringify([text, round3(width), round3(height), geometry, font]);
+}
+
+function round3(n: number): number {
+  return Math.round(n * 1000) / 1000;
+}
+
 /**
  * Whitespace-normalise (and drop empty separators from) the OCR language
  * string used for cache keying. Order is preserved on purpose —
@@ -374,6 +413,7 @@ interface PageData {
   charCount: number;
   imageCount: number;
   rasterBackedTextLayer: boolean;
+  optionalContentText: boolean;
   vectorCount: number;
   textCoverage: number;
   nonPrintableRatio: number;
@@ -388,12 +428,18 @@ interface PageData {
   _internalSpans?: TextSpan[];
   layout?: PageLayout;
   imageBoxes?: ImageBox[];
+  _warningImageBoxes?: ImageBox[];
   vectorBoxes?: VectorBox[];
+  _warningVectorBoxes?: VectorBox[];
   _visualRegionInput?: BuildVisualRegionsInput;
+  hasVisibleAnnotationAppearance?: boolean;
   formFields?: FormField[];
+  _internalFormFields?: FormField[];
   links?: PageLink[];
   annotations?: PageAnnotation[];
+  _internalAnnotations?: PageAnnotation[];
   structure?: PageStructureNode | null;
+  jsActions?: Record<string, string[]>;
 }
 
 interface PageFlags {
@@ -406,11 +452,25 @@ interface PageFlags {
   formFields: boolean;
   links: boolean;
   annotations: boolean;
+  annotationAppearanceHints: boolean;
   structure: boolean;
+  viewer: boolean;
   /** Build spans internally even when neither `geometry` nor `layout`
    *  was requested. Search needs them for per-match bbox; the public
    *  `pages[].spans` payload still requires `geometry`. */
   needSpansForSearch: boolean;
+  /** Build form fields internally so search can find visible widget
+   *  values without forcing pages[].formFields into the public payload. */
+  needFormFieldsForSearch: boolean;
+  /** Build annotations internally so search can find visible FreeText
+   *  annotations without forcing pages[].annotations into the payload. */
+  needAnnotationsForSearch: boolean;
+}
+
+function hasPushButtonWidget(annotation: unknown): boolean {
+  if (!annotation || typeof annotation !== 'object') return false;
+  const raw = annotation as { subtype?: unknown; fieldType?: unknown; pushButton?: unknown };
+  return raw.subtype === 'Widget' && raw.fieldType === 'Btn' && raw.pushButton === true;
 }
 
 /**
@@ -425,9 +485,11 @@ async function extractPageData(
   pageNum: number,
   ops: ImageOps,
   flags: PageFlags,
+  getWidgetAppearanceCaptions?: () => ReadonlyMap<string, string>,
 ): Promise<PageData> {
   const page = await doc.getPage(pageNum);
-  const content = await page.getTextContent();
+  const content = await page.getTextContent({ includeMarkedContent: true });
+  const optionalContentText = content.items.some(isOptionalContentTextMarker);
 
   const view = page.view;
   // MediaBox is normally [minX, minY, maxX, maxY] but the spec allows the
@@ -443,7 +505,13 @@ async function extractPageData(
   // even though we may only expose them on PageResult when `geometry`
   // is on.
   const wantSpans =
-    flags.geometry || flags.layout || flags.visualRegions || flags.formFields || flags.needSpansForSearch;
+    flags.geometry ||
+    flags.layout ||
+    flags.visualRegions ||
+    flags.formFields ||
+    flags.links ||
+    flags.needSpansForSearch ||
+    flags.needFormFieldsForSearch;
 
   // Collect typed items for the CJK-aware page-text joiner. We can't
   // build the final string in this loop because the join decision for
@@ -452,6 +520,7 @@ async function extractPageData(
   const joinItems: JoinItem[] = [];
   let textArea = 0;
   const spans: TextSpan[] = [];
+  const seenTextItems = new Map<string, number>();
   for (const item of content.items) {
     if (!('str' in item)) continue;
     const w = typeof item.width === 'number' ? item.width : 0;
@@ -461,6 +530,15 @@ async function extractPageData(
     const reportedH = typeof item.height === 'number' ? item.height : 0;
     const transform = item.transform;
     const h = reportedH > 0 ? reportedH : transform ? textMatrixFontSize(transform) : 0;
+    const itemKey = textItemDedupeKey(item.str, w, h, transform, item.fontName);
+    const seenIndex = seenTextItems.get(itemKey);
+    if (seenIndex !== undefined) {
+      // Overprinted text often appears twice with identical geometry,
+      // sometimes differing only in pdf.js' hard-EOL flag. Keep one text
+      // run, but preserve the line-break signal if any duplicate carries it.
+      if (item.hasEOL) joinItems[seenIndex].hasEOL = true;
+      continue;
+    }
     textArea += Math.abs(w * h);
 
     // Feed the page-text joiner. x/fontSize default to 0 when the
@@ -469,12 +547,14 @@ async function extractPageData(
     // to a neighbour.
     const itemX = transform ? transform[4] : 0;
     const itemFontSize = transform ? textMatrixFontSize(transform, h) : h;
+    seenTextItems.set(itemKey, joinItems.length);
     joinItems.push({
       str: item.str,
       x: itemX,
       width: w,
       fontSize: itemFontSize,
       hasEOL: !!item.hasEOL,
+      ...(typeof item.dir === 'string' && { dir: item.dir }),
     });
 
     // Skip whitespace-only items in spans output — pdf.js emits a span
@@ -490,6 +570,7 @@ async function extractPageData(
         pageHeight: height,
         viewMinX: xMin,
         viewMinY: yMin,
+        dir: typeof item.dir === 'string' ? item.dir : undefined,
       });
       spans.push({
         text: flags.normalize ? normalizeText(item.str) : item.str,
@@ -516,29 +597,46 @@ async function extractPageData(
   const allBoxes = buildImageBoxes(opList.fnArray, opList.argsArray as unknown[][], ops, height, view[0], yMin);
   const imageCount = allBoxes.length;
   const imageBoxes = flags.imageBoxes ? allBoxes : undefined;
-  const vectorCount = countVectorPaintOps(opList.fnArray, opList.argsArray as unknown[][], ops);
+  const vectorCount = countVectorPaintOps(
+    opList.fnArray,
+    opList.argsArray as unknown[][],
+    ops,
+    width,
+    height,
+    xMin,
+    yMin,
+  );
   const allVectorBoxes =
-    flags.vectorBoxes || flags.visualRegions
-      ? buildVectorBoxes(opList.fnArray, opList.argsArray as unknown[][], ops, height, xMin, yMin)
-      : undefined;
+    vectorCount > 0
+      ? buildVectorBoxes(opList.fnArray, opList.argsArray as unknown[][], ops, width, height, xMin, yMin)
+      : [];
   const vectorBoxes = flags.vectorBoxes ? allVectorBoxes : undefined;
   // Build layout internally for form-field labels and visual-region table
   // hints, but only expose pages[].layout when --layout is explicitly on.
   const internalLayout =
-    flags.layout || flags.visualRegions || flags.formFields ? buildLayout(spans, round2(width)) : undefined;
-  const layout = flags.layout ? internalLayout : undefined;
-  const annotations =
-    flags.formFields || flags.links || flags.annotations || flags.visualRegions
-      ? await page.getAnnotations({ intent: 'display' })
+    flags.layout || flags.visualRegions || flags.formFields || flags.links || flags.needFormFieldsForSearch
+      ? buildLayout(spans, round2(width), round2(height))
       : undefined;
+  const layout = flags.layout ? internalLayout : undefined;
+  const needsAnnotations =
+    flags.formFields ||
+    flags.links ||
+    flags.annotations ||
+    flags.visualRegions ||
+    flags.annotationAppearanceHints ||
+    flags.needAnnotationsForSearch ||
+    flags.needFormFieldsForSearch;
+  const annotations = needsAnnotations ? await page.getAnnotations({ intent: 'display' }) : undefined;
+  const visibleAnnotationAppearance = annotations ? hasVisibleAnnotationAppearance(annotations) : false;
+  const widgetAppearanceCaptions = annotations?.some(hasPushButtonWidget) ? getWidgetAppearanceCaptions?.() : undefined;
   const allFormFields =
-    flags.formFields || flags.visualRegions
+    flags.formFields || flags.visualRegions || flags.needFormFieldsForSearch
       ? buildFormFields(
           annotations ?? [],
           height,
           xMin,
           yMin,
-          flags.formFields || flags.visualRegions
+          flags.formFields || flags.visualRegions || flags.needFormFieldsForSearch
             ? [
                 ...(internalLayout?.blocks.flatMap((block) =>
                   (block.lines.length > 0 ? block.lines : [block]).map((item) => ({
@@ -560,17 +658,44 @@ async function extractPageData(
                 })),
               ]
             : [],
+          { widgetAppearanceCaptions },
         )
       : undefined;
   const formFields = flags.formFields ? allFormFields : undefined;
-  const links = flags.links ? buildLinks(annotations ?? [], height, xMin, yMin) : undefined;
-  const pageAnnotations = flags.annotations
-    ? buildAnnotations(annotations ?? [], height, xMin, yMin, {
-        normalizeText: flags.normalize ? normalizeText : undefined,
+  const internalFormFields = flags.needFormFieldsForSearch ? allFormFields : undefined;
+  const links = flags.links
+    ? await buildLinks(annotations ?? [], height, xMin, yMin, {
+        resolveDestinationPage: (target) => resolveDestinationPage(doc, target),
+        labelLines:
+          internalLayout?.blocks.flatMap((block) =>
+            (block.lines.length > 0 ? block.lines : [block]).map((item) => ({
+              text: item.text,
+              x: item.x,
+              y: item.y,
+              width: item.width,
+              height: item.height,
+            })),
+          ) ?? [],
       })
     : undefined;
+  const allPageAnnotations =
+    flags.annotations || flags.visualRegions || flags.needAnnotationsForSearch
+      ? buildAnnotations(annotations ?? [], height, xMin, yMin, {
+          normalizeText: flags.normalize ? normalizeText : undefined,
+        })
+      : undefined;
+  const pageAnnotations = flags.annotations ? allPageAnnotations : undefined;
+  const internalAnnotations = flags.needAnnotationsForSearch ? allPageAnnotations : undefined;
   const structure = flags.structure
     ? buildPageStructure(await page.getStructTree(), {
+        normalizeText: flags.normalize ? normalizeText : undefined,
+        pageHeight: height,
+        viewMinX: xMin,
+        viewMinY: yMin,
+      })
+    : undefined;
+  const jsActions = flags.viewer
+    ? normalizeJavaScriptActions(await page.getJSActions(), {
         normalizeText: flags.normalize ? normalizeText : undefined,
       })
     : undefined;
@@ -596,6 +721,7 @@ async function extractPageData(
         vectorBoxes: allVectorBoxes,
         layout: internalLayout,
         formFields: allFormFields,
+        annotations: allPageAnnotations,
       }
     : undefined;
 
@@ -615,6 +741,7 @@ async function extractPageData(
     charCount: text.length,
     imageCount,
     rasterBackedTextLayer,
+    optionalContentText,
     vectorCount,
     textCoverage: Math.round(textCoverage * 1000) / 1000,
     nonPrintableRatio: npStats.ratio,
@@ -633,13 +760,25 @@ async function extractPageData(
     ...(flags.needSpansForSearch && { _internalSpans: spans }),
     ...(layout !== undefined && { layout }),
     ...(imageBoxes !== undefined && { imageBoxes }),
+    _warningImageBoxes: allBoxes,
     ...(vectorBoxes !== undefined && { vectorBoxes }),
+    _warningVectorBoxes: allVectorBoxes,
     ...(visualRegionInput !== undefined && { _visualRegionInput: visualRegionInput }),
+    ...(visibleAnnotationAppearance && { hasVisibleAnnotationAppearance: true }),
     ...(formFields !== undefined && { formFields }),
+    ...(internalFormFields !== undefined && { _internalFormFields: internalFormFields }),
     ...(links !== undefined && { links }),
     ...(pageAnnotations !== undefined && { annotations: pageAnnotations }),
+    ...(internalAnnotations !== undefined && { _internalAnnotations: internalAnnotations }),
     ...(structure !== undefined && { structure }),
+    ...(jsActions !== undefined && { jsActions }),
   };
+}
+
+function isOptionalContentTextMarker(item: unknown): boolean {
+  if (!item || typeof item !== 'object') return false;
+  const marker = item as { type?: unknown; tag?: unknown };
+  return marker.type === 'beginMarkedContentProps' && marker.tag === 'OC';
 }
 
 /** Render a structured DocumentResult into the caller-requested string format. */
@@ -717,6 +856,47 @@ function dropCachedSafe(cacheDir: string, cacheKey: string): void {
 
 function fingerprintData(data: Uint8Array): string {
   return createHash('sha256').update(data).digest('hex').slice(0, 16);
+}
+
+/** Bytes scanned at the end of the file for the `%%EOF` marker. The PDF
+ *  spec requires the trailer within the last 1024 bytes; doubled for
+ *  slack (trailing whitespace, sloppy producers). */
+const EOF_SCAN_WINDOW_BYTES = 2048;
+
+/**
+ * When pdf.js fails to parse a document, check whether the underlying
+ * bytes even end in a `%%EOF` trailer. A missing trailer almost always
+ * means the file is truncated (an interrupted download is the common
+ * case — observed with a 128KB partial of the 1.6MB NIST SP 800-63-3),
+ * and pdf.js's own message for that ("Invalid Root reference") gives a
+ * caller no way to tell a broken PDF from a broken download. The probe
+ * is best-effort: any inspection failure returns the original error.
+ */
+function withTruncationHint(error: unknown, pdfData: Uint8Array | undefined, filePath: string): unknown {
+  if (!(error instanceof Error)) return error;
+  let tail: Uint8Array;
+  try {
+    if (pdfData) {
+      tail = pdfData.subarray(Math.max(0, pdfData.length - EOF_SCAN_WINDOW_BYTES));
+    } else {
+      const fd = openSync(filePath, 'r');
+      try {
+        const size = fstatSync(fd).size;
+        const length = Math.min(EOF_SCAN_WINDOW_BYTES, size);
+        const buffer = Buffer.alloc(length);
+        readSync(fd, buffer, 0, length, size - length);
+        tail = buffer;
+      } finally {
+        closeSync(fd);
+      }
+    }
+  } catch {
+    return error;
+  }
+  if (Buffer.from(tail).includes('%%EOF')) return error;
+  error.message +=
+    ' (no %%EOF trailer in the final bytes — the file is likely truncated, e.g. an incomplete download; re-download it and compare byte sizes before retrying)';
+  return error;
 }
 
 /**
@@ -832,6 +1012,14 @@ export async function processDocument(filePath: string, options: ProcessDocument
     OPS.closeFillStroke,
     OPS.closeEOFillStroke,
   ]);
+  const pathFillOps = new Set<number>([
+    OPS.fill,
+    OPS.eoFill,
+    OPS.fillStroke,
+    OPS.eoFillStroke,
+    OPS.closeFillStroke,
+    OPS.closeEOFillStroke,
+  ]);
   const vectorPaintOps = new Set<number>([...pathPaintOps, OPS.shadingFill, OPS.rawFillPath]);
   // Hand pdf.js the bundled OpenJPEG (JPX / JPEG2000) + JBIG2 wasm decoders,
   // predefined CJK CMap pack, and standard font data.
@@ -856,6 +1044,9 @@ export async function processDocument(filePath: string, options: ProcessDocument
   // Best-effort: if pdfjs-dist resolution fails, fall back to pre-asset
   // behaviour rather than failing the whole extraction.
   const docOptions: Record<string, unknown> = pdfData ? { data: pdfData } : { url: filePath };
+  if (options.password !== undefined) {
+    docOptions.password = options.password;
+  }
   try {
     // `import.meta.resolve` is sync since Node 20.6 and returns a file://
     // URL for an installed package; convert to a plain directory path so
@@ -878,7 +1069,19 @@ export async function processDocument(filePath: string, options: ProcessDocument
     // than fail the whole extraction over a missing optional asset.
   }
   const loadingTask = getDocument(docOptions);
-  const doc = await loadingTask.promise;
+  let doc: PDFDocumentProxy;
+  try {
+    doc = await loadingTask.promise;
+  } catch (error) {
+    try {
+      await loadingTask.destroy();
+    } catch {
+      // Preserve the original parse failure; cleanup here is best-effort.
+    }
+    throw withTruncationHint(error, pdfData, filePath);
+  }
+  const pdfJsWarnings: string[] = [];
+  const restorePdfJsWarningCapture = capturePdfJsWarnings(pdfJsWarnings);
   try {
     const totalPages = doc.numPages;
     let pageNumbers: number[];
@@ -957,11 +1160,14 @@ export async function processDocument(filePath: string, options: ProcessDocument
           normalizeText: options.normalize !== false ? normalizeText : undefined,
         })
       : undefined;
-    const layers: DocumentLayers | undefined = options.layers
-      ? await buildLayers(doc, {
-          normalizeText: options.normalize !== false ? normalizeText : undefined,
-        })
-      : undefined;
+    const layerStateOptions = {
+      normalizeText: options.normalize !== false ? normalizeText : undefined,
+    };
+    const layerState = options.layers
+      ? await buildLayers(doc, layerStateOptions)
+      : await buildLayers(doc, layerStateOptions).catch((): DocumentLayers => ({ groups: [] }));
+    const layers: DocumentLayers | undefined = options.layers ? layerState : undefined;
+    const hasHiddenOptionalContent = layerState.groups.some((group) => !group.visible);
 
     let imagePaths: string[] | null = null;
     // Parallel array to imagePaths: renderContentRatio for each rendered
@@ -997,30 +1203,61 @@ export async function processDocument(filePath: string, options: ProcessDocument
       formFields: !!options.formFields,
       links: !!options.links,
       annotations: !!options.annotations,
+      annotationAppearanceHints: !!options.render || !!options.ocr,
       structure: !!options.structure,
+      viewer: !!options.viewer,
       // Search needs span-level bbox to populate `matches[*].bbox`;
       // build spans internally even if the caller didn't ask for the
       // full `pages[].spans` payload via --geometry.
       needSpansForSearch: compiledSearch !== undefined,
+      needFormFieldsForSearch: compiledSearch !== undefined,
+      needAnnotationsForSearch: compiledSearch !== undefined,
     };
     const ocrEnabled = !!options.ocr;
     const ocrLang = options.ocrLang ?? 'eng';
     const rasterBackedTextLayerByPage = new Map<number, boolean>();
+    const optionalContentTextByPage = new Map<number, boolean>();
+    const warningImageBoxesByPage = new Map<number, ImageBox[]>();
+    const warningVectorBoxesByPage = new Map<number, VectorBox[]>();
     const visualRegionInputsByPage = new Map<number, BuildVisualRegionsInput>();
+    const annotationAppearanceByPage = new Map<number, boolean>();
     const imageOps: ImageOps = {
       save: OPS.save,
       restore: OPS.restore,
       transform: OPS.transform,
       formBegin: OPS.paintFormXObjectBegin,
       formEnd: OPS.paintFormXObjectEnd,
+      setFillColorN: OPS.setFillColorN,
+      fillColorOps: new Set<number>([
+        OPS.setFillColor,
+        OPS.setFillColorN,
+        OPS.setFillRGBColor,
+        OPS.setFillCMYKColor,
+        OPS.setFillColorSpace,
+      ]),
       singleImageOps,
       constructPath: OPS.constructPath,
       pathPaintOps,
+      pathFillOps,
       vectorPaintOps,
+      shadingFill: OPS.shadingFill,
       paintImageXObjectRepeat: OPS.paintImageXObjectRepeat,
       paintImageMaskXObjectRepeat: OPS.paintImageMaskXObjectRepeat,
       paintImageMaskXObjectGroup: OPS.paintImageMaskXObjectGroup,
       paintInlineImageXObjectGroup: OPS.paintInlineImageXObjectGroup,
+    };
+    let widgetAppearanceCaptions: ReadonlyMap<string, string> | undefined;
+    const getWidgetAppearanceCaptions = (): ReadonlyMap<string, string> => {
+      if (widgetAppearanceCaptions !== undefined) return widgetAppearanceCaptions;
+      try {
+        const rawCaptions = extractWidgetAppearanceCaptions(pdfData ?? readFileSync(filePath));
+        widgetAppearanceCaptions = flags.normalize
+          ? new Map(Array.from(rawCaptions, ([id, caption]) => [id, normalizeText(caption)]))
+          : rawCaptions;
+      } catch {
+        widgetAppearanceCaptions = new Map();
+      }
+      return widgetAppearanceCaptions;
     };
     // Parallelise per-page extraction. pdfjs's PDFDocumentProxy is safe
     // to call concurrently — each `getPage` resolves through its own
@@ -1029,9 +1266,13 @@ export async function processDocument(filePath: string, options: ProcessDocument
     // (defaultConcurrency) keeps memory bounded on large multi-page
     // docs where every concurrent page builds its own canvas / op list.
     const pages: PageResult[] = await runParallel(pageNumbers, async (pageNum, i) => {
-      const data = await extractPageData(doc, pageNum, imageOps, flags);
+      const data = await extractPageData(doc, pageNum, imageOps, flags, getWidgetAppearanceCaptions);
       rasterBackedTextLayerByPage.set(pageNum, data.rasterBackedTextLayer);
+      optionalContentTextByPage.set(pageNum, data.optionalContentText);
+      warningImageBoxesByPage.set(pageNum, data._warningImageBoxes ?? []);
+      warningVectorBoxesByPage.set(pageNum, data._warningVectorBoxes ?? []);
       if (data._visualRegionInput) visualRegionInputsByPage.set(pageNum, data._visualRegionInput);
+      if (data.hasVisibleAnnotationAppearance) annotationAppearanceByPage.set(pageNum, true);
       const renderRatio = renderRatios[i];
       const page: PageResult = {
         page: pageNum,
@@ -1057,12 +1298,15 @@ export async function processDocument(filePath: string, options: ProcessDocument
         ...(data.links !== undefined && { links: data.links }),
         ...(data.annotations !== undefined && { annotations: data.annotations }),
         ...(data.structure !== undefined && { structure: data.structure }),
+        ...(data.jsActions !== undefined && { jsActions: data.jsActions }),
         // Initial classification using whatever signals we have so far.
         // OCR may attach a renderContentRatio below; the post-OCR pass
         // overwrites this with the final classification.
         quality: { nativeTextStatus: 'empty' },
       };
-      page.quality = derivePageQuality(page);
+      page.quality = derivePageQuality(page, {
+        hasVisibleAnnotationAppearance: annotationAppearanceByPage.get(pageNum) ?? false,
+      });
       // Run the native (span-based) search pass here while the internal
       // spans are still in scope. OCR-based matches are appended
       // post-OCR below — both produce the same SearchMatch shape, so
@@ -1076,6 +1320,8 @@ export async function processDocument(filePath: string, options: ProcessDocument
           data.height,
           compiledSearch,
           options.onWarning,
+          data._internalFormFields,
+          data._internalAnnotations,
         );
         page.matches = nativeMatches;
       }
@@ -1100,7 +1346,11 @@ export async function processDocument(filePath: string, options: ProcessDocument
       for (const page of pages) {
         const input = visualRegionInputsByPage.get(page.page);
         page.visualRegions = input
-          ? buildVisualRegions({ ...input, visualStatus: page.quality.visualStatus }).map((region, index) => ({
+          ? buildVisualRegions({
+              ...input,
+              visualStatus: page.quality.visualStatus,
+              nativeTextStatus: page.quality.nativeTextStatus,
+            }).map((region, index) => ({
               ...region,
               id: `p${page.page}-vr${index}`,
             }))
@@ -1116,6 +1366,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
           const rendered = await renderPageWithStats(doc, page.page, imagesDir as string, renderScale, region);
           region.image = rendered.path;
           region.renderContentRatio = rendered.contentRatio;
+          if (rendered.renderedContentBox) region.renderedContentBox = rendered.renderedContentBox;
         });
       }
     }
@@ -1135,7 +1386,9 @@ export async function processDocument(filePath: string, options: ProcessDocument
     // Compute the derived `quality` field *after* OCR so the OCR-only
     // path's renderContentRatio participates in visual-status decisions.
     for (const p of pages) {
-      p.quality = derivePageQuality(p);
+      p.quality = derivePageQuality(p, {
+        hasVisibleAnnotationAppearance: annotationAppearanceByPage.get(p.page) ?? false,
+      });
     }
 
     // Warning detection runs after `markRepeatedBlocks` so geometry
@@ -1156,6 +1409,11 @@ export async function processDocument(filePath: string, options: ProcessDocument
       const warnings = detectPageWarnings(p, {
         chromeDetectionReliable,
         rasterBackedTextLayer: rasterBackedTextLayerByPage.get(p.page),
+        optionalContentText: optionalContentTextByPage.get(p.page),
+        hasHiddenOptionalContent,
+        imageBoxes: warningImageBoxesByPage.get(p.page),
+        vectorBoxes: warningVectorBoxesByPage.get(p.page),
+        pdfJsWarnings,
       });
       if (warnings.length > 0) p.warnings = warnings;
       else delete p.warnings;
@@ -1245,8 +1503,21 @@ export async function processDocument(filePath: string, options: ProcessDocument
 
     return result;
   } finally {
+    restorePdfJsWarningCapture();
     await loadingTask.destroy();
   }
+}
+
+function capturePdfJsWarnings(out: string[]): () => void {
+  const originalWarn = console.warn;
+  console.warn = (...args: unknown[]) => {
+    const msg = args.map(String).join(' ');
+    if (msg.startsWith('Warning:')) out.push(msg);
+    originalWarn(...args);
+  };
+  return () => {
+    console.warn = originalWarn;
+  };
 }
 
 /**
@@ -1275,6 +1546,7 @@ export async function processFile(filePath: string, options: ProcessOptions): Pr
   const result = await processDocument(filePath, {
     pages: options.pages,
     sourceData: options.sourceData,
+    password: options.password,
     render: options.render,
     noCache: options.noCache,
     renderOutput: options.renderOutput,

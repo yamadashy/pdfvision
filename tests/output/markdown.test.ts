@@ -258,12 +258,21 @@ describe('formatMarkdown', () => {
             charCount: 9,
             formFields: [
               {
-                name: 'topmostSubform[0].Page1[0].f1_01[0]',
-                type: 'text',
+                name: 'choice',
+                type: 'choice',
                 x: 228.8,
                 y: 48.5,
                 width: 88,
                 height: 11,
+                value: 'A',
+                displayValue: 'Alpha',
+                readOnly: true,
+                combo: true,
+                multiSelect: false,
+                options: [
+                  { exportValue: 'A', displayValue: 'Alpha' },
+                  { exportValue: 'B', displayValue: 'B' },
+                ],
               },
               {
                 name: 'agree|box',
@@ -274,6 +283,8 @@ describe('formatMarkdown', () => {
                 height: 8,
                 value: 'Off',
                 checked: false,
+                exportValue: 'Yes',
+                flags: ['hidden', 'print'],
                 label: {
                   text: 'Agree | certify',
                   relation: 'right',
@@ -294,9 +305,79 @@ describe('formatMarkdown', () => {
     expect(out).toMatch(/\| 1 \| 9 \| 0 \| 0% \| 612×792 \| 2 \|/);
     expect(out).toMatch(/formFields: 2/);
     expect(out).toContain('### Form fields');
-    expect(out).toContain('| Type | Name | Label | Value | BBox |');
-    expect(out).toContain('| checkbox | agree\\|box | Agree \\| certify (right) | unchecked | 36,62,8,8 |');
+    expect(out).toContain('| Type | Name | Label | Value | Export | Options | Flags | BBox |');
+    expect(out).toContain('| choice | choice |  | Alpha | A | Alpha=A, B | readOnly, combo | 228.8,48.5,88,11 |');
+    expect(out).toContain(
+      '| checkbox | agree\\|box | Agree \\| certify (right) | unchecked | Yes |  | hidden, print | 36,62,8,8 |',
+    );
     expect(out).toContain('_No interactive form fields found._');
+  });
+
+  it('renders form field JavaScript actions', () => {
+    const out = formatMarkdown(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 'form page',
+            charCount: 9,
+            formFields: [
+              {
+                name: 'Execute',
+                type: 'button',
+                x: 10,
+                y: 20,
+                width: 80,
+                height: 20,
+                caption: 'Run now',
+                actions: { Action: ['line1();\r\nline2();'] },
+              },
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toContain('| Type | Name | Label | Value | Options | Actions | Flags | BBox |');
+    expect(out).toContain('| button | Execute |  | Run now |  | Action=line1(); line2(); |  | 10,20,80,20 |');
+  });
+
+  it('renders reset form button actions', () => {
+    const out = formatMarkdown(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 'form page',
+            charCount: 9,
+            formFields: [
+              {
+                name: 'ResetAll',
+                type: 'button',
+                x: 10,
+                y: 20,
+                width: 80,
+                height: 20,
+                resetForm: { fields: [], include: false },
+              },
+              {
+                name: 'ResetSome',
+                type: 'button',
+                x: 10,
+                y: 50,
+                width: 80,
+                height: 20,
+                resetForm: { fields: ['Text1', 'Group11'], include: true },
+              },
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toContain('| Type | Name | Label | Value | Options | Reset | Flags | BBox |');
+    expect(out).toContain('| button | ResetAll |  |  |  | reset all fields |  | 10,20,80,20 |');
+    expect(out).toContain('| button | ResetSome |  |  |  | reset only Text1, Group11 |  | 10,50,80,20 |');
   });
 
   it('adds link counts and a links table when clickable links are present', () => {
@@ -312,6 +393,7 @@ describe('formatMarkdown', () => {
               {
                 type: 'url',
                 target: 'https://example.com?q=a|b',
+                text: 'Example | link',
                 x: 100,
                 y: 72,
                 width: 60,
@@ -320,6 +402,8 @@ describe('formatMarkdown', () => {
               {
                 type: 'destination',
                 target: ['cite.transformer', { name: 'Fit' }],
+                page: 3,
+                text: 'Citation',
                 x: 40,
                 y: 180,
                 width: 40,
@@ -336,8 +420,9 @@ describe('formatMarkdown', () => {
     expect(out).toMatch(/\| 1 \| 11 \| 0 \| 0% \| 612×792 \| 2 \|/);
     expect(out).toMatch(/links: 2/);
     expect(out).toContain('### Links');
-    expect(out).toContain('| url | https://example.com?q=a\\|b | 100,72,60,20 |');
-    expect(out).toContain('| destination | ["cite.transformer",{"name":"Fit"}] | 40,180,40,12 |');
+    expect(out).toContain('| Type | Text | Target | TargetPage | BBox |');
+    expect(out).toContain('| url | Example \\| link | https://example.com?q=a\\|b |  | 100,72,60,20 |');
+    expect(out).toContain('| destination | Citation | ["cite.transformer",{"name":"Fit"}] | 3 | 40,180,40,12 |');
     expect(out).toContain('_No clickable links found._');
   });
 
@@ -353,14 +438,29 @@ describe('formatMarkdown', () => {
             annotations: [
               {
                 subtype: 'Highlight',
+                name: 'Highlight',
                 contents: 'important|note',
                 title: 'Markup',
                 color: [255, 255, 11],
+                flags: ['print', 'noView'],
                 x: 100,
                 y: 80,
                 width: 80,
                 height: 12,
                 quadBoxes: [{ x: 100, y: 80, width: 80, height: 12 }],
+              },
+              {
+                subtype: 'FileAttachment',
+                name: 'PushPin',
+                contents: 'Test.txt',
+                title: 'Reviewer',
+                border: { width: 1, style: 'solid' },
+                line: { from: { x: 1, y: 2 }, to: { x: 3, y: 4 }, endings: ['None', 'OpenArrow'] },
+                fileAttachment: { name: 'Test.txt', size: 15, description: 'Supplement' },
+                x: 70,
+                y: 94,
+                width: 20,
+                height: 24,
               },
             ],
           }),
@@ -370,10 +470,15 @@ describe('formatMarkdown', () => {
     );
 
     expect(out).toMatch(/\| Page \| Chars \| Images \| Coverage \| Size \(pt\) \| Annotations \|/);
-    expect(out).toMatch(/\| 1 \| 9 \| 0 \| 0% \| 612×792 \| 1 \|/);
-    expect(out).toMatch(/annotations: 1/);
+    expect(out).toMatch(/\| 1 \| 9 \| 0 \| 0% \| 612×792 \| 2 \|/);
+    expect(out).toMatch(/annotations: 2/);
     expect(out).toContain('### Annotations');
-    expect(out).toContain('| Highlight | important\\|note | Markup | 100,80,80,12 | 255,255,11 | 1 |');
+    expect(out).toContain(
+      '| Highlight | Highlight | important\\|note | Markup |  | print,noView | 100,80,80,12 | 255,255,11 |  |  | 1 |',
+    );
+    expect(out).toContain(
+      '| FileAttachment | PushPin | Test.txt | Reviewer | Test.txt · 15 bytes · Supplement |  | 70,94,20,24 |  | width=1 solid | line 1,2->3,4 endings=None,OpenArrow | 0 |',
+    );
     expect(out).toContain('_No non-link annotations found._');
   });
 
@@ -386,7 +491,10 @@ describe('formatMarkdown', () => {
             type: 'destination',
             target: 'section.1',
             page: 1,
-            items: [{ title: 'Website', type: 'url', target: 'https://example.com' }],
+            items: [
+              { title: 'Website', type: 'url', target: 'https://example.com' },
+              { title: 'Next page', type: 'action', target: 'NextPage' },
+            ],
           },
         ],
       }),
@@ -395,6 +503,7 @@ describe('formatMarkdown', () => {
     expect(out).toContain('## Outline');
     expect(out).toContain('- Intro \\[draft\\] (p. 1 · destination · section.1)');
     expect(out).toContain('  - Website (url · https://example.com)');
+    expect(out).toContain('  - Next page (action · NextPage)');
   });
 
   it('renders an explicit empty outline message when the outline pass found no bookmarks', () => {
@@ -526,6 +635,7 @@ describe('formatMarkdown', () => {
           pageLayout: 'TwoColumnLeft',
           viewerPreferences: { DisplayDocTitle: true, PrintPageRange: [1, 2] },
           openAction: { type: 'destination', page: 3, target: '[{"name":"Fit"}]' },
+          jsActions: { printMe: ['this.print(true);'] },
           permissions: { flags: [4, 16], allowed: ['print', 'copy'] },
           markInfo: { marked: true, userProperties: false, suspects: false },
         },
@@ -536,9 +646,54 @@ describe('formatMarkdown', () => {
     expect(out).toContain('- **Page mode:** UseOutlines');
     expect(out).toContain('- **Page layout:** TwoColumnLeft');
     expect(out).toContain('- **Open action:** destination · p. 3 · \\[{"name":"Fit"}\\]');
+    expect(out).toContain('- **JavaScript actions:** printMe=this.print(true);');
     expect(out).toContain('- **Permissions:** print, copy');
     expect(out).toContain('- **Mark info:** marked=true, userProperties=false, suspects=false');
     expect(out).toContain('- **Preferences:** DisplayDocTitle=true; PrintPageRange=\\[1,2\\]');
+  });
+
+  it('truncates long JavaScript action summaries in Markdown', () => {
+    const out = formatMarkdown(
+      makeResult({
+        viewer: {
+          jsActions: { bootstrap: ['x'.repeat(700)] },
+        },
+      }),
+    );
+
+    const line = out.split('\n').find((item) => item.startsWith('- **JavaScript actions:**'));
+    expect(line).toBeDefined();
+    expect(line?.length).toBeLessThan(560);
+    expect(line).toContain('bootstrap=');
+    expect(line).toContain('...');
+  });
+
+  it('renders page-level JavaScript actions', () => {
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 2,
+        pages: [
+          makePage({
+            page: 1,
+            text: 'page with actions',
+            charCount: 17,
+            jsActions: {
+              PageOpen: ['this.getField("Text1").value = "PageOpen";'],
+              PageClose: ['this.getField("Text2").value = "PageClose";'],
+            },
+          }),
+          makePage({ page: 2, text: 'plain', charCount: 5 }),
+        ],
+      }),
+    );
+
+    expect(out).toContain('JS Actions');
+    expect(out).toContain('| 1 | 17 | 0 | 0% | 612×792 | 2 |');
+    expect(out).toContain('_chars: 17 · images: 0 · coverage: 0% · jsActions: 2 · size: 612×792pt_');
+    expect(out).toContain('### JavaScript actions');
+    expect(out).toContain(
+      '- PageOpen=this.getField("Text1").value = "PageOpen"; \\| PageClose=this.getField("Text2").value = "PageClose";',
+    );
   });
 
   it('renders an explicit empty viewer message when the viewer pass found no settings', () => {

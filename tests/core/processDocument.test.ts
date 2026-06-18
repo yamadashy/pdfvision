@@ -19,8 +19,10 @@ async function buildPdfWithLink(): Promise<Uint8Array> {
 
   doc.text('Example link', 100, 72);
   doc.link(100, 72, 120, 20, 'https://example.com/path?q=1');
+  doc.text('Details link', 240, 72);
+  doc.goTo(240, 72, 120, 20, 'details');
   doc.addPage({ size: [612, 792], margin: 0 });
-  doc.text('Plain page', 100, 72);
+  doc.text('Plain page', 100, 72, { destination: 'details' });
   doc.end();
 
   await done;
@@ -76,6 +78,39 @@ async function buildPdfWithAnnotations(): Promise<Uint8Array> {
   return new Uint8Array(Buffer.concat(chunks));
 }
 
+async function buildPdfWithDuplicateTextDraws(): Promise<Uint8Array> {
+  const chunks: Buffer[] = [];
+  const doc = new PDFDocument({ size: [612, 792], margin: 0 });
+  doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+  const done = new Promise<void>((resolveDone) => doc.on('end', resolveDone));
+
+  doc.fontSize(24).text('Overprinted text', 100, 100);
+  doc.fontSize(24).text('Overprinted text', 100, 100);
+  doc.fontSize(24).text('Next line', 100, 140);
+  doc.end();
+
+  await done;
+  return new Uint8Array(Buffer.concat(chunks));
+}
+
+async function buildEncryptedPdf(): Promise<Uint8Array> {
+  const chunks: Buffer[] = [];
+  const doc = new PDFDocument({
+    size: [612, 792],
+    margin: 0,
+    userPassword: 'test',
+    ownerPassword: 'owner',
+  } as PDFKit.PDFDocumentOptions & { userPassword: string; ownerPassword: string });
+  doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+  const done = new Promise<void>((resolveDone) => doc.on('end', resolveDone));
+
+  doc.text('Encrypted hello', 100, 72);
+  doc.end();
+
+  await done;
+  return new Uint8Array(Buffer.concat(chunks));
+}
+
 function buildRawPdf(objects: string[]): Uint8Array {
   let body = '%PDF-1.7\n';
   const offsets: number[] = [0];
@@ -93,6 +128,20 @@ function buildRawPdf(objects: string[]): Uint8Array {
   body += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
 
   return new Uint8Array(Buffer.from(body, 'binary'));
+}
+
+function pdfHexString(value: string): string {
+  return `<${Buffer.from(value, 'utf8').toString('hex')}>`;
+}
+
+function pdfUtf16HexString(value: string): string {
+  const bytes = Buffer.alloc(2 + value.length * 2);
+  bytes[0] = 0xfe;
+  bytes[1] = 0xff;
+  for (let i = 0; i < value.length; i += 1) {
+    bytes.writeUInt16BE(value.charCodeAt(i), 2 + i * 2);
+  }
+  return `<${bytes.toString('hex')}>`;
 }
 
 function buildPdfWithPageLabels(): Uint8Array {
@@ -122,6 +171,39 @@ function buildPdfWithViewerState(): Uint8Array {
     '<< /Type /Catalog /Pages 2 0 R /PageMode /UseOutlines /PageLayout /TwoColumnLeft /ViewerPreferences << /DisplayDocTitle true /Direction /R2L >> /OpenAction [3 0 R /FitH 700] /MarkInfo << /Marked true /UserProperties false /Suspects false >> >>',
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
     '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> >>',
+  ]);
+}
+
+function buildPdfWithPageJavaScriptActions(): Uint8Array {
+  const stream = 'BT /F1 12 Tf 72 720 Td (Page JS) Tj ET';
+  const length = Buffer.byteLength(stream, 'binary');
+  const pageOpen = 'var Ａ = "PageOpen"; this.getField("Text1").value = Ａ;';
+  const pageClose = 'this.getField("Text2").value = "PageClose";';
+
+  return buildRawPdf([
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 7 0 R >> >> /Contents 6 0 R /AA << /O 4 0 R /C 5 0 R >> >>',
+    `<< /S /JavaScript /JS ${pdfUtf16HexString(pageOpen)} >>`,
+    `<< /S /JavaScript /JS ${pdfHexString(pageClose)} >>`,
+    `<< /Length ${length} >>\nstream\n${stream}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ]);
+}
+
+function buildPdfWithWidgetAction(): Uint8Array {
+  const stream = 'BT /F1 12 Tf 72 720 Td (Widget action) Tj ET';
+  const length = Buffer.byteLength(stream, 'binary');
+  const action = 'app.alert("clicked");';
+
+  return buildRawPdf([
+    '<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R] >> >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 7 0 R >> >> /Contents 6 0 R /Annots [5 0 R] >>',
+    `<< /S /JavaScript /JS ${pdfHexString(action)} >>`,
+    '<< /Type /Annot /Subtype /Widget /FT /Btn /T (Execute) /Ff 65536 /Rect [100 600 180 620] /P 3 0 R /A 4 0 R >>',
+    `<< /Length ${length} >>\nstream\n${stream}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
   ]);
 }
 
@@ -176,6 +258,80 @@ describe('processDocument', () => {
 
     expect(result.file).toBe('memory://sample.pdf');
     expect(result.pages[0].text).toContain('Hello pdfvision');
+  });
+
+  it('opens encrypted PDFs when the document password is provided', async () => {
+    const sourceData = await buildEncryptedPdf();
+
+    await expect(
+      processDocument('memory://encrypted.pdf', {
+        sourceData,
+        noCache: true,
+      }),
+    ).rejects.toThrow(/password/i);
+
+    const result = await processDocument('memory://encrypted.pdf', {
+      sourceData,
+      password: 'test',
+      noCache: true,
+    });
+
+    expect(result.pages[0].text).toContain('Encrypted hello');
+  });
+
+  it('does not reuse a password-warmed encrypted PDF cache entry without the password', async () => {
+    const sourceData = await buildEncryptedPdf();
+    const cacheRoot = mkdtempSync(resolve(tmpdir(), 'pdfvision-encrypted-cache-'));
+    const previousCacheDir = process.env.PDFVISION_CACHE_DIR;
+    process.env.PDFVISION_CACHE_DIR = cacheRoot;
+
+    try {
+      const warmed = await processDocument('memory://encrypted-cache.pdf', {
+        sourceData,
+        password: 'test',
+      });
+      expect(warmed.pages[0].text).toContain('Encrypted hello');
+
+      await expect(
+        processDocument('memory://encrypted-cache.pdf', {
+          sourceData,
+        }),
+      ).rejects.toThrow(/password/i);
+    } finally {
+      if (previousCacheDir === undefined) delete process.env.PDFVISION_CACHE_DIR;
+      else process.env.PDFVISION_CACHE_DIR = previousCacheDir;
+      rmSync(cacheRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('passes encrypted PDF passwords through processFile', async () => {
+    const output = await processFile('memory://encrypted-process-file.pdf', {
+      sourceData: await buildEncryptedPdf(),
+      password: 'test',
+      format: 'json',
+      noCache: true,
+    });
+
+    const result = JSON.parse(output);
+    expect(result.pages[0].text).toContain('Encrypted hello');
+    expect(output).not.toContain('test');
+  });
+
+  it('collapses exact duplicate text draws before joining text and layout', async () => {
+    const result = await processDocument('memory://duplicate-text.pdf', {
+      sourceData: await buildPdfWithDuplicateTextDraws(),
+      noCache: true,
+      geometry: true,
+      layout: true,
+    });
+
+    expect(result.pages[0].text.match(/Overprinted text/g)).toHaveLength(1);
+    expect(result.pages[0].text).toContain('Next line');
+    expect(result.pages[0].spans?.map((span) => span.text)).toEqual(['Overprinted text', 'Next line']);
+    expect(result.pages[0].layout?.blocks.flatMap((block) => block.lines.map((line) => line.text))).toEqual([
+      'Overprinted text',
+      'Next line',
+    ]);
   });
 
   it('accepts no options (all defaults)', async () => {
@@ -299,6 +455,37 @@ describe('processDocument', () => {
     expect(result.viewer?.openAction?.target).toContain('FitH');
   });
 
+  it('extracts page-level JavaScript actions when viewer extraction runs', async () => {
+    const result = await processDocument('memory://page-js-actions.pdf', {
+      sourceData: buildPdfWithPageJavaScriptActions(),
+      noCache: true,
+      viewer: true,
+    });
+
+    expect(result.pages[0].jsActions).toEqual({
+      PageClose: ['this.getField("Text2").value = "PageClose";'],
+      PageOpen: ['var Ａ = "PageOpen"; this.getField("Text1").value = Ａ;'],
+    });
+  });
+
+  it('extracts widget JavaScript actions from form fields', async () => {
+    const result = await processDocument('memory://widget-actions.pdf', {
+      sourceData: buildPdfWithWidgetAction(),
+      noCache: true,
+      formFields: true,
+    });
+
+    expect(result.pages[0].formFields).toMatchObject([
+      {
+        name: 'Execute',
+        type: 'button',
+        actions: {
+          Action: ['app.alert("clicked");'],
+        },
+      },
+    ]);
+  });
+
   it('emits an empty viewer object when viewer extraction ran but found no explicit settings', async () => {
     const result = await processDocument(SAMPLE_PDF, { noCache: true, viewer: true });
 
@@ -414,6 +601,49 @@ describe('processDocument', () => {
           alt: 'x equals y',
           mathML: '<math><mi>x</mi><mo>=</mo><mi>y</mi></math>',
           children: [{ type: 'annotation', id: 'annot_p3R_1' }],
+        },
+      ],
+    });
+  });
+
+  it('converts tagged structure bboxes to top-left page coordinates', () => {
+    const structure = buildPageStructure(
+      {
+        role: 'Root',
+        bbox: [84.11, 446.51, 545.89, 648.25],
+        children: [],
+      },
+      { pageHeight: 792 },
+    );
+
+    expect(structure).toEqual({
+      role: 'Root',
+      bbox: [84.11, 143.75, 461.78, 201.74],
+      children: [],
+    });
+  });
+
+  it('drops control bytes from tagged structure strings', () => {
+    const structure = buildPageStructure({
+      role: 'Root',
+      children: [
+        {
+          role: 'Figure',
+          alt: 'Secondary text for stamp\u0000',
+          lang: 'EN\u0007',
+          children: [{ type: 'annotation', id: 'pdfjs_internal_id_20R' }],
+        },
+      ],
+    });
+
+    expect(structure).toEqual({
+      role: 'Root',
+      children: [
+        {
+          role: 'Figure',
+          alt: 'Secondary text for stamp',
+          lang: 'EN',
+          children: [{ type: 'annotation', id: 'pdfjs_internal_id_20R' }],
         },
       ],
     });
@@ -548,14 +778,25 @@ describe('processDocument', () => {
       {
         type: 'url',
         target: 'https://example.com/path?q=1',
+        text: 'Example link',
         x: 100,
+        y: 72,
+        width: 120,
+        height: 20,
+      },
+      {
+        type: 'destination',
+        target: 'details',
+        page: 2,
+        text: 'Details link',
+        x: 240,
         y: 72,
         width: 120,
         height: 20,
       },
     ]);
     expect(result.pages[1].links).toEqual([]);
-    expect(result.overview?.map((o) => o.linkCount)).toEqual([1, 0]);
+    expect(result.overview?.map((o) => o.linkCount)).toEqual([2, 0]);
   });
 
   it('extracts a real document outline with nested items and resolved pages', async () => {
@@ -605,6 +846,24 @@ describe('processDocument', () => {
       }),
     ]);
     expect(result.pages[0].links).toHaveLength(1);
+  });
+
+  it('uses visible annotations as visual-region seeds without exposing annotations by default', async () => {
+    const result = await processDocument('memory://annotation-region.pdf', {
+      sourceData: await buildPdfWithAnnotations(),
+      noCache: true,
+      visualRegions: true,
+    });
+
+    const page = result.pages[0];
+    expect(page.annotations).toBeUndefined();
+    expect(page.visualRegions).toContainEqual(
+      expect.objectContaining({
+        kind: 'annotation',
+        sources: [{ type: 'annotation', index: 1 }],
+        reason: 'Highlight annotation markup',
+      }),
+    );
   });
 
   it('mirrors linkCount on the overview when link extraction runs on a multi-page PDF', async () => {
@@ -972,6 +1231,54 @@ describe('processDocument', () => {
       expect(rel.startsWith('..')).toBe(false);
       expect(dirname(imagePath).startsWith(outDir)).toBe(true);
       expect(dirname(imagePath)).not.toBe(outDir);
+    } finally {
+      rmSync(baseTmp, { recursive: true, force: true });
+    }
+  });
+
+  it('allows renderOutput under a symlinked existing ancestor', async () => {
+    // macOS exposes /tmp as a symlink to /private/tmp. Agent workflows and
+    // docs commonly use /tmp/pdfvision-renders, so the render root itself
+    // must remain guarded while normalising already-existing ancestors.
+    if (process.platform === 'win32') return;
+    const { mkdtempSync, mkdirSync, realpathSync, rmSync, symlinkSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join, relative } = await import('node:path');
+    const baseTmp = mkdtempSync(join(tmpdir(), 'pdfvision-render-ancestor-symlink-'));
+    const realParent = join(baseTmp, 'real-parent');
+    const linkedParent = join(baseTmp, 'linked-parent');
+    const outDir = join(linkedParent, 'images');
+    mkdirSync(realParent);
+    symlinkSync(realParent, linkedParent);
+    try {
+      const result = await processDocument(SAMPLE_PDF, {
+        render: true,
+        renderOutput: outDir,
+        noCache: true,
+      });
+      const imagePath = result.pages[0].image as string;
+      expect(existsSync(imagePath)).toBe(true);
+      const rel = relative(realpathSync(outDir), realpathSync(imagePath));
+      expect(rel.startsWith('..')).toBe(false);
+    } finally {
+      rmSync(baseTmp, { recursive: true, force: true });
+    }
+  });
+
+  it('still refuses when renderOutput itself is a symlink', async () => {
+    if (process.platform === 'win32') return;
+    const { mkdtempSync, mkdirSync, rmSync, symlinkSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const baseTmp = mkdtempSync(join(tmpdir(), 'pdfvision-render-root-symlink-'));
+    const realOut = join(baseTmp, 'real-images');
+    const linkedOut = join(baseTmp, 'linked-images');
+    mkdirSync(realOut);
+    symlinkSync(realOut, linkedOut);
+    try {
+      await expect(
+        processDocument(SAMPLE_PDF, { render: true, renderOutput: linkedOut, noCache: true }),
+      ).rejects.toThrow(/symlink/);
     } finally {
       rmSync(baseTmp, { recursive: true, force: true });
     }

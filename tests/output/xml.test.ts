@@ -487,6 +487,7 @@ describe('formatXml', () => {
                 reason: 'raster & vector <cluster>',
                 image: '/tmp/region&crop.png',
                 renderContentRatio: 0.1234,
+                renderedContentBox: { x: 44, y: 80, width: 120, height: 60 },
                 associatedText: [
                   {
                     text: 'Figure 1. A&B',
@@ -508,7 +509,7 @@ describe('formatXml', () => {
     expect(out).toContain('visualRegionCount="1"');
     expect(out).toContain('<visualRegions>');
     expect(out).toContain(
-      '<region id="p1-vr0" kind="mixed" x="36" y="72" width="240" height="180" areaRatio="0.089" sourceCount="2" reason="raster &amp; vector &lt;cluster&gt;" image="/tmp/region&amp;crop.png" renderContentRatio="0.1234">',
+      '<region id="p1-vr0" kind="mixed" x="36" y="72" width="240" height="180" areaRatio="0.089" sourceCount="2" reason="raster &amp; vector &lt;cluster&gt;" image="/tmp/region&amp;crop.png" renderContentRatio="0.1234" renderedContentBoxX="44" renderedContentBoxY="80" renderedContentBoxWidth="120" renderedContentBoxHeight="60">',
     );
     expect(out).toContain('<source type="imageBox" index="0"/>');
     expect(out).toContain('<source type="vectorBox" index="3"/>');
@@ -537,7 +538,7 @@ describe('formatXml', () => {
             nonPrintableRatio: 0,
             nonPrintableCount: 0,
             quality: { nativeTextStatus: 'ok' },
-            formFieldCount: 2,
+            formFieldCount: 3,
             width: 612,
             height: 792,
           },
@@ -574,6 +575,24 @@ describe('formatXml', () => {
                 height: 8,
                 value: 'Off',
                 checked: false,
+                exportValue: 'Yes',
+                flags: ['hidden', 'print'],
+              },
+              {
+                name: 'choice',
+                type: 'choice',
+                x: 20,
+                y: 60,
+                width: 120,
+                height: 20,
+                value: 'B',
+                displayValue: 'Beta',
+                combo: false,
+                multiSelect: true,
+                options: [
+                  { exportValue: 'A&B', displayValue: 'Alpha <A>' },
+                  { exportValue: 'B', displayValue: 'Beta' },
+                ],
               },
             ],
           }),
@@ -581,19 +600,101 @@ describe('formatXml', () => {
       }),
     );
 
-    expect(out).toContain('formFieldCount="2"');
+    expect(out).toContain('formFieldCount="3"');
     expect(out).toContain('<formFields>');
     expect(out).toContain(
       '<field name="name|field" type="text" x="10" y="20" width="100" height="12" value="Alice &amp; Bob" label="Legal &lt;name&gt;" labelRelation="above" labelX="10" labelY="8" labelWidth="80" labelHeight="10"/>',
     );
     expect(out).toContain(
-      '<field name="agree" type="checkbox" x="10" y="40" width="8" height="8" value="Off" checked="false"/>',
+      '<field name="agree" type="checkbox" x="10" y="40" width="8" height="8" value="Off" checked="false" exportValue="Yes" flags="hidden,print"/>',
     );
+    expect(out).toContain(
+      '<field name="choice" type="choice" x="20" y="60" width="120" height="20" value="B" displayValue="Beta" combo="false" multiSelect="true">',
+    );
+    expect(out).toContain('<options>');
+    expect(out).toContain('<option exportValue="A&amp;B" displayValue="Alpha &lt;A&gt;"/>');
+    expect(out).toContain('<option exportValue="B" displayValue="Beta"/>');
+    expect(out).toContain('</field>');
   });
 
   it('emits self-closing <formFields/> when extraction ran but found no widgets', () => {
     const out = formatXml(makeResult({ pages: [makePage({ page: 1, text: 't', charCount: 1, formFields: [] })] }));
     expect(out).toContain('<formFields/>');
+  });
+
+  it('emits form field JavaScript actions', () => {
+    const out = formatXml(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 'form page',
+            charCount: 9,
+            formFields: [
+              {
+                name: 'Execute',
+                type: 'button',
+                x: 10,
+                y: 20,
+                width: 80,
+                height: 20,
+                caption: 'Run <now>',
+                actions: { Action: ['app.alert("clicked");'] },
+              },
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toContain(
+      '<field name="Execute" type="button" x="10" y="20" width="80" height="20" caption="Run &lt;now&gt;">',
+    );
+    expect(out).toContain('<jsActions>');
+    expect(out).toContain('<action name="Action">');
+    expect(out).toContain('<script>app.alert("clicked");</script>');
+    expect(out).toContain('</field>');
+  });
+
+  it('emits reset form button actions', () => {
+    const out = formatXml(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 'form page',
+            charCount: 9,
+            formFields: [
+              {
+                name: 'ResetAll',
+                type: 'button',
+                x: 10,
+                y: 20,
+                width: 80,
+                height: 20,
+                resetForm: { fields: [], include: false },
+              },
+              {
+                name: 'ResetSome',
+                type: 'button',
+                x: 10,
+                y: 50,
+                width: 80,
+                height: 20,
+                resetForm: { fields: ['Text1', 'Group11'], include: true },
+              },
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toContain('<field name="ResetAll" type="button" x="10" y="20" width="80" height="20">');
+    expect(out).toContain('<resetForm include="false"/>');
+    expect(out).toContain('<field name="ResetSome" type="button" x="10" y="50" width="80" height="20">');
+    expect(out).toContain('<resetForm include="true">');
+    expect(out).toContain('<fieldName>Text1</fieldName>');
+    expect(out).toContain('<fieldName>Group11</fieldName>');
   });
 
   it('emits clickable PDF links with escaped targets and overview counts', () => {
@@ -624,6 +725,7 @@ describe('formatXml', () => {
               {
                 type: 'url',
                 target: 'https://example.com?q=a&title="PDF"',
+                text: 'Example & PDF',
                 x: 100,
                 y: 72,
                 width: 60,
@@ -632,6 +734,8 @@ describe('formatXml', () => {
               {
                 type: 'destination',
                 target: ['cite.transformer', { name: 'Fit' }],
+                page: 3,
+                text: 'Citation',
                 x: 40,
                 y: 180,
                 width: 40,
@@ -646,10 +750,10 @@ describe('formatXml', () => {
     expect(out).toContain('linkCount="2"');
     expect(out).toContain('<links>');
     expect(out).toContain(
-      '<link type="url" target="https://example.com?q=a&amp;title=&quot;PDF&quot;" x="100" y="72" width="60" height="20"/>',
+      '<link type="url" target="https://example.com?q=a&amp;title=&quot;PDF&quot;" text="Example &amp; PDF" x="100" y="72" width="60" height="20"/>',
     );
     expect(out).toContain(
-      '<link type="destination" target="[&quot;cite.transformer&quot;,{&quot;name&quot;:&quot;Fit&quot;}]" x="40" y="180" width="40" height="12"/>',
+      '<link type="destination" target="[&quot;cite.transformer&quot;,{&quot;name&quot;:&quot;Fit&quot;}]" page="3" text="Citation" x="40" y="180" width="40" height="12"/>',
     );
   });
 
@@ -685,16 +789,26 @@ describe('formatXml', () => {
             annotations: [
               {
                 subtype: 'Highlight',
+                name: 'Highlight',
                 contents: 'A & B',
                 title: 'Markup',
                 color: [255, 255, 11],
                 modified: "D:20140401161700+02'00'",
                 hasAppearance: false,
+                fileAttachment: { name: 'A&B.txt', size: 15, description: 'Review file' },
+                flags: ['hidden', 'print'],
+                border: { width: 2, style: 'dashed', dashArray: [3, 2] },
                 x: 100,
                 y: 80,
                 width: 80,
                 height: 12,
                 quadBoxes: [{ x: 100, y: 80, width: 80, height: 12 }],
+                line: { from: { x: 100, y: 80 }, to: { x: 180, y: 92 }, endings: ['None', 'OpenArrow'] },
+                vertices: [
+                  { x: 100, y: 80 },
+                  { x: 180, y: 92 },
+                ],
+                inkPaths: [[{ x: 101, y: 81 }]],
               },
             ],
           }),
@@ -705,8 +819,16 @@ describe('formatXml', () => {
     expect(out).toContain('annotationCount="1"');
     expect(out).toContain('<annotations>');
     expect(out).toContain(
-      '<annotation subtype="Highlight" x="100" y="80" width="80" height="12" contents="A &amp; B" title="Markup" color="255,255,11" modified="D:20140401161700+02\'00\'" hasAppearance="false">',
+      '<annotation subtype="Highlight" x="100" y="80" width="80" height="12" name="Highlight" contents="A &amp; B" title="Markup" color="255,255,11" modified="D:20140401161700+02\'00\'" hasAppearance="false" flags="hidden,print">',
     );
+    expect(out).toContain('<fileAttachment name="A&amp;B.txt" size="15" description="Review file"/>');
+    expect(out).toContain('<border width="2" style="dashed" dashArray="3,2"/>');
+    expect(out).toContain('<line fromX="100" fromY="80" toX="180" toY="92" endings="None,OpenArrow"/>');
+    expect(out).toContain('<vertices>');
+    expect(out).toContain('<point x="180" y="92"/>');
+    expect(out).toContain('<inkPaths>');
+    expect(out).toContain('<path>');
+    expect(out).toContain('<point x="101" y="81"/>');
     expect(out).toContain('<quadBox x="100" y="80" width="80" height="12"/>');
   });
 
@@ -724,7 +846,10 @@ describe('formatXml', () => {
             type: 'destination',
             target: 'section.1',
             page: 1,
-            items: [{ title: 'Website', type: 'url', target: 'https://example.com?q=1&b=2' }],
+            items: [
+              { title: 'Website', type: 'url', target: 'https://example.com?q=1&b=2' },
+              { title: 'Next page', type: 'action', target: 'NextPage' },
+            ],
           },
         ],
       }),
@@ -733,6 +858,7 @@ describe('formatXml', () => {
     expect(out).toContain('<outline>');
     expect(out).toContain('<item title="Intro &amp; Setup" type="destination" target="section.1" page="1">');
     expect(out).toContain('<item title="Website" type="url" target="https://example.com?q=1&amp;b=2"/>');
+    expect(out).toContain('<item title="Next page" type="action" target="NextPage"/>');
     expect(out).toContain('</outline>');
   });
 
@@ -785,6 +911,7 @@ describe('formatXml', () => {
           pageLayout: 'TwoColumnLeft',
           viewerPreferences: { DisplayDocTitle: true, PrintPageRange: [1, 2] },
           openAction: { type: 'destination', page: 3, target: '[{"name":"Fit"}]' },
+          jsActions: { printMe: ['this.print(true);'] },
           permissions: { flags: [4, 16], allowed: ['print', 'copy'] },
           markInfo: { marked: true, userProperties: false, suspects: false },
         },
@@ -793,10 +920,38 @@ describe('formatXml', () => {
 
     expect(out).toContain('<viewer pageMode="UseOutlines" pageLayout="TwoColumnLeft">');
     expect(out).toContain('<openAction type="destination" page="3" target="[{&quot;name&quot;:&quot;Fit&quot;}]"/>');
+    expect(out).toContain('<jsActions>');
+    expect(out).toContain('<action name="printMe">');
+    expect(out).toContain('<script>this.print(true);</script>');
     expect(out).toContain('<permissions flags="4,16" allowed="print,copy"/>');
     expect(out).toContain('<markInfo marked="true" userProperties="false" suspects="false"/>');
     expect(out).toContain('<preference name="DisplayDocTitle" value="true"/>');
     expect(out).toContain('<preference name="PrintPageRange" value="[1,2]"/>');
+  });
+
+  it('emits page-level JavaScript actions', () => {
+    const out = formatXml(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 'page with actions',
+            charCount: 17,
+            jsActions: {
+              PageOpen: ['this.getField("Text1").value = "PageOpen";'],
+              PageClose: ['this.getField("Text2").value = "PageClose";'],
+            },
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toContain('<page no="1"');
+    expect(out).toContain('<jsActions>');
+    expect(out).toContain('<action name="PageOpen">');
+    expect(out).toContain('<script>this.getField("Text1").value = "PageOpen";</script>');
+    expect(out).toContain('<action name="PageClose">');
+    expect(out).toContain('<script>this.getField("Text2").value = "PageClose";</script>');
   });
 
   it('emits self-closing <viewer/> when extraction ran but found no viewer settings', () => {

@@ -1,12 +1,18 @@
 import type { LayoutBlock, LayoutLine, LayoutTable, PageLayout, PageResult, TextSpan } from '../types/index.js';
 import { CJK_TIGHT_GAP_RATIO, isCjkLeading } from './cjkJoin.js';
-import { shouldInsertSemanticSpace } from './spacing.js';
+import { isLikelyCjkDisplaySpacingRow, isLikelyWideWordSpacingRow, shouldInsertSemanticSpace } from './spacing.js';
+import { isRtlDominantPositionedText, textOrder } from './textDirection.js';
 
 interface BBox {
   x: number;
   y: number;
   width: number;
   height: number;
+}
+
+interface IndexedLayoutRow {
+  row: LayoutLine[];
+  index: number;
 }
 
 /** Round to 2dp — keeps coordinates compact in JSON. */
@@ -65,11 +71,11 @@ function median(values: number[]): number {
 }
 
 /** Gap fraction for non-CJK pairs — pdf.js typically packs inter-word
- *  spaces around 0.25 × fontSize. Preserves the pre-fix behavior for
+ *  spaces around 0.22 × fontSize. Preserves the pre-fix behavior for
  *  Latin / digits / punctuation. CJK pairs use {@link CJK_TIGHT_GAP_RATIO}
  *  imported from cjkJoin so primary text and layout-block text classify
  *  the same gap identically. */
-const DEFAULT_SPACE_GAP_RATIO = 0.25;
+const DEFAULT_SPACE_GAP_RATIO = 0.22;
 
 /** Fallback fontSize when both prev and cur report 0 (rare — usually
  *  malformed PDFs that strip the text matrix scale). Without this the
@@ -85,16 +91,32 @@ const LAYOUT_SEGMENT_GAP_RATIO = 1.5;
 const LAYOUT_SEGMENT_MIN_GAP_PT = 16;
 const RECURRING_GUTTER_GAP_RATIO = 1.05;
 const RECURRING_GUTTER_MIN_GAP_PT = 9;
-const RECURRING_GUTTER_WIDE_ROW_RATIO = 0.7;
+const RECURRING_GUTTER_WIDE_ROW_RATIO = 0.6;
 const RECURRING_GUTTER_SIDE_MIN_RATIO = 0.25;
 const RECURRING_GUTTER_BIN_PT = 5;
 const RECURRING_GUTTER_MIN_ROWS = 3;
+const RECURRING_SIDE_PANEL_START_RATIO = 0.58;
+const RECURRING_SIDE_PANEL_ROW_MIN_WIDTH_RATIO = 0.6;
+const RECURRING_SIDE_PANEL_LEFT_MIN_RATIO = 0.4;
+const RECURRING_SIDE_PANEL_GAP_RATIO = 0.9;
+const RECURRING_SIDE_PANEL_MIN_GAP_PT = 9;
+const RECURRING_SIDE_PANEL_MIN_ROWS = 2;
 const RECURRING_TABLE_GUTTER_MIN_ROWS = 4;
 const RECURRING_TABLE_GUTTER_MIN_NUMERIC_SPANS = 3;
+const RECURRING_TABLE_GUTTER_MIN_WIDTH_PT = 96;
 const LINE_TOP_ALIGNMENT_RATIO = 0.5;
 const LINE_VERTICAL_OVERLAP_RATIO = 0.35;
+const TINY_LINE_FONT_SIZE_PT = 4;
+const TINY_LINE_LARGE_PEER_MIN_FONT_SIZE_PT = 8;
+const TINY_LINE_MAX_FONT_RATIO = 0.55;
+const TINY_LINE_MIN_CHARS = 8;
+const SMALL_PUNCTUATION_LINE_FONT_SIZE_PT = 7;
+const SMALL_PUNCTUATION_LINE_LARGE_PEER_MIN_FONT_SIZE_PT = 10;
+const SMALL_PUNCTUATION_LINE_MAX_FONT_RATIO = 0.65;
 const TABLE_ROW_MIN_CELLS = 3;
 const TABLE_ROW_MIN_NUMERIC_CELLS = 2;
+const TWO_COLUMN_NUMERIC_TABLE_MIN_ROWS = 4;
+const DECORATIVE_DOTTED_RULE_MIN_DOTS = 8;
 const TABLE_GROUP_MAX_ROW_GAP_PT = 48;
 const TABLE_ROW_CADENCE_MIN_MATCH_RATIO = 0.65;
 const TABLE_ROW_CADENCE_TOLERANCE_RATIO = 0.25;
@@ -103,6 +125,12 @@ const TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROWS = 4;
 const TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS = 3;
 const TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROW_RATIO = 0.6;
 const TABLE_RECURRING_NUMERIC_COLUMN_TOLERANCE_PT = 10;
+const TABLE_LEADING_ROW_MAX_GAP_PT = 24;
+const TABLE_LEADING_ROW_MAX_OVERLAP_PT = 4;
+const TABLE_LEADING_ROW_X_TOLERANCE_PT = 14;
+const TABLE_LEADING_HEADER_MAX_CHARS = 80;
+const TABLE_LEADING_HEADER_MAX_WORDS = 6;
+const TABLE_LEADING_HEADER_MAX_WIDTH_PT = 180;
 const REPEATED_CHROME_EDGE_RATIO = 0.1;
 const REPEATED_CHROME_MIN_EDGE_PT = 60;
 const REPEATED_CHROME_LINE_EDGE_RATIO = 0.04;
@@ -121,8 +149,10 @@ const VERTICAL_SPAN_MIN_FONT_MULTIPLIER = 3;
  *  keeps large vertical title columns from suppressing each other while
  *  still preserving ordinary CJK glyph rows. */
 const VERTICAL_CJK_MAX_CHARS = 2;
+const TALL_VERTICAL_CJK_MIN_CHARS = 2;
 const VERTICAL_CJK_MIN_RUN_SPANS = 2;
 const VERTICAL_CJK_MIN_FONT_SIZE_PT = 20;
+const TALL_VERTICAL_CJK_MIN_CHAR_HEIGHT_RATIO = 0.75;
 const VERTICAL_CJK_X_TOLERANCE_RATIO = 0.45;
 const VERTICAL_CJK_X_TOLERANCE_MIN_PT = 4;
 const VERTICAL_CJK_STEP_RATIO = 1.8;
@@ -131,6 +161,9 @@ const VERTICAL_CJK_HORIZONTAL_NEIGHBOUR_MAX_PT = 32;
 const VERTICAL_CJK_MIN_HEIGHT_RATIO = 1.5;
 const LINE_OVERLAP_MAX_HORIZONTAL_GAP_RATIO = 2;
 const LINE_OVERLAP_MAX_HORIZONTAL_GAP_PT = 24;
+const COLUMN_BOTTOM_NOTE_MIN_Y_RATIO = 0.78;
+const COLUMN_BOTTOM_NOTE_FONT_RATIO = 0.82;
+const COLUMN_BOTTOM_NOTE_MIN_CHARS = 40;
 
 /**
  * Join the spans of a single layout line into a readable string. pdfjs
@@ -143,13 +176,15 @@ const LINE_OVERLAP_MAX_HORIZONTAL_GAP_PT = 24;
  * tighter shared threshold so the layout-side classification matches
  * the primary `joinPageText` behavior on the same gap.
  */
-function joinLineSpans(xSorted: TextSpan[]): string {
-  if (xSorted.length === 0) return '';
-  let out = xSorted[0].text;
-  for (let i = 1; i < xSorted.length; i++) {
-    const prev = xSorted[i - 1];
-    const cur = xSorted[i];
-    const gap = cur.x - (prev.x + prev.width);
+function joinLineSpans(spans: TextSpan[]): string {
+  if (spans.length === 0) return '';
+  const rtl = isRtlDominantPositionedText(spans);
+  const ordered = textOrder(spans);
+  let out = ordered[0].text;
+  for (let i = 1; i < ordered.length; i++) {
+    const prev = ordered[i - 1];
+    const cur = ordered[i];
+    const gap = rtl ? prev.x - (cur.x + cur.width) : cur.x - (prev.x + prev.width);
     const bothCjk = isCjkLeading(prev.text) && isCjkLeading(cur.text);
     // Prefer the current span's fontSize; fall back to the previous
     // span's, then to a Western-body default. A 0 fontSize on both
@@ -187,6 +222,18 @@ function isCompactCjkGlyph(span: TextSpan): boolean {
   const fontSize = span.fontSize || span.height || FONT_SIZE_FALLBACK_PT;
   if (fontSize < VERTICAL_CJK_MIN_FONT_SIZE_PT) return false;
   return span.width <= fontSize * 1.6 && span.height <= fontSize * 1.8;
+}
+
+function isTallCjkVerticalSpan(span: TextSpan): boolean {
+  const text = span.text.trim();
+  if (!isCjkLeading(text)) return false;
+  const charCount = [...text].length;
+  if (charCount < TALL_VERTICAL_CJK_MIN_CHARS) return false;
+  if (!hasVerticalTextShape(span)) return false;
+
+  const fontSize = span.fontSize || FONT_SIZE_FALLBACK_PT;
+  if (span.width > fontSize * 1.6) return false;
+  return span.height >= fontSize * charCount * TALL_VERTICAL_CJK_MIN_CHAR_HEIGHT_RATIO;
 }
 
 function hasCloseHorizontalNeighbour(span: TextSpan, spans: readonly TextSpan[]): boolean {
@@ -237,14 +284,42 @@ function toVerticalBlock(run: TextSpan[]): LayoutBlock | undefined {
   };
 }
 
+function toTallVerticalBlock(span: TextSpan): LayoutBlock {
+  const box = unionBox([span]);
+  const fontSize = round2(span.fontSize || FONT_SIZE_FALLBACK_PT);
+  const line: LayoutLine = {
+    text: span.text.trim(),
+    ...box,
+    fontSize,
+    writingMode: 'vertical',
+  };
+  return {
+    text: line.text,
+    ...box,
+    lines: [line],
+    writingMode: 'vertical',
+  };
+}
+
 function extractVerticalCjkBlocks(spans: readonly TextSpan[]): {
   blocks: LayoutBlock[];
   remainingSpans: TextSpan[];
 } {
+  const used = new Set<TextSpan>();
+  const blocks: LayoutBlock[] = [];
+  for (const span of spans) {
+    if (!isTallCjkVerticalSpan(span)) continue;
+    blocks.push(toTallVerticalBlock(span));
+    used.add(span);
+  }
+
   const candidates = spans
+    .filter((span) => !used.has(span))
     .filter((span) => isCompactCjkGlyph(span) && !hasCloseHorizontalNeighbour(span, spans))
     .sort((a, b) => centerX(a) - centerX(b) || a.y - b.y);
-  if (candidates.length < VERTICAL_CJK_MIN_RUN_SPANS) return { blocks: [], remainingSpans: [...spans] };
+  if (candidates.length < VERTICAL_CJK_MIN_RUN_SPANS) {
+    return { blocks, remainingSpans: spans.filter((span) => !used.has(span)) };
+  }
 
   const columns: TextSpan[][] = [];
   for (const candidate of candidates) {
@@ -264,8 +339,6 @@ function extractVerticalCjkBlocks(spans: readonly TextSpan[]): {
     }
   }
 
-  const used = new Set<TextSpan>();
-  const blocks: LayoutBlock[] = [];
   for (const column of columns) {
     const sortedColumn = [...column].sort((a, b) => a.y - b.y || a.x - b.x);
     let run: TextSpan[] = [];
@@ -299,23 +372,91 @@ function canShareLine(a: TextSpan, b: TextSpan): boolean {
   return hasVerticalTextShape(a) === hasVerticalTextShape(b);
 }
 
+function compareLayoutBlocks(a: LayoutBlock, b: LayoutBlock): number {
+  if (a.writingMode === 'vertical' && b.writingMode === 'vertical' && verticalBlocksShareReadingBand(a, b)) {
+    return b.x - a.x || a.y - b.y;
+  }
+  return a.y - b.y || a.x - b.x;
+}
+
+function verticalBlocksShareReadingBand(a: LayoutBlock, b: LayoutBlock): boolean {
+  const overlap = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+  const minHeight = Math.max(Math.min(a.height, b.height), 1);
+  return overlap / minHeight >= LINE_VERTICAL_OVERLAP_RATIO;
+}
+
 function canShareTextLine(a: TextSpan, b: TextSpan): boolean {
   if (!canShareLine(a, b)) return false;
   if (hasVerticalTextShape(a) || hasVerticalTextShape(b)) {
     const minHeight = Math.max(Math.min(a.height, b.height), 1);
     if (Math.abs(a.y - b.y) < minHeight * LINE_TOP_ALIGNMENT_RATIO) return true;
+    if (isLongNonCjkVerticalShapeSpan(a) && isLongNonCjkVerticalShapeSpan(b)) return false;
     if (!hasCloseHorizontalLineGap(a, b)) return false;
     const overlap = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
     return overlap >= minHeight * LINE_VERTICAL_OVERLAP_RATIO;
   }
 
+  if (hasTinyLineFontMismatch(a, b)) return false;
+
   const aHeight = horizontalLineGroupingHeight(a);
   const bHeight = horizontalLineGroupingHeight(b);
   const minHeight = Math.max(Math.min(aHeight, bHeight), 1);
   if (Math.abs(a.y - b.y) < minHeight * LINE_TOP_ALIGNMENT_RATIO) return true;
+  if (hasMisalignedLargeFontLine(a, b)) return false;
   if (!hasCloseHorizontalLineGap(a, b)) return false;
   const overlap = Math.min(a.y + aHeight, b.y + bHeight) - Math.max(a.y, b.y);
   return overlap >= minHeight * LINE_VERTICAL_OVERLAP_RATIO;
+}
+
+function isLongNonCjkVerticalShapeSpan(span: TextSpan): boolean {
+  const trimmed = span.text.trim();
+  return trimmed.length > 8 && !isCjkLeading(trimmed) && hasVerticalTextShape(span);
+}
+
+function hasTinyLineFontMismatch(a: TextSpan, b: TextSpan): boolean {
+  const aFontSize = measuredLineFontSize(a);
+  const bFontSize = measuredLineFontSize(b);
+  if (aFontSize <= 0 || bFontSize <= 0) return false;
+
+  const small = aFontSize <= bFontSize ? a : b;
+  const smallFontSize = Math.min(aFontSize, bFontSize);
+  const largeFontSize = Math.max(aFontSize, bFontSize);
+  if (
+    smallFontSize <= SMALL_PUNCTUATION_LINE_FONT_SIZE_PT &&
+    largeFontSize >= SMALL_PUNCTUATION_LINE_LARGE_PEER_MIN_FONT_SIZE_PT &&
+    smallFontSize / largeFontSize <= SMALL_PUNCTUATION_LINE_MAX_FONT_RATIO &&
+    /^[\p{P}\p{S}]{1,3}$/u.test(small.text.trim())
+  ) {
+    return true;
+  }
+  if (smallFontSize > TINY_LINE_FONT_SIZE_PT) return false;
+  if (largeFontSize < TINY_LINE_LARGE_PEER_MIN_FONT_SIZE_PT) return false;
+  if (smallFontSize / largeFontSize > TINY_LINE_MAX_FONT_RATIO) return false;
+
+  const smallChars = small.text.replace(/\s/g, '').length;
+  return smallChars >= TINY_LINE_MIN_CHARS || small.width >= largeFontSize * 3;
+}
+
+function hasMisalignedLargeFontLine(a: TextSpan, b: TextSpan): boolean {
+  const aFontSize = measuredLineFontSize(a);
+  const bFontSize = measuredLineFontSize(b);
+  if (aFontSize <= 0 || bFontSize <= 0) return false;
+
+  const large = aFontSize >= bFontSize ? a : b;
+  const largeFontSize = Math.max(aFontSize, bFontSize);
+  const smallFontSize = Math.min(aFontSize, bFontSize);
+  if (largeFontSize / smallFontSize < 1.25) return false;
+
+  const largeChars = large.text.replace(/\s/g, '').length;
+  if (largeChars <= 2) return false;
+  if (!/\p{L}/u.test(large.text) && /\d/u.test(large.text)) return false;
+  return /[\p{L}\p{N}]/u.test(large.text);
+}
+
+function measuredLineFontSize(span: TextSpan): number {
+  if (span.fontSize > 0) return span.fontSize;
+  if (span.height > 0) return span.height;
+  return 0;
 }
 
 function hasCloseHorizontalLineGap(a: TextSpan, b: TextSpan): boolean {
@@ -361,7 +502,16 @@ const MIN_BODY_CHARS_FOR_LOW_TIER = 100;
 const TOP_TITLE_MAX_Y = 120;
 const TOP_TITLE_MIN_WIDTH = 180;
 const TOP_TITLE_MIN_CHARS = 25;
-const TOP_BYLINE_MAX_GAP = 120;
+const TOP_BYLINE_MAX_GAP = 260;
+const TOP_SLIDE_TITLE_MIN_FONT_SIZE = 24;
+const TOP_SLIDE_TITLE_MIN_WIDTH = 120;
+const SPARSE_COVER_TITLE_MIN_FONT_SIZE = 24;
+const SPARSE_COVER_TITLE_MAX_Y_RATIO = 0.4;
+const SPARSE_COVER_TITLE_MAX_Y_PT = 220;
+const SPARSE_COVER_TITLE_MIN_WIDTH = 160;
+const SPARSE_COVER_TITLE_CENTER_TOLERANCE_RATIO = 0.35;
+const TOP_CENTERED_ALL_CAPS_TITLE_MAX_CHARS = 180;
+const TOP_CENTERED_ALL_CAPS_TITLE_CENTER_TOLERANCE_RATIO = 0.12;
 
 /** Tolerance around the body fontSize used when counting how many chars sit
  *  at the body font class. PDFs from LaTeX commonly drift by ±0.5pt between
@@ -376,6 +526,12 @@ const COMPACT_LABEL_MAX_HEADING_CHARS = 4;
 const TALL_SIDE_LABEL_MIN_HEIGHT_PT = 80;
 const TALL_SIDE_LABEL_MAX_WIDTH_PT = 48;
 const TALL_SIDE_LABEL_MIN_ASPECT = 4;
+const CAPTION_IDENTIFIER_ATOM = '[A-Za-z\\p{N}０-９一二三四五六七八九十]+';
+const CAPTION_NUMBER_PATTERN = `${CAPTION_IDENTIFIER_ATOM}(?:(?:[.-]${CAPTION_IDENTIFIER_ATOM})|(?:-?\\(${CAPTION_IDENTIFIER_ATOM}\\)))*\\.?`;
+const CAPTION_HEADING_PATTERN = new RegExp(
+  `^\\s*(?:fig(?:ure)?\\.?|table|plate|図表|図|表)\\s*(${CAPTION_NUMBER_PATTERN})(?=\\s|[:：．、]|$)`,
+  'iu',
+);
 
 function isHeadingCandidateText(text: string): boolean {
   const trimmed = text.trim();
@@ -383,15 +539,35 @@ function isHeadingCandidateText(text: string): boolean {
   if (/^[\p{N}\s.-]{1,12}$/u.test(trimmed)) return false;
   if (/^@[A-Za-z0-9_.-]{2,}$/u.test(trimmed)) return false;
   if (isReferenceMetadataText(trimmed)) return false;
+  if (isCaptionHeadingText(trimmed)) return false;
   return !/^[•●◦▪■‣]\s*/u.test(trimmed);
 }
 
+function isCaptionHeadingText(text: string): boolean {
+  return CAPTION_HEADING_PATTERN.test(text);
+}
+
 function isReferenceMetadataText(text: string): boolean {
-  return /\b(?:https?:\/\/|www\.|doi:|arxiv:)/iu.test(text) || /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/iu.test(text);
+  return (
+    /\b(?:https?:\/\/|www\.|doi:|arxiv:)/iu.test(text) ||
+    /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/iu.test(text) ||
+    /\bOMB\s+No\.?\s+\d/iu.test(text)
+  );
 }
 
 function isNumberedHeadingText(text: string): boolean {
   return /^\s*\d+(?:\.\d+)*\.?\s+\S/u.test(text);
+}
+
+function isDecimalSectionHeadingText(text: string): boolean {
+  return /^\s*\d+(?:\.\d+)+\.?\s+\p{L}/u.test(text.trim());
+}
+
+function isLetteredSectionHeadingText(text: string): boolean {
+  const trimmed = text.trim();
+  if (!/^[A-Z]\.\s+\p{Lu}/u.test(trimmed)) return false;
+  if (!/[.!?]$/u.test(trimmed)) return false;
+  return trimmed.split(/\s+/u).filter(Boolean).length >= 3;
 }
 
 function isTallNarrowSideLabel(block: LayoutBlock, lineCount: number): boolean {
@@ -409,14 +585,23 @@ function isCompactDiagramLabelText(text: string, nonWsChars: number, ratio: numb
 }
 
 function isLikelyBodyFragmentForLevel3(text: string): boolean {
+  if (isLikelyBodySentenceFragment(text)) return true;
   const trimmed = text.trim();
   if (isNumberedHeadingText(trimmed)) return false;
+  if (/[,;:]/u.test(trimmed)) return true;
+  return trimmed.split(/\s+/u).filter(Boolean).length > 7;
+}
+
+function isLikelyBodySentenceFragment(text: string): boolean {
+  const trimmed = text.trim();
+  if (isNumberedHeadingText(trimmed) || isLetteredSectionHeadingText(trimmed)) return false;
   if (/^\p{Ll}/u.test(trimmed)) return true;
   if (/\bet al\./iu.test(trimmed)) return true;
-  if (/[,;:]/u.test(trimmed)) return true;
   if (/[\p{L}\p{N}]-$/u.test(trimmed)) return true;
-  if (/[.!?]$/u.test(trimmed)) return true;
-  return trimmed.split(/\s+/u).filter(Boolean).length > 7;
+  if (/[.!?。！？]$/u.test(trimmed)) return true;
+  const cjkChars = trimmed.match(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/gu)?.length ?? 0;
+  if (/[,;、。，；]/u.test(trimmed) && (trimmed.length > 24 || cjkChars >= 12)) return true;
+  return trimmed.split(/\s+/u).filter(Boolean).length > 16;
 }
 
 function isTopTitleCandidate(block: LayoutBlock, ratio: number, lineCount: number, nonWsChars: number): boolean {
@@ -424,6 +609,73 @@ function isTopTitleCandidate(block: LayoutBlock, ratio: number, lineCount: numbe
   if (block.y > TOP_TITLE_MAX_Y) return false;
   if (block.width < TOP_TITLE_MIN_WIDTH) return false;
   return lineCount > 1 || nonWsChars >= TOP_TITLE_MIN_CHARS;
+}
+
+function isTopSlideTitleCandidate(
+  block: LayoutBlock,
+  fontSize: number,
+  lineCount: number,
+  nonWsChars: number,
+): boolean {
+  if (block.y > TOP_TITLE_MAX_Y) return false;
+  if (fontSize < TOP_SLIDE_TITLE_MIN_FONT_SIZE) return false;
+  if (block.width < TOP_SLIDE_TITLE_MIN_WIDTH) return false;
+  if (lineCount > 2) return false;
+  if (nonWsChars > MAX_HEADING_CHARS) return false;
+  return true;
+}
+
+function isSparseCoverTitleCandidate(
+  block: LayoutBlock,
+  pageWidth: number,
+  pageHeight: number,
+  fontSize: number,
+  lineCount: number,
+  nonWsChars: number,
+  hasCredibleBody: boolean,
+): boolean {
+  if (hasCredibleBody) return false;
+  if (fontSize < SPARSE_COVER_TITLE_MIN_FONT_SIZE) return false;
+  if (lineCount > 2) return false;
+  if (nonWsChars > MAX_HEADING_CHARS) return false;
+  if (pageWidth > 0 && block.width < Math.min(pageWidth * 0.25, SPARSE_COVER_TITLE_MIN_WIDTH)) return false;
+  const maxY = pageHeight > 0 ? pageHeight * SPARSE_COVER_TITLE_MAX_Y_RATIO : SPARSE_COVER_TITLE_MAX_Y_PT;
+  if (block.y > maxY) return false;
+  if (pageWidth <= 0) return true;
+  const center = block.x + block.width / 2;
+  return Math.abs(center - pageWidth / 2) <= pageWidth * SPARSE_COVER_TITLE_CENTER_TOLERANCE_RATIO;
+}
+
+function isAllCapsTitleLine(text: string): boolean {
+  const letters = text.match(/[A-Za-z]/gu) ?? [];
+  if (letters.length < 8) return false;
+  const uppercase = letters.filter((char) => char === char.toLocaleUpperCase('en-US')).length;
+  return uppercase / letters.length >= 0.85;
+}
+
+function isParentheticalSubtitleLine(text: string): boolean {
+  return /^\s*\([^)]{1,160}\)\s*$/u.test(text.trim());
+}
+
+function isTopCenteredAllCapsTitleCandidate(
+  block: LayoutBlock,
+  pageWidth: number,
+  lineCount: number,
+  nonWsChars: number,
+): boolean {
+  if (pageWidth <= 0) return false;
+  if (block.y > TOP_TITLE_MAX_Y) return false;
+  if (block.width < TOP_TITLE_MIN_WIDTH) return false;
+  if (lineCount > 2) return false;
+  if (nonWsChars > TOP_CENTERED_ALL_CAPS_TITLE_MAX_CHARS) return false;
+  const center = block.x + block.width / 2;
+  if (Math.abs(center - pageWidth / 2) > pageWidth * TOP_CENTERED_ALL_CAPS_TITLE_CENTER_TOLERANCE_RATIO) {
+    return false;
+  }
+  const [titleLine, subtitleLine] = block.lines;
+  if (!titleLine || !isAllCapsTitleLine(titleLine.text)) return false;
+  if (!subtitleLine) return true;
+  return isAllCapsTitleLine(subtitleLine.text) || isParentheticalSubtitleLine(subtitleLine.text);
 }
 
 function isPersonBylineText(text: string): boolean {
@@ -440,6 +692,19 @@ function isPersonBylineText(text: string): boolean {
   return words.every((word) => /^[A-Z][\p{L}.'-]*$/u.test(word) || /^[A-Z]\.$/u.test(word));
 }
 
+function isTopAffiliationMetadataText(text: string): boolean {
+  const trimmed = text.trim().replace(/\s+/gu, ' ');
+  if (trimmed.length === 0 || trimmed.length > 100) return false;
+  if (/[.!?]/u.test(trimmed)) return false;
+  const parts = trimmed.split(',').map((part) => part.trim());
+  if (parts.length < 2 || parts.length > 6) return false;
+  return parts.every((part) => {
+    const words = part.split(/\s+/u).filter(Boolean);
+    if (words.length === 0 || words.length > 4) return false;
+    return /^[\p{Lu}\p{N}][\p{L}\p{N}&.' -]{0,40}$/u.test(part);
+  });
+}
+
 function demoteTopBylineHeadings(blocks: LayoutBlock[]): void {
   const topTitle = blocks.find((b) => b.role === 'heading' && b.level === 1 && b.y <= TOP_TITLE_MAX_Y);
   if (!topTitle) return;
@@ -447,7 +712,7 @@ function demoteTopBylineHeadings(blocks: LayoutBlock[]): void {
   for (const b of blocks) {
     if (b.role !== 'heading') continue;
     if (b.y <= titleBottom || b.y > titleBottom + TOP_BYLINE_MAX_GAP) continue;
-    if (!isPersonBylineText(b.text)) continue;
+    if (!isPersonBylineText(b.text) && !isTopAffiliationMetadataText(b.text)) continue;
     b.role = undefined;
     b.level = undefined;
     b.roleConfidence = undefined;
@@ -481,7 +746,7 @@ function demoteTopBylineHeadings(blocks: LayoutBlock[]): void {
  * Mutates each qualifying block in place by setting `role = 'heading'`
  * and `level`. Blocks that don't qualify keep both fields undefined.
  */
-function classifyHeadings(blocks: LayoutBlock[]): void {
+function classifyHeadings(blocks: LayoutBlock[], pageWidth = 0, pageHeight = 0): void {
   if (blocks.length === 0) return;
   const charWeighted: number[] = [];
   for (const b of blocks) {
@@ -557,12 +822,34 @@ function classifyHeadings(blocks: LayoutBlock[]): void {
     if (!isHeadingCandidateText(b.text)) continue;
     const repFont = b.lines[0]?.fontSize ?? bodyFontSize;
     const ratio = repFont / bodyFontSize;
-    if (ratio < 1.08) continue;
 
     const nonWsChars = b.lines.reduce((acc, l) => acc + l.text.replace(/\s/g, '').length, 0);
     const isShort = nonWsChars <= MAX_HEADING_CHARS;
     const lineCount = b.lines.length;
-    const topTitle = isTopTitleCandidate(b, ratio, lineCount, nonWsChars);
+    const likelyBodySentenceFragment = isLikelyBodySentenceFragment(b.text);
+    const topTitle = isTopTitleCandidate(b, ratio, lineCount, nonWsChars) && !likelyBodySentenceFragment;
+    const topSlideTitle = isTopSlideTitleCandidate(b, repFont, lineCount, nonWsChars);
+    const sparseCoverTitle = isSparseCoverTitleCandidate(
+      b,
+      pageWidth,
+      pageHeight,
+      repFont,
+      lineCount,
+      nonWsChars,
+      hasCredibleBody,
+    );
+    const topCenteredAllCapsTitle = isTopCenteredAllCapsTitleCandidate(b, pageWidth, lineCount, nonWsChars);
+    const decimalSectionHeading = isDecimalSectionHeadingText(b.text);
+    const letteredSectionHeading = isLetteredSectionHeadingText(b.text);
+    if (
+      ratio < 1.08 &&
+      !topSlideTitle &&
+      !sparseCoverTitle &&
+      !topCenteredAllCapsTitle &&
+      !decimalSectionHeading &&
+      !letteredSectionHeading
+    )
+      continue;
     if (isTallNarrowSideLabel(b, lineCount)) continue;
     if (isCompactDiagramLabelText(b.text, nonWsChars, ratio)) continue;
 
@@ -603,18 +890,36 @@ function classifyHeadings(blocks: LayoutBlock[]): void {
     const locallyLarger = neighbours.every((n) => repFont > (dominantFs.get(n) ?? bodyFontSize));
 
     const singleLine = lineCount === 1;
-    if (ratio >= 1.4) {
+    if ((decimalSectionHeading || letteredSectionHeading) && ratio < 1.08) {
+      if (!hasCredibleBody) continue;
+      if (!isShort) continue;
+      if (!singleLine) continue;
+      if (!standalone) continue;
+      if (likelyBodySentenceFragment) continue;
+      b.role = 'heading';
+      b.level = 2;
+      b.roleConfidence = Math.max(0.65, computeRoleConfidence(1.15, isShort, standalone, locallyLarger, singleLine));
+    } else if (ratio >= 1.4 || topSlideTitle || sparseCoverTitle || topCenteredAllCapsTitle) {
       // Level 1: titles. Always classify, even on poster/slide pages with
       // no body text — losing the title hurts more than a rare false
       // positive on a page that's nothing but a single big word.
+      if (!topSlideTitle && !topCenteredAllCapsTitle && likelyBodySentenceFragment) continue;
       b.role = 'heading';
       b.level = 1;
-      b.roleConfidence = computeRoleConfidence(ratio, isShort, standalone, locallyLarger, singleLine);
+      const confidence = computeRoleConfidence(
+        topCenteredAllCapsTitle ? Math.max(ratio, 1.25) : ratio,
+        isShort,
+        standalone,
+        locallyLarger,
+        singleLine,
+      );
+      b.roleConfidence = topCenteredAllCapsTitle || sparseCoverTitle ? Math.max(0.75, confidence) : confidence;
     } else if (ratio >= 1.25) {
       // Level 2 (legacy band). The historical 1.25× rule, kept intact
       // except for one new guard: if the page lacks a credible body, we
       // demote so a uniform-large page doesn't tag every block.
       if (!hasCredibleBody) continue;
+      if (likelyBodySentenceFragment) continue;
       b.role = 'heading';
       b.level = topTitle ? 1 : 2;
       b.roleConfidence = computeRoleConfidence(ratio, isShort, standalone, locallyLarger, singleLine);
@@ -689,7 +994,7 @@ function classifyHeadings(blocks: LayoutBlock[]): void {
  *      blocks sits between two spanning blocks (or the page edge),
  *      reorder that run by (column index, y).
  */
-function reorderForColumns(blocks: LayoutBlock[], pageWidth: number): LayoutBlock[] {
+function reorderForColumns(blocks: LayoutBlock[], pageWidth: number, pageHeight = 0): LayoutBlock[] {
   if (blocks.length < 4 || pageWidth <= 0) return blocks;
 
   const spanThreshold = pageWidth * 0.6;
@@ -781,11 +1086,7 @@ function reorderForColumns(blocks: LayoutBlock[], pageWidth: number): LayoutBloc
   let pending: LayoutBlock[] = [];
   const flush = () => {
     if (pending.length === 0) return;
-    pending.sort((a, b) => {
-      const ca = columnOf.get(a) ?? 0;
-      const cb = columnOf.get(b) ?? 0;
-      return ca - cb || a.y - b.y;
-    });
+    sortColumnRun(pending, columnOf, pageHeight);
     out.push(...pending);
     pending = [];
   };
@@ -800,6 +1101,54 @@ function reorderForColumns(blocks: LayoutBlock[], pageWidth: number): LayoutBloc
   }
   flush();
   return out;
+}
+
+function sortColumnRun(pending: LayoutBlock[], columnOf: ReadonlyMap<LayoutBlock, number>, pageHeight: number): void {
+  const bottomNotes = new Set(detectColumnBottomNotes(pending, columnOf, pageHeight));
+  pending.sort((a, b) => {
+    const aBottomNote = bottomNotes.has(a);
+    const bBottomNote = bottomNotes.has(b);
+    if (aBottomNote !== bBottomNote) return aBottomNote ? 1 : -1;
+    const ca = columnOf.get(a) ?? 0;
+    const cb = columnOf.get(b) ?? 0;
+    return ca - cb || a.y - b.y;
+  });
+}
+
+function detectColumnBottomNotes(
+  pending: readonly LayoutBlock[],
+  columnOf: ReadonlyMap<LayoutBlock, number>,
+  pageHeight: number,
+): LayoutBlock[] {
+  if (pageHeight <= 0 || pending.length < 3) return [];
+  const fontSizes = pending.flatMap((block) => block.lines.map((line) => line.fontSize).filter((size) => size > 0));
+  if (fontSizes.length === 0) return [];
+  const bodyFontSize = median(fontSizes);
+  if (bodyFontSize <= 0) return [];
+
+  const isSmallBottomBlock = (block: LayoutBlock): boolean => {
+    const column = columnOf.get(block);
+    if (column === undefined) return false;
+    if (block.y < pageHeight * COLUMN_BOTTOM_NOTE_MIN_Y_RATIO) return false;
+    const blockFontSize = median(block.lines.map((line) => line.fontSize).filter((size) => size > 0));
+    if (blockFontSize <= 0 || blockFontSize > bodyFontSize * COLUMN_BOTTOM_NOTE_FONT_RATIO) return false;
+    return pending.some((other) => {
+      if (other === block) return false;
+      const otherColumn = columnOf.get(other);
+      return otherColumn !== undefined && otherColumn !== column && other.y < block.y;
+    });
+  };
+  const anchors = pending.filter(
+    (block) => isSmallBottomBlock(block) && block.text.replace(/\s/g, '').length >= COLUMN_BOTTOM_NOTE_MIN_CHARS,
+  );
+  if (anchors.length === 0) return [];
+  const anchorColumns = new Set(
+    anchors.map((block) => columnOf.get(block)).filter((column): column is number => column !== undefined),
+  );
+  return pending.filter((block) => {
+    const column = columnOf.get(block);
+    return column !== undefined && isSmallBottomBlock(block) && anchorColumns.has(column);
+  });
 }
 
 function nearestColumnByX(
@@ -871,30 +1220,41 @@ function isStandaloneNumericLineAfterProse(prev: LayoutLine, line: LayoutLine, p
 }
 
 function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefined {
-  const allRowGroups = groupLinesByTableRow(lines).map((row) => row.sort((a, b) => a.x - b.x));
-  const rowGroups = allRowGroups
-    .map((row, index) => ({ row, index }))
-    .filter(({ row }) => isLikelyTableRow(row))
-    .map(({ row, index }) => attachLabelContinuationRows(row, index, allRowGroups));
+  const tableLines = lines.filter((line) => !isDecorativeDottedRuleLine(line));
+  const allRowGroups = groupLinesByTableRow(tableLines).map((row) => row.sort((a, b) => a.x - b.x));
+  const rowGroups: IndexedLayoutRow[] = allRowGroups
+    .map((row, index) => ({ row: tableCandidateRow(row), index }))
+    .filter((item): item is IndexedLayoutRow => item.row !== undefined)
+    .map(({ row, index }) => ({ row: attachLabelContinuationRows(row, index, allRowGroups), index }));
   if (rowGroups.length < 2) return undefined;
 
-  const tables: LayoutLine[][][] = [];
+  const tables: IndexedLayoutRow[][] = [];
   for (const row of rowGroups) {
     const prevTable = tables.at(-1);
     const prevRow = prevTable?.at(-1);
-    if (prevRow && rowY(row) - rowBottom(prevRow) <= TABLE_GROUP_MAX_ROW_GAP_PT) {
+    if (prevRow && rowY(row.row) - rowBottom(prevRow.row) <= TABLE_GROUP_MAX_ROW_GAP_PT) {
       prevTable?.push(row);
     } else {
       tables.push([row]);
     }
   }
 
-  const result = tables
-    .filter((table) => table.length >= 2)
-    .filter(hasRegularTableRowCadence)
-    .map(toLayoutTable);
+  const result: LayoutTable[] = [];
+  for (let index = 0; index < tables.length; index++) {
+    const table = tables[index];
+    const baseRows = table.map(({ row }) => row);
+    if (baseRows.length < 2 || !hasRegularTableRowCadence(baseRows)) continue;
+    if (isTwoColumnNumericOnlyTable(baseRows) && baseRows.length < TWO_COLUMN_NUMERIC_TABLE_MIN_ROWS) continue;
+    const nextTableFirstIndex = tables[index + 1]?.[0]?.index ?? allRowGroups.length;
+    const rows = attachNumericContinuationRows(table, allRowGroups, nextTableFirstIndex);
+    result.push(toLayoutTable(attachLeadingTableRows(rows, table[0]?.index ?? 0, allRowGroups)));
+  }
   return result.length > 0 ? result : undefined;
 }
+
+const TABLE_SIDE_PANEL_MIN_GAP_PT = 40;
+const TABLE_COMPACT_LABEL_MAX_WIDTH_PT = 140;
+const TABLE_COMPACT_LABEL_MAX_CHARS = 60;
 
 function groupLinesByTableRow(lines: LayoutLine[]): LayoutLine[][] {
   const rows: LayoutLine[][] = [];
@@ -906,10 +1266,296 @@ function groupLinesByTableRow(lines: LayoutLine[]): LayoutLine[][] {
   return rows;
 }
 
+function isDecorativeDottedRuleLine(line: LayoutLine): boolean {
+  const compact = line.text.replace(/\s+/g, '');
+  if (compact.length < DECORATIVE_DOTTED_RULE_MIN_DOTS) return false;
+  return /^[.\u00b7\u2022\u2027\u2219]+$/u.test(compact);
+}
+
+function tableCandidateRow(row: LayoutLine[]): LayoutLine[] | undefined {
+  if (!isLikelyTableRow(row)) return undefined;
+  for (let start = 1; start < row.length; start++) {
+    const suffix = row.slice(start);
+    if (!isLikelyTableRow(suffix)) continue;
+    if (!isTableLikeSuffix(suffix)) continue;
+    if (canTrimSidePanelTableSuffix(row, start, suffix)) return suffix;
+  }
+  if (isTableLikeSuffix(row)) return row;
+  for (let end = row.length - 1; end >= TABLE_ROW_MIN_CELLS; end--) {
+    const prefix = row.slice(0, end);
+    const trailing = row.slice(end);
+    if (!isLikelyTableRow(prefix)) continue;
+    if (!isTableLikeSuffix(prefix)) continue;
+    if (canTrimTrailingProseTablePrefix(prefix, trailing)) return prefix;
+  }
+  return row;
+}
+
 function isLikelyTableRow(row: LayoutLine[]): boolean {
-  if (row.length < TABLE_ROW_MIN_CELLS) return false;
   const numericCells = row.filter((line) => isTableNumericCell(line.text)).length;
+  if (row.length === TABLE_ROW_MIN_NUMERIC_CELLS) return numericCells === TABLE_ROW_MIN_NUMERIC_CELLS;
+  if (row.length < TABLE_ROW_MIN_CELLS) return false;
   return numericCells >= TABLE_ROW_MIN_NUMERIC_CELLS;
+}
+
+function isTableLikeSuffix(row: LayoutLine[]): boolean {
+  const numericCells = row.filter((line) => isTableNumericCell(line.text)).length;
+  if (numericCells < TABLE_ROW_MIN_NUMERIC_CELLS) return false;
+  return row.every(
+    (line) => isTableNumericCell(line.text) || isCurrencyOnlyCell(line.text) || isCompactTableLabelCell(line),
+  );
+}
+
+function isTwoColumnNumericOnlyTable(rows: LayoutLine[][]): boolean {
+  return rows.every((row) => {
+    const normalized = normalizeTableCurrencyCells(row);
+    return normalized.length === 2 && normalized.every((cell) => isTableNumericCell(cell.text));
+  });
+}
+
+function isCompactTableLabelCell(line: LayoutLine): boolean {
+  const text = line.text.replace(/\s+/g, ' ').trim();
+  if (text.length === 0 || text.length > TABLE_COMPACT_LABEL_MAX_CHARS) return false;
+  if (!/[\p{L}]/u.test(text)) return false;
+  return line.width <= TABLE_COMPACT_LABEL_MAX_WIDTH_PT;
+}
+
+function hasSidePanelTableGap(row: LayoutLine[], start: number): boolean {
+  const prev = row[start - 1];
+  const cur = row[start];
+  if (!prev || !cur) return false;
+  const gap = cur.x - (prev.x + prev.width);
+  return gap >= Math.max(TABLE_SIDE_PANEL_MIN_GAP_PT, cur.fontSize * 4);
+}
+
+function canTrimSidePanelTableSuffix(row: LayoutLine[], start: number, suffix: LayoutLine[]): boolean {
+  if (!hasSidePanelTableGap(row, start)) return false;
+  const firstSuffixCell = suffix[0];
+  const previousCell = row[start - 1];
+  const startsWithCompactLabel =
+    firstSuffixCell !== undefined &&
+    !isTableNumericCell(firstSuffixCell.text) &&
+    isCompactTableLabelCell(firstSuffixCell);
+  if (start === 1) return startsWithCompactLabel && isProseBeforeSidePanel(row[0]);
+  if (!startsWithCompactLabel && previousCell && isTableNumericCell(previousCell.text)) return false;
+  return startsWithCompactLabel || row.slice(0, start).some(isProseBeforeSidePanel);
+}
+
+function canTrimTrailingProseTablePrefix(prefix: LayoutLine[], trailing: LayoutLine[]): boolean {
+  const lastPrefixCell = prefix.at(-1);
+  const firstTrailingCell = trailing[0];
+  if (!lastPrefixCell || !firstTrailingCell) return false;
+  const gap = firstTrailingCell.x - (lastPrefixCell.x + lastPrefixCell.width);
+  if (gap < Math.max(TABLE_SIDE_PANEL_MIN_GAP_PT, firstTrailingCell.fontSize * 4)) return false;
+  return trailing.every(isProseBeforeSidePanel);
+}
+
+function isProseBeforeSidePanel(line: LayoutLine): boolean {
+  const text = line.text.replace(/\s+/g, ' ').trim();
+  if (!/[\p{L}]/u.test(text)) return false;
+  const wordCount = text.split(/\s+/).filter(Boolean).length;
+  if (wordCount < 4) return false;
+  return line.width > TABLE_COMPACT_LABEL_MAX_WIDTH_PT || /[.!?:;]/u.test(text);
+}
+
+function attachNumericContinuationRows(
+  table: IndexedLayoutRow[],
+  allRows: LayoutLine[][],
+  scanEndIndex: number,
+): LayoutLine[][] {
+  const baseRowsByIndex = new Map(table.map(({ row, index }) => [index, row]));
+  const baseRows = table.map(({ row }) => row);
+  const numericColumnRights = recurringNumericColumnRights(baseRows, {
+    minColumns: TABLE_ROW_MIN_NUMERIC_CELLS,
+    minRows: Math.min(
+      baseRows.length,
+      Math.max(2, Math.ceil(baseRows.length * TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROW_RATIO)),
+    ),
+  });
+  if (numericColumnRights.length < TABLE_ROW_MIN_NUMERIC_CELLS) return baseRows;
+
+  const firstIndex = table[0]?.index ?? 0;
+  const lastBaseIndex = table.at(-1)?.index ?? firstIndex;
+  const rows: LayoutLine[][] = [];
+  let previousIncluded: LayoutLine[] | undefined;
+  for (let index = firstIndex; index < scanEndIndex; index++) {
+    const baseRow = baseRowsByIndex.get(index);
+    if (baseRow) {
+      rows.push(baseRow);
+      previousIncluded = baseRow;
+      continue;
+    }
+
+    if (!previousIncluded) continue;
+    const candidate = allRows[index];
+    if (!candidate) continue;
+    const verticalGap = rowY(candidate) - rowBottom(previousIncluded);
+    if (index > lastBaseIndex && verticalGap > TABLE_GROUP_MAX_ROW_GAP_PT) break;
+    if (verticalGap > TABLE_GROUP_MAX_ROW_GAP_PT) continue;
+    if (!isAlignedNumericContinuationRow(candidate, numericColumnRights)) continue;
+
+    rows.push(candidate);
+    previousIncluded = candidate;
+  }
+  return rows;
+}
+
+function attachLeadingTableRows(rows: LayoutLine[][], firstBaseIndex: number, allRows: LayoutLine[][]): LayoutLine[][] {
+  const numericColumnRights = recurringNumericColumnRights(rows, {
+    minColumns: TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS,
+    minRows: Math.min(rows.length, Math.max(2, Math.ceil(rows.length * TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROW_RATIO))),
+  });
+  const leadingColumnRights =
+    numericColumnRights.length >= TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS
+      ? numericColumnRights
+      : firstRowNumericColumnRights(rows);
+  if (leadingColumnRights.length < TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS) return rows;
+
+  const labelLeft = recurringLabelColumnLeft(rows);
+  const tableBox = unionBox(rows.flat());
+  const leadingRows: LayoutLine[][] = [];
+  let nextIncluded = rows[0];
+
+  for (let index = firstBaseIndex - 1; index >= 0; index--) {
+    const candidate = allRows[index];
+    if (!candidate || !nextIncluded) break;
+
+    const verticalGap = rowY(nextIncluded) - rowBottom(candidate);
+    if (verticalGap < -TABLE_LEADING_ROW_MAX_OVERLAP_PT || verticalGap > TABLE_LEADING_ROW_MAX_GAP_PT) break;
+    if (!isLeadingTableRow(candidate, tableBox, leadingColumnRights, labelLeft, leadingRows.length > 0)) break;
+
+    leadingRows.unshift(candidate);
+    nextIncluded = candidate;
+  }
+
+  return leadingRows.length > 0 ? [...leadingRows, ...rows] : rows;
+}
+
+function firstRowNumericColumnRights(rows: LayoutLine[][]): number[] {
+  if (rows.length < TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROWS) return [];
+  const firstRow = rows[0];
+  if (!firstRow) return [];
+  const numericCells = firstRow.filter((line) => isTableNumericCell(line.text));
+  if (numericCells.length < TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS) return [];
+  return numericCells.map((line, index) => numericColumnMatchRight(line, numericCells[index + 1]));
+}
+
+function recurringLabelColumnLeft(rows: LayoutLine[][]): number | undefined {
+  const lefts = rows
+    .map((row) => row.find((line) => !isTableNumericCell(line.text) && !isCurrencyOnlyCell(line.text)))
+    .filter((line): line is LayoutLine => line !== undefined && isCompactTableLabelCell(line))
+    .map((line) => line.x);
+  if (lefts.length < 2) return undefined;
+  return medianNumber(lefts);
+}
+
+function isLeadingTableRow(
+  row: LayoutLine[],
+  tableBox: BBox,
+  numericColumnRights: number[],
+  labelLeft: number | undefined,
+  allowSingleLabelHeader: boolean,
+): boolean {
+  if (row.length === 0) return false;
+  if (!row.every(isCompactLeadingTableCell)) return false;
+
+  const rowBox = unionBox(row);
+  if (!hasTableBandOverlap(rowBox, tableBox)) return false;
+
+  const alignedNumericCells = row.filter((line) => {
+    if (!isTableNumericCell(line.text)) return false;
+    const right = numericColumnMatchRight(line, undefined);
+    return numericColumnRights.some(
+      (columnRight) => Math.abs(columnRight - right) <= TABLE_RECURRING_NUMERIC_COLUMN_TOLERANCE_PT,
+    );
+  });
+  const labelAligned =
+    labelLeft !== undefined &&
+    row.some(
+      (line) => Math.abs(line.x - labelLeft) <= TABLE_LEADING_ROW_X_TOLERANCE_PT && isCompactTableLabelCell(line),
+    );
+
+  if (alignedNumericCells.length > 0) return row.length >= 2 || labelAligned;
+  if (row.length >= 2) return true;
+  return allowSingleLabelHeader && labelAligned;
+}
+
+function isCompactLeadingTableCell(line: LayoutLine): boolean {
+  const text = line.text.replace(/\s+/g, ' ').trim();
+  if (text.length === 0 || text.length > TABLE_LEADING_HEADER_MAX_CHARS) return false;
+  if (isTableNumericCell(text) || isCurrencyOnlyCell(text)) return true;
+  if (!/[\p{L}]/u.test(text)) return false;
+  if (/[!?:;]/u.test(text) || /\.(?:\s|$)/u.test(text)) return false;
+  if (text.split(/\s+/).filter(Boolean).length > TABLE_LEADING_HEADER_MAX_WORDS) return false;
+  return line.width <= TABLE_LEADING_HEADER_MAX_WIDTH_PT;
+}
+
+function hasTableBandOverlap(rowBox: BBox, tableBox: BBox): boolean {
+  const left = tableBox.x - TABLE_LEADING_ROW_X_TOLERANCE_PT;
+  const right = tableBox.x + tableBox.width + TABLE_LEADING_ROW_X_TOLERANCE_PT;
+  const overlap = Math.min(rowBox.x + rowBox.width, right) - Math.max(rowBox.x, left);
+  return overlap > 0 && overlap >= Math.min(rowBox.width, tableBox.width) * 0.6;
+}
+
+function recurringNumericColumnRights(
+  rows: LayoutLine[][],
+  options: { minColumns: number; minRows: number },
+): number[] {
+  const columns: { right: number; rowIndexes: Set<number>; sampleCount: number }[] = [];
+  for (const [rowIndex, row] of rows.entries()) {
+    const numericCells = row.filter((line) => isTableNumericCell(line.text));
+    for (let cellIndex = 0; cellIndex < numericCells.length; cellIndex++) {
+      const line = numericCells[cellIndex];
+      if (!line) continue;
+      const right = numericColumnMatchRight(line, numericCells[cellIndex + 1]);
+      let column = columns.find(
+        (candidate) => Math.abs(candidate.right - right) <= TABLE_RECURRING_NUMERIC_COLUMN_TOLERANCE_PT,
+      );
+      if (!column) {
+        column = { right, rowIndexes: new Set(), sampleCount: 0 };
+        columns.push(column);
+      }
+      column.right = (column.right * column.sampleCount + right) / (column.sampleCount + 1);
+      column.sampleCount += 1;
+      column.rowIndexes.add(rowIndex);
+    }
+  }
+  const recurringColumns = columns
+    .filter((column) => column.rowIndexes.size >= options.minRows)
+    .sort((a, b) => a.right - b.right)
+    .map((column) => column.right);
+  return recurringColumns.length >= options.minColumns ? recurringColumns : [];
+}
+
+function isAlignedNumericContinuationRow(row: LayoutLine[], columnRights: number[]): boolean {
+  const valueCells = row.filter((line) => isTableNumericCell(line.text));
+  if (valueCells.length < TABLE_ROW_MIN_NUMERIC_CELLS) return false;
+  if (row.some((line) => !isTableNumericCell(line.text) && !isCurrencyOnlyCell(line.text))) return false;
+
+  let matchedCells = 0;
+  const matchedColumns = new Set<number>();
+  for (let cellIndex = 0; cellIndex < valueCells.length; cellIndex++) {
+    const cell = valueCells[cellIndex];
+    if (!cell) continue;
+    const right = numericColumnMatchRight(cell, valueCells[cellIndex + 1]);
+    const columnIndex = columnRights.findIndex(
+      (columnRight) => Math.abs(columnRight - right) <= TABLE_RECURRING_NUMERIC_COLUMN_TOLERANCE_PT,
+    );
+    if (columnIndex < 0) return false;
+    matchedCells += 1;
+    matchedColumns.add(columnIndex);
+  }
+  return matchedCells >= TABLE_ROW_MIN_NUMERIC_CELLS && matchedColumns.size >= TABLE_ROW_MIN_NUMERIC_CELLS;
+}
+
+function numericColumnMatchRight(cell: LayoutLine, nextNumericCell: LayoutLine | undefined): number {
+  const trailing = trailingCurrencyForNextValue(cell.text, nextNumericCell);
+  if (!trailing) return cell.x + cell.width;
+
+  const trimmed = cell.text.trim();
+  const valueText = trimmed.slice(0, -trailing.length).trimEnd();
+  if (trimmed.length === 0 || valueText.length === 0) return cell.x + cell.width;
+  return cell.x + cell.width * (valueText.length / trimmed.length);
 }
 
 function attachLabelContinuationRows(row: LayoutLine[], rowIndex: number, allRows: LayoutLine[][]): LayoutLine[] {
@@ -984,25 +1630,11 @@ function hasRecurringNumericColumns(rows: LayoutLine[][]): boolean {
     Math.ceil(rows.length * TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROW_RATIO),
   );
   if (rows.filter(hasTableLabelCell).length < minRows) return false;
-  const columns: { right: number; rowIndexes: Set<number>; sampleCount: number }[] = [];
-  for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
-    for (const line of rows[rowIndex]) {
-      if (!isTableNumericCell(line.text)) continue;
-      const right = line.x + line.width;
-      let column = columns.find(
-        (candidate) => Math.abs(candidate.right - right) <= TABLE_RECURRING_NUMERIC_COLUMN_TOLERANCE_PT,
-      );
-      if (!column) {
-        column = { right, rowIndexes: new Set(), sampleCount: 0 };
-        columns.push(column);
-      }
-      column.right = (column.right * column.sampleCount + right) / (column.sampleCount + 1);
-      column.sampleCount += 1;
-      column.rowIndexes.add(rowIndex);
-    }
-  }
   return (
-    columns.filter((column) => column.rowIndexes.size >= minRows).length >= TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS
+    recurringNumericColumnRights(rows, {
+      minColumns: TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS,
+      minRows,
+    }).length >= TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS
   );
 }
 
@@ -1013,7 +1645,11 @@ function hasTableLabelCell(row: LayoutLine[]): boolean {
 function isTableNumericCell(text: string): boolean {
   const trimmed = text.trim();
   if (trimmed.length === 0 || !/\d/u.test(trimmed)) return false;
-  return trimmed.replace(/[0-9.,()%$¥€£+\-\s]/gu, '').length === 0;
+  const withoutRatioSuffix = trimmed.replace(/(?<=\d)\s*[xX]$/u, '');
+  const withoutScoreWords = withoutRatioSuffix
+    .replace(/\b(?:below|under|over|above|about|approximately)\s+(?=\d)/giu, '')
+    .replace(/(?<=\d)(?:st|nd|rd|th)\b/giu, '');
+  return withoutScoreWords.replace(/[0-9.,()%$¥€£+\-/~\s·⋅∙×^]/gu, '').length === 0;
 }
 
 function gutterBin(prev: BBox, cur: BBox): number {
@@ -1092,6 +1728,36 @@ function detectRecurringGutterBins(lineGroups: TextSpan[][], pageWidth: number):
   return recurring;
 }
 
+function detectRecurringSidePanelStartBins(lineGroups: TextSpan[][], pageWidth: number): Set<number> {
+  if (pageWidth <= 0) return new Set();
+
+  const counts = new Map<number, number>();
+  for (const group of lineGroups) {
+    if (group.length < 2) continue;
+    const xSorted = [...group].sort((a, b) => a.x - b.x);
+    const groupBox = unionBox(xSorted);
+    const binsInRow = new Set<number>();
+    for (let i = 1; i < xSorted.length; i++) {
+      const prev = xSorted[i - 1];
+      const cur = xSorted[i];
+      const gap = cur.x - (prev.x + prev.width);
+      const prevFontSize = prev.fontSize || FONT_SIZE_FALLBACK_PT;
+      const curFontSize = cur.fontSize || FONT_SIZE_FALLBACK_PT;
+      const fontSize = Math.min(prevFontSize, curFontSize);
+      if (isRecurringSidePanelStartCandidate(groupBox, prev, cur, gap, fontSize, pageWidth)) {
+        binsInRow.add(Math.round(cur.x / RECURRING_GUTTER_BIN_PT) * RECURRING_GUTTER_BIN_PT);
+      }
+    }
+    for (const bin of binsInRow) counts.set(bin, (counts.get(bin) ?? 0) + 1);
+  }
+
+  const recurring = new Set<number>();
+  for (const [bin, count] of counts) {
+    if (count >= RECURRING_SIDE_PANEL_MIN_ROWS) recurring.add(bin);
+  }
+  return recurring;
+}
+
 function detectRecurringTableGutterBins(lineGroups: TextSpan[][], pageWidth: number): Set<number> {
   if (pageWidth <= 0) return new Set();
 
@@ -1134,13 +1800,61 @@ function hasRecurringGutter(recurringGutterBins: Set<number>, prev: TextSpan, cu
   return false;
 }
 
+function hasRecurringSidePanelStart(recurringSidePanelStartBins: Set<number>, cur: TextSpan): boolean {
+  if (recurringSidePanelStartBins.size === 0) return false;
+  const bin = Math.round(cur.x / RECURRING_GUTTER_BIN_PT) * RECURRING_GUTTER_BIN_PT;
+  for (const recurringBin of recurringSidePanelStartBins) {
+    if (Math.abs(recurringBin - bin) <= RECURRING_GUTTER_BIN_PT) return true;
+  }
+  return false;
+}
+
+function isRecurringSidePanelStartCandidate(
+  groupBox: BBox,
+  prev: TextSpan,
+  cur: TextSpan,
+  gap: number,
+  fontSize: number,
+  pageWidth: number,
+): boolean {
+  if (pageWidth <= 0) return false;
+  if (groupBox.width < pageWidth * RECURRING_SIDE_PANEL_ROW_MIN_WIDTH_RATIO) return false;
+  if (cur.x < pageWidth * RECURRING_SIDE_PANEL_START_RATIO) return false;
+  if (gap < Math.max(fontSize * RECURRING_SIDE_PANEL_GAP_RATIO, RECURRING_SIDE_PANEL_MIN_GAP_PT)) return false;
+
+  const leftWidth = prev.x + prev.width - groupBox.x;
+  return leftWidth >= pageWidth * RECURRING_SIDE_PANEL_LEFT_MIN_RATIO;
+}
+
 function isRecurringTableGutterCandidate(groupBox: BBox, gap: number, fontSize: number, pageWidth: number): boolean {
-  if (groupBox.width < pageWidth * 0.4) return false;
+  if (groupBox.width < Math.min(pageWidth * 0.4, RECURRING_TABLE_GUTTER_MIN_WIDTH_PT)) return false;
   return gap >= Math.max(fontSize * RECURRING_GUTTER_GAP_RATIO, RECURRING_GUTTER_MIN_GAP_PT);
 }
 
+function isMisalignedLeftSidePanelBoundaryCandidate(
+  groupBox: BBox,
+  prev: TextSpan,
+  cur: TextSpan,
+  gap: number,
+  fontSize: number,
+  pageWidth: number,
+): boolean {
+  if (pageWidth <= 0) return false;
+  const minHeight = Math.max(Math.min(horizontalLineGroupingHeight(prev), horizontalLineGroupingHeight(cur)), 1);
+  const curStartsFormRow = /^\d+[a-z]?$/iu.test(cur.text.trim());
+  if (Math.abs(prev.y - cur.y) < minHeight * LINE_TOP_ALIGNMENT_RATIO && !curStartsFormRow) return false;
+  if (cur.x < pageWidth * 0.12 || cur.x > pageWidth * 0.3) return false;
+  if (groupBox.width < pageWidth * 0.45) return false;
+  if (gap < Math.max(fontSize * 0.75, 6)) return false;
+
+  const leftWidth = prev.x + prev.width - groupBox.x;
+  const rightWidth = groupBox.x + groupBox.width - cur.x;
+  return leftWidth >= 40 && leftWidth <= pageWidth * 0.22 && rightWidth >= pageWidth * 0.3;
+}
+
 function isTableGutterNumericSpan(span: TextSpan): boolean {
-  return /^[\s0-9.,()%+-]+$/u.test(span.text);
+  const text = span.text.trim();
+  return text === '-' || isTableNumericCell(text);
 }
 
 function rowY(row: LayoutLine[]): number {
@@ -1227,9 +1941,11 @@ function trailingCurrencyForNextValue(text: string, next: LayoutLine | undefined
  *
  * `pageWidth` is needed for column detection; pass 0 to skip the multi-
  * column pass (e.g. when the caller already knows the page is single-
- * column or when blocks come from a non-page source).
+ * column or when blocks come from a non-page source). `pageHeight`
+ * enables bottom-note detection inside column runs; 0 keeps the legacy
+ * column sort for synthetic callers that do not know page bounds.
  */
-export function buildLayout(spans: TextSpan[], pageWidth = 0): PageLayout {
+export function buildLayout(spans: TextSpan[], pageWidth = 0, pageHeight = 0): PageLayout {
   if (spans.length === 0) return { blocks: [] };
 
   const vertical = extractVerticalCjkBlocks(spans);
@@ -1259,10 +1975,13 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0): PageLayout {
   // justified word spaces to trust per-row. Those split only when the
   // same gutter position recurs on several page-wide y-rows.
   const recurringGutterBins = detectRecurringGutterBins(lineGroups, pageWidth);
+  const recurringSidePanelStartBins = detectRecurringSidePanelStartBins(lineGroups, pageWidth);
   const recurringTableGutterBins = detectRecurringTableGutterBins(lineGroups, pageWidth);
   const lines: LayoutLine[] = lineGroups.flatMap((group) => {
     const xSorted = [...group].sort((a, b) => a.x - b.x);
     const groupBox = unionBox(xSorted);
+    const preserveWideWordSpacing = isLikelyWideWordSpacingRow(xSorted, pageWidth);
+    const preserveCjkDisplaySpacing = isLikelyCjkDisplaySpacingRow(xSorted);
     const subLines: TextSpan[][] = [[xSorted[0]]];
     for (let i = 1; i < xSorted.length; i++) {
       const prev = xSorted[i - 1];
@@ -1278,12 +1997,31 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0): PageLayout {
       const recurringGutter =
         hasRecurringGutter(recurringGutterBins, prev, cur) &&
         isRecurringGutterSplitCandidate(groupBox, prev, cur, gap, fontSize, pageWidth);
+      const recurringSidePanelStart =
+        hasRecurringSidePanelStart(recurringSidePanelStartBins, cur) &&
+        isRecurringSidePanelStartCandidate(groupBox, prev, cur, gap, fontSize, pageWidth);
       const recurringTableGutter =
         hasRecurringGutter(recurringTableGutterBins, prev, cur) &&
         isTableGutterNumericSpan(prev) &&
         isTableGutterNumericSpan(cur) &&
         isRecurringTableGutterCandidate(groupBox, gap, fontSize, pageWidth);
-      if (gap > segmentGap || recurringGutter || recurringTableGutter) {
+      const misalignedLeftSidePanelBoundary = isMisalignedLeftSidePanelBoundaryCandidate(
+        groupBox,
+        prev,
+        cur,
+        gap,
+        fontSize,
+        pageWidth,
+      );
+      if (
+        !preserveWideWordSpacing &&
+        !preserveCjkDisplaySpacing &&
+        (gap > segmentGap ||
+          recurringGutter ||
+          recurringSidePanelStart ||
+          recurringTableGutter ||
+          misalignedLeftSidePanelBoundary)
+      ) {
         subLines.push([cur]);
       } else {
         subLines[subLines.length - 1].push(cur);
@@ -1358,10 +2096,10 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0): PageLayout {
       lines: group,
     })),
     ...vertical.blocks,
-  ].sort((a, b) => a.y - b.y || a.x - b.x);
+  ].sort(compareLayoutBlocks);
 
-  classifyHeadings(blocks);
-  const ordered = pageWidth > 0 ? reorderForColumns(blocks, pageWidth) : blocks;
+  classifyHeadings(blocks, pageWidth, pageHeight);
+  const ordered = pageWidth > 0 ? reorderForColumns(blocks, pageWidth, pageHeight) : blocks;
   if (ordered !== blocks)
     return { blocks: mergeAdjacentColumnBlocks(ordered, pageWidth), ...(tables !== undefined && { tables }) };
 
@@ -1580,8 +2318,14 @@ function digitNormalizedChromeText(text: string): string | undefined {
 }
 
 function isRepeatedChromeCandidate(page: PageResult, block: LayoutBlock): boolean {
+  const text = block.text.replace(/\s+/g, ' ').trim();
+  if (isShortFormControlLabel(text)) return false;
   const edgeBand = Math.max(REPEATED_CHROME_MIN_EDGE_PT, page.height * REPEATED_CHROME_EDGE_RATIO);
   return block.y <= edgeBand || block.y + block.height >= page.height - edgeBand;
+}
+
+function isShortFormControlLabel(text: string): boolean {
+  return /^(?:yes|no|stop)\.?$/iu.test(text);
 }
 
 function isRepeatedChromeLineCandidate(page: PageResult, line: LayoutBlock['lines'][number]): boolean {
