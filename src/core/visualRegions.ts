@@ -182,6 +182,10 @@ function isUsableBox(box: BoxLike): boolean {
   );
 }
 
+function isUsableVectorConnectorBox(box: BoxLike): boolean {
+  return isFinitePositiveBox(box) && Math.max(box.width, box.height) >= MIN_REGION_DIMENSION_PT;
+}
+
 function isFinitePositiveBox(box: BoxLike): boolean {
   return (
     Number.isFinite(box.x) &&
@@ -648,7 +652,8 @@ function clusterVectorBoxes(
 ): Candidate[] {
   const clusters: Candidate[] = [];
   for (const [index, box] of vectorBoxes.entries()) {
-    if (!isUsableBox(box)) continue;
+    const usableRegionBox = isUsableBox(box);
+    if (!usableRegionBox && !isUsableVectorConnectorBox(box)) continue;
     if (isLikelySideChrome(box, pageWidth, pageHeight)) continue;
     if (isLikelyHorizontalChrome(box, pageWidth, pageHeight)) continue;
     if (skipBackgroundBoxes && isLikelyVectorBackplane(box, pageWidth, pageHeight)) continue;
@@ -657,6 +662,7 @@ function clusterVectorBoxes(
     for (let i = 0; i < clusters.length; i++) {
       if (touches(clusters[i], box, CLUSTER_GAP_PT)) matches.push(i);
     }
+    if (!usableRegionBox && matches.length < 2) continue;
     const next: Candidate = {
       ...box,
       kind: 'vector',
@@ -665,6 +671,7 @@ function clusterVectorBoxes(
       sources: [{ type: 'vectorBox', index }],
     };
     if (matches.length === 0) {
+      if (!usableRegionBox) continue;
       clusters.push(next);
       continue;
     }

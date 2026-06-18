@@ -1,4 +1,4 @@
-import type { ImageBox, LayoutBlock, LayoutLine, PageResult, PageWarning } from '../types/index.js';
+import type { ImageBox, LayoutBlock, LayoutLine, PageResult, PageWarning, VectorBox } from '../types/index.js';
 import { isNonPrintableCodePoint } from './nonPrintable.js';
 import { detectTextOverlap, horizontalOverlap } from './warningTextOverlap.js';
 
@@ -24,6 +24,9 @@ export interface PageWarningContext {
   /** Internal raster bboxes used for warnings even when public
    *  `pages[].imageBoxes` was not requested. */
   imageBoxes?: ImageBox[];
+  /** Internal vector bboxes used for warnings even when public
+   *  `pages[].vectorBoxes` was not requested. */
+  vectorBoxes?: VectorBox[];
   /** Non-fatal pdf.js warnings captured during parsing/rendering. */
   pdfJsWarnings?: readonly string[];
 }
@@ -57,7 +60,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
   detectLowConfidenceOcr(page, context, warnings);
   detectHighConfidenceOcrNativeMismatch(page, warnings);
   detectDenseVectorGraphics(page, warnings);
-  detectVectorGraphicsWithoutNativeText(page, warnings);
+  detectVectorGraphicsWithoutNativeText(page, context, warnings);
   detectLargeRasterLowTextOverlap(page, context, warnings);
   detectVisibleAnnotationTextMissingFromNative(page, warnings);
   detectOptionalContentTextHiddenLayerRisk(context, warnings);
@@ -122,6 +125,9 @@ const CJK_INTERGLYPH_SPACE_PAIR_RATIO_THRESHOLD = 0.45;
 const CJK_INTERGLYPH_SPACE_SAMPLE_LIMIT = 3;
 const FONT_MAPPING_WARNING_PATTERNS = [/no cmap table available/iu, /toUnicode/i, /font.*cmap/iu];
 const DENSE_VECTOR_GRAPHICS_COUNT_THRESHOLD = 250;
+const EDGE_HAIRLINE_MAX_THICKNESS = 1.5;
+const EDGE_HAIRLINE_MARGIN_RATIO = 0.01;
+const EDGE_HAIRLINE_MIN_MARGIN = 2;
 const LARGE_RASTER_AREA_RATIO_THRESHOLD = 0.2;
 const AGGREGATE_RASTER_AREA_RATIO_THRESHOLD = 0.2;
 const AGGREGATE_RASTER_TILE_MIN_AREA_RATIO = 0.02;
@@ -675,17 +681,39 @@ function detectDenseVectorGraphics(page: PageResult, out: PageWarning[]): void {
   });
 }
 
-function detectVectorGraphicsWithoutNativeText(page: PageResult, out: PageWarning[]): void {
+function detectVectorGraphicsWithoutNativeText(
+  page: PageResult,
+  context: PageWarningContext,
+  out: PageWarning[],
+): void {
   if (page.vectorCount <= 0) return;
   if (page.imageCount > 0) return;
   if (page.charCount > 0) return;
   if (page.quality.nativeTextStatus !== 'empty_but_visual_content') return;
   if (page.quality.visualStatus === 'blank') return;
+  const vectorBoxes = page.vectorBoxes ?? context.vectorBoxes;
+  if (vectorBoxes && vectorBoxes.length > 0 && vectorBoxes.every((box) => isPageEdgeHairline(box, page))) return;
   out.push({
     code: 'vector_graphics_no_native_text',
     severity: 'warning',
     message: `page contains ${page.vectorCount} vector drawing operation${page.vectorCount === 1 ? '' : 's'} but no native text — labels, symbols, or diagrams drawn as paths will not appear in pages[].text; inspect --render, --vector-boxes, or --visual-regions if visual content matters`,
   });
+}
+
+function isPageEdgeHairline(box: VectorBox, page: Pick<PageResult, 'width' | 'height'>): boolean {
+  if (box.width <= 0 || box.height <= 0 || page.width <= 0 || page.height <= 0) return false;
+  const thickness = Math.min(box.width, box.height);
+  if (thickness > EDGE_HAIRLINE_MAX_THICKNESS) return false;
+
+  const edgeMargin = Math.max(EDGE_HAIRLINE_MIN_MARGIN, Math.min(page.width, page.height) * EDGE_HAIRLINE_MARGIN_RATIO);
+  const nearTop = box.y <= edgeMargin;
+  const nearBottom = box.y + box.height >= page.height - edgeMargin;
+  const nearLeft = box.x <= edgeMargin;
+  const nearRight = box.x + box.width >= page.width - edgeMargin;
+
+  if (box.height <= EDGE_HAIRLINE_MAX_THICKNESS) return nearTop || nearBottom;
+  if (box.width <= EDGE_HAIRLINE_MAX_THICKNESS) return nearLeft || nearRight;
+  return false;
 }
 
 function detectLargeRasterLowTextOverlap(page: PageResult, context: PageWarningContext, out: PageWarning[]): void {

@@ -430,6 +430,7 @@ interface PageData {
   imageBoxes?: ImageBox[];
   _warningImageBoxes?: ImageBox[];
   vectorBoxes?: VectorBox[];
+  _warningVectorBoxes?: VectorBox[];
   _visualRegionInput?: BuildVisualRegionsInput;
   hasVisibleAnnotationAppearance?: boolean;
   formFields?: FormField[];
@@ -606,9 +607,9 @@ async function extractPageData(
     yMin,
   );
   const allVectorBoxes =
-    flags.vectorBoxes || flags.visualRegions
+    vectorCount > 0
       ? buildVectorBoxes(opList.fnArray, opList.argsArray as unknown[][], ops, width, height, xMin, yMin)
-      : undefined;
+      : [];
   const vectorBoxes = flags.vectorBoxes ? allVectorBoxes : undefined;
   // Build layout internally for form-field labels and visual-region table
   // hints, but only expose pages[].layout when --layout is explicitly on.
@@ -761,6 +762,7 @@ async function extractPageData(
     ...(imageBoxes !== undefined && { imageBoxes }),
     _warningImageBoxes: allBoxes,
     ...(vectorBoxes !== undefined && { vectorBoxes }),
+    _warningVectorBoxes: allVectorBoxes,
     ...(visualRegionInput !== undefined && { _visualRegionInput: visualRegionInput }),
     ...(visibleAnnotationAppearance && { hasVisibleAnnotationAppearance: true }),
     ...(formFields !== undefined && { formFields }),
@@ -1216,6 +1218,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     const rasterBackedTextLayerByPage = new Map<number, boolean>();
     const optionalContentTextByPage = new Map<number, boolean>();
     const warningImageBoxesByPage = new Map<number, ImageBox[]>();
+    const warningVectorBoxesByPage = new Map<number, VectorBox[]>();
     const visualRegionInputsByPage = new Map<number, BuildVisualRegionsInput>();
     const annotationAppearanceByPage = new Map<number, boolean>();
     const imageOps: ImageOps = {
@@ -1267,6 +1270,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       rasterBackedTextLayerByPage.set(pageNum, data.rasterBackedTextLayer);
       optionalContentTextByPage.set(pageNum, data.optionalContentText);
       warningImageBoxesByPage.set(pageNum, data._warningImageBoxes ?? []);
+      warningVectorBoxesByPage.set(pageNum, data._warningVectorBoxes ?? []);
       if (data._visualRegionInput) visualRegionInputsByPage.set(pageNum, data._visualRegionInput);
       if (data.hasVisibleAnnotationAppearance) annotationAppearanceByPage.set(pageNum, true);
       const renderRatio = renderRatios[i];
@@ -1407,6 +1411,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
         optionalContentText: optionalContentTextByPage.get(p.page),
         hasHiddenOptionalContent,
         imageBoxes: warningImageBoxesByPage.get(p.page),
+        vectorBoxes: warningVectorBoxesByPage.get(p.page),
         pdfJsWarnings,
       });
       if (warnings.length > 0) p.warnings = warnings;

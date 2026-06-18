@@ -334,6 +334,39 @@ describe('buildVisualRegions', () => {
     expect(regions[0].sources.at(-1)).toEqual({ type: 'vectorBox', index: 15 });
   });
 
+  it('uses thin vector connectors to join sparse diagram boxes', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 595.22,
+      pageHeight: 842,
+      imageBoxes: [],
+      vectorBoxes: [
+        { x: 127.46, y: 498.81, width: 72.69, height: 30.39 },
+        { x: 127.4, y: 498.81, width: 72.74, height: 30.39 },
+        { x: 245.3, y: 498.81, width: 83.89, height: 30.39 },
+        { x: 245.3, y: 498.81, width: 83.89, height: 30.39 },
+        { x: 378.25, y: 495.13, width: 72.74, height: 30.39 },
+        { x: 378.25, y: 495.08, width: 72.69, height: 30.45 },
+        { x: 120.87, y: 533.87, width: 336.48, height: 17.73 },
+        { x: 202.89, y: 508.43, width: 42.41, height: 5.48 },
+        { x: 332.57, y: 508.43, width: 42.35, height: 5.48 },
+      ],
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'vector',
+        x: 119.4,
+        y: 487.08,
+        width: 339.59,
+        height: 50.12,
+        areaRatio: 0.034,
+        sourceCount: 8,
+        sources: [0, 1, 2, 3, 4, 5, 7, 8].map((index) => ({ type: 'vectorBox' as const, index })),
+        reason: '8 nearby vector drawing operations',
+      },
+    ]);
+  });
+
   it('creates a fallback region for dense thin vector grid lines', () => {
     const vectorBoxes = Array.from({ length: 40 }, (_, index) => ({
       x: 20,

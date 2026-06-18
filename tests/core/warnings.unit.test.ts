@@ -932,6 +932,54 @@ describe('detectPageWarnings', () => {
     expect(out[0].message).toContain('1 vector drawing operation');
   });
 
+  it('does not flag vector-only pages whose only vector boxes are page-edge hairlines', () => {
+    const out = detectPageWarnings(
+      {
+        page: 1,
+        text: '',
+        charCount: 0,
+        imageCount: 0,
+        vectorCount: 2,
+        textCoverage: 0,
+        nonPrintableRatio: 0,
+        nonPrintableCount: 0,
+        width: 249.45,
+        height: 321.22,
+        quality: { nativeTextStatus: 'empty_but_visual_content', visualStatus: 'sparse' },
+      },
+      {
+        vectorBoxes: [
+          { x: 0, y: -0.2, width: 249.45, height: 0.5 },
+          { x: 0, y: 320.72, width: 249.45, height: 0.5 },
+        ],
+      },
+    );
+
+    expect(out.filter((w) => w.code === 'vector_graphics_no_native_text')).toEqual([]);
+  });
+
+  it('still flags vector-only pages with an internal hairline diagram', () => {
+    const out = detectPageWarnings(
+      {
+        page: 1,
+        text: '',
+        charCount: 0,
+        imageCount: 0,
+        vectorCount: 1,
+        textCoverage: 0,
+        nonPrintableRatio: 0,
+        nonPrintableCount: 0,
+        width: 200,
+        height: 200,
+        quality: { nativeTextStatus: 'empty_but_visual_content', visualStatus: 'sparse' },
+      },
+      { vectorBoxes: [{ x: 40, y: 90, width: 120, height: 0.5 }] },
+    );
+
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'vector_graphics_no_native_text', severity: 'warning' });
+  });
+
   it('does not flag blank vector-only pages without render evidence', () => {
     const out = detectPageWarnings({
       page: 1,
