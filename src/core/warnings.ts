@@ -61,6 +61,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
   detectVisibleAnnotationTextMissingFromNative(page, warnings);
   detectOptionalContentTextHiddenLayerRisk(context, warnings);
   detectDotLeaderNoise(page, warnings);
+  detectTinyNativeTextNoise(page, warnings);
 
   if (
     !page.layout ||
@@ -143,6 +144,9 @@ const TABULAR_NUMERIC_RECURRING_COLUMN_MIN_COLUMNS = 3;
 const TABULAR_NUMERIC_RECURRING_COLUMN_MIN_ROW_RATIO = 0.6;
 const DOT_LEADER_NOISE_MIN_LINES = 8;
 const DOT_LEADER_NOISE_MIN_DOTS = 80;
+const TINY_NATIVE_TEXT_MAX_FONT_SIZE = 2;
+const TINY_NATIVE_TEXT_MIN_CHARS = 12;
+const TINY_NATIVE_TEXT_SAMPLE_LIMIT = 3;
 
 function detectGlyphGarbageText(page: PageResult, out: PageWarning[]): void {
   const status = page.quality.nativeTextStatus;
@@ -165,6 +169,36 @@ function detectGlyphGarbageText(page: PageResult, out: PageWarning[]): void {
     severity: 'warning',
     message: `native text is mostly private-use glyph codes (${(privateUse.ratio * 100).toFixed(1)}% PUA, ${privateUse.count} code point${privateUse.count === 1 ? '' : 's'}); inspect the render or run OCR before trusting extracted text`,
   });
+}
+
+function detectTinyNativeTextNoise(page: PageResult, out: PageWarning[]): void {
+  const candidates = textGeometryItems(page).filter((item) => {
+    const text = item.text.trim();
+    if (text.length < TINY_NATIVE_TEXT_MIN_CHARS) return false;
+    const fontSize = item.fontSize ?? item.height;
+    return fontSize > 0 && fontSize <= TINY_NATIVE_TEXT_MAX_FONT_SIZE && item.height <= TINY_NATIVE_TEXT_MAX_FONT_SIZE;
+  });
+  if (candidates.length === 0) return;
+  const samples = candidates
+    .slice(0, TINY_NATIVE_TEXT_SAMPLE_LIMIT)
+    .map((item) => JSON.stringify(shortTextSample(item.text.trim())));
+  out.push({
+    code: 'tiny_native_text_noise',
+    severity: 'warning',
+    message: `native text contains ${candidates.length} extremely small text run${candidates.length === 1 ? '' : 's'} (sample: ${samples.join(', ')}) that may be invisible at normal reading scale; inspect the render before treating pages[].text, links, or search matches as human-visible`,
+  });
+}
+
+function textGeometryItems(page: PageResult): { text: string; height: number; fontSize?: number }[] {
+  if (page.layout) {
+    const items: { text: string; height: number; fontSize?: number }[] = [];
+    for (const block of page.layout.blocks) {
+      if (block.lines.length > 0) items.push(...block.lines);
+      else items.push(block);
+    }
+    return items;
+  }
+  return page.spans ?? [];
 }
 
 function hasUnreliableGlyphGeometry(page: PageResult): boolean {

@@ -1248,7 +1248,7 @@ export interface SearchMatch {
  * that raw text alone hides: overlapping layout blocks, bodies crowded
  * against chrome, off-page bboxes, localized glyph noise / replacement
  * characters / CJK mojibake,
- * page-wide glyph-index garbage,
+ * page-wide glyph-index garbage, tiny native text that may not be human-visible,
  * dense vector graphics whose form fields or chart paths are not text,
  * numeric table-like layouts whose rows/columns may flatten into plain text,
  * local math/text-order divergences whose visual order differs from native text,
@@ -1269,6 +1269,7 @@ export interface PageWarning {
     | 'dense_vector_graphics'
     | 'tabular_numeric_layout'
     | 'dot_leader_noise'
+    | 'tiny_native_text_noise'
     | 'raster_backed_text_layer'
     | 'raster_text_layer_symbol_noise'
     | 'ocr_low_confidence'

@@ -61,6 +61,33 @@ describe('detectPageWarnings', () => {
     expect(detectPageWarnings(noLayout)).toEqual([]);
   });
 
+  it('flags long native text runs that are too tiny to read normally', () => {
+    const out = detectPageWarnings(
+      page(
+        [
+          block(254, 76, 86, 18, { text: 'AcroForm', lines: [line('AcroForm', 254, 76, 86, 18)] }),
+          block(2.84, 839.67, 16.17, 1, {
+            text: 'Powered by TCPDF (www.tcpdf.org)',
+            repeated: true,
+            lines: [
+              { text: 'Powered by TCPDF (www.tcpdf.org)', x: 2.84, y: 839.67, width: 16.17, height: 1, fontSize: 1 },
+            ],
+          }),
+        ],
+        595.28,
+        841.89,
+      ),
+    );
+
+    expect(out).toEqual([
+      expect.objectContaining({
+        code: 'tiny_native_text_noise',
+        severity: 'warning',
+      }),
+    ]);
+    expect(out[0].message).toContain('Powered by TCPDF');
+  });
+
   it('warns when optional-content text may include default-hidden layers', () => {
     const out = detectPageWarnings(page([]), {
       optionalContentText: true,

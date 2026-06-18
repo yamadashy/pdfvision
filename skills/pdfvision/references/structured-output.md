@@ -519,6 +519,7 @@ interface PageWarning {
     | 'dense_vector_graphics'
     | 'tabular_numeric_layout'
     | 'dot_leader_noise'
+    | 'tiny_native_text_noise'
     | 'raster_backed_text_layer'
     | 'raster_text_layer_symbol_noise'
     | 'ocr_low_confidence'
@@ -534,7 +535,7 @@ interface PageWarning {
 }
 ```
 
-`pages[].warnings[]` is omitted when no rule fired. Geometry warnings require `--layout` because they pin to layout blocks, and are suppressed on heavily glyph-corrupted pages where native bboxes are not trustworthy. Image-region warnings can use pdfvision's internal image-box pass even when `--image-boxes` was not requested; `imageBoxIndex` is emitted only when public `pages[].imageBoxes` exists. `large_raster_low_text_overlap` gets stronger overlap evidence when `--image-boxes` is combined with `--layout` or `--geometry`, because it can compare image boxes against native text bboxes. `tabular_numeric_layout` requires `--layout` because it inspects aligned layout lines. `annotation_text_missing_from_native` requires `--annotations` because it compares public FreeText annotation contents against `pages[].text`. `glyph_garbage_text`, `localized_glyph_noise`, `font_mapping_warning`, `dense_vector_graphics`, `dot_leader_noise`, and `optional_content_text_may_include_hidden_layers` use always-on page/document signals and can appear without layout. `raster_backed_text_layer` and `raster_text_layer_symbol_noise` use the internal image-box pass and can appear even when `--image-boxes` was not requested. `ocr_low_confidence` and `ocr_native_text_mismatch` require `--ocr`.
+`pages[].warnings[]` is omitted when no rule fired. Geometry warnings require `--layout` because they pin to layout blocks, and are suppressed on heavily glyph-corrupted pages where native bboxes are not trustworthy. Image-region warnings can use pdfvision's internal image-box pass even when `--image-boxes` was not requested; `imageBoxIndex` is emitted only when public `pages[].imageBoxes` exists. `large_raster_low_text_overlap` gets stronger overlap evidence when `--image-boxes` is combined with `--layout` or `--geometry`, because it can compare image boxes against native text bboxes. `tabular_numeric_layout` requires `--layout` because it inspects aligned layout lines. `tiny_native_text_noise` requires `--layout` or `--geometry` because it inspects font-size geometry. `annotation_text_missing_from_native` requires `--annotations` because it compares public FreeText annotation contents against `pages[].text`. `glyph_garbage_text`, `localized_glyph_noise`, `font_mapping_warning`, `dense_vector_graphics`, `dot_leader_noise`, and `optional_content_text_may_include_hidden_layers` use always-on page/document signals and can appear without layout. `raster_backed_text_layer` and `raster_text_layer_symbol_noise` use the internal image-box pass and can appear even when `--image-boxes` was not requested. `ocr_low_confidence` and `ocr_native_text_mismatch` require `--ocr`.
 
 The current rule catalog:
 
@@ -548,6 +549,7 @@ The current rule catalog:
 - `dense_vector_graphics` — the page contains many vector drawing operations; often form boxes, table rules, chart paths, checkboxes, or diagrams whose visible structure is not represented by native text.
 - `tabular_numeric_layout` — many short numeric lines form multiple aligned columns with shared row positions; often financial statements or dense numeric tables whose row/column relationships are visually obvious but can be flattened in plain native text. Chart-axis tick labels and irregular chart data-label rows are suppressed.
 - `dot_leader_noise` — many standalone dotted leader lines were extracted as separate layout text; often table-of-contents or table leaders that visually connect labels to page numbers or values but can appear as noisy dot paragraphs in plain native text.
+- `tiny_native_text_noise` — one or more long native text runs are set at extremely small sizes, often hidden producer links or machine-readable residue. Treat matching `pages[].text`, links, and search hits as possibly not human-visible until checked against the render. Requires `--layout` or `--geometry`.
 - `raster_backed_text_layer` — native text appears to be an OCR/text layer over a full-page raster image, including sparse OCR layers on scanned covers; text may be useful but error-prone, and bbox/layout geometry can drift from the pixels a human sees.
 - `raster_text_layer_symbol_noise` — a raster-backed native text layer is dominated by printable punctuation/symbol noise; common on old scan OCR title pages where `quality.nativeTextStatus` can still be `ok` even though the native text is visibly unreliable.
 - `ocr_low_confidence` — `--ocr` ran with confidence below 0.5 while native extraction was empty, sparse, glyph-corrupted, or attached to a raster-backed text layer; OCR text is present but should be treated as tentative until checked against the render, language choice, or a focused crop.
