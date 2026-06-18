@@ -71,7 +71,8 @@ Options
                           --render-region for a visual zoom.
       --render-visual-regions
                           Render each visual region crop to PNG and attach
-                          \`visualRegions[].image\` / \`renderContentRatio\`.
+                          \`visualRegions[].image\`, \`renderContentRatio\`,
+                          and \`renderedContentBox\` when visible pixels are tighter.
                           Implies --visual-regions and does not require --render.
       --form-fields       Emit \`pages[].formFields\` — interactive PDF widget fields
                           such as text boxes, checkboxes, radio buttons, choices,

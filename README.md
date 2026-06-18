@@ -35,25 +35,11 @@ Every page reports `charCount`, `imageCount`, `vectorCount`, `textCoverage`, and
 
 ### Preserve layout and visual structure
 
-- **`--layout`** returns blocks with `role: 'heading'`, `repeated: true` for running headers and footers (splitting glued footer lines away from nearby body text when possible), multi-column reading order (including narrow repeated gutters and drop caps), `writingMode: 'vertical'` for detected CJK vertical text stacks, and row-major `layout.tables[]` hints for aligned numeric tables.
-- **`--image-boxes`** reports where each raster draw lands, including image-bearing pattern fills.
-- **`--vector-boxes`** reports where painted vector paths and clipped shading fills land, useful for maps, symbols, chart paths, gradient panels, form boxes, table rules, and slide shapes that are visible but not raster images.
-- **`--visual-regions`** groups important raster/vector/table/form geometry into padded, crop-ready bboxes, attaches nearby captions/form labels/table lead-ins when found (including global Plate captions for multi-panel map/figure pages), and can be fed straight into `--render-region`; **`--render-visual-regions`** renders those suggested crops directly.
-- **`--form-fields`** reports interactive PDF widget fields such as text boxes, checkboxes, radio buttons, choices, buttons, and signatures with values, checkbox/radio export values, bboxes, decoded widget flags, JavaScript actions, nearby visible labels, and choice options when the PDF exposes them, including stacked prompt lines, dotted-leader amount prompts, and fine-grained adjacent prompts when they form field labels.
-- **`--links`** reports clickable PDF link annotations such as citation jumps, table-of-contents destinations, and external URLs with bboxes, plus the resolved physical target page when an internal destination can be resolved.
-- **`--annotations`** surfaces non-link PDF annotations such as comments, sticky notes, highlights, underlines, strikeouts, stamps, file-attachment icons, shape markup, and ink with bboxes, comment text, icon names, PDF flags such as `hidden` / `print`, attachment metadata, and shape geometry such as borders, line endpoints, vertices, and ink paths when available.
-- **`--structure`** exposes tagged-PDF structure trees with roles, figure alt text, language hints, bboxes, and marked-content ids when the PDF exposes accessibility structure; stray control bytes in structure strings are removed.
-- **`--page-labels`** emits viewer page labels such as roman front matter (`i`, `ii`) or restarted section numbering that differs from physical page numbers.
-- **`--attachments`** lists document-level embedded file attachments with filename, description, and byte size, without dumping attachment bytes into the agent context. Add `--attachment-output <dir>` to save the embedded files and include paths in `attachments[].path`.
-- **`--outline`** preserves document outline/bookmark sidebar entries, hierarchy, resolvable destination pages, URLs, and named viewer actions such as `NextPage`.
-- **`--viewer`** exposes viewer-level document settings such as initial page mode/layout, viewer preferences, open action, document/page JavaScript actions, permissions, and tagged-PDF MarkInfo.
-- **`--layers`** emits PDF optional content groups shown by viewer layer panels, including layer names, visibility, usage states, radio groups, and panel order for maps, CAD/design files, and variants.
-- **`--geometry`** emits per-text-item `bbox` + `fontSize` so callers can reconstruct visual hierarchy themselves.
-- **`--password` / `--password-stdin`** opens encrypted PDFs when the caller knows the document password; the password is used for decryption and is never included in output. Use `--password-stdin` to keep the password out of argv and shell history; `--password` can be supplied as an explicit fallback when stdin is empty.
+PDF meaning often lives in placement, not only words: headings, columns, tables, form labels, links, annotations, figures, and page labels all tell a reader how to interpret the page. pdfvision keeps those signals available instead of flattening the document into one text stream.
 
-Every page always includes `vectorCount` — the number of non-text vector drawing operations such as rules, form boxes, chart paths, and slide shapes.
+It also makes visual evidence addressable. Images, vector drawings, forms, tables, and annotation markup can be returned as page boxes or crop-ready visual regions, then rendered only when an agent needs a closer look.
 
-The agent picks which signals matter; pdfvision doesn't bake one answer.
+The point is simple: an agent can keep row/column/form relationships, choose the next visual zoom, and verify layout-sensitive content against the rendered page. Detailed flag behavior is documented in the Usage section and the structured output reference.
 
 ### Spot anomalies a human would notice
 
@@ -126,7 +112,8 @@ Options:
       --vector-boxes      Emit vector drawing bboxes in pages[].vectorBoxes
       --visual-regions    Emit crop-ready figure/chart/table/form regions in pages[].visualRegions
       --render-visual-regions
-                          Render visual region crops to PNG and attach paths
+                          Render visual region crops to PNG and attach paths,
+                          renderContentRatio, and renderedContentBox hints
       --password <value>  Password for encrypted PDFs; never emitted in output
       --password-stdin    Read the encrypted PDF password from piped stdin; falls back to --password if empty
       --form-fields       Emit interactive PDF widget fields, flags, actions, export values, choice options, and labels in pages[].formFields
