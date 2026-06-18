@@ -874,6 +874,44 @@ describe('detectPageWarnings', () => {
     expect(out.filter((w) => w.code === 'dense_vector_graphics')).toEqual([]);
   });
 
+  it('flags vector-only visual pages without native text', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '',
+      charCount: 0,
+      imageCount: 0,
+      vectorCount: 1,
+      textCoverage: 0,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 200,
+      height: 200,
+      quality: { nativeTextStatus: 'empty_but_visual_content', visualStatus: 'ok' },
+    });
+
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'vector_graphics_no_native_text', severity: 'warning' });
+    expect(out[0].message).toContain('1 vector drawing operation');
+  });
+
+  it('does not flag blank vector-only pages without render evidence', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '',
+      charCount: 0,
+      imageCount: 0,
+      vectorCount: 1,
+      textCoverage: 0,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 200,
+      height: 200,
+      quality: { nativeTextStatus: 'empty_but_visual_content', visualStatus: 'blank' },
+    });
+
+    expect(out.filter((w) => w.code === 'vector_graphics_no_native_text')).toEqual([]);
+  });
+
   it('flags dense aligned numeric tables that native text can flatten', () => {
     // Apple 10-K gross-margin-page-shaped case: the text is native and
     // readable, but multiple right-aligned numeric columns are visually

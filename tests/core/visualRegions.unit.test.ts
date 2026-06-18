@@ -221,6 +221,31 @@ describe('buildVisualRegions', () => {
     expect(regions).toEqual([]);
   });
 
+  it('keeps a full-page vector region when it is the only nonblank visual evidence', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 100,
+      pageHeight: 100,
+      imageBoxes: [],
+      vectorBoxes: [{ x: 0, y: 0, width: 100, height: 100 }],
+      visualStatus: 'ok',
+      nativeTextStatus: 'empty_but_visual_content',
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'vector',
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100,
+        areaRatio: 1,
+        sourceCount: 1,
+        sources: [{ type: 'vectorBox', index: 0 }],
+        reason: '1 nearby vector drawing operations',
+      },
+    ]);
+  });
+
   it('ignores full-page background boxes when foreground visual boxes are present', () => {
     const regions = buildVisualRegions({
       pageWidth: 100,

@@ -57,6 +57,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
   detectLowConfidenceOcr(page, context, warnings);
   detectHighConfidenceOcrNativeMismatch(page, warnings);
   detectDenseVectorGraphics(page, warnings);
+  detectVectorGraphicsWithoutNativeText(page, warnings);
   detectLargeRasterLowTextOverlap(page, context, warnings);
   detectVisibleAnnotationTextMissingFromNative(page, warnings);
   detectOptionalContentTextHiddenLayerRisk(context, warnings);
@@ -626,6 +627,19 @@ function detectDenseVectorGraphics(page: PageResult, out: PageWarning[]): void {
     code: 'dense_vector_graphics',
     severity: 'warning',
     message: `page contains ${page.vectorCount} vector drawing operations — form fields, table rules, chart paths, or diagrams may not be represented in native text; inspect the render if visual structure matters`,
+  });
+}
+
+function detectVectorGraphicsWithoutNativeText(page: PageResult, out: PageWarning[]): void {
+  if (page.vectorCount <= 0) return;
+  if (page.imageCount > 0) return;
+  if (page.charCount > 0) return;
+  if (page.quality.nativeTextStatus !== 'empty_but_visual_content') return;
+  if (page.quality.visualStatus === 'blank') return;
+  out.push({
+    code: 'vector_graphics_no_native_text',
+    severity: 'warning',
+    message: `page contains ${page.vectorCount} vector drawing operation${page.vectorCount === 1 ? '' : 's'} but no native text — labels, symbols, or diagrams drawn as paths will not appear in pages[].text; inspect --render, --vector-boxes, or --visual-regions if visual content matters`,
   });
 }
 

@@ -3,6 +3,7 @@ import type {
   ImageBox,
   PageAnnotation,
   PageLayout,
+  PageQuality,
   VectorBox,
   VisualRegion,
   VisualRegionAssociatedText,
@@ -36,6 +37,7 @@ export interface BuildVisualRegionsInput {
   formFields?: readonly FormField[];
   annotations?: readonly PageAnnotation[];
   visualStatus?: 'ok' | 'sparse' | 'blank';
+  nativeTextStatus?: PageQuality['nativeTextStatus'];
 }
 
 const REGION_PADDING_PT = 8;
@@ -1584,19 +1586,28 @@ function suppressBlankFullPageCandidates(
   return candidates.filter((candidate) => !isNearFullPageBox(candidate, pageWidth, pageHeight));
 }
 
-function suppressLoneFullPageVectorBackplanes(
-  candidates: Candidate[],
-  pageWidth: number,
-  pageHeight: number,
-): Candidate[] {
+function suppressLoneFullPageVectorBackplanes(candidates: Candidate[], input: BuildVisualRegionsInput): Candidate[] {
   return candidates.filter(
     (candidate) =>
       !(
         candidate.kind === 'vector' &&
         candidate.sources.length === 1 &&
         hasSourceType(candidate, 'vectorBox') &&
-        isNearFullPageBox(candidate, pageWidth, pageHeight)
+        isNearFullPageBox(candidate, input.pageWidth, input.pageHeight) &&
+        !isOnlyNonblankVisualEvidence(candidate, input)
       ),
+  );
+}
+
+function isOnlyNonblankVisualEvidence(candidate: Candidate, input: BuildVisualRegionsInput): boolean {
+  return (
+    input.nativeTextStatus === 'empty_but_visual_content' &&
+    input.visualStatus !== 'blank' &&
+    (input.layout?.blocks.length ?? 0) === 0 &&
+    input.imageBoxes.length === 0 &&
+    candidate.kind === 'vector' &&
+    candidate.sources.length === 1 &&
+    hasSourceType(candidate, 'vectorBox')
   );
 }
 
@@ -1733,11 +1744,7 @@ export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion
     input.pageHeight,
     input.visualStatus,
   );
-  const backplaneAwareCandidates = suppressLoneFullPageVectorBackplanes(
-    blankAwareCandidates,
-    input.pageWidth,
-    input.pageHeight,
-  );
+  const backplaneAwareCandidates = suppressLoneFullPageVectorBackplanes(blankAwareCandidates, input);
   const foregroundCandidates = suppressBackgroundLikeCandidates(
     backplaneAwareCandidates,
     input.pageWidth,
