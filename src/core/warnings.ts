@@ -123,6 +123,10 @@ const CJK_INTERGLYPH_SPACE_MIN_CJK_COUNT = 8;
 const CJK_INTERGLYPH_SPACE_MIN_PAIR_COUNT = 5;
 const CJK_INTERGLYPH_SPACE_PAIR_RATIO_THRESHOLD = 0.45;
 const CJK_INTERGLYPH_SPACE_SAMPLE_LIMIT = 3;
+const SEQUENTIAL_CJK_EXTENSION_GLYPH_MIN_COUNT = 8;
+const SEQUENTIAL_CJK_EXTENSION_GLYPH_DOMINANCE_THRESHOLD = 0.75;
+const SEQUENTIAL_CJK_EXTENSION_GLYPH_MAX_STEP = 4;
+const SEQUENTIAL_CJK_EXTENSION_GLYPH_SAMPLE_LIMIT = 4;
 const FONT_MAPPING_WARNING_PATTERNS = [/no cmap table available/iu, /toUnicode/i, /font.*cmap/iu];
 const DENSE_VECTOR_GRAPHICS_COUNT_THRESHOLD = 250;
 const EDGE_HAIRLINE_MAX_THICKNESS = 1.5;
@@ -343,6 +347,15 @@ function detectLocalizedGlyphNoise(page: PageResult, out: PageWarning[]): void {
       message: `native text contains spaces between ${cjkInterglyphSpaces.pairCount} adjacent CJK glyph pairs (samples: ${cjkInterglyphSpaces.samples.map((s) => JSON.stringify(s)).join(', ')}) — likely PDF text-positioning artifacts; inspect the render or normalize CJK spacing before using exact text`,
     });
   }
+
+  const sequentialCjkExtension = detectSequentialCjkExtensionGlyphNoise(page.text);
+  if (sequentialCjkExtension) {
+    out.push({
+      code: 'localized_glyph_noise',
+      severity: 'warning',
+      message: `native text is dominated by a sequential run of rare CJK extension code points (samples: ${sequentialCjkExtension.samples.map((s) => JSON.stringify(s)).join(', ')}) — likely printable CID/glyph-id substitution from a missing character map; inspect the render before trusting exact text`,
+    });
+  }
 }
 
 function detectInlineUppercaseDigraphGlyphNoise(text: string): string[] {
@@ -385,6 +398,56 @@ function detectCjkInterglyphSpacingNoise(text: string): { pairCount: number; sam
 
 function isInlineSpacingChar(ch: string | undefined): boolean {
   return ch === ' ' || ch === '\t' || ch === '\u3000';
+}
+
+function detectSequentialCjkExtensionGlyphNoise(text: string): { samples: string[] } | undefined {
+  const chars = Array.from(text).filter((ch) => !/\s/u.test(ch));
+  if (chars.length < SEQUENTIAL_CJK_EXTENSION_GLYPH_MIN_COUNT) return undefined;
+
+  const extensionChars = chars.filter(isCjkExtensionChar);
+  if (extensionChars.length < SEQUENTIAL_CJK_EXTENSION_GLYPH_MIN_COUNT) return undefined;
+  if (extensionChars.length / chars.length < SEQUENTIAL_CJK_EXTENSION_GLYPH_DOMINANCE_THRESHOLD) return undefined;
+
+  let currentRun: string[] = [];
+  let currentStep: number | undefined;
+  for (const char of chars) {
+    if (!isCjkExtensionChar(char)) {
+      currentRun = [];
+      currentStep = undefined;
+      continue;
+    }
+    if (currentRun.length === 0) {
+      currentRun = [char];
+      continue;
+    }
+
+    const previous = currentRun.at(-1) as string;
+    const step = (char.codePointAt(0) as number) - (previous.codePointAt(0) as number);
+    if (step <= 0 || step > SEQUENTIAL_CJK_EXTENSION_GLYPH_MAX_STEP) {
+      currentRun = [char];
+      currentStep = undefined;
+      continue;
+    }
+    if (currentStep !== undefined && step !== currentStep) {
+      currentRun = [previous, char];
+      currentStep = step;
+      continue;
+    }
+
+    currentStep = step;
+    currentRun.push(char);
+    if (currentRun.length >= SEQUENTIAL_CJK_EXTENSION_GLYPH_MIN_COUNT) {
+      return { samples: currentRun.slice(0, SEQUENTIAL_CJK_EXTENSION_GLYPH_SAMPLE_LIMIT) };
+    }
+  }
+
+  return undefined;
+}
+
+function isCjkExtensionChar(ch: string | undefined): boolean {
+  if (ch === undefined) return false;
+  const cp = ch.codePointAt(0);
+  return cp !== undefined && ((cp >= 0x3400 && cp <= 0x4dbf) || (cp >= 0x20000 && cp <= 0x2ebef));
 }
 
 function findSingleDisplayNonPrintableGlyph(page: PageResult): { blockIndex: number } | undefined {

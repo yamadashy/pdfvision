@@ -874,6 +874,45 @@ describe('detectPageWarnings', () => {
     expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
   });
 
+  it('flags sequential rare CJK extension glyph runs as printable glyph noise', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '㐂㐄㐆㐈㐊㐌㐎㐐㐒㐔㐖㐘',
+      charCount: 12,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.029,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 595.28,
+      height: 841.89,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+    });
+
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'localized_glyph_noise', severity: 'warning' });
+    expect(out[0].message).toContain('sequential run of rare CJK extension code points');
+    expect(out[0].message).toContain('"㐂"');
+  });
+
+  it('does not flag non-sequential rare CJK extension text', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '㐂㔾㚡㝵㠯㣇㥯㩻 alongside annotations',
+      charCount: 29,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.04,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+    });
+
+    expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
+  });
+
   it('flags dense vector graphics that may carry form or chart structure outside text', () => {
     // IRS Form 1040-shaped case: text extraction is healthy, but the
     // checkbox/table/form geometry is mostly vector drawing operations.
