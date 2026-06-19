@@ -58,7 +58,7 @@
   "bugs": {
     "url": "https://github.com/yamadashy/pdfvision/issues"
   },
-  "homepage": "https://yamadashy.github.io/pdfvision/",
+  "homepage": "https://pdfvision.dev/",
   "publishConfig": {
     "access": "public"
   },

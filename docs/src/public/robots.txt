@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://yamadashy.github.io/pdfvision/sitemap.xml
+Sitemap: https://pdfvision.dev/sitemap.xml
