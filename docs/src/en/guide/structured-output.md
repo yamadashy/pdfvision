@@ -115,6 +115,22 @@ Use these fields as a mental map:
 
 For agent workflows, the most important pattern is to preserve the field that led to a conclusion. If a summary depends on a table cell, keep the page number and bbox. If OCR was used, keep confidence and the crop. If a warning changed the extraction strategy, keep the warning code.
 
+## Optional PDF Feature Fields
+
+Many PDFs contain information outside the plain text stream. pdfvision keeps these features opt-in so lightweight extraction stays small, but they are important for documents where the viewer experience carries meaning.
+
+Use `--form-fields` for applications, questionnaires, and government forms. It exposes widget type, value, checked state, choices, flags, export values, actions, bbox, and nearby labels. This is often the only reliable way to distinguish a blank box from a selected checkbox or a visible choice field.
+
+Use `--links` and `--outline` for navigation-heavy documents. Links are page-level annotations with bboxes and targets, while outlines are document-level bookmarks that preserve hierarchy and resolved destinations when available. They are useful for citations, table-of-contents entries, manuals, and reports where "where this points" is part of the evidence.
+
+Use `--annotations` when comments, highlights, stamps, ink, shapes, file-attachment icons, or visible FreeText notes may change the meaning of the page. FreeText annotations are also searched by `--search`, even when annotation output itself is not requested, because they can be visible to a human reader while absent from `pages[].text`.
+
+Use `--viewer`, `--page-labels`, and `--layers` when the PDF's viewer state matters. These fields can show page labels that differ from physical page numbers, open actions, viewer preferences, optional content groups, default layer visibility, and document permission flags. Treat these as observations about the PDF, not instructions to execute or enforce.
+
+Use `--structure` when a tagged PDF may contain accessibility roles, figure alt text, language hints, or logical grouping that visual layout alone does not reveal. Tagged structure is supplied by the PDF author and should be compared with visible page evidence when accuracy matters.
+
+Use `--attachments` for PDFs with an attachment pane or supplemental files. Structured output includes attachment metadata and size; bytes are written only when `--attachment-output` is explicitly provided. Attachment paths are evidence that files were extracted, not a signal that the files are safe to open.
+
 ## Detailed Schema
 
 The TypeScript package exports the full schema types, including `DocumentResult`, `PageResult`, `PageWarning`, `LayoutBlock`, `LayoutLine`, `TextSpan`, `ImageBox`, `VectorBox`, `VisualRegion`, `FormField`, `PageOcr`, and `ProcessDocumentOptions`.

@@ -38,6 +38,31 @@ Use it when the caller will inspect fields directly:
 - compare native text and OCR text.
 - persist page-level warnings alongside extracted data.
 
+Pass `sourceData` when the PDF bytes already live in memory. The `filePath` argument remains the label shown in `result.file`; pdfvision parses the provided bytes instead of reading that path from disk.
+
+```ts
+import { readFile } from 'node:fs/promises';
+import { processDocument } from 'pdfvision';
+
+const bytes = await readFile('./document.pdf');
+const result = await processDocument('document.pdf', {
+  sourceData: bytes,
+  layout: true,
+});
+```
+
+Use `onWarning` to capture non-fatal extraction warnings in application logs or agent traces. Warnings are also represented in page output when they are page-specific.
+
+```ts
+const warnings: string[] = [];
+
+const result = await processDocument('./report.pdf', {
+  pages: '1-100',
+  search: ['revenue', 'operating income'],
+  onWarning: (message) => warnings.push(message),
+});
+```
+
 ## `processFile`
 
 ```ts
@@ -52,6 +77,8 @@ const markdown = await processFile('./document.pdf', {
 `processFile()` returns the same string output the CLI prints for `markdown`, `json`, `xml`, or `toon`.
 
 Use it when you want the formatted representation directly, for example to feed Markdown, XML, or TOON into an LLM context window.
+
+Prefer `processDocument()` when your code needs stable typed fields, coordinates, warnings, or follow-up rendering decisions. Prefer `processFile()` when the formatted text itself is the integration boundary.
 
 ## Typical Agent Integration
 
@@ -78,6 +105,23 @@ for (const page of pagesToRender) {
 ```
 
 The important idea is to make rendering and OCR conditional. Let the first pass tell your agent which pages or regions deserve a more expensive observation.
+
+For region zoom, pass a bbox from `matches[]`, `layout.blocks[]`, `imageBoxes[]`, `vectorBoxes[]`, or `visualRegions[]` into `renderRegion`. Region rendering requires `render: true` or `ocr: true`, and the `pages` selector must resolve to exactly one page.
+
+```ts
+const [match] = firstPass.pages.flatMap((page) => page.matches ?? []);
+
+if (match?.bbox) {
+  const zoom = await processDocument('./report.pdf', {
+    pages: String(match.page),
+    render: true,
+    renderRegion: match.bbox,
+    renderScale: 3,
+  });
+
+  console.log(zoom.pages[0].image);
+}
+```
 
 ## Useful Exports
 

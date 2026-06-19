@@ -34,12 +34,31 @@ pdfvision --remote https://example.com/document.pdf --format json
 
 Remote downloads are cached and validated as PDFs before extraction. If a `.pdf` URL returns HTML, a login page, or a challenge page, pdfvision fails before caching it.
 
+`--remote` accepts only HTTP(S) URLs, follows redirects, and rejects responses that do not contain a PDF header near the start of the body. The default download guardrails are intentionally conservative: a 100 MB maximum body size and a 60 second network timeout.
+
+Remote cache entries are keyed by URL. If a stable URL is updated in place, use `--no-cache` for a fresh one-off fetch or `--clear-cache` to remove the cached copy:
+
+```bash
+pdfvision --remote https://example.com/document.pdf --no-cache --format json
+```
+
 ## Page Ranges
 
 ```bash
 pdfvision document.pdf --pages 1-3
 pdfvision document.pdf --pages 1,3,5 --format json
 ```
+
+Page ranges are one-based physical page numbers. Commas combine selectors, ranges are inclusive, and duplicate pages are collapsed into sorted output.
+
+Valid examples:
+
+- `1`
+- `1-5`
+- `1,3,5`
+- `2-4,7`
+
+Invalid selectors fail loudly instead of guessing: empty segments, zero, negative numbers, descending ranges such as `5-3`, and malformed ranges are errors. If the selector includes pages beyond the end of the document but still selects at least one real page, pdfvision extracts the real pages and emits a warning for the skipped pages.
 
 ## Render Pages
 
@@ -126,3 +145,11 @@ pdfvision --clear-cache
 ```
 
 pdfvision caches extraction results, rendered images, remote downloads, and OCR data so repeated agent reads are fast. Use `--no-cache` for one-off sensitive runs or `--clear-cache` to remove cached data.
+
+Set `PDFVISION_CACHE_DIR` when an application needs cache data under a known directory:
+
+```bash
+PDFVISION_CACHE_DIR=/secure/pdfvision-cache pdfvision document.pdf --json
+```
+
+For remote PDFs, `--no-cache` also skips the remote-PDF cache and streams the freshly downloaded bytes into extraction. This is the safest option when a URL is private, time-limited, or expected to change without a versioned URL.
