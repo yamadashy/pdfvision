@@ -43,9 +43,17 @@ npx pdfvision scan.pdf --ocr --ocr-lang eng --format json
 npx pdfvision document.pdf --layout --image-boxes --vector-boxes --format json
 ```
 
+当需要精确证据位置时，先搜索，再只裁剪匹配区域：
+
+```bash
+npx pdfvision document.pdf --search "revenue" --format json
+npx pdfvision document.pdf --pages 3 --render --render-region 120,180,360,140 --render-output ./crops --format json
+```
+
 ## 接下来阅读
 
 - [安装](./installation.md)
 - [使用方法](./usage.md)
 - [输出格式](./output.md)
 - [布局与警告](./layout-and-warnings.md)
+- [搜索与区域放大](./search-and-region-zoom.md)

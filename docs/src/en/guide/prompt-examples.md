@@ -7,6 +7,8 @@ description: Prompt templates for using pdfvision output with AI agents to inspe
 
 Use these prompts after generating Markdown, XML, JSON, or TOON output with pdfvision.
 
+The prompts assume the model should treat pdfvision output as evidence, not as a final answer. In most workflows, the model should decide whether the PDF needs another pass with layout, rendering, OCR, search, or region crops.
+
 ## General PDF Triage
 
 ```text
@@ -17,6 +19,18 @@ For each page:
 2. Check overview quality fields and warnings before trusting native text.
 3. Identify pages that need rendering, OCR, or region-level inspection.
 4. Return a concise action plan with the exact pdfvision flags to run next.
+```
+
+## Evidence-First Summary
+
+```text
+Summarize this PDF using the pdfvision output as evidence.
+
+Rules:
+1. Start from overview quality fields and page warnings.
+2. Do not summarize pages whose native text is empty, sparse, or glyph-corrupted without saying what evidence is missing.
+3. When a conclusion depends on a table, form field, chart, or figure, cite the page and bbox or recommend a crop command.
+4. Separate confident text-derived claims from claims that need visual verification.
 ```
 
 ## Layout-Sensitive Extraction
@@ -45,6 +59,19 @@ For each table:
 4. Include page number and bounding box evidence for each table.
 ```
 
+## Financial Metric Verification
+
+```text
+Use this pdfvision output to verify financial metrics.
+
+For each requested metric:
+1. Find candidate matches in pages[].matches or layout table labels.
+2. Identify the page, row/column context, and bbox evidence.
+3. Check warnings for table flattening, reading-order divergence, dense vectors, or raster-only content.
+4. If the value is visually encoded or ambiguous, return a pdfvision --render-region command for the smallest useful crop.
+5. Do not invent values from nearby text when row or column alignment is unclear.
+```
+
 ## Scanned Document OCR
 
 ```text
@@ -69,9 +96,36 @@ Return:
 4. Fields whose label relationship is ambiguous and should be checked with a crop.
 ```
 
+## Visual Report Review
+
+```text
+Review this visual PDF report using pdfvision output.
+
+Focus on:
+1. Pages with high imageCount or vectorCount.
+2. pages[].visualRegions and their associated text.
+3. Warnings that indicate visual-only labels, dense charts, or sparse native text.
+4. The smallest set of region crops needed to verify the important charts, diagrams, or screenshots.
+
+Return the proposed crop commands before making visual claims.
+```
+
+## Search-Then-Zoom Evidence Check
+
+```text
+Use pages[].matches from this pdfvision JSON to choose the best evidence location.
+
+For each relevant match:
+1. Report the page, query, source, matched text, and bbox.
+2. Decide whether the match needs visual verification.
+3. If it does, return the exact pdfvision command with --pages, --render, and --render-region.
+4. After the crop is rendered, compare the crop against native text, OCR text, and nearby layout blocks.
+```
+
 ## Model-Specific Notes
 
 - Use JSON for tools and agents that need exact fields.
 - Use XML when the target model follows explicit tags well.
 - Use TOON when structured arrays are large and token budget matters.
 - Use Markdown for a human-readable first pass.
+- Use rendered crops when a claim depends on the visual page, not only the text layer.

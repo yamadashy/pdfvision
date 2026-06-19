@@ -54,3 +54,15 @@ description: 使用 pdfvision 輸出讓 AI 代理檢查 PDF、驗證版面、擷
 3. hidden、read-only、required 或 no-view 欄位。
 4. 標籤關係不明確、需要裁切圖確認的欄位。
 ```
+
+## 搜尋後放大證據檢查
+
+```text
+請使用這份 pdfvision JSON 中的 pages[].matches 選擇最合適的證據位置。
+
+對每個相關 match：
+1. 回報 page、query、source、matched text 和 bbox。
+2. 判斷是否需要視覺驗證。
+3. 如果需要，回傳包含 --pages、--render 和 --render-region 的精確 pdfvision 命令。
+4. 裁切圖產生後，將其與原生文字、OCR 文字和附近 layout blocks 對照。
+```

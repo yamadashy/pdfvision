@@ -15,6 +15,8 @@ description: AI 智能体读取论文、幻灯片、政府表单、扫描 PDF、
 pdfvision paper.pdf --layout --image-boxes --format json
 ```
 
+如果需要定位引用词、公式或主张文本，先用 `--search` 找到候选位置，再用 `--render-region` 生成裁剪图。
+
 ## 幻灯片和报告
 
 幻灯片通常把含义放在图像、矢量形状和相对位置中。
@@ -56,5 +58,5 @@ pdfvision report.pdf --layout --image-boxes --vector-boxes --visual-regions --fo
 然后只渲染需要检查的裁剪区域：
 
 ```bash
-pdfvision report.pdf --pages 8 --render-region 80,140,430,260 --render-output ./regions
+pdfvision report.pdf --pages 8 --render --render-region 80,140,430,260 --render-output ./regions
 ```

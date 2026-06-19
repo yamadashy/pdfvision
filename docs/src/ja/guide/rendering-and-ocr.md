@@ -24,10 +24,12 @@ pdfvision document.pdf --render --render-scale 3
 ## 1 領域だけをレンダリング
 
 ```bash
-pdfvision document.pdf --pages 2 --render-region 120,180,360,240 --render-output ./regions
+pdfvision document.pdf --pages 2 --render --render-region 120,180,360,240 --render-output ./regions
 ```
 
 `--render-region` は PDF ポイントの矩形を指定します。レイアウトブロックや視覚領域で見つけた場所を拡大する用途に向いています。
+
+検索結果の bbox からも同じ流れでクロップできます。詳しくは [検索と領域ズーム](./search-and-region-zoom.md) を参照してください。
 
 ## 視覚領域をレンダリング
 

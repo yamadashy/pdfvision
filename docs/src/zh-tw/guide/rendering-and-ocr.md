@@ -24,10 +24,12 @@ pdfvision document.pdf --render --render-scale 3
 ## 渲染一個區域
 
 ```bash
-pdfvision document.pdf --pages 2 --render-region 120,180,360,240 --render-output ./regions
+pdfvision document.pdf --pages 2 --render --render-region 120,180,360,240 --render-output ./regions
 ```
 
 `--render-region` 使用 PDF points 和左上角原點。它適合放大由版面區塊、影像框或視覺區域定位到的位置。
+
+搜尋結果的 bbox 也可以使用同一裁切流程。參見 [搜尋與區域放大](./search-and-region-zoom.md)。
 
 ## 渲染視覺區域
 

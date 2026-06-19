@@ -54,3 +54,15 @@ pdfvision の form fields と layout data を使って PDF フォームを分析
 3. hidden、read-only、required、no-view のフィールド。
 4. ラベル関係が曖昧で crop 確認すべきフィールド。
 ```
+
+## 検索してズームする根拠確認
+
+```text
+この pdfvision JSON の pages[].matches から、最も適切な根拠位置を選んでください。
+
+関連する match ごとに:
+1. page、query、source、matched text、bbox を報告する。
+2. 視覚確認が必要か判断する。
+3. 必要なら --pages、--render、--render-region を含む pdfvision コマンドを返す。
+4. クロップ作成後、native text、OCR text、近くの layout block と比較する。
+```

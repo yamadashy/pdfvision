@@ -2,12 +2,23 @@ import { defineConfig, type DefaultTheme, type HeadConfig } from 'vitepress';
 import llmstxt from 'vitepress-plugin-llms';
 
 const siteName = 'pdfvision';
-const siteDescription = 'Extract text, layout, OCR, and rendered page images from PDFs for AI agents.';
+const siteDescription =
+  'PDF extraction CLI for AI agents: text, layout, OCR, warnings, metadata, and rendered page images.';
 const siteBase = process.env.PDFVISION_DOCS_BASE ?? '/pdfvision/';
 const siteUrl = (process.env.PDFVISION_DOCS_URL ?? 'https://yamadashy.github.io/pdfvision').replace(/\/+$/, '');
 const siteOrigin = new URL(siteUrl).origin;
+const siteHostname = new URL(siteUrl).hostname;
+const siteBasePath = siteBase.endsWith('/') ? siteBase : `${siteBase}/`;
+const withBase = (path: string) => `${siteBasePath}${path.replace(/^\/+/, '')}`;
+const ogImageUrl = `${siteUrl}/og.png`;
 const githubUrl = 'https://github.com/yamadashy/pdfvision';
 const npmUrl = 'https://www.npmjs.com/package/pdfvision';
+const websiteId = `${siteUrl}#website`;
+const siteAuthor = {
+  '@type': 'Person' as const,
+  name: 'Kazuki Yamada',
+  url: 'https://github.com/yamadashy',
+};
 
 type LocaleLabels = {
   guide: string;
@@ -20,6 +31,7 @@ type LocaleLabels = {
   structuredOutput: string;
   layoutAndWarnings: string;
   renderingAndOcr: string;
+  searchAndRegionZoom: string;
   agentSkill: string;
   promptExamples: string;
   libraryApi: string;
@@ -42,6 +54,7 @@ const labelsEn: LocaleLabels = {
   structuredOutput: 'Structured Output',
   layoutAndWarnings: 'Layout and Warnings',
   renderingAndOcr: 'Rendering and OCR',
+  searchAndRegionZoom: 'Search and Region Zoom',
   agentSkill: 'Agent Skill',
   promptExamples: 'Prompt Examples',
   libraryApi: 'Library API',
@@ -64,6 +77,7 @@ const labelsJa: LocaleLabels = {
   structuredOutput: '構造化出力',
   layoutAndWarnings: 'レイアウトと警告',
   renderingAndOcr: 'レンダリングと OCR',
+  searchAndRegionZoom: '検索と領域ズーム',
   agentSkill: 'Agent Skill',
   promptExamples: 'プロンプト例',
   libraryApi: 'ライブラリ API',
@@ -86,6 +100,7 @@ const labelsZhCn: LocaleLabels = {
   structuredOutput: '结构化输出',
   layoutAndWarnings: '布局与警告',
   renderingAndOcr: '渲染与 OCR',
+  searchAndRegionZoom: '搜索与区域放大',
   agentSkill: 'Agent Skill',
   promptExamples: '提示词示例',
   libraryApi: '库 API',
@@ -108,6 +123,7 @@ const labelsZhTw: LocaleLabels = {
   structuredOutput: '結構化輸出',
   layoutAndWarnings: '版面與警告',
   renderingAndOcr: '渲染與 OCR',
+  searchAndRegionZoom: '搜尋與區域放大',
   agentSkill: 'Agent Skill',
   promptExamples: '提示詞範例',
   libraryApi: '函式庫 API',
@@ -140,6 +156,7 @@ const guideSidebar = (prefix: string, labels: LocaleLabels): DefaultTheme.Sideba
         { text: labels.structuredOutput, link: withPrefix(prefix, '/guide/structured-output') },
         { text: labels.layoutAndWarnings, link: withPrefix(prefix, '/guide/layout-and-warnings') },
         { text: labels.renderingAndOcr, link: withPrefix(prefix, '/guide/rendering-and-ocr') },
+        { text: labels.searchAndRegionZoom, link: withPrefix(prefix, '/guide/search-and-region-zoom') },
       ],
     },
     {
@@ -173,26 +190,48 @@ const themeConfig = (prefix: string, labels: LocaleLabels): DefaultTheme.Config 
 
 const jsonLd = {
   '@context': 'https://schema.org',
-  '@type': 'SoftwareApplication',
-  name: siteName,
-  description: siteDescription,
-  applicationCategory: 'DeveloperApplication',
-  operatingSystem: 'Windows, macOS, Linux',
-  offers: {
-    '@type': 'Offer',
-    price: '0',
-    priceCurrency: 'USD',
-  },
-  license: 'https://opensource.org/licenses/MIT',
-  isAccessibleForFree: true,
-  installUrl: npmUrl,
-  downloadUrl: npmUrl,
-  author: {
-    '@type': 'Person',
-    name: 'Kazuki Yamada',
-    url: 'https://github.com/yamadashy',
-  },
-  sameAs: [githubUrl, npmUrl],
+  '@graph': [
+    {
+      '@id': websiteId,
+      '@type': 'WebSite',
+      name: siteName,
+      url: siteUrl,
+      description: siteDescription,
+      inLanguage: 'en',
+    },
+    {
+      '@type': 'SoftwareApplication',
+      name: siteName,
+      description: siteDescription,
+      url: siteUrl,
+      applicationCategory: 'DeveloperApplication',
+      operatingSystem: 'Windows, macOS, Linux',
+      offers: {
+        '@type': 'Offer',
+        price: '0',
+        priceCurrency: 'USD',
+      },
+      license: 'https://opensource.org/licenses/MIT',
+      isAccessibleForFree: true,
+      installUrl: npmUrl,
+      downloadUrl: npmUrl,
+      softwareRequirements: 'Node.js 22.13.0 or higher',
+      image: `${siteUrl}/logo.svg`,
+      screenshot: ogImageUrl,
+      author: siteAuthor,
+      sameAs: [githubUrl, npmUrl],
+      featureList: [
+        'PDF text extraction for AI agents',
+        'Rendered page PNGs for multimodal models',
+        'OCR with Tesseract.js',
+        'Layout blocks, geometry, and visual regions',
+        'Warnings for scans, glyph issues, flattened tables, and visual mismatches',
+        'JSON, XML, Markdown, and TOON output formats',
+        'Local and remote PDF extraction with cache support',
+        'Bundled agent skill for Claude Code, Codex, and Cursor workflows',
+      ],
+    },
+  ],
 };
 
 const localeConfig = {
@@ -280,20 +319,13 @@ const createPageHead = ({ page, title, description, pageData }: TransformHeadCon
         headline: title,
         description,
         inLanguage: localeConfig[locale].bcp47,
-        isPartOf: {
-          '@type': 'WebSite',
-          name: siteName,
-          url: siteUrl,
-        },
+        isPartOf: { '@id': websiteId },
         mainEntityOfPage: {
           '@type': 'WebPage',
           '@id': url,
         },
-        author: {
-          '@type': 'Person',
-          name: 'Kazuki Yamada',
-          url: 'https://github.com/yamadashy',
-        },
+        image: ogImageUrl,
+        author: siteAuthor,
       }),
     ]);
   }
@@ -302,10 +334,17 @@ const createPageHead = ({ page, title, description, pageData }: TransformHeadCon
 };
 
 const head: HeadConfig[] = [
-  ['link', { rel: 'icon', href: '/logo.svg' }],
+  ['link', { rel: 'icon', href: withBase('logo.svg') }],
   ['meta', { property: 'og:site_name', content: siteName }],
-  ['meta', { name: 'twitter:card', content: 'summary' }],
-  ['meta', { name: 'twitter:domain', content: 'yamadashy.github.io' }],
+  ['meta', { property: 'og:image', content: ogImageUrl }],
+  ['meta', { property: 'og:image:width', content: '1200' }],
+  ['meta', { property: 'og:image:height', content: '630' }],
+  ['meta', { property: 'og:image:alt', content: 'pdfvision: PDF extraction for AI agents' }],
+  ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
+  ['meta', { name: 'twitter:domain', content: siteHostname }],
+  ['meta', { name: 'twitter:image', content: ogImageUrl }],
+  ['meta', { name: 'twitter:image:alt', content: 'pdfvision: PDF extraction for AI agents' }],
+  ['meta', { name: 'thumbnail', content: ogImageUrl }],
   ['meta', { name: 'theme-color', content: '#ab4472' }],
   ['script', { type: 'application/ld+json' }, JSON.stringify(jsonLd)],
 ];
@@ -337,6 +376,11 @@ export default defineConfig({
       copyright: 'Copyright © Kazuki Yamada',
     },
     outline: [2, 3],
+    editLink: {
+      pattern: `${githubUrl}/edit/main/docs/src/:path`,
+      text: 'Edit this page on GitHub',
+    },
+    langMenuLabel: 'Languages',
   },
   locales: {
     root: {

@@ -54,6 +54,15 @@ pdfvision document.pdf --render-visual-regions --render-output ./regions --forma
 
 當不想渲染整頁，但需要查看圖、表、表單或圖表區域時使用。
 
+## 搜尋並放大
+
+```bash
+pdfvision report.pdf --search "revenue" --format json
+pdfvision report.pdf --pages 3 --render --render-region 120,180,360,140 --render-output ./crops --format json
+```
+
+當 pdfvision 能定位證據時，搜尋結果會包含 bbox。把該 bbox 傳給 `--render-region`，即可產生用於視覺驗證的小裁切圖。
+
 ## 掃描頁 OCR
 
 ```bash

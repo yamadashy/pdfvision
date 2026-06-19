@@ -53,3 +53,4 @@ npx pdfvision --remote https://raw.githubusercontent.com/mozilla/pdf.js-sample-f
 - [構造化出力](./guide/structured-output) はエージェントやツールが読むフィールドを説明します。
 - [レイアウトと警告](./guide/layout-and-warnings) は README の短い説明から分離すべき視覚構造の詳細です。
 - [レンダリングと OCR](./guide/rendering-and-ocr) は画像出力、領域クロップ、スキャン文書を扱います。
+- [検索と領域ズーム](./guide/search-and-region-zoom) はテキスト根拠を探し、一致領域だけをレンダリングする流れを説明します。

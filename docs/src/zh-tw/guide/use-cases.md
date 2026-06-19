@@ -15,6 +15,8 @@ description: AI 代理讀取論文、投影片、政府表單、掃描 PDF、報
 pdfvision paper.pdf --layout --image-boxes --format json
 ```
 
+如果需要定位引用詞、公式或主張文字，先用 `--search` 找到候選位置，再用 `--render-region` 產生裁切圖。
+
 ## 投影片和報告
 
 投影片通常把含義放在影像、向量形狀和相對位置中。
@@ -56,5 +58,5 @@ pdfvision report.pdf --layout --image-boxes --vector-boxes --visual-regions --fo
 然後只渲染需要檢查的裁切區域：
 
 ```bash
-pdfvision report.pdf --pages 8 --render-region 80,140,430,260 --render-output ./regions
+pdfvision report.pdf --pages 8 --render --render-region 80,140,430,260 --render-output ./regions
 ```

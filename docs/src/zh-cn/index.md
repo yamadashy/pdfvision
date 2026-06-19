@@ -53,3 +53,4 @@ npx pdfvision --remote https://raw.githubusercontent.com/mozilla/pdf.js-sample-f
 - [结构化输出](./guide/structured-output) 解释智能体和工具会消费的字段。
 - [布局与警告](./guide/layout-and-warnings) 解释应从 README 简短介绍中分离出去的视觉结构细节。
 - [渲染与 OCR](./guide/rendering-and-ocr) 覆盖图像输出、区域裁剪和扫描文档。
+- [搜索与区域放大](./guide/search-and-region-zoom) 展示如何找到文本证据，并只渲染匹配区域。

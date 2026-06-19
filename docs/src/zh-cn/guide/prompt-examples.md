@@ -54,3 +54,15 @@ description: 使用 pdfvision 输出让 AI 智能体检查 PDF、验证布局、
 3. hidden、read-only、required 或 no-view 字段。
 4. 标签关系不明确、需要裁剪图确认的字段。
 ```
+
+## 搜索后放大证据检查
+
+```text
+请使用这份 pdfvision JSON 中的 pages[].matches 选择最合适的证据位置。
+
+对每个相关 match：
+1. 报告 page、query、source、matched text 和 bbox。
+2. 判断是否需要视觉验证。
+3. 如果需要，返回包含 --pages、--render 和 --render-region 的精确 pdfvision 命令。
+4. 裁剪图生成后，将其与原生文本、OCR 文本和附近 layout blocks 对照。
+```

@@ -15,6 +15,8 @@ pdfvision は、PDF を手作業でプロンプトに貼るのではなく、AI 
 pdfvision paper.pdf --layout --image-boxes --format json
 ```
 
+引用語、数式、主張文の位置を確認したい場合は、`--search` で候補を探してから `--render-region` でクロップします。
+
 ## スライドとレポート
 
 スライドは画像、ベクター図形、相対配置に意味があることが多いです。
@@ -56,5 +58,5 @@ pdfvision report.pdf --layout --image-boxes --vector-boxes --visual-regions --fo
 必要な箇所だけクロップして確認します。
 
 ```bash
-pdfvision report.pdf --pages 8 --render-region 80,140,430,260 --render-output ./regions
+pdfvision report.pdf --pages 8 --render --render-region 80,140,430,260 --render-output ./regions
 ```

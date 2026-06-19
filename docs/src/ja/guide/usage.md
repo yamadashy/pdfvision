@@ -54,6 +54,15 @@ pdfvision document.pdf --render-visual-regions --render-output ./regions --forma
 
 ページ全体ではなく、図、表、フォーム、チャートなどの領域だけを確認したいときに使います。
 
+## 検索してズーム
+
+```bash
+pdfvision report.pdf --search "revenue" --format json
+pdfvision report.pdf --pages 3 --render --render-region 120,180,360,140 --render-output ./crops --format json
+```
+
+検索結果には、位置を特定できる場合に bbox が含まれます。その bbox を `--render-region` に渡すと、視覚確認用の小さなクロップを作れます。
+
 ## スキャンページの OCR
 
 ```bash
