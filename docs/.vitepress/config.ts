@@ -14,6 +14,8 @@ const ogImageUrl = `${siteUrl}/og.png`;
 const githubUrl = 'https://github.com/yamadashy/pdfvision';
 const npmUrl = 'https://www.npmjs.com/package/pdfvision';
 const websiteId = `${siteUrl}#website`;
+const isCfPagesProductionDeploy = process.env.CF_PAGES === '1' && process.env.CF_PAGES_BRANCH === 'main';
+const isGoogleAnalyticsEnabled = process.env.PDFVISION_ENABLE_GOOGLE_ANALYTICS === '1' || isCfPagesProductionDeploy;
 const siteAuthor = {
   '@type': 'Person' as const,
   name: 'Kazuki Yamada',
@@ -333,6 +335,26 @@ const createPageHead = ({ page, title, description, pageData }: TransformHeadCon
   return tags;
 };
 
+const googleAnalyticsHead: HeadConfig[] = isGoogleAnalyticsEnabled
+  ? [
+      [
+        'script',
+        {
+          async: 'true',
+          src: `https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsTag}`,
+        },
+      ],
+      [
+        'script',
+        {},
+        `window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', '${googleAnalyticsTag}');`,
+      ],
+    ]
+  : [];
+
 const head: HeadConfig[] = [
   ['link', { rel: 'icon', href: withBase('logo.svg') }],
   ['meta', { property: 'og:site_name', content: siteName }],
@@ -347,21 +369,7 @@ const head: HeadConfig[] = [
   ['meta', { name: 'thumbnail', content: ogImageUrl }],
   ['meta', { name: 'theme-color', content: '#ab4472' }],
   ['script', { type: 'application/ld+json' }, JSON.stringify(jsonLd)],
-  [
-    'script',
-    {
-      async: 'true',
-      src: `https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsTag}`,
-    },
-  ],
-  [
-    'script',
-    {},
-    `window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', '${googleAnalyticsTag}');`,
-  ],
+  ...googleAnalyticsHead,
 ];
 
 export default defineConfig({
