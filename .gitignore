@@ -1,5 +1,7 @@
 node_modules/
 dist/
 coverage/
+docs/.vitepress/cache/
+docs/.vitepress/dist/
 *.tgz
 .DS_Store

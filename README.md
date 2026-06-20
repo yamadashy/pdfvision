@@ -72,6 +72,8 @@ npm install -g pdfvision
 pdfvision document.pdf
 ```
 
+Full documentation: <https://pdfvision.dev/>
+
 ## 🤖 Agent Skill
 
 pdfvision ships a bundled agent skill at [`skills/pdfvision/`](https://github.com/yamadashy/pdfvision/tree/main/skills/pdfvision/) (a `SKILL.md` plus a small `references/` set) so a Claude Code, Codex, or Cursor session knows when to reach for the CLI and how to pick flags. Install it with [`npx skills`](https://github.com/vercel-labs/skills):
@@ -98,8 +100,10 @@ Options:
   -f, --format <type>     Output format: markdown (default), json, xml, toon
   -r, --render            Render pages as PNG images
       --render-output <dir>
-                          Directory for rendered PNGs (requires --render)
-      --render-scale <n>  Rasterisation multiplier (default 2; bounds (0, 4]). Requires --render or --ocr.
+                          Directory for rendered page or visual-region PNGs
+                          (requires --render or --render-visual-regions)
+      --render-scale <n>  Rasterisation multiplier (default 2; bounds (0, 4]).
+                          Requires --render, --render-visual-regions, or --ocr.
       --geometry          Emit per-text-item bbox + font size in pages[].spans (json/xml/toon)
       --layout            Reconstruct lines + blocks + numeric-table hints in pages[].layout;
                           detects CJK vertical text stacks as writingMode='vertical'

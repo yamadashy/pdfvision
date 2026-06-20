@@ -24,11 +24,13 @@ Options
                           --format, is an error — pdfvision does not last-wins-resolve them.)
   -r, --render            Render each selected page to a PNG and include the path on every page result.
       --render-output <dir>
-                          Directory to write rendered PNGs into, created if missing. Requires --render.
+                          Directory to write rendered page PNGs or visual-region PNGs into, created
+                          if missing. Requires --render or --render-visual-regions.
                           Without this, PNGs land under the cache (or OS tmp with --no-cache).
-      --render-scale <n>  Rasterisation multiplier for --render / --ocr. Default 2 (≈144 DPI on a
-                          letter page). Smaller values shrink the PNG (and vision-model payload);
-                          larger values capture more detail. Accepts decimals; bounds (0, 4].
+      --render-scale <n>  Rasterisation multiplier for --render / --render-visual-regions / --ocr.
+                          Default 2 (≈144 DPI on a letter page). Smaller values shrink the PNG
+                          (and vision-model payload); larger values capture more detail.
+                          Accepts decimals; bounds (0, 4].
       --render-region <x,y,width,height>
                           Render only the given sub-rectangle (PDF points, top-left origin, y
                           grows downward — same coordinate system as imageBoxes / layout.blocks).
