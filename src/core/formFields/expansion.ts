@@ -57,8 +57,12 @@ export function expandSameLineMarkerPromptLabel(
   candidate: LabelCandidate,
   lines: readonly LabelLine[],
 ): FormFieldLabel | undefined {
-  if (field.type !== 'text' || candidate.relation !== 'left') return undefined;
+  if (field.type !== 'text') return undefined;
   if (!isCompactFieldMarker(candidate.text)) return undefined;
+  if (candidate.relation === 'above' || candidate.relation === 'below') {
+    return expandVerticalMarkerPromptLabel(field, candidate, lines);
+  }
+  if (candidate.relation !== 'left') return undefined;
 
   const sameLinePrompt = collectConnectedLeftPromptLines(candidate.line, lines);
   if (sameLinePrompt.length === 0) return undefined;
@@ -84,6 +88,58 @@ export function expandSameLineMarkerPromptLabel(
     width: round2(labelBox.width),
     height: round2(labelBox.height),
   };
+}
+
+function expandVerticalMarkerPromptLabel(
+  field: FormField,
+  candidate: LabelCandidate,
+  lines: readonly LabelLine[],
+): FormFieldLabel | undefined {
+  const sameRowPrompt = collectSameRowMarkerPromptLines(candidate, lines);
+  if (sameRowPrompt.length === 0) return undefined;
+
+  const promptCandidate: LabelCandidate = {
+    ...candidate,
+    line: sameRowPrompt[0].line,
+    text: sameRowPrompt[0].text,
+  };
+  const promptLines = collectStackedLabelLines(field, promptCandidate, lines);
+  const text = normalizePromptLabelText(promptLines.map(({ text }) => text).join(' '));
+  if (!isUsableLabelText(text, STACKED_LABEL_MAX_CHARS) || text === candidate.text) return undefined;
+
+  const boxLines = promptLines.map(({ line }) => line).sort((a, b) => a.y - b.y || a.x - b.x);
+  const labelBox = boxLines.slice(1).reduce<BoxLike>((box, line) => unionBox(box, line), boxLines[0] ?? candidate.line);
+  return {
+    text,
+    relation: candidate.relation,
+    x: round2(labelBox.x),
+    y: round2(labelBox.y),
+    width: round2(labelBox.width),
+    height: round2(labelBox.height),
+  };
+}
+
+function collectSameRowMarkerPromptLines(
+  candidate: LabelCandidate,
+  lines: readonly LabelLine[],
+): { line: LabelLine; text: string }[] {
+  const marker = normalizePromptLabelText(candidate.text);
+  const markerCenterY = candidate.line.y + candidate.line.height / 2;
+  const sameRow = lines
+    .filter((line) => line !== candidate.line)
+    .filter((line) => Math.abs(line.y + line.height / 2 - markerCenterY) <= Math.max(4, candidate.line.height))
+    .map((line) => ({ line, text: markerPromptText(marker, normalizePromptLabelText(line.text)) }))
+    .filter((item): item is { line: LabelLine; text: string } => item.text !== undefined)
+    .sort((a, b) => b.line.width - a.line.width);
+  return sameRow.slice(0, 1);
+}
+
+function markerPromptText(marker: string, text: string): string | undefined {
+  if (text.length <= marker.length) return undefined;
+  if (text.startsWith(`${marker} `)) return text;
+  const escaped = marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const seeMatch = text.match(new RegExp(`^See\\s+${escaped}\\s+(.+)`, 'iu'));
+  return seeMatch ? `${marker} ${seeMatch[1]}` : undefined;
 }
 
 export function expandSideLabelContinuation(

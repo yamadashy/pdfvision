@@ -1203,12 +1203,28 @@ describe('buildFormFields', () => {
       0,
       0,
       [
+        {
+          text: 'For guidance related to the purpose of Form W-9, see',
+          x: 107.2,
+          y: 87,
+          width: 195,
+          height: 8,
+          fontSize: 8,
+        },
         { text: '1', x: 61.6, y: 97, width: 3.89, height: 7, fontSize: 7 },
         {
-          text: '1 Name of entity/individual. An entry is required.',
+          text: '1 Name of entity/individual. An entry is required. (For a sole proprietor or disregarded entity, enter the owner’s name on line 1, and enter the business/disregarded',
           x: 61.6,
           y: 97,
-          width: 260,
+          width: 511.1,
+          height: 7,
+          fontSize: 7,
+        },
+        {
+          text: 'entity’s name on line 2.)',
+          x: 73.6,
+          y: 105.4,
+          width: 74.05,
           height: 7,
           fontSize: 7,
         },
@@ -1216,7 +1232,32 @@ describe('buildFormFields', () => {
     );
 
     expect(fields[0].label).toMatchObject({
-      text: '1 Name of entity/individual. An entry is required.',
+      text: '1 Name of entity/individual. An entry is required. (For a sole proprietor or disregarded entity, enter the owner’s name on line 1, and enter the business/disregarded entity’s name on line 2.)',
+      relation: 'above',
+    });
+  });
+
+  it('expands line-number labels from same-row prompts with stray leading text', () => {
+    const fields = buildFormFields(
+      [{ subtype: 'Widget', fieldName: 'addressLine', fieldType: 'Tx', rect: rectFromTopLeft(58.6, 286, 329.45, 14) }],
+      792,
+      0,
+      0,
+      [
+        { text: '5', x: 61.6, y: 277, width: 3.89, height: 7, fontSize: 7 },
+        {
+          text: 'See 5 Address (number, street, and apt. or suite no.). See instructions.',
+          x: 44.31,
+          y: 275.57,
+          width: 228.91,
+          height: 13.78,
+          fontSize: 7,
+        },
+      ],
+    );
+
+    expect(fields[0].label).toMatchObject({
+      text: '5 Address (number, street, and apt. or suite no.). See instructions.',
       relation: 'above',
     });
   });

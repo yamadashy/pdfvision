@@ -205,6 +205,14 @@ function findAdjacentStackLine(
     if (gap === undefined || gap < -1 || gap > STACKED_LABEL_MAX_GAP_PT) continue;
     if (
       candidate.relation === 'above' &&
+      startsWithPromptItemMarker(candidate.text) &&
+      line.y + line.height <= bounds.y + 1 &&
+      !startsWithPromptItemMarker(text)
+    ) {
+      continue;
+    }
+    if (
+      candidate.relation === 'above' &&
       line.y + line.height > field.y + 1 &&
       !isSameRowChoiceContinuationLine(field, line, text)
     ) {
