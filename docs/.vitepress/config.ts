@@ -19,6 +19,7 @@ const siteAuthor = {
   name: 'Kazuki Yamada',
   url: 'https://github.com/yamadashy',
 };
+const googleAnalyticsTag = 'G-DED5VQQ0JC';
 
 type LocaleLabels = {
   guide: string;
@@ -346,6 +347,21 @@ const head: HeadConfig[] = [
   ['meta', { name: 'thumbnail', content: ogImageUrl }],
   ['meta', { name: 'theme-color', content: '#ab4472' }],
   ['script', { type: 'application/ld+json' }, JSON.stringify(jsonLd)],
+  [
+    'script',
+    {
+      async: 'true',
+      src: `https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsTag}`,
+    },
+  ],
+  [
+    'script',
+    {},
+    `window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', '${googleAnalyticsTag}');`,
+  ],
 ];
 
 export default defineConfig({
