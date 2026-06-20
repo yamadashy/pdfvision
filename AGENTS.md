@@ -64,7 +64,7 @@ pdfvision/
 
 - Follow idiomatic TypeScript with `"strict": true`.
 - Keep dependencies minimal — every new runtime dep should justify itself.
-- If a file exceeds 250 lines, consider splitting.
+- Keep implementation files from growing too large. When production code exceeds roughly 250 lines, consider splitting cohesive responsibilities into separate modules; test files are exempt from this guideline.
 - Add comments in English only when the **why** is non-obvious. Skip comments that describe what the code already shows.
 - New features come with tests.
 - When changing pdfvision behavior, CLI flags, output fields, quality signals, or recommended agent workflows, update the bundled agent skill under `skills/pdfvision/` in the same change. Keep `SKILL.md` and `references/structured-output.md` aligned with the public schema and README.
