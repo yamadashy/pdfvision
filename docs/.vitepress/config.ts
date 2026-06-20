@@ -14,11 +14,14 @@ const ogImageUrl = `${siteUrl}/og.png`;
 const githubUrl = 'https://github.com/yamadashy/pdfvision';
 const npmUrl = 'https://www.npmjs.com/package/pdfvision';
 const websiteId = `${siteUrl}#website`;
+const isCfPagesProductionDeploy = process.env.CF_PAGES === '1' && process.env.CF_PAGES_BRANCH === 'main';
+const isGoogleAnalyticsEnabled = process.env.PDFVISION_ENABLE_GOOGLE_ANALYTICS === '1' || isCfPagesProductionDeploy;
 const siteAuthor = {
   '@type': 'Person' as const,
   name: 'Kazuki Yamada',
   url: 'https://github.com/yamadashy',
 };
+const googleAnalyticsTag = 'G-DED5VQQ0JC';
 
 type LocaleLabels = {
   guide: string;
@@ -55,7 +58,7 @@ const labelsEn: LocaleLabels = {
   layoutAndWarnings: 'Layout and Warnings',
   renderingAndOcr: 'Rendering and OCR',
   searchAndRegionZoom: 'Search and Region Zoom',
-  agentSkill: 'Agent Skill',
+  agentSkill: 'Agent Skills',
   promptExamples: 'Prompt Examples',
   libraryApi: 'Library API',
   securityAndPrivacy: 'Security and Privacy',
@@ -78,7 +81,7 @@ const labelsJa: LocaleLabels = {
   layoutAndWarnings: 'レイアウトと警告',
   renderingAndOcr: 'レンダリングと OCR',
   searchAndRegionZoom: '検索と領域ズーム',
-  agentSkill: 'Agent Skill',
+  agentSkill: 'Agent Skills',
   promptExamples: 'プロンプト例',
   libraryApi: 'ライブラリ API',
   securityAndPrivacy: 'セキュリティとプライバシー',
@@ -101,7 +104,7 @@ const labelsZhCn: LocaleLabels = {
   layoutAndWarnings: '布局与警告',
   renderingAndOcr: '渲染与 OCR',
   searchAndRegionZoom: '搜索与区域放大',
-  agentSkill: '智能体技能',
+  agentSkill: 'Agent Skills',
   promptExamples: '提示词示例',
   libraryApi: '库 API',
   securityAndPrivacy: '安全与隐私',
@@ -124,7 +127,7 @@ const labelsZhTw: LocaleLabels = {
   layoutAndWarnings: '版面與警告',
   renderingAndOcr: '渲染與 OCR',
   searchAndRegionZoom: '搜尋與區域放大',
-  agentSkill: '代理技能',
+  agentSkill: 'Agent Skills',
   promptExamples: '提示詞範例',
   libraryApi: '函式庫 API',
   securityAndPrivacy: '安全與隱私',
@@ -227,7 +230,7 @@ const jsonLd = {
         'Warnings for scans, glyph issues, flattened tables, and visual mismatches',
         'JSON, XML, Markdown, and TOON output formats',
         'Local and remote PDF extraction with cache support',
-        'Bundled agent skill for Claude Code, Codex, and Cursor workflows',
+        'Bundled Agent Skills for Claude Code, Codex, and Cursor workflows',
       ],
     },
   ],
@@ -332,6 +335,26 @@ const createPageHead = ({ page, title, description, pageData }: TransformHeadCon
   return tags;
 };
 
+const googleAnalyticsHead: HeadConfig[] = isGoogleAnalyticsEnabled
+  ? [
+      [
+        'script',
+        {
+          async: 'true',
+          src: `https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsTag}`,
+        },
+      ],
+      [
+        'script',
+        {},
+        `window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', '${googleAnalyticsTag}');`,
+      ],
+    ]
+  : [];
+
 const head: HeadConfig[] = [
   ['link', { rel: 'icon', href: withBase('logo.svg') }],
   ['meta', { property: 'og:site_name', content: siteName }],
@@ -346,6 +369,7 @@ const head: HeadConfig[] = [
   ['meta', { name: 'thumbnail', content: ogImageUrl }],
   ['meta', { name: 'theme-color', content: '#ab4472' }],
   ['script', { type: 'application/ld+json' }, JSON.stringify(jsonLd)],
+  ...googleAnalyticsHead,
 ];
 
 export default defineConfig({
