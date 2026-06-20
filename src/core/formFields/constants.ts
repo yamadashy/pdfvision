@@ -1,0 +1,52 @@
+export const LABEL_MAX_CHARS = 220;
+export const STACKED_LABEL_MAX_CHARS = 260;
+export const CHOICE_STACKED_LABEL_MAX_CHARS = 360;
+export const SIDE_LABEL_MAX_GAP_PT = 80;
+export const TALL_TEXT_FIELD_SIDE_LABEL_MAX_GAP_PT = 110;
+export const WIDE_ROW_HEADER_LABEL_MAX_GAP_PT = 340;
+export const WIDE_ROW_HEADER_LABEL_GAP_WEIGHT = 0.12;
+export const ABOVE_LABEL_MAX_GAP_PT = 42;
+export const BELOW_LABEL_MAX_GAP_PT = 24;
+export const MIN_HORIZONTAL_OVERLAP_RATIO = 0.18;
+export const STACKED_LABEL_MAX_GAP_PT = 4;
+export const STACKED_LABEL_X_TOLERANCE_PT = 5;
+export const STACKED_LABEL_FONT_TOLERANCE_PT = 2;
+export const STACKED_LABEL_NARROW_ANCHOR_MAX_WIDTH_PT = 120;
+export const BROAD_STACKED_LABEL_WIDTH_RATIO = 3;
+export const BROAD_STACKED_LABEL_MIN_EXTRA_WIDTH_PT = 160;
+export const INLINE_TEXT_FIELD_MAX_WIDTH_PT = 60;
+export const INLINE_TEXT_FIELD_MAX_HEIGHT_PT = 18;
+export const SHORT_VERTICAL_LABEL_FIELD_COVERAGE = 0.35;
+export const VERTICAL_LABEL_EDGE_TOLERANCE_PT = 8;
+export const WIDE_VERTICAL_LABEL_FIELD_COVERAGE = 0.7;
+export const SAME_LINE_TEXT_PROMPT_MAX_GAP_PT = 12;
+export const SAME_LINE_TEXT_PROMPT_MAX_FONT_SIZE_PT = 8.5;
+export const SAME_LINE_MARKER_PROMPT_MAX_GAP_PT = 30;
+export const SAME_LINE_MARKER_PROMPT_STACK_MAX_GAP_PT = 4;
+export const SAME_LINE_MARKER_PROMPT_MAX_STACK_LINES = 2;
+export const SAME_LINE_MARKER_PROMPT_X_TOLERANCE_PT = 18;
+export const SIDE_LABEL_CONTINUATION_MAX_CHARS = 360;
+export const SIDE_LABEL_CONTINUATION_MAX_GAP_PT = 4;
+export const SIDE_LABEL_CONTINUATION_MAX_LINES = 3;
+export const SIDE_LABEL_CONTINUATION_X_TOLERANCE_PT = 18;
+export const MIN_SEMANTIC_FIELD_NAME_TOKENS = 2;
+export const FIELD_NAME_TOKEN_MIN_CHARS = 3;
+export const FIELD_NAME_STOP_WORDS = new Set(['applicant', 'field', 'form', 'page', 'value', 'input', 'entry']);
+export const STRONG_SINGLE_FIELD_NAME_TOKENS = new Set([
+  'address',
+  'birth',
+  'city',
+  'country',
+  'date',
+  'dob',
+  'email',
+  'gender',
+  'name',
+  'number',
+  'phone',
+  'signature',
+  'state',
+]);
+export const NARROW_SEMANTIC_ABOVE_LABEL_PENALTY = 35;
+export const SEMANTIC_ABOVE_LABEL_LEFT_OFFSET_TOLERANCE_PT = 20;
+export const SEMANTIC_ABOVE_LABEL_LEFT_OFFSET_WEIGHT = 0.8;
