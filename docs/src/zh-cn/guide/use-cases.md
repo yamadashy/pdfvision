@@ -140,7 +140,7 @@ pdfvision contract.pdf --search "termination" --search "governing law" --json
 pdfvision contract.pdf --pages 9 --render --render-region 96,320,420,96 --render-output ./crops --json
 ```
 
-这个流程适合需要可审计 PDF 证据、而不只是提取文本的 retrieval-augmented agent。
+这个流程适合需要可审计 PDF 证据、而不只是提取文本的检索增强型智能体。
 
 ## 多语言和 CJK PDF
 

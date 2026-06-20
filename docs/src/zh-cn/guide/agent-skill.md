@@ -1,13 +1,13 @@
 ---
-title: Agent Skill
-description: 为 Claude Code、Codex、Cursor 和其他支持 skill 的智能体安装并使用 pdfvision agent skill。
+title: 智能体技能
+description: 为 Claude Code、Codex、Cursor 和其他支持技能的智能体安装并使用 pdfvision 智能体技能。
 ---
 
-# Agent Skill
+# 智能体技能
 
-pdfvision 在 `skills/pdfvision/` 中包含一个 agent skill。它告诉智能体何时调用 CLI、先尝试哪些参数，以及何时升级到布局、渲染、OCR 或视觉区域裁剪。
+pdfvision 在 `skills/pdfvision/` 中包含一个智能体技能。它告诉智能体何时调用 CLI、先尝试哪些参数，以及何时升级到布局、渲染、OCR 或视觉区域裁剪。
 
-PDF 工作很少能用一个固定命令解决。一个有用的智能体应检查第一轮结果，发现缺失或可疑证据，并选择下一次 pdfvision pass。内置 skill 编码了这个 workflow，使每个 agent session 不必重新发现它。
+PDF 工作很少能用一个固定命令解决。一个有用的智能体应检查第一轮结果，发现缺失或可疑证据，并选择下一次 pdfvision pass。内置技能编码了这个 workflow，使每个智能体会话不必重新发现它。
 
 ## 安装
 
@@ -34,7 +34,7 @@ skill 的主指令刻意保持简短，只在任务需要时指向 references。
 
 ## 智能体工作流
 
-skill-aware agent 通常应该：
+支持技能的智能体通常应该：
 
 1. 从结构化提取开始。
 2. 检查 overview fields、page quality 和 warnings。
@@ -47,4 +47,4 @@ skill-aware agent 通常应该：
 
 ## 何时安装
 
-在智能体经常读取 PDF、报告、幻灯片、表单或扫描文档的项目中安装该 skill。已经使用 Claude Code、Codex、Cursor 或其他 skill-aware agent 环境的 repository 尤其适合。
+在智能体经常读取 PDF、报告、幻灯片、表单或扫描文档的项目中安装该技能。已经使用 Claude Code、Codex、Cursor 或其他支持技能的智能体环境的 repository 尤其适合。

@@ -1,13 +1,13 @@
 ---
-title: Agent Skill
-description: 為 Claude Code、Codex、Cursor 和其他支援 skill 的代理安裝並使用 pdfvision agent skill。
+title: 代理技能
+description: 為 Claude Code、Codex、Cursor 和其他支援技能的代理安裝並使用 pdfvision 代理技能。
 ---
 
-# Agent Skill
+# 代理技能
 
-pdfvision 在 `skills/pdfvision/` 中包含一個 agent skill。它告訴代理何時呼叫 CLI、先嘗試哪些參數，以及何時升級到版面、渲染、OCR 或視覺區域裁切。
+pdfvision 在 `skills/pdfvision/` 中包含一個代理技能。它告訴代理何時呼叫 CLI、先嘗試哪些參數，以及何時升級到版面、渲染、OCR 或視覺區域裁切。
 
-PDF 工作很少能用一個固定命令解決。一個有用的代理應檢查第一輪結果，發現缺失或可疑證據，並選擇下一次 pdfvision pass。內建 skill 編碼了這個 workflow，使每個 agent session 不必重新發現它。
+PDF 工作很少能用一個固定命令解決。一個有用的代理應檢查第一輪結果，發現缺失或可疑證據，並選擇下一次 pdfvision pass。內建技能編碼了這個 workflow，使每個代理工作階段不必重新發現它。
 
 ## 安裝
 
@@ -34,7 +34,7 @@ skill 的主指令刻意保持簡短，只在任務需要時指向 references。
 
 ## 代理工作流程
 
-skill-aware agent 通常應該：
+支援技能的代理通常應該：
 
 1. 從結構化擷取開始。
 2. 檢查 overview fields、page quality 和 warnings。
@@ -47,4 +47,4 @@ skill-aware agent 通常應該：
 
 ## 何時安裝
 
-在代理經常讀取 PDF、報告、投影片、表單或掃描文件的專案中安裝該 skill。已經使用 Claude Code、Codex、Cursor 或其他 skill-aware agent 環境的 repository 尤其適合。
+在代理經常讀取 PDF、報告、投影片、表單或掃描文件的專案中安裝該技能。已經使用 Claude Code、Codex、Cursor 或其他支援技能的代理環境的 repository 尤其適合。

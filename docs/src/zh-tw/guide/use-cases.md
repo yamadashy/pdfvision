@@ -140,7 +140,7 @@ pdfvision contract.pdf --search "termination" --search "governing law" --json
 pdfvision contract.pdf --pages 9 --render --render-region 96,320,420,96 --render-output ./crops --json
 ```
 
-這個流程適合需要可稽核 PDF 證據、而不只是擷取文字的 retrieval-augmented agent。
+這個流程適合需要可稽核 PDF 證據、而不只是擷取文字的檢索增強型代理。
 
 ## 多語言和 CJK PDF
 
