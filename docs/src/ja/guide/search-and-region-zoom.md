@@ -7,6 +7,8 @@ description: pdfvision で PDF テキスト、フォーム、注釈、OCR 出力
 
 pdfvision は、まずテキストの根拠を探し、その一致領域だけをレンダリングできます。条項、表セル、図のラベル、フォーム値、OCR 結果を、ページ全体の画像を渡さずに確認したいときに有効です。
 
+これは pdfvision の中でも特にエージェント向きのワークフローです。テキスト検索を低コストな locator として使い、本当に必要な場所だけ視覚的な根拠に切り替えます。
+
 ## PDF を検索する
 
 ```bash
@@ -28,6 +30,16 @@ pdfvision report.pdf --search "Q[1-4] revenue" --search-regex --json
 pdfvision report.pdf --search "PDF" --search-case-sensitive --json
 ```
 
+検索対象として有効なもの:
+
+- 契約条項やポリシー用語。
+- 財務指標ラベル。
+- 表の行名。
+- フォーム値。
+- 図キャプションやグラフラベル。
+- スキャンページ上の OCR テキスト。
+- Unicode 形式が揺れやすい多言語語句。
+
 ## 検索対象
 
 検索は次の信号を対象にできます。
@@ -38,6 +50,15 @@ pdfvision report.pdf --search "PDF" --search-case-sensitive --json
 - `--ocr` の OCR テキスト。利用できる場合は OCR word box を使います。
 
 ネイティブ、フォーム、注釈の match と重複する OCR match は抑制されるため、同じ表示テキストが二重に出にくくなります。
+
+match の `source` は、エージェントがどの程度信頼すべきかを判断する手がかりです。
+
+- `native`: PDF text layer 由来。
+- `formField`: 見える widget value または display value 由来。
+- `annotation`: 見える FreeText annotation 由来。
+- `ocr`: ページ pixels 由来で、confidence の確認が必要な場合があります。
+
+複数 query の検索では、`queryIndex` により、どの `--search` フラグからの hit かを呼び出し側で追跡できます。
 
 ## 一致領域をレンダリングする
 
@@ -55,6 +76,8 @@ pdfvision report.pdf --pages 3 --render --render-region 120,180,360,140 --render
 pdfvision report.pdf --pages 3 --render --render-region 120,180,360,140 --render-scale 3 --render-output ./crops --json
 ```
 
+よい crop にするには、match bbox の周囲に少し余白を足してから `--render-region` に渡します。周辺文脈があると、vision model がラベル、行見出し、近くの説明文を読みやすくなります。
+
 ## エージェントの流れ
 
 1. `--search` で候補の根拠を探す。
@@ -63,3 +86,17 @@ pdfvision report.pdf --pages 3 --render --render-region 120,180,360,140 --render
 4. クロップをネイティブテキスト、OCR テキスト、周辺 layout block と比較する。
 
 テキスト検索できない視覚領域には、[レンダリングと OCR](./rendering-and-ocr.md) の `--visual-regions` または `--render-visual-regions` を使います。
+
+## 例: 監査可能な claim check
+
+```bash
+pdfvision annual-report.pdf --search "Net sales" --search "Operating income" --layout --json
+```
+
+エージェントは `pages[].matches[]` を見て、正しいページと周辺 context を持つ hit を選び、crop を要求できます。
+
+```bash
+pdfvision annual-report.pdf --pages 42 --render --render-region 72,180,468,180 --render-output ./evidence --json
+```
+
+最終回答では、抽出テキストとレンダリングされた根拠領域の両方を参照できます。
