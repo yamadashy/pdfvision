@@ -13,9 +13,11 @@
   border-radius: 8px;
 }
 
-.vp-doc table {
-  display: table;
-  width: 100%;
+@media (min-width: 768px) {
+  .vp-doc table {
+    display: table;
+    width: 100%;
+  }
 }
 
 .vp-doc th,

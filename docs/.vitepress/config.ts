@@ -4,8 +4,8 @@ import llmstxt from 'vitepress-plugin-llms';
 const siteName = 'pdfvision';
 const siteDescription =
   'PDF extraction CLI for AI agents: text, layout, OCR, warnings, metadata, and rendered page images.';
-const siteBase = process.env.PDFVISION_DOCS_BASE ?? '/';
-const siteUrl = (process.env.PDFVISION_DOCS_URL ?? 'https://pdfvision.dev').replace(/\/+$/, '');
+const siteBase = process.env.PDFVISION_DOCS_BASE || '/';
+const siteUrl = (process.env.PDFVISION_DOCS_URL || 'https://pdfvision.dev').replace(/\/+$/, '');
 const siteOrigin = new URL(siteUrl).origin;
 const siteHostname = new URL(siteUrl).hostname;
 const siteBasePath = siteBase.endsWith('/') ? siteBase : `${siteBase}/`;
