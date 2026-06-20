@@ -710,6 +710,17 @@ describe('buildVisualRegions', () => {
     expect(regions).toEqual([]);
   });
 
+  it('suppresses medium-height section ribbons at the page edge', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      vectorBoxes: [{ x: 0, y: 318.15, width: 30.23, height: 154.9 }],
+    });
+
+    expect(regions).toEqual([]);
+  });
+
   it('suppresses full-page candidates when a crop-sized foreground region exists', () => {
     const regions = buildVisualRegions({
       pageWidth: 600,

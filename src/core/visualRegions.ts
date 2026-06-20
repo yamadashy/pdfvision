@@ -82,6 +82,9 @@ const VECTOR_BACKPLANE_MIN_RASTER_OVERLAPS = 2;
 const VECTOR_BACKPLANE_MIN_AREA_RATIO = 0.25;
 const BACKGROUND_BOX_AREA_RATIO = 0.9;
 const BACKGROUND_BOX_SPAN_RATIO = 0.95;
+const SIDE_CHROME_MIN_HEIGHT_RATIO = 0.15;
+const SIDE_CHROME_MAX_WIDTH_RATIO = 0.08;
+const SIDE_CHROME_EDGE_RATIO = 0.1;
 const PAGE_EDGE_CHROME_SPAN_RATIO = 0.8;
 const PAGE_EDGE_CHROME_THICKNESS_RATIO = 0.16;
 const HORIZONTAL_LABEL_BAND_MIN_WIDTH_RATIO = 0.25;
@@ -299,9 +302,10 @@ function isUsefulMicroVectorBox(box: BoxLike): boolean {
 function isLikelySideChrome(box: BoxLike, pageWidth: number, pageHeight: number): boolean {
   const visible = visiblePageBox(box, pageWidth, pageHeight);
   return (
-    visible.height >= pageHeight * 0.3 &&
-    visible.width <= pageWidth * 0.08 &&
-    (visible.x <= pageWidth * 0.1 || visible.x + visible.width >= pageWidth * 0.9)
+    visible.height >= pageHeight * SIDE_CHROME_MIN_HEIGHT_RATIO &&
+    visible.width <= pageWidth * SIDE_CHROME_MAX_WIDTH_RATIO &&
+    (visible.x <= pageWidth * SIDE_CHROME_EDGE_RATIO ||
+      visible.x + visible.width >= pageWidth * (1 - SIDE_CHROME_EDGE_RATIO))
   );
 }
 
