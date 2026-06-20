@@ -180,7 +180,6 @@ const guideSidebar = (prefix: string, labels: LocaleLabels): DefaultTheme.Sideba
 const nav = (prefix: string, labels: LocaleLabels): DefaultTheme.NavItem[] => [
   { text: labels.guide, link: withPrefix(prefix, '/guide/'), activeMatch: `${prefix}/guide/` },
   { text: 'GitHub', link: githubUrl },
-  { text: 'npm', link: npmUrl },
 ];
 
 const themeConfig = (prefix: string, labels: LocaleLabels): DefaultTheme.Config => ({
