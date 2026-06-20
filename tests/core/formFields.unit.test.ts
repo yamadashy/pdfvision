@@ -614,6 +614,108 @@ describe('buildFormFields', () => {
     expect(fields[1].label?.text).toBe('Other Last Names Used');
   });
 
+  it('does not attach semantically unrelated nearby labels to named text fields', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'Applicant Last Name',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(70.95, 126.26, 322.91, 20.2),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'Applicant Middle Name',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(338.05, 158.2, 246.78, 21.51),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'Applicant Place of Birth',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(308.53, 190.53, 277.05, 21.51),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'Applicant Email',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(397.38, 225.36, 187.62, 22.32),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'Applicant DOB D',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(105.66, 189.29, 31.53, 22),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'Gender',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(242.21, 200.23, 12.76, 12.11),
+          fieldValue: 'Off',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'Alien Number',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(239.99, 223.81, 146.76, 22),
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        { text: 'Regular Book (Standard)', x: 126.39, y: 89.54, width: 79.63, height: 9, fontSize: 9 },
+        {
+          text: 'The large book is for frequent international travelers who need more visa pages',
+          x: 116.15,
+          y: 101.84,
+          width: 224.81,
+          height: 8,
+          fontSize: 8,
+        },
+        { text: 'Sex', x: 253.04, y: 180.49, width: 12.1, height: 8.5, fontSize: 8.5 },
+        { text: 'Place of Birth', x: 322.16, y: 181.3, width: 48.34, height: 7.5, fontSize: 7.5 },
+        { text: '(MM/DD/YYYY)', x: 134.51, y: 180.84, width: 44.8, height: 8, fontSize: 8 },
+        { text: 'Social Security Number', x: 81.46, y: 214.01, width: 80.83, height: 9, fontSize: 9 },
+        {
+          text: 'USCIS Registration A-Number',
+          x: 223.8,
+          y: 213.17,
+          width: 114.23,
+          height: 8,
+          fontSize: 8,
+        },
+        {
+          text: '(see application status at passportstatus.state.gov)',
+          x: 437.38,
+          y: 216.89,
+          width: 141.93,
+          height: 5.5,
+          fontSize: 5.5,
+        },
+        {
+          text: 'USCIS Registration A-Number (if applicable) Email (see application status at passportstatus.state.gov)',
+          x: 223.8,
+          y: 213.17,
+          width: 327.31,
+          height: 8.91,
+          fontSize: 8,
+        },
+        { text: 'Email', x: 406.07, y: 214.08, width: 17.08, height: 8, fontSize: 8 },
+      ],
+    );
+
+    expect(fields.find((field) => field.name === 'Applicant Last Name')?.label).toBeUndefined();
+    expect(fields.find((field) => field.name === 'Applicant Middle Name')?.label).toBeUndefined();
+    expect(fields.find((field) => field.name === 'Applicant Place of Birth')?.label?.text).toBe('Place of Birth');
+    expect(fields.find((field) => field.name === 'Applicant Email')?.label?.text).toBe('Email');
+    expect(fields.find((field) => field.name === 'Applicant DOB D')?.label?.text).toBe('(MM/DD/YYYY)');
+    expect(fields.find((field) => field.name === 'Gender')?.label).toBeUndefined();
+    expect(fields.find((field) => field.name === 'Alien Number')?.label?.text).toBe('USCIS Registration A-Number');
+  });
+
   it('uses distant same-row headers for wide document-list form grids', () => {
     const fields = buildFormFields(
       [

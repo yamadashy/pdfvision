@@ -284,6 +284,27 @@ const SIDE_LABEL_CONTINUATION_MAX_CHARS = 360;
 const SIDE_LABEL_CONTINUATION_MAX_GAP_PT = 4;
 const SIDE_LABEL_CONTINUATION_MAX_LINES = 3;
 const SIDE_LABEL_CONTINUATION_X_TOLERANCE_PT = 18;
+const MIN_SEMANTIC_FIELD_NAME_TOKENS = 2;
+const FIELD_NAME_TOKEN_MIN_CHARS = 3;
+const FIELD_NAME_STOP_WORDS = new Set(['applicant', 'field', 'form', 'page', 'value', 'input', 'entry']);
+const STRONG_SINGLE_FIELD_NAME_TOKENS = new Set([
+  'address',
+  'birth',
+  'city',
+  'country',
+  'date',
+  'dob',
+  'email',
+  'gender',
+  'name',
+  'number',
+  'phone',
+  'signature',
+  'state',
+]);
+const NARROW_SEMANTIC_ABOVE_LABEL_PENALTY = 35;
+const SEMANTIC_ABOVE_LABEL_LEFT_OFFSET_TOLERANCE_PT = 20;
+const SEMANTIC_ABOVE_LABEL_LEFT_OFFSET_WEIGHT = 0.8;
 
 function findFieldLabel(
   field: FormField,
@@ -297,6 +318,7 @@ function findFieldLabel(
     if (!isUsableLabelText(text)) continue;
     if (isFormLabelChromeText(text)) continue;
     if (overlapRatio(field, line) >= 0.35) continue;
+    if (isSemanticFieldNameMismatch(field, text)) continue;
     const candidate = scoreLabelCandidate(field, line, text);
     if (!candidate) continue;
     candidate.score += widgetCrossingPenalty(field, candidate, siblings);
@@ -319,15 +341,21 @@ function findFieldLabel(
 const WIDGET_CROSSING_PENALTY = 40;
 
 function widgetCrossingPenalty(field: FormField, candidate: LabelCandidate, siblings: readonly FormField[]): number {
-  if (candidate.relation !== 'left' && candidate.relation !== 'right') return 0;
   const line = candidate.line;
   let crossings = 0;
   for (const sibling of siblings) {
     if (sibling === field) continue;
     const siblingCenterX = sibling.x + sibling.width / 2;
     if (siblingCenterX <= line.x || siblingCenterX >= line.x + line.width) continue;
-    const verticalOverlap = Math.min(line.y + line.height, sibling.y + sibling.height) - Math.max(line.y, sibling.y);
-    if (verticalOverlap < Math.min(line.height, sibling.height) * 0.5) continue;
+    if (candidate.relation === 'left' || candidate.relation === 'right') {
+      const verticalOverlap = Math.min(line.y + line.height, sibling.y + sibling.height) - Math.max(line.y, sibling.y);
+      if (verticalOverlap < Math.min(line.height, sibling.height) * 0.5) continue;
+    } else {
+      const gap =
+        candidate.relation === 'above' ? sibling.y - (line.y + line.height) : line.y - (sibling.y + sibling.height);
+      const maxGap = candidate.relation === 'above' ? ABOVE_LABEL_MAX_GAP_PT : BELOW_LABEL_MAX_GAP_PT;
+      if (gap < -2 || gap > maxGap) continue;
+    }
     crossings++;
   }
   return crossings * WIDGET_CROSSING_PENALTY;
@@ -433,13 +461,22 @@ function verticalLabelCandidate(
   const edgeAligned =
     Math.abs(line.x - field.x) <= VERTICAL_LABEL_EDGE_TOLERANCE_PT ||
     Math.abs(lineRight - fieldRight) <= VERTICAL_LABEL_EDGE_TOLERANCE_PT;
-  if (fieldCoverage < SHORT_VERTICAL_LABEL_FIELD_COVERAGE && !edgeAligned) return undefined;
+  const closeSemanticAboveLabel =
+    relation === 'above' && gap <= SAME_LINE_TEXT_PROMPT_MAX_GAP_PT && hasSemanticFieldNameMatch(field, text);
+  if (fieldCoverage < SHORT_VERTICAL_LABEL_FIELD_COVERAGE && !edgeAligned && !closeSemanticAboveLabel) {
+    return undefined;
+  }
 
   const nearEdge =
     line.x <= field.x + field.width + 8 &&
     line.x + line.width >= field.x - 8 &&
     centerDelta <= Math.max(field.width, 1);
-  if (overlap < MIN_HORIZONTAL_OVERLAP_RATIO && fieldCoverage < MIN_HORIZONTAL_OVERLAP_RATIO && !nearEdge) {
+  if (
+    overlap < MIN_HORIZONTAL_OVERLAP_RATIO &&
+    fieldCoverage < MIN_HORIZONTAL_OVERLAP_RATIO &&
+    !nearEdge &&
+    !closeSemanticAboveLabel
+  ) {
     return undefined;
   }
   const alignment = Math.max(fieldCoverage, overlap);
@@ -454,7 +491,14 @@ function verticalLabelCandidate(
       Math.max(0, gap) * 2 +
       (1 - alignment) * 32 +
       centerDelta * 0.04 +
-      (fieldCoverage >= WIDE_VERTICAL_LABEL_FIELD_COVERAGE ? 0 : lengthPenalty(text)),
+      (fieldCoverage >= WIDE_VERTICAL_LABEL_FIELD_COVERAGE ? 0 : lengthPenalty(text)) +
+      (closeSemanticAboveLabel && fieldCoverage < SHORT_VERTICAL_LABEL_FIELD_COVERAGE
+        ? NARROW_SEMANTIC_ABOVE_LABEL_PENALTY
+        : 0) +
+      (closeSemanticAboveLabel
+        ? Math.max(0, field.x - line.x - SEMANTIC_ABOVE_LABEL_LEFT_OFFSET_TOLERANCE_PT) *
+          SEMANTIC_ABOVE_LABEL_LEFT_OFFSET_WEIGHT
+        : 0),
   };
 }
 
@@ -886,6 +930,55 @@ function isFormSectionHeadingText(text: string): boolean {
 function startsWithPromptItemMarker(text: string): boolean {
   const normalized = normalizePromptLabelText(text);
   return /^(?:\d+(?:\([a-z]\)|[a-z])?|\([a-z]\)|[a-z]\s+[A-Z])/u.test(normalized);
+}
+
+function isSemanticFieldNameMismatch(field: FormField, labelText: string): boolean {
+  if (isChoiceLikeField(field) && isLikelyWrappedContinuationText(labelText)) return false;
+  if (isCompactFieldMarker(labelText) || isBareNumericFieldMarker(labelText) || isTrailingPromptFragment(labelText)) {
+    return false;
+  }
+  const tokens = semanticFieldNameTokens(field.name);
+  if (!hasEnoughSemanticFieldNameTokens(tokens)) return false;
+  return !labelTextMatchesFieldNameTokens(labelText, tokens);
+}
+
+function hasSemanticFieldNameMatch(field: FormField, labelText: string): boolean {
+  const tokens = semanticFieldNameTokens(field.name);
+  if (!hasEnoughSemanticFieldNameTokens(tokens)) return false;
+  return labelTextMatchesFieldNameTokens(labelText, tokens);
+}
+
+function hasEnoughSemanticFieldNameTokens(tokens: readonly string[]): boolean {
+  return (
+    tokens.length >= MIN_SEMANTIC_FIELD_NAME_TOKENS ||
+    tokens.some((token) => STRONG_SINGLE_FIELD_NAME_TOKENS.has(token))
+  );
+}
+
+function labelTextMatchesFieldNameTokens(labelText: string, tokens: readonly string[]): boolean {
+  const label = normalizePromptLabelText(labelText).toLocaleLowerCase();
+  if (tokens.includes('dob') && /\b(?:mm|dd|yyyy|date)\b/iu.test(label)) return true;
+  return tokens.some((token) => label.includes(token));
+}
+
+function semanticFieldNameTokens(name: string): string[] {
+  if (/[\][.]/u.test(name)) return [];
+  const spaced = name
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/([A-Za-z])(\d)/g, '$1 $2')
+    .replace(/(\d)([A-Za-z])/g, '$1 $2');
+  const seen = new Set<string>();
+  const tokens: string[] = [];
+  for (const raw of spaced.split(/[^\p{Letter}\p{Number}]+/u)) {
+    const token = raw.toLocaleLowerCase();
+    if (token.length < FIELD_NAME_TOKEN_MIN_CHARS) continue;
+    if (FIELD_NAME_STOP_WORDS.has(token)) continue;
+    if (/^\d+$/u.test(token)) continue;
+    if (seen.has(token)) continue;
+    seen.add(token);
+    tokens.push(token);
+  }
+  return tokens;
 }
 
 function lengthPenalty(text: string): number {
