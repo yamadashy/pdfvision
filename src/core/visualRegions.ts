@@ -6,27 +6,31 @@ import type {
   PageQuality,
   VectorBox,
   VisualRegion,
-  VisualRegionAssociatedText,
-  VisualRegionKind,
   VisualRegionSource,
 } from '../types/index.js';
-
-interface BoxLike {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-interface Candidate extends BoxLike {
-  kind: VisualRegionKind;
-  priority: number;
-  reason: string;
-  sources: VisualRegionSource[];
-  associatedText?: VisualRegionAssociatedText[];
-}
-
-type CaptionKind = 'figure' | 'table' | 'plate';
+import { associatedTextKey, MAX_ASSOCIATED_TEXT, mergeAssociatedText } from './visualRegions/associatedText.js';
+import { attachCaptionText } from './visualRegions/captions.js';
+import {
+  area,
+  areaRatio,
+  areaSimilarity,
+  isFinitePositiveBox,
+  overlapArea,
+  overlapOfSmaller,
+  padAndClamp,
+  pageArea,
+  round3,
+  touches,
+  unionBox,
+  visiblePageBox,
+} from './visualRegions/geometry.js';
+import {
+  attachHeadingLabels,
+  attachInRegionPlainLabels,
+  attachPlainImageLabels,
+  attachTableLeadInLabels,
+} from './visualRegions/labels.js';
+import type { BoxLike, Candidate } from './visualRegions/types.js';
 
 export interface BuildVisualRegionsInput {
   pageWidth: number;
@@ -95,44 +99,11 @@ const WIDE_TEXT_PANEL_MIN_WIDTH_RATIO = 0.85;
 const WIDE_TEXT_PANEL_MIN_HEIGHT_RATIO = 0.12;
 const WIDE_TEXT_PANEL_MAX_HEIGHT_RATIO = 0.45;
 const WIDE_TEXT_PANEL_EDGE_RATIO = 0.15;
-const CAPTION_MAX_GAP_PT = 54;
-const CAPTION_MIN_HORIZONTAL_OVERLAP_RATIO = 0.2;
-const MIN_CONTAINED_CAPTION_HEIGHT_PT = 6;
-const HEADING_LABEL_MAX_GAP_PT = 96;
-const HEADING_LABEL_MIN_REGION_AREA_RATIO = 0.08;
-const HEADING_LABEL_MAX_CHARS = 220;
-const HEADING_LABEL_INSIDE_TOP_DEPTH_RATIO = 0.3;
-const HEADING_LABEL_INSIDE_TOP_DEPTH_MAX_PT = 72;
-const HEADING_LABEL_INSIDE_BONUS = 48;
-const HEADING_LABEL_LEVEL_PENALTY = 8;
-const HEADING_LABEL_SCORE_TOLERANCE_PT = 12;
-const TABLE_LEAD_IN_LABEL_MAX_GAP_PT = 36;
-const TABLE_LEAD_IN_LABEL_MAX_CHARS = 240;
-const IN_REGION_PLAIN_LABEL_MIN_REGION_AREA_RATIO = 0.08;
-const IN_REGION_PLAIN_LABEL_MAX_CHARS = 100;
-const IN_REGION_PLAIN_LABEL_MIN_WIDTH_PT = 80;
-const IN_REGION_PLAIN_LABEL_MIN_WIDTH_RATIO = 0.25;
-const IN_REGION_PLAIN_LABEL_TOP_DEPTH_RATIO = 0.3;
-const IN_REGION_PLAIN_LABEL_TOP_DEPTH_MAX_PT = 96;
-const IN_REGION_PLAIN_LABEL_MIN_HORIZONTAL_OVERLAP_RATIO = 0.35;
-const IN_REGION_PLAIN_LABEL_SCORE_TOLERANCE_PT = 12;
-const PLAIN_IMAGE_LABEL_MAX_GAP_PT = 28;
-const PLAIN_IMAGE_LABEL_MIN_HORIZONTAL_OVERLAP_RATIO = 0.45;
-const PLAIN_IMAGE_LABEL_MAX_CHARS = 120;
 const EQUIVALENT_CANDIDATE_OVERLAP_RATIO = 0.98;
 const EQUIVALENT_CANDIDATE_AREA_RATIO = 0.98;
 const CONTEXTUAL_DUPLICATE_OVERLAP_RATIO = 0.85;
 const CONTEXTUAL_DUPLICATE_AREA_RATIO = 0.85;
 const CONTEXTUAL_DUPLICATE_CONTAINED_OVERLAP_RATIO = 0.95;
-const MAX_ASSOCIATED_TEXT = 3;
-const CAPTION_SCORE_TOLERANCE_PT = 12;
-const TABLE_CAPTION_CONTINUATION_MAX_LINES = 2;
-const ABBREVIATED_FIGURE_CAPTION_CONTINUATION_MAX_LINES = 4;
-const FULL_FIGURE_CAPTION_CONTINUATION_MAX_LINES = 8;
-const CAPTION_CONTINUATION_MAX_CHARS = 240;
-const CAPTION_CONTINUATION_TOTAL_MAX_CHARS = 600;
-const SAME_BASELINE_HEADER_MIN_VERTICAL_OVERLAP_RATIO = 0.75;
-const SAME_BASELINE_HEADER_MIN_LEFT_OFFSET_RATIO = 0.45;
 const SHALLOW_TABLE_HINT_MAX_ROWS = 2;
 const SHALLOW_TABLE_HINT_MAX_HEIGHT_RATIO = 0.1;
 const SHALLOW_TABLE_HINT_MIN_WIDTH_RATIO = 0.65;
@@ -140,39 +111,6 @@ const OCR_FRAGMENT_TABLE_HINT_MIN_COLUMNS = 20;
 const REPEATED_CHROME_EDGE_RATIO = 0.12;
 const REPEATED_CHROME_BAND_PADDING_PT = 18;
 const REPEATED_CHROME_CANDIDATE_OVERLAP_RATIO = 0.55;
-const CAPTION_IDENTIFIER_ATOM = '[A-Za-z\\p{N}０-９一二三四五六七八九十]+';
-const CAPTION_NUMBER_PATTERN = `${CAPTION_IDENTIFIER_ATOM}(?:(?:[.-]${CAPTION_IDENTIFIER_ATOM})|(?:-?\\(${CAPTION_IDENTIFIER_ATOM}\\)))*\\.?`;
-const CAPTION_PATTERN = new RegExp(
-  `^\\s*(?:fig(?:ure)?\\.?|table|plate|図表|図|表)\\s*(${CAPTION_NUMBER_PATTERN})(?=\\s|[:：．、]|$)`,
-  'iu',
-);
-const CAPTION_DIGIT_OR_CJK_NUMBER_PATTERN = /[0-9０-９一二三四五六七八九十]/u;
-const CAPTION_ROMAN_NUMERAL_PATTERN = /^[ivxlcdm]+$/iu;
-const CAPTION_SINGLE_LETTER_PATTERN = /^[A-Z]$/u;
-const GLOBAL_CAPTION_PATTERN = /^\s*plate\s+/iu;
-const JAPANESE_TABLE_CAPTION_START_PATTERN = /^\s*(?:表|図表)\s*/u;
-const GLUED_JAPANESE_TABLE_HEADER_SUFFIX_PATTERN = /^(.+[)）])([\p{L}\p{N}%％・／/]{1,8})$/u;
-const TABLE_HEADER_FRAGMENT_PATTERN = /^[\p{L}\p{N}%％().（）・,，.．／/-]+$/u;
-
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
-}
-
-function round3(n: number): number {
-  return Math.round(n * 1000) / 1000;
-}
-
-function area(box: BoxLike): number {
-  return Math.max(0, box.width) * Math.max(0, box.height);
-}
-
-function pageArea(input: { pageWidth: number; pageHeight: number }): number {
-  return Math.max(0, input.pageWidth) * Math.max(0, input.pageHeight);
-}
-
-function areaRatio(box: BoxLike, totalArea: number): number {
-  return totalArea > 0 ? area(box) / totalArea : 0;
-}
 
 function isUsableBox(box: BoxLike): boolean {
   return (
@@ -187,83 +125,6 @@ function isUsableBox(box: BoxLike): boolean {
 
 function isUsableVectorConnectorBox(box: BoxLike): boolean {
   return isFinitePositiveBox(box) && Math.max(box.width, box.height) >= MIN_REGION_DIMENSION_PT;
-}
-
-function isFinitePositiveBox(box: BoxLike): boolean {
-  return (
-    Number.isFinite(box.x) &&
-    Number.isFinite(box.y) &&
-    Number.isFinite(box.width) &&
-    Number.isFinite(box.height) &&
-    box.width > 0 &&
-    box.height > 0
-  );
-}
-
-function unionBox(a: BoxLike, b: BoxLike): BoxLike {
-  const left = Math.min(a.x, b.x);
-  const top = Math.min(a.y, b.y);
-  const right = Math.max(a.x + a.width, b.x + b.width);
-  const bottom = Math.max(a.y + a.height, b.y + b.height);
-  return { x: left, y: top, width: right - left, height: bottom - top };
-}
-
-function padAndClamp(box: BoxLike, pageWidth: number, pageHeight: number): BoxLike {
-  const left = Math.max(0, box.x - REGION_PADDING_PT);
-  const top = Math.max(0, box.y - REGION_PADDING_PT);
-  const right = Math.min(pageWidth, box.x + box.width + REGION_PADDING_PT);
-  const bottom = Math.min(pageHeight, box.y + box.height + REGION_PADDING_PT);
-  return {
-    x: round2(left),
-    y: round2(top),
-    width: round2(Math.max(0, right - left)),
-    height: round2(Math.max(0, bottom - top)),
-  };
-}
-
-function expand(box: BoxLike, amount: number): BoxLike {
-  return {
-    x: box.x - amount,
-    y: box.y - amount,
-    width: box.width + amount * 2,
-    height: box.height + amount * 2,
-  };
-}
-
-function overlapArea(a: BoxLike, b: BoxLike): number {
-  const left = Math.max(a.x, b.x);
-  const top = Math.max(a.y, b.y);
-  const right = Math.min(a.x + a.width, b.x + b.width);
-  const bottom = Math.min(a.y + a.height, b.y + b.height);
-  return Math.max(0, right - left) * Math.max(0, bottom - top);
-}
-
-function touches(a: BoxLike, b: BoxLike, gap: number): boolean {
-  return overlapArea(expand(a, gap), b) > 0;
-}
-
-function overlapOfSmaller(a: BoxLike, b: BoxLike): number {
-  const smaller = Math.min(area(a), area(b));
-  return smaller > 0 ? overlapArea(a, b) / smaller : 0;
-}
-
-function areaSimilarity(a: BoxLike, b: BoxLike): number {
-  const smaller = Math.min(area(a), area(b));
-  const larger = Math.max(area(a), area(b));
-  return larger > 0 ? smaller / larger : 0;
-}
-
-function visiblePageBox(box: BoxLike, pageWidth: number, pageHeight: number): BoxLike {
-  const left = Math.max(0, box.x);
-  const top = Math.max(0, box.y);
-  const right = Math.min(pageWidth, box.x + box.width);
-  const bottom = Math.min(pageHeight, box.y + box.height);
-  return {
-    x: left,
-    y: top,
-    width: Math.max(0, right - left),
-    height: Math.max(0, bottom - top),
-  };
 }
 
 function isNearFullPageBox(box: BoxLike, pageWidth: number, pageHeight: number): boolean {
@@ -527,7 +388,7 @@ function visualScore(candidate: Candidate, totalArea: number): number {
 }
 
 function finalizeCandidate(candidate: Candidate, pageWidth: number, pageHeight: number): VisualRegion {
-  const box = padAndClamp(candidate, pageWidth, pageHeight);
+  const box = padAndClamp(candidate, pageWidth, pageHeight, REGION_PADDING_PT);
   const totalArea = pageWidth * pageHeight;
   const sources = mergeSources(candidate.sources);
   const associatedText = mergeAssociatedText(candidate.associatedText ?? []);
@@ -543,7 +404,7 @@ function finalizeCandidate(candidate: Candidate, pageWidth: number, pageHeight: 
 }
 
 function isUsableFinalCandidate(candidate: Candidate, pageWidth: number, pageHeight: number): boolean {
-  return isUsableBox(padAndClamp(candidate, pageWidth, pageHeight));
+  return isUsableBox(padAndClamp(candidate, pageWidth, pageHeight, REGION_PADDING_PT));
 }
 
 function addRasterCandidates(input: BuildVisualRegionsInput, candidates: Candidate[]): void {
@@ -973,542 +834,6 @@ function isStandaloneRasterCandidate(candidate: Candidate): boolean {
 
 function isStandaloneVectorCandidate(candidate: Candidate): boolean {
   return candidate.kind === 'vector' && candidate.sources.every((source) => source.type === 'vectorBox');
-}
-
-function associatedTextKey(text: VisualRegionAssociatedText): string {
-  return `${text.relation}:${text.x}:${text.y}:${text.width}:${text.height}:${text.text}`;
-}
-
-function mergeAssociatedText(items: readonly VisualRegionAssociatedText[]): VisualRegionAssociatedText[] {
-  const seen = new Set<string>();
-  const merged: VisualRegionAssociatedText[] = [];
-  for (const item of items) {
-    const key = associatedTextKey(item);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    merged.push(item);
-  }
-  return merged.sort((a, b) => a.y - b.y || a.x - b.x);
-}
-
-function normalizeAssociatedText(text: string): string {
-  return text.replace(/\s+/g, ' ').trim();
-}
-
-function joinCaptionTextParts(parts: readonly string[]): string {
-  let text = '';
-  for (const part of parts) {
-    const normalizedPart = normalizeAssociatedText(part);
-    if (normalizedPart.length === 0) continue;
-    if (text.length === 0) {
-      text = normalizedPart;
-      continue;
-    }
-    if (text.endsWith('-') && /^[\p{L}\p{N}]/u.test(normalizedPart)) {
-      text = `${text}${normalizedPart}`;
-    } else {
-      text = `${text} ${normalizedPart}`;
-    }
-  }
-  return normalizeAssociatedText(text);
-}
-
-function isCaptionText(text: string): boolean {
-  const match = CAPTION_PATTERN.exec(text);
-  return match !== null && isCaptionIdentifier(match[1] ?? '');
-}
-
-function isBareCaptionReferenceText(text: string): boolean {
-  const match = CAPTION_PATTERN.exec(text);
-  if (match === null || !isCaptionIdentifier(match[1] ?? '')) return false;
-  const remainder = text
-    .slice(match[0].length)
-    .replace(/^[\s:：．。、.-]+/u, '')
-    .trim();
-  return !/[\p{L}\p{N}]/u.test(remainder);
-}
-
-function isCaptionIdentifier(text: string): boolean {
-  const normalized = text.trim().replace(/[.．]+$/u, '');
-  if (CAPTION_DIGIT_OR_CJK_NUMBER_PATTERN.test(normalized)) return true;
-  if (CAPTION_ROMAN_NUMERAL_PATTERN.test(normalized)) return true;
-  return CAPTION_SINGLE_LETTER_PATTERN.test(normalized);
-}
-
-function captionKind(text: string): CaptionKind | undefined {
-  if (/^\s*table\b/iu.test(text) || /^\s*表/u.test(text)) return 'table';
-  if (/^\s*plate\b/iu.test(text)) return 'plate';
-  if (/^\s*fig(?:ure)?\.?(?=\s|[:：．、]|$)/iu.test(text) || /^\s*図/u.test(text)) return 'figure';
-  return undefined;
-}
-
-function isGlobalCaptionText(text: string): boolean {
-  return GLOBAL_CAPTION_PATTERN.test(text) && isCaptionText(text);
-}
-
-function captionContinuationLineLimit(text: string): number {
-  if (/^\s*table\b/iu.test(text)) return TABLE_CAPTION_CONTINUATION_MAX_LINES;
-  if (/^\s*fig\.?\s/iu.test(text)) return ABBREVIATED_FIGURE_CAPTION_CONTINUATION_MAX_LINES;
-  if (/^\s*figure\b/iu.test(text)) return FULL_FIGURE_CAPTION_CONTINUATION_MAX_LINES;
-  return 0;
-}
-
-function isCaptionContinuationText(captionText: string, text: string): boolean {
-  const normalized = normalizeAssociatedText(text);
-  if (normalized.length === 0 || normalized.length > CAPTION_CONTINUATION_MAX_CHARS) return false;
-  if (!/[\p{L}\p{N}]/u.test(normalized)) return false;
-  if (isCaptionText(normalized)) return false;
-  if (/^(?:doi:|https?:\/\/|www\.)/iu.test(normalized)) return false;
-  if (captionText.includes(normalized)) return false;
-  return true;
-}
-
-function isPlainImageLabelText(text: string): boolean {
-  const normalized = normalizeAssociatedText(text);
-  if (normalized.length === 0 || normalized.length > PLAIN_IMAGE_LABEL_MAX_CHARS) return false;
-  if (isCaptionText(normalized)) return false;
-  if (/[。！？]/u.test(normalized)) return false;
-  if (normalized.length > 80 && /[.!?]\s/u.test(normalized)) return false;
-  if (/\b(?:copyright|licensed|cc\s+by|public domain|https?:\/\/|www\.)\b/iu.test(normalized)) return false;
-  return /[\p{L}\p{N}]/u.test(normalized);
-}
-
-function isInRegionPlainLabelText(text: string): boolean {
-  const normalized = normalizeAssociatedText(text);
-  if (normalized.length === 0 || normalized.length > IN_REGION_PLAIN_LABEL_MAX_CHARS) return false;
-  if (isCaptionText(normalized)) return false;
-  if (/[。！？]/u.test(normalized)) return false;
-  if (normalized.length > 80 && /[.!?]\s/u.test(normalized)) return false;
-  if (/\b(?:copyright|licensed|cc\s+by|public domain|https?:\/\/|www\.)\b/iu.test(normalized)) return false;
-  return /\p{L}/u.test(normalized);
-}
-
-function verticalOverlapRatio(a: BoxLike, b: BoxLike): number {
-  const overlap = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
-  return Math.max(0, overlap) / Math.max(1, Math.min(a.height, b.height));
-}
-
-function isSameBaselineTableHeaderText(text: string): boolean {
-  const cells = normalizeAssociatedText(text).split(/\s+/u).filter(Boolean);
-  if (cells.length < 2) return false;
-  return cells.every((cell) => cell.length <= 12 && TABLE_HEADER_FRAGMENT_PATTERN.test(cell));
-}
-
-function isSameBaselineTableHeaderLine(captionLine: BoxLike, headerLine: BoxLike & { text: string }): boolean {
-  if (verticalOverlapRatio(captionLine, headerLine) < SAME_BASELINE_HEADER_MIN_VERTICAL_OVERLAP_RATIO) return false;
-  const minHeaderX = captionLine.x + captionLine.width * SAME_BASELINE_HEADER_MIN_LEFT_OFFSET_RATIO;
-  if (headerLine.x < minHeaderX) return false;
-  return isSameBaselineTableHeaderText(headerLine.text);
-}
-
-function trimGluedJapaneseTableHeaderFromCaption(
-  text: string,
-  captionLine: BoxLike,
-  nextLine: (BoxLike & { text: string }) | undefined,
-): string {
-  if (!JAPANESE_TABLE_CAPTION_START_PATTERN.test(text)) return text;
-  if (!nextLine || !isSameBaselineTableHeaderLine(captionLine, nextLine)) return text;
-  const match = GLUED_JAPANESE_TABLE_HEADER_SUFFIX_PATTERN.exec(text);
-  if (!match) return text;
-  return match[1]?.trim() ?? text;
-}
-
-function horizontalOverlapRatio(a: BoxLike, b: BoxLike): number {
-  const overlap = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
-  return Math.max(0, overlap) / Math.max(1, Math.min(a.width, b.width));
-}
-
-function captionScore(candidate: Candidate, textBox: BoxLike): number | undefined {
-  const contained = overlapOfSmaller(candidate, textBox) >= 0.9;
-  if (contained) {
-    if (textBox.height < MIN_CONTAINED_CAPTION_HEIGHT_PT) return undefined;
-    if ('text' in textBox && typeof textBox.text === 'string' && isBareCaptionReferenceText(textBox.text)) {
-      return undefined;
-    }
-  }
-
-  const captionBottom = textBox.y + textBox.height;
-  const regionBottom = candidate.y + candidate.height;
-  const belowGap = textBox.y - regionBottom;
-  const aboveGap = candidate.y - captionBottom;
-  const overlapsVertically = overlapArea(candidate, textBox) > 0;
-  const gap = overlapsVertically ? 0 : belowGap >= 0 ? belowGap : aboveGap >= 0 ? aboveGap : Number.POSITIVE_INFINITY;
-  if (gap > CAPTION_MAX_GAP_PT) return undefined;
-
-  const overlap = horizontalOverlapRatio(candidate, textBox);
-  if (overlap < CAPTION_MIN_HORIZONTAL_OVERLAP_RATIO) return undefined;
-  const belowBonus = belowGap >= -4 ? 0 : 12;
-  return gap + (1 - overlap) * 30 + belowBonus;
-}
-
-function captionTextsFromBlock(
-  block: NonNullable<PageLayout['blocks']>[number],
-  blockIndex: number,
-): VisualRegionAssociatedText[] {
-  const lines = block.lines.map((line) => ({ line, text: normalizeAssociatedText(line.text) }));
-  const lineCaptions: VisualRegionAssociatedText[] = [];
-  for (let i = 0; i < lines.length; i++) {
-    const item = lines[i];
-    if (!item || !isCaptionText(item.text)) continue;
-
-    const textParts = [trimGluedJapaneseTableHeaderFromCaption(item.text, item.line, lines[i + 1]?.line)];
-    let captionBox: BoxLike = item.line;
-    const continuationLimit = captionContinuationLineLimit(item.text);
-    for (let j = i + 1; continuationLimit > 0 && j < lines.length && j <= i + continuationLimit; j++) {
-      const continuation = lines[j];
-      if (!continuation) break;
-      const captionText = joinCaptionTextParts(textParts);
-      if (!isCaptionContinuationText(captionText, continuation.text)) break;
-      const continuedCaption = joinCaptionTextParts([...textParts, continuation.text]);
-      if (continuedCaption.length > CAPTION_CONTINUATION_TOTAL_MAX_CHARS) break;
-      textParts.push(continuation.text);
-      captionBox = unionBox(captionBox, continuation.line);
-    }
-
-    lineCaptions.push({
-      text: joinCaptionTextParts(textParts),
-      relation: 'caption' as const,
-      x: round2(captionBox.x),
-      y: round2(captionBox.y),
-      width: round2(captionBox.width),
-      height: round2(captionBox.height),
-      blockIndex,
-    });
-  }
-  if (lineCaptions.length > 0) return lineCaptions;
-
-  const text = normalizeAssociatedText(block.text);
-  if (!isCaptionText(text)) return [];
-  return [
-    {
-      text,
-      relation: 'caption' as const,
-      x: block.x,
-      y: block.y,
-      width: block.width,
-      height: block.height,
-      blockIndex,
-    },
-  ];
-}
-
-function attachCaptionText(candidates: Candidate[], layout: PageLayout | undefined): Candidate[] {
-  const blocks = layout?.blocks ?? [];
-  if (blocks.length === 0) return candidates;
-  const captionItems = blocks.flatMap((block, index) =>
-    block.repeated
-      ? []
-      : captionTextsFromBlock(block, index).map((associatedText) => ({
-          text: associatedText,
-          kind: captionKind(associatedText.text),
-          global: isGlobalCaptionText(associatedText.text),
-        })),
-  );
-  const globalCaptions = captionItems.filter((item) => item.global).slice(0, MAX_ASSOCIATED_TEXT);
-  return candidates.map((candidate) => {
-    const scoredCaptions = captionItems
-      .map((item) => ({
-        text: item.text,
-        kind: item.kind,
-        score: captionScore(candidate, item.text),
-      }))
-      .filter(
-        (item): item is { text: VisualRegionAssociatedText; kind: CaptionKind | undefined; score: number } =>
-          item.score !== undefined,
-      )
-      .sort((a, b) => a.score - b.score);
-    const preferredCaptionKind = candidate.kind === 'table' ? 'table' : undefined;
-    const preferredCaptions = preferredCaptionKind
-      ? scoredCaptions.filter((caption) => caption.kind === preferredCaptionKind)
-      : [];
-    const captionPool = preferredCaptions.length > 0 ? preferredCaptions : scoredCaptions;
-    const bestCaptionScore = captionPool[0]?.score;
-    const captions =
-      bestCaptionScore === undefined
-        ? []
-        : captionPool
-            .filter((caption) => caption.score <= bestCaptionScore + CAPTION_SCORE_TOLERANCE_PT)
-            .slice(0, MAX_ASSOCIATED_TEXT);
-    if (captions.length === 0) {
-      if (globalCaptions.length === 0) return candidate;
-      const associatedText = mergeAssociatedText([
-        ...(candidate.associatedText ?? []),
-        ...globalCaptions.map((caption) => caption.text),
-      ]);
-      return { ...candidate, associatedText };
-    }
-
-    const associatedText = mergeAssociatedText([
-      ...(candidate.associatedText ?? []),
-      ...captions.map((caption) => caption.text),
-    ]);
-    const box = captions.reduce<BoxLike>((acc, caption) => unionBox(acc, caption.text), candidate);
-    return { ...candidate, ...box, associatedText };
-  });
-}
-
-function plainImageLabelScore(
-  candidate: Candidate,
-  block: NonNullable<PageLayout['blocks']>[number],
-): number | undefined {
-  if (candidate.kind !== 'raster') return undefined;
-  if (candidate.associatedText && candidate.associatedText.length > 0) return undefined;
-  if (block.repeated) return undefined;
-  if (!isPlainImageLabelText(block.text)) return undefined;
-  const blockBottom = block.y + block.height;
-  const aboveGap = candidate.y - blockBottom;
-  const regionBottom = candidate.y + candidate.height;
-  const belowGap = block.y - regionBottom;
-  let gap: number;
-  if (aboveGap >= -4 && aboveGap <= PLAIN_IMAGE_LABEL_MAX_GAP_PT) {
-    gap = Math.max(0, aboveGap);
-  } else if (belowGap >= -4 && belowGap <= PLAIN_IMAGE_LABEL_MAX_GAP_PT) {
-    gap = Math.max(0, belowGap);
-  } else {
-    return undefined;
-  }
-
-  const overlap = horizontalOverlapRatio(candidate, block);
-  if (overlap < PLAIN_IMAGE_LABEL_MIN_HORIZONTAL_OVERLAP_RATIO) return undefined;
-  return gap + (1 - overlap) * 24;
-}
-
-function attachPlainImageLabels(candidates: Candidate[], layout: PageLayout | undefined): Candidate[] {
-  const blocks = layout?.blocks ?? [];
-  if (blocks.length === 0) return candidates;
-  return candidates.map((candidate) => {
-    const labels = blocks
-      .map((block, blockIndex) => ({
-        block,
-        blockIndex,
-        score: plainImageLabelScore(candidate, block),
-      }))
-      .filter(
-        (item): item is { block: NonNullable<PageLayout['blocks']>[number]; blockIndex: number; score: number } =>
-          item.score !== undefined,
-      )
-      .sort((a, b) => a.score - b.score)
-      .slice(0, MAX_ASSOCIATED_TEXT)
-      .map(({ block, blockIndex }) => ({
-        text: normalizeAssociatedText(block.text),
-        relation: 'label' as const,
-        x: block.x,
-        y: block.y,
-        width: block.width,
-        height: block.height,
-        blockIndex,
-      }));
-    if (labels.length === 0) return candidate;
-
-    const associatedText = mergeAssociatedText([...(candidate.associatedText ?? []), ...labels]);
-    const box = labels.reduce<BoxLike>((acc, label) => unionBox(acc, label), candidate);
-    return { ...candidate, ...box, associatedText };
-  });
-}
-
-function inRegionPlainLabelScore(
-  candidate: Candidate,
-  block: NonNullable<PageLayout['blocks']>[number],
-  totalArea: number,
-): number | undefined {
-  if (candidate.kind !== 'raster' && candidate.kind !== 'mixed' && candidate.kind !== 'vector') return undefined;
-  if (hasSourceType(candidate, 'layoutTable')) return undefined;
-  if (candidate.associatedText && candidate.associatedText.length > 0) return undefined;
-  if (areaRatio(candidate, totalArea) < IN_REGION_PLAIN_LABEL_MIN_REGION_AREA_RATIO) return undefined;
-  if (block.role === 'heading' || block.repeated) return undefined;
-  if (!isInRegionPlainLabelText(block.text)) return undefined;
-  if (
-    block.width < IN_REGION_PLAIN_LABEL_MIN_WIDTH_PT &&
-    block.width / Math.max(1, candidate.width) < IN_REGION_PLAIN_LABEL_MIN_WIDTH_RATIO
-  ) {
-    return undefined;
-  }
-
-  const blockBottom = block.y + block.height;
-  const insideDepth = block.y - candidate.y;
-  const insideTopDepth = Math.min(
-    candidate.height * IN_REGION_PLAIN_LABEL_TOP_DEPTH_RATIO,
-    IN_REGION_PLAIN_LABEL_TOP_DEPTH_MAX_PT,
-  );
-  if (insideDepth < -4 || insideDepth > insideTopDepth || blockBottom > candidate.y + candidate.height + 4) {
-    return undefined;
-  }
-
-  const overlap = horizontalOverlapRatio(candidate, block);
-  if (overlap < IN_REGION_PLAIN_LABEL_MIN_HORIZONTAL_OVERLAP_RATIO) return undefined;
-  const candidateCenter = candidate.x + candidate.width / 2;
-  const blockCenter = block.x + block.width / 2;
-  const centerPenalty = (Math.abs(candidateCenter - blockCenter) / Math.max(1, candidate.width)) * 20;
-  return Math.max(0, insideDepth) + (1 - overlap) * 24 + centerPenalty;
-}
-
-function attachInRegionPlainLabels(
-  candidates: Candidate[],
-  layout: PageLayout | undefined,
-  totalArea: number,
-): Candidate[] {
-  const blocks = layout?.blocks ?? [];
-  if (blocks.length === 0) return candidates;
-  return candidates.map((candidate) => {
-    const scoredLabels = blocks
-      .map((block, blockIndex) => ({
-        block,
-        blockIndex,
-        score: inRegionPlainLabelScore(candidate, block, totalArea),
-      }))
-      .filter(
-        (item): item is { block: NonNullable<PageLayout['blocks']>[number]; blockIndex: number; score: number } =>
-          item.score !== undefined,
-      )
-      .sort((a, b) => a.score - b.score);
-    const bestScore = scoredLabels[0]?.score;
-    const labels = scoredLabels
-      .filter((item) => bestScore !== undefined && item.score <= bestScore + IN_REGION_PLAIN_LABEL_SCORE_TOLERANCE_PT)
-      .slice(0, MAX_ASSOCIATED_TEXT)
-      .map(({ block, blockIndex }) => ({
-        text: normalizeAssociatedText(block.text),
-        relation: 'label' as const,
-        x: block.x,
-        y: block.y,
-        width: block.width,
-        height: block.height,
-        blockIndex,
-      }));
-    if (labels.length === 0) return candidate;
-
-    const associatedText = mergeAssociatedText([...(candidate.associatedText ?? []), ...labels]);
-    const box = labels.reduce<BoxLike>((acc, label) => unionBox(acc, label), candidate);
-    return { ...candidate, ...box, associatedText };
-  });
-}
-
-function headingLabelScore(
-  candidate: Candidate,
-  block: NonNullable<PageLayout['blocks']>[number],
-  totalArea: number,
-): number | undefined {
-  if (candidate.associatedText && candidate.associatedText.length > 0) return undefined;
-  if (areaRatio(candidate, totalArea) < HEADING_LABEL_MIN_REGION_AREA_RATIO) return undefined;
-  if (block.role !== 'heading' || block.repeated) return undefined;
-  const text = normalizeAssociatedText(block.text);
-  if (text.length === 0 || text.length > HEADING_LABEL_MAX_CHARS) return undefined;
-  const blockBottom = block.y + block.height;
-  const gap = candidate.y - blockBottom;
-  const overlap = horizontalOverlapRatio(candidate, block);
-  if (overlap < CAPTION_MIN_HORIZONTAL_OVERLAP_RATIO) return undefined;
-  const overlapPenalty = (1 - overlap) * 24;
-  const levelPenalty = Math.max(0, (block.level ?? 1) - 1) * HEADING_LABEL_LEVEL_PENALTY;
-  const insideDepth = block.y - candidate.y;
-  const insideTopDepth = Math.min(
-    candidate.height * HEADING_LABEL_INSIDE_TOP_DEPTH_RATIO,
-    HEADING_LABEL_INSIDE_TOP_DEPTH_MAX_PT,
-  );
-  if (insideDepth >= -4 && insideDepth <= insideTopDepth && blockBottom <= candidate.y + candidate.height + 4) {
-    return -HEADING_LABEL_INSIDE_BONUS + Math.max(0, insideDepth) * 0.25 + overlapPenalty + levelPenalty;
-  }
-  if (gap < -4 || gap > HEADING_LABEL_MAX_GAP_PT) return undefined;
-  return gap + overlapPenalty + levelPenalty;
-}
-
-function attachHeadingLabels(candidates: Candidate[], layout: PageLayout | undefined, totalArea: number): Candidate[] {
-  const blocks = layout?.blocks ?? [];
-  if (blocks.length === 0) return candidates;
-  return candidates.map((candidate) => {
-    const scoredLabels = blocks
-      .map((block, blockIndex) => ({
-        block,
-        blockIndex,
-        score: headingLabelScore(candidate, block, totalArea),
-      }))
-      .filter(
-        (item): item is { block: NonNullable<PageLayout['blocks']>[number]; blockIndex: number; score: number } =>
-          item.score !== undefined,
-      )
-      .sort((a, b) => a.score - b.score);
-    const bestScore = scoredLabels[0]?.score;
-    const labels = scoredLabels
-      .filter((item) => bestScore !== undefined && item.score <= bestScore + HEADING_LABEL_SCORE_TOLERANCE_PT)
-      .slice(0, MAX_ASSOCIATED_TEXT)
-      .map(({ block, blockIndex }) => ({
-        text: normalizeAssociatedText(block.text),
-        relation: 'label' as const,
-        x: block.x,
-        y: block.y,
-        width: block.width,
-        height: block.height,
-        blockIndex,
-      }));
-    if (labels.length === 0) return candidate;
-
-    const associatedText = mergeAssociatedText([...(candidate.associatedText ?? []), ...labels]);
-    const box = labels.reduce<BoxLike>((acc, label) => unionBox(acc, label), candidate);
-    return { ...candidate, ...box, associatedText };
-  });
-}
-
-function isTableLeadInLabelText(text: string): boolean {
-  const normalized = normalizeAssociatedText(text);
-  if (normalized.length === 0 || normalized.length > TABLE_LEAD_IN_LABEL_MAX_CHARS) return false;
-  if (isCaptionText(normalized)) return false;
-  if (/\b(?:copyright|licensed|cc\s+by|public domain|https?:\/\/|www\.)\b/iu.test(normalized)) return false;
-  if (!/[\p{L}\p{N}]/u.test(normalized)) return false;
-  return (
-    /\btable\b/iu.test(normalized) ||
-    /(?:as follows|following|below)\b/iu.test(normalized) ||
-    /[:：]\s*$/u.test(normalized)
-  );
-}
-
-function tableLeadInLabelScore(
-  candidate: Candidate,
-  block: NonNullable<PageLayout['blocks']>[number],
-): number | undefined {
-  if (candidate.associatedText && candidate.associatedText.length > 0) return undefined;
-  if (!hasSourceType(candidate, 'layoutTable')) return undefined;
-  if (block.repeated) return undefined;
-  if (!isTableLeadInLabelText(block.text)) return undefined;
-
-  const blockBottom = block.y + block.height;
-  const aboveGap = candidate.y - blockBottom;
-  const gap = aboveGap >= -4 ? Math.max(0, aboveGap) : Number.POSITIVE_INFINITY;
-  if (gap > TABLE_LEAD_IN_LABEL_MAX_GAP_PT) return undefined;
-
-  const overlap = horizontalOverlapRatio(candidate, block);
-  if (overlap < CAPTION_MIN_HORIZONTAL_OVERLAP_RATIO) return undefined;
-  return gap + (1 - overlap) * 24;
-}
-
-function attachTableLeadInLabels(candidates: Candidate[], layout: PageLayout | undefined): Candidate[] {
-  const blocks = layout?.blocks ?? [];
-  if (blocks.length === 0) return candidates;
-  return candidates.map((candidate) => {
-    const labels = blocks
-      .map((block, blockIndex) => ({
-        block,
-        blockIndex,
-        score: tableLeadInLabelScore(candidate, block),
-      }))
-      .filter(
-        (item): item is { block: NonNullable<PageLayout['blocks']>[number]; blockIndex: number; score: number } =>
-          item.score !== undefined,
-      )
-      .sort((a, b) => a.score - b.score)
-      .slice(0, MAX_ASSOCIATED_TEXT)
-      .map(({ block, blockIndex }) => ({
-        text: normalizeAssociatedText(block.text),
-        relation: 'label' as const,
-        x: block.x,
-        y: block.y,
-        width: block.width,
-        height: block.height,
-        blockIndex,
-      }));
-    if (labels.length === 0) return candidate;
-
-    const associatedText = mergeAssociatedText([...(candidate.associatedText ?? []), ...labels]);
-    const box = labels.reduce<BoxLike>((acc, label) => unionBox(acc, label), candidate);
-    return { ...candidate, ...box, associatedText };
-  });
 }
 
 function dedupeCandidates(candidates: Candidate[]): Candidate[] {
