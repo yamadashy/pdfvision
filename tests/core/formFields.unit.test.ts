@@ -1237,6 +1237,38 @@ describe('buildFormFields', () => {
     });
   });
 
+  it('prefixes split same-row line numbers onto above text prompts', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'businessName',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(58.6, 142, 517.4, 14),
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        { text: '2', x: 61.6, y: 133, width: 3.89, height: 7, fontSize: 7 },
+        {
+          text: 'Business name/disregarded entity name, if different from above.',
+          x: 73.28,
+          y: 133,
+          width: 200.58,
+          height: 7,
+          fontSize: 7,
+        },
+      ],
+    );
+
+    expect(fields[0].label).toMatchObject({
+      text: '2 Business name/disregarded entity name, if different from above.',
+      relation: 'above',
+    });
+  });
+
   it('expands line-number labels from same-row prompts with stray leading text', () => {
     const fields = buildFormFields(
       [{ subtype: 'Widget', fieldName: 'addressLine', fieldType: 'Tx', rect: rectFromTopLeft(58.6, 286, 329.45, 14) }],
@@ -1326,5 +1358,48 @@ describe('buildFormFields', () => {
       text: 'Middle Initial',
       relation: 'above',
     });
+  });
+
+  it('prefers a wide text field own above label over the adjacent column label', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'Signature of Preparer or Translator 0',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(39.32, 228.28, 373.84, 22.92),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'Sig Date mmddyyyy 0',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(417.56, 228.28, 150.38, 22.92),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'Preparer or Translator Last Name (Family Name) 0',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(39.64, 265.2, 229.52, 16),
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        {
+          text: 'Signature of Preparer or Translator',
+          x: 38.84,
+          y: 217.15,
+          width: 124.05,
+          height: 8,
+          fontSize: 8,
+        },
+        { text: 'Date (mm/dd/yyyy)', x: 417.12, y: 217.18, width: 67.12, height: 8, fontSize: 8 },
+        { text: 'Last Name (Family Name)', x: 38.84, y: 254.52, width: 93.34, height: 8, fontSize: 8 },
+      ],
+    );
+
+    expect(fields[0].label?.text).toBe('Signature of Preparer or Translator');
+    expect(fields[1].label?.text).toBe('Date (mm/dd/yyyy)');
   });
 });

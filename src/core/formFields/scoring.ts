@@ -51,6 +51,8 @@ export function widgetCrossingPenalty(
       const verticalOverlap = Math.min(line.y + line.height, sibling.y + sibling.height) - Math.max(line.y, sibling.y);
       if (verticalOverlap < Math.min(line.height, sibling.height) * 0.5) continue;
     } else {
+      if (candidate.relation === 'above' && sibling.y >= field.y + field.height - 1) continue;
+      if (candidate.relation === 'below' && sibling.y + sibling.height <= field.y + 1) continue;
       const gap =
         candidate.relation === 'above' ? sibling.y - (line.y + line.height) : line.y - (sibling.y + sibling.height);
       const maxGap = candidate.relation === 'above' ? ABOVE_LABEL_MAX_GAP_PT : BELOW_LABEL_MAX_GAP_PT;

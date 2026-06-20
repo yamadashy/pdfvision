@@ -1,6 +1,7 @@
 import type { FormField, FormFieldLabel } from '../../types/index.js';
 import {
   CHOICE_STACKED_LABEL_MAX_CHARS,
+  SAME_LINE_TEXT_PROMPT_MAX_GAP_PT,
   SIDE_LABEL_CONTINUATION_MAX_CHARS,
   STACKED_LABEL_MAX_CHARS,
 } from './constants.js';
@@ -19,6 +20,7 @@ import {
   isTrailingPromptFragment,
   isUsableLabelText,
   normalizePromptLabelText,
+  startsWithPromptItemMarker,
 } from './text.js';
 import type { LabelCandidate, LabelLine } from './types.js';
 
@@ -58,10 +60,12 @@ export function expandSameLineMarkerPromptLabel(
   lines: readonly LabelLine[],
 ): FormFieldLabel | undefined {
   if (field.type !== 'text') return undefined;
-  if (!isCompactFieldMarker(candidate.text)) return undefined;
   if (candidate.relation === 'above' || candidate.relation === 'below') {
-    return expandVerticalMarkerPromptLabel(field, candidate, lines);
+    return isCompactFieldMarker(candidate.text)
+      ? expandVerticalMarkerPromptLabel(field, candidate, lines)
+      : expandVerticalPromptLeftMarkerLabel(field, candidate, lines);
   }
+  if (!isCompactFieldMarker(candidate.text)) return undefined;
   if (candidate.relation !== 'left') return undefined;
 
   const sameLinePrompt = collectConnectedLeftPromptLines(candidate.line, lines);
@@ -88,6 +92,56 @@ export function expandSameLineMarkerPromptLabel(
     width: round2(labelBox.width),
     height: round2(labelBox.height),
   };
+}
+
+function expandVerticalPromptLeftMarkerLabel(
+  field: FormField,
+  candidate: LabelCandidate,
+  lines: readonly LabelLine[],
+): FormFieldLabel | undefined {
+  const promptText = normalizePromptLabelText(candidate.text);
+  if (startsWithPromptItemMarker(promptText)) return undefined;
+
+  const marker = findSameRowLeftMarkerLine(candidate.line, lines);
+  if (!marker) return undefined;
+
+  const stack = collectStackedLabelLines(field, candidate, lines);
+  const textParts = stack.map(({ text }) => normalizePromptLabelText(text));
+  textParts[0] = `${marker.text} ${textParts[0]}`;
+  const text = normalizePromptLabelText(textParts.join(' '));
+  if (!isUsableLabelText(text, STACKED_LABEL_MAX_CHARS) || text === candidate.text) return undefined;
+
+  const boxLines = [marker.line, ...stack.map(({ line }) => line)].sort((a, b) => a.y - b.y || a.x - b.x);
+  const labelBox = boxLines.slice(1).reduce<BoxLike>((box, line) => unionBox(box, line), boxLines[0] ?? candidate.line);
+  return {
+    text,
+    relation: candidate.relation,
+    x: round2(labelBox.x),
+    y: round2(labelBox.y),
+    width: round2(labelBox.width),
+    height: round2(labelBox.height),
+  };
+}
+
+function findSameRowLeftMarkerLine(
+  candidateLine: LabelLine,
+  lines: readonly LabelLine[],
+): { line: LabelLine; text: string } | undefined {
+  const candidateCenterY = candidateLine.y + candidateLine.height / 2;
+  let best: { line: LabelLine; text: string; gap: number } | undefined;
+  for (const line of lines) {
+    if (line === candidateLine) continue;
+    const text = normalizePromptLabelText(line.text);
+    if (!isCompactFieldMarker(text)) continue;
+    if (line.x + line.width > candidateLine.x + 1) continue;
+
+    const gap = candidateLine.x - (line.x + line.width);
+    if (gap < -2 || gap > SAME_LINE_TEXT_PROMPT_MAX_GAP_PT) continue;
+    if (Math.abs(line.y + line.height / 2 - candidateCenterY) > Math.max(4, candidateLine.height)) continue;
+
+    if (!best || gap < best.gap) best = { line, text, gap };
+  }
+  return best ? { line: best.line, text: best.text } : undefined;
 }
 
 function expandVerticalMarkerPromptLabel(
