@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { parseOcrLang } from '../../src/core/ocr.js';
+import { buildQuietTesseractWorkerScript, parseOcrLang } from '../../src/core/ocr.js';
 import { processDocument } from '../../src/core/processor.js';
 
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
@@ -41,6 +41,15 @@ describe('parseOcrLang', () => {
     // gets handed garbage.
     expect(() => parseOcrLang('eng2')).toThrow(/expected letters\/underscore only/);
     expect(() => parseOcrLang('../sneaky')).toThrow(/expected letters\/underscore only/);
+  });
+});
+
+describe('buildQuietTesseractWorkerScript', () => {
+  it('filters known benign tesseract stderr warnings', () => {
+    const script = buildQuietTesseractWorkerScript('/tmp/worker path "quoted".js');
+    expect(script).toContain('Image too small to scale!!');
+    expect(script).toContain('Line cannot be recognized!!');
+    expect(script).toContain('require("/tmp/worker path \\"quoted\\".js")');
   });
 });
 

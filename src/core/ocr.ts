@@ -1,4 +1,5 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { OcrWord, PageOcr } from '../types/index.js';
@@ -20,6 +21,7 @@ export interface OcrSession {
 /** Lower bound of "this looks like a usable lang code" — letters only, 1+ chars. */
 const LANG_TOKEN = /^[A-Za-z_]+$/;
 const DEFAULT_RENDER_SCALE = 2;
+const QUIET_TESSERACT_WORKER_FILENAME = 'tesseract-quiet-worker.cjs';
 
 interface OcrWordTransform {
   scale: number;
@@ -196,6 +198,27 @@ export function parseOcrLang(lang: string): string[] {
   return tokens;
 }
 
+export function buildQuietTesseractWorkerScript(tesseractWorkerPath: string): string {
+  return `"use strict";
+const originalWrite = process.stderr.write.bind(process.stderr);
+const quiet = /^(?:Image too small to scale!! \\(\\d+x\\d+ vs min width of \\d+\\)|Line cannot be recognized!!)\\s*$/;
+process.stderr.write = (chunk, ...args) => {
+  const text = typeof chunk === "string" ? chunk : Buffer.isBuffer(chunk) ? chunk.toString("utf8") : String(chunk);
+  if (quiet.test(text)) return true;
+  return originalWrite(chunk, ...args);
+};
+require(${JSON.stringify(tesseractWorkerPath)});
+`;
+}
+
+async function ensureQuietTesseractWorker(cacheRoot: string): Promise<string> {
+  const requireFromHere = createRequire(import.meta.url);
+  const tesseractWorkerPath = requireFromHere.resolve('tesseract.js/src/worker-script/node/index.js');
+  const quietWorkerPath = join(cacheRoot, QUIET_TESSERACT_WORKER_FILENAME);
+  await writeFile(quietWorkerPath, buildQuietTesseractWorkerScript(tesseractWorkerPath), { mode: 0o600 });
+  return quietWorkerPath;
+}
+
 /**
  * Boot a tesseract.js worker for the requested languages. tesseract.js
  * is an `optionalDependencies` install — when it isn't present we throw
@@ -232,11 +255,14 @@ export async function createOcrSession(lang: string): Promise<OcrSession> {
   // `<tmp>/pdfvision -> /elsewhere` symlink can't redirect traineddata
   // writes outside the cache hierarchy. Mirrors the posture getCacheDir
   // already enforces for result caches.
-  ensurePrivateDir(getCacheRoot());
-  const ocrDataDir = join(getCacheRoot(), 'ocr-data');
+  const cacheRoot = getCacheRoot();
+  ensurePrivateDir(cacheRoot);
+  const ocrDataDir = join(cacheRoot, 'ocr-data');
   ensurePrivateDir(ocrDataDir);
+  const workerPath = await ensureQuietTesseractWorker(cacheRoot);
 
   const worker = await tesseract.createWorker(langs, undefined, {
+    workerPath,
     cachePath: ocrDataDir,
     cacheMethod: 'readWrite',
     // Tesseract's default logger writes a status line per progress tick;
