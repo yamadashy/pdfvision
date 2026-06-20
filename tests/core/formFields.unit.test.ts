@@ -472,7 +472,7 @@ describe('buildFormFields', () => {
     });
   });
 
-  it('keeps two-line checkbox instructions when stacked text just exceeds the single-line cap', () => {
+  it('keeps wrapped checkbox instructions that finish on the checkbox row', () => {
     const fields = buildFormFields(
       [
         {
@@ -504,16 +504,24 @@ describe('buildFormFields', () => {
           height: 9,
           fontSize: 9,
         },
+        {
+          text: 'the higher paying job. Otherwise, Step 2(b) is more accurate . . . . . . . . . .',
+          x: 136.8,
+          y: 402.4,
+          width: 405.2,
+          height: 9,
+          fontSize: 9,
+        },
       ],
     );
 
     expect(fields[0].label).toMatchObject({
-      text: '(c) If there are only two jobs total, you may check this box. Do the same on Form W-4 for the other job. This option is generally more accurate than Step 2(b) if pay at the lower paying job is more than half of the pay at',
+      text: '(c) If there are only two jobs total, you may check this box. Do the same on Form W-4 for the other job. This option is generally more accurate than Step 2(b) if pay at the lower paying job is more than half of the pay at the higher paying job. Otherwise, Step 2(b) is more accurate',
       relation: 'above',
       x: 122.4,
       y: 380.8,
       width: 447.8,
-      height: 19.8,
+      height: 30.6,
     });
   });
 
@@ -729,10 +737,10 @@ describe('buildFormFields', () => {
       [
         { text: 'Trust/estate', x: 402.4, y: 180, width: 37.46, height: 7, fontSize: 7 },
         {
-          text: 'LLC. Enter the tax classification (C = C corporation, S = S corporation, P = Partnership)',
+          text: 'LLC. Enter the tax classification (C = C corporation, S = S corporation, P = Partnership) . . . .',
           x: 86.4,
           y: 193.5,
-          width: 272.14,
+          width: 302.14,
           height: 7,
           fontSize: 7,
         },

@@ -255,6 +255,7 @@ interface LabelCandidate {
 
 const LABEL_MAX_CHARS = 220;
 const STACKED_LABEL_MAX_CHARS = 260;
+const CHOICE_STACKED_LABEL_MAX_CHARS = 360;
 const SIDE_LABEL_MAX_GAP_PT = 80;
 const TALL_TEXT_FIELD_SIDE_LABEL_MAX_GAP_PT = 110;
 const WIDE_ROW_HEADER_LABEL_MAX_GAP_PT = 340;
@@ -388,13 +389,26 @@ function sideLabelCandidate(
     : sameRowTextPrompt
       ? Math.min(gapWeight, 0.45)
       : gapWeight;
+  const wrappedChoiceContinuationPenalty =
+    field.type !== 'text' &&
+    relation === 'left' &&
+    gap > SAME_LINE_TEXT_PROMPT_MAX_GAP_PT &&
+    isLikelyWrappedContinuationText(text)
+      ? 80
+      : 0;
+  const labelText = sameRowTextPrompt ? normalizePromptLabelText(text) : text;
 
   return {
-    label: makeLabel(line, text, relation),
+    label: makeLabel(line, labelText, relation),
     line,
-    text,
+    text: labelText,
     relation,
-    score: scoreBase + Math.max(0, gap) * scoreGapWeight + centerDelta * 2 + lengthPenalty(text),
+    score:
+      scoreBase +
+      Math.max(0, gap) * scoreGapWeight +
+      centerDelta * 2 +
+      lengthPenalty(labelText) +
+      wrappedChoiceContinuationPenalty,
   };
 }
 
@@ -452,8 +466,13 @@ function expandStackedLabel(field: FormField, candidate: LabelCandidate, lines: 
 
   const sorted = stack.sort((a, b) => a.line.y - b.line.y || a.line.x - b.line.x);
   const labelBox = sorted.slice(1).reduce<BoxLike>((box, item) => unionBox(box, item.line), sorted[0].line);
-  const text = sorted.map((item) => item.text).join(' ');
-  if (!isUsableLabelText(text, STACKED_LABEL_MAX_CHARS)) return candidate.label;
+  const rawText = sorted.map((item) => item.text).join(' ');
+  const text = isChoiceLikeField(field) ? normalizePromptLabelText(rawText) : rawText;
+  const maxChars =
+    candidate.relation === 'above' && isChoiceLikeField(field)
+      ? CHOICE_STACKED_LABEL_MAX_CHARS
+      : STACKED_LABEL_MAX_CHARS;
+  if (!isUsableLabelText(text, maxChars)) return candidate.label;
 
   return {
     text,
@@ -725,9 +744,15 @@ function findAdjacentStackLine(
     if (candidate.relation === 'above' && isBroadStackedHeaderLine(text, bounds, line)) continue;
     if (!isStackCompatibleLine(candidate.line, bounds, line)) continue;
 
-    const gap =
-      candidate.relation === 'above' ? aboveStackLineGap(field, bounds, line) : line.y - (bounds.y + bounds.height);
+    const gap = candidate.relation === 'above' ? aboveStackLineGap(bounds, line) : line.y - (bounds.y + bounds.height);
     if (gap === undefined || gap < -1 || gap > STACKED_LABEL_MAX_GAP_PT) continue;
+    if (
+      candidate.relation === 'above' &&
+      line.y + line.height > field.y + 1 &&
+      !isSameRowChoiceContinuationLine(field, line, text)
+    ) {
+      continue;
+    }
     if (!best || gap < best.gap || (gap === best.gap && line.y < best.line.y)) {
       best = { line, text, gap };
     }
@@ -735,14 +760,24 @@ function findAdjacentStackLine(
   return best ? { line: best.line, text: best.text } : undefined;
 }
 
-function aboveStackLineGap(field: FormField, bounds: BoxLike, line: LabelLine): number | undefined {
+function aboveStackLineGap(bounds: BoxLike, line: LabelLine): number | undefined {
   const upwardGap = bounds.y - (line.y + line.height);
   if (upwardGap >= -1 && upwardGap <= STACKED_LABEL_MAX_GAP_PT) return upwardGap;
 
   const downwardGap = line.y - (bounds.y + bounds.height);
   if (downwardGap < -1 || downwardGap > STACKED_LABEL_MAX_GAP_PT) return undefined;
-  if (line.y + line.height > field.y + 1) return undefined;
   return downwardGap;
+}
+
+function isSameRowChoiceContinuationLine(field: FormField, line: LabelLine, text: string): boolean {
+  if (!isChoiceLikeField(field)) return false;
+  if (line.x + line.width > field.x + 1) return false;
+  if (startsWithPromptItemMarker(text) || isFormSectionHeadingText(text)) return false;
+  return Math.abs(centerY(line) - centerY(field)) <= Math.max(7, Math.max(field.height, line.height) * 0.9);
+}
+
+function isChoiceLikeField(field: FormField): boolean {
+  return field.type === 'checkbox' || field.type === 'radio' || field.type === 'button';
 }
 
 function isStackCompatibleLine(anchor: LabelLine, bounds: BoxLike, line: LabelLine): boolean {
@@ -832,6 +867,10 @@ function isTrailingPromptFragment(text: string): boolean {
   return /^(?:code|number|classification|name|address|date|amount|total|identifier)(?:\s*\([^)]{1,40}\))?\.?$/iu.test(
     normalized,
   );
+}
+
+function isLikelyWrappedContinuationText(text: string): boolean {
+  return /^(?:[a-z]|and\b|or\b|the\b|this\b|that\b|otherwise\b)/u.test(normalizePromptLabelText(text));
 }
 
 function isWideRowHeaderLabelText(text: string): boolean {
