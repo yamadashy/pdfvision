@@ -1,11 +1,11 @@
 ---
-title: Agent Skill
-description: Install and use the bundled pdfvision agent skill for Claude Code, Codex, Cursor, and other skill-aware agents.
+title: Agent Skills
+description: Install and use the bundled pdfvision Agent Skills for Claude Code, Codex, Cursor, and other skill-aware agents.
 ---
 
-# Agent Skill
+# Agent Skills
 
-pdfvision ships an agent skill in `skills/pdfvision/`. It teaches a skill-aware agent when to call the CLI, which flags to try first, and when to escalate from native text to layout, rendering, OCR, or visual-region crops.
+pdfvision ships Agent Skills in `skills/pdfvision/`. They teach a skill-aware agent when to call the CLI, which flags to try first, and when to escalate from native text to layout, rendering, OCR, or visual-region crops.
 
 This matters because PDF work is rarely solved by one fixed command. A useful agent should inspect the first result, notice missing or suspicious evidence, and choose the next pdfvision pass. The bundled skill encodes that workflow so agent sessions do not have to rediscover it.
 
@@ -21,9 +21,9 @@ For a global install:
 npx skills add yamadashy/pdfvision -g
 ```
 
-## What the Skill Covers
+## What Agent Skills Cover
 
-The skill covers:
+The Agent Skills cover:
 
 - default extraction for readable PDFs.
 - density-signal checks for silent failures.
@@ -32,7 +32,7 @@ The skill covers:
 - structured output reference routing.
 - OCR language and traineddata troubleshooting.
 
-The skill intentionally keeps its main instructions short and points to references only when the task needs them.
+The Agent Skills intentionally keep their main instructions short and point to references only when the task needs them.
 
 ## Agent Workflow
 
@@ -49,4 +49,4 @@ That keeps the interaction efficient while still giving the agent the option to 
 
 ## When to Install It
 
-Install the skill in projects where agents often read PDFs, reports, slide decks, forms, or scanned documents. The skill is especially useful in repositories that already use Claude Code, Codex, Cursor, or other skill-aware agent environments.
+Install the Agent Skills in projects where agents often read PDFs, reports, slide decks, forms, or scanned documents. They are especially useful in repositories that already use Claude Code, Codex, Cursor, or other skill-aware agent environments.

@@ -1,13 +1,13 @@
 ---
-title: Agent Skill
-description: Claude Code、Codex、Cursor などで使える pdfvision の Agent Skill。
+title: Agent Skills
+description: Claude Code、Codex、Cursor などで使える pdfvision の Agent Skills。
 ---
 
-# Agent Skill
+# Agent Skills
 
-pdfvision には `skills/pdfvision/` に Agent Skill が同梱されています。エージェントに、いつ CLI を呼ぶか、どのフラグを最初に試すか、いつレイアウト、レンダリング、OCR、視覚領域へ進むかを教えます。
+pdfvision には `skills/pdfvision/` に Agent Skills が同梱されています。エージェントに、いつ CLI を呼ぶか、どのフラグを最初に試すか、いつレイアウト、レンダリング、OCR、視覚領域へ進むかを教えます。
 
-PDF 作業は 1 つの固定コマンドでは解決しないことが多いです。有用なエージェントは、最初の結果を見て、欠けている根拠や怪しい根拠に気づき、次の pdfvision pass を選びます。同梱 skill はその workflow を encode し、agent session ごとに再発見しなくてよいようにします。
+PDF 作業は 1 つの固定コマンドでは解決しないことが多いです。有用なエージェントは、最初の結果を見て、欠けている根拠や怪しい根拠に気づき、次の pdfvision pass を選びます。同梱 Agent Skills はその workflow を encode し、agent session ごとに再発見しなくてよいようにします。
 
 ## インストール
 
@@ -21,7 +21,7 @@ npx skills add yamadashy/pdfvision
 npx skills add yamadashy/pdfvision -g
 ```
 
-## 含まれる内容
+## Agent Skills に含まれる内容
 
 - 読める PDF の標準抽出。
 - 密度シグナルによるサイレント失敗の検出。
@@ -30,7 +30,7 @@ npx skills add yamadashy/pdfvision -g
 - 構造化出力リファレンスへの導線。
 - OCR 言語と traineddata のトラブルシュート。
 
-skill の main instructions は意図的に短くし、必要なタスクのときだけ references に進む構成です。
+Agent Skills の main instructions は意図的に短くし、必要なタスクのときだけ references に進む構成です。
 
 ## エージェントの流れ
 
