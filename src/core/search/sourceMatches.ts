@@ -1,4 +1,5 @@
 import type { FormField, PageAnnotation, SearchMatch } from '../../types/index.js';
+import { getFormFieldTextAppearance } from '../formFields/types.js';
 import { round2 } from './boxes.js';
 import { type CompiledSearch, nfkc } from './compiler.js';
 import { duplicateKey, hasPreciseDuplicateAtBox } from './duplicates.js';
@@ -90,12 +91,7 @@ export function appendFormFieldMatches(
           continue;
         }
         const hitKey = duplicateKey(m.queryIndex, m.query, hit[0], m.regex.ignoreCase);
-        const box = {
-          x: round2(field.x),
-          y: round2(field.y),
-          width: round2(field.width),
-          height: round2(field.height),
-        };
+        const box = formFieldMatchBox(field, haystack, hit.index, hit[0].length);
         if (hasPreciseDuplicateAtBox(matches, compiled, hitKey, box)) continue;
         const context = formFieldMatchContext(field, haystack);
         matches.push({
@@ -121,6 +117,41 @@ export function appendFormFieldMatches(
     }
     if (formFieldCapped.size === compiled.matchers.length) break;
   }
+}
+
+function formFieldWidgetBox(field: FormField): SearchMatch['bbox'] {
+  return {
+    x: round2(field.x),
+    y: round2(field.y),
+    width: round2(field.width),
+    height: round2(field.height),
+  };
+}
+
+function formFieldMatchBox(field: FormField, value: string, start: number, length: number): SearchMatch['bbox'] {
+  const appearance = getFormFieldTextAppearance(field);
+  if (
+    field.type !== 'text' ||
+    !appearance?.comb ||
+    !appearance.maxLen ||
+    field.width <= 0 ||
+    field.value?.length !== value.length ||
+    value.length > appearance.maxLen
+  ) {
+    return formFieldWidgetBox(field);
+  }
+
+  const clampedStart = Math.max(0, Math.min(appearance.maxLen, start));
+  const clampedEnd = Math.max(clampedStart, Math.min(appearance.maxLen, start + length));
+  if (clampedEnd <= clampedStart) return formFieldWidgetBox(field);
+
+  const cellWidth = field.width / appearance.maxLen;
+  return {
+    x: round2(field.x + cellWidth * clampedStart),
+    y: round2(field.y),
+    width: round2(cellWidth * (clampedEnd - clampedStart)),
+    height: round2(field.height),
+  };
 }
 
 function formFieldMatchContext(field: FormField, value: string): string {

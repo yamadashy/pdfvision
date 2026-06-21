@@ -1,5 +1,6 @@
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { attachFormFieldTextAppearance } from '../../src/core/formFields/types.js';
 import { processDocument } from '../../src/core/processor.js';
 import { compileSearch, searchPage } from '../../src/core/search/index.js';
 import type { FormField, PageAnnotation, TextSpan } from '../../src/types/index.js';
@@ -322,6 +323,43 @@ describe('processDocument search', () => {
       boxes: [{ x: 169.6, y: 115.79, width: 240.01, height: 27.26 }],
       context: 'FreeText annotation: this is a text anotation',
     });
+  });
+
+  it('narrows comb text form-field matches to the matched cells when appearance metadata is available', () => {
+    const field: FormField = {
+      name: 'CombText',
+      type: 'text',
+      value: 'abcdefghijklmnopqrstuvwxyz',
+      x: 145.98,
+      y: 200.84,
+      width: 445.48,
+      height: 19.84,
+      label: {
+        text: 'Single line, combs',
+        relation: 'left',
+        x: 10,
+        y: 200.84,
+        width: 100,
+        height: 10,
+      },
+    };
+    attachFormFieldTextAppearance(field, { comb: true, maxLen: 26 });
+    const compiled = compileSearch('z', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage([], undefined, 1, 612, 792, compiled, undefined, [field]);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      query: 'z',
+      text: 'z',
+      source: 'formField',
+      page: 1,
+      bbox: { x: 574.33, y: 200.84, width: 17.13, height: 19.84 },
+      boxes: [{ x: 574.33, y: 200.84, width: 17.13, height: 19.84 }],
+      context: 'Single line, combs: abcdefghijklmnopqrstuvwxyz',
+    });
+    expect(JSON.stringify(field)).not.toContain('maxLen');
   });
 
   it('keeps visible FreeText annotation matches when the same text appears elsewhere', () => {

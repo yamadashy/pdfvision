@@ -2,6 +2,7 @@ import type { FormField, FormFieldChoiceOption, FormFieldResetFormAction, FormFi
 import { annotationFlagNames } from '../annotations/index.js';
 import { normalizeJavaScriptActions } from '../document/viewer.js';
 import { findFieldLabel, type LabelLine } from './labels.js';
+import { attachFormFieldTextAppearance, type FormFieldTextAppearance } from './types.js';
 
 interface PdfAnnotation {
   id?: unknown;
@@ -15,6 +16,8 @@ interface PdfAnnotation {
   readOnly?: unknown;
   required?: unknown;
   multiline?: unknown;
+  comb?: unknown;
+  maxLen?: unknown;
   annotationFlags?: unknown;
   options?: unknown;
   combo?: unknown;
@@ -99,6 +102,8 @@ export function buildFormFields(
       ...(actions !== undefined && { actions }),
       ...(resetForm !== undefined && { resetForm }),
     };
+    const textAppearance = formFieldTextAppearance(ann);
+    if (textAppearance) attachFormFieldTextAppearance(field, textAppearance);
     fields.push(field);
   }
   // Labels are resolved after every widget rect is known so that a
@@ -122,6 +127,15 @@ function fieldCaption(
   if (caption === undefined) return undefined;
   const normalized = caption.trim().replace(/\s+/gu, ' ');
   return normalized.length > 0 ? normalized : undefined;
+}
+
+function formFieldTextAppearance(annotation: PdfAnnotation): FormFieldTextAppearance | undefined {
+  if (annotation.fieldType !== 'Tx') return undefined;
+  if (annotation.comb !== true) return undefined;
+  if (typeof annotation.maxLen !== 'number' || !Number.isInteger(annotation.maxLen) || annotation.maxLen <= 0) {
+    return undefined;
+  }
+  return { comb: true, maxLen: annotation.maxLen };
 }
 
 function formResetAction(value: unknown): FormFieldResetFormAction | undefined {

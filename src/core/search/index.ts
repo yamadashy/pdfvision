@@ -48,9 +48,10 @@ const MAX_MATCHES_PER_QUERY_PER_PAGE = 10000;
  * so the consumer can tell them apart from native text-stream matches.
  *
  * Form field value matches are included when the processor supplies
- * form fields. They use the widget bbox and are marked
- * `source: 'formField'` because widget appearance text is not always
- * part of the native text stream.
+ * form fields. They use the widget bbox, narrowed to the matching cells
+ * for comb text widgets when pdf.js exposes enough appearance metadata,
+ * and are marked `source: 'formField'` because widget appearance text is
+ * not always part of the native text stream.
  *
  * FreeText annotation contents are included when the processor supplies
  * annotations. They use the annotation bbox and are marked
