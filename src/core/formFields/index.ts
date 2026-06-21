@@ -1,5 +1,5 @@
 import type { FormField, FormFieldChoiceOption, FormFieldResetFormAction, FormFieldType } from '../../types/index.js';
-import { annotationFlagNames } from '../annotations.js';
+import { annotationFlagNames } from '../annotations/index.js';
 import { normalizeJavaScriptActions } from '../document/viewer.js';
 import { findFieldLabel, type LabelLine } from './labels.js';
 

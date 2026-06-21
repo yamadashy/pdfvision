@@ -26,7 +26,7 @@ import type {
   TextSpan,
   VectorBox,
 } from '../types/index.js';
-import { buildAnnotations, hasVisibleAnnotationAppearance } from './annotations.js';
+import { buildAnnotations, hasVisibleAnnotationAppearance } from './annotations/index.js';
 import { dropCached, getCacheDir, getCached, pdfFingerprint, setCache } from './cache.js';
 import { buildAttachments } from './document/attachments.js';
 import { resolveDestinationPage } from './document/destinations.js';

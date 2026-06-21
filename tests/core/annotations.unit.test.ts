@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildAnnotations, hasVisibleAnnotationAppearance } from '../../src/core/annotations.js';
+import { buildAnnotations, hasVisibleAnnotationAppearance } from '../../src/core/annotations/index.js';
 
 describe('buildAnnotations', () => {
   it('extracts non-link annotations with comments, colors, and quad boxes', () => {

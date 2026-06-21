@@ -4,7 +4,7 @@ import type {
   PageAnnotationFileAttachment,
   PageAnnotationFlag,
   PageAnnotationLine,
-} from '../types/index.js';
+} from '../../types/index.js';
 import {
   inkPathsValue,
   numericArrayLike,
@@ -13,7 +13,7 @@ import {
   quadPointBoxes,
   rectToBox,
   round2,
-} from './annotations/geometry.js';
+} from './geometry.js';
 
 interface PdfAnnotation {
   subtype?: unknown;
