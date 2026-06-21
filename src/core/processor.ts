@@ -16,6 +16,7 @@ import { extractDocumentFeatures } from './processor/documentFeatures.js';
 import { buildOverview } from './processor/overview.js';
 import type { PageFlags } from './processor/pageData.js';
 import { extractPageData } from './processor/pageExtraction.js';
+import { buildPageResult } from './processor/pageResult.js';
 import { resolvePageNumbers } from './processor/pageSelection.js';
 import { fingerprintData, withTruncationHint } from './processor/pdfBytes.js';
 import { buildImageOps, buildPdfJsDocumentOptions } from './processor/pdfJsSetup.js';
@@ -213,59 +214,17 @@ export async function processDocument(filePath: string, options: ProcessDocument
       warningVectorBoxesByPage.set(pageNum, data._warningVectorBoxes ?? []);
       if (data._visualRegionInput) visualRegionInputsByPage.set(pageNum, data._visualRegionInput);
       if (data.hasVisibleAnnotationAppearance) annotationAppearanceByPage.set(pageNum, true);
-      const renderRatio = renderRatios[i];
-      const page: PageResult = {
-        page: pageNum,
-        ...(pageLabels?.[pageNum - 1] !== undefined && { pageLabel: pageLabels[pageNum - 1] }),
-        ...(renderRegion !== undefined && { renderRegion }),
-        text: data.text,
-        ...(data.rawText !== undefined && { rawText: data.rawText }),
-        image: imagePaths?.[i],
-        charCount: data.charCount,
-        imageCount: data.imageCount,
-        vectorCount: data.vectorCount,
-        textCoverage: data.textCoverage,
-        nonPrintableRatio: data.nonPrintableRatio,
-        nonPrintableCount: data.nonPrintableCount,
-        ...(renderRatio !== undefined && { renderContentRatio: renderRatio }),
-        width: data.width,
-        height: data.height,
-        ...(data.spans !== undefined && { spans: data.spans }),
-        ...(data.layout !== undefined && { layout: data.layout }),
-        ...(data.imageBoxes !== undefined && { imageBoxes: data.imageBoxes }),
-        ...(data.vectorBoxes !== undefined && { vectorBoxes: data.vectorBoxes }),
-        ...(data.formFields !== undefined && { formFields: data.formFields }),
-        ...(data.links !== undefined && { links: data.links }),
-        ...(data.annotations !== undefined && { annotations: data.annotations }),
-        ...(data.structure !== undefined && { structure: data.structure }),
-        ...(data.jsActions !== undefined && { jsActions: data.jsActions }),
-        // Initial classification using whatever signals we have so far.
-        // OCR may attach a renderContentRatio below; the post-OCR pass
-        // overwrites this with the final classification.
-        quality: { nativeTextStatus: 'empty' },
-      };
-      page.quality = derivePageQuality(page, {
+      return buildPageResult({
+        data,
+        pageNum,
+        pageLabel: pageLabels?.[pageNum - 1],
+        renderRegion,
+        imagePath: imagePaths?.[i],
+        renderRatio: renderRatios[i],
         hasVisibleAnnotationAppearance: annotationAppearanceByPage.get(pageNum) ?? false,
+        compiledSearch,
+        onWarning: options.onWarning,
       });
-      // Run the native (span-based) search pass here while the internal
-      // spans are still in scope. OCR-based matches are appended
-      // post-OCR below — both produce the same SearchMatch shape, so
-      // consumers iterate `pages[].matches` uniformly.
-      if (compiledSearch) {
-        const nativeMatches = searchPage(
-          data._internalSpans,
-          undefined,
-          pageNum,
-          data.width,
-          data.height,
-          compiledSearch,
-          options.onWarning,
-          data._internalFormFields,
-          data._internalAnnotations,
-        );
-        page.matches = nativeMatches;
-      }
-      return page;
     });
 
     // Repeated-chrome detection has to wait until every selected page is
