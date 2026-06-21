@@ -23,6 +23,10 @@ const WIDE_TEXT_PANEL_MIN_WIDTH_RATIO = 0.85;
 const WIDE_TEXT_PANEL_MIN_HEIGHT_RATIO = 0.12;
 const WIDE_TEXT_PANEL_MAX_HEIGHT_RATIO = 0.45;
 const WIDE_TEXT_PANEL_EDGE_RATIO = 0.15;
+const PAGE_FRAME_MIN_WIDTH_RATIO = 0.7;
+const PAGE_FRAME_MIN_HEIGHT_RATIO = 0.7;
+const PAGE_FRAME_MIN_AREA_RATIO = 0.5;
+const PAGE_FRAME_EDGE_INSET_RATIO = 0.18;
 
 export function isUsableBox(box: BoxLike): boolean {
   return (
@@ -117,6 +121,21 @@ function isLikelyWideTextPanelBackplane(box: BoxLike, pageWidth: number, pageHei
   );
 }
 
+function isLikelyInsetPageFrameBackplane(box: BoxLike, pageWidth: number, pageHeight: number): boolean {
+  const visible = visiblePageBox(box, pageWidth, pageHeight);
+  const totalArea = pageWidth * pageHeight;
+  if (totalArea <= 0) return false;
+  return (
+    areaRatio(visible, totalArea) >= PAGE_FRAME_MIN_AREA_RATIO &&
+    visible.width >= pageWidth * PAGE_FRAME_MIN_WIDTH_RATIO &&
+    visible.height >= pageHeight * PAGE_FRAME_MIN_HEIGHT_RATIO &&
+    visible.x <= pageWidth * PAGE_FRAME_EDGE_INSET_RATIO &&
+    visible.y <= pageHeight * PAGE_FRAME_EDGE_INSET_RATIO &&
+    visible.x + visible.width >= pageWidth * (1 - PAGE_FRAME_EDGE_INSET_RATIO) &&
+    visible.y + visible.height >= pageHeight * (1 - PAGE_FRAME_EDGE_INSET_RATIO)
+  );
+}
+
 export function isBackgroundLikeCandidate(box: BoxLike, pageWidth: number, pageHeight: number): boolean {
   return (
     isNearFullPageBox(box, pageWidth, pageHeight) ||
@@ -129,7 +148,8 @@ export function isLikelyVectorBackplane(box: BoxLike, pageWidth: number, pageHei
   return (
     isBackgroundLikeCandidate(box, pageWidth, pageHeight) ||
     isLikelyHorizontalLabelBand(box, pageWidth, pageHeight) ||
-    isLikelyWideTextPanelBackplane(box, pageWidth, pageHeight)
+    isLikelyWideTextPanelBackplane(box, pageWidth, pageHeight) ||
+    isLikelyInsetPageFrameBackplane(box, pageWidth, pageHeight)
   );
 }
 

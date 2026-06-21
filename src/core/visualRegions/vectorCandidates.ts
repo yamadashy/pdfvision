@@ -34,9 +34,7 @@ function denseVectorItems(input: BuildVisualRegionsInput): { box: VectorBox; ind
     .filter(
       ({ box }) =>
         isUsefulDenseVectorBox(box, MIN_DENSE_VECTOR_LINE_LENGTH_PT) &&
-        !isNearFullPageBox(box, input.pageWidth, input.pageHeight) &&
-        !isLikelySideChrome(box, input.pageWidth, input.pageHeight) &&
-        !isLikelyHorizontalChrome(box, input.pageWidth, input.pageHeight) &&
+        !isLikelyVectorBackplane(box, input.pageWidth, input.pageHeight) &&
         !isLikelyUnpositionedFormWidgetVector(box, input),
     );
 }
@@ -47,9 +45,7 @@ function denseMicroVectorItems(input: BuildVisualRegionsInput): { box: VectorBox
     .filter(
       ({ box }) =>
         isUsefulMicroVectorBox(box) &&
-        !isNearFullPageBox(box, input.pageWidth, input.pageHeight) &&
-        !isLikelySideChrome(box, input.pageWidth, input.pageHeight) &&
-        !isLikelyHorizontalChrome(box, input.pageWidth, input.pageHeight) &&
+        !isLikelyVectorBackplane(box, input.pageWidth, input.pageHeight) &&
         !isLikelyUnpositionedFormWidgetVector(box, input),
     );
 }

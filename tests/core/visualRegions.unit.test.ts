@@ -861,6 +861,47 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('does not merge an inset page frame into foreground figure and table crops', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 600,
+      pageHeight: 800,
+      imageBoxes: [{ x: 120, y: 340, width: 360, height: 200 }],
+      vectorBoxes: [
+        { x: 80, y: 640, width: 180, height: 100 },
+        { x: 260, y: 640, width: 260, height: 100 },
+        { x: 55, y: 55, width: 490, height: 700 },
+      ],
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'raster',
+        x: 112,
+        y: 332,
+        width: 376,
+        height: 216,
+        areaRatio: 0.169,
+        sourceCount: 1,
+        sources: [{ type: 'imageBox', index: 0 }],
+        reason: 'raster image covers 15.0% of the page',
+      },
+      {
+        kind: 'vector',
+        x: 72,
+        y: 632,
+        width: 456,
+        height: 116,
+        areaRatio: 0.11,
+        sourceCount: 2,
+        sources: [
+          { type: 'vectorBox', index: 0 },
+          { type: 'vectorBox', index: 1 },
+        ],
+        reason: '2 nearby vector drawing operations',
+      },
+    ]);
+  });
+
   it('keeps chart crops separate from wide vector text panels and title bands', () => {
     const regions = buildVisualRegions({
       pageWidth: 780,
