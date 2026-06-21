@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { RenderedContentBox, RenderRegion } from '../../types/index.js';
-import { atomicWrite } from '../io/cache.js';
+import { atomicWrite } from '../io/atomicWrite.js';
 import { runParallel } from '../runtime/parallel.js';
 import { computeContentStats, type PixelContentBox, type RenderStats } from './contentStats.js';
 import { type PageViewportLike, type ViewportCrop, viewportCropForRegion } from './crop.js';

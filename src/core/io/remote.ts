@@ -2,7 +2,8 @@ import { createHash } from 'node:crypto';
 import { closeSync, existsSync, openSync, readSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { atomicWrite, ensurePrivateDir } from './cache.js';
+import { atomicWrite } from './atomicWrite.js';
+import { ensurePrivateDir } from './cache.js';
 
 /**
  * Root directory for downloaded remote PDFs. Sibling of the result-cache
