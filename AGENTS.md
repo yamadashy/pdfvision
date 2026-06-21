@@ -22,13 +22,31 @@ pdfvision/
 │   │   ├── help.ts           # Help text
 │   │   └── version.ts        # Reads version from package.json
 │   ├── core/
-│   │   ├── processor.ts      # Main PDF processing pipeline
-│   │   ├── pageRange.ts      # Page range parser ("1-5", "3", "1,3,5")
-│   │   ├── renderer.ts       # Per-page PNG rendering
-│   │   └── cache.ts          # OS tmpdir-based cache management
+│   │   ├── processor.ts      # Document-level processing entry point
+│   │   ├── annotations/      # PDF annotation normalization and geometry
+│   │   ├── document/         # Document-level metadata, outline, layers, attachments
+│   │   ├── formFields/       # Form field extraction, labels, and stacked controls
+│   │   ├── graphics/         # Image and vector operation analysis
+│   │   ├── io/               # OS tmpdir cache and remote input helpers
+│   │   ├── layout/           # Text layout reconstruction and repeated chrome
+│   │   ├── links/            # Link extraction and visible link text
+│   │   ├── ocr/              # OCR dispatch, worker, and word geometry
+│   │   ├── options/          # Option parsers such as page ranges
+│   │   ├── processor/        # Pipeline helpers used by processor.ts
+│   │   ├── quality/          # Page quality and extraction confidence signals
+│   │   ├── renderer/         # Per-page PNG rendering and crop handling
+│   │   ├── runtime/          # Shared runtime helpers such as bounded parallelism
+│   │   ├── search/           # Search query compilation and match geometry
+│   │   ├── text/             # Text joining, geometry, spacing, and direction helpers
+│   │   ├── visualRegions/    # Figure/table/form visual-region detection
+│   │   ├── warningTextOverlap/ # Text-overlap warning geometry
+│   │   ├── warnings/         # User-facing warning detection
+│   │   └── widgetAppearance/ # Widget appearance stream text extraction
 │   ├── output/
-│   │   ├── text.ts           # Human-readable text formatter
-│   │   └── json.ts           # Structured JSON formatter
+│   │   ├── json.ts           # Structured JSON formatter
+│   │   ├── markdown.ts       # Agent-readable Markdown formatter
+│   │   ├── toon.ts           # TOON formatter
+│   │   └── xml.ts            # XML formatter
 │   ├── types/
 │   │   └── index.ts          # Shared types (DocumentResult, ProcessOptions, ...)
 │   └── index.ts              # Library API entry
