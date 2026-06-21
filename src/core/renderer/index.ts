@@ -94,7 +94,7 @@ export async function renderPageToBuffer(
     buffer,
     contentRatio: stats.contentRatio,
     ...(stats.contentBoxPx && {
-      renderedContentBox: contentBoxFromViewportPixels(page, viewport, crop, stats.contentBoxPx),
+      renderedContentBox: contentBoxFromViewportPixels(page, viewport, crop, stats.contentBoxPx, region),
     }),
   };
 }
@@ -121,6 +121,7 @@ function contentBoxFromViewportPixels(
   viewport: PageViewportLike,
   crop: ViewportCrop | undefined,
   box: PixelContentBox,
+  region?: RenderRegion,
 ): RenderedContentBox {
   const left = (crop?.x ?? 0) + box.x;
   const top = (crop?.y ?? 0) + box.y;
@@ -141,11 +142,23 @@ function contentBoxFromViewportPixels(
   const pdfRight = Math.max(...xs);
   const pdfTop = Math.max(...ys);
   const pdfBottom = Math.min(...ys);
+  let contentLeft = pdfLeft - viewMinX;
+  let contentTop = viewMaxY - pdfTop;
+  let contentRight = pdfRight - viewMinX;
+  let contentBottom = viewMaxY - pdfBottom;
+
+  if (region) {
+    contentLeft = Math.max(contentLeft, region.x);
+    contentTop = Math.max(contentTop, region.y);
+    contentRight = Math.min(contentRight, region.x + region.width);
+    contentBottom = Math.min(contentBottom, region.y + region.height);
+  }
+
   return {
-    x: round2(pdfLeft - viewMinX),
-    y: round2(viewMaxY - pdfTop),
-    width: round2(Math.max(0, pdfRight - pdfLeft)),
-    height: round2(Math.max(0, pdfTop - pdfBottom)),
+    x: round2(contentLeft),
+    y: round2(contentTop),
+    width: round2(Math.max(0, contentRight - contentLeft)),
+    height: round2(Math.max(0, contentBottom - contentTop)),
   };
 }
 
@@ -194,7 +207,7 @@ export async function renderPageWithStats(
       return {
         path: outputPath,
         contentRatio: stats.contentRatio,
-        renderedContentBox: contentBoxFromViewportPixels(page, viewport, crop, stats.contentBoxPx),
+        renderedContentBox: contentBoxFromViewportPixels(page, viewport, crop, stats.contentBoxPx, region),
       };
     } catch {
       // Corrupt or partially-written cached PNG (e.g. disk error mid-write

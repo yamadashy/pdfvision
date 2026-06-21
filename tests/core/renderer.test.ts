@@ -2,8 +2,11 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createCanvas } from '@napi-rs/canvas';
+import PDFDocument from 'pdfkit';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { renderPage } from '../../src/core/renderer/index.js';
+import { buildPdfJsDocumentOptions } from '../../src/core/processor/pdfJsSetup.js';
+import { renderPage, renderPageToBuffer } from '../../src/core/renderer/index.js';
+import type { RenderRegion } from '../../src/types/index.js';
 
 // A real (tiny) PNG buffer — the cache-hit path now decodes the file to
 // recompute `renderContentRatio` from the cached pixels, so the fixture
@@ -27,6 +30,20 @@ const NEVER_CALLED_DOC = new Proxy(
     },
   },
 );
+
+async function buildPdfWithEdgeInk(region: RenderRegion): Promise<Uint8Array> {
+  const chunks: Buffer[] = [];
+  const doc = new PDFDocument({ size: [612, 792], margin: 0 });
+  doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+  const done = new Promise<void>((resolveDone) => doc.on('end', resolveDone));
+
+  doc.rect(0, 0, 612, 792).fill('white');
+  doc.rect(region.x + region.width - 18.35, region.y + region.height - 22.46, 18.35, 22.46).fill('black');
+  doc.end();
+
+  await done;
+  return new Uint8Array(Buffer.concat(chunks));
+}
 
 describe('renderer.isReusableImage (via renderPage cache-hit path)', () => {
   let dir: string;
@@ -76,5 +93,33 @@ describe('renderer.isReusableImage (via renderPage cache-hit path)', () => {
       // biome-ignore lint/suspicious/noExplicitAny: same as above
       renderPage(NEVER_CALLED_DOC as any, 1, dir),
     ).rejects.toThrow(/should not be touched/);
+  });
+});
+
+describe('renderer renderedContentBox', () => {
+  it('clamps content boxes to the requested fractional crop region', async () => {
+    const region = { x: 28.3, y: 123.25, width: 477.35, height: 98.46 };
+    const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    const loadingTask = getDocument(
+      buildPdfJsDocumentOptions({
+        pdfData: await buildPdfWithEdgeInk(region),
+        filePath: 'memory://fractional-edge-ink.pdf',
+      }),
+    );
+    const doc = await loadingTask.promise;
+
+    try {
+      const rendered = await renderPageToBuffer(doc, 1, 2, region);
+      const box = rendered.renderedContentBox;
+
+      expect(box).toBeDefined();
+      if (!box) return;
+      expect(box.x).toBeGreaterThanOrEqual(region.x);
+      expect(box.y).toBeGreaterThanOrEqual(region.y);
+      expect(box.x + box.width).toBeLessThanOrEqual(region.x + region.width + 0.001);
+      expect(box.y + box.height).toBeLessThanOrEqual(region.y + region.height + 0.001);
+    } finally {
+      await loadingTask.destroy();
+    }
   });
 });
