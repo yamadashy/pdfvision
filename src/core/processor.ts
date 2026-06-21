@@ -34,7 +34,7 @@ import { buildLayers } from './document/layers.js';
 import { buildOutline } from './document/outline.js';
 import { buildPageStructure, countStructureNodes } from './document/structure.js';
 import { buildViewerState, normalizeJavaScriptActions } from './document/viewer.js';
-import { buildFormFields } from './formFields.js';
+import { buildFormFields } from './formFields/index.js';
 import { buildImageBoxes, type ImageOps } from './graphics/imageBoxes.js';
 import { buildVectorBoxes } from './graphics/vectorBoxes.js';
 import { countVectorPaintOps } from './graphics/vectorOps.js';

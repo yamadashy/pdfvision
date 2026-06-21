@@ -1,7 +1,7 @@
-import type { FormField, FormFieldChoiceOption, FormFieldResetFormAction, FormFieldType } from '../types/index.js';
-import { annotationFlagNames } from './annotations.js';
-import { normalizeJavaScriptActions } from './document/viewer.js';
-import { findFieldLabel, type LabelLine } from './formFields/labels.js';
+import type { FormField, FormFieldChoiceOption, FormFieldResetFormAction, FormFieldType } from '../../types/index.js';
+import { annotationFlagNames } from '../annotations.js';
+import { normalizeJavaScriptActions } from '../document/viewer.js';
+import { findFieldLabel, type LabelLine } from './labels.js';
 
 interface PdfAnnotation {
   id?: unknown;

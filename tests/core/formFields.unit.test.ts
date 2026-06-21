@@ -1,6 +1,6 @@
 import { deflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
-import { buildFormFields } from '../../src/core/formFields.js';
+import { buildFormFields } from '../../src/core/formFields/index.js';
 import { extractWidgetAppearanceCaptions } from '../../src/core/widgetAppearance/index.js';
 
 function rectFromTopLeft(
