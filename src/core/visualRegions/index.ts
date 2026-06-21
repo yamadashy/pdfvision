@@ -1,19 +1,19 @@
-import type { VisualRegion } from '../types/index.js';
-import { addAnnotationCandidates } from './visualRegions/annotationCandidates.js';
-import { MAX_ASSOCIATED_TEXT, mergeAssociatedText } from './visualRegions/associatedText.js';
-import { mergeSources } from './visualRegions/candidateMerge.js';
-import { attachCaptionText } from './visualRegions/captions.js';
-import { suppressRepeatedChromeCandidates } from './visualRegions/chromeSuppression.js';
-import { addFormCandidate } from './visualRegions/formCandidates.js';
-import { area, padAndClamp, pageArea, round3 } from './visualRegions/geometry.js';
+import type { VisualRegion } from '../../types/index.js';
+import { addAnnotationCandidates } from './annotationCandidates.js';
+import { MAX_ASSOCIATED_TEXT, mergeAssociatedText } from './associatedText.js';
+import { mergeSources } from './candidateMerge.js';
+import { attachCaptionText } from './captions.js';
+import { suppressRepeatedChromeCandidates } from './chromeSuppression.js';
+import { addFormCandidate } from './formCandidates.js';
+import { area, padAndClamp, pageArea, round3 } from './geometry.js';
 import {
   attachHeadingLabels,
   attachInRegionPlainLabels,
   attachPlainImageLabels,
   attachTableLeadInLabels,
-} from './visualRegions/labels.js';
-import { isUsableBox } from './visualRegions/predicates.js';
-import { addRasterCandidates } from './visualRegions/rasterCandidates.js';
+} from './labels.js';
+import { isUsableBox } from './predicates.js';
+import { addRasterCandidates } from './rasterCandidates.js';
 import {
   dedupeCandidates,
   dedupeContextualDuplicates,
@@ -24,12 +24,12 @@ import {
   suppressContainedCandidates,
   suppressFormBackplaneCandidates,
   suppressLoneFullPageVectorBackplanes,
-} from './visualRegions/suppression.js';
-import { addTableCandidates } from './visualRegions/tableCandidates.js';
-import type { BuildVisualRegionsInput, Candidate } from './visualRegions/types.js';
-import { addVectorCandidates } from './visualRegions/vectorCandidates.js';
+} from './suppression.js';
+import { addTableCandidates } from './tableCandidates.js';
+import type { BuildVisualRegionsInput, Candidate } from './types.js';
+import { addVectorCandidates } from './vectorCandidates.js';
 
-export type { BuildVisualRegionsInput } from './visualRegions/types.js';
+export type { BuildVisualRegionsInput } from './types.js';
 
 const REGION_PADDING_PT = 8;
 const MAX_REGIONS = 12;

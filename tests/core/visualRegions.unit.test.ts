@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildVisualRegions } from '../../src/core/visualRegions.js';
+import { buildVisualRegions } from '../../src/core/visualRegions/index.js';
 
 describe('buildVisualRegions', () => {
   it('emits padded crop-ready regions for significant raster images', () => {

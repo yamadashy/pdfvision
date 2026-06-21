@@ -54,7 +54,7 @@ import { isRasterBackedTextLayer } from './quality/rasterBackedTextLayer.js';
 import { type CompiledSearch, compileSearch, searchPage, suppressDuplicateOcrMatches } from './search/index.js';
 import { type JoinItem, joinPageText } from './text/cjkJoin.js';
 import { textMatrixFontSize, textRunGeometryFromTransform } from './text/geometry.js';
-import { type BuildVisualRegionsInput, buildVisualRegions } from './visualRegions.js';
+import { type BuildVisualRegionsInput, buildVisualRegions } from './visualRegions/index.js';
 import { detectPageWarnings } from './warnings.js';
 import { extractWidgetAppearanceCaptions } from './widgetAppearance/index.js';
 
