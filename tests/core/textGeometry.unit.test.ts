@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { textMatrixFontSize, textRunGeometryFromTransform } from '../../src/core/textGeometry.js';
+import { textMatrixFontSize, textRunGeometryFromTransform } from '../../src/core/text/geometry.js';
 
 describe('textRunGeometryFromTransform', () => {
   it('preserves the legacy bbox for horizontal text', () => {

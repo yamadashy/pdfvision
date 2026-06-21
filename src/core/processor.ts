@@ -53,7 +53,7 @@ import { derivePageQuality } from './quality/pageQuality.js';
 import { isRasterBackedTextLayer } from './quality/rasterBackedTextLayer.js';
 import { type CompiledSearch, compileSearch, searchPage, suppressDuplicateOcrMatches } from './search.js';
 import { type JoinItem, joinPageText } from './text/cjkJoin.js';
-import { textMatrixFontSize, textRunGeometryFromTransform } from './textGeometry.js';
+import { textMatrixFontSize, textRunGeometryFromTransform } from './text/geometry.js';
 import { type BuildVisualRegionsInput, buildVisualRegions } from './visualRegions.js';
 import { detectPageWarnings } from './warnings.js';
 import { extractWidgetAppearanceCaptions } from './widgetAppearance.js';
