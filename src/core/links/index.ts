@@ -1,5 +1,5 @@
-import type { PageLink, PageLinkTarget, PageLinkType } from '../types/index.js';
-import { type LabelLine, linkText } from './links/text.js';
+import type { PageLink, PageLinkTarget, PageLinkType } from '../../types/index.js';
+import { type LabelLine, linkText } from './text.js';
 
 interface PdfLinkAnnotation {
   subtype?: unknown;

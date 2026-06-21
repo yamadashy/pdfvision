@@ -39,7 +39,7 @@ import { buildImageBoxes, type ImageOps } from './graphics/imageBoxes.js';
 import { buildVectorBoxes } from './graphics/vectorBoxes.js';
 import { countVectorPaintOps } from './graphics/vectorOps.js';
 import { buildLayout, markRepeatedBlocks } from './layout.js';
-import { buildLinks } from './links.js';
+import { buildLinks } from './links/index.js';
 import { parsePageRangeWithSkipped } from './pageRange.js';
 import { runParallel } from './parallel.js';
 import {

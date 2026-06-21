@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { buildLinks } from '../../src/core/links.js';
+import { buildLinks } from '../../src/core/links/index.js';
 
 describe('buildLinks', () => {
   it('extracts URL and destination link annotations with top-left bboxes', async () => {
