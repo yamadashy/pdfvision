@@ -27,7 +27,6 @@ import type {
   VectorBox,
 } from '../types/index.js';
 import { buildAnnotations, hasVisibleAnnotationAppearance } from './annotations/index.js';
-import { dropCached, getCacheDir, getCached, pdfFingerprint, setCache } from './cache.js';
 import { buildAttachments } from './document/attachments.js';
 import { resolveDestinationPage } from './document/destinations.js';
 import { buildLayers } from './document/layers.js';
@@ -38,6 +37,7 @@ import { buildFormFields } from './formFields/index.js';
 import { buildImageBoxes, type ImageOps } from './graphics/imageBoxes.js';
 import { buildVectorBoxes } from './graphics/vectorBoxes.js';
 import { countVectorPaintOps } from './graphics/vectorOps.js';
+import { dropCached, getCacheDir, getCached, pdfFingerprint, setCache } from './io/cache.js';
 import { buildLayout, markRepeatedBlocks } from './layout/index.js';
 import { buildLinks } from './links/index.js';
 import { parsePageRangeWithSkipped } from './pageRange.js';

@@ -8,7 +8,7 @@ import { atomicWrite, ensurePrivateDir } from './cache.js';
  * Root directory for downloaded remote PDFs. Sibling of the result-cache
  * directory so a single `--clear-cache` clears both — `<tmpdir>/pdfvision/`
  * is the one place we keep PDF-derived state on disk. Honours the same
- * `PDFVISION_CACHE_DIR` override the rest of cache.ts uses, so tests can
+ * `PDFVISION_CACHE_DIR` override the rest of io/cache.ts uses, so tests can
  * isolate the entire cache hierarchy in a temp directory.
  */
 function cacheRoot(): string {

@@ -2,7 +2,7 @@ import { lstatSync, mkdirSync, mkdtempSync, realpathSync, statSync } from 'node:
 import { tmpdir } from 'node:os';
 import { join, basename as pathBasename, dirname as pathDirname, resolve } from 'node:path';
 import type { RenderRegion } from '../../types/index.js';
-import { ensurePrivateDir } from '../cache.js';
+import { ensurePrivateDir } from '../io/cache.js';
 
 /** Default rasterisation multiplier — must match renderer.ts DEFAULT_SCALE. */
 export const DEFAULT_RENDER_SCALE = 2;

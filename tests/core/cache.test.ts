@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, syml
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { clearAllCache, getCacheDir, getCached, setCache } from '../../src/core/cache.js';
+import { clearAllCache, getCacheDir, getCached, setCache } from '../../src/core/io/cache.js';
 
 describe('cache', () => {
   let tmpFile: string;
@@ -110,7 +110,7 @@ describe('cache', () => {
   });
 
   it('rejects an externally-supplied fingerprint that is not a 16-char hex string', () => {
-    // `getCacheDir` is internal to `src/core/cache.ts` but still gets
+    // `getCacheDir` is internal to `src/core/io/cache.ts` but still gets
     // a precomputed fingerprint from `processor.ts`. Its second arg
     // lands inside `join(cacheRoot, fingerprint)` and then
     // `ensurePrivateDir` will mkdir+chmod 0700 it. Even though the

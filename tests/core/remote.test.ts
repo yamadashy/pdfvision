@@ -4,7 +4,7 @@ import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { downloadRemote, downloadRemoteData } from '../../src/core/remote.js';
+import { downloadRemote, downloadRemoteData } from '../../src/core/io/remote.js';
 
 /**
  * One process-wide HTTP server with per-test routing. Tests register a

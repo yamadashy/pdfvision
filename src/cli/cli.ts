@@ -85,7 +85,7 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
     // shared pdfvision cache and exit. Lazy-import to keep the heavy
     // node:fs surface out of --help / --version paths.
     try {
-      const { clearAllCache } = await import('../core/cache.js');
+      const { clearAllCache } = await import('../core/io/cache.js');
       const { path, removed } = clearAllCache();
       console.log(removed ? `Cleared pdfvision cache: ${path}` : `Nothing to clear: ${path} does not exist`);
       return;

@@ -23,7 +23,7 @@ export async function resolveInputSource(
 ): Promise<InputSource> {
   if (remoteUrl) {
     try {
-      const { downloadRemote, downloadRemoteData } = await import('../core/remote.js');
+      const { downloadRemote, downloadRemoteData } = await import('../core/io/remote.js');
       if (noCache) {
         return { filePath: remoteUrl, sourceData: await downloadRemoteData(remoteUrl) };
       }
