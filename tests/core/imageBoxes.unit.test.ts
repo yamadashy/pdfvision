@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildImageBoxes, type ImageOps } from '../../src/core/imageBoxes.js';
+import { buildImageBoxes, type ImageOps } from '../../src/core/graphics/imageBoxes.js';
 
 // Use distinct integer ids so a synthetic op list reads cleanly when a
 // test fails. The constants don't have to match the live pdf.js OPS

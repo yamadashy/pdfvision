@@ -1,4 +1,4 @@
-import type { ImageBox } from '../types/index.js';
+import type { ImageBox } from '../../types/index.js';
 
 /**
  * The pdf.js opcode constants we dispatch on. Resolved from `OPS` once and

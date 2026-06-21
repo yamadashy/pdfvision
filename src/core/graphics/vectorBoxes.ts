@@ -1,4 +1,4 @@
-import type { VectorBox } from '../types/index.js';
+import type { VectorBox } from '../../types/index.js';
 import type { ImageOps } from './imageBoxes.js';
 
 type Matrix6 = [number, number, number, number, number, number];

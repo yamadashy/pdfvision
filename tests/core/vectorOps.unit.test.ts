@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { ImageOps } from '../../src/core/imageBoxes.js';
-import { countVectorPaintOps } from '../../src/core/vectorOps.js';
+import type { ImageOps } from '../../src/core/graphics/imageBoxes.js';
+import { countVectorPaintOps } from '../../src/core/graphics/vectorOps.js';
 
 const OP = {
   constructPath: 1,
