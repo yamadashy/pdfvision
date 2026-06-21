@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import { closeSync, fstatSync, lstatSync, openSync, readFileSync, readSync, statSync } from 'node:fs';
-import { join, dirname as pathDirname, isAbsolute as pathIsAbsolute, relative, resolve, sep } from 'node:path';
+import { closeSync, fstatSync, openSync, readFileSync, readSync } from 'node:fs';
+import { join, dirname as pathDirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { formatJson } from '../output/json.js';
@@ -36,11 +36,17 @@ import { buildFormFields } from './formFields/index.js';
 import { buildImageBoxes, type ImageOps } from './graphics/imageBoxes.js';
 import { buildVectorBoxes } from './graphics/vectorBoxes.js';
 import { countVectorPaintOps } from './graphics/vectorOps.js';
-import { dropCached, getCacheDir, getCached, pdfFingerprint, setCache } from './io/cache.js';
+import { getCacheDir, getCached, pdfFingerprint, setCache } from './io/cache.js';
 import { buildLayout, markRepeatedBlocks } from './layout/index.js';
 import { buildLinks } from './links/index.js';
 import { parsePageRangeWithSkipped } from './options/pageRange.js';
 import { buildCacheKey } from './processor/cacheKey.js';
+import {
+  areUsableAttachments,
+  areUsableVisualRegionImages,
+  dropCachedSafe,
+  isUsableImage,
+} from './processor/cacheValidation.js';
 import { prepareRenderImagesDir, validateRenderRegion, validateRenderScale } from './processor/renderOptions.js';
 import { nonPrintableStats } from './quality/nonPrintable.js';
 import { derivePageQuality } from './quality/pageQuality.js';
@@ -483,64 +489,6 @@ function render(result: DocumentResult, options: ProcessOptions): string {
       return formatToon(result);
     default:
       return formatMarkdown(result, { stripRepeated: options.stripRepeated });
-  }
-}
-
-/**
- * Check whether a cached image path still points at a regular,
- * non-empty file. Symlinks, missing files, and zero-byte placeholders
- * (e.g. crashed mid-write) are treated as unusable so the caller can
- * decide to re-render instead of handing out stale paths.
- */
-function isUsableImage(path: string | undefined): boolean {
-  if (!path) return false;
-  try {
-    const lstat = lstatSync(path);
-    if (lstat.isSymbolicLink() || !lstat.isFile()) return false;
-    return statSync(path).size > 0;
-  } catch {
-    return false;
-  }
-}
-
-function areUsableVisualRegionImages(result: DocumentResult): boolean {
-  return result.pages.every((page) => (page.visualRegions ?? []).every((region) => isUsableImage(region.image)));
-}
-
-function areUsableAttachments(attachments: DocumentAttachment[] | undefined, outputDir: string | undefined): boolean {
-  if (!outputDir) return true;
-  if (!attachments) return false;
-  return attachments.every((attachment) => isUsableAttachment(attachment, outputDir));
-}
-
-function isUsableAttachment(attachment: DocumentAttachment, outputDir: string): boolean {
-  if (!attachment.path) return false;
-  const resolvedPath = resolve(attachment.path);
-  if (!isPathInsideDir(resolvedPath, outputDir)) return false;
-  try {
-    const lstat = lstatSync(resolvedPath);
-    if (lstat.isSymbolicLink() || !lstat.isFile()) return false;
-    return statSync(resolvedPath).size === attachment.size;
-  } catch {
-    return false;
-  }
-}
-
-function isPathInsideDir(path: string, dir: string): boolean {
-  const rel = relative(resolve(dir), resolve(path));
-  return rel !== '' && rel !== '..' && !rel.startsWith(`..${sep}`) && !pathIsAbsolute(rel);
-}
-
-/**
- * Drop a cache entry without ever throwing. Cache eviction failures
- * (permissions, race with another process, etc.) must not abort the
- * surrounding extraction — we can always re-extract from source.
- */
-function dropCachedSafe(cacheDir: string, cacheKey: string): void {
-  try {
-    dropCached(cacheDir, cacheKey);
-  } catch {
-    // Best-effort: leave the entry in place and fall through to fresh extraction.
   }
 }
 
