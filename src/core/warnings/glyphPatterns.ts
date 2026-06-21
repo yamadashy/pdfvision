@@ -1,4 +1,4 @@
-import { isNonPrintableCodePoint } from '../nonPrintable.js';
+import { isNonPrintableCodePoint } from '../quality/nonPrintable.js';
 
 const REPLACEMENT_CHARACTER = '\uFFFD';
 const CJK_MOJIBAKE_MIN_CJK_COUNT = 50;

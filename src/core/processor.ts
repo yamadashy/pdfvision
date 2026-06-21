@@ -38,8 +38,6 @@ import { buildFormFields } from './formFields.js';
 import { buildImageBoxes, type ImageOps } from './imageBoxes.js';
 import { buildLayout, markRepeatedBlocks } from './layout.js';
 import { buildLinks } from './links.js';
-import { nonPrintableStats } from './nonPrintable.js';
-import { derivePageQuality } from './pageQuality.js';
 import { parsePageRangeWithSkipped } from './pageRange.js';
 import { runParallel } from './parallel.js';
 import {
@@ -48,7 +46,9 @@ import {
   validateRenderRegion,
   validateRenderScale,
 } from './processor/renderOptions.js';
-import { isRasterBackedTextLayer } from './rasterBackedTextLayer.js';
+import { nonPrintableStats } from './quality/nonPrintable.js';
+import { derivePageQuality } from './quality/pageQuality.js';
+import { isRasterBackedTextLayer } from './quality/rasterBackedTextLayer.js';
 import { type CompiledSearch, compileSearch, searchPage, suppressDuplicateOcrMatches } from './search.js';
 import { type JoinItem, joinPageText } from './text/cjkJoin.js';
 import { textMatrixFontSize, textRunGeometryFromTransform } from './textGeometry.js';

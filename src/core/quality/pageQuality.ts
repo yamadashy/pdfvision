@@ -1,4 +1,4 @@
-import type { PageQuality, PageResult } from '../types/index.js';
+import type { PageQuality, PageResult } from '../../types/index.js';
 
 /**
  * Threshold above which `nonPrintableRatio` is taken to mean that pdf.js

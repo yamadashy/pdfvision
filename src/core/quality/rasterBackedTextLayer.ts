@@ -1,4 +1,4 @@
-import type { ImageBox } from '../types/index.js';
+import type { ImageBox } from '../../types/index.js';
 
 const RASTER_BACKED_TEXT_COVERAGE_THRESHOLD = 0.1;
 const RASTER_BACKED_SPARSE_TEXT_COVERAGE_THRESHOLD = 0.02;
