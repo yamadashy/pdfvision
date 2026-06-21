@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePageRange, parsePageRangeWithSkipped } from '../../src/core/pageRange.js';
+import { parsePageRange, parsePageRangeWithSkipped } from '../../src/core/options/pageRange.js';
 
 describe('parsePageRange', () => {
   it('parses a single page', () => {

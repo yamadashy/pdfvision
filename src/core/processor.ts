@@ -40,8 +40,7 @@ import { countVectorPaintOps } from './graphics/vectorOps.js';
 import { dropCached, getCacheDir, getCached, pdfFingerprint, setCache } from './io/cache.js';
 import { buildLayout, markRepeatedBlocks } from './layout/index.js';
 import { buildLinks } from './links/index.js';
-import { parsePageRangeWithSkipped } from './pageRange.js';
-import { runParallel } from './parallel.js';
+import { parsePageRangeWithSkipped } from './options/pageRange.js';
 import {
   DEFAULT_RENDER_SCALE,
   prepareRenderImagesDir,
@@ -51,6 +50,7 @@ import {
 import { nonPrintableStats } from './quality/nonPrintable.js';
 import { derivePageQuality } from './quality/pageQuality.js';
 import { isRasterBackedTextLayer } from './quality/rasterBackedTextLayer.js';
+import { runParallel } from './runtime/parallel.js';
 import { type CompiledSearch, compileSearch, searchPage, suppressDuplicateOcrMatches } from './search/index.js';
 import { type JoinItem, joinPageText } from './text/cjkJoin.js';
 import { textMatrixFontSize, textRunGeometryFromTransform } from './text/geometry.js';

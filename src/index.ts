@@ -11,7 +11,7 @@
 //     made pdf.js the de-facto public contract. The library entry
 //     point is `processDocument({ render: true })` instead — it owns
 //     the pdf.js lifetime and returns image paths on the page result.
-export { parsePageRange } from './core/pageRange.js';
+export { parsePageRange } from './core/options/pageRange.js';
 export { processDocument, processFile } from './core/processor.js';
 export type {
   DocumentAttachment,
