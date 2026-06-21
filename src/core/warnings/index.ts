@@ -1,4 +1,4 @@
-import type { ImageBox, PageResult, PageWarning, VectorBox } from '../../types/index.js';
+import type { ImageBox, PageAnnotation, PageResult, PageWarning, VectorBox } from '../../types/index.js';
 import { detectTextOverlap } from '../warningTextOverlap/index.js';
 import { detectBodyNearRepeatedChrome, detectNearBottomEdge, detectOffPage } from './edge.js';
 import {
@@ -48,6 +48,9 @@ export interface PageWarningContext {
   /** Internal vector bboxes used for warnings even when public
    *  `pages[].vectorBoxes` was not requested. */
   vectorBoxes?: VectorBox[];
+  /** Internal annotations used for warnings even when public
+   *  `pages[].annotations` was not requested. */
+  annotations?: PageAnnotation[];
   /** Non-fatal pdf.js warnings captured during parsing/rendering. */
   pdfJsWarnings?: readonly string[];
 }
@@ -84,7 +87,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
   detectDenseVectorGraphics(page, warnings);
   detectVectorGraphicsWithoutNativeText(page, context, warnings);
   detectLargeRasterLowTextOverlap(page, context, warnings);
-  detectVisibleAnnotationTextMissingFromNative(page, warnings);
+  detectVisibleAnnotationTextMissingFromNative(page, context, warnings);
   detectOptionalContentTextHiddenLayerRisk(context, warnings);
   detectDotLeaderNoise(page, warnings);
   detectTinyNativeTextNoise(page, warnings);

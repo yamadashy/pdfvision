@@ -153,7 +153,7 @@ export async function extractPageData(
       })
     : undefined;
   const allPageAnnotations =
-    flags.annotations || flags.visualRegions || flags.needAnnotationsForSearch
+    flags.annotations || flags.visualRegions || flags.annotationAppearanceHints || flags.needAnnotationsForSearch
       ? buildAnnotations(annotations ?? [], height, xMin, yMin, {
           normalizeText: flags.normalize ? normalizeText : undefined,
         })
@@ -238,6 +238,7 @@ export async function extractPageData(
     _warningImageBoxes: allBoxes,
     ...(vectorBoxes !== undefined && { vectorBoxes }),
     _warningVectorBoxes: allVectorBoxes,
+    ...(allPageAnnotations !== undefined && { _warningAnnotations: allPageAnnotations }),
     ...(visualRegionInput !== undefined && { _visualRegionInput: visualRegionInput }),
     ...(visibleAnnotationAppearance && { hasVisibleAnnotationAppearance: true }),
     ...(formFields !== undefined && { formFields }),

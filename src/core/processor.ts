@@ -3,6 +3,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type {
   DocumentResult,
   ImageBox,
+  PageAnnotation,
   PageResult,
   ProcessDocumentOptions,
   ProcessOptions,
@@ -166,6 +167,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     const optionalContentTextByPage = new Map<number, boolean>();
     const warningImageBoxesByPage = new Map<number, ImageBox[]>();
     const warningVectorBoxesByPage = new Map<number, VectorBox[]>();
+    const warningAnnotationsByPage = new Map<number, PageAnnotation[]>();
     const visualRegionInputsByPage = new Map<number, BuildVisualRegionsInput>();
     const annotationAppearanceByPage = new Map<number, boolean>();
     const imageOps = buildImageOps(OPS);
@@ -186,6 +188,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       optionalContentTextByPage.set(pageNum, data.optionalContentText);
       warningImageBoxesByPage.set(pageNum, data._warningImageBoxes ?? []);
       warningVectorBoxesByPage.set(pageNum, data._warningVectorBoxes ?? []);
+      warningAnnotationsByPage.set(pageNum, data._warningAnnotations ?? []);
       if (data._visualRegionInput) visualRegionInputsByPage.set(pageNum, data._visualRegionInput);
       if (data.hasVisibleAnnotationAppearance) annotationAppearanceByPage.set(pageNum, true);
       return buildPageResult({
@@ -254,6 +257,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
         hasHiddenOptionalContent,
         imageBoxes: warningImageBoxesByPage.get(p.page),
         vectorBoxes: warningVectorBoxesByPage.get(p.page),
+        annotations: warningAnnotationsByPage.get(p.page),
         pdfJsWarnings,
       });
       if (warnings.length > 0) p.warnings = warnings;

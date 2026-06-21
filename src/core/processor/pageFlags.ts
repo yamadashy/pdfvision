@@ -17,7 +17,10 @@ export function buildPageFlags(options: ProcessDocumentOptions, state: BuildPage
     formFields: !!options.formFields,
     links: !!options.links,
     annotations: !!options.annotations,
-    annotationAppearanceHints: !!options.render || !!options.ocr,
+    // Inspect annotation metadata even for baseline text extraction so
+    // visible FreeText appearances that are not in the native text stream
+    // can produce completeness warnings without exposing annotations[].
+    annotationAppearanceHints: true,
     structure: !!options.structure,
     viewer: !!options.viewer,
     // Search needs span-level bbox to populate `matches[*].bbox`;

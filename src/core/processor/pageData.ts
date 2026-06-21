@@ -35,6 +35,7 @@ export interface PageData {
   _warningImageBoxes?: ImageBox[];
   vectorBoxes?: VectorBox[];
   _warningVectorBoxes?: VectorBox[];
+  _warningAnnotations?: PageAnnotation[];
   _visualRegionInput?: BuildVisualRegionsInput;
   hasVisibleAnnotationAppearance?: boolean;
   formFields?: FormField[];

@@ -134,6 +134,23 @@ function pdfHexString(value: string): string {
   return `<${Buffer.from(value, 'utf8').toString('hex')}>`;
 }
 
+function buildPdfWithVisibleFreeTextAnnotation(): Uint8Array {
+  const pageText = 'BT /F1 12 Tf 72 720 Td (FreeText) Tj ET';
+  const pageTextLength = Buffer.byteLength(pageText, 'binary');
+  const appearance = 'q 0 0 1 rg BT /F1 12 Tf 0 5 Td (FreeText content) Tj ET Q';
+  const appearanceLength = Buffer.byteLength(appearance, 'binary');
+
+  return buildRawPdf([
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 6 0 R >> >> /Annots [4 0 R] /Contents 5 0 R >>',
+    `<< /Type /Annot /Subtype /FreeText /Rect [72 650 220 670] /Contents ${pdfHexString('FreeText content')} /F 4 /DA (/F1 12 Tf 0 0 1 rg) /AP << /N 7 0 R >> >>`,
+    `<< /Length ${pageTextLength} >>\nstream\n${pageText}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    `<< /Type /XObject /Subtype /Form /FormType 1 /BBox [0 0 148 20] /Resources << /Font << /F1 6 0 R >> >> /Length ${appearanceLength} >>\nstream\n${appearance}\nendstream`,
+  ]);
+}
+
 function pdfUtf16HexString(value: string): string {
   const bytes = Buffer.alloc(2 + value.length * 2);
   bytes[0] = 0xfe;
@@ -846,6 +863,24 @@ describe('processDocument', () => {
       }),
     ]);
     expect(result.pages[0].links).toHaveLength(1);
+  });
+
+  it('warns about visible FreeText annotation text missing from baseline native text', async () => {
+    const result = await processDocument('memory://visible-freetext.pdf', {
+      sourceData: buildPdfWithVisibleFreeTextAnnotation(),
+      noCache: true,
+    });
+
+    const page = result.pages[0];
+    expect(page.text).toBe('FreeText');
+    expect(page.annotations).toBeUndefined();
+    expect(page.warnings).toContainEqual(
+      expect.objectContaining({
+        code: 'annotation_text_missing_from_native',
+        severity: 'warning',
+      }),
+    );
+    expect(page.warnings?.[0].message).toContain('FreeText content');
   });
 
   it('uses visible annotations as visual-region seeds without exposing annotations by default', async () => {
