@@ -2,8 +2,10 @@ import type { OcrWord, TextSpan } from '../../types/index.js';
 import { CJK_TIGHT_GAP_RATIO, isCjkLeading } from '../cjkJoin.js';
 import { isLikelyCjkDisplaySpacingRow, isLikelyWideWordSpacingRow, shouldInsertSemanticSpace } from '../spacing.js';
 import { isRtlDominantPositionedText, textOrder } from '../textDirection.js';
+import { unionBoxes } from './boxes.js';
 import { nfkc } from './compiler.js';
 import type { Box, SearchLine, SearchOwner } from './types.js';
+import { buildVerticalSearchLines } from './verticalLines.js';
 
 const DEFAULT_SPACE_GAP_RATIO = 0.25;
 const FONT_SIZE_FALLBACK_PT = 12;
@@ -13,13 +15,6 @@ const HYPHENATED_SEARCH_LINE_SCAN_LIMIT = 6;
 const HYPHENATED_SEARCH_LINE_MAX_GAP_RATIO = 2.5;
 const HYPHENATED_SEARCH_LINE_MAX_GAP_PT = 24;
 const HYPHENATED_SEARCH_LINE_X_TOLERANCE_PT = 12;
-const VERTICAL_SEARCH_COLUMN_X_TOLERANCE_PT = 4;
-const VERTICAL_SEARCH_MAX_COLUMN_GAP_PT = 36;
-const VERTICAL_SEARCH_MAX_COLUMN_GAP_RATIO = 3;
-const VERTICAL_SEARCH_MIN_SPAN_HEIGHT_RATIO = 2;
-const LATIN_OR_NUMBER_END_RE = /[\p{Script=Latin}\p{M}\p{N}]$/u;
-const LATIN_OR_NUMBER_START_RE = /^[\p{Script=Latin}\p{M}\p{N}]/u;
-const LOWERCASE_START_RE = /^\p{Ll}/u;
 
 export function buildSearchLines(spans: readonly TextSpan[] | undefined, pageWidth: number): SearchLine[] {
   if (!spans || spans.length === 0) return [];
@@ -84,127 +79,6 @@ export function buildSearchLines(spans: readonly TextSpan[] | undefined, pageWid
   }
   const augmented = [...lines, ...buildVerticalSearchLines(spans)];
   return withHyphenatedSearchLines(augmented);
-}
-
-function buildVerticalSearchLines(spans: readonly TextSpan[]): SearchLine[] {
-  const verticalSpans = spans.filter(isVerticalSearchSpan);
-  if (verticalSpans.length < 2) return [];
-
-  const columns = groupVerticalSearchColumns(verticalSpans).sort((a, b) => b.centerX - a.centerX);
-  const lines: SearchLine[] = [];
-  let run: VerticalSearchColumn[] = [];
-  const flush = () => {
-    const line = verticalSearchLineFromColumns(run);
-    if (line) lines.push(line);
-    run = [];
-  };
-
-  for (const column of columns) {
-    const previous = run.at(-1);
-    if (previous && !canContinueVerticalSearchColumn(previous, column)) flush();
-    run.push(column);
-  }
-  flush();
-  return lines;
-}
-
-interface VerticalSearchColumn {
-  centerX: number;
-  fontSize: number;
-  spans: TextSpan[];
-}
-
-function isVerticalSearchSpan(span: TextSpan): boolean {
-  if (span.text.trim().length === 0) return false;
-  if (!isVerticalSearchOwner(span)) return false;
-  const fontSize = span.fontSize || FONT_SIZE_FALLBACK_PT;
-  return span.height >= fontSize * VERTICAL_SEARCH_MIN_SPAN_HEIGHT_RATIO;
-}
-
-function groupVerticalSearchColumns(spans: readonly TextSpan[]): VerticalSearchColumn[] {
-  const columns: VerticalSearchColumn[] = [];
-  const sorted = [...spans].sort((a, b) => centerX(b) - centerX(a) || a.y - b.y);
-  for (const span of sorted) {
-    const x = centerX(span);
-    const column = columns.find((item) => Math.abs(item.centerX - x) <= VERTICAL_SEARCH_COLUMN_X_TOLERANCE_PT);
-    if (column) {
-      column.spans.push(span);
-      column.centerX = column.spans.reduce((sum, item) => sum + centerX(item), 0) / Math.max(column.spans.length, 1);
-      column.fontSize = median(column.spans.map((item) => item.fontSize || FONT_SIZE_FALLBACK_PT));
-    } else {
-      columns.push({
-        centerX: x,
-        fontSize: span.fontSize || FONT_SIZE_FALLBACK_PT,
-        spans: [span],
-      });
-    }
-  }
-  for (const column of columns) {
-    column.spans.sort((a, b) => a.y - b.y || b.x - a.x);
-  }
-  return columns;
-}
-
-function canContinueVerticalSearchColumn(prev: VerticalSearchColumn, cur: VerticalSearchColumn): boolean {
-  const gap = prev.centerX - cur.centerX;
-  if (gap < 0) return false;
-  const fontSize = Math.max(prev.fontSize, cur.fontSize, FONT_SIZE_FALLBACK_PT);
-  if (gap > Math.max(fontSize * VERTICAL_SEARCH_MAX_COLUMN_GAP_RATIO, VERTICAL_SEARCH_MAX_COLUMN_GAP_PT)) {
-    return false;
-  }
-  const overlap = Math.min(columnBottom(prev), columnBottom(cur)) - Math.max(columnTop(prev), columnTop(cur));
-  return overlap > 0;
-}
-
-function verticalSearchLineFromColumns(columns: readonly VerticalSearchColumn[]): SearchLine | undefined {
-  if (columns.length < 2) return undefined;
-  let text = '';
-  const owners: (SearchOwner | undefined)[] = [];
-  let previousSpan: TextSpan | undefined;
-
-  for (const column of columns) {
-    for (const span of column.spans) {
-      const spanText = span.text;
-      if (spanText.length === 0) continue;
-      const delimiter = previousSpan ? verticalSearchDelimiter(previousSpan, span) : '';
-      if (delimiter.length > 0 && !/\s$/.test(text) && !/^\s/.test(spanText)) {
-        text += delimiter;
-        owners.push(undefined);
-      }
-      text += spanText;
-      for (let index = 0; index < spanText.length; index++) owners.push(span);
-      previousSpan = span;
-    }
-  }
-
-  return text.length > 0 ? { text, owners, syntheticVertical: true } : undefined;
-}
-
-function verticalSearchDelimiter(prev: TextSpan, cur: TextSpan): string {
-  const prevText = prev.text.trimEnd();
-  const curText = cur.text.trimStart();
-  if (!LATIN_OR_NUMBER_END_RE.test(prevText) || !LATIN_OR_NUMBER_START_RE.test(curText)) return '';
-  if (LOWERCASE_START_RE.test(curText)) return '';
-  return ' ';
-}
-
-function centerX(span: TextSpan): number {
-  return span.x + span.width / 2;
-}
-
-function columnTop(column: VerticalSearchColumn): number {
-  return Math.min(...column.spans.map((span) => span.y));
-}
-
-function columnBottom(column: VerticalSearchColumn): number {
-  return Math.max(...column.spans.map((span) => span.y + span.height));
-}
-
-function median(values: readonly number[]): number {
-  if (values.length === 0) return 0;
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = sorted.length >> 1;
-  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 }
 
 function withHyphenatedSearchLines(lines: readonly SearchLine[]): SearchLine[] {
@@ -301,83 +175,4 @@ export function buildOcrSearchLines(words: readonly OcrWord[] | undefined, norma
 function spaceGapThreshold(prev: TextSpan, cur: TextSpan, fontSize: number): number {
   const bothCjk = isCjkLeading(prev.text) && isCjkLeading(cur.text);
   return fontSize * (bothCjk ? CJK_TIGHT_GAP_RATIO : DEFAULT_SPACE_GAP_RATIO);
-}
-
-export function unionBoxes(boxes: readonly Box[]): Box {
-  let minX = Number.POSITIVE_INFINITY;
-  let minY = Number.POSITIVE_INFINITY;
-  let maxX = Number.NEGATIVE_INFINITY;
-  let maxY = Number.NEGATIVE_INFINITY;
-  for (const box of boxes) {
-    minX = Math.min(minX, box.x);
-    minY = Math.min(minY, box.y);
-    maxX = Math.max(maxX, box.x + box.width);
-    maxY = Math.max(maxY, box.y + box.height);
-  }
-  return {
-    x: round2(minX),
-    y: round2(minY),
-    width: round2(maxX - minX),
-    height: round2(maxY - minY),
-  };
-}
-
-export function contributingBoxes(line: SearchLine, start: number, end: number): Box[] {
-  const out: Box[] = [];
-  let i = start;
-  while (i < end) {
-    const span = line.owners[i];
-    if (!span) {
-      i++;
-      continue;
-    }
-    let j = i + 1;
-    while (j < end && line.owners[j] === span) j++;
-    const spanStart = firstOwnerIndex(line, span);
-    if (spanStart >= 0) {
-      out.push(sliceSpanBox(span, i - spanStart, j - spanStart));
-    }
-    i = j;
-  }
-  return out;
-}
-
-function firstOwnerIndex(line: SearchLine, span: SearchOwner): number {
-  for (let i = 0; i < line.owners.length; i++) {
-    if (line.owners[i] === span) return i;
-  }
-  return -1;
-}
-
-function sliceSpanBox(span: SearchOwner, start: number, end: number): Box {
-  const textLength = span.text.length;
-  const clampedStart = Math.max(0, Math.min(textLength, start));
-  const clampedEnd = Math.max(clampedStart, Math.min(textLength, end));
-  if (textLength === 0 || (clampedStart === 0 && clampedEnd === textLength) || span.width <= 0) {
-    return { x: round2(span.x), y: round2(span.y), width: round2(span.width), height: round2(span.height) };
-  }
-  if (isVerticalSearchOwner(span)) {
-    const charHeight = span.height / textLength;
-    return {
-      x: round2(span.x),
-      y: round2(span.y + charHeight * clampedStart),
-      width: round2(span.width),
-      height: round2(charHeight * (clampedEnd - clampedStart)),
-    };
-  }
-  const charWidth = span.width / textLength;
-  return {
-    x: round2(span.x + charWidth * clampedStart),
-    y: round2(span.y),
-    width: round2(charWidth * (clampedEnd - clampedStart)),
-    height: round2(span.height),
-  };
-}
-
-function isVerticalSearchOwner(span: SearchOwner): boolean {
-  return span.height > Math.max(span.width, 1) * 3;
-}
-
-export function round2(n: number): number {
-  return Math.round(n * 100) / 100;
 }
