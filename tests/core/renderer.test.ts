@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createCanvas } from '@napi-rs/canvas';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { renderPage } from '../../src/core/renderer.js';
+import { renderPage } from '../../src/core/renderer/index.js';
 
 // A real (tiny) PNG buffer — the cache-hit path now decodes the file to
 // recompute `renderContentRatio` from the cached pixels, so the fixture

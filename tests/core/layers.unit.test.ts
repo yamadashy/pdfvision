@@ -1,6 +1,6 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { describe, expect, it, vi } from 'vitest';
-import { buildLayers } from '../../src/core/layers.js';
+import { buildLayers } from '../../src/core/document/layers.js';
 
 describe('buildLayers', () => {
   it('returns an empty group list when optional content config is missing', async () => {

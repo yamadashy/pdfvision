@@ -1,4 +1,29 @@
-import type { DocumentResult, PageResult, PageStructureItem, PageStructureNode } from '../types/index.js';
+import type { DocumentResult, PageResult } from '../types/index.js';
+import { appendLayers, appendOutline, appendViewer } from './markdown/documentSections.js';
+import {
+  annotationBorder,
+  annotationColor,
+  annotationFileAttachment,
+  annotationFlags,
+  annotationShape,
+  escapeInline,
+  escapeTableCell,
+  fieldActions,
+  fieldExportValue,
+  fieldFlags,
+  fieldLabel,
+  fieldOptions,
+  fieldResetForm,
+  fieldValue,
+  formatBox,
+  formatJavaScriptActions,
+  jsActionCount,
+  linkTarget,
+  visualRegionAssociatedText,
+  visualRegionSources,
+} from './markdown/helpers.js';
+import { appendOverview, formatSize } from './markdown/overview.js';
+import { appendStructureItem, structureNodeCount } from './markdown/structure.js';
 
 /** Options that influence the Markdown rendering without changing the
  *  underlying `DocumentResult`. JSON / XML formatters don't need them
@@ -13,289 +38,11 @@ export interface MarkdownOptions {
   stripRepeated?: boolean;
 }
 
-const MARKDOWN_JS_ACTIONS_MAX_CHARS = 500;
-
-/** "595×842" — drops trailing .00 so integer dimensions stay readable. */
-function formatSize(page: PageResult): string {
-  const trim = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2));
-  return `${trim(page.width)}×${trim(page.height)}`;
-}
-
-function escapeTableCell(value: string): string {
-  return value
-    .replaceAll('\\', '\\\\')
-    .replaceAll('|', '\\|')
-    .replaceAll('\r\n', ' ')
-    .replaceAll('\n', ' ')
-    .replaceAll('\r', ' ');
-}
-
-function escapeInline(value: string): string {
-  return value
-    .replaceAll('\\', '\\\\')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('\n', ' ')
-    .replaceAll('\r', ' ')
-    .replaceAll('`', '\\`')
-    .replaceAll('*', '\\*')
-    .replaceAll('_', '\\_')
-    .replaceAll('[', '\\[')
-    .replaceAll(']', '\\]')
-    .replaceAll('|', '\\|');
-}
-
-function fieldValue(field: NonNullable<PageResult['formFields']>[number]): string {
-  if (field.checked !== undefined) return field.checked ? 'checked' : 'unchecked';
-  if (field.type === 'button' && field.caption) return field.caption;
-  if (field.type === 'choice' && field.displayValue) return field.displayValue;
-  return field.value ?? '';
-}
-
-function fieldLabel(field: NonNullable<PageResult['formFields']>[number]): string {
-  return field.label ? `${field.label.text} (${field.label.relation})` : '';
-}
-
-function fieldOptions(field: NonNullable<PageResult['formFields']>[number]): string {
-  return (
-    field.options
-      ?.map((option) =>
-        option.displayValue === option.exportValue
-          ? option.displayValue
-          : `${option.displayValue}=${option.exportValue}`,
-      )
-      .join(', ') ?? ''
-  );
-}
-
-function fieldExportValue(field: NonNullable<PageResult['formFields']>[number]): string {
-  if (field.type === 'choice' && field.displayValue && field.value && field.displayValue !== field.value) {
-    return field.value;
-  }
-  return field.exportValue ?? '';
-}
-
-function fieldFlags(field: NonNullable<PageResult['formFields']>[number]): string {
-  const flags = new Set<string>(field.flags ?? []);
-  if (field.readOnly) flags.add('readOnly');
-  if (field.required) flags.add('required');
-  if (field.multiline) flags.add('multiline');
-  if (field.combo !== undefined) flags.add(field.combo ? 'combo' : 'list');
-  if (field.multiSelect) flags.add('multiSelect');
-  return Array.from(flags).join(', ');
-}
-
-function fieldActions(field: NonNullable<PageResult['formFields']>[number]): string {
-  return field.actions ? formatJavaScriptActions(field.actions) : '';
-}
-
-function fieldResetForm(field: NonNullable<PageResult['formFields']>[number]): string {
-  if (!field.resetForm) return '';
-  const fields = field.resetForm.fields.join(', ');
-  if (field.resetForm.include) return fields.length > 0 ? `reset only ${fields}` : 'reset only listed fields';
-  return fields.length > 0 ? `reset all except ${fields}` : 'reset all fields';
-}
-
-function annotationColor(annotation: NonNullable<PageResult['annotations']>[number]): string {
-  return annotation.color ? annotation.color.join(',') : '';
-}
-
-function annotationFileAttachment(annotation: NonNullable<PageResult['annotations']>[number]): string {
-  const file = annotation.fileAttachment;
-  if (!file) return '';
-  const parts = [file.name, `${file.size} bytes`];
-  if (file.description) parts.push(file.description);
-  return parts.join(' · ');
-}
-
-function annotationFlags(annotation: NonNullable<PageResult['annotations']>[number]): string {
-  return annotation.flags?.join(',') ?? '';
-}
-
-function annotationBorder(annotation: NonNullable<PageResult['annotations']>[number]): string {
-  const border = annotation.border;
-  if (!border) return '';
-  const parts: string[] = [];
-  if (border.width !== undefined) parts.push(`width=${border.width}`);
-  if (border.style !== undefined) parts.push(border.style);
-  if (border.dashArray !== undefined && border.dashArray.length > 0) parts.push(`dash=${border.dashArray.join(',')}`);
-  return parts.join(' ');
-}
-
-function annotationShape(annotation: NonNullable<PageResult['annotations']>[number]): string {
-  const parts: string[] = [];
-  if (annotation.line) {
-    const { from, to, endings } = annotation.line;
-    const endingText = endings ? ` endings=${endings.join(',')}` : '';
-    parts.push(`line ${from.x},${from.y}->${to.x},${to.y}${endingText}`);
-  }
-  if (annotation.vertices) {
-    parts.push(`vertices=${annotation.vertices.length}`);
-  }
-  if (annotation.inkPaths) {
-    const pointCount = annotation.inkPaths.reduce((total, path) => total + path.length, 0);
-    parts.push(`inkPaths=${annotation.inkPaths.length}/${pointCount}pts`);
-  }
-  return parts.join('; ');
-}
-
-function visualRegionSources(region: NonNullable<PageResult['visualRegions']>[number]): string {
-  const refs = region.sources.map((source) => `${source.type}[${source.index}]`);
-  const hiddenCount = region.sourceCount - region.sources.length;
-  if (hiddenCount > 0) refs.push(`+${hiddenCount} more`);
-  return refs.join(', ');
-}
-
-function visualRegionAssociatedText(region: NonNullable<PageResult['visualRegions']>[number]): string {
-  return (region.associatedText ?? []).map((item) => `${item.relation}: ${item.text}`).join('; ');
-}
-
-function linkTarget(value: NonNullable<PageResult['links']>[number]['target']): string {
-  return typeof value === 'string' ? value : JSON.stringify(value);
-}
-
-function formatBox(box: { x: number; y: number; width: number; height: number }): string {
-  return `${box.x},${box.y},${box.width},${box.height}`;
-}
-
-function formatBbox(box: number[]): string {
-  return box.join(',');
-}
-
 function layoutBody(page: PageResult, filterRepeated: boolean): string {
   return (page.layout?.blocks ?? [])
     .filter((b) => !filterRepeated || !b.repeated)
     .map((b) => b.text)
     .join('\n\n');
-}
-
-function outlineLabel(item: NonNullable<DocumentResult['outline']>[number]): string {
-  const parts: string[] = [];
-  if (item.page !== undefined) parts.push(`p. ${item.page}`);
-  if (item.type) parts.push(item.type);
-  if (item.target) parts.push(item.target);
-  return parts.length > 0
-    ? `${escapeInline(item.title)} (${escapeInline(parts.join(' · '))})`
-    : escapeInline(item.title);
-}
-
-function appendOutline(lines: string[], items: NonNullable<DocumentResult['outline']>, depth = 0): void {
-  const indent = '  '.repeat(depth);
-  for (const item of items) {
-    lines.push(`${indent}- ${outlineLabel(item)}`);
-    if (item.items) appendOutline(lines, item.items, depth + 1);
-  }
-}
-
-function formatViewerValue(value: unknown): string {
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'boolean' || value === null) return String(value);
-  return JSON.stringify(value);
-}
-
-function jsActionCount(actions: Record<string, string[]> | undefined): number {
-  return Object.values(actions ?? {}).reduce((sum, scripts) => sum + scripts.length, 0);
-}
-
-function formatJavaScriptActions(actions: Record<string, string[]>): string {
-  const text = Object.entries(actions)
-    .map(([name, scripts]) => `${name}=${scripts.join(' || ')}`)
-    .join(' | ');
-  return truncateForMarkdown(text, MARKDOWN_JS_ACTIONS_MAX_CHARS);
-}
-
-function truncateForMarkdown(text: string, maxChars: number): string {
-  const chars = Array.from(text);
-  if (chars.length <= maxChars) return text;
-  return `${chars.slice(0, maxChars - 3).join('')}...`;
-}
-
-function appendViewer(lines: string[], viewer: NonNullable<DocumentResult['viewer']>): void {
-  lines.push('');
-  lines.push('## Viewer');
-  lines.push('');
-  if (Object.keys(viewer).length === 0) {
-    lines.push('_No viewer settings found._');
-    return;
-  }
-  if (viewer.pageMode) lines.push(`- **Page mode:** ${escapeInline(viewer.pageMode)}`);
-  if (viewer.pageLayout) lines.push(`- **Page layout:** ${escapeInline(viewer.pageLayout)}`);
-  if (viewer.openAction) {
-    const parts: string[] = [viewer.openAction.type];
-    if (viewer.openAction.page !== undefined) parts.push(`p. ${viewer.openAction.page}`);
-    if (viewer.openAction.action) parts.push(viewer.openAction.action);
-    if (viewer.openAction.target) parts.push(viewer.openAction.target);
-    lines.push(`- **Open action:** ${escapeInline(parts.join(' · '))}`);
-  }
-  if (viewer.jsActions) {
-    lines.push(`- **JavaScript actions:** ${escapeInline(formatJavaScriptActions(viewer.jsActions))}`);
-  }
-  if (viewer.permissions) {
-    const allowed = viewer.permissions.allowed.length > 0 ? viewer.permissions.allowed.join(', ') : '(none)';
-    lines.push(`- **Permissions:** ${escapeInline(allowed)}`);
-  }
-  if (viewer.markInfo) {
-    lines.push(
-      `- **Mark info:** marked=${viewer.markInfo.marked}, userProperties=${viewer.markInfo.userProperties}, suspects=${viewer.markInfo.suspects}`,
-    );
-  }
-  if (viewer.viewerPreferences) {
-    const prefs = Object.entries(viewer.viewerPreferences)
-      .map(([key, value]) => `${key}=${formatViewerValue(value)}`)
-      .join('; ');
-    lines.push(`- **Preferences:** ${escapeInline(prefs)}`);
-  }
-}
-
-function appendLayers(lines: string[], layers: NonNullable<DocumentResult['layers']>): void {
-  lines.push('');
-  lines.push('## Layers');
-  lines.push('');
-  if (layers.name) lines.push(`- **Config:** ${escapeInline(layers.name)}`);
-  if (layers.creator) lines.push(`- **Creator:** ${escapeInline(layers.creator)}`);
-  if (layers.order) lines.push(`- **Panel order:** ${escapeInline(JSON.stringify(layers.order))}`);
-  if (layers.groups.length === 0) {
-    lines.push('_No PDF layers found._');
-    return;
-  }
-  const showRbGroups = layers.groups.some((layer) => layer.rbGroups !== undefined);
-  lines.push('');
-  lines.push(`| ID | Name | Visible | Intent | View | Print |${showRbGroups ? ' Radio groups |' : ''}`);
-  lines.push(`| --- | --- | --- | --- | --- | --- |${showRbGroups ? ' --- |' : ''}`);
-  for (const layer of layers.groups) {
-    const rbGroupsCell = showRbGroups ? ` ${escapeTableCell(JSON.stringify(layer.rbGroups ?? []))} |` : '';
-    lines.push(
-      `| ${escapeTableCell(layer.id)} | ${escapeTableCell(layer.name ?? '')} | ${layer.visible ? 'yes' : 'no'} | ${escapeTableCell(layer.intent?.join(', ') ?? '')} | ${escapeTableCell(layer.usage?.viewState ?? '')} | ${escapeTableCell(layer.usage?.printState ?? '')} |${rbGroupsCell}`,
-    );
-  }
-}
-
-function structureNodeCount(structure: PageStructureNode | null | undefined): number {
-  if (!structure) return 0;
-  return (
-    1 +
-    structure.children.reduce((sum, child) => {
-      return 'role' in child ? sum + structureNodeCount(child) : sum;
-    }, 0)
-  );
-}
-
-function structureLabel(item: PageStructureItem): string {
-  if (!('role' in item)) return `${escapeInline(item.type)} ${escapeInline(item.id)}`;
-  const parts = [escapeInline(item.role)];
-  if (item.lang) parts.push(`lang=${escapeInline(item.lang)}`);
-  if (item.bbox) parts.push(`bbox=${formatBbox(item.bbox)}`);
-  if (item.alt) parts.push(`alt=${escapeInline(item.alt)}`);
-  if (item.mathML) parts.push(`mathML=${escapeInline(item.mathML)}`);
-  return parts.join(' · ');
-}
-
-function appendStructureItem(lines: string[], item: PageStructureItem, depth = 0): void {
-  lines.push(`${'  '.repeat(depth)}- ${structureLabel(item)}`);
-  if ('role' in item) {
-    for (const child of item.children) appendStructureItem(lines, child, depth + 1);
-  }
 }
 
 /** Body text for a page: either the pdf.js-derived `page.text` (default),
@@ -392,88 +139,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     }
   }
 
-  // Overview table: density signal aggregation across the selected pages.
-  // Lets an agent eyeball outliers (image-flattened slides, blank pages,
-  // unusually dense pages) before scrolling through the body. Skipped for
-  // single-page outputs where a one-row table is just noise. The Size
-  // column carries width×height in PDF points so portrait-vs-landscape and
-  // slide-vs-document layouts are obvious from the same glance.
-  if (result.pages.length > 1) {
-    // The Blocks column appears only when --layout was on (any page carries
-    // a `layout` payload). Lets agents see at a glance how the doc breaks
-    // down into structural pieces without scrolling into the body.
-    const showBlocks = result.pages.some((p) => p.layout !== undefined);
-    // The NonPrint column appears only when at least one page has any
-    // non-printable code points (count > 0). Reading `count` instead of
-    // `ratio` here catches sparse occurrences that would otherwise
-    // round to 0% and hide the column for the whole document.
-    const showNonPrint = result.pages.some((p) => p.nonPrintableCount > 0);
-    // The Render column appears only when at least one page was rasterised
-    // (--render or --ocr). Showing it on every doc would clutter the
-    // overview with empty cells for the default text-only flow.
-    const showRender = result.pages.some((p) => p.renderContentRatio !== undefined);
-    const showVectors = result.pages.some((p) => p.vectorCount > 0);
-    const showVectorBoxes = result.pages.some((p) => p.vectorBoxes !== undefined);
-    const showFormFields = result.pages.some((p) => p.formFields !== undefined);
-    const showLinks = result.pages.some((p) => p.links !== undefined);
-    const showAnnotations = result.pages.some((p) => p.annotations !== undefined);
-    const showStructure = result.pages.some((p) => p.structure !== undefined);
-    const showPageJsActions = result.pages.some((p) => p.jsActions !== undefined);
-    const showVisualRegions = result.pages.some((p) => p.visualRegions !== undefined);
-    const showPageLabels = result.pages.some((p) => p.pageLabel !== undefined);
-    // The Warnings column appears only when at least one page carries
-    // a non-empty `warnings` array. Like NonPrint / Render, the column
-    // only shows up when there's actual signal — otherwise the table
-    // grows a column of zeroes for the default extraction.
-    const showWarnings = result.pages.some((p) => p.warnings && p.warnings.length > 0);
-    // The Matches column appears whenever a search was run (any page
-    // carries a `matches` field, even an empty one). Present-with-0
-    // is meaningful — tells the agent search ran but this page had
-    // no hits, vs the column not appearing at all (search wasn't
-    // requested).
-    const showMatches = result.pages.some((p) => p.matches !== undefined);
-    lines.push('');
-    lines.push('## Overview');
-    lines.push('');
-    lines.push(
-      `| Page |${showPageLabels ? ' Label |' : ''} Chars | Images | Coverage |${showNonPrint ? ' NonPrint |' : ''}${showRender ? ' Render |' : ''} Size (pt) |${showVectors ? ' Vectors |' : ''}${showVectorBoxes ? ' VectorBoxes |' : ''}${showVisualRegions ? ' VisualRegions |' : ''}${showBlocks ? ' Blocks |' : ''}${showWarnings ? ' Warnings |' : ''}${showMatches ? ' Matches |' : ''}${showFormFields ? ' FormFields |' : ''}${showLinks ? ' Links |' : ''}${showAnnotations ? ' Annotations |' : ''}${showStructure ? ' Structure |' : ''}${showPageJsActions ? ' JS Actions |' : ''}`,
-    );
-    lines.push(
-      `| ---: |${showPageLabels ? ' --- |' : ''} ---: | ---: | ---: |${showNonPrint ? ' ---: |' : ''}${showRender ? ' ---: |' : ''} ---: |${showVectors ? ' ---: |' : ''}${showVectorBoxes ? ' ---: |' : ''}${showVisualRegions ? ' ---: |' : ''}${showBlocks ? ' ---: |' : ''}${showWarnings ? ' ---: |' : ''}${showMatches ? ' ---: |' : ''}${showFormFields ? ' ---: |' : ''}${showLinks ? ' ---: |' : ''}${showAnnotations ? ' ---: |' : ''}${showStructure ? ' ---: |' : ''}${showPageJsActions ? ' ---: |' : ''}`,
-    );
-    for (const page of result.pages) {
-      const coveragePct = Math.round(page.textCoverage * 100);
-      const pageLabelCell = showPageLabels ? ` ${escapeTableCell(page.pageLabel ?? '')} |` : '';
-      // Use `<1%` (instead of the rounded `0%`) when the page has *any*
-      // non-printable chars — otherwise sparse occurrences like 2 bad
-      // codepoints in a 5000-char body page silently render as `0%` and
-      // the column-trigger above looks inconsistent.
-      const nonPrintPct = Math.round(page.nonPrintableRatio * 100);
-      const nonPrintCell = showNonPrint
-        ? ` ${nonPrintPct === 0 && page.nonPrintableCount > 0 ? '<1%' : `${nonPrintPct}%`} |`
-        : '';
-      const renderCell = showRender
-        ? // Two decimals as a percent so the agent sees the difference
-          // between blank (0.00%) and sparse-marks (0.10%) — three or more
-          // would clutter and reading <0.01% as "blank" is the heuristic.
-          ` ${page.renderContentRatio !== undefined ? `${(page.renderContentRatio * 100).toFixed(2)}%` : '—'} |`
-        : '';
-      const vectorsCell = showVectors ? ` ${page.vectorCount} |` : '';
-      const vectorBoxesCell = showVectorBoxes ? ` ${page.vectorBoxes?.length ?? 0} |` : '';
-      const visualRegionsCell = showVisualRegions ? ` ${page.visualRegions?.length ?? 0} |` : '';
-      const blocksCell = showBlocks ? ` ${page.layout?.blocks.length ?? 0} |` : '';
-      const warningsCell = showWarnings ? ` ${page.warnings?.length ?? 0} |` : '';
-      const matchesCell = showMatches ? ` ${page.matches?.length ?? 0} |` : '';
-      const formFieldsCell = showFormFields ? ` ${page.formFields?.length ?? 0} |` : '';
-      const linksCell = showLinks ? ` ${page.links?.length ?? 0} |` : '';
-      const annotationsCell = showAnnotations ? ` ${page.annotations?.length ?? 0} |` : '';
-      const structureCell = showStructure ? ` ${structureNodeCount(page.structure)} |` : '';
-      const jsActionsCell = showPageJsActions ? ` ${jsActionCount(page.jsActions)} |` : '';
-      lines.push(
-        `| ${page.page} |${pageLabelCell} ${page.charCount} | ${page.imageCount} | ${coveragePct}% |${nonPrintCell}${renderCell} ${formatSize(page)} |${vectorsCell}${vectorBoxesCell}${visualRegionsCell}${blocksCell}${warningsCell}${matchesCell}${formFieldsCell}${linksCell}${annotationsCell}${structureCell}${jsActionsCell}`,
-      );
-    }
-  }
+  appendOverview(lines, result);
 
   for (const page of result.pages) {
     const coveragePct = Math.round(page.textCoverage * 100);

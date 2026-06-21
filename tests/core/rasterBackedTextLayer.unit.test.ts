@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   isRasterBackedTextLayer,
   RASTER_BACKED_TEXT_LAYER_MAX_VECTOR_OPS,
-} from '../../src/core/rasterBackedTextLayer.js';
+} from '../../src/core/quality/rasterBackedTextLayer.js';
 import type { ImageBox } from '../../src/types/index.js';
 
 const pageWidth = 612;

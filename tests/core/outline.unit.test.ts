@@ -1,6 +1,6 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { describe, expect, it, vi } from 'vitest';
-import { buildOutline } from '../../src/core/outline.js';
+import { buildOutline } from '../../src/core/document/outline.js';
 
 describe('buildOutline', () => {
   it('maps nested URL and destination outline nodes and resolves destination pages', async () => {

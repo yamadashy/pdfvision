@@ -1,7 +1,7 @@
 import { deflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
-import { buildFormFields } from '../../src/core/formFields.js';
-import { extractWidgetAppearanceCaptions } from '../../src/core/widgetAppearance.js';
+import { buildFormFields } from '../../src/core/formFields/index.js';
+import { extractWidgetAppearanceCaptions } from '../../src/core/widgetAppearance/index.js';
 
 function rectFromTopLeft(
   x: number,
@@ -472,7 +472,7 @@ describe('buildFormFields', () => {
     });
   });
 
-  it('keeps two-line checkbox instructions when stacked text just exceeds the single-line cap', () => {
+  it('keeps wrapped checkbox instructions that finish on the checkbox row', () => {
     const fields = buildFormFields(
       [
         {
@@ -504,16 +504,24 @@ describe('buildFormFields', () => {
           height: 9,
           fontSize: 9,
         },
+        {
+          text: 'the higher paying job. Otherwise, Step 2(b) is more accurate . . . . . . . . . .',
+          x: 136.8,
+          y: 402.4,
+          width: 405.2,
+          height: 9,
+          fontSize: 9,
+        },
       ],
     );
 
     expect(fields[0].label).toMatchObject({
-      text: '(c) If there are only two jobs total, you may check this box. Do the same on Form W-4 for the other job. This option is generally more accurate than Step 2(b) if pay at the lower paying job is more than half of the pay at',
+      text: '(c) If there are only two jobs total, you may check this box. Do the same on Form W-4 for the other job. This option is generally more accurate than Step 2(b) if pay at the lower paying job is more than half of the pay at the higher paying job. Otherwise, Step 2(b) is more accurate',
       relation: 'above',
       x: 122.4,
       y: 380.8,
       width: 447.8,
-      height: 19.8,
+      height: 30.6,
     });
   });
 
@@ -604,6 +612,108 @@ describe('buildFormFields', () => {
 
     expect(fields[0].label?.text).toBe('Middle Initial');
     expect(fields[1].label?.text).toBe('Other Last Names Used');
+  });
+
+  it('does not attach semantically unrelated nearby labels to named text fields', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'Applicant Last Name',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(70.95, 126.26, 322.91, 20.2),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'Applicant Middle Name',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(338.05, 158.2, 246.78, 21.51),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'Applicant Place of Birth',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(308.53, 190.53, 277.05, 21.51),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'Applicant Email',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(397.38, 225.36, 187.62, 22.32),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'Applicant DOB D',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(105.66, 189.29, 31.53, 22),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'Gender',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(242.21, 200.23, 12.76, 12.11),
+          fieldValue: 'Off',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'Alien Number',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(239.99, 223.81, 146.76, 22),
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        { text: 'Regular Book (Standard)', x: 126.39, y: 89.54, width: 79.63, height: 9, fontSize: 9 },
+        {
+          text: 'The large book is for frequent international travelers who need more visa pages',
+          x: 116.15,
+          y: 101.84,
+          width: 224.81,
+          height: 8,
+          fontSize: 8,
+        },
+        { text: 'Sex', x: 253.04, y: 180.49, width: 12.1, height: 8.5, fontSize: 8.5 },
+        { text: 'Place of Birth', x: 322.16, y: 181.3, width: 48.34, height: 7.5, fontSize: 7.5 },
+        { text: '(MM/DD/YYYY)', x: 134.51, y: 180.84, width: 44.8, height: 8, fontSize: 8 },
+        { text: 'Social Security Number', x: 81.46, y: 214.01, width: 80.83, height: 9, fontSize: 9 },
+        {
+          text: 'USCIS Registration A-Number',
+          x: 223.8,
+          y: 213.17,
+          width: 114.23,
+          height: 8,
+          fontSize: 8,
+        },
+        {
+          text: '(see application status at passportstatus.state.gov)',
+          x: 437.38,
+          y: 216.89,
+          width: 141.93,
+          height: 5.5,
+          fontSize: 5.5,
+        },
+        {
+          text: 'USCIS Registration A-Number (if applicable) Email (see application status at passportstatus.state.gov)',
+          x: 223.8,
+          y: 213.17,
+          width: 327.31,
+          height: 8.91,
+          fontSize: 8,
+        },
+        { text: 'Email', x: 406.07, y: 214.08, width: 17.08, height: 8, fontSize: 8 },
+      ],
+    );
+
+    expect(fields.find((field) => field.name === 'Applicant Last Name')?.label).toBeUndefined();
+    expect(fields.find((field) => field.name === 'Applicant Middle Name')?.label).toBeUndefined();
+    expect(fields.find((field) => field.name === 'Applicant Place of Birth')?.label?.text).toBe('Place of Birth');
+    expect(fields.find((field) => field.name === 'Applicant Email')?.label?.text).toBe('Email');
+    expect(fields.find((field) => field.name === 'Applicant DOB D')?.label?.text).toBe('(MM/DD/YYYY)');
+    expect(fields.find((field) => field.name === 'Gender')?.label).toBeUndefined();
+    expect(fields.find((field) => field.name === 'Alien Number')?.label?.text).toBe('USCIS Registration A-Number');
   });
 
   it('uses distant same-row headers for wide document-list form grids', () => {
@@ -729,10 +839,10 @@ describe('buildFormFields', () => {
       [
         { text: 'Trust/estate', x: 402.4, y: 180, width: 37.46, height: 7, fontSize: 7 },
         {
-          text: 'LLC. Enter the tax classification (C = C corporation, S = S corporation, P = Partnership)',
+          text: 'LLC. Enter the tax classification (C = C corporation, S = S corporation, P = Partnership) . . . .',
           x: 86.4,
           y: 193.5,
-          width: 272.14,
+          width: 302.14,
           height: 7,
           fontSize: 7,
         },
@@ -790,6 +900,22 @@ describe('buildFormFields', () => {
       0,
       [
         {
+          text: '1 Two jobs. If you have two jobs or you’re married filing jointly and you and your spouse each have one',
+          x: 45.4,
+          y: 160.02,
+          width: 429.82,
+          height: 9,
+          fontSize: 9,
+        },
+        {
+          text: 'job, find the amount from the appropriate table on page 5. Using the “Higher Paying Job” row and the',
+          x: 64.78,
+          y: 170.82,
+          width: 410.41,
+          height: 9,
+          fontSize: 9,
+        },
+        {
           text: '"Lower Paying Job" column, find the value at the intersection of the two household salaries and enter',
           x: 64.81,
           y: 181.62,
@@ -811,10 +937,10 @@ describe('buildFormFields', () => {
     );
 
     expect(fields[0].label).toMatchObject({
-      text: '"Lower Paying Job" column, find the value at the intersection of the two household salaries and enter that value on line 1. Then, skip to line 3 1 $',
+      text: '1 Two jobs. If you have two jobs or you’re married filing jointly and you and your spouse each have one job, find the amount from the appropriate table on page 5. Using the “Higher Paying Job” row and the "Lower Paying Job" column, find the value at the intersection of the two household salaries and enter that value on line 1. Then, skip to line 3 1 $',
       relation: 'left',
-      x: 64.75,
-      y: 181.62,
+      x: 45.4,
+      y: 160.02,
     });
   });
 
@@ -874,6 +1000,22 @@ describe('buildFormFields', () => {
       0,
       [
         {
+          text: '1 Two jobs. If you have two jobs or you’re married filing jointly and you and your spouse each have one',
+          x: 45.4,
+          y: 160.02,
+          width: 429.82,
+          height: 9,
+          fontSize: 9,
+        },
+        {
+          text: 'job, find the amount from the appropriate table on page 5. Using the “Higher Paying Job” row and the',
+          x: 64.78,
+          y: 170.82,
+          width: 410.41,
+          height: 9,
+          fontSize: 9,
+        },
+        {
           text: '"Lower Paying Job" column, find the value at the intersection of the two household salaries and enter',
           x: 64.81,
           y: 181.62,
@@ -899,6 +1041,9 @@ describe('buildFormFields', () => {
       ],
     );
 
+    expect(fields[0].label?.text).toContain(
+      '1 Two jobs. If you have two jobs or you’re married filing jointly and you and your spouse each have one job, find',
+    );
     expect(fields[0].label?.text).toContain('that value on line 1. Then, skip to line 3 1 $');
   });
 
@@ -1093,12 +1238,28 @@ describe('buildFormFields', () => {
       0,
       0,
       [
+        {
+          text: 'For guidance related to the purpose of Form W-9, see',
+          x: 107.2,
+          y: 87,
+          width: 195,
+          height: 8,
+          fontSize: 8,
+        },
         { text: '1', x: 61.6, y: 97, width: 3.89, height: 7, fontSize: 7 },
         {
-          text: '1 Name of entity/individual. An entry is required.',
+          text: '1 Name of entity/individual. An entry is required. (For a sole proprietor or disregarded entity, enter the owner’s name on line 1, and enter the business/disregarded',
           x: 61.6,
           y: 97,
-          width: 260,
+          width: 511.1,
+          height: 7,
+          fontSize: 7,
+        },
+        {
+          text: 'entity’s name on line 2.)',
+          x: 73.6,
+          y: 105.4,
+          width: 74.05,
           height: 7,
           fontSize: 7,
         },
@@ -1106,7 +1267,64 @@ describe('buildFormFields', () => {
     );
 
     expect(fields[0].label).toMatchObject({
-      text: '1 Name of entity/individual. An entry is required.',
+      text: '1 Name of entity/individual. An entry is required. (For a sole proprietor or disregarded entity, enter the owner’s name on line 1, and enter the business/disregarded entity’s name on line 2.)',
+      relation: 'above',
+    });
+  });
+
+  it('prefixes split same-row line numbers onto above text prompts', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'businessName',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(58.6, 142, 517.4, 14),
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        { text: '2', x: 61.6, y: 133, width: 3.89, height: 7, fontSize: 7 },
+        {
+          text: 'Business name/disregarded entity name, if different from above.',
+          x: 73.28,
+          y: 133,
+          width: 200.58,
+          height: 7,
+          fontSize: 7,
+        },
+      ],
+    );
+
+    expect(fields[0].label).toMatchObject({
+      text: '2 Business name/disregarded entity name, if different from above.',
+      relation: 'above',
+    });
+  });
+
+  it('expands line-number labels from same-row prompts with stray leading text', () => {
+    const fields = buildFormFields(
+      [{ subtype: 'Widget', fieldName: 'addressLine', fieldType: 'Tx', rect: rectFromTopLeft(58.6, 286, 329.45, 14) }],
+      792,
+      0,
+      0,
+      [
+        { text: '5', x: 61.6, y: 277, width: 3.89, height: 7, fontSize: 7 },
+        {
+          text: 'See 5 Address (number, street, and apt. or suite no.). See instructions.',
+          x: 44.31,
+          y: 275.57,
+          width: 228.91,
+          height: 13.78,
+          fontSize: 7,
+        },
+      ],
+    );
+
+    expect(fields[0].label).toMatchObject({
+      text: '5 Address (number, street, and apt. or suite no.). See instructions.',
       relation: 'above',
     });
   });
@@ -1175,5 +1393,48 @@ describe('buildFormFields', () => {
       text: 'Middle Initial',
       relation: 'above',
     });
+  });
+
+  it('prefers a wide text field own above label over the adjacent column label', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'Signature of Preparer or Translator 0',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(39.32, 228.28, 373.84, 22.92),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'Sig Date mmddyyyy 0',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(417.56, 228.28, 150.38, 22.92),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'Preparer or Translator Last Name (Family Name) 0',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(39.64, 265.2, 229.52, 16),
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        {
+          text: 'Signature of Preparer or Translator',
+          x: 38.84,
+          y: 217.15,
+          width: 124.05,
+          height: 8,
+          fontSize: 8,
+        },
+        { text: 'Date (mm/dd/yyyy)', x: 417.12, y: 217.18, width: 67.12, height: 8, fontSize: 8 },
+        { text: 'Last Name (Family Name)', x: 38.84, y: 254.52, width: 93.34, height: 8, fontSize: 8 },
+      ],
+    );
+
+    expect(fields[0].label?.text).toBe('Signature of Preparer or Translator');
+    expect(fields[1].label?.text).toBe('Date (mm/dd/yyyy)');
   });
 });

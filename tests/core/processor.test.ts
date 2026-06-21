@@ -1,7 +1,7 @@
 import { copyFileSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { getCacheDir } from '../../src/core/cache.js';
+import { getCacheDir } from '../../src/core/io/cache.js';
 import { processFile } from '../../src/core/processor.js';
 
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');

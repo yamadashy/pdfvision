@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { derivePageQuality } from '../../src/core/pageQuality.js';
+import { derivePageQuality } from '../../src/core/quality/pageQuality.js';
 import type { PageResult } from '../../src/types/index.js';
 
 function makePage(overrides: Partial<PageResult> = {}): PageResult {

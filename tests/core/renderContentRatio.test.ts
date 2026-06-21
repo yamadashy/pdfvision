@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeContentRatio } from '../../src/core/renderer.js';
+import { computeContentRatio } from '../../src/core/renderer/index.js';
 
 /**
  * Build a flat RGBA buffer of `pixelCount` pixels at the given color.

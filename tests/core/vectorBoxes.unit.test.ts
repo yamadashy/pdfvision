@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { ImageOps } from '../../src/core/imageBoxes.js';
-import { buildVectorBoxes } from '../../src/core/vectorBoxes.js';
+import type { ImageOps } from '../../src/core/graphics/imageBoxes.js';
+import { buildVectorBoxes } from '../../src/core/graphics/vectorBoxes.js';
 
 const OP = {
   save: 1,

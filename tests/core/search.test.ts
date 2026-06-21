@@ -1,7 +1,7 @@
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { processDocument } from '../../src/core/processor.js';
-import { compileSearch, searchPage } from '../../src/core/search.js';
+import { compileSearch, searchPage } from '../../src/core/search/index.js';
 import type { FormField, PageAnnotation, TextSpan } from '../../src/types/index.js';
 
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
@@ -743,7 +743,7 @@ describe('processDocument search', () => {
     // because the font, style, or text matrix changes. Search should
     // still find the phrase and return a bbox union suitable for
     // renderRegion zoom.
-    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const { compileSearch, searchPage } = await import('../../src/core/search/index.js');
     const compiled = compileSearch('Hello World', {});
     if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
     const matches = searchPage(
@@ -767,7 +767,7 @@ describe('processDocument search', () => {
     // Search bboxes feed directly into --render-region. A substring
     // match should not return the whole pdf.js span when only two
     // characters inside that span matched.
-    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const { compileSearch, searchPage } = await import('../../src/core/search/index.js');
     const compiled = compileSearch('cd', {});
     if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
     const matches = searchPage(
@@ -788,7 +788,7 @@ describe('processDocument search', () => {
     // suffix starts a longer span. Searching "JICA債" should include
     // only the first character of the second span, not the whole
     // "債への投資家..." run.
-    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const { compileSearch, searchPage } = await import('../../src/core/search/index.js');
     const compiled = compileSearch('JICA債', {});
     if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
     const matches = searchPage(
@@ -811,7 +811,7 @@ describe('processDocument search', () => {
   });
 
   it('slices vertical CJK span matches along the y axis', async () => {
-    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const { compileSearch, searchPage } = await import('../../src/core/search/index.js');
     const compiled = compileSearch('縦中横', {});
     if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
     const matches = searchPage(
@@ -829,7 +829,7 @@ describe('processDocument search', () => {
   });
 
   it('slices rotated Latin span matches along the y axis', async () => {
-    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const { compileSearch, searchPage } = await import('../../src/core/search/index.js');
     const compiled = compileSearch('cd', {});
     if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
     const matches = searchPage(
@@ -847,7 +847,7 @@ describe('processDocument search', () => {
   });
 
   it('does not double-insert a synthetic space when adjacent spans already carry whitespace', async () => {
-    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const { compileSearch, searchPage } = await import('../../src/core/search/index.js');
     const compiled = compileSearch('Hello World', {});
     if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
     const matches = searchPage(
@@ -866,7 +866,7 @@ describe('processDocument search', () => {
   });
 
   it('uses the CJK-aware gap threshold when matching across glyph spans', async () => {
-    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const { compileSearch, searchPage } = await import('../../src/core/search/index.js');
     const compiled = compileSearch('背景・目的', {});
     if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
     const spans = Array.from('背景・目的').map((text, i) => ({
@@ -883,7 +883,7 @@ describe('processDocument search', () => {
   });
 
   it('does not match phrases across large same-baseline column gaps', async () => {
-    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const { compileSearch, searchPage } = await import('../../src/core/search/index.js');
     const compiled = compileSearch('left right', {});
     if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
     const matches = searchPage(
@@ -905,7 +905,7 @@ describe('processDocument search', () => {
     // same baseline with only ~23pt of gutter. A human reads these as
     // separate columns, so search context and phrase matching should
     // not join the left line to the right line.
-    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const { compileSearch, searchPage } = await import('../../src/core/search/index.js');
     const compiled = compileSearch('domestic investors', {});
     if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
     const matches = searchPage(
@@ -926,7 +926,7 @@ describe('processDocument search', () => {
     // BERT / ACL paper-shaped case: same-baseline left and right body
     // columns can have only ~17pt of gutter. Search context should not
     // join the left column tail to the right column hit.
-    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const { compileSearch, searchPage } = await import('../../src/core/search/index.js');
     const compiled = compileSearch('inference approaches', {});
     if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
     const matches = searchPage(
@@ -947,7 +947,7 @@ describe('processDocument search', () => {
     // Scan-with-hidden-text-layer case: --ocr can find the same word as
     // the native text layer. Emitting both makes find-then-zoom
     // ambiguous, so the precise native match wins.
-    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const { compileSearch, searchPage } = await import('../../src/core/search/index.js');
     const compiled = compileSearch('Switzerland', {});
     if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
     const matches = searchPage(
@@ -968,7 +968,7 @@ describe('processDocument search', () => {
     // occurrence that the native layer did not expose, keep it for
     // recall. Older OCR cache entries without word boxes still fall
     // back to a page-level bbox.
-    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const { compileSearch, searchPage } = await import('../../src/core/search/index.js');
     const compiled = compileSearch('Switzerland', {});
     if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
     const matches = searchPage(
@@ -985,7 +985,7 @@ describe('processDocument search', () => {
   });
 
   it('uses OCR word boxes for OCR-only search hits when available', async () => {
-    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const { compileSearch, searchPage } = await import('../../src/core/search/index.js');
     const compiled = compileSearch('near Geneva', {});
     if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
     const matches = searchPage(
@@ -1020,7 +1020,7 @@ describe('processDocument search', () => {
   });
 
   it('does not insert OCR search spaces between CJK word boxes', async () => {
-    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const { compileSearch, searchPage } = await import('../../src/core/search/index.js');
     const compiled = compileSearch('東京大学', {});
     if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
     const matches = searchPage(
@@ -1054,7 +1054,7 @@ describe('processDocument search', () => {
   });
 
   it('falls back to OCR text when word-level reconstruction misses the query', async () => {
-    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const { compileSearch, searchPage } = await import('../../src/core/search/index.js');
     const compiled = compileSearch('HelloWorld', {});
     if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
     const matches = searchPage(
@@ -1086,7 +1086,7 @@ describe('processDocument search', () => {
   });
 
   it('keeps raw OCR fallback hits when word-level reconstruction only covers some occurrences', async () => {
-    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const { compileSearch, searchPage } = await import('../../src/core/search/index.js');
     const compiled = compileSearch('東京大学', {});
     if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
     const matches = searchPage(
@@ -1134,7 +1134,7 @@ describe('processDocument search', () => {
     // processDocument searches native spans before OCR exists, then
     // searches OCR text later. Keep the separate-pass path equivalent
     // to a single searchPage(spans, ocr, ...) call.
-    const { compileSearch, searchPage, suppressDuplicateOcrMatches } = await import('../../src/core/search.js');
+    const { compileSearch, searchPage, suppressDuplicateOcrMatches } = await import('../../src/core/search/index.js');
     const compiled = compileSearch('Switzerland', {});
     if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
     const nativeMatches = searchPage(
@@ -1164,7 +1164,7 @@ describe('processDocument search', () => {
     // searchPage with a synthesised span so we don't need a fixture
     // big enough to hit the cap — easier to assert exact cap value
     // (10000) than to ship a > 10k-char PDF.
-    const { compileSearch, searchPage } = await import('../../src/core/search.js');
+    const { compileSearch, searchPage } = await import('../../src/core/search/index.js');
     const compiled = compileSearch('.', { regex: true });
     if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
     // 20k characters: easily exceeds the 10k cap and gives plenty of

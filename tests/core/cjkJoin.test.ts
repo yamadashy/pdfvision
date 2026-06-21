@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isCjkLeading, type JoinItem, joinPageText } from '../../src/core/cjkJoin.js';
+import { isCjkLeading, type JoinItem, joinPageText } from '../../src/core/text/cjkJoin.js';
 
 /**
  * Build the per-item stream that pdf.js's `getTextContent` would emit

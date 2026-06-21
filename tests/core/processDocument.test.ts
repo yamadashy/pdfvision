@@ -3,8 +3,8 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, resolve } from 'node:path';
 import PDFDocument from 'pdfkit';
 import { describe, expect, it } from 'vitest';
+import { buildPageStructure } from '../../src/core/document/structure.js';
 import { processDocument, processFile } from '../../src/core/processor.js';
-import { buildPageStructure } from '../../src/core/structure.js';
 
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
 const SAMPLE_JA_PDF = resolve(__dirname, '../fixtures/sample-ja.pdf');
@@ -1393,7 +1393,7 @@ describe('processDocument', () => {
     const { mkdtempSync, mkdirSync, rmSync, symlinkSync } = await import('node:fs');
     const { tmpdir } = await import('node:os');
     const { join } = await import('node:path');
-    const { pdfFingerprint } = await import('../../src/core/cache.js');
+    const { pdfFingerprint } = await import('../../src/core/io/cache.js');
     const baseTmp = mkdtempSync(join(tmpdir(), 'pdfvision-render-symlink-test-'));
     const outDir = join(baseTmp, 'images');
     const decoy = join(baseTmp, 'decoy');
@@ -1424,7 +1424,7 @@ describe('processDocument', () => {
     const { mkdtempSync, mkdirSync, rmSync, symlinkSync } = await import('node:fs');
     const { tmpdir } = await import('node:os');
     const { join } = await import('node:path');
-    const { pdfFingerprint } = await import('../../src/core/cache.js');
+    const { pdfFingerprint } = await import('../../src/core/io/cache.js');
     const baseTmp = mkdtempSync(join(tmpdir(), 'pdfvision-render-scale-symlink-'));
     const outDir = join(baseTmp, 'images');
     const decoy = join(baseTmp, 'decoy');
@@ -1528,7 +1528,7 @@ describe('processDocument', () => {
     // the corrupted entry fails (read-only mount, permission race, ...)
     // the call should still extract from source and return a valid result.
     const { writeFileSync, chmodSync, readdirSync } = await import('node:fs');
-    const { getCacheDir } = await import('../../src/core/cache.js');
+    const { getCacheDir } = await import('../../src/core/io/cache.js');
 
     // Populate cache, then corrupt it and lock the parent dir read-only
     // so dropCached's rmSync would normally throw.

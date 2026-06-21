@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultConcurrency, runParallel } from '../../src/core/parallel.js';
+import { defaultConcurrency, runParallel } from '../../src/core/runtime/parallel.js';
 
 describe('defaultConcurrency', () => {
   it('returns a positive integer no larger than the 8-task ceiling', () => {
