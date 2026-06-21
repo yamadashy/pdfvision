@@ -1,11 +1,15 @@
-import type { LayoutBlock, LayoutLine, LayoutTable, PageLayout, TextSpan } from '../types/index.js';
-import { type BBox, median, mode, round2, unionBox } from './layout/geometry.js';
-import { CJK_TIGHT_GAP_RATIO, isCjkLeading } from './text/cjkJoin.js';
+import type { LayoutBlock, LayoutLine, LayoutTable, PageLayout, TextSpan } from '../../types/index.js';
+import { CJK_TIGHT_GAP_RATIO, isCjkLeading } from '../text/cjkJoin.js';
+import { type BBox, median, mode, round2, unionBox } from './geometry.js';
 
-export { markRepeatedBlocks } from './layout/repeatedChrome.js';
+export { markRepeatedBlocks } from './repeatedChrome.js';
 
-import { isLikelyCjkDisplaySpacingRow, isLikelyWideWordSpacingRow, shouldInsertSemanticSpace } from './text/spacing.js';
-import { isRtlDominantPositionedText, textOrder } from './text/textDirection.js';
+import {
+  isLikelyCjkDisplaySpacingRow,
+  isLikelyWideWordSpacingRow,
+  shouldInsertSemanticSpace,
+} from '../text/spacing.js';
+import { isRtlDominantPositionedText, textOrder } from '../text/textDirection.js';
 
 interface IndexedLayoutRow {
   row: LayoutLine[];

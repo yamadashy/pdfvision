@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildLayout, markRepeatedBlocks } from '../../src/core/layout.js';
+import { buildLayout, markRepeatedBlocks } from '../../src/core/layout/index.js';
 import { detectPageWarnings } from '../../src/core/warnings/index.js';
 import type { LayoutBlock, PageResult, TextSpan } from '../../src/types/index.js';
 

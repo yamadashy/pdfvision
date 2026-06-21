@@ -541,7 +541,7 @@ export interface LayoutBlock {
  *   - blocks wider than ~60% of the page are treated as spanning (e.g.
  *     headings, footers) and stay in their y position, acting as group
  *     separators between column runs.
- * See {@link buildLayout} / `reorderForColumns` in `core/layout.ts` for tuning.
+ * See {@link buildLayout} / `reorderForColumns` in `core/layout/index.ts` for tuning.
  */
 export interface PageLayout {
   blocks: LayoutBlock[];

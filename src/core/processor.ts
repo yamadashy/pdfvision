@@ -38,7 +38,7 @@ import { buildFormFields } from './formFields/index.js';
 import { buildImageBoxes, type ImageOps } from './graphics/imageBoxes.js';
 import { buildVectorBoxes } from './graphics/vectorBoxes.js';
 import { countVectorPaintOps } from './graphics/vectorOps.js';
-import { buildLayout, markRepeatedBlocks } from './layout.js';
+import { buildLayout, markRepeatedBlocks } from './layout/index.js';
 import { buildLinks } from './links/index.js';
 import { parsePageRangeWithSkipped } from './pageRange.js';
 import { runParallel } from './parallel.js';
