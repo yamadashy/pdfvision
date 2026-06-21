@@ -137,7 +137,11 @@ export function collectSameLineMarkerPromptStack(
       ...sameLinePrompt.map((item) => item.line),
     ]);
     if (!next) return stack.sort((a, b) => a.line.y - b.line.y || a.line.x - b.line.x);
-    if (isBareNumericFieldMarker(markerText) && startsWithPromptItemMarker(next.text)) {
+    if (
+      isBareNumericFieldMarker(markerText) &&
+      startsWithPromptItemMarker(next.text) &&
+      !startsWithSameNumericMarker(markerText, next.text)
+    ) {
       return stack.sort((a, b) => a.line.y - b.line.y || a.line.x - b.line.x);
     }
     stack.push(next);
@@ -145,6 +149,12 @@ export function collectSameLineMarkerPromptStack(
     bounds = unionBox(next.line, bounds);
   }
   return stack.sort((a, b) => a.line.y - b.line.y || a.line.x - b.line.x);
+}
+
+function startsWithSameNumericMarker(markerText: string, text: string): boolean {
+  const marker = normalizeLabelText(markerText).replace(/\s*\$/u, '').trim();
+  if (!/^\d+$/u.test(marker)) return false;
+  return new RegExp(`^${marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'u').test(normalizeLabelText(text));
 }
 
 function findPromptStackLine(

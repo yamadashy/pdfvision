@@ -1,6 +1,7 @@
 import type { FormField, FormFieldLabel } from '../../types/index.js';
 import {
   CHOICE_STACKED_LABEL_MAX_CHARS,
+  SAME_LINE_MARKER_PROMPT_MAX_CHARS,
   SAME_LINE_TEXT_PROMPT_MAX_GAP_PT,
   SIDE_LABEL_CONTINUATION_MAX_CHARS,
   STACKED_LABEL_MAX_CHARS,
@@ -77,7 +78,7 @@ export function expandSameLineMarkerPromptLabel(
     .map(({ text }) => normalizePromptLabelText(text))
     .filter((text) => text.length > 0 && !isDotLeaderText(text));
   const text = normalizePromptLabelText(textParts.join(' '));
-  if (!isUsableLabelText(text, STACKED_LABEL_MAX_CHARS) || text === candidate.text) return undefined;
+  if (!isUsableLabelText(text, SAME_LINE_MARKER_PROMPT_MAX_CHARS) || text === candidate.text) return undefined;
 
   const boxLines = promptLines
     .filter(({ text }) => !isDotLeaderText(text))
@@ -109,7 +110,7 @@ function expandVerticalPromptLeftMarkerLabel(
   const textParts = stack.map(({ text }) => normalizePromptLabelText(text));
   textParts[0] = `${marker.text} ${textParts[0]}`;
   const text = normalizePromptLabelText(textParts.join(' '));
-  if (!isUsableLabelText(text, STACKED_LABEL_MAX_CHARS) || text === candidate.text) return undefined;
+  if (!isUsableLabelText(text, SAME_LINE_MARKER_PROMPT_MAX_CHARS) || text === candidate.text) return undefined;
 
   const boxLines = [marker.line, ...stack.map(({ line }) => line)].sort((a, b) => a.y - b.y || a.x - b.x);
   const labelBox = boxLines.slice(1).reduce<BoxLike>((box, line) => unionBox(box, line), boxLines[0] ?? candidate.line);
@@ -159,7 +160,7 @@ function expandVerticalMarkerPromptLabel(
   };
   const promptLines = collectStackedLabelLines(field, promptCandidate, lines);
   const text = normalizePromptLabelText(promptLines.map(({ text }) => text).join(' '));
-  if (!isUsableLabelText(text, STACKED_LABEL_MAX_CHARS) || text === candidate.text) return undefined;
+  if (!isUsableLabelText(text, SAME_LINE_MARKER_PROMPT_MAX_CHARS) || text === candidate.text) return undefined;
 
   const boxLines = promptLines.map(({ line }) => line).sort((a, b) => a.y - b.y || a.x - b.x);
   const labelBox = boxLines.slice(1).reduce<BoxLike>((box, line) => unionBox(box, line), boxLines[0] ?? candidate.line);

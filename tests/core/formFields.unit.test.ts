@@ -900,6 +900,22 @@ describe('buildFormFields', () => {
       0,
       [
         {
+          text: '1 Two jobs. If you have two jobs or you’re married filing jointly and you and your spouse each have one',
+          x: 45.4,
+          y: 160.02,
+          width: 429.82,
+          height: 9,
+          fontSize: 9,
+        },
+        {
+          text: 'job, find the amount from the appropriate table on page 5. Using the “Higher Paying Job” row and the',
+          x: 64.78,
+          y: 170.82,
+          width: 410.41,
+          height: 9,
+          fontSize: 9,
+        },
+        {
           text: '"Lower Paying Job" column, find the value at the intersection of the two household salaries and enter',
           x: 64.81,
           y: 181.62,
@@ -921,10 +937,10 @@ describe('buildFormFields', () => {
     );
 
     expect(fields[0].label).toMatchObject({
-      text: '"Lower Paying Job" column, find the value at the intersection of the two household salaries and enter that value on line 1. Then, skip to line 3 1 $',
+      text: '1 Two jobs. If you have two jobs or you’re married filing jointly and you and your spouse each have one job, find the amount from the appropriate table on page 5. Using the “Higher Paying Job” row and the "Lower Paying Job" column, find the value at the intersection of the two household salaries and enter that value on line 1. Then, skip to line 3 1 $',
       relation: 'left',
-      x: 64.75,
-      y: 181.62,
+      x: 45.4,
+      y: 160.02,
     });
   });
 
@@ -984,6 +1000,22 @@ describe('buildFormFields', () => {
       0,
       [
         {
+          text: '1 Two jobs. If you have two jobs or you’re married filing jointly and you and your spouse each have one',
+          x: 45.4,
+          y: 160.02,
+          width: 429.82,
+          height: 9,
+          fontSize: 9,
+        },
+        {
+          text: 'job, find the amount from the appropriate table on page 5. Using the “Higher Paying Job” row and the',
+          x: 64.78,
+          y: 170.82,
+          width: 410.41,
+          height: 9,
+          fontSize: 9,
+        },
+        {
           text: '"Lower Paying Job" column, find the value at the intersection of the two household salaries and enter',
           x: 64.81,
           y: 181.62,
@@ -1009,6 +1041,9 @@ describe('buildFormFields', () => {
       ],
     );
 
+    expect(fields[0].label?.text).toContain(
+      '1 Two jobs. If you have two jobs or you’re married filing jointly and you and your spouse each have one job, find',
+    );
     expect(fields[0].label?.text).toContain('that value on line 1. Then, skip to line 3 1 $');
   });
 
