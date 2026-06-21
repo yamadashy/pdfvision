@@ -33,6 +33,7 @@ import { resolvePageNumbers } from './processor/pageSelection.js';
 import { fingerprintData, withTruncationHint } from './processor/pdfBytes.js';
 import { buildImageOps, buildPdfJsDocumentOptions } from './processor/pdfJsSetup.js';
 import { capturePdfJsWarnings } from './processor/pdfJsWarnings.js';
+import { buildProcessDocumentOptions, validateProcessFileOptions } from './processor/processFileOptions.js';
 import { prepareRenderImagesDir, validateRenderRegion, validateRenderScale } from './processor/renderOptions.js';
 import { renderResult } from './processor/renderResult.js';
 import { normalizeText } from './processor/textUtils.js';
@@ -475,54 +476,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
  * usually want `processDocument()` instead.
  */
 export async function processFile(filePath: string, options: ProcessOptions): Promise<string> {
-  // Validate format-specific options up front so the caller doesn't pay
-  // the extraction cost (potentially seconds of pdf.js / OCR work) only
-  // to hit a render-time mismatch. `stripRepeated` depends on the
-  // layout pass having tagged blocks with `repeated: true`, which only
-  // happens when `layout: true` is requested.
-  if (options.stripRepeated && !options.layout) {
-    throw new Error('stripRepeated requires layout: true');
-  }
-  if (options.stripRepeated && options.format !== 'markdown') {
-    // JSON / XML already expose `repeated: true` on each layout block,
-    // so passing `stripRepeated` with those formats is a misconfigured
-    // call (the flag would silently no-op against the formatter).
-    // Match the CLI's posture and fail loudly so library users notice
-    // the flag had no effect.
-    throw new Error(`stripRepeated only applies to markdown output (got format: ${options.format})`);
-  }
-  const result = await processDocument(filePath, {
-    pages: options.pages,
-    sourceData: options.sourceData,
-    password: options.password,
-    render: options.render,
-    noCache: options.noCache,
-    renderOutput: options.renderOutput,
-    renderScale: options.renderScale,
-    renderRegion: options.renderRegion,
-    search: options.search,
-    searchRegex: options.searchRegex,
-    searchCaseSensitive: options.searchCaseSensitive,
-    normalize: options.normalize,
-    geometry: options.geometry,
-    layout: options.layout,
-    imageBoxes: options.imageBoxes,
-    vectorBoxes: options.vectorBoxes,
-    visualRegions: options.visualRegions,
-    renderVisualRegions: options.renderVisualRegions,
-    formFields: options.formFields,
-    links: options.links,
-    annotations: options.annotations,
-    structure: options.structure,
-    pageLabels: options.pageLabels,
-    attachments: options.attachments,
-    attachmentOutput: options.attachmentOutput,
-    outline: options.outline,
-    viewer: options.viewer,
-    layers: options.layers,
-    ocr: options.ocr,
-    ocrLang: options.ocrLang,
-    onWarning: options.onWarning,
-  });
+  validateProcessFileOptions(options);
+  const result = await processDocument(filePath, buildProcessDocumentOptions(options));
   return renderResult(result, options);
 }
