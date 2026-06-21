@@ -452,6 +452,42 @@ describe('formatMarkdown', () => {
     expect(out).toContain('_No clickable links found._');
   });
 
+  it('adds search match counts and a match table when search ran', () => {
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 2,
+        pages: [
+          makePage({
+            page: 1,
+            text: 'searchable text',
+            charCount: 15,
+            matches: [
+              {
+                page: 1,
+                query: 'text|term',
+                queryIndex: 1,
+                source: 'native',
+                text: 'text|term',
+                context: 'near text|term',
+                bbox: { x: 100, y: 72, width: 60, height: 12 },
+                boxes: [{ x: 100, y: 72, width: 60, height: 12 }],
+              },
+            ],
+          }),
+          makePage({ page: 2, text: 'plain', charCount: 5, matches: [] }),
+        ],
+      }),
+    );
+
+    expect(out).toMatch(/\| Page \| Chars \| Images \| Coverage \| Size \(pt\) \| Matches \|/);
+    expect(out).toMatch(/\| 1 \| 15 \| 0 \| 0% \| 612×792 \| 1 \|/);
+    expect(out).toContain('matches: 1');
+    expect(out).toContain('### Search matches');
+    expect(out).toContain('| Query | Query# | Source | Text | Context | BBox |');
+    expect(out).toContain('| text\\|term | 1 | native | text\\|term | near text\\|term | 100,72,60,12 |');
+    expect(out).toContain('_No search matches found._');
+  });
+
   it('adds annotation counts and an annotations table when comments or markup are present', () => {
     const out = formatMarkdown(
       makeResult({

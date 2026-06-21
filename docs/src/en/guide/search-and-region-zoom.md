@@ -17,6 +17,8 @@ pdfvision report.pdf --search "revenue" --json
 
 Matches are emitted in `pages[].matches[]`. Each match includes the page number, query, source, text snippet, and a bounding box when pdfvision can locate the visible area.
 
+Markdown output also shows a per-page `Search matches` table when `--search` is used. Use JSON, XML, or TOON when a downstream tool needs to consume the coordinates directly.
+
 Repeat `--search` to run multiple queries in one pass:
 
 ```bash

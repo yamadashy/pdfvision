@@ -16,7 +16,7 @@ pdfvision document.pdf
 pdfvision document.pdf --format markdown
 ```
 
-Markdown is the default. It is optimized for conversational AI context: an overview table, per-page sections, extracted text, warnings, and image links when rendering is enabled.
+Markdown is the default. It is optimized for conversational AI context: an overview table, per-page sections, extracted text, search match tables, warnings, and image links when rendering is enabled.
 
 Use it when a human or chat model will read the output directly.
 

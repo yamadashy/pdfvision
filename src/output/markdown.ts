@@ -204,6 +204,25 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
       lines.push('');
       lines.push(body);
     }
+    if (page.matches) {
+      lines.push('');
+      lines.push('### Search matches');
+      if (page.matches.length === 0) {
+        lines.push('');
+        lines.push('_No search matches found._');
+      } else {
+        lines.push('');
+        const showQueryIndex = page.matches.some((match) => match.queryIndex !== undefined);
+        lines.push(`| Query |${showQueryIndex ? ' Query# |' : ''} Source | Text | Context | BBox |`);
+        lines.push(`| --- |${showQueryIndex ? ' ---: |' : ''} --- | --- | --- | --- |`);
+        for (const match of page.matches) {
+          const queryIndexCell = showQueryIndex ? ` ${match.queryIndex ?? ''} |` : '';
+          lines.push(
+            `| ${escapeTableCell(match.query)} |${queryIndexCell} ${match.source} | ${escapeTableCell(match.text)} | ${escapeTableCell(match.context ?? '')} | ${formatBox(match.bbox)} |`,
+          );
+        }
+      }
+    }
     if (page.structure !== undefined) {
       lines.push('');
       lines.push('### Structure');
