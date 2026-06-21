@@ -1181,7 +1181,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     // PageResults. The pdfjs-derived `text` stays untouched — agents that
     // care about the difference can compare `text` vs `ocr.text` directly.
     if (ocrEnabled) {
-      const { attachOcr } = await import('./ocr.js');
+      const { attachOcr } = await import('./ocr/index.js');
       // Hand the already-rendered PNG paths to attachOcr so we don't
       // re-rasterise the same pages a second time when both `--render`
       // and `--ocr` are on. attachOcr falls back to its own pdf.js

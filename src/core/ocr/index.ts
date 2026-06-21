@@ -1,18 +1,13 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
-import type { OcrWord, PageOcr } from '../types/index.js';
-import { ensurePrivateDir, getCacheRoot } from './cache.js';
-import {
-  DEFAULT_OCR_RENDER_SCALE,
-  normaliseConfidence,
-  type OcrWordTransform,
-  transformOcrWords,
-} from './ocr/words.js';
-import { ensureQuietTesseractWorker } from './ocr/worker.js';
-import { type RenderRegion, renderPageToBuffer, viewportCropForRegion } from './renderer.js';
+import type { OcrWord, PageOcr } from '../../types/index.js';
+import { ensurePrivateDir, getCacheRoot } from '../cache.js';
+import { type RenderRegion, renderPageToBuffer, viewportCropForRegion } from '../renderer.js';
+import { DEFAULT_OCR_RENDER_SCALE, normaliseConfidence, type OcrWordTransform, transformOcrWords } from './words.js';
+import { ensureQuietTesseractWorker } from './worker.js';
 
-export { buildQuietTesseractWorkerScript } from './ocr/worker.js';
+export { buildQuietTesseractWorkerScript } from './worker.js';
 
 /**
  * One OCR worker, reusable across many pages. Created once per

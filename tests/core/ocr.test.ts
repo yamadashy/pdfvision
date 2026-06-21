@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { buildQuietTesseractWorkerScript, parseOcrLang } from '../../src/core/ocr.js';
+import { buildQuietTesseractWorkerScript, parseOcrLang } from '../../src/core/ocr/index.js';
 import { processDocument } from '../../src/core/processor.js';
 
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
