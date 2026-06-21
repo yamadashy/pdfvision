@@ -22,6 +22,7 @@ import {
   visualRegionAssociatedText,
   visualRegionSources,
 } from './markdown/helpers.js';
+import { appendOverview, formatSize } from './markdown/overview.js';
 import { appendStructureItem, structureNodeCount } from './markdown/structure.js';
 
 /** Options that influence the Markdown rendering without changing the
@@ -35,12 +36,6 @@ export interface MarkdownOptions {
    *  to have been extracted with `layout: true`; throws otherwise so
    *  silent no-ops don't mask a misconfigured call. */
   stripRepeated?: boolean;
-}
-
-/** "595×842" — drops trailing .00 so integer dimensions stay readable. */
-function formatSize(page: PageResult): string {
-  const trim = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2));
-  return `${trim(page.width)}×${trim(page.height)}`;
 }
 
 function layoutBody(page: PageResult, filterRepeated: boolean): string {
@@ -144,88 +139,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     }
   }
 
-  // Overview table: density signal aggregation across the selected pages.
-  // Lets an agent eyeball outliers (image-flattened slides, blank pages,
-  // unusually dense pages) before scrolling through the body. Skipped for
-  // single-page outputs where a one-row table is just noise. The Size
-  // column carries width×height in PDF points so portrait-vs-landscape and
-  // slide-vs-document layouts are obvious from the same glance.
-  if (result.pages.length > 1) {
-    // The Blocks column appears only when --layout was on (any page carries
-    // a `layout` payload). Lets agents see at a glance how the doc breaks
-    // down into structural pieces without scrolling into the body.
-    const showBlocks = result.pages.some((p) => p.layout !== undefined);
-    // The NonPrint column appears only when at least one page has any
-    // non-printable code points (count > 0). Reading `count` instead of
-    // `ratio` here catches sparse occurrences that would otherwise
-    // round to 0% and hide the column for the whole document.
-    const showNonPrint = result.pages.some((p) => p.nonPrintableCount > 0);
-    // The Render column appears only when at least one page was rasterised
-    // (--render or --ocr). Showing it on every doc would clutter the
-    // overview with empty cells for the default text-only flow.
-    const showRender = result.pages.some((p) => p.renderContentRatio !== undefined);
-    const showVectors = result.pages.some((p) => p.vectorCount > 0);
-    const showVectorBoxes = result.pages.some((p) => p.vectorBoxes !== undefined);
-    const showFormFields = result.pages.some((p) => p.formFields !== undefined);
-    const showLinks = result.pages.some((p) => p.links !== undefined);
-    const showAnnotations = result.pages.some((p) => p.annotations !== undefined);
-    const showStructure = result.pages.some((p) => p.structure !== undefined);
-    const showPageJsActions = result.pages.some((p) => p.jsActions !== undefined);
-    const showVisualRegions = result.pages.some((p) => p.visualRegions !== undefined);
-    const showPageLabels = result.pages.some((p) => p.pageLabel !== undefined);
-    // The Warnings column appears only when at least one page carries
-    // a non-empty `warnings` array. Like NonPrint / Render, the column
-    // only shows up when there's actual signal — otherwise the table
-    // grows a column of zeroes for the default extraction.
-    const showWarnings = result.pages.some((p) => p.warnings && p.warnings.length > 0);
-    // The Matches column appears whenever a search was run (any page
-    // carries a `matches` field, even an empty one). Present-with-0
-    // is meaningful — tells the agent search ran but this page had
-    // no hits, vs the column not appearing at all (search wasn't
-    // requested).
-    const showMatches = result.pages.some((p) => p.matches !== undefined);
-    lines.push('');
-    lines.push('## Overview');
-    lines.push('');
-    lines.push(
-      `| Page |${showPageLabels ? ' Label |' : ''} Chars | Images | Coverage |${showNonPrint ? ' NonPrint |' : ''}${showRender ? ' Render |' : ''} Size (pt) |${showVectors ? ' Vectors |' : ''}${showVectorBoxes ? ' VectorBoxes |' : ''}${showVisualRegions ? ' VisualRegions |' : ''}${showBlocks ? ' Blocks |' : ''}${showWarnings ? ' Warnings |' : ''}${showMatches ? ' Matches |' : ''}${showFormFields ? ' FormFields |' : ''}${showLinks ? ' Links |' : ''}${showAnnotations ? ' Annotations |' : ''}${showStructure ? ' Structure |' : ''}${showPageJsActions ? ' JS Actions |' : ''}`,
-    );
-    lines.push(
-      `| ---: |${showPageLabels ? ' --- |' : ''} ---: | ---: | ---: |${showNonPrint ? ' ---: |' : ''}${showRender ? ' ---: |' : ''} ---: |${showVectors ? ' ---: |' : ''}${showVectorBoxes ? ' ---: |' : ''}${showVisualRegions ? ' ---: |' : ''}${showBlocks ? ' ---: |' : ''}${showWarnings ? ' ---: |' : ''}${showMatches ? ' ---: |' : ''}${showFormFields ? ' ---: |' : ''}${showLinks ? ' ---: |' : ''}${showAnnotations ? ' ---: |' : ''}${showStructure ? ' ---: |' : ''}${showPageJsActions ? ' ---: |' : ''}`,
-    );
-    for (const page of result.pages) {
-      const coveragePct = Math.round(page.textCoverage * 100);
-      const pageLabelCell = showPageLabels ? ` ${escapeTableCell(page.pageLabel ?? '')} |` : '';
-      // Use `<1%` (instead of the rounded `0%`) when the page has *any*
-      // non-printable chars — otherwise sparse occurrences like 2 bad
-      // codepoints in a 5000-char body page silently render as `0%` and
-      // the column-trigger above looks inconsistent.
-      const nonPrintPct = Math.round(page.nonPrintableRatio * 100);
-      const nonPrintCell = showNonPrint
-        ? ` ${nonPrintPct === 0 && page.nonPrintableCount > 0 ? '<1%' : `${nonPrintPct}%`} |`
-        : '';
-      const renderCell = showRender
-        ? // Two decimals as a percent so the agent sees the difference
-          // between blank (0.00%) and sparse-marks (0.10%) — three or more
-          // would clutter and reading <0.01% as "blank" is the heuristic.
-          ` ${page.renderContentRatio !== undefined ? `${(page.renderContentRatio * 100).toFixed(2)}%` : '—'} |`
-        : '';
-      const vectorsCell = showVectors ? ` ${page.vectorCount} |` : '';
-      const vectorBoxesCell = showVectorBoxes ? ` ${page.vectorBoxes?.length ?? 0} |` : '';
-      const visualRegionsCell = showVisualRegions ? ` ${page.visualRegions?.length ?? 0} |` : '';
-      const blocksCell = showBlocks ? ` ${page.layout?.blocks.length ?? 0} |` : '';
-      const warningsCell = showWarnings ? ` ${page.warnings?.length ?? 0} |` : '';
-      const matchesCell = showMatches ? ` ${page.matches?.length ?? 0} |` : '';
-      const formFieldsCell = showFormFields ? ` ${page.formFields?.length ?? 0} |` : '';
-      const linksCell = showLinks ? ` ${page.links?.length ?? 0} |` : '';
-      const annotationsCell = showAnnotations ? ` ${page.annotations?.length ?? 0} |` : '';
-      const structureCell = showStructure ? ` ${structureNodeCount(page.structure)} |` : '';
-      const jsActionsCell = showPageJsActions ? ` ${jsActionCount(page.jsActions)} |` : '';
-      lines.push(
-        `| ${page.page} |${pageLabelCell} ${page.charCount} | ${page.imageCount} | ${coveragePct}% |${nonPrintCell}${renderCell} ${formatSize(page)} |${vectorsCell}${vectorBoxesCell}${visualRegionsCell}${blocksCell}${warningsCell}${matchesCell}${formFieldsCell}${linksCell}${annotationsCell}${structureCell}${jsActionsCell}`,
-      );
-    }
-  }
+  appendOverview(lines, result);
 
   for (const page of result.pages) {
     const coveragePct = Math.round(page.textCoverage * 100);
