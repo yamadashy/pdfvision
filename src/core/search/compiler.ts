@@ -1,4 +1,4 @@
-import { isCjkLeading } from '../cjkJoin.js';
+import { isCjkLeading } from '../text/cjkJoin.js';
 
 /**
  * Inputs the processor builds once per request, then passes to

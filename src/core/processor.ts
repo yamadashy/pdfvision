@@ -29,7 +29,6 @@ import type {
 import { buildAnnotations, hasVisibleAnnotationAppearance } from './annotations.js';
 import { buildAttachments } from './attachments.js';
 import { dropCached, getCacheDir, getCached, pdfFingerprint, setCache } from './cache.js';
-import { type JoinItem, joinPageText } from './cjkJoin.js';
 import { resolveDestinationPage } from './destinations.js';
 import { buildFormFields } from './formFields.js';
 import { buildImageBoxes, type ImageOps } from './imageBoxes.js';
@@ -50,6 +49,7 @@ import {
 import { isRasterBackedTextLayer } from './rasterBackedTextLayer.js';
 import { type CompiledSearch, compileSearch, searchPage, suppressDuplicateOcrMatches } from './search.js';
 import { buildPageStructure, countStructureNodes } from './structure.js';
+import { type JoinItem, joinPageText } from './text/cjkJoin.js';
 import { textMatrixFontSize, textRunGeometryFromTransform } from './textGeometry.js';
 import { buildVectorBoxes } from './vectorBoxes.js';
 import { countVectorPaintOps } from './vectorOps.js';

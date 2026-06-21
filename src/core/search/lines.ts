@@ -1,7 +1,11 @@
 import type { OcrWord, TextSpan } from '../../types/index.js';
-import { CJK_TIGHT_GAP_RATIO, isCjkLeading } from '../cjkJoin.js';
-import { isLikelyCjkDisplaySpacingRow, isLikelyWideWordSpacingRow, shouldInsertSemanticSpace } from '../spacing.js';
-import { isRtlDominantPositionedText, textOrder } from '../textDirection.js';
+import { CJK_TIGHT_GAP_RATIO, isCjkLeading } from '../text/cjkJoin.js';
+import {
+  isLikelyCjkDisplaySpacingRow,
+  isLikelyWideWordSpacingRow,
+  shouldInsertSemanticSpace,
+} from '../text/spacing.js';
+import { isRtlDominantPositionedText, textOrder } from '../text/textDirection.js';
 import { unionBoxes } from './boxes.js';
 import { nfkc } from './compiler.js';
 import type { Box, SearchLine, SearchOwner } from './types.js';
