@@ -1,41 +1,14 @@
-import { accessSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import type { OutputFormat, RenderRegion } from '../types/index.js';
+import { exitWithError } from './errors.js';
+import { resolveOutputFormat } from './format.js';
 import { HELP_TEXT } from './help.js';
+import { readPasswordFromStdin, resolveInputSource } from './input.js';
+import { resolveRenderOptions } from './renderOptions.js';
+import type { ParsedCliValues, RunOptions } from './types.js';
 import { getVersion } from './version.js';
 
-const VALID_FORMATS: readonly OutputFormat[] = ['markdown', 'json', 'xml', 'toon'];
-
-interface RunOptions {
-  stdin?: AsyncIterable<Buffer | Uint8Array | string> & { isTTY?: boolean };
-}
-
-function isValidFormat(value: string): value is OutputFormat {
-  return (VALID_FORMATS as readonly string[]).includes(value);
-}
-
-function exitWithError(message: string): never {
-  console.error(`Error: ${message}`);
-  console.error('Run "pdfvision --help" for usage.');
-  process.exit(1);
-}
-
-async function readPasswordFromStdin(stdin: RunOptions['stdin'] = process.stdin): Promise<string | undefined> {
-  if (stdin?.isTTY) {
-    return undefined;
-  }
-  const chunks: Buffer[] = [];
-  for await (const chunk of stdin ?? []) {
-    chunks.push(typeof chunk === 'string' ? Buffer.from(chunk, 'utf8') : Buffer.from(chunk));
-  }
-  return Buffer.concat(chunks)
-    .toString('utf8')
-    .replace(/\r?\n$/, '');
-}
-
 export async function run(argv: string[] = process.argv.slice(2), options: RunOptions = {}): Promise<void> {
-  let values: Record<string, string | string[] | boolean | undefined>;
+  let values: ParsedCliValues;
   let positionals: string[];
   try {
     // parseArgs throws on unknown options or missing required values.
@@ -95,7 +68,7 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
         'search-case-sensitive': { type: 'boolean' },
       },
     });
-    values = parsed.values as Record<string, string | string[] | boolean | undefined>;
+    values = parsed.values as ParsedCliValues;
     positionals = parsed.positionals;
   } catch (error) {
     exitWithError(error instanceof Error ? error.message : String(error));
@@ -138,96 +111,8 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
     exitWithError('--remote and a file path are mutually exclusive');
   }
 
-  // Resolve the output format from the canonical `-f / --format` flag
-  // plus the `--markdown` / `--json` / `--xml` shortcut aliases. The
-  // canonical form is kept for completeness (future formats like html,
-  // jsonl can ride on it without inventing yet another shortcut) but
-  // the aliases are what most callers will reach for.
-  const aliasFormats: OutputFormat[] = [];
-  if (values.markdown) aliasFormats.push('markdown');
-  if (values.json) aliasFormats.push('json');
-  if (values.xml) aliasFormats.push('xml');
-  if (values.toon) aliasFormats.push('toon');
-  if (aliasFormats.length > 1) {
-    // Different aliases at once means the user typed two contradicting
-    // requests — silently picking last-wins would hide the intent
-    // mismatch. Fail loudly.
-    exitWithError(`Output format specified multiple times: ${aliasFormats.map((a) => `--${a}`).join(', ')}`);
-  }
-  const explicitFormat = values.format as string | undefined;
-  if (aliasFormats.length === 1 && explicitFormat !== undefined && explicitFormat !== aliasFormats[0]) {
-    // Alias and `-f` disagree (e.g. `--json -f xml`) — also a clear
-    // intent conflict.
-    exitWithError(`Output format conflict: --${aliasFormats[0]} vs --format ${explicitFormat}`);
-  }
-  // Pick alias if present, otherwise the explicit `-f` value, otherwise
-  // default to markdown. Same-value duplicates (`--json -f json`) are
-  // allowed and idempotent so a script that composes flags from
-  // multiple sources doesn't blow up on accidental redundancy.
-  const format = aliasFormats[0] ?? explicitFormat ?? 'markdown';
-  if (!isValidFormat(format)) {
-    exitWithError(`Invalid --format "${format}". Expected one of: ${VALID_FORMATS.join(', ')}`);
-  }
-
-  const renderOutput = values['render-output'] as string | undefined;
-  const render = (values.render as boolean | undefined) ?? false;
-  const renderVisualRegions = (values['render-visual-regions'] as boolean | undefined) ?? false;
-  if (renderOutput && !render && !renderVisualRegions) {
-    // --render-output only does something if page or visual-region crops are actually rendered.
-    // Failing fast is friendlier than silently writing nothing to the dir.
-    exitWithError('--render-output requires --render or --render-visual-regions');
-  }
-
-  // --render-scale parses as a number with explicit error messaging so
-  // the user sees the actual bounds (0, 4] instead of a generic NaN
-  // failure inside the processor. Allows --ocr-only scale changes too
-  // (OCR's internal rasterise respects the scale), so we don't gate
-  // on --render here.
-  const renderScaleRaw = values['render-scale'] as string | undefined;
-  let renderScale: number | undefined;
-  if (renderScaleRaw !== undefined) {
-    if (!render && !renderVisualRegions && !(values.ocr as boolean | undefined)) {
-      // No rasterisation will actually happen; the flag silently does
-      // nothing. Failing loudly mirrors the --render-output relationship.
-      exitWithError('--render-scale requires --render, --render-visual-regions, or --ocr');
-    }
-    const parsed = Number(renderScaleRaw);
-    if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 4) {
-      exitWithError(`Invalid --render-scale "${renderScaleRaw}": expected a number in (0, 4]`);
-    }
-    renderScale = parsed;
-  }
-
-  // --render-region parses "x,y,width,height" as PDF points (top-left
-  // origin, y grows downward — same coord system as imageBoxes /
-  // layout.blocks). CLI surfaces shape errors (wrong field count,
-  // non-numeric); positive-width/height and single-page constraints
-  // get enforced in the processor against the resolved page list, so
-  // we don't need to know totalPages here.
-  const renderRegionRaw = values['render-region'] as string | undefined;
-  let renderRegion: RenderRegion | undefined;
-  if (renderRegionRaw !== undefined) {
-    if (!render && !(values.ocr as boolean | undefined)) {
-      exitWithError('--render-region requires --render or --ocr');
-    }
-    const parts = renderRegionRaw.split(',').map((p) => p.trim());
-    if (parts.length !== 4) {
-      exitWithError(
-        `Invalid --render-region "${renderRegionRaw}": expected "x,y,width,height" (4 comma-separated numbers)`,
-      );
-    }
-    // Reject empty parts BEFORE Number() — `Number('')` is 0, so
-    // `"10,,30,40"` would silently coerce to `y=0` and execute as
-    // valid input instead of surfacing the typo.
-    if (parts.some((p) => p === '')) {
-      exitWithError(`Invalid --render-region "${renderRegionRaw}": empty value between commas`);
-    }
-    const [x, y, w, h] = parts.map(Number);
-    if (![x, y, w, h].every((n) => Number.isFinite(n))) {
-      exitWithError(`Invalid --render-region "${renderRegionRaw}": all four values must be finite numbers`);
-    }
-    renderRegion = { x, y, width: w, height: h };
-  }
+  const format = resolveOutputFormat(values);
+  const { render, renderOutput, renderScale, renderRegion, renderVisualRegions } = resolveRenderOptions(values);
 
   const layout = (values.layout as boolean | undefined) ?? false;
   const attachments = (values.attachments as boolean | undefined) ?? false;
@@ -273,30 +158,7 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
     exitWithError('--password-stdin requires piped stdin or --password fallback');
   }
 
-  let filePath: string;
-  let sourceData: Uint8Array | undefined;
-  if (remoteUrl) {
-    try {
-      const { downloadRemote, downloadRemoteData } = await import('../core/remote.js');
-      if (noCache) {
-        sourceData = await downloadRemoteData(remoteUrl);
-        filePath = remoteUrl;
-      } else {
-        const cachedPath = await downloadRemote(remoteUrl);
-        sourceData = readFileSync(cachedPath);
-        filePath = remoteUrl;
-      }
-    } catch (error) {
-      exitWithError(error instanceof Error ? error.message : String(error));
-    }
-  } else {
-    filePath = resolve(positionals[0]);
-    try {
-      accessSync(filePath);
-    } catch {
-      exitWithError(`File not found: ${filePath}`);
-    }
-  }
+  const { filePath, sourceData } = await resolveInputSource(remoteUrl, positionals, noCache);
 
   try {
     // Lazy-load the processor (and the heavy pdfjs-dist + optional
