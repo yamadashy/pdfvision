@@ -1,5 +1,4 @@
-import { createHash } from 'node:crypto';
-import { closeSync, fstatSync, openSync, readFileSync, readSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join, dirname as pathDirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
@@ -43,6 +42,7 @@ import {
   dropCachedSafe,
   isUsableImage,
 } from './processor/cacheValidation.js';
+import { fingerprintData, withTruncationHint } from './processor/pdfBytes.js';
 import { prepareRenderImagesDir, validateRenderRegion, validateRenderScale } from './processor/renderOptions.js';
 import { renderResult } from './processor/renderResult.js';
 import { nonPrintableStats } from './quality/nonPrintable.js';
@@ -459,51 +459,6 @@ function isOptionalContentTextMarker(item: unknown): boolean {
   if (!item || typeof item !== 'object') return false;
   const marker = item as { type?: unknown; tag?: unknown };
   return marker.type === 'beginMarkedContentProps' && marker.tag === 'OC';
-}
-
-function fingerprintData(data: Uint8Array): string {
-  return createHash('sha256').update(data).digest('hex').slice(0, 16);
-}
-
-/** Bytes scanned at the end of the file for the `%%EOF` marker. The PDF
- *  spec requires the trailer within the last 1024 bytes; doubled for
- *  slack (trailing whitespace, sloppy producers). */
-const EOF_SCAN_WINDOW_BYTES = 2048;
-
-/**
- * When pdf.js fails to parse a document, check whether the underlying
- * bytes even end in a `%%EOF` trailer. A missing trailer almost always
- * means the file is truncated (an interrupted download is the common
- * case — observed with a 128KB partial of the 1.6MB NIST SP 800-63-3),
- * and pdf.js's own message for that ("Invalid Root reference") gives a
- * caller no way to tell a broken PDF from a broken download. The probe
- * is best-effort: any inspection failure returns the original error.
- */
-function withTruncationHint(error: unknown, pdfData: Uint8Array | undefined, filePath: string): unknown {
-  if (!(error instanceof Error)) return error;
-  let tail: Uint8Array;
-  try {
-    if (pdfData) {
-      tail = pdfData.subarray(Math.max(0, pdfData.length - EOF_SCAN_WINDOW_BYTES));
-    } else {
-      const fd = openSync(filePath, 'r');
-      try {
-        const size = fstatSync(fd).size;
-        const length = Math.min(EOF_SCAN_WINDOW_BYTES, size);
-        const buffer = Buffer.alloc(length);
-        readSync(fd, buffer, 0, length, size - length);
-        tail = buffer;
-      } finally {
-        closeSync(fd);
-      }
-    }
-  } catch {
-    return error;
-  }
-  if (Buffer.from(tail).includes('%%EOF')) return error;
-  error.message +=
-    ' (no %%EOF trailer in the final bytes — the file is likely truncated, e.g. an incomplete download; re-download it and compare byte sizes before retrying)';
-  return error;
 }
 
 /**
