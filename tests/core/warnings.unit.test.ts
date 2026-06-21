@@ -1161,7 +1161,7 @@ describe('detectPageWarnings', () => {
         severity: 'warning',
       }),
     ]);
-    expect(out[0].message).toContain('standalone dotted leader lines');
+    expect(out[0].message).toContain('standalone dotted leader/noise lines');
   });
 
   it('does not flag ordinary ellipsis prose as dotted leader noise', () => {
@@ -2286,6 +2286,38 @@ describe('detectPageWarnings', () => {
 
       expect(detailed).toHaveLength(8);
       expect(summary?.message).toMatch(/additional block bbox overlaps omitted/);
+    });
+
+    it('does not flag overlapping map stipple dot texture blocks as text collisions', () => {
+      const dotLines = Array.from({ length: 6 }, (_, index) =>
+        line(`${'. '.repeat(24)}${index === 2 ? 'BAY ' : ''}${'. '.repeat(12)}`, 100, 100 + index * 2, 210, 10),
+      );
+      const nearbyDotLines = Array.from({ length: 5 }, (_, index) =>
+        line(`${'. '.repeat(18)}${index === 1 ? 'F ' : ''}${'. '.repeat(16)}`, 110, 104 + index * 2, 200, 10),
+      );
+      const out = detectPageWarnings(
+        page([
+          block(100, 100, 220, 24, { text: dotLines.map((item) => item.text).join('\n'), lines: dotLines }),
+          block(110, 104, 210, 22, {
+            text: nearbyDotLines.map((item) => item.text).join('\n'),
+            lines: nearbyDotLines,
+          }),
+        ]),
+      );
+
+      expect(out.some((w) => w.code === 'dot_leader_noise')).toBe(true);
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
+    it('does not flag short single-line dot texture overlaps as text collisions', () => {
+      const out = detectPageWarnings(
+        page([
+          block(100, 100, 120, 12, { text: '... .......... ....' }),
+          block(106, 102, 130, 12, { text: '.... ....... ... ..' }),
+        ]),
+      );
+
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
     });
 
     it('does not flag compact subscript blocks embedded in a displayed formula', () => {

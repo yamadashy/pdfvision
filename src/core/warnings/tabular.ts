@@ -61,7 +61,7 @@ export function detectDotLeaderNoise(page: PageResult, out: PageWarning[]): void
   out.push({
     code: 'dot_leader_noise',
     severity: 'warning',
-    message: `page contains ${stats.lineCount} standalone dotted leader lines (${stats.dotCount} leader marks) — table-of-contents or table leaders may have been extracted away from their labels; inspect layout or render when page numbers or row associations matter`,
+    message: `page contains ${stats.lineCount} standalone dotted leader/noise lines (${stats.dotCount} dot marks) — table-of-contents leaders, map stipple, or decorative dot patterns may have been represented as native text; inspect layout or render before trusting dotted text or row associations`,
   });
 }
 

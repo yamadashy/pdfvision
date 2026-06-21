@@ -544,7 +544,7 @@ interface PageWarning {
 
 The current rule catalog:
 
-- `text_overlap` — non-repeated layout blocks overlap in a way that may scramble reading order. Shallow adjacent-line bbox slack from inline math, multi-line math annotations, superscripts, subscripts, punctuation-only inline fragments, and callout-marker continuation lines is suppressed.
+- `text_overlap` — non-repeated layout blocks overlap in a way that may scramble reading order. Shallow adjacent-line bbox slack from inline math, multi-line math annotations, superscripts, subscripts, punctuation-only inline fragments, dotted map/decorative texture blocks, and callout-marker continuation lines is suppressed.
 - `near_bottom_edge` — body text ends unusually close to the page bottom.
 - `body_near_repeated_chrome` — body text overlaps or nearly touches detected repeated header/footer chrome.
 - `off_page` — a layout block bbox extends beyond the page.
@@ -554,7 +554,7 @@ The current rule catalog:
 - `dense_vector_graphics` — the page contains many vector drawing operations; often form boxes, table rules, chart paths, checkboxes, or diagrams whose visible structure is not represented by native text.
 - `vector_graphics_no_native_text` — a nonblank vector-only page has no native text; symbols, diagrams, or path-drawn labels can be visible in the render but absent from `pages[].text`.
 - `tabular_numeric_layout` — many short numeric lines form multiple aligned columns with shared row positions; often financial statements or dense numeric tables whose row/column relationships are visually obvious but can be flattened in plain native text. Chart-axis tick labels and irregular chart data-label rows are suppressed.
-- `dot_leader_noise` — many standalone dotted leader lines were extracted as separate layout text; often table-of-contents or table leaders that visually connect labels to page numbers or values but can appear as noisy dot paragraphs in plain native text.
+- `dot_leader_noise` — many standalone dotted leader/noise lines were extracted as separate layout text; often table-of-contents leaders, table leaders, map stipple, or decorative dot patterns that visually connect labels or represent texture but can appear as noisy dot paragraphs in plain native text.
 - `tiny_native_text_noise` — one or more long native text runs are set at extremely small sizes, often hidden producer links or machine-readable residue. Treat matching `pages[].text`, links, and search hits as possibly not human-visible until checked against the render. Requires `--layout` or `--geometry`.
 - `raster_backed_text_layer` — native text appears to be an OCR/text layer over a full-page raster image, including sparse OCR layers on scanned covers; text may be useful but error-prone, and bbox/layout geometry can drift from the pixels a human sees.
 - `raster_text_layer_symbol_noise` — a raster-backed native text layer is dominated by printable punctuation/symbol noise; common on old scan OCR title pages where `quality.nativeTextStatus` can still be `ok` even though the native text is visibly unreliable.
