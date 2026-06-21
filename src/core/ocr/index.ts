@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { OcrWord, PageOcr } from '../../types/index.js';
 import { ensurePrivateDir, getCacheRoot } from '../cache.js';
-import { type RenderRegion, renderPageToBuffer, viewportCropForRegion } from '../renderer.js';
+import { type RenderRegion, renderPageToBuffer, viewportCropForRegion } from '../renderer/index.js';
 import { DEFAULT_OCR_RENDER_SCALE, normaliseConfidence, type OcrWordTransform, transformOcrWords } from './words.js';
 import { ensureQuietTesseractWorker } from './worker.js';
 

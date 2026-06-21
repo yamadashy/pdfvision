@@ -2,17 +2,16 @@ import { existsSync, lstatSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
-import type { RenderedContentBox, RenderRegion } from '../types/index.js';
-import { atomicWrite } from './cache.js';
-import { runParallel } from './parallel.js';
-import { computeContentStats, type PixelContentBox, type RenderStats } from './renderer/contentStats.js';
-import { type PageViewportLike, type ViewportCrop, viewportCropForRegion } from './renderer/crop.js';
+import type { RenderedContentBox, RenderRegion } from '../../types/index.js';
+import { atomicWrite } from '../cache.js';
+import { runParallel } from '../parallel.js';
+import { computeContentStats, type PixelContentBox, type RenderStats } from './contentStats.js';
+import { type PageViewportLike, type ViewportCrop, viewportCropForRegion } from './crop.js';
 
-export { computeContentRatio } from './renderer/contentStats.js';
-export { viewportCropForRegion } from './renderer/crop.js';
-// Re-export so existing imports (`import type { RenderRegion } from
-// './renderer.js'`) keep working without churn — the canonical
-// declaration lives in `src/types/index.ts` per the project convention.
+export { computeContentRatio } from './contentStats.js';
+export { viewportCropForRegion } from './crop.js';
+// Re-export so render-domain callers can import the render types from the
+// same entrypoint. The canonical declaration lives in `src/types/index.ts`.
 export type { RenderRegion, ViewportCrop };
 
 const DEFAULT_SCALE = 2;

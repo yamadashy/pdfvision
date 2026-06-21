@@ -994,7 +994,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     if (options.render) {
       // renderer pulls in @napi-rs/canvas (native binding); only load it
       // when --render is requested.
-      const { renderPagesWithStats } = await import('./renderer.js');
+      const { renderPagesWithStats } = await import('./renderer/index.js');
       const rendered = await renderPagesWithStats(doc, pageNumbers, imagesDir as string, renderScale, renderRegion);
       imagePaths = rendered.map((r) => r.path);
       renderRatios = rendered.map((r) => r.contentRatio);
@@ -1168,7 +1168,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     if (renderVisualRegions) {
       const jobs = pages.flatMap((page) => (page.visualRegions ?? []).map((region) => ({ page, region })));
       if (jobs.length > 0) {
-        const { renderPageWithStats } = await import('./renderer.js');
+        const { renderPageWithStats } = await import('./renderer/index.js');
         await runParallel(jobs, async ({ page, region }) => {
           const rendered = await renderPageWithStats(doc, page.page, imagesDir as string, renderScale, region);
           region.image = rendered.path;

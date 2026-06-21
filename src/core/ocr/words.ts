@@ -1,5 +1,5 @@
 import type { OcrWord } from '../../types/index.js';
-import type { RenderRegion, ViewportCrop } from '../renderer.js';
+import type { RenderRegion, ViewportCrop } from '../renderer/index.js';
 
 export const DEFAULT_OCR_RENDER_SCALE = 2;
 
