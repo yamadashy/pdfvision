@@ -27,16 +27,18 @@ import type {
   VectorBox,
 } from '../types/index.js';
 import { buildAnnotations, hasVisibleAnnotationAppearance } from './annotations.js';
-import { buildAttachments } from './attachments.js';
 import { dropCached, getCacheDir, getCached, pdfFingerprint, setCache } from './cache.js';
-import { resolveDestinationPage } from './destinations.js';
+import { buildAttachments } from './document/attachments.js';
+import { resolveDestinationPage } from './document/destinations.js';
+import { buildLayers } from './document/layers.js';
+import { buildOutline } from './document/outline.js';
+import { buildPageStructure, countStructureNodes } from './document/structure.js';
+import { buildViewerState, normalizeJavaScriptActions } from './document/viewer.js';
 import { buildFormFields } from './formFields.js';
 import { buildImageBoxes, type ImageOps } from './imageBoxes.js';
-import { buildLayers } from './layers.js';
 import { buildLayout, markRepeatedBlocks } from './layout.js';
 import { buildLinks } from './links.js';
 import { nonPrintableStats } from './nonPrintable.js';
-import { buildOutline } from './outline.js';
 import { derivePageQuality } from './pageQuality.js';
 import { parsePageRangeWithSkipped } from './pageRange.js';
 import { runParallel } from './parallel.js';
@@ -48,12 +50,10 @@ import {
 } from './processor/renderOptions.js';
 import { isRasterBackedTextLayer } from './rasterBackedTextLayer.js';
 import { type CompiledSearch, compileSearch, searchPage, suppressDuplicateOcrMatches } from './search.js';
-import { buildPageStructure, countStructureNodes } from './structure.js';
 import { type JoinItem, joinPageText } from './text/cjkJoin.js';
 import { textMatrixFontSize, textRunGeometryFromTransform } from './textGeometry.js';
 import { buildVectorBoxes } from './vectorBoxes.js';
 import { countVectorPaintOps } from './vectorOps.js';
-import { buildViewerState, normalizeJavaScriptActions } from './viewer.js';
 import { type BuildVisualRegionsInput, buildVisualRegions } from './visualRegions.js';
 import { detectPageWarnings } from './warnings.js';
 import { extractWidgetAppearanceCaptions } from './widgetAppearance.js';

@@ -1,4 +1,4 @@
-import type { PageStructureContent, PageStructureItem, PageStructureNode } from '../types/index.js';
+import type { PageStructureContent, PageStructureItem, PageStructureNode } from '../../types/index.js';
 
 interface BuildStructureOptions {
   normalizeText?: (value: string) => string;

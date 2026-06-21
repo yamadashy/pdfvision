@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { buildAttachments } from '../../src/core/attachments.js';
+import { buildAttachments } from '../../src/core/document/attachments.js';
 
 describe('buildAttachments', () => {
   it('extracts attachment metadata without carrying content bytes', () => {

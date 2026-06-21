@@ -6,7 +6,7 @@ import type {
   DocumentPermissions,
   DocumentViewerState,
   JsonValue,
-} from '../types/index.js';
+} from '../../types/index.js';
 import { destinationTarget, resolveDestinationPage } from './destinations.js';
 
 interface PdfOpenAction {

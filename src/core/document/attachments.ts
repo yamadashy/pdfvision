@@ -1,7 +1,7 @@
 import { closeSync, constants as fsConstants, lstatSync, mkdirSync, openSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import type { DocumentAttachment } from '../types/index.js';
-import { atomicWrite } from './cache.js';
+import type { DocumentAttachment } from '../../types/index.js';
+import { atomicWrite } from '../cache.js';
 
 interface PdfAttachment {
   filename?: unknown;

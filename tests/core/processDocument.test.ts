@@ -3,8 +3,8 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, resolve } from 'node:path';
 import PDFDocument from 'pdfkit';
 import { describe, expect, it } from 'vitest';
+import { buildPageStructure } from '../../src/core/document/structure.js';
 import { processDocument, processFile } from '../../src/core/processor.js';
-import { buildPageStructure } from '../../src/core/structure.js';
 
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
 const SAMPLE_JA_PDF = resolve(__dirname, '../fixtures/sample-ja.pdf');

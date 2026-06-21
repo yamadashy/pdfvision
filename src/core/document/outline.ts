@@ -1,5 +1,5 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
-import type { DocumentOutlineItem, DocumentOutlineTargetType } from '../types/index.js';
+import type { DocumentOutlineItem, DocumentOutlineTargetType } from '../../types/index.js';
 import { destinationTarget, resolveDestinationPage } from './destinations.js';
 
 interface PdfOutlineNode {

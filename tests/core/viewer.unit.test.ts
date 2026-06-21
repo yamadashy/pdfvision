@@ -1,6 +1,6 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { describe, expect, it } from 'vitest';
-import { buildViewerState } from '../../src/core/viewer.js';
+import { buildViewerState } from '../../src/core/document/viewer.js';
 
 describe('buildViewerState', () => {
   it('decodes permissions and keeps viewer preferences JSON-safe', async () => {

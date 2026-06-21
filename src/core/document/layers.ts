@@ -1,5 +1,10 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
-import type { DocumentLayerGroup, DocumentLayerOrderItem, DocumentLayers, DocumentLayerUsage } from '../types/index.js';
+import type {
+  DocumentLayerGroup,
+  DocumentLayerOrderItem,
+  DocumentLayers,
+  DocumentLayerUsage,
+} from '../../types/index.js';
 
 interface BuildLayersOptions {
   normalizeText?: (value: string) => string;
