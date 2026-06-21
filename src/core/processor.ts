@@ -13,8 +13,8 @@ import { getCacheDir, pdfFingerprint } from './io/cache.js';
 import { buildCacheKey } from './processor/cacheKey.js';
 import { extractDocumentFeatures } from './processor/documentFeatures.js';
 import { buildOverview } from './processor/overview.js';
-import type { PageFlags } from './processor/pageData.js';
 import { extractPageData } from './processor/pageExtraction.js';
+import { buildPageFlags } from './processor/pageFlags.js';
 import { buildPageResult } from './processor/pageResult.js';
 import { resolvePageNumbers } from './processor/pageSelection.js';
 import { fingerprintData, withTruncationHint } from './processor/pdfBytes.js';
@@ -158,26 +158,10 @@ export async function processDocument(filePath: string, options: ProcessDocument
       renderRatios = rendered.map((r) => r.contentRatio);
     }
 
-    const flags: PageFlags = {
-      normalize: options.normalize !== false,
-      geometry: !!options.geometry,
-      layout: !!options.layout,
-      imageBoxes: !!options.imageBoxes,
-      vectorBoxes: !!options.vectorBoxes,
+    const flags = buildPageFlags(options, {
       visualRegions: wantsVisualRegions,
-      formFields: !!options.formFields,
-      links: !!options.links,
-      annotations: !!options.annotations,
-      annotationAppearanceHints: !!options.render || !!options.ocr,
-      structure: !!options.structure,
-      viewer: !!options.viewer,
-      // Search needs span-level bbox to populate `matches[*].bbox`;
-      // build spans internally even if the caller didn't ask for the
-      // full `pages[].spans` payload via --geometry.
-      needSpansForSearch: compiledSearch !== undefined,
-      needFormFieldsForSearch: compiledSearch !== undefined,
-      needAnnotationsForSearch: compiledSearch !== undefined,
-    };
+      hasSearch: compiledSearch !== undefined,
+    });
     const ocrEnabled = !!options.ocr;
     const ocrLang = options.ocrLang ?? 'eng';
     const rasterBackedTextLayerByPage = new Map<number, boolean>();
