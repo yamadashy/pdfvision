@@ -1,4 +1,5 @@
-import type { DocumentResult, PageResult, PageStructureItem, PageStructureNode } from '../types/index.js';
+import type { DocumentResult, PageResult } from '../types/index.js';
+import { appendLayers, appendOutline, appendViewer } from './markdown/documentSections.js';
 import {
   annotationBorder,
   annotationColor,
@@ -14,15 +15,14 @@ import {
   fieldOptions,
   fieldResetForm,
   fieldValue,
-  formatBbox,
   formatBox,
   formatJavaScriptActions,
-  formatViewerValue,
   jsActionCount,
   linkTarget,
   visualRegionAssociatedText,
   visualRegionSources,
 } from './markdown/helpers.js';
+import { appendStructureItem, structureNodeCount } from './markdown/structure.js';
 
 /** Options that influence the Markdown rendering without changing the
  *  underlying `DocumentResult`. JSON / XML formatters don't need them
@@ -48,111 +48,6 @@ function layoutBody(page: PageResult, filterRepeated: boolean): string {
     .filter((b) => !filterRepeated || !b.repeated)
     .map((b) => b.text)
     .join('\n\n');
-}
-
-function outlineLabel(item: NonNullable<DocumentResult['outline']>[number]): string {
-  const parts: string[] = [];
-  if (item.page !== undefined) parts.push(`p. ${item.page}`);
-  if (item.type) parts.push(item.type);
-  if (item.target) parts.push(item.target);
-  return parts.length > 0
-    ? `${escapeInline(item.title)} (${escapeInline(parts.join(' · '))})`
-    : escapeInline(item.title);
-}
-
-function appendOutline(lines: string[], items: NonNullable<DocumentResult['outline']>, depth = 0): void {
-  const indent = '  '.repeat(depth);
-  for (const item of items) {
-    lines.push(`${indent}- ${outlineLabel(item)}`);
-    if (item.items) appendOutline(lines, item.items, depth + 1);
-  }
-}
-
-function appendViewer(lines: string[], viewer: NonNullable<DocumentResult['viewer']>): void {
-  lines.push('');
-  lines.push('## Viewer');
-  lines.push('');
-  if (Object.keys(viewer).length === 0) {
-    lines.push('_No viewer settings found._');
-    return;
-  }
-  if (viewer.pageMode) lines.push(`- **Page mode:** ${escapeInline(viewer.pageMode)}`);
-  if (viewer.pageLayout) lines.push(`- **Page layout:** ${escapeInline(viewer.pageLayout)}`);
-  if (viewer.openAction) {
-    const parts: string[] = [viewer.openAction.type];
-    if (viewer.openAction.page !== undefined) parts.push(`p. ${viewer.openAction.page}`);
-    if (viewer.openAction.action) parts.push(viewer.openAction.action);
-    if (viewer.openAction.target) parts.push(viewer.openAction.target);
-    lines.push(`- **Open action:** ${escapeInline(parts.join(' · '))}`);
-  }
-  if (viewer.jsActions) {
-    lines.push(`- **JavaScript actions:** ${escapeInline(formatJavaScriptActions(viewer.jsActions))}`);
-  }
-  if (viewer.permissions) {
-    const allowed = viewer.permissions.allowed.length > 0 ? viewer.permissions.allowed.join(', ') : '(none)';
-    lines.push(`- **Permissions:** ${escapeInline(allowed)}`);
-  }
-  if (viewer.markInfo) {
-    lines.push(
-      `- **Mark info:** marked=${viewer.markInfo.marked}, userProperties=${viewer.markInfo.userProperties}, suspects=${viewer.markInfo.suspects}`,
-    );
-  }
-  if (viewer.viewerPreferences) {
-    const prefs = Object.entries(viewer.viewerPreferences)
-      .map(([key, value]) => `${key}=${formatViewerValue(value)}`)
-      .join('; ');
-    lines.push(`- **Preferences:** ${escapeInline(prefs)}`);
-  }
-}
-
-function appendLayers(lines: string[], layers: NonNullable<DocumentResult['layers']>): void {
-  lines.push('');
-  lines.push('## Layers');
-  lines.push('');
-  if (layers.name) lines.push(`- **Config:** ${escapeInline(layers.name)}`);
-  if (layers.creator) lines.push(`- **Creator:** ${escapeInline(layers.creator)}`);
-  if (layers.order) lines.push(`- **Panel order:** ${escapeInline(JSON.stringify(layers.order))}`);
-  if (layers.groups.length === 0) {
-    lines.push('_No PDF layers found._');
-    return;
-  }
-  const showRbGroups = layers.groups.some((layer) => layer.rbGroups !== undefined);
-  lines.push('');
-  lines.push(`| ID | Name | Visible | Intent | View | Print |${showRbGroups ? ' Radio groups |' : ''}`);
-  lines.push(`| --- | --- | --- | --- | --- | --- |${showRbGroups ? ' --- |' : ''}`);
-  for (const layer of layers.groups) {
-    const rbGroupsCell = showRbGroups ? ` ${escapeTableCell(JSON.stringify(layer.rbGroups ?? []))} |` : '';
-    lines.push(
-      `| ${escapeTableCell(layer.id)} | ${escapeTableCell(layer.name ?? '')} | ${layer.visible ? 'yes' : 'no'} | ${escapeTableCell(layer.intent?.join(', ') ?? '')} | ${escapeTableCell(layer.usage?.viewState ?? '')} | ${escapeTableCell(layer.usage?.printState ?? '')} |${rbGroupsCell}`,
-    );
-  }
-}
-
-function structureNodeCount(structure: PageStructureNode | null | undefined): number {
-  if (!structure) return 0;
-  return (
-    1 +
-    structure.children.reduce((sum, child) => {
-      return 'role' in child ? sum + structureNodeCount(child) : sum;
-    }, 0)
-  );
-}
-
-function structureLabel(item: PageStructureItem): string {
-  if (!('role' in item)) return `${escapeInline(item.type)} ${escapeInline(item.id)}`;
-  const parts = [escapeInline(item.role)];
-  if (item.lang) parts.push(`lang=${escapeInline(item.lang)}`);
-  if (item.bbox) parts.push(`bbox=${formatBbox(item.bbox)}`);
-  if (item.alt) parts.push(`alt=${escapeInline(item.alt)}`);
-  if (item.mathML) parts.push(`mathML=${escapeInline(item.mathML)}`);
-  return parts.join(' · ');
-}
-
-function appendStructureItem(lines: string[], item: PageStructureItem, depth = 0): void {
-  lines.push(`${'  '.repeat(depth)}- ${structureLabel(item)}`);
-  if ('role' in item) {
-    for (const child of item.children) appendStructureItem(lines, child, depth + 1);
-  }
 }
 
 /** Body text for a page: either the pdf.js-derived `page.text` (default),
