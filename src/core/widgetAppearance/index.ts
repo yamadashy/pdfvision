@@ -8,8 +8,8 @@
  * prove a caption, callers simply omit it.
  */
 
-import { extractObjectStreamBodies } from './widgetAppearance/objectStreams.js';
-import { parsePdfStringToken } from './widgetAppearance/pdfStrings.js';
+import { extractObjectStreamBodies } from './objectStreams.js';
+import { parsePdfStringToken } from './pdfStrings.js';
 
 const MAX_WIDGET_CAPTION_CHARS = 500;
 

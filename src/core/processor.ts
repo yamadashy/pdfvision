@@ -56,7 +56,7 @@ import { type JoinItem, joinPageText } from './text/cjkJoin.js';
 import { textMatrixFontSize, textRunGeometryFromTransform } from './text/geometry.js';
 import { type BuildVisualRegionsInput, buildVisualRegions } from './visualRegions.js';
 import { detectPageWarnings } from './warnings.js';
-import { extractWidgetAppearanceCaptions } from './widgetAppearance.js';
+import { extractWidgetAppearanceCaptions } from './widgetAppearance/index.js';
 
 /** Inputs that determine which cached entry a request maps to. */
 interface CacheKeyInput {
