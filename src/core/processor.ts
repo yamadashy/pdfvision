@@ -3,10 +3,6 @@ import { closeSync, fstatSync, openSync, readFileSync, readSync } from 'node:fs'
 import { join, dirname as pathDirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
-import { formatJson } from '../output/json.js';
-import { formatMarkdown } from '../output/markdown.js';
-import { formatToon } from '../output/toon.js';
-import { formatXml } from '../output/xml.js';
 import type {
   DocumentAttachment,
   DocumentLayers,
@@ -48,6 +44,7 @@ import {
   isUsableImage,
 } from './processor/cacheValidation.js';
 import { prepareRenderImagesDir, validateRenderRegion, validateRenderScale } from './processor/renderOptions.js';
+import { renderResult } from './processor/renderResult.js';
 import { nonPrintableStats } from './quality/nonPrintable.js';
 import { derivePageQuality } from './quality/pageQuality.js';
 import { isRasterBackedTextLayer } from './quality/rasterBackedTextLayer.js';
@@ -89,19 +86,6 @@ function textItemDedupeKey(
 function round3(n: number): number {
   return Math.round(n * 1000) / 1000;
 }
-
-/**
- * Whitespace-normalise (and drop empty separators from) the OCR language
- * string used for cache keying. Order is preserved on purpose —
- * tesseract treats the first language as primary, so `eng+jpn` and
- * `jpn+eng` are intentionally different recognisers. Falls back to
- * `'eng'` when the input is missing or trims to nothing, matching the
- * `--ocr-lang` default in the CLI.
- *
- * Inlined here (instead of importing `parseOcrLang` from `core/ocr.ts`)
- * so building the cache key doesn't load the renderer / @napi-rs/canvas
- * graph that `ocr.ts` indirectly pulls in.
- */
 
 interface PageData {
   text: string;
@@ -475,21 +459,6 @@ function isOptionalContentTextMarker(item: unknown): boolean {
   if (!item || typeof item !== 'object') return false;
   const marker = item as { type?: unknown; tag?: unknown };
   return marker.type === 'beginMarkedContentProps' && marker.tag === 'OC';
-}
-
-/** Render a structured DocumentResult into the caller-requested string format. */
-function render(result: DocumentResult, options: ProcessOptions): string {
-  const { format } = options;
-  switch (format) {
-    case 'json':
-      return formatJson(result);
-    case 'xml':
-      return formatXml(result);
-    case 'toon':
-      return formatToon(result);
-    default:
-      return formatMarkdown(result, { stripRepeated: options.stripRepeated });
-  }
 }
 
 function fingerprintData(data: Uint8Array): string {
@@ -1214,5 +1183,5 @@ export async function processFile(filePath: string, options: ProcessOptions): Pr
     ocrLang: options.ocrLang,
     onWarning: options.onWarning,
   });
-  return render(result, options);
+  return renderResult(result, options);
 }
