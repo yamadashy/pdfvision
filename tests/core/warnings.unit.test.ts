@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectPageWarnings } from '../../src/core/warnings.js';
+import { detectPageWarnings } from '../../src/core/warnings/index.js';
 import type { LayoutBlock, LayoutLine, PageResult } from '../../src/types/index.js';
 
 /** Build a layout block with sensible defaults the rules don't read.

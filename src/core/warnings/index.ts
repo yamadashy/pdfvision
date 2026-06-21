@@ -1,14 +1,15 @@
-import type { ImageBox, PageResult, PageWarning, VectorBox } from '../types/index.js';
-import { detectBodyNearRepeatedChrome, detectNearBottomEdge, detectOffPage } from './warnings/edge.js';
+import type { ImageBox, PageResult, PageWarning, VectorBox } from '../../types/index.js';
+import { detectTextOverlap } from '../warningTextOverlap/index.js';
+import { detectBodyNearRepeatedChrome, detectNearBottomEdge, detectOffPage } from './edge.js';
 import {
   detectFontMappingWarning,
   detectGlyphGarbageText,
   detectLocalizedGlyphNoise,
   detectTinyNativeTextNoise,
   hasUnreliableGlyphGeometry,
-} from './warnings/glyphText.js';
-import { detectFormLabelReadingOrderDivergence, detectReadingOrderDivergence } from './warnings/readingOrder.js';
-import { detectDotLeaderNoise, detectTabularNumericLayout } from './warnings/tabular.js';
+} from './glyphText.js';
+import { detectFormLabelReadingOrderDivergence, detectReadingOrderDivergence } from './readingOrder.js';
+import { detectDotLeaderNoise, detectTabularNumericLayout } from './tabular.js';
 import {
   detectDenseVectorGraphics,
   detectHighConfidenceOcrNativeMismatch,
@@ -19,8 +20,7 @@ import {
   detectRasterTextLayerSymbolNoise,
   detectVectorGraphicsWithoutNativeText,
   detectVisibleAnnotationTextMissingFromNative,
-} from './warnings/visualEvidence.js';
-import { detectTextOverlap } from './warningTextOverlap/index.js';
+} from './visualEvidence.js';
 
 /** Context flags the orchestrator passes to the detector so the
  *  rules can route on facts that the page alone doesn't know. */
