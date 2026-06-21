@@ -65,6 +65,7 @@ pdfvision/
 - **bin/ stays thin**: only sets up error handlers and calls `cli/cli.ts`.
 - **cli/ does I/O**: argument parsing, help/version, calling `core/`.
 - **core/ is pure-ish logic**: no `process.exit`, no `console.log`. Throws on real errors.
+- **core/ root stays small**: keep only document-level entry points at `src/core/` root; move supporting implementation into responsibility-oriented subdirectories such as `layout/`, `io/`, `renderer/`, and `processor/`.
 - **output/ formatters are pluggable**: each format takes a `DocumentResult` and returns a string.
 - **types/ is the shared shape**: anything cross-module lives here.
 - **cache is content-addressed**: SHA-256 prefix of the file under `<os-tmpdir>/pdfvision/<hash>/`.
