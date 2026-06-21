@@ -1,5 +1,5 @@
 import type { LayoutBlock, PageWarning } from '../../../types/index.js';
-import { horizontalOverlap } from '../../warningTextOverlap.js';
+import { horizontalOverlap } from '../../warningTextOverlap/index.js';
 
 /** Max vertical gap (in PDF points) between a non-repeated body
  *  block's bottom and a repeated block's top before we consider the

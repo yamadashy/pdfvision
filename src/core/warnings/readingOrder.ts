@@ -1,5 +1,5 @@
 import type { LayoutBlock, PageResult, PageWarning } from '../../types/index.js';
-import { horizontalOverlap } from '../warningTextOverlap.js';
+import { horizontalOverlap } from '../warningTextOverlap/index.js';
 import { shortTextSample } from './textSamples.js';
 
 export { detectFormLabelReadingOrderDivergence } from './readingOrder/formLabels.js';

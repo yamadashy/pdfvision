@@ -1,7 +1,7 @@
-import type { LayoutBlock, PageWarning } from '../types/index.js';
-import { boxesIntersect } from './warningTextOverlap/geometry.js';
-import { textOverlapArea } from './warningTextOverlap/overlapArea.js';
-import { shouldSuppressTextOverlapPair } from './warningTextOverlap/suppressions.js';
+import type { LayoutBlock, PageWarning } from '../../types/index.js';
+import { boxesIntersect } from './geometry.js';
+import { textOverlapArea } from './overlapArea.js';
+import { shouldSuppressTextOverlapPair } from './suppressions.js';
 
 const TEXT_OVERLAP_MAX_DETAILED_WARNINGS = 8;
 
@@ -11,7 +11,7 @@ interface TextOverlapCandidate {
   overlapArea: number;
 }
 
-export { horizontalOverlap } from './warningTextOverlap/geometry.js';
+export { horizontalOverlap } from './geometry.js';
 
 export function detectTextOverlap(blocks: LayoutBlock[], out: PageWarning[]): void {
   const overlaps: TextOverlapCandidate[] = [];

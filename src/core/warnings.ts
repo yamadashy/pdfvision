@@ -20,7 +20,7 @@ import {
   detectVectorGraphicsWithoutNativeText,
   detectVisibleAnnotationTextMissingFromNative,
 } from './warnings/visualEvidence.js';
-import { detectTextOverlap } from './warningTextOverlap.js';
+import { detectTextOverlap } from './warningTextOverlap/index.js';
 
 /** Context flags the orchestrator passes to the detector so the
  *  rules can route on facts that the page alone doesn't know. */
