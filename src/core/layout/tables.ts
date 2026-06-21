@@ -1,11 +1,12 @@
 import type { LayoutLine, LayoutTable } from '../../types/index.js';
-import { type BBox, mode, round2, unionBox } from './geometry.js';
+import { type BBox, round2, unionBox } from './geometry.js';
 import {
   isCurrencyOnlyCell,
   isTableNumericCell,
   normalizeTableCurrencyCells,
   numericColumnMatchRight,
 } from './tableCells.js';
+import { groupLinesByTableRow, mergeLineTexts, rowBottom, rowY } from './tableRows.js';
 
 export { isTableNumericCell } from './tableCells.js';
 
@@ -17,7 +18,6 @@ interface IndexedLayoutRow {
 const TABLE_ROW_MIN_CELLS = 3;
 const TABLE_ROW_MIN_NUMERIC_CELLS = 2;
 const TWO_COLUMN_NUMERIC_TABLE_MIN_ROWS = 4;
-const DECORATIVE_DOTTED_RULE_MIN_DOTS = 8;
 const TABLE_GROUP_MAX_ROW_GAP_PT = 48;
 const TABLE_ROW_CADENCE_MIN_MATCH_RATIO = 0.65;
 const TABLE_ROW_CADENCE_TOLERANCE_RATIO = 0.25;
@@ -32,19 +32,9 @@ const TABLE_LEADING_ROW_X_TOLERANCE_PT = 14;
 const TABLE_LEADING_HEADER_MAX_CHARS = 80;
 const TABLE_LEADING_HEADER_MAX_WORDS = 6;
 const TABLE_LEADING_HEADER_MAX_WIDTH_PT = 180;
-const TABLE_ROW_TOP_ALIGNMENT_RATIO = 0.5;
-const TABLE_ROW_VERTICAL_OVERLAP_RATIO = 0.35;
-
-function canShareTableRow(a: LayoutLine, b: LayoutLine): boolean {
-  const minHeight = Math.max(Math.min(a.height, b.height), 1);
-  if (Math.abs(a.y - b.y) < minHeight * TABLE_ROW_TOP_ALIGNMENT_RATIO) return true;
-  const overlap = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
-  return overlap >= minHeight * TABLE_ROW_VERTICAL_OVERLAP_RATIO;
-}
 
 export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefined {
-  const tableLines = lines.filter((line) => !isDecorativeDottedRuleLine(line));
-  const allRowGroups = groupLinesByTableRow(tableLines).map((row) => row.sort((a, b) => a.x - b.x));
+  const allRowGroups = groupLinesByTableRow(lines).map((row) => row.sort((a, b) => a.x - b.x));
   const rowGroups: IndexedLayoutRow[] = allRowGroups
     .map((row, index) => ({ row: tableCandidateRow(row), index }))
     .filter((item): item is IndexedLayoutRow => item.row !== undefined)
@@ -78,22 +68,6 @@ export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefin
 const TABLE_SIDE_PANEL_MIN_GAP_PT = 40;
 const TABLE_COMPACT_LABEL_MAX_WIDTH_PT = 140;
 const TABLE_COMPACT_LABEL_MAX_CHARS = 60;
-
-function groupLinesByTableRow(lines: LayoutLine[]): LayoutLine[][] {
-  const rows: LayoutLine[][] = [];
-  for (const line of [...lines].sort((a, b) => a.y - b.y || a.x - b.x)) {
-    const row = rows.find((candidate) => canShareTableRow(line, candidate[0]));
-    if (row) row.push(line);
-    else rows.push([line]);
-  }
-  return rows;
-}
-
-function isDecorativeDottedRuleLine(line: LayoutLine): boolean {
-  const compact = line.text.replace(/\s+/g, '');
-  if (compact.length < DECORATIVE_DOTTED_RULE_MIN_DOTS) return false;
-  return /^[.\u00b7\u2022\u2027\u2219]+$/u.test(compact);
-}
 
 function tableCandidateRow(row: LayoutLine[]): LayoutLine[] | undefined {
   if (!isLikelyTableRow(row)) return undefined;
@@ -400,16 +374,6 @@ function isLabelContinuationRow(row: LayoutLine[], label: LayoutLine, nextTop: n
   return gap >= -1 && gap <= Math.max(18, label.fontSize * 2.2);
 }
 
-function mergeLineTexts(lines: LayoutLine[]): LayoutLine {
-  const sorted = [...lines].sort((a, b) => a.y - b.y || a.x - b.x);
-  const box = unionBox(sorted);
-  return {
-    text: sorted.map((line) => line.text).join(' '),
-    ...box,
-    fontSize: round2(mode(sorted.map((line) => line.fontSize))),
-  };
-}
-
 function hasRegularTableRowCadence(rows: LayoutLine[][]): boolean {
   const gaps = rowGaps(rows);
   if (gaps.length < 2) return true;
@@ -453,14 +417,6 @@ function hasRecurringNumericColumns(rows: LayoutLine[][]): boolean {
 
 function hasTableLabelCell(row: LayoutLine[]): boolean {
   return row.some((line) => !isTableNumericCell(line.text) && /[\p{L}]/u.test(line.text));
-}
-
-function rowY(row: LayoutLine[]): number {
-  return Math.min(...row.map((line) => line.y));
-}
-
-function rowBottom(row: LayoutLine[]): number {
-  return Math.max(...row.map((line) => line.y + line.height));
 }
 
 function toLayoutTable(rows: LayoutLine[][]): LayoutTable {
