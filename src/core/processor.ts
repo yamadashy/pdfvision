@@ -2,21 +2,13 @@ import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type {
-  DocumentAttachment,
-  DocumentLayers,
-  DocumentOutlineItem,
   DocumentResult,
-  DocumentViewerState,
   ImageBox,
   PageResult,
   ProcessDocumentOptions,
   ProcessOptions,
   VectorBox,
 } from '../types/index.js';
-import { buildAttachments } from './document/attachments.js';
-import { buildLayers } from './document/layers.js';
-import { buildOutline } from './document/outline.js';
-import { buildViewerState } from './document/viewer.js';
 import { getCacheDir, getCached, pdfFingerprint, setCache } from './io/cache.js';
 import { markRepeatedBlocks } from './layout/index.js';
 import { buildCacheKey } from './processor/cacheKey.js';
@@ -26,6 +18,7 @@ import {
   dropCachedSafe,
   isUsableImage,
 } from './processor/cacheValidation.js';
+import { extractDocumentFeatures } from './processor/documentFeatures.js';
 import { buildOverview } from './processor/overview.js';
 import type { PageFlags } from './processor/pageData.js';
 import { extractPageData } from './processor/pageExtraction.js';
@@ -162,37 +155,8 @@ export async function processDocument(filePath: string, options: ProcessDocument
     const totalPages = doc.numPages;
     const pageNumbers = await resolvePageNumbers({ doc, options, renderRegion });
 
-    const metadata = await doc.getMetadata();
-    const info = metadata.info as Record<string, unknown> | null;
-    const rawPageLabels = options.pageLabels ? await doc.getPageLabels() : undefined;
-    const pageLabels =
-      rawPageLabels === undefined
-        ? undefined
-        : (rawPageLabels ?? []).map((label) => (options.normalize !== false ? normalizeText(label) : label));
-    const attachments: DocumentAttachment[] | undefined = options.attachments
-      ? buildAttachments(await doc.getAttachments(), {
-          normalizeText: options.normalize !== false ? normalizeText : undefined,
-          outputDir: attachmentOutputDir,
-        })
-      : undefined;
-    const outline: DocumentOutlineItem[] | undefined = options.outline
-      ? await buildOutline(await doc.getOutline(), doc, {
-          normalizeText: options.normalize !== false ? normalizeText : undefined,
-        })
-      : undefined;
-    const viewer: DocumentViewerState | undefined = options.viewer
-      ? await buildViewerState(doc, {
-          normalizeText: options.normalize !== false ? normalizeText : undefined,
-        })
-      : undefined;
-    const layerStateOptions = {
-      normalizeText: options.normalize !== false ? normalizeText : undefined,
-    };
-    const layerState = options.layers
-      ? await buildLayers(doc, layerStateOptions)
-      : await buildLayers(doc, layerStateOptions).catch((): DocumentLayers => ({ groups: [] }));
-    const layers: DocumentLayers | undefined = options.layers ? layerState : undefined;
-    const hasHiddenOptionalContent = layerState.groups.some((group) => !group.visible);
+    const { metadata, pageLabels, attachments, outline, viewer, layers, hasHiddenOptionalContent } =
+      await extractDocumentFeatures(doc, options, attachmentOutputDir);
 
     let imagePaths: string[] | null = null;
     // Parallel array to imagePaths: renderContentRatio for each rendered
@@ -433,22 +397,12 @@ export async function processDocument(filePath: string, options: ProcessDocument
       }
     }
 
-    const metaString = (raw: unknown): string | null => {
-      if (typeof raw !== 'string') return null;
-      return flags.normalize ? normalizeText(raw) : raw;
-    };
-
     const overview = buildOverview(pages, { includeSearchMatches: compiledSearch !== undefined });
 
     const result: DocumentResult = {
       file: filePath,
       totalPages,
-      metadata: {
-        title: metaString(info?.Title),
-        author: metaString(info?.Author),
-        subject: metaString(info?.Subject),
-        creator: metaString(info?.Creator),
-      },
+      metadata,
       ...(pageLabels !== undefined && { pageLabels }),
       ...(attachments !== undefined && { attachments }),
       ...(outline !== undefined && { outline }),
