@@ -1110,6 +1110,79 @@ describe('buildVisualRegions', () => {
     expect(regions).toEqual([]);
   });
 
+  it('emits ruled vector tables when a table caption anchors the region', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      vectorBoxes: [
+        { x: 145, y: 94, width: 322, height: 0.5 },
+        { x: 145, y: 105, width: 322, height: 0.5 },
+        { x: 145, y: 148, width: 322, height: 0.5 },
+        { x: 145, y: 159, width: 322, height: 0.5 },
+        { x: 145, y: 203, width: 322, height: 0.5 },
+        { x: 145, y: 236, width: 322, height: 0.5 },
+        { x: 296, y: 94, width: 0.5, height: 142 },
+        { x: 408, y: 94, width: 0.5, height: 142 },
+      ],
+      layout: {
+        blocks: [
+          {
+            text: 'Table 4: The Transformer generalizes well to English constituency parsing',
+            x: 108,
+            y: 68,
+            width: 396,
+            height: 20,
+            lines: [
+              {
+                text: 'Table 4: The Transformer generalizes well to English constituency parsing',
+                x: 108,
+                y: 68,
+                width: 396,
+                height: 20,
+                fontSize: 10,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0]).toMatchObject({
+      kind: 'table',
+      sourceCount: 8,
+      reason: '8 ruled table vector lines near table caption',
+    });
+    expect(regions[0].associatedText?.[0]).toMatchObject({
+      relation: 'caption',
+      text: 'Table 4: The Transformer generalizes well to English constituency parsing',
+    });
+  });
+
+  it('does not emit ruled vector tables without a nearby table caption', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      vectorBoxes: [
+        { x: 145, y: 94, width: 322, height: 0.5 },
+        { x: 145, y: 105, width: 322, height: 0.5 },
+        { x: 145, y: 148, width: 322, height: 0.5 },
+        { x: 145, y: 159, width: 322, height: 0.5 },
+        { x: 145, y: 203, width: 322, height: 0.5 },
+        { x: 145, y: 236, width: 322, height: 0.5 },
+        { x: 296, y: 94, width: 0.5, height: 142 },
+        { x: 408, y: 94, width: 0.5, height: 142 },
+      ],
+      layout: {
+        blocks: [],
+      },
+    });
+
+    expect(regions).toEqual([]);
+  });
+
   it('keeps full-page raster fallback over extreme OCR-fragment table hints', () => {
     const regions = buildVisualRegions({
       pageWidth: 396,

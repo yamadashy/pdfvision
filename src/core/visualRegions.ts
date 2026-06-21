@@ -30,6 +30,7 @@ import {
   attachPlainImageLabels,
   attachTableLeadInLabels,
 } from './visualRegions/labels.js';
+import { addRuledTableVectorCandidates } from './visualRegions/ruledTables.js';
 import type { BoxLike, Candidate } from './visualRegions/types.js';
 
 export interface BuildVisualRegionsInput {
@@ -569,6 +570,13 @@ function addVectorCandidates(input: BuildVisualRegionsInput, candidates: Candida
       reason: `${cluster.sources.length} nearby vector drawing operations`,
     });
   }
+  addRuledTableVectorCandidates(
+    input,
+    candidates,
+    (box) =>
+      isLikelySideChrome(box, input.pageWidth, input.pageHeight) ||
+      isLikelyHorizontalChrome(box, input.pageWidth, input.pageHeight),
+  );
   addDenseVectorUnionCandidate(input, candidates);
   addDenseMicroVectorClusterCandidates(input, candidates);
 }
