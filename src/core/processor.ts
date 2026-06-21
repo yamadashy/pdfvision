@@ -51,7 +51,7 @@ import {
 import { nonPrintableStats } from './quality/nonPrintable.js';
 import { derivePageQuality } from './quality/pageQuality.js';
 import { isRasterBackedTextLayer } from './quality/rasterBackedTextLayer.js';
-import { type CompiledSearch, compileSearch, searchPage, suppressDuplicateOcrMatches } from './search.js';
+import { type CompiledSearch, compileSearch, searchPage, suppressDuplicateOcrMatches } from './search/index.js';
 import { type JoinItem, joinPageText } from './text/cjkJoin.js';
 import { textMatrixFontSize, textRunGeometryFromTransform } from './text/geometry.js';
 import { type BuildVisualRegionsInput, buildVisualRegions } from './visualRegions.js';

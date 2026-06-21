@@ -1,13 +1,13 @@
-import type { FormField, PageAnnotation, PageOcr, SearchMatch, TextSpan } from '../types/index.js';
-import { contributingBoxes, round2, unionBoxes } from './search/boxes.js';
-import { type CompiledSearch, nfkc } from './search/compiler.js';
-import { duplicateKey, suppressDuplicateOcrMatches } from './search/duplicates.js';
-import { buildOcrSearchLines, buildSearchLines } from './search/lines.js';
-import { appendAnnotationMatches, appendFormFieldMatches } from './search/sourceMatches.js';
-import type { SearchLine } from './search/types.js';
+import type { FormField, PageAnnotation, PageOcr, SearchMatch, TextSpan } from '../../types/index.js';
+import { contributingBoxes, round2, unionBoxes } from './boxes.js';
+import { type CompiledSearch, nfkc } from './compiler.js';
+import { duplicateKey, suppressDuplicateOcrMatches } from './duplicates.js';
+import { buildOcrSearchLines, buildSearchLines } from './lines.js';
+import { appendAnnotationMatches, appendFormFieldMatches } from './sourceMatches.js';
+import type { SearchLine } from './types.js';
 
-export { type CompiledSearch, compileSearch } from './search/compiler.js';
-export { suppressDuplicateOcrMatches } from './search/duplicates.js';
+export { type CompiledSearch, compileSearch } from './compiler.js';
+export { suppressDuplicateOcrMatches } from './duplicates.js';
 
 /**
  * Per-(query, page, source) cap on the number of emitted matches. Acts
