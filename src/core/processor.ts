@@ -41,6 +41,7 @@ import type { PageData, PageFlags } from './processor/pageData.js';
 import { fingerprintData, withTruncationHint } from './processor/pdfBytes.js';
 import { prepareRenderImagesDir, validateRenderRegion, validateRenderScale } from './processor/renderOptions.js';
 import { renderResult } from './processor/renderResult.js';
+import { normalizeText, round2, textItemDedupeKey } from './processor/textUtils.js';
 import { nonPrintableStats } from './quality/nonPrintable.js';
 import { derivePageQuality } from './quality/pageQuality.js';
 import { isRasterBackedTextLayer } from './quality/rasterBackedTextLayer.js';
@@ -51,37 +52,6 @@ import { textMatrixFontSize, textRunGeometryFromTransform } from './text/geometr
 import { type BuildVisualRegionsInput, buildVisualRegions } from './visualRegions/index.js';
 import { detectPageWarnings } from './warnings/index.js';
 import { extractWidgetAppearanceCaptions } from './widgetAppearance/index.js';
-
-/**
- * Apply Unicode NFKC normalization. PDFs commonly embed compatibility
- * codepoints (e.g. CJK Compatibility Forms `⽬` U+2F6C, halfwidth/fullwidth
- * variants, ligatures `ﬁ`) that break grep / diff / structured extraction
- * for downstream agents. NFKC folds them to the canonical form.
- */
-function normalizeText(s: string): string {
-  return s.normalize('NFKC');
-}
-
-/** Round to 2 decimal places — keeps span coordinates compact in JSON. */
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
-}
-
-function textItemDedupeKey(
-  text: string,
-  width: number,
-  height: number,
-  transform: readonly number[] | undefined,
-  fontName: unknown,
-): string {
-  const geometry = transform ? transform.map((value) => Math.round(value * 1000) / 1000).join(',') : 'no-transform';
-  const font = typeof fontName === 'string' ? fontName : '';
-  return JSON.stringify([text, round3(width), round3(height), geometry, font]);
-}
-
-function round3(n: number): number {
-  return Math.round(n * 1000) / 1000;
-}
 
 function hasPushButtonWidget(annotation: unknown): boolean {
   if (!annotation || typeof annotation !== 'object') return false;
