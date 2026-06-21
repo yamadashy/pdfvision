@@ -33,6 +33,7 @@ import {
 import type { PageFlags } from './processor/pageData.js';
 import { extractPageData } from './processor/pageExtraction.js';
 import { fingerprintData, withTruncationHint } from './processor/pdfBytes.js';
+import { capturePdfJsWarnings } from './processor/pdfJsWarnings.js';
 import { prepareRenderImagesDir, validateRenderRegion, validateRenderScale } from './processor/renderOptions.js';
 import { renderResult } from './processor/renderResult.js';
 import { normalizeText } from './processor/textUtils.js';
@@ -650,18 +651,6 @@ export async function processDocument(filePath: string, options: ProcessDocument
     restorePdfJsWarningCapture();
     await loadingTask.destroy();
   }
-}
-
-function capturePdfJsWarnings(out: string[]): () => void {
-  const originalWarn = console.warn;
-  console.warn = (...args: unknown[]) => {
-    const msg = args.map(String).join(' ');
-    if (msg.startsWith('Warning:')) out.push(msg);
-    originalWarn(...args);
-  };
-  return () => {
-    console.warn = originalWarn;
-  };
 }
 
 /**
