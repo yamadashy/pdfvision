@@ -66,6 +66,16 @@ describe('formatMarkdown', () => {
     expect(out).toMatch(/\nhello world$/);
   });
 
+  it('surfaces page rotation on rotated pages', () => {
+    const out = formatMarkdown(
+      makeResult({
+        pages: [makePage({ page: 1, text: 'rotated', charCount: 7, rotation: 90 })],
+      }),
+    );
+
+    expect(out).toMatch(/rotation: 90°/);
+  });
+
   it('emits a Markdown image link when the page has a rendered PNG path', () => {
     const out = formatMarkdown(
       makeResult({
@@ -163,6 +173,22 @@ describe('formatMarkdown', () => {
     expect(out).toMatch(/\| Page \| Chars \| Images \| Coverage \| Size \(pt\) \| Vectors \|/);
     expect(out).toMatch(/\| 2 \| 7 \| 0 \| 0% \| 612×792 \| 12 \|/);
     expect(out).toMatch(/vectors: 12/);
+  });
+
+  it('adds a Rotation column when any overview page is rotated', () => {
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 2,
+        pages: [
+          makePage({ page: 1, text: 'plain', charCount: 5 }),
+          makePage({ page: 2, text: 'rotated', charCount: 7, rotation: 270 }),
+        ],
+      }),
+    );
+
+    expect(out).toMatch(/\| Page \| Chars \| Images \| Coverage \| Size \(pt\) \| Rotation \|/);
+    expect(out).toMatch(/\| 1 \| 5 \| 0 \| 0% \| 612×792 \| — \|/);
+    expect(out).toMatch(/\| 2 \| 7 \| 0 \| 0% \| 612×792 \| 270° \|/);
   });
 
   it('adds vector-box counts without rendering a large bbox table in Markdown', () => {

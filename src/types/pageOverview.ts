@@ -40,6 +40,12 @@ export interface PageOverview {
    */
   renderContentRatio?: number;
   /**
+   * Mirror of {@link PageResult.rotation}, present only for rotated pages
+   * so multi-page consumers can spot pages whose rendered PNG orientation
+   * differs from the MediaBox coordinate system.
+   */
+  rotation?: number;
+  /**
    * Mirror of {@link PageResult.quality} so the overview can flag
    * unusable / blank pages at a glance without descending into
    * `pages[]`.

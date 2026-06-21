@@ -138,6 +138,15 @@ describe('formatXml', () => {
     expect(out).toMatch(/<page [^>]* image="\/tmp\/p\.png">/);
   });
 
+  it('emits page rotation as a page attribute when present', () => {
+    const out = formatXml(
+      makeResult({
+        pages: [makePage({ page: 1, text: 't', charCount: 1, rotation: 90 })],
+      }),
+    );
+    expect(out).toMatch(/<page [^>]* rotation="90"/);
+  });
+
   it('echoes renderRegion as four sibling attributes on the page when present', () => {
     // Mirrors the JSON output's `renderRegion` echo so XML consumers can
     // also tell a cropped raster from a full-page one without parsing

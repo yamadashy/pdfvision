@@ -21,6 +21,7 @@ export interface PageData {
   textCoverage: number;
   nonPrintableRatio: number;
   nonPrintableCount: number;
+  rotation?: number;
   width: number;
   height: number;
   spans?: TextSpan[];

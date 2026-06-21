@@ -1949,6 +1949,38 @@ describe('detectPageWarnings', () => {
       expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
     });
 
+    it('does not flag compact subscript-only variable runs over formula prose', () => {
+      // Transformer paper p.4 emits the subscripts from "d_k, d_k and d_v"
+      // as a separate tiny block ("k k v") overlapping the prose line.
+      // This is normal inline math typography, not a visible collision.
+      const paragraph = block(107.64, 658, 396.35, 20.87, {
+        text: 'linear projections to d , d and d dimensions, respectively. On each of these projected versions of',
+        lines: [
+          line(
+            'we found it beneficial to linearly project the queries, keys and values h times with different, learned',
+            107.64,
+            658,
+            396.35,
+            9.96,
+          ),
+          line(
+            'linear projections to d , d and d dimensions, respectively. On each of these projected versions of',
+            108,
+            668.91,
+            395.99,
+            9.96,
+          ),
+        ],
+      });
+      const subscripts = block(195.66, 673.4, 48.56, 6.97, {
+        text: 'k k v',
+        lines: [line('k k v', 195.66, 673.4, 48.56, 6.97)],
+      });
+
+      const out = detectPageWarnings(page([paragraph, subscripts]));
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
     it('still flags overlapping compact diagram label groups', () => {
       // Dense figure labels can overlap because the diagram itself is
       // spatial, not a prose line with inline math annotations.

@@ -21,6 +21,7 @@ export function buildOverview(
     // summary alone. Stays optional when neither --render nor --ocr
     // produced a raster.
     ...(page.renderContentRatio !== undefined && { renderContentRatio: page.renderContentRatio }),
+    ...(page.rotation !== undefined && { rotation: page.rotation }),
     quality: page.quality,
     // Mirror the warnings count from each page so the top-level
     // table flags problem pages at a glance. Omitted when no

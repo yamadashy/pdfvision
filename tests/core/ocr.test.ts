@@ -49,6 +49,8 @@ describe('buildQuietTesseractWorkerScript', () => {
     const script = buildQuietTesseractWorkerScript('/tmp/worker path "quoted".js');
     expect(script).toContain('Image too small to scale!!');
     expect(script).toContain('Line cannot be recognized!!');
+    expect(script).toContain('controlTraineddataNoise');
+    expect(script).toContain('TESSDATA_PREFIX');
     expect(script).toContain('require("/tmp/worker path \\"quoted\\".js")');
   });
 });

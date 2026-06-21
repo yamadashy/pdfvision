@@ -38,6 +38,7 @@ interface PageOverview {
   nonPrintableRatio: number;      // 0..1, fraction of `text` that is NUL / control / noncharacter
   nonPrintableCount: number;      // raw count — stays discriminable when the 3dp ratio rounds to 0
   renderContentRatio?: number;    // 0..1, fraction of pixels differing from the page's dominant background (present iff --render or --ocr)
+  rotation?: number;               // clockwise page rotation in degrees; present only for rotated pages
   quality: PageQuality;           // derived classification — see below
   warningCount?: number;          // mirror of pages[N].warnings.length, omitted when no rule fired
   matchCount?: number;            // mirror of pages[N].matches.length; present-with-0 means "search ran, no hit"
@@ -80,6 +81,7 @@ interface PageResult {
   nonPrintableCount: number;     // raw count alongside the ratio
   renderContentRatio?: number;   // pixel fraction differing from the page's dominant background (present iff --render or --ocr)
   quality: PageQuality;          // derived per-page classification — agent-side dispatch lives on this field
+  rotation?: number;              // clockwise page rotation in degrees; present only for rotated pages
   width: number;
   height: number;
   image?: string;                // absolute PNG path — present iff --render
@@ -487,7 +489,7 @@ interface OcrWord {
 
 ## Coordinate system
 
-All coordinates (spans, layout blocks, image boxes, vector boxes, visual regions, form fields, `renderRegion`) use a **top-down origin** in PDF user-space points: `(0, 0)` at the top-left of the page, `y` grows downward. This matches the rendered PNG convention, so a consumer can overlay any of the geometry signals onto `image` (when `--render` is on) without flipping.
+All coordinates (spans, layout blocks, image boxes, vector boxes, visual regions, form fields, `renderRegion`) use a **top-down origin** in PDF user-space points: `(0, 0)` at the top-left of the page, `y` grows downward. `width` / `height` and geometry stay in the page MediaBox coordinate system. On rotated pages, `pages[].rotation` and `overview[].rotation` carry the clockwise page rotation while rendered PNGs follow the human-visible rotated viewport; pass bboxes directly to `--render-region`, or map through the same rotated viewport before drawing overlays on the full-page PNG.
 
 To map PDF points onto rendered PNG pixels:
 
@@ -496,6 +498,8 @@ const sx = image.width / page.width;
 const sy = image.height / page.height;
 const pixelBox = { x: box.x * sx, y: box.y * sy, width: box.width * sx, height: box.height * sy };
 ```
+
+This direct scale is valid for unrotated pages. For rotated pages, use `pages[].rotation` and the PDF viewport transform (or `--render-region`) because the full-page PNG width/height may be swapped relative to `page.width` / `page.height`.
 
 ## Rendering: `--render-scale` and `--render-region`
 
@@ -620,7 +624,7 @@ pdfvision doc.pdf -p <m.page> --render --render-region <m.bbox.x>,<m.bbox.y>,<m.
     <author>...</author>
   </metadata>
   <overview>
-    <page no="1" charCount="..." imageCount="..." vectorCount="..." textCoverage="..." nonPrintableRatio="..." nonPrintableCount="..." nativeTextStatus="..." visualStatus="..." width="..." height="..."/>
+    <page no="1" charCount="..." imageCount="..." vectorCount="..." textCoverage="..." nonPrintableRatio="..." nonPrintableCount="..." nativeTextStatus="..." visualStatus="..." rotation="90" width="..." height="..."/>
     ...
   </overview>
   <pages>

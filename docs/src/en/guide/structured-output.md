@@ -57,6 +57,7 @@ Each `pages[]` entry includes:
 
 - `text` and optional `rawText`.
 - page dimensions in PDF points.
+- optional page rotation in degrees when the PDF page is rotated.
 - density fields mirrored from the overview.
 - optional `image` path when `--render` is used.
 - optional `spans`, `layout`, `imageBoxes`, `vectorBoxes`, `visualRegions`, `formFields`, `links`, `annotations`, `structure`, `ocr`, `warnings`, and `matches`.
@@ -96,7 +97,9 @@ Practical interpretation:
 
 ## Coordinates
 
-All boxes use PDF user-space points with a top-left origin. `x` grows right and `y` grows downward. This matches rendered PNG orientation and makes `--render-region` straightforward.
+All boxes use PDF user-space points with a top-left origin. `x` grows right and `y` grows downward. `width` / `height` and geometry stay in the page MediaBox coordinate system.
+
+On unrotated pages, this matches the rendered PNG orientation. On rotated pages, `pages[].rotation` carries the clockwise page rotation and rendered PNGs follow the human-visible rotated viewport. Pass bboxes directly to `--render-region`; for full-page PNG overlays, map through the rotated PDF viewport instead of only scaling by `image.width / page.width`.
 
 Coordinate-bearing fields include spans, layout blocks and lines, image boxes, vector boxes, visual regions, form fields, links, annotations, structure references, OCR words, and search matches. This means an agent can move from structured extraction to a visual crop without inventing a new coordinate system.
 

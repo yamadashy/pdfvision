@@ -1153,6 +1153,7 @@ describe('processDocument', () => {
     expect(result.pages[0]).toMatchObject({
       width: 596,
       height: 842,
+      rotation: 270,
       renderRegion: { x: 0, y: 0, width: 596, height: 842 },
     });
     const img = await loadImage(result.pages[0].image as string);

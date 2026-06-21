@@ -47,6 +47,7 @@ export async function extractPageData(
   const height = Math.abs(view[3] - view[1]);
   const xMin = Math.min(view[0], view[2]);
   const yMin = Math.min(view[1], view[3]);
+  const rotation = normalizePageRotation(page.rotate);
 
   const {
     text,
@@ -219,6 +220,7 @@ export async function extractPageData(
     textCoverage: Math.round(textCoverage * 1000) / 1000,
     nonPrintableRatio: npStats.ratio,
     nonPrintableCount: npStats.count,
+    ...(rotation !== undefined && { rotation }),
     // Round to 2dp; PDF dimensions are nominally integers (Letter 612×792,
     // A4 595×842) but encrypted/cropped PDFs can carry sub-point fractions.
     width: round2(width),
@@ -252,4 +254,10 @@ function isOptionalContentTextMarker(item: unknown): boolean {
   if (!item || typeof item !== 'object') return false;
   const marker = item as { type?: unknown; tag?: unknown };
   return marker.type === 'beginMarkedContentProps' && marker.tag === 'OC';
+}
+
+function normalizePageRotation(rotation: number | undefined): number | undefined {
+  if (typeof rotation !== 'number' || !Number.isFinite(rotation)) return undefined;
+  const normalized = ((Math.round(rotation) % 360) + 360) % 360;
+  return normalized === 0 ? undefined : normalized;
 }

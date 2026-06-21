@@ -28,6 +28,7 @@ function pageAttributes(page: PageResult): string[] {
   ];
   if (page.pageLabel !== undefined) attrs.push(`label="${escapeAttr(page.pageLabel)}"`);
   if (page.renderContentRatio !== undefined) attrs.push(`renderContentRatio="${page.renderContentRatio}"`);
+  if (page.rotation !== undefined) attrs.push(`rotation="${page.rotation}"`);
   attrs.push(`nativeTextStatus="${page.quality.nativeTextStatus}"`);
   if (page.quality.visualStatus !== undefined) attrs.push(`visualStatus="${page.quality.visualStatus}"`);
   attrs.push(`width="${page.width}"`, `height="${page.height}"`);

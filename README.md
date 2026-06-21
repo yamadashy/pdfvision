@@ -185,7 +185,7 @@ printf "secret\n" | pdfvision encrypted.pdf --password-stdin -f json
 pdfvision scan.pdf --ocr --ocr-lang eng+jpn -f json
 ```
 
-Coordinates use a **top-down origin** (0,0 at the top-left, y grows downward) in PDF user-space points so callers can overlay spans / image bboxes directly on the rendered PNG. Multiply by `image.width / page.width` to map onto pixels.
+Coordinates use a **top-down origin** (0,0 at the top-left, y grows downward) in PDF user-space points. On unrotated pages, multiply by `image.width / page.width` to map spans / image bboxes onto rendered pixels. On rotated pages, `pages[].rotation` gives the clockwise page rotation; bboxes still feed directly into `--render-region`, while full-page PNG overlays should use the rotated PDF viewport transform because the rendered PNG follows the human-visible orientation.
 
 ## 📚 Library API
 

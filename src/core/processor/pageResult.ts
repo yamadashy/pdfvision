@@ -40,6 +40,7 @@ export function buildPageResult({
     nonPrintableRatio: data.nonPrintableRatio,
     nonPrintableCount: data.nonPrintableCount,
     ...(renderRatio !== undefined && { renderContentRatio: renderRatio }),
+    ...(data.rotation !== undefined && { rotation: data.rotation }),
     width: data.width,
     height: data.height,
     ...(data.spans !== undefined && { spans: data.spans }),

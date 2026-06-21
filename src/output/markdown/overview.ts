@@ -14,6 +14,7 @@ export function appendOverview(lines: string[], result: DocumentResult): void {
   const showBlocks = result.pages.some((p) => p.layout !== undefined);
   const showNonPrint = result.pages.some((p) => p.nonPrintableCount > 0);
   const showRender = result.pages.some((p) => p.renderContentRatio !== undefined);
+  const showRotation = result.pages.some((p) => p.rotation !== undefined);
   const showVectors = result.pages.some((p) => p.vectorCount > 0);
   const showVectorBoxes = result.pages.some((p) => p.vectorBoxes !== undefined);
   const showFormFields = result.pages.some((p) => p.formFields !== undefined);
@@ -30,16 +31,17 @@ export function appendOverview(lines: string[], result: DocumentResult): void {
   lines.push('## Overview');
   lines.push('');
   lines.push(
-    `| Page |${showPageLabels ? ' Label |' : ''} Chars | Images | Coverage |${showNonPrint ? ' NonPrint |' : ''}${showRender ? ' Render |' : ''} Size (pt) |${showVectors ? ' Vectors |' : ''}${showVectorBoxes ? ' VectorBoxes |' : ''}${showVisualRegions ? ' VisualRegions |' : ''}${showBlocks ? ' Blocks |' : ''}${showWarnings ? ' Warnings |' : ''}${showMatches ? ' Matches |' : ''}${showFormFields ? ' FormFields |' : ''}${showLinks ? ' Links |' : ''}${showAnnotations ? ' Annotations |' : ''}${showStructure ? ' Structure |' : ''}${showPageJsActions ? ' JS Actions |' : ''}`,
+    `| Page |${showPageLabels ? ' Label |' : ''} Chars | Images | Coverage |${showNonPrint ? ' NonPrint |' : ''}${showRender ? ' Render |' : ''} Size (pt) |${showRotation ? ' Rotation |' : ''}${showVectors ? ' Vectors |' : ''}${showVectorBoxes ? ' VectorBoxes |' : ''}${showVisualRegions ? ' VisualRegions |' : ''}${showBlocks ? ' Blocks |' : ''}${showWarnings ? ' Warnings |' : ''}${showMatches ? ' Matches |' : ''}${showFormFields ? ' FormFields |' : ''}${showLinks ? ' Links |' : ''}${showAnnotations ? ' Annotations |' : ''}${showStructure ? ' Structure |' : ''}${showPageJsActions ? ' JS Actions |' : ''}`,
   );
   lines.push(
-    `| ---: |${showPageLabels ? ' --- |' : ''} ---: | ---: | ---: |${showNonPrint ? ' ---: |' : ''}${showRender ? ' ---: |' : ''} ---: |${showVectors ? ' ---: |' : ''}${showVectorBoxes ? ' ---: |' : ''}${showVisualRegions ? ' ---: |' : ''}${showBlocks ? ' ---: |' : ''}${showWarnings ? ' ---: |' : ''}${showMatches ? ' ---: |' : ''}${showFormFields ? ' ---: |' : ''}${showLinks ? ' ---: |' : ''}${showAnnotations ? ' ---: |' : ''}${showStructure ? ' ---: |' : ''}${showPageJsActions ? ' ---: |' : ''}`,
+    `| ---: |${showPageLabels ? ' --- |' : ''} ---: | ---: | ---: |${showNonPrint ? ' ---: |' : ''}${showRender ? ' ---: |' : ''} ---: |${showRotation ? ' ---: |' : ''}${showVectors ? ' ---: |' : ''}${showVectorBoxes ? ' ---: |' : ''}${showVisualRegions ? ' ---: |' : ''}${showBlocks ? ' ---: |' : ''}${showWarnings ? ' ---: |' : ''}${showMatches ? ' ---: |' : ''}${showFormFields ? ' ---: |' : ''}${showLinks ? ' ---: |' : ''}${showAnnotations ? ' ---: |' : ''}${showStructure ? ' ---: |' : ''}${showPageJsActions ? ' ---: |' : ''}`,
   );
   for (const page of result.pages) {
     appendOverviewRow(lines, page, {
       showPageLabels,
       showNonPrint,
       showRender,
+      showRotation,
       showVectors,
       showVectorBoxes,
       showVisualRegions,
@@ -59,6 +61,7 @@ interface OverviewColumns {
   showPageLabels: boolean;
   showNonPrint: boolean;
   showRender: boolean;
+  showRotation: boolean;
   showVectors: boolean;
   showVectorBoxes: boolean;
   showVisualRegions: boolean;
@@ -82,6 +85,7 @@ function appendOverviewRow(lines: string[], page: PageResult, columns: OverviewC
   const renderCell = columns.showRender
     ? ` ${page.renderContentRatio !== undefined ? `${(page.renderContentRatio * 100).toFixed(2)}%` : '—'} |`
     : '';
+  const rotationCell = columns.showRotation ? ` ${page.rotation !== undefined ? `${page.rotation}°` : '—'} |` : '';
   const vectorsCell = columns.showVectors ? ` ${page.vectorCount} |` : '';
   const vectorBoxesCell = columns.showVectorBoxes ? ` ${page.vectorBoxes?.length ?? 0} |` : '';
   const visualRegionsCell = columns.showVisualRegions ? ` ${page.visualRegions?.length ?? 0} |` : '';
@@ -94,6 +98,6 @@ function appendOverviewRow(lines: string[], page: PageResult, columns: OverviewC
   const structureCell = columns.showStructure ? ` ${structureNodeCount(page.structure)} |` : '';
   const jsActionsCell = columns.showPageJsActions ? ` ${jsActionCount(page.jsActions)} |` : '';
   lines.push(
-    `| ${page.page} |${pageLabelCell} ${page.charCount} | ${page.imageCount} | ${coveragePct}% |${nonPrintCell}${renderCell} ${formatSize(page)} |${vectorsCell}${vectorBoxesCell}${visualRegionsCell}${blocksCell}${warningsCell}${matchesCell}${formFieldsCell}${linksCell}${annotationsCell}${structureCell}${jsActionsCell}`,
+    `| ${page.page} |${pageLabelCell} ${page.charCount} | ${page.imageCount} | ${coveragePct}% |${nonPrintCell}${renderCell} ${formatSize(page)} |${rotationCell}${vectorsCell}${vectorBoxesCell}${visualRegionsCell}${blocksCell}${warningsCell}${matchesCell}${formFieldsCell}${linksCell}${annotationsCell}${structureCell}${jsActionsCell}`,
   );
 }
