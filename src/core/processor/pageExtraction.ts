@@ -1,5 +1,4 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
-import type { TextSpan } from '../../types/index.js';
 import { buildAnnotations, hasVisibleAnnotationAppearance } from '../annotations/index.js';
 import { resolveDestinationPage } from '../document/destinations.js';
 import { buildPageStructure } from '../document/structure.js';
@@ -12,10 +11,9 @@ import { buildLayout } from '../layout/index.js';
 import { buildLinks } from '../links/index.js';
 import { nonPrintableStats } from '../quality/nonPrintable.js';
 import { isRasterBackedTextLayer } from '../quality/rasterBackedTextLayer.js';
-import { type JoinItem, joinPageText } from '../text/cjkJoin.js';
-import { textMatrixFontSize, textRunGeometryFromTransform } from '../text/geometry.js';
 import type { PageData, PageFlags } from './pageData.js';
-import { normalizeText, round2, textItemDedupeKey } from './textUtils.js';
+import { extractPageText } from './pageText.js';
+import { normalizeText, round2 } from './textUtils.js';
 
 function hasPushButtonWidget(annotation: unknown): boolean {
   if (!annotation || typeof annotation !== 'object') return false;
@@ -50,93 +48,18 @@ export async function extractPageData(
   const xMin = Math.min(view[0], view[2]);
   const yMin = Math.min(view[1], view[3]);
 
-  // Spans are the input to layout reconstruction AND to search bbox
-  // computation, so we build them whenever any of those needs is set —
-  // even though we may only expose them on PageResult when `geometry`
-  // is on.
-  const wantSpans =
-    flags.geometry ||
-    flags.layout ||
-    flags.visualRegions ||
-    flags.formFields ||
-    flags.links ||
-    flags.needSpansForSearch ||
-    flags.needFormFieldsForSearch;
-
-  // Collect typed items for the CJK-aware page-text joiner. We can't
-  // build the final string in this loop because the join decision for
-  // a whitespace item depends on its neighbours' positions, which we
-  // only know after the walk.
-  const joinItems: JoinItem[] = [];
-  let textArea = 0;
-  const spans: TextSpan[] = [];
-  const seenTextItems = new Map<string, number>();
-  for (const item of content.items) {
-    if (!('str' in item)) continue;
-    const w = typeof item.width === 'number' ? item.width : 0;
-    // pdfjs reports item.height as 0 for many PDFs (e.g. those produced by
-    // certain Office exporters); fall back to the vertical scale from the
-    // text matrix, which is effectively the glyph height in user units.
-    const reportedH = typeof item.height === 'number' ? item.height : 0;
-    const transform = item.transform;
-    const h = reportedH > 0 ? reportedH : transform ? textMatrixFontSize(transform) : 0;
-    const itemKey = textItemDedupeKey(item.str, w, h, transform, item.fontName);
-    const seenIndex = seenTextItems.get(itemKey);
-    if (seenIndex !== undefined) {
-      // Overprinted text often appears twice with identical geometry,
-      // sometimes differing only in pdf.js' hard-EOL flag. Keep one text
-      // run, but preserve the line-break signal if any duplicate carries it.
-      if (item.hasEOL) joinItems[seenIndex].hasEOL = true;
-      continue;
-    }
-    textArea += Math.abs(w * h);
-
-    // Feed the page-text joiner. x/fontSize default to 0 when the
-    // item lacks a transform (pdf.js does this for synthetic-EOL
-    // items); the joiner already handles zero fontSize by falling back
-    // to a neighbour.
-    const itemX = transform ? transform[4] : 0;
-    const itemFontSize = transform ? textMatrixFontSize(transform, h) : h;
-    seenTextItems.set(itemKey, joinItems.length);
-    joinItems.push({
-      str: item.str,
-      x: itemX,
-      width: w,
-      fontSize: itemFontSize,
-      hasEOL: !!item.hasEOL,
-      ...(typeof item.dir === 'string' && { dir: item.dir }),
-    });
-
-    // Skip whitespace-only items in spans output — pdf.js emits a span
-    // for every positioned space, which can double the array length and
-    // sometimes carries a synthetic width that exceeds the page width.
-    // The aggregate `text` already preserves the spaces, so layout
-    // analysis loses nothing; downstream agents get a cleaner signal.
-    if (wantSpans && item.str.trim().length > 0 && transform) {
-      const geometry = textRunGeometryFromTransform({
-        transform,
-        width: w,
-        height: h,
-        pageHeight: height,
-        viewMinX: xMin,
-        viewMinY: yMin,
-        dir: typeof item.dir === 'string' ? item.dir : undefined,
-      });
-      spans.push({
-        text: flags.normalize ? normalizeText(item.str) : item.str,
-        ...geometry,
-        ...(typeof item.fontName === 'string' && { fontName: item.fontName }),
-      });
-    }
-  }
-  const rawText = joinPageText(joinItems).trimEnd();
-  // charCount must reflect the string the caller actually receives, so
-  // measure after normalization.
-  const text = flags.normalize ? normalizeText(rawText) : rawText;
-  // Only surface rawText when normalization actually changed the string —
-  // exposing it unconditionally would double JSON size for the common
-  // case of already-canonical PDFs.
-  const preservedRaw = flags.normalize && rawText !== text ? rawText : undefined;
+  const {
+    text,
+    rawText: preservedRaw,
+    textArea,
+    spans,
+  } = extractPageText({
+    content,
+    flags,
+    pageHeight: height,
+    viewMinX: xMin,
+    viewMinY: yMin,
+  });
 
   // Always expand image-bbox per instance — counting ops would under-
   // report when pdf.js's QueueOptimizer collapses N draws of the same
