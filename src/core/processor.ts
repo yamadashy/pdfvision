@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type {
@@ -24,14 +23,13 @@ import { buildProcessDocumentOptions, validateProcessFileOptions } from './proce
 import { prepareRenderImagesDir, validateRenderRegion, validateRenderScale } from './processor/renderOptions.js';
 import { renderResult } from './processor/renderResult.js';
 import { readCachedResult, writeCachedResult } from './processor/resultCache.js';
-import { normalizeText } from './processor/textUtils.js';
 import { applyVisualRegionPostProcessing } from './processor/visualRegionPostProcessing.js';
+import { createWidgetAppearanceCaptionLoader } from './processor/widgetAppearanceCaptions.js';
 import { derivePageQuality } from './quality/pageQuality.js';
 import { runParallel } from './runtime/parallel.js';
 import { type CompiledSearch, compileSearch, searchPage, suppressDuplicateOcrMatches } from './search/index.js';
 import type { BuildVisualRegionsInput } from './visualRegions/index.js';
 import { detectPageWarnings } from './warnings/index.js';
-import { extractWidgetAppearanceCaptions } from './widgetAppearance/index.js';
 
 /**
  * Extract a structured representation of a PDF.
@@ -171,19 +169,11 @@ export async function processDocument(filePath: string, options: ProcessDocument
     const visualRegionInputsByPage = new Map<number, BuildVisualRegionsInput>();
     const annotationAppearanceByPage = new Map<number, boolean>();
     const imageOps = buildImageOps(OPS);
-    let widgetAppearanceCaptions: ReadonlyMap<string, string> | undefined;
-    const getWidgetAppearanceCaptions = (): ReadonlyMap<string, string> => {
-      if (widgetAppearanceCaptions !== undefined) return widgetAppearanceCaptions;
-      try {
-        const rawCaptions = extractWidgetAppearanceCaptions(pdfData ?? readFileSync(filePath));
-        widgetAppearanceCaptions = flags.normalize
-          ? new Map(Array.from(rawCaptions, ([id, caption]) => [id, normalizeText(caption)]))
-          : rawCaptions;
-      } catch {
-        widgetAppearanceCaptions = new Map();
-      }
-      return widgetAppearanceCaptions;
-    };
+    const getWidgetAppearanceCaptions = createWidgetAppearanceCaptionLoader({
+      pdfData,
+      filePath,
+      normalize: flags.normalize,
+    });
     // Parallelise per-page extraction. pdfjs's PDFDocumentProxy is safe
     // to call concurrently — each `getPage` resolves through its own
     // worker queue — and runParallel preserves input order so the output
