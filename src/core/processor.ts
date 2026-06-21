@@ -16,7 +16,6 @@ import type {
 import { buildAttachments } from './document/attachments.js';
 import { buildLayers } from './document/layers.js';
 import { buildOutline } from './document/outline.js';
-import { countStructureNodes } from './document/structure.js';
 import { buildViewerState } from './document/viewer.js';
 import { getCacheDir, getCached, pdfFingerprint, setCache } from './io/cache.js';
 import { markRepeatedBlocks } from './layout/index.js';
@@ -28,6 +27,7 @@ import {
   dropCachedSafe,
   isUsableImage,
 } from './processor/cacheValidation.js';
+import { buildOverview } from './processor/overview.js';
 import type { PageFlags } from './processor/pageData.js';
 import { extractPageData } from './processor/pageExtraction.js';
 import { fingerprintData, withTruncationHint } from './processor/pdfBytes.js';
@@ -488,47 +488,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       return flags.normalize ? normalizeText(raw) : raw;
     };
 
-    // Surface a top-level density summary when the result spans more than
-    // one page. Same fields the Markdown formatter renders as a table, so
-    // JSON consumers and Markdown readers can both scan outliers from the
-    // top of the output without re-deriving anything from `pages[]`.
-    const overview =
-      pages.length > 1
-        ? pages.map((p) => ({
-            page: p.page,
-            ...(p.pageLabel !== undefined && { pageLabel: p.pageLabel }),
-            charCount: p.charCount,
-            imageCount: p.imageCount,
-            vectorCount: p.vectorCount,
-            textCoverage: p.textCoverage,
-            nonPrintableRatio: p.nonPrintableRatio,
-            nonPrintableCount: p.nonPrintableCount,
-            // Mirror the per-page renderContentRatio onto the overview row
-            // so an agent can spot blank-rendered pages from the top-level
-            // summary alone. Stays optional when neither --render nor --ocr
-            // produced a raster.
-            ...(p.renderContentRatio !== undefined && { renderContentRatio: p.renderContentRatio }),
-            quality: p.quality,
-            // Mirror the warnings count from each page so the top-level
-            // table flags problem pages at a glance. Omitted when no
-            // warnings fired, matching the PageResult.warnings field's
-            // optional shape.
-            ...(p.warnings && p.warnings.length > 0 && { warningCount: p.warnings.length }),
-            // Search hits per page. Present-with-`0` is meaningful
-            // ("search ran, no hits on this page"); omitted when
-            // `search` wasn't requested at all so the overview stays
-            // clean for the default extraction.
-            ...(compiledSearch !== undefined && { matchCount: p.matches?.length ?? 0 }),
-            ...(p.vectorBoxes !== undefined && { vectorBoxCount: p.vectorBoxes.length }),
-            ...(p.visualRegions !== undefined && { visualRegionCount: p.visualRegions.length }),
-            ...(p.formFields !== undefined && { formFieldCount: p.formFields.length }),
-            ...(p.links !== undefined && { linkCount: p.links.length }),
-            ...(p.annotations !== undefined && { annotationCount: p.annotations.length }),
-            ...(p.structure !== undefined && { structureNodeCount: countStructureNodes(p.structure) }),
-            width: p.width,
-            height: p.height,
-          }))
-        : undefined;
+    const overview = buildOverview(pages, { includeSearchMatches: compiledSearch !== undefined });
 
     const result: DocumentResult = {
       file: filePath,
