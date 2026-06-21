@@ -1,6 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { join, dirname as pathDirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join, resolve } from 'node:path';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type {
   DocumentAttachment,
@@ -19,7 +18,6 @@ import { buildLayers } from './document/layers.js';
 import { buildOutline } from './document/outline.js';
 import { countStructureNodes } from './document/structure.js';
 import { buildViewerState } from './document/viewer.js';
-import type { ImageOps } from './graphics/imageBoxes.js';
 import { getCacheDir, getCached, pdfFingerprint, setCache } from './io/cache.js';
 import { markRepeatedBlocks } from './layout/index.js';
 import { parsePageRangeWithSkipped } from './options/pageRange.js';
@@ -33,6 +31,7 @@ import {
 import type { PageFlags } from './processor/pageData.js';
 import { extractPageData } from './processor/pageExtraction.js';
 import { fingerprintData, withTruncationHint } from './processor/pdfBytes.js';
+import { buildImageOps, buildPdfJsDocumentOptions } from './processor/pdfJsSetup.js';
 import { capturePdfJsWarnings } from './processor/pdfJsWarnings.js';
 import { prepareRenderImagesDir, validateRenderRegion, validateRenderScale } from './processor/renderOptions.js';
 import { renderResult } from './processor/renderResult.js';
@@ -139,80 +138,11 @@ export async function processDocument(filePath: string, options: ProcessDocument
   // pdfjs-dist is multiple MB and dominates startup time; only pull it in
   // once we've confirmed there's no cache hit and we actually need to parse.
   const { getDocument, OPS } = await import('pdfjs-dist/legacy/build/pdf.mjs');
-  // Single-instance image draw opcodes — one image per occurrence.
-  // Repeat / Group / inline-Group variants are dispatched separately
-  // because their args carry per-instance positions or transforms.
-  const singleImageOps = new Set<number>([
-    OPS.paintImageXObject,
-    OPS.paintImageMaskXObject,
-    OPS.paintInlineImageXObject,
-  ]);
-  const pathPaintOps = new Set<number>([
-    OPS.stroke,
-    OPS.closeStroke,
-    OPS.fill,
-    OPS.eoFill,
-    OPS.fillStroke,
-    OPS.eoFillStroke,
-    OPS.closeFillStroke,
-    OPS.closeEOFillStroke,
-  ]);
-  const pathFillOps = new Set<number>([
-    OPS.fill,
-    OPS.eoFill,
-    OPS.fillStroke,
-    OPS.eoFillStroke,
-    OPS.closeFillStroke,
-    OPS.closeEOFillStroke,
-  ]);
-  const vectorPaintOps = new Set<number>([...pathPaintOps, OPS.shadingFill, OPS.rawFillPath]);
-  // Hand pdf.js the bundled OpenJPEG (JPX / JPEG2000) + JBIG2 wasm decoders,
-  // predefined CJK CMap pack, and standard font data.
-  //   - `wasmUrl` lets pdf.js decode JPX image streams (Internet Archive
-  //     scans). Without it those pages render as solid blanks.
-  //   - `cMapUrl` + `cMapPacked: true` lets pdf.js resolve CJK glyphs that
-  //     reference predefined CMaps like `Adobe-Japan1-UCS2`. Without it
-  //     SpeakerDeck / Office Japanese exports come back with `text: ""`
-  //     and the agent has no way to tell native-text-empty from
-  //     image-only.
-  //   - `standardFontDataUrl` prevents pdf.js from falling back when a PDF
-  //     references one of the built-in Type1 fonts without embedding it.
-  // We pass *plain filesystem paths* (no `file://` prefix). pdf.js's Node
-  // factory calls `fs.readFile(url)` directly, which silently fails on
-  // `file://` *strings* (only `URL` objects are accepted by fs); plain
-  // paths sidestep that mismatch entirely. pdf.js validates only the
-  // trailing slash, not the URL scheme.
-  // We intentionally do NOT set `iccUrl`: turning on ICC color management
-  // subtly shifts rendered pixel values on Linux, which makes tesseract
-  // misread otherwise clean glyphs (observed: `hello pdfvision` → `helb
-  // pdfvisdn` on ubuntu CI). JPX decoding does not require ICC.
-  // Best-effort: if pdfjs-dist resolution fails, fall back to pre-asset
-  // behaviour rather than failing the whole extraction.
-  const docOptions: Record<string, unknown> = pdfData ? { data: pdfData } : { url: filePath };
-  if (options.password !== undefined) {
-    docOptions.password = options.password;
-  }
-  try {
-    // `import.meta.resolve` is sync since Node 20.6 and returns a file://
-    // URL for an installed package; convert to a plain directory path so
-    // the resulting wasm/cmap dirs work with fs.readFile in Node.
-    const pdfjsPkgPath = fileURLToPath(import.meta.resolve('pdfjs-dist/package.json'));
-    const pdfjsPkgDir = pathDirname(pdfjsPkgPath);
-    // Trailing slash matters: pdf.js appends the filename to this value
-    // without an extra separator. pdf.js's `getFactoryUrlProp` only
-    // accepts strings ending in `/`, so even on Windows we need to
-    // append `/` (not `path.sep`). Inside the path we use `path.join`
-    // for platform safety, then concatenate the literal forward slash
-    // to satisfy pdf.js's URL contract — Node's `fs.readFile` accepts
-    // mixed separators on Windows so this remains portable.
-    docOptions.wasmUrl = `${join(pdfjsPkgDir, 'wasm')}/`;
-    docOptions.cMapUrl = `${join(pdfjsPkgDir, 'cmaps')}/`;
-    docOptions.cMapPacked = true;
-    docOptions.standardFontDataUrl = `${join(pdfjsPkgDir, 'standard_fonts')}/`;
-  } catch {
-    // Best-effort: keep going without the wasm/cmap asset URLs rather
-    // than fail the whole extraction over a missing optional asset.
-  }
+  const docOptions = buildPdfJsDocumentOptions({
+    pdfData,
+    filePath,
+    password: options.password,
+  });
   const loadingTask = getDocument(docOptions);
   let doc: PDFDocumentProxy;
   try {
@@ -366,31 +296,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     const warningVectorBoxesByPage = new Map<number, VectorBox[]>();
     const visualRegionInputsByPage = new Map<number, BuildVisualRegionsInput>();
     const annotationAppearanceByPage = new Map<number, boolean>();
-    const imageOps: ImageOps = {
-      save: OPS.save,
-      restore: OPS.restore,
-      transform: OPS.transform,
-      formBegin: OPS.paintFormXObjectBegin,
-      formEnd: OPS.paintFormXObjectEnd,
-      setFillColorN: OPS.setFillColorN,
-      fillColorOps: new Set<number>([
-        OPS.setFillColor,
-        OPS.setFillColorN,
-        OPS.setFillRGBColor,
-        OPS.setFillCMYKColor,
-        OPS.setFillColorSpace,
-      ]),
-      singleImageOps,
-      constructPath: OPS.constructPath,
-      pathPaintOps,
-      pathFillOps,
-      vectorPaintOps,
-      shadingFill: OPS.shadingFill,
-      paintImageXObjectRepeat: OPS.paintImageXObjectRepeat,
-      paintImageMaskXObjectRepeat: OPS.paintImageMaskXObjectRepeat,
-      paintImageMaskXObjectGroup: OPS.paintImageMaskXObjectGroup,
-      paintInlineImageXObjectGroup: OPS.paintInlineImageXObjectGroup,
-    };
+    const imageOps = buildImageOps(OPS);
     let widgetAppearanceCaptions: ReadonlyMap<string, string> | undefined;
     const getWidgetAppearanceCaptions = (): ReadonlyMap<string, string> => {
       if (widgetAppearanceCaptions !== undefined) return widgetAppearanceCaptions;
