@@ -9,6 +9,15 @@ const OCR_NATIVE_MISMATCH_MIN_CHARS = 3;
 const OCR_NATIVE_MISMATCH_MAX_CHARS = 200;
 const OCR_NATIVE_MISMATCH_MIN_LENGTH_RATIO = 0.75;
 const OCR_NATIVE_MISMATCH_DISTANCE_RATIO_THRESHOLD = 0.5;
+const OCR_NATIVE_SPACING_MIN_CONFIDENCE = 0.85;
+const OCR_NATIVE_SPACING_MIN_CHARS = 120;
+const OCR_NATIVE_SPACING_MIN_LENGTH_RATIO = 0.75;
+const OCR_NATIVE_SPACING_MAX_DISTANCE_RATIO = 0.12;
+const OCR_NATIVE_SPACING_MIN_OCR_WHITESPACE_RATIO = 0.14;
+const OCR_NATIVE_SPACING_MAX_NATIVE_RATIO_OF_OCR = 0.6;
+const OCR_NATIVE_SPACING_MIN_NATIVE_AVG_TOKEN = 8;
+const OCR_NATIVE_SPACING_MAX_OCR_AVG_TOKEN = 7;
+const OCR_NATIVE_SPACING_MAX_NATIVE_RUN_RATIO_OF_OCR = 0.65;
 const RASTER_TEXT_LAYER_SYMBOL_NOISE_MIN_CHARS = 80;
 const RASTER_TEXT_LAYER_SYMBOL_NOISE_RATIO_THRESHOLD = 0.35;
 
@@ -81,6 +90,43 @@ export function detectHighConfidenceOcrNativeMismatch(page: PageResult, out: Pag
   });
 }
 
+export function detectHighConfidenceOcrNativeSpacingLoss(
+  page: PageResult,
+  context: VisualWarningContext,
+  out: PageWarning[],
+): void {
+  if (!context.rasterBackedTextLayer) return;
+  if (!page.ocr) return;
+  if (page.ocr.confidence < OCR_NATIVE_SPACING_MIN_CONFIDENCE) return;
+  if (page.quality.nativeTextStatus !== 'ok') return;
+  if (page.quality.visualStatus === 'blank') return;
+
+  const native = normalizeComparableText(page.text);
+  const ocr = normalizeComparableText(page.ocr.text);
+  const maxLength = Math.max(native.length, ocr.length);
+  if (maxLength < OCR_NATIVE_SPACING_MIN_CHARS) return;
+  const minLength = Math.min(native.length, ocr.length);
+  if (minLength / maxLength < OCR_NATIVE_SPACING_MIN_LENGTH_RATIO) return;
+  if (levenshteinDistance(native, ocr) / maxLength > OCR_NATIVE_SPACING_MAX_DISTANCE_RATIO) return;
+
+  const nativeStats = wordSpacingStats(page.text);
+  const ocrStats = wordSpacingStats(page.ocr.text);
+  if (nativeStats.alnumCount < OCR_NATIVE_SPACING_MIN_CHARS || ocrStats.alnumCount < OCR_NATIVE_SPACING_MIN_CHARS) {
+    return;
+  }
+  if (ocrStats.whitespaceRatio < OCR_NATIVE_SPACING_MIN_OCR_WHITESPACE_RATIO) return;
+  if (nativeStats.whitespaceRatio > ocrStats.whitespaceRatio * OCR_NATIVE_SPACING_MAX_NATIVE_RATIO_OF_OCR) return;
+  if (nativeStats.averageTokenLength < OCR_NATIVE_SPACING_MIN_NATIVE_AVG_TOKEN) return;
+  if (ocrStats.averageTokenLength > OCR_NATIVE_SPACING_MAX_OCR_AVG_TOKEN) return;
+  if (nativeStats.wordRuns > ocrStats.wordRuns * OCR_NATIVE_SPACING_MAX_NATIVE_RUN_RATIO_OF_OCR) return;
+
+  out.push({
+    code: 'ocr_native_spacing_loss',
+    severity: 'warning',
+    message: `high-confidence OCR preserves word spacing better than raster-backed native text (native avg token ${nativeStats.averageTokenLength.toFixed(1)} chars, whitespace ${(nativeStats.whitespaceRatio * 100).toFixed(1)}%; OCR avg token ${ocrStats.averageTokenLength.toFixed(1)} chars, whitespace ${(ocrStats.whitespaceRatio * 100).toFixed(1)}%) — native text likely lost word boundaries; compare against OCR text and the render when exact wording matters`,
+  });
+}
+
 function printableSymbolNoiseStats(text: string): {
   total: number;
   symbolCount: number;
@@ -98,6 +144,29 @@ function printableSymbolNoiseStats(text: string): {
     if (samples.length < 6 && !samples.includes(char)) samples.push(char);
   }
   return { total, symbolCount, ratio: total > 0 ? symbolCount / total : 0, samples };
+}
+
+function wordSpacingStats(text: string): {
+  alnumCount: number;
+  whitespaceCount: number;
+  whitespaceRatio: number;
+  wordRuns: number;
+  averageTokenLength: number;
+} {
+  let alnumCount = 0;
+  let whitespaceCount = 0;
+  for (const char of text) {
+    if (/[\p{L}\p{N}]/u.test(char)) alnumCount++;
+    else if (/\s/u.test(char)) whitespaceCount++;
+  }
+  const wordRuns = text.match(/[\p{L}\p{N}]+/gu)?.length ?? 0;
+  return {
+    alnumCount,
+    whitespaceCount,
+    whitespaceRatio: alnumCount > 0 ? whitespaceCount / alnumCount : 0,
+    wordRuns,
+    averageTokenLength: wordRuns > 0 ? alnumCount / wordRuns : 0,
+  };
 }
 
 function nativeExtractionNeedsOcr(status: PageResult['quality']['nativeTextStatus']): boolean {

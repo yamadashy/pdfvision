@@ -45,6 +45,8 @@ Rough interpretation, treat as heuristic:
 - `0.5–0.8` — usable but verify on important entities (numbers, names, code identifiers)
 - `< 0.5` — partial recognition. Either wrong `--ocr-lang`, low-resolution scan, or stylised typography. On scan-like pages where native extraction is empty, sparse, glyph-corrupted, or riding on a raster-backed text layer, this also appears as `pages[].warnings[].code === 'ocr_low_confidence'`. Compare with the rendered PNG via `--render` before trusting the text.
 
+High confidence can also expose native-text-layer quality problems. On raster-backed scan pages, `pages[].warnings[].code === 'ocr_native_spacing_loss'` means OCR and native text contain comparable characters, but the native text has lost many word boundaries. Prefer comparing `ocr.text` with the render before using exact wording from `pages[].text`.
+
 A `confidence: 0` with an empty `ocr.text` usually means the rasterise step produced a blank page (see "Troubleshooting" below) rather than OCR genuinely finding nothing. **Check `pages[].quality.visualStatus` first**: when it is `blank`, the render came out blank and OCR had nothing to work with; when it is `sparse`, the page has tiny visible marks and should be inspected with geometry or a crop before reporting "no text".
 
 ## Output shape

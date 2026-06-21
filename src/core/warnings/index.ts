@@ -13,6 +13,7 @@ import { detectDotLeaderNoise, detectTabularNumericLayout } from './tabular.js';
 import {
   detectDenseVectorGraphics,
   detectHighConfidenceOcrNativeMismatch,
+  detectHighConfidenceOcrNativeSpacingLoss,
   detectLargeRasterLowTextOverlap,
   detectLowConfidenceOcr,
   detectOptionalContentTextHiddenLayerRisk,
@@ -79,6 +80,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
   detectRasterTextLayerSymbolNoise(page, context, warnings);
   detectLowConfidenceOcr(page, context, warnings);
   detectHighConfidenceOcrNativeMismatch(page, warnings);
+  detectHighConfidenceOcrNativeSpacingLoss(page, context, warnings);
   detectDenseVectorGraphics(page, warnings);
   detectVectorGraphicsWithoutNativeText(page, context, warnings);
   detectLargeRasterLowTextOverlap(page, context, warnings);

@@ -340,6 +340,52 @@ describe('detectPageWarnings', () => {
     expect(out.filter((w) => w.code === 'ocr_native_text_mismatch')).toEqual([]);
   });
 
+  it('flags high-confidence OCR that preserves word spacing better than raster-backed native text', () => {
+    const nativeText =
+      'VISIT OUR WEBSITE\nOurwebsite, www.socialsecurity.gov, isa valuableresourcefor\n' +
+      'informationaboutall of SocialSecurity programs. Atourwebsite, youalsocan applyfor benefits and requesta statement.';
+    const ocrText =
+      'VISIT OUR WEBSITE\nOur website, www.socialsecurity.gov, is a valuable resource for\n' +
+      'information about all of Social Security programs. At our website, you also can apply for benefits and request a statement.';
+    const out = detectPageWarnings(
+      {
+        ...page([]),
+        text: nativeText,
+        charCount: nativeText.length,
+        imageCount: 2,
+        textCoverage: 0.18,
+        quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+        ocr: { text: ocrText, confidence: 0.91, lang: 'eng' },
+      },
+      { rasterBackedTextLayer: true },
+    );
+
+    const warning = out.find((w) => w.code === 'ocr_native_spacing_loss');
+    expect(warning).toMatchObject({ code: 'ocr_native_spacing_loss', severity: 'warning' });
+    expect(warning?.message).toContain('word spacing');
+    expect(warning?.message).toContain('word boundaries');
+  });
+
+  it('does not flag OCR spacing loss when native and OCR spacing are similar', () => {
+    const text =
+      'VISIT OUR WEBSITE\nOur website, www.socialsecurity.gov, is a valuable resource for\n' +
+      'information about all of Social Security programs. At our website, you also can apply for benefits and request a statement.';
+    const out = detectPageWarnings(
+      {
+        ...page([]),
+        text,
+        charCount: text.length,
+        imageCount: 2,
+        textCoverage: 0.18,
+        quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+        ocr: { text, confidence: 0.91, lang: 'eng' },
+      },
+      { rasterBackedTextLayer: true },
+    );
+
+    expect(out.filter((w) => w.code === 'ocr_native_spacing_loss')).toEqual([]);
+  });
+
   it('flags low-confidence OCR on raster-backed text layers even when native status is ok', () => {
     const out = detectPageWarnings(
       {

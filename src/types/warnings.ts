@@ -10,7 +10,7 @@
  * local math/text-order divergences whose visual order differs from native text,
  * large image regions whose internal labels will not appear in native text,
  * optional-content layer text that may include default-hidden content,
- * OCR-backed scan layers whose bboxes may drift from pixels, etc.
+ * OCR-backed scan layers whose bboxes or word boundaries may drift from pixels, etc.
  */
 export interface PageWarning {
   /** Machine-readable rule identifier. */
@@ -31,6 +31,7 @@ export interface PageWarning {
     | 'raster_text_layer_symbol_noise'
     | 'ocr_low_confidence'
     | 'ocr_native_text_mismatch'
+    | 'ocr_native_spacing_loss'
     | 'large_raster_low_text_overlap'
     | 'annotation_text_missing_from_native'
     | 'optional_content_text_may_include_hidden_layers'

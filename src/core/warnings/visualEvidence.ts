@@ -9,6 +9,7 @@ export {
 } from './visualEvidence/graphics.js';
 export {
   detectHighConfidenceOcrNativeMismatch,
+  detectHighConfidenceOcrNativeSpacingLoss,
   detectLowConfidenceOcr,
   detectRasterBackedTextLayer,
   detectRasterTextLayerSymbolNoise,
