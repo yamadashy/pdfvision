@@ -9,15 +9,9 @@ import type {
   ProcessOptions,
   VectorBox,
 } from '../types/index.js';
-import { getCacheDir, getCached, pdfFingerprint, setCache } from './io/cache.js';
+import { getCacheDir, pdfFingerprint } from './io/cache.js';
 import { markRepeatedBlocks } from './layout/index.js';
 import { buildCacheKey } from './processor/cacheKey.js';
-import {
-  areUsableAttachments,
-  areUsableVisualRegionImages,
-  dropCachedSafe,
-  isUsableImage,
-} from './processor/cacheValidation.js';
 import { extractDocumentFeatures } from './processor/documentFeatures.js';
 import { buildOverview } from './processor/overview.js';
 import type { PageFlags } from './processor/pageData.js';
@@ -29,6 +23,7 @@ import { capturePdfJsWarnings } from './processor/pdfJsWarnings.js';
 import { buildProcessDocumentOptions, validateProcessFileOptions } from './processor/processFileOptions.js';
 import { prepareRenderImagesDir, validateRenderRegion, validateRenderScale } from './processor/renderOptions.js';
 import { renderResult } from './processor/renderResult.js';
+import { readCachedResult, writeCachedResult } from './processor/resultCache.js';
 import { normalizeText } from './processor/textUtils.js';
 import { derivePageQuality } from './quality/pageQuality.js';
 import { runParallel } from './runtime/parallel.js';
@@ -99,35 +94,15 @@ export async function processDocument(filePath: string, options: ProcessDocument
       : undefined;
 
   const cacheKey = buildCacheKey({ ...cacheRelevantOptions, renderScale, renderRegion });
-  if (cacheDir) {
-    const cached = getCached(cacheDir, cacheKey);
-    if (cached) {
-      try {
-        const result = JSON.parse(cached) as DocumentResult;
-        // For --render, ensure each referenced PNG is a regular non-empty
-        // file (not a symlink, not a partial write left from a crash).
-        const imagesUsable =
-          (!options.render || result.pages.every((p) => isUsableImage(p.image))) &&
-          (!renderVisualRegions || areUsableVisualRegionImages(result));
-        // For --attachment-output, ensure each referenced file is still
-        // present and matches the embedded-file byte length before returning
-        // a cached path instead of re-saving the attachment bytes.
-        const attachmentsUsable = areUsableAttachments(result.attachments, attachmentOutputDir);
-        if (imagesUsable && attachmentsUsable) {
-          // The cached payload is keyed by content hash, so the same bytes
-          // at a different path would otherwise return the original `file`
-          // value. Patch in the current invocation's path before returning.
-          result.file = filePath;
-          return result;
-        }
-        dropCachedSafe(cacheDir, cacheKey);
-      } catch {
-        // Cache file is corrupted (e.g. partial write, format change between
-        // versions). Drop it and fall through to a fresh extraction.
-        dropCachedSafe(cacheDir, cacheKey);
-      }
-    }
-  }
+  const cachedResult = readCachedResult({
+    cacheDir,
+    cacheKey,
+    filePath,
+    render: !!options.render,
+    renderVisualRegions,
+    attachmentOutputDir,
+  });
+  if (cachedResult) return cachedResult;
 
   // pdfjs-dist is multiple MB and dominates startup time; only pull it in
   // once we've confirmed there's no cache hit and we actually need to parse.
@@ -412,9 +387,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       pages,
     };
 
-    if (cacheDir) {
-      setCache(cacheDir, cacheKey, JSON.stringify(result));
-    }
+    writeCachedResult(cacheDir, cacheKey, result);
 
     return result;
   } finally {
