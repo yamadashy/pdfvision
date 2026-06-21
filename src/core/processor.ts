@@ -10,7 +10,6 @@ import type {
   VectorBox,
 } from '../types/index.js';
 import { getCacheDir, pdfFingerprint } from './io/cache.js';
-import { markRepeatedBlocks } from './layout/index.js';
 import { buildCacheKey } from './processor/cacheKey.js';
 import { extractDocumentFeatures } from './processor/documentFeatures.js';
 import { buildOverview } from './processor/overview.js';
@@ -26,10 +25,11 @@ import { prepareRenderImagesDir, validateRenderRegion, validateRenderScale } fro
 import { renderResult } from './processor/renderResult.js';
 import { readCachedResult, writeCachedResult } from './processor/resultCache.js';
 import { normalizeText } from './processor/textUtils.js';
+import { applyVisualRegionPostProcessing } from './processor/visualRegionPostProcessing.js';
 import { derivePageQuality } from './quality/pageQuality.js';
 import { runParallel } from './runtime/parallel.js';
 import { type CompiledSearch, compileSearch, searchPage, suppressDuplicateOcrMatches } from './search/index.js';
-import { type BuildVisualRegionsInput, buildVisualRegions } from './visualRegions/index.js';
+import type { BuildVisualRegionsInput } from './visualRegions/index.js';
 import { detectPageWarnings } from './warnings/index.js';
 import { extractWidgetAppearanceCaptions } from './widgetAppearance/index.js';
 
@@ -227,48 +227,16 @@ export async function processDocument(filePath: string, options: ProcessDocument
       });
     });
 
-    // Repeated-chrome detection has to wait until every selected page is
-    // populated, since a single page can't tell its own chrome from its
-    // body. Run it on public layout when --layout is on and on the
-    // internal layout used by visualRegions otherwise, so
-    // caption association can suppress repeated header/footer text
-    // without exposing pages[].layout.
-    if (flags.layout || flags.visualRegions) {
-      const pagesForRepeated = pages.map((page) => {
-        const layout = page.layout ?? visualRegionInputsByPage.get(page.page)?.layout;
-        return layout ? { ...page, layout } : page;
-      });
-      markRepeatedBlocks(pagesForRepeated);
-    }
-
-    if (flags.visualRegions) {
-      for (const page of pages) {
-        const input = visualRegionInputsByPage.get(page.page);
-        page.visualRegions = input
-          ? buildVisualRegions({
-              ...input,
-              visualStatus: page.quality.visualStatus,
-              nativeTextStatus: page.quality.nativeTextStatus,
-            }).map((region, index) => ({
-              ...region,
-              id: `p${page.page}-vr${index}`,
-            }))
-          : [];
-      }
-    }
-
-    if (renderVisualRegions) {
-      const jobs = pages.flatMap((page) => (page.visualRegions ?? []).map((region) => ({ page, region })));
-      if (jobs.length > 0) {
-        const { renderPageWithStats } = await import('./renderer/index.js');
-        await runParallel(jobs, async ({ page, region }) => {
-          const rendered = await renderPageWithStats(doc, page.page, imagesDir as string, renderScale, region);
-          region.image = rendered.path;
-          region.renderContentRatio = rendered.contentRatio;
-          if (rendered.renderedContentBox) region.renderedContentBox = rendered.renderedContentBox;
-        });
-      }
-    }
+    await applyVisualRegionPostProcessing({
+      pages,
+      layoutEnabled: flags.layout,
+      visualRegionsEnabled: flags.visualRegions,
+      renderVisualRegions,
+      visualRegionInputsByPage,
+      doc,
+      imagesDir,
+      renderScale,
+    });
     // OCR runs after the main pass so it can attach to already-built
     // PageResults. The pdfjs-derived `text` stays untouched — agents that
     // care about the difference can compare `text` vs `ocr.text` directly.
