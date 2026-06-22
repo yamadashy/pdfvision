@@ -23,6 +23,7 @@ import {
   visualRegionSources,
 } from './markdown/helpers.js';
 import { appendOverview, formatSize } from './markdown/overview.js';
+import { appendSearchMatches } from './markdown/pageSections.js';
 import { appendStructureItem, structureNodeCount } from './markdown/structure.js';
 
 /** Options that influence the Markdown rendering without changing the
@@ -205,23 +206,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
       lines.push(body);
     }
     if (page.matches) {
-      lines.push('');
-      lines.push('### Search matches');
-      if (page.matches.length === 0) {
-        lines.push('');
-        lines.push('_No search matches found._');
-      } else {
-        lines.push('');
-        const showQueryIndex = page.matches.some((match) => match.queryIndex !== undefined);
-        lines.push(`| Query |${showQueryIndex ? ' Query# |' : ''} Source | Text | Context | BBox |`);
-        lines.push(`| --- |${showQueryIndex ? ' ---: |' : ''} --- | --- | --- | --- |`);
-        for (const match of page.matches) {
-          const queryIndexCell = showQueryIndex ? ` ${match.queryIndex ?? ''} |` : '';
-          lines.push(
-            `| ${escapeTableCell(match.query)} |${queryIndexCell} ${match.source} | ${escapeTableCell(match.text)} | ${escapeTableCell(match.context ?? '')} | ${formatBox(match.bbox)} |`,
-          );
-        }
-      }
+      appendSearchMatches(lines, page.matches);
     }
     if (page.structure !== undefined) {
       lines.push('');
