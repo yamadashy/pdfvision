@@ -2236,6 +2236,74 @@ describe('buildVisualRegions', () => {
     });
   });
 
+  it('attaches nearby panel titles above visual regions that already have in-region labels', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      vectorBoxes: [{ x: 208, y: 139, width: 280, height: 160 }],
+      layout: {
+        blocks: [
+          {
+            text: '(b) Synthesis of assessment of observed change in heavy precipitation and confidence in human contribution',
+            x: 200,
+            y: 108,
+            width: 304,
+            height: 19,
+            lines: [
+              {
+                text: '(b) Synthesis of assessment of observed change in heavy precipitation and confidence in human contribution',
+                x: 200,
+                y: 108,
+                width: 304,
+                height: 19,
+                fontSize: 9,
+              },
+            ],
+          },
+          {
+            text: 'North America NWN NEN GIC Europe',
+            x: 208,
+            y: 139,
+            width: 124,
+            height: 14,
+            lines: [
+              {
+                text: 'North America NWN NEN GIC Europe',
+                x: 208,
+                y: 139,
+                width: 124,
+                height: 14,
+                fontSize: 7,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0]).toMatchObject({
+      kind: 'vector',
+      x: 192,
+      y: 100,
+      width: 320,
+      height: 207,
+      associatedText: [
+        {
+          text: '(b) Synthesis of assessment of observed change in heavy precipitation and confidence in human contribution',
+          relation: 'label',
+          blockIndex: 0,
+        },
+        {
+          text: 'North America NWN NEN GIC Europe',
+          relation: 'label',
+          blockIndex: 1,
+        },
+      ],
+    });
+  });
+
   it('does not attach Japanese prose inside callout boxes as labels', () => {
     const regions = buildVisualRegions({
       pageWidth: 600,

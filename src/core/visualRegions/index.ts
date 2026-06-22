@@ -9,6 +9,7 @@ import { area, padAndClamp, pageArea, round3 } from './geometry.js';
 import {
   attachHeadingLabels,
   attachInRegionPlainLabels,
+  attachPanelTitleLabels,
   attachPlainImageLabels,
   attachTableLeadInLabels,
 } from './labels.js';
@@ -103,7 +104,8 @@ export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion
   const withPlainImageLabels = attachPlainImageLabels(withTableLeadInLabels, input.layout);
   const withInRegionPlainLabels = attachInRegionPlainLabels(withPlainImageLabels, input.layout, totalArea);
   const withHeadingLabels = attachHeadingLabels(withInRegionPlainLabels, input.layout, totalArea);
-  const contextDeduped = dedupeContextualDuplicates(dedupeEquivalentCandidates(withHeadingLabels));
+  const withPanelTitleLabels = attachPanelTitleLabels(withHeadingLabels, input.layout, totalArea);
+  const contextDeduped = dedupeContextualDuplicates(dedupeEquivalentCandidates(withPanelTitleLabels));
   return suppressContainedCandidates(contextDeduped)
     .filter((candidate) => isUsableFinalCandidate(candidate, input.pageWidth, input.pageHeight))
     .sort((a, b) => visualScore(b, totalArea) - visualScore(a, totalArea))
