@@ -57,6 +57,7 @@ export function extractPageText({
   let textArea = 0;
   const spans: TextSpan[] = [];
   const seenTextItems = new Map<string, number>();
+  const pageFontAliases = new Map<string, string>();
   for (const item of content.items) {
     if (!isTextItem(item)) continue;
     const w = typeof item.width === 'number' ? item.width : 0;
@@ -111,7 +112,7 @@ export function extractPageText({
       spans.push({
         text: flags.normalize ? normalizeText(item.str) : item.str,
         ...geometry,
-        ...(typeof item.fontName === 'string' && { fontName: item.fontName }),
+        ...(typeof item.fontName === 'string' && { fontName: stablePageFontName(item.fontName, pageFontAliases) }),
       });
     }
   }
@@ -130,4 +131,12 @@ export function extractPageText({
 
 function isTextItem(item: unknown): item is TextItemLike {
   return !!item && typeof item === 'object' && 'str' in item && typeof (item as TextItemLike).str === 'string';
+}
+
+function stablePageFontName(rawFontName: string, aliases: Map<string, string>): string {
+  const existing = aliases.get(rawFontName);
+  if (existing) return existing;
+  const alias = `font${aliases.size + 1}`;
+  aliases.set(rawFontName, alias);
+  return alias;
 }

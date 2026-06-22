@@ -470,11 +470,11 @@ interface TextSpan {
   x: number; y: number;      // top-left in PDF points
   width: number; height: number;
   fontSize: number;          // max of horizontal / vertical text-matrix scales
-  fontName?: string;         // pdf.js internal name e.g. "g_d0_f1"
+  fontName?: string;         // stable page-local alias e.g. "font1"
 }
 ```
 
-Whitespace-only spans are filtered out — pdf.js emits a span per positioned space, which would double the array length without adding information.
+Whitespace-only spans are filtered out — pdf.js emits a span per positioned space, which would double the array length without adding information. `fontName` is a page-local alias derived from pdf.js font keys, so the same page keeps stable span font grouping even when extracted alone or as part of a larger page range.
 
 ## OCR (`--ocr`)
 

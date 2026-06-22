@@ -17,7 +17,7 @@ export interface TextSpan {
   height: number;
   /** Approximate font size in PDF points (max of horizontal and vertical text-matrix scales). */
   fontSize: number;
-  /** pdf.js internal font name (e.g. `g_d0_f1`). Useful for grouping items by font. */
+  /** Stable page-local font alias (e.g. `font1`). Useful for grouping items by font within a page. */
   fontName?: string;
 }
 
