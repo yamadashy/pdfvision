@@ -88,6 +88,7 @@ export function searchPage(
     for (let mi = 0; mi < compiled.matchers.length; mi++) {
       const m = compiled.matchers[mi];
       if (line.syntheticHyphenated && !m.query.includes('-')) continue;
+      if (line.syntheticStacked && !/\s/u.test(m.query)) continue;
       if (nativeCapped.has(mi)) continue;
       // Reset lastIndex so the same RegExp object can be reused
       // across spans (`g` flag is stateful).
@@ -103,6 +104,7 @@ export function searchPage(
         }
         const hitBoxes = contributingBoxes(line, hit.index, hit.index + hit[0].length);
         if (hitBoxes.length === 0) continue;
+        if (line.syntheticStacked && hitBoxes.length < 2) continue;
         if (line.syntheticVertical && hitBoxes.length < 2) continue;
         const box = unionBoxes(hitBoxes);
         matches.push({

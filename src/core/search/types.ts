@@ -2,6 +2,7 @@ export interface SearchLine {
   text: string;
   owners: (SearchOwner | undefined)[];
   syntheticHyphenated?: boolean;
+  syntheticStacked?: boolean;
   syntheticVertical?: boolean;
 }
 

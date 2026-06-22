@@ -487,6 +487,26 @@ describe('processDocument search', () => {
     expect(matches[0].boxes).toHaveLength(2);
   });
 
+  it('matches phrases across tight Latin-to-number gaps', () => {
+    const spans: TextSpan[] = [
+      { text: 'Appendix', x: 222.67, y: 100.54, width: 28.05, height: 7.31, fontSize: 7.31 },
+      { text: 'Table', x: 252.38, y: 100.54, width: 16.2, height: 7.31, fontSize: 7.31 },
+      { text: '1.', x: 270.24, y: 100.54, width: 5.55, height: 7.31, fontSize: 7.31 },
+    ];
+    const compiled = compileSearch('Appendix Table 1', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 612, 792, compiled);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'Appendix Table 1',
+      source: 'native',
+      page: 1,
+    });
+    expect(matches[0].boxes).toHaveLength(3);
+  });
+
   it('matches phrases across tight Latin-to-Greek symbol gaps', () => {
     const spans: TextSpan[] = [
       { text: 'if', x: 200.01, y: 454.83, width: 5.47, height: 10, fontSize: 10 },
@@ -544,6 +564,69 @@ describe('processDocument search', () => {
       page: 1,
     });
     expect(matches[0].boxes).toHaveLength(3);
+  });
+
+  it('matches short stacked table header labels across adjacent lines', () => {
+    const spans: TextSpan[] = [
+      { text: 'Total', x: 371.3, y: 96.48, width: 18.2, height: 8, fontSize: 8 },
+      { text: 'Boston', x: 421.28, y: 96.48, width: 25.34, height: 8, fontSize: 8 },
+      { text: 'Chicago', x: 512.2, y: 96.48, width: 30.24, height: 8, fontSize: 8 },
+      { text: 'Minneapolis', x: 560.1, y: 96.48, width: 44.8, height: 8, fontSize: 8 },
+      { text: 'Kansas', x: 622.16, y: 91.43, width: 26.68, height: 8, fontSize: 8 },
+      { text: 'Dallas', x: 674.19, y: 96.48, width: 21.8, height: 8, fontSize: 8 },
+      { text: 'San', x: 733.2, y: 91.43, width: 13.34, height: 8, fontSize: 8 },
+      { text: 'City', x: 628.61, y: 102.08, width: 13.78, height: 8, fontSize: 8 },
+      { text: 'Francisco', x: 724.1, y: 102.08, width: 35.12, height: 8, fontSize: 8 },
+    ];
+    const compiled = compileSearch('Kansas City', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 792, 612, compiled);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'Kansas City',
+      source: 'native',
+      page: 1,
+    });
+    expect(matches[0].boxes).toHaveLength(2);
+  });
+
+  it('does not duplicate single-token matches from stacked table header labels', () => {
+    const spans: TextSpan[] = [
+      { text: 'Kansas', x: 622.16, y: 91.43, width: 26.68, height: 8, fontSize: 8 },
+      { text: 'City', x: 628.61, y: 102.08, width: 13.78, height: 8, fontSize: 8 },
+    ];
+    const compiled = compileSearch('Kansas', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 792, 612, compiled);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'Kansas',
+      source: 'native',
+      page: 1,
+    });
+  });
+
+  it('does not duplicate multi-word labels that only hit one side of a stacked line', () => {
+    const spans: TextSpan[] = [
+      { text: 'Investment banking fees', x: 34.5, y: 83.21, width: 78.91, height: 8, fontSize: 8 },
+      { text: 'Principal transactions', x: 34.5, y: 94.02, width: 76.2, height: 8, fontSize: 8 },
+    ];
+    const compiled = compileSearch('Investment banking fees', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 576, 790, compiled);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'Investment banking fees',
+      source: 'native',
+      page: 1,
+    });
+    expect(matches[0].boxes).toHaveLength(1);
   });
 
   it('does not match phrases across narrow recurring column gutters', () => {
