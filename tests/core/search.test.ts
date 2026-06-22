@@ -587,6 +587,28 @@ describe('processDocument search', () => {
     expect(matches[0].bbox).toEqual({ x: 275.42, y: 290.72, width: 249.36, height: 10.98 });
   });
 
+  it('matches compact table header phrases across wider short-label column gaps', () => {
+    const spans: TextSpan[] = [
+      { text: 'Layer Type', x: 124.55, y: 114.23, width: 45.4, height: 9.96, fontSize: 9.96 },
+      { text: 'Complexity per Layer', x: 239.7, y: 114.23, width: 87.84, height: 9.96, fontSize: 9.96 },
+      { text: 'Sequential', x: 340.33, y: 114.23, width: 42.06, height: 9.96, fontSize: 9.96 },
+      { text: 'Maximum Path Length', x: 395.17, y: 114.23, width: 92.28, height: 9.96, fontSize: 9.96 },
+    ];
+    const compiled = compileSearch('Layer Type Complexity per Layer Sequential', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 612, 792, compiled);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'Layer Type Complexity per Layer Sequential',
+      source: 'native',
+      page: 1,
+    });
+    expect(matches[0].boxes).toHaveLength(3);
+    expect(matches[0].bbox).toEqual({ x: 124.55, y: 114.23, width: 257.84, height: 9.96 });
+  });
+
   it('matches short stacked table header labels across adjacent lines', () => {
     const spans: TextSpan[] = [
       { text: 'Total', x: 371.3, y: 96.48, width: 18.2, height: 8, fontSize: 8 },

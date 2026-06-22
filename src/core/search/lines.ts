@@ -32,7 +32,8 @@ const COMPACT_TABLE_HEADER_MAX_CHARS = 32;
 const COMPACT_TABLE_HEADER_MAX_WORDS = 4;
 const COMPACT_TABLE_HEADER_MAX_ROW_WIDTH_RATIO = 0.75;
 const COMPACT_TABLE_HEADER_MAX_GAP_RATIO = 2.25;
-const COMPACT_TABLE_HEADER_MAX_GAP_PT = 28;
+const COMPACT_TABLE_HEADER_BASE_MAX_GAP_PT = 28;
+const COMPACT_TABLE_HEADER_MAX_GAP_PT = 72;
 const COMPACT_TABLE_HEADER_TEXT_RE = /^[\p{L}\p{N}][\p{L}\p{N}\p{M}\s&.,'’()/%:+-]*$/u;
 
 export function buildSearchLines(spans: readonly TextSpan[] | undefined, pageWidth: number): SearchLine[] {
@@ -232,13 +233,22 @@ function isLikelyCompactTableHeaderRow(spans: readonly TextSpan[], pageWidth: nu
     if (prev) {
       const fontSize = span.fontSize || prev.fontSize || FONT_SIZE_FALLBACK_PT;
       const gap = span.x - (prev.x + prev.width);
-      if (gap < 0 || gap > Math.max(fontSize * COMPACT_TABLE_HEADER_MAX_GAP_RATIO, COMPACT_TABLE_HEADER_MAX_GAP_PT)) {
+      const baseMaxGap = Math.max(fontSize * COMPACT_TABLE_HEADER_MAX_GAP_RATIO, COMPACT_TABLE_HEADER_BASE_MAX_GAP_PT);
+      const maxGap = Math.max(fontSize * COMPACT_TABLE_HEADER_MAX_GAP_RATIO, COMPACT_TABLE_HEADER_MAX_GAP_PT);
+      if (gap < 0 || gap > maxGap) {
+        return false;
+      }
+      if (gap > baseMaxGap && (isSingleCjkGlyph(prev.text.trim()) || isSingleCjkGlyph(text))) {
         return false;
       }
     }
   }
 
   return letterLabelCount >= 2;
+}
+
+function isSingleCjkGlyph(text: string): boolean {
+  return /^[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff]$/u.test(text);
 }
 
 function isCompactTableHeaderText(text: string): boolean {
