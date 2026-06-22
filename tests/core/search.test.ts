@@ -566,6 +566,27 @@ describe('processDocument search', () => {
     expect(matches[0].boxes).toHaveLength(3);
   });
 
+  it('matches compact table header phrases across small column gaps', () => {
+    const spans: TextSpan[] = [
+      { text: 'Advance Estimate', x: 275.42, y: 290.72, width: 79.79, height: 10.98, fontSize: 10.98 },
+      { text: 'Second Estimate', x: 369.94, y: 290.72, width: 74.08, height: 10.98, fontSize: 10.98 },
+      { text: 'Third Estimate', x: 459.94, y: 290.72, width: 64.84, height: 10.98, fontSize: 10.98 },
+    ];
+    const compiled = compileSearch('Advance Estimate Second Estimate Third Estimate', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 612, 792, compiled);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'Advance Estimate Second Estimate Third Estimate',
+      source: 'native',
+      page: 1,
+    });
+    expect(matches[0].boxes).toHaveLength(3);
+    expect(matches[0].bbox).toEqual({ x: 275.42, y: 290.72, width: 249.36, height: 10.98 });
+  });
+
   it('matches short stacked table header labels across adjacent lines', () => {
     const spans: TextSpan[] = [
       { text: 'Total', x: 371.3, y: 96.48, width: 18.2, height: 8, fontSize: 8 },

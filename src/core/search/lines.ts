@@ -26,6 +26,14 @@ const STACKED_LABEL_CENTER_TOLERANCE_PT = 12;
 const STACKED_LABEL_MAX_CHARS = 30;
 const STACKED_LABEL_MAX_WORDS = 3;
 const STACKED_LABEL_TEXT_RE = /^[\p{L}\p{N}][\p{L}\p{N}\p{M}\s&.,'’()/-]*$/u;
+const COMPACT_TABLE_HEADER_MIN_SPANS = 3;
+const COMPACT_TABLE_HEADER_MAX_SPANS = 8;
+const COMPACT_TABLE_HEADER_MAX_CHARS = 32;
+const COMPACT_TABLE_HEADER_MAX_WORDS = 4;
+const COMPACT_TABLE_HEADER_MAX_ROW_WIDTH_RATIO = 0.75;
+const COMPACT_TABLE_HEADER_MAX_GAP_RATIO = 2.25;
+const COMPACT_TABLE_HEADER_MAX_GAP_PT = 28;
+const COMPACT_TABLE_HEADER_TEXT_RE = /^[\p{L}\p{N}][\p{L}\p{N}\p{M}\s&.,'’()/%:+-]*$/u;
 
 export function buildSearchLines(spans: readonly TextSpan[] | undefined, pageWidth: number): SearchLine[] {
   if (!spans || spans.length === 0) return [];
@@ -46,6 +54,7 @@ export function buildSearchLines(spans: readonly TextSpan[] | undefined, pageWid
     const xSorted = [...group].sort((a, b) => a.x - b.x);
     const preserveWideWordSpacing = isLikelyWideWordSpacingRow(xSorted, pageWidth);
     const preserveCjkDisplaySpacing = isLikelyCjkDisplaySpacingRow(xSorted);
+    const preserveCompactTableHeader = isLikelyCompactTableHeaderRow(xSorted, pageWidth);
     const segments: TextSpan[][] = [[xSorted[0]]];
 
     for (let i = 1; i < xSorted.length; i++) {
@@ -54,7 +63,7 @@ export function buildSearchLines(spans: readonly TextSpan[] | undefined, pageWid
       const gap = span.x - (prev.x + prev.width);
       const fontSize = span.fontSize || prev.fontSize || FONT_SIZE_FALLBACK_PT;
       const segmentGap = Math.max(fontSize * SEARCH_SEGMENT_GAP_RATIO, SEARCH_SEGMENT_MIN_GAP_PT);
-      if (!preserveWideWordSpacing && !preserveCjkDisplaySpacing && gap > segmentGap) {
+      if (!preserveWideWordSpacing && !preserveCjkDisplaySpacing && !preserveCompactTableHeader && gap > segmentGap) {
         segments.push([span]);
         continue;
       }
@@ -200,6 +209,42 @@ function areStackedLabelBoxesAligned(top: Box, bottom: Box): boolean {
 
   const overlap = Math.min(top.x + top.width, bottom.x + bottom.width) - Math.max(top.x, bottom.x);
   return overlap > 0 || Math.abs(topCenter - bottomCenter) <= STACKED_LABEL_CENTER_TOLERANCE_PT;
+}
+
+function isLikelyCompactTableHeaderRow(spans: readonly TextSpan[], pageWidth: number): boolean {
+  if (pageWidth <= 0) return false;
+  if (spans.length < COMPACT_TABLE_HEADER_MIN_SPANS || spans.length > COMPACT_TABLE_HEADER_MAX_SPANS) return false;
+
+  const first = spans[0];
+  const last = spans.at(-1);
+  if (!first || !last) return false;
+  const rowWidth = last.x + last.width - first.x;
+  if (rowWidth > pageWidth * COMPACT_TABLE_HEADER_MAX_ROW_WIDTH_RATIO) return false;
+
+  let letterLabelCount = 0;
+  for (let i = 0; i < spans.length; i++) {
+    const span = spans[i];
+    const text = span.text.trim();
+    if (!isCompactTableHeaderText(text)) return false;
+    if (/\p{L}/u.test(text)) letterLabelCount++;
+
+    const prev = spans[i - 1];
+    if (prev) {
+      const fontSize = span.fontSize || prev.fontSize || FONT_SIZE_FALLBACK_PT;
+      const gap = span.x - (prev.x + prev.width);
+      if (gap < 0 || gap > Math.max(fontSize * COMPACT_TABLE_HEADER_MAX_GAP_RATIO, COMPACT_TABLE_HEADER_MAX_GAP_PT)) {
+        return false;
+      }
+    }
+  }
+
+  return letterLabelCount >= 2;
+}
+
+function isCompactTableHeaderText(text: string): boolean {
+  if (text.length === 0 || text.length > COMPACT_TABLE_HEADER_MAX_CHARS) return false;
+  if (text.split(/\s+/u).length > COMPACT_TABLE_HEADER_MAX_WORDS) return false;
+  return COMPACT_TABLE_HEADER_TEXT_RE.test(text);
 }
 
 export function buildOcrSearchLines(words: readonly OcrWord[] | undefined, normalize: boolean): SearchLine[] {
