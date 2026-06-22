@@ -41,7 +41,7 @@ export type {
   PageLayout,
   TextSpan,
 } from './layout.js';
-export type { PageLink, PageLinkTarget, PageLinkType } from './links.js';
+export type { PageLink, PageLinkAttachment, PageLinkTarget, PageLinkType } from './links.js';
 export type { OcrWord, PageOcr } from './ocr.js';
 export type { ProcessDocumentOptions, ProcessOptions } from './options.js';
 export type { PageOverview, PageResult } from './page.js';

@@ -1,4 +1,4 @@
-import type { PageLink, PageLinkTarget, PageLinkType } from '../../types/index.js';
+import type { PageLink, PageLinkAttachment, PageLinkTarget, PageLinkType } from '../../types/index.js';
 import { type LabelLine, linkText } from './text.js';
 
 interface PdfLinkAnnotation {
@@ -6,7 +6,16 @@ interface PdfLinkAnnotation {
   url?: unknown;
   unsafeUrl?: unknown;
   dest?: unknown;
+  newWindow?: unknown;
+  attachment?: unknown;
+  attachmentDest?: unknown;
   rect?: unknown;
+}
+
+interface PdfLinkAttachment {
+  filename?: unknown;
+  description?: unknown;
+  content?: unknown;
 }
 
 interface BuildLinksOptions {
@@ -90,12 +99,29 @@ function linkRect(value: unknown): Rect | undefined {
   return values as Rect;
 }
 
-function linkTarget(annotation: PdfLinkAnnotation): { type: PageLinkType; target: PageLinkTarget } | undefined {
+function linkTarget(annotation: PdfLinkAnnotation):
+  | {
+      type: PageLinkType;
+      target: PageLinkTarget;
+      unsafe?: boolean;
+      newWindow?: boolean;
+      attachment?: PageLinkAttachment;
+    }
+  | undefined {
   if (typeof annotation.url === 'string' && annotation.url.length > 0) {
-    return { type: 'url', target: annotation.url };
+    return {
+      type: 'url',
+      target: annotation.url,
+      ...newWindowValue(annotation),
+    };
   }
   if (typeof annotation.unsafeUrl === 'string' && annotation.unsafeUrl.length > 0) {
-    return { type: 'url', target: annotation.unsafeUrl };
+    return {
+      type: 'url',
+      target: annotation.unsafeUrl,
+      unsafe: true,
+      ...newWindowValue(annotation),
+    };
   }
   if (typeof annotation.dest === 'string' && annotation.dest.length > 0) {
     return { type: 'destination', target: annotation.dest };
@@ -103,6 +129,52 @@ function linkTarget(annotation: PdfLinkAnnotation): { type: PageLinkType; target
   if (Array.isArray(annotation.dest) && annotation.dest.length > 0) {
     return { type: 'destination', target: annotation.dest };
   }
+  const attachment = attachmentValue(annotation);
+  if (attachment) {
+    return {
+      type: 'attachment',
+      target: attachment.name,
+      attachment,
+      ...newWindowValue(annotation),
+    };
+  }
+  return undefined;
+}
+
+function newWindowValue(annotation: PdfLinkAnnotation): Pick<PageLink, 'newWindow'> {
+  return typeof annotation.newWindow === 'boolean' ? { newWindow: annotation.newWindow } : {};
+}
+
+function attachmentValue(annotation: PdfLinkAnnotation): PageLinkAttachment | undefined {
+  if (!annotation.attachment || typeof annotation.attachment !== 'object') return undefined;
+  const raw = annotation.attachment as PdfLinkAttachment;
+  if (typeof raw.filename !== 'string' || raw.filename.length === 0) return undefined;
+
+  const attachment: PageLinkAttachment = { name: raw.filename };
+  if (typeof raw.description === 'string' && raw.description.length > 0) {
+    attachment.description = raw.description;
+  }
+  const size = attachmentSize(raw.content);
+  if (size !== undefined) attachment.size = size;
+  const destination = attachmentDestination(annotation.attachmentDest);
+  if (destination !== undefined) attachment.destination = destination;
+  return attachment;
+}
+
+function attachmentSize(content: unknown): number | undefined {
+  if (!content || typeof content !== 'object') return undefined;
+  if ('byteLength' in content && typeof content.byteLength === 'number' && Number.isFinite(content.byteLength)) {
+    return content.byteLength;
+  }
+  if ('length' in content && typeof content.length === 'number' && Number.isFinite(content.length)) {
+    return content.length;
+  }
+  return undefined;
+}
+
+function attachmentDestination(value: unknown): PageLinkTarget | undefined {
+  if (typeof value === 'string' && value.length > 0) return value;
+  if (Array.isArray(value) && value.length > 0) return value;
   return undefined;
 }
 

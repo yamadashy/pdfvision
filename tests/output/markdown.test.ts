@@ -452,6 +452,51 @@ describe('formatMarkdown', () => {
     expect(out).toContain('_No clickable links found._');
   });
 
+  it('adds link safety and attachment columns only when needed', () => {
+    const out = formatMarkdown(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 'linked',
+            charCount: 6,
+            links: [
+              {
+                type: 'url',
+                target: '../../0021/002156/215675E.pdf#15',
+                unsafe: true,
+                newWindow: true,
+                x: 5,
+                y: 10,
+                width: 185,
+                height: 30,
+              },
+              {
+                type: 'attachment',
+                target: 'Empty page.pdf',
+                attachment: {
+                  name: 'Empty page.pdf',
+                  size: 2356,
+                  destination: '[0,{"name":"Fit"}]',
+                },
+                x: 12.5,
+                y: 33.7,
+                width: 22.8,
+                height: 15.3,
+              },
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toContain('| Type | Text | Target | TargetPage | Safety | Attachment | BBox |');
+    expect(out).toContain('| url |  | ../../0021/002156/215675E.pdf#15 |  | unsafe, newWindow=true |  | 5,10,185,30 |');
+    expect(out).toContain(
+      '| attachment |  | Empty page.pdf |  |  | Empty page.pdf; dest=[0,{"name":"Fit"}]; 2356 bytes | 12.5,33.7,22.8,15.3 |',
+    );
+  });
+
   it('adds search match counts and a match table when search ran', () => {
     const out = formatMarkdown(
       makeResult({

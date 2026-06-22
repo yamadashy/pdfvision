@@ -18,6 +18,8 @@ import {
   formatBox,
   formatJavaScriptActions,
   jsActionCount,
+  linkAttachment,
+  linkSafety,
   linkTarget,
   visualRegionAssociatedText,
   visualRegionSources,
@@ -290,11 +292,19 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
         lines.push('_No clickable links found._');
       } else {
         lines.push('');
-        lines.push('| Type | Text | Target | TargetPage | BBox |');
-        lines.push('| --- | --- | --- | ---: | --- |');
+        const showLinkSafety = page.links.some((link) => link.unsafe === true || link.newWindow !== undefined);
+        const showLinkAttachment = page.links.some((link) => link.attachment !== undefined);
+        const safetyHeader = showLinkSafety ? ' Safety |' : '';
+        const attachmentHeader = showLinkAttachment ? ' Attachment |' : '';
+        lines.push(`| Type | Text | Target | TargetPage |${safetyHeader}${attachmentHeader} BBox |`);
+        lines.push(
+          `| --- | --- | --- | ---: |${showLinkSafety ? ' --- |' : ''}${showLinkAttachment ? ' --- |' : ''} --- |`,
+        );
         for (const link of page.links) {
+          const safetyCell = showLinkSafety ? ` ${escapeTableCell(linkSafety(link))} |` : '';
+          const attachmentCell = showLinkAttachment ? ` ${escapeTableCell(linkAttachment(link))} |` : '';
           lines.push(
-            `| ${link.type} | ${escapeTableCell(link.text ?? '')} | ${escapeTableCell(linkTarget(link.target))} | ${link.page ?? ''} | ${formatBox(link)} |`,
+            `| ${link.type} | ${escapeTableCell(link.text ?? '')} | ${escapeTableCell(linkTarget(link.target))} | ${link.page ?? ''} |${safetyCell}${attachmentCell} ${formatBox(link)} |`,
           );
         }
       }

@@ -217,15 +217,23 @@ interface FormFieldLabel {
 
 ```ts
 interface PageLink {
-  type: 'url' | 'destination';
-  target: string | unknown[];  // external URL or internal/named PDF destination
+  type: 'url' | 'destination' | 'attachment';
+  target: string | unknown[];  // URL, destination, or embedded attachment filename
   page?: number;               // 1-based physical target page when destination can be resolved
   text?: string;                // visible text inside the link rectangle when reconstructed
+  unsafe?: boolean;             // true when pdf.js exposed only an unsafe URL fallback
+  newWindow?: boolean;          // PDF requested opening the target in a new viewer window
+  attachment?: {
+    name: string;
+    description?: string;
+    size?: number;
+    destination?: string | unknown[];
+  };
   x: number; y: number; width: number; height: number;
 }
 ```
 
-`links[]` surfaces clickable PDF link annotations: external URLs, citation jumps, table-of-contents destinations, and cross-reference targets. Internal destinations include `page` when pdfvision can resolve the target to a 1-based physical page number. `text` is the visible native text inside the link rectangle when it can be reconstructed, capped to a short label when a broad link rectangle spans a long table-of-contents region, and clipped from the surrounding line when the PDF places a narrow link over one inline token. Coordinates use the same top-left PDF-point system as `spans`, `layout.blocks`, and `imageBoxes`, so a link bbox can feed directly into `--render-region`.
+`links[]` surfaces clickable PDF link annotations: external URLs, citation jumps, table-of-contents destinations, embedded-file jumps, and cross-reference targets. Internal destinations include `page` when pdfvision can resolve the target to a 1-based physical page number. Launch / remote go-to actions that pdf.js exposes only as `unsafeUrl` keep `type: "url"` for compatibility and add `unsafe: true`; `newWindow` is preserved when the PDF asks the viewer to open a target in a separate window. Embedded go-to links use `type: "attachment"` and include filename, optional description, byte size, and embedded destination metadata without embedding attachment bytes. `text` is the visible native text inside the link rectangle when it can be reconstructed, capped to a short label when a broad link rectangle spans a long table-of-contents region, and clipped from the surrounding line when the PDF places a narrow link over one inline token. Coordinates use the same top-left PDF-point system as `spans`, `layout.blocks`, and `imageBoxes`, so a link bbox can feed directly into `--render-region`.
 
 ## Annotations (`--annotations`)
 

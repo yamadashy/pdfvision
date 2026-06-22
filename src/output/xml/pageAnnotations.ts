@@ -11,13 +11,36 @@ export function appendPageLinks(out: string[], page: PageResult): void {
 
   out.push('<links>');
   for (const link of page.links) {
-    const pageAttr = link.page !== undefined ? ` page="${link.page}"` : '';
-    const textAttr = link.text !== undefined ? ` text="${escapeAttr(link.text)}"` : '';
-    out.push(
-      `<link type="${link.type}" target="${escapeAttr(linkTarget(link.target))}"${pageAttr}${textAttr} x="${link.x}" y="${link.y}" width="${link.width}" height="${link.height}"/>`,
-    );
+    appendLink(out, link);
   }
   out.push('</links>');
+}
+
+function appendLink(out: string[], link: NonNullable<PageResult['links']>[number]): void {
+  const attrs = [`type="${link.type}"`, `target="${escapeAttr(linkTarget(link.target))}"`];
+  if (link.page !== undefined) attrs.push(`page="${link.page}"`);
+  if (link.text !== undefined) attrs.push(`text="${escapeAttr(link.text)}"`);
+  if (link.unsafe === true) attrs.push('unsafe="true"');
+  if (link.newWindow !== undefined) attrs.push(`newWindow="${link.newWindow}"`);
+  attrs.push(`x="${link.x}"`, `y="${link.y}"`, `width="${link.width}"`, `height="${link.height}"`);
+
+  if (!link.attachment) {
+    out.push(`<link ${attrs.join(' ')}/>`);
+    return;
+  }
+
+  const attachmentAttrs = [`name="${escapeAttr(link.attachment.name)}"`];
+  if (link.attachment.description !== undefined) {
+    attachmentAttrs.push(`description="${escapeAttr(link.attachment.description)}"`);
+  }
+  if (link.attachment.size !== undefined) attachmentAttrs.push(`size="${link.attachment.size}"`);
+  if (link.attachment.destination !== undefined) {
+    attachmentAttrs.push(`destination="${escapeAttr(linkTarget(link.attachment.destination))}"`);
+  }
+
+  out.push(`<link ${attrs.join(' ')}>`);
+  out.push(`<attachment ${attachmentAttrs.join(' ')}/>`);
+  out.push('</link>');
 }
 
 export function appendPageAnnotations(out: string[], page: PageResult): void {

@@ -136,6 +136,21 @@ export function linkTarget(value: NonNullable<PageResult['links']>[number]['targ
   return typeof value === 'string' ? value : JSON.stringify(value);
 }
 
+export function linkSafety(link: NonNullable<PageResult['links']>[number]): string {
+  const flags: string[] = [];
+  if (link.unsafe === true) flags.push('unsafe');
+  if (link.newWindow !== undefined) flags.push(`newWindow=${link.newWindow}`);
+  return flags.join(', ');
+}
+
+export function linkAttachment(link: NonNullable<PageResult['links']>[number]): string {
+  if (!link.attachment) return '';
+  const parts = [link.attachment.name];
+  if (link.attachment.destination !== undefined) parts.push(`dest=${linkTarget(link.attachment.destination)}`);
+  if (link.attachment.size !== undefined) parts.push(`${link.attachment.size} bytes`);
+  return parts.join('; ');
+}
+
 export function formatBox(box: { x: number; y: number; width: number; height: number }): string {
   return `${box.x},${box.y},${box.width},${box.height}`;
 }
