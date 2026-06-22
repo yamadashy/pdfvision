@@ -210,6 +210,17 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('suppresses compact raster text strips inside vector header chrome bands', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [{ x: 36, y: 27, width: 138, height: 28 }],
+      vectorBoxes: [{ x: 36, y: 54, width: 540, height: 0.5 }],
+    });
+
+    expect(regions).toEqual([]);
+  });
+
   it('suppresses lone full-page vector backplanes', () => {
     const regions = buildVisualRegions({
       pageWidth: 100,
