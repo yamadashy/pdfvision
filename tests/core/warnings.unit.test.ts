@@ -1738,6 +1738,28 @@ describe('detectPageWarnings', () => {
       expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
     });
 
+    it('does not flag repeated side/footer labels that also appear in the header', () => {
+      // IRS Form 1040-shaped case: the same form label appears in both
+      // the top header and the bottom footer. A late footer block should
+      // not bind to the first native occurrence and look like a reading
+      // order divergence.
+      const formLabel = 'Form 1040 (2024)';
+      const body = 'Tax and credits line item text follows in visual order. '.repeat(24);
+      const blocks = [
+        block(36, 24, 110, 10, { text: formLabel }),
+        block(36, 72, 470, 260, { text: body.slice(0, 520) }),
+        block(36, 350, 470, 260, { text: body.slice(520) }),
+        block(540, 760, 60, 10, { text: formLabel }),
+      ];
+      const p = {
+        ...page(blocks, 612, 792),
+        text: `${formLabel} Page 2\n${body}\n${formLabel}`,
+      };
+
+      const out = detectPageWarnings(p);
+      expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
+    });
+
     it('flags compact math blocks whose native text stream reorders visible characters', () => {
       // PDF.js bug2004951-shaped case: the visual line is "3√x + y",
       // but the native text stream can emit the superscript after the

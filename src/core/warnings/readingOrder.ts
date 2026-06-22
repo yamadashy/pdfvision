@@ -97,8 +97,8 @@ function detectLateBlockStartsNativeText(page: PageResult, blocks: LayoutBlock[]
 
     const probe = buildLateBlockNativeProbe(blocks, i);
     if (probe.length < READING_ORDER_MIN_HEADING_CHARS) continue;
-    const nativeIndex = nativeText.indexOf(probe);
-    if (nativeIndex < 0) continue;
+    const nativeIndex = uniqueNativeTextIndex(nativeText, probe);
+    if (nativeIndex === undefined) continue;
     const nativePos = nativeIndex / nativeText.length;
     if (nativePos > READING_ORDER_NATIVE_EARLY_RATIO) continue;
     const label = collapseReadingOrderWhitespace(block.text).slice(0, READING_ORDER_PROBE_CHARS);
