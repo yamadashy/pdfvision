@@ -1,5 +1,5 @@
 import { parseArgs } from 'node:util';
-import { exitWithError } from './errors.js';
+import { exitWithError, formatCliErrorMessage } from './errors.js';
 import { resolveOutputFormat } from './format.js';
 import { HELP_TEXT } from './help.js';
 import { readPasswordFromStdin, resolveInputSource } from './input.js';
@@ -71,7 +71,7 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
     values = parsed.values as ParsedCliValues;
     positionals = parsed.positionals;
   } catch (error) {
-    exitWithError(error instanceof Error ? error.message : String(error));
+    exitWithError(formatCliErrorMessage(error));
   }
 
   if (values.version) {
@@ -90,7 +90,7 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
       console.log(removed ? `Cleared pdfvision cache: ${path}` : `Nothing to clear: ${path} does not exist`);
       return;
     } catch (error) {
-      exitWithError(error instanceof Error ? error.message : String(error));
+      exitWithError(formatCliErrorMessage(error));
     }
   }
 
@@ -215,6 +215,6 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
     });
     console.log(result);
   } catch (error) {
-    exitWithError(error instanceof Error ? error.message : String(error));
+    exitWithError(formatCliErrorMessage(error));
   }
 }

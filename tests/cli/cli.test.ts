@@ -1,6 +1,9 @@
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { resolve } from 'node:path';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import PDFDocument from 'pdfkit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { run } from '../../src/cli/cli.js';
 
@@ -15,6 +18,24 @@ interface CliCapture {
 
 async function* stdinChunks(...chunks: string[]): AsyncIterable<string> {
   for (const chunk of chunks) yield chunk;
+}
+
+async function buildEncryptedPdf(): Promise<Uint8Array> {
+  const chunks: Buffer[] = [];
+  const doc = new PDFDocument({
+    size: [612, 792],
+    margin: 0,
+    userPassword: 'test',
+    ownerPassword: 'owner',
+  } as PDFKit.PDFDocumentOptions & { userPassword: string; ownerPassword: string });
+  doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+  const done = new Promise<void>((resolveDone) => doc.on('end', resolveDone));
+
+  doc.text('Encrypted hello', 100, 72);
+  doc.end();
+
+  await done;
+  return new Uint8Array(Buffer.concat(chunks));
 }
 
 /**
@@ -166,6 +187,30 @@ describe('cli', () => {
     });
     expect(r.exitCode).toBe(1);
     expect(r.stderr.join('\n')).toMatch(/requires piped stdin or --password fallback/);
+  });
+
+  it('explains missing and incorrect passwords for encrypted PDFs', async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), 'pdfvision-cli-encrypted-'));
+    const encryptedPath = join(tempDir, 'encrypted.pdf');
+    writeFileSync(encryptedPath, await buildEncryptedPdf());
+
+    try {
+      const missing = await captureRun([encryptedPath, '--json', '--no-cache']);
+      expect(missing.exitCode).toBe(1);
+      expect(missing.stderr.join('\n')).toContain(
+        'PDF is encrypted; pass --password <value> or --password-stdin to decrypt it.',
+      );
+
+      const wrong = await captureRun([encryptedPath, '--json', '--password', 'wrong-secret', '--no-cache']);
+      const wrongStderr = wrong.stderr.join('\n');
+      expect(wrong.exitCode).toBe(1);
+      expect(wrongStderr).toContain(
+        'Incorrect PDF password; check the value passed via --password or --password-stdin.',
+      );
+      expect(wrongStderr).not.toContain('wrong-secret');
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
   });
 
   it('passes --form-fields through to JSON output', async () => {
