@@ -121,7 +121,7 @@ OCR 不会覆盖原生文本。使用方应比较 `page.text` 与 `page.ocr?.tex
 
 使用 `--structure` 处理 tagged PDF 可能包含 accessibility roles、figure alt text、language hints 或逻辑分组的情况。tagged structure 由 PDF 作者提供，准确性重要时应与可见页面证据比对。
 
-使用 `--attachments` 处理带附件面板或补充文件的 PDF。结构化输出包含附件 metadata 与大小；只有显式提供 `--attachment-output` 时才写出 bytes。附件路径只是文件被提取的证据，不代表这些文件可以安全打开。
+使用 `--attachments` 处理带附件面板、页面 file-attachment icons 或补充文件的 PDF。结构化输出包含附件 metadata 与大小；只有显式提供 `--attachment-output` 时才写出 bytes。附件路径只是文件被提取的证据，不代表这些文件可以安全打开。
 
 ## 详细 schema
 

@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { buildAttachments } from '../../src/core/document/attachments.js';
+import { buildAttachments, mergeAttachmentRecords } from '../../src/core/document/attachments.js';
 
 describe('buildAttachments', () => {
   it('extracts attachment metadata without carrying content bytes', () => {
@@ -31,6 +31,19 @@ describe('buildAttachments', () => {
 
   it('returns an empty array when the PDF has no embedded file attachments', () => {
     expect(buildAttachments(null)).toEqual([]);
+  });
+
+  it('deduplicates equivalent attachment records from multiple PDF sources', () => {
+    const merged = mergeAttachmentRecords(
+      { named: { filename: 'supplement.txt', content: new Uint8Array([65, 66]) } },
+      { annotated: { filename: 'supplement.txt', content: new Uint8Array([65, 66]) } },
+      { other: { filename: 'notes.txt', content: new Uint8Array([67]) } },
+    );
+
+    expect(buildAttachments(merged)).toEqual([
+      { name: 'notes.txt', size: 1 },
+      { name: 'supplement.txt', size: 2 },
+    ]);
   });
 
   it('writes attachment bytes to sanitized filenames when an output directory is provided', () => {

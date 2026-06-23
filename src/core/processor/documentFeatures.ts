@@ -7,7 +7,8 @@ import type {
   DocumentViewerState,
   ProcessDocumentOptions,
 } from '../../types/index.js';
-import { buildAttachments } from '../document/attachments.js';
+import { collectFileAttachmentAnnotations } from '../document/attachmentAnnotations.js';
+import { buildAttachments, mergeAttachmentRecords } from '../document/attachments.js';
 import { buildLayers } from '../document/layers.js';
 import { buildOutline } from '../document/outline.js';
 import { buildViewerState } from '../document/viewer.js';
@@ -36,8 +37,11 @@ export async function extractDocumentFeatures(
     rawPageLabels === undefined
       ? undefined
       : (rawPageLabels ?? []).map((label) => (normalize ? normalize(label) : label));
+  const attachmentRecords = options.attachments
+    ? mergeAttachmentRecords(await doc.getAttachments(), await collectFileAttachmentAnnotations(doc))
+    : undefined;
   const attachments: DocumentAttachment[] | undefined = options.attachments
-    ? buildAttachments(await doc.getAttachments(), {
+    ? buildAttachments(attachmentRecords, {
         normalizeText: normalize,
         outputDir: attachmentOutputDir,
       })

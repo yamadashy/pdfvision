@@ -235,9 +235,10 @@ export interface ProcessDocumentOptions {
    */
   pageLabels?: boolean;
   /**
-   * Emit document-level embedded file attachment metadata in `attachments`.
-   * Useful for PDFs whose viewer attachment pane exposes supplemental files.
-   * The attachment bytes are not embedded in the structured output.
+   * Emit embedded file attachment metadata in `attachments`.
+   * Useful for PDFs whose viewer attachment pane or page file-attachment
+   * annotations expose supplemental files. The attachment bytes are not
+   * embedded in the structured output.
    */
   attachments?: boolean;
   /**

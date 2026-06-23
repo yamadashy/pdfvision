@@ -27,6 +27,28 @@ export function buildAttachments(
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+export function mergeAttachmentRecords(
+  ...records: (Record<string, unknown> | null | undefined)[]
+): Record<string, unknown> | null {
+  const merged: Record<string, unknown> = {};
+  const seen = new Set<string>();
+  let fallbackIndex = 1;
+
+  for (const record of records) {
+    if (!record) continue;
+    for (const [key, value] of Object.entries(record)) {
+      const attachment = value as PdfAttachment;
+      const identity = attachmentIdentity(key, attachment);
+      if (seen.has(identity)) continue;
+      seen.add(identity);
+      merged[uniqueRecordKey(key || `attachment-${fallbackIndex}`, merged)] = value;
+      fallbackIndex++;
+    }
+  }
+
+  return Object.keys(merged).length > 0 ? merged : null;
+}
+
 function buildAttachment(
   key: string,
   attachment: PdfAttachment,
@@ -69,6 +91,25 @@ function bytes(value: unknown): Buffer | undefined {
   if (Buffer.isBuffer(value)) return value;
   if (value instanceof Uint8Array) return Buffer.from(value);
   return undefined;
+}
+
+function attachmentIdentity(key: string, attachment: PdfAttachment): string {
+  const name = rawText(attachment.filename) ?? rawText(attachment.rawFilename) ?? key;
+  return `${name}\u0000${byteLength(attachment.content)}`;
+}
+
+function rawText(value: unknown): string | undefined {
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+function uniqueRecordKey(key: string, record: Record<string, unknown>): string {
+  let candidate = key;
+  let suffix = 2;
+  while (Object.hasOwn(record, candidate)) {
+    candidate = `${key}-${suffix}`;
+    suffix++;
+  }
+  return candidate;
 }
 
 function writeAttachment(outputDir: string, filename: string, content: Buffer): string {

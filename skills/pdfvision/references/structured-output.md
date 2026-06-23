@@ -321,7 +321,7 @@ interface DocumentAttachment {
 }
 ```
 
-`attachments[]` surfaces document-level embedded file attachments that a human PDF viewer exposes in its attachment pane. The attachment bytes are intentionally not included in JSON/XML/Markdown/TOON output; use the metadata as a signal that the PDF contains supplemental files without flooding agent context with arbitrary binary content. Pass `--attachment-output <dir>` with `--attachments` when the agent needs actual files on disk; pdfvision writes them under a per-PDF fingerprint subdirectory and fills `attachments[].path`.
+`attachments[]` surfaces embedded file attachments that a human PDF viewer exposes in its attachment pane or as page file-attachment icons. The attachment bytes are intentionally not included in JSON/XML/Markdown/TOON output; use the metadata as a signal that the PDF contains supplemental files without flooding agent context with arbitrary binary content. Pass `--attachment-output <dir>` with `--attachments` when the agent needs actual files on disk; pdfvision writes them under a per-PDF fingerprint subdirectory and fills `attachments[].path`.
 
 ## Outline (`--outline`)
 

@@ -132,7 +132,7 @@ Use `--viewer`, `--page-labels`, and `--layers` when the PDF's viewer state matt
 
 Use `--structure` when a tagged PDF may contain accessibility roles, figure alt text, language hints, or logical grouping that visual layout alone does not reveal. Tagged structure is supplied by the PDF author and should be compared with visible page evidence when accuracy matters.
 
-Use `--attachments` for PDFs with an attachment pane or supplemental files. Structured output includes attachment metadata and size; bytes are written only when `--attachment-output` is explicitly provided. Attachment paths are evidence that files were extracted, not a signal that the files are safe to open.
+Use `--attachments` for PDFs with an attachment pane, page file-attachment icons, or supplemental files. Structured output includes attachment metadata and size; bytes are written only when `--attachment-output` is explicitly provided. Attachment paths are evidence that files were extracted, not a signal that the files are safe to open.
 
 ## Detailed Schema
 

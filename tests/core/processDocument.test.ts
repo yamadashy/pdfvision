@@ -183,6 +183,19 @@ function buildPdfWithAttachment(): Uint8Array {
   ]);
 }
 
+function buildPdfWithFileAttachmentAnnotation(): Uint8Array {
+  const content = 'annotation attachment';
+  const size = Buffer.byteLength(content, 'binary');
+  return buildRawPdf([
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> /Annots [4 0 R] >>',
+    '<< /Type /Annot /Subtype /FileAttachment /Rect [70 724 90 748] /Name /PushPin /Contents (Supplement file) /FS 5 0 R /F 4 >>',
+    '<< /Type /Filespec /F (annotation.txt) /UF (annotation.txt) /Desc (Annotation supplement) /EF << /F 6 0 R /UF 6 0 R >> >>',
+    `<< /Type /EmbeddedFile /Subtype /text#2Fplain /Length ${size} /Params << /Size ${size} >> >>\nstream\n${content}\nendstream`,
+  ]);
+}
+
 function buildPdfWithViewerState(): Uint8Array {
   return buildRawPdf([
     '<< /Type /Catalog /Pages 2 0 R /PageMode /UseOutlines /PageLayout /TwoColumnLeft /ViewerPreferences << /DisplayDocTitle true /Direction /R2L >> /OpenAction [3 0 R /FitH 700] /MarkInfo << /Marked true /UserProperties false /Suspects false >> >>',
@@ -704,6 +717,17 @@ describe('processDocument', () => {
 
     expect(result.attachments).toEqual([{ name: 'hello.txt', description: 'Supplement file', size: 16 }]);
     expect(JSON.stringify(result.attachments)).not.toContain('hello attachment');
+  });
+
+  it('extracts file-attachment annotations as document attachment metadata', async () => {
+    const result = await processDocument('memory://attachment-annotation.pdf', {
+      sourceData: buildPdfWithFileAttachmentAnnotation(),
+      noCache: true,
+      attachments: true,
+    });
+
+    expect(result.attachments).toEqual([{ name: 'annotation.txt', description: 'Annotation supplement', size: 21 }]);
+    expect(JSON.stringify(result.attachments)).not.toContain('annotation attachment');
   });
 
   it('writes embedded attachments into a per-PDF output subdirectory', async () => {
