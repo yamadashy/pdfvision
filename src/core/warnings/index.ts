@@ -19,6 +19,7 @@ import {
   detectLowConfidenceOcr,
   detectOptionalContentTextHiddenLayerRisk,
   detectRasterBackedTextLayer,
+  detectRasterImageWithoutNativeText,
   detectRasterTextLayerSymbolNoise,
   detectVectorGraphicsWithoutNativeText,
   detectVisibleAnnotationTextMissingFromNative,
@@ -88,6 +89,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
   detectHighConfidenceOcrNativeSpacingLoss(page, context, warnings);
   detectDenseVectorGraphics(page, warnings);
   detectVectorGraphicsWithoutNativeText(page, context, warnings);
+  detectRasterImageWithoutNativeText(page, context, warnings);
   detectLargeRasterLowTextOverlap(page, context, warnings);
   detectVisibleAnnotationTextMissingFromNative(page, context, warnings);
   detectOptionalContentTextHiddenLayerRisk(context, warnings);

@@ -1391,6 +1391,32 @@ describe('detectPageWarnings', () => {
     expect(out[0].message).toContain('native text is empty');
   });
 
+  it('flags raster-dominated pages whose human-visible text is not native text', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '',
+      charCount: 0,
+      imageCount: 1,
+      vectorCount: 0,
+      textCoverage: 0,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 1000,
+      height: 1000,
+      imageBoxes: [{ x: 0, y: 0, width: 1000, height: 1000 }],
+      quality: { nativeTextStatus: 'empty_but_visual_content', visualStatus: 'ok' },
+    });
+
+    const warning = out.find((w) => w.code === 'raster_image_no_native_text');
+    expect(warning).toMatchObject({
+      code: 'raster_image_no_native_text',
+      severity: 'warning',
+      imageBoxIndex: 0,
+    });
+    expect(warning?.message).toContain('native text is empty');
+    expect(warning?.message).toContain('OCR');
+  });
+
   it('flags tiled raster pages when each tile is below the single-image threshold', () => {
     const out = detectPageWarnings(
       {

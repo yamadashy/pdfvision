@@ -5,6 +5,7 @@ export {
 export {
   detectDenseVectorGraphics,
   detectLargeRasterLowTextOverlap,
+  detectRasterImageWithoutNativeText,
   detectVectorGraphicsWithoutNativeText,
 } from './visualEvidence/graphics.js';
 export {

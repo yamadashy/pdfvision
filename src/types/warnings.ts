@@ -7,6 +7,7 @@
  * raw embedded producer/source payloads that leak into native text,
  * dense vector graphics whose form fields or chart paths are not text,
  * vector-only visual pages with no native text,
+ * raster-dominated pages with no native text,
  * numeric table-like layouts whose rows/columns may flatten into plain text,
  * local math/text-order divergences whose visual order differs from native text,
  * large image regions whose internal labels will not appear in native text,
@@ -26,6 +27,7 @@ export interface PageWarning {
     | 'raw_embedded_source_text'
     | 'dense_vector_graphics'
     | 'vector_graphics_no_native_text'
+    | 'raster_image_no_native_text'
     | 'tabular_numeric_layout'
     | 'dot_leader_noise'
     | 'tiny_native_text_noise'

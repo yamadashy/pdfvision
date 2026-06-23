@@ -6,6 +6,7 @@ const EDGE_HAIRLINE_MAX_THICKNESS = 1.5;
 const EDGE_HAIRLINE_MARGIN_RATIO = 0.01;
 const EDGE_HAIRLINE_MIN_MARGIN = 2;
 const LARGE_RASTER_AREA_RATIO_THRESHOLD = 0.2;
+const RASTER_NO_TEXT_AREA_RATIO_THRESHOLD = 0.5;
 const AGGREGATE_RASTER_AREA_RATIO_THRESHOLD = 0.2;
 const AGGREGATE_RASTER_TILE_MIN_AREA_RATIO = 0.02;
 const LARGE_RASTER_TEXT_OVERLAP_RATIO_THRESHOLD = 0.01;
@@ -35,6 +36,39 @@ export function detectVectorGraphicsWithoutNativeText(
     code: 'vector_graphics_no_native_text',
     severity: 'warning',
     message: `page contains ${page.vectorCount} vector drawing operation${page.vectorCount === 1 ? '' : 's'} but no native text — labels, symbols, or diagrams drawn as paths will not appear in pages[].text; inspect --render, --vector-boxes, or --visual-regions if visual content matters`,
+  });
+}
+
+export function detectRasterImageWithoutNativeText(
+  page: PageResult,
+  context: VisualWarningContext,
+  out: PageWarning[],
+): void {
+  const imageBoxes = page.imageBoxes ?? context.imageBoxes;
+  if (!imageBoxes || imageBoxes.length === 0) return;
+  if (page.charCount > 0) return;
+  if (page.quality.nativeTextStatus !== 'empty_but_visual_content') return;
+  if (page.quality.visualStatus === 'blank') return;
+  const pageArea = page.width * page.height;
+  if (pageArea <= 0) return;
+
+  const exposeImageBoxIndex = page.imageBoxes !== undefined;
+  let best: { box: BoxLike; index: number; areaRatio: number } | undefined;
+  for (let i = 0; i < imageBoxes.length; i++) {
+    const image = imageBoxes[i];
+    const imageArea = clippedArea(image, { x: 0, y: 0, width: page.width, height: page.height });
+    const areaRatio = imageArea / pageArea;
+    if (areaRatio < RASTER_NO_TEXT_AREA_RATIO_THRESHOLD) continue;
+    if (best && areaRatio <= best.areaRatio) continue;
+    best = { box: image, index: i, areaRatio };
+  }
+  if (!best) return;
+
+  out.push({
+    code: 'raster_image_no_native_text',
+    severity: 'warning',
+    message: `raster image covers ${(best.areaRatio * 100).toFixed(1)}% of the page but native text is empty — human-visible text inside the image will not appear in pages[].text; compare the render or OCR when exact text matters`,
+    ...(exposeImageBoxIndex && { imageBoxIndex: best.index }),
   });
 }
 
