@@ -78,6 +78,18 @@ export function extractPageText({
     }
     textArea += Math.abs(w * h);
 
+    const geometry = transform
+      ? textRunGeometryFromTransform({
+          transform,
+          width: w,
+          height: h,
+          pageHeight,
+          viewMinX,
+          viewMinY,
+          dir: typeof item.dir === 'string' ? item.dir : undefined,
+        })
+      : undefined;
+
     // Feed the page-text joiner. x/fontSize default to 0 when the
     // item lacks a transform (pdf.js does this for synthetic-EOL
     // items); the joiner already handles zero fontSize by falling back
@@ -88,6 +100,7 @@ export function extractPageText({
     joinItems.push({
       str: item.str,
       x: itemX,
+      ...(geometry && { y: geometry.y }),
       width: w,
       fontSize: itemFontSize,
       hasEOL: !!item.hasEOL,
@@ -99,16 +112,7 @@ export function extractPageText({
     // sometimes carries a synthetic width that exceeds the page width.
     // The aggregate `text` already preserves the spaces, so layout
     // analysis loses nothing; downstream agents get a cleaner signal.
-    if (wantSpans && item.str.trim().length > 0 && transform) {
-      const geometry = textRunGeometryFromTransform({
-        transform,
-        width: w,
-        height: h,
-        pageHeight,
-        viewMinX,
-        viewMinY,
-        dir: typeof item.dir === 'string' ? item.dir : undefined,
-      });
+    if (wantSpans && item.str.trim().length > 0 && geometry) {
       spans.push({
         text: flags.normalize ? normalizeText(item.str) : item.str,
         ...geometry,
