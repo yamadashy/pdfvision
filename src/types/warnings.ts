@@ -4,6 +4,7 @@
  * against chrome, off-page bboxes, localized glyph noise / replacement
  * characters / CJK mojibake,
  * page-wide glyph-index garbage, tiny native text that may not be human-visible,
+ * raw embedded producer/source payloads that leak into native text,
  * dense vector graphics whose form fields or chart paths are not text,
  * vector-only visual pages with no native text,
  * numeric table-like layouts whose rows/columns may flatten into plain text,
@@ -22,6 +23,7 @@ export interface PageWarning {
     | 'glyph_garbage_text'
     | 'localized_glyph_noise'
     | 'font_mapping_warning'
+    | 'raw_embedded_source_text'
     | 'dense_vector_graphics'
     | 'vector_graphics_no_native_text'
     | 'tabular_numeric_layout'

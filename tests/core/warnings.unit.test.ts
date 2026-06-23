@@ -546,6 +546,31 @@ describe('detectPageWarnings', () => {
     expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
   });
 
+  it('flags raw embedded LaTeX source payloads in native text', () => {
+    const payload = `<latexit sha1_base64="7yFrn0YPyuP5dVIvc7Tl2zcbS/g=">${'AAAB+Hic'.repeat(20)}</latexit>`;
+    const out = detectPageWarnings({
+      page: 1,
+      text: `Figure caption ${payload} visible paragraph`,
+      charCount: payload.length + 32,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.12,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+    });
+
+    expect(out).toContainEqual(
+      expect.objectContaining({
+        code: 'raw_embedded_source_text',
+        severity: 'warning',
+      }),
+    );
+    expect(out.find((w) => w.code === 'raw_embedded_source_text')?.message).toContain('raw embedded LaTeX source');
+  });
+
   it('flags localized private-use glyphs when they dominate a short text run', () => {
     const out = detectPageWarnings({
       page: 1,

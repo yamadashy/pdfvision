@@ -5,6 +5,7 @@ import {
   detectFontMappingWarning,
   detectGlyphGarbageText,
   detectLocalizedGlyphNoise,
+  detectRawEmbeddedSourceText,
   detectTinyNativeTextNoise,
   hasUnreliableGlyphGeometry,
 } from './glyphText.js';
@@ -79,6 +80,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
   detectGlyphGarbageText(page, warnings);
   detectLocalizedGlyphNoise(page, warnings);
   detectFontMappingWarning(page, context, warnings);
+  detectRawEmbeddedSourceText(page, warnings);
   detectRasterBackedTextLayer(page, context, warnings);
   detectRasterTextLayerSymbolNoise(page, context, warnings);
   detectLowConfidenceOcr(page, context, warnings);

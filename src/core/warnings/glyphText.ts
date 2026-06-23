@@ -27,6 +27,7 @@ const LOCALIZED_PRIVATE_USE_GLYPH_COUNT_THRESHOLD = 8;
 const LOCALIZED_PRIVATE_USE_GLYPH_LOW_RATIO_THRESHOLD = 0.02;
 const LOCALIZED_PRIVATE_USE_GLYPH_RATIO_THRESHOLD = 0.25;
 const FONT_MAPPING_WARNING_PATTERNS = [/no cmap table available/iu, /toUnicode/i, /font.*cmap/iu];
+const RAW_LATEXIT_SOURCE_RE = /<latexit(?:\s|[^>]*>)[A-Za-z0-9+/=\s]{80,}<\/latexit>/giu;
 const TINY_NATIVE_TEXT_MAX_FONT_SIZE = 2;
 const TINY_NATIVE_TEXT_MIN_CHARS = 12;
 const TINY_NATIVE_TEXT_SAMPLE_LIMIT = 3;
@@ -166,6 +167,17 @@ export function detectFontMappingWarning(page: PageResult, context: GlyphFontWar
     code: 'font_mapping_warning',
     severity: 'warning',
     message: `pdf.js reported a font character-map warning (${warning.replace(/^Warning:\s*/u, '')}) while extracting this document — native text may contain printable glyph substitutions even though quality.nativeTextStatus is ok; inspect the render if exact text matters`,
+  });
+}
+
+export function detectRawEmbeddedSourceText(page: PageResult, out: PageWarning[]): void {
+  const matches = [...page.text.matchAll(RAW_LATEXIT_SOURCE_RE)];
+  if (matches.length === 0) return;
+  const samples = matches.slice(0, 2).map((match) => JSON.stringify(shortTextSample(match[0])));
+  out.push({
+    code: 'raw_embedded_source_text',
+    severity: 'warning',
+    message: `native text contains ${matches.length} raw embedded LaTeX source payload${matches.length === 1 ? '' : 's'} (sample: ${samples.join(', ')}) that may not be human-visible page text; compare against the render or OCR before trusting pages[].text, layout text, or search hits`,
   });
 }
 
