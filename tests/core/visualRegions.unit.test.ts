@@ -408,6 +408,100 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('emits form regions for ruled administrative form grids without table captions', () => {
+    const vectorBoxes = [
+      { x: 203.79, y: 563.21, width: 53.76, height: 0.5 },
+      { x: 207.63, y: 588.04, width: 46.08, height: 0.5 },
+      { x: 37.79, y: 54.41, width: 0.68, height: 474.47 },
+      { x: 59.93, y: 55.09, width: 0.68, height: 473.8 },
+      { x: 287.13, y: 55.09, width: 0.68, height: 473.8 },
+      { x: 369.35, y: 55.09, width: 0.68, height: 473.8 },
+      { x: 423.11, y: 55.09, width: 0.68, height: 473.8 },
+      { x: 573.29, y: 55.09, width: 0.68, height: 473.8 },
+      { x: 396.21, y: 100.26, width: 0.68, height: 428.63 },
+      { x: 38.46, y: 54.41, width: 535.51, height: 0.68 },
+      { x: 370.03, y: 73.85, width: 53.76, height: 0.68 },
+      { x: 38.46, y: 99.58, width: 535.51, height: 0.68 },
+      { x: 38.46, y: 138.22, width: 535.51, height: 0.68 },
+      { x: 38.46, y: 217.93, width: 535.51, height: 0.68 },
+      { x: 38.46, y: 256.54, width: 535.51, height: 0.68 },
+      { x: 38.46, y: 335.14, width: 535.51, height: 0.68 },
+      { x: 38.46, y: 373.74, width: 535.51, height: 0.7 },
+      { x: 38.46, y: 412.37, width: 535.51, height: 0.68 },
+      { x: 38.46, y: 450.98, width: 535.51, height: 0.68 },
+      { x: 38.46, y: 489.6, width: 535.51, height: 0.68 },
+      { x: 38.46, y: 528.21, width: 535.51, height: 0.68 },
+      { x: 287.36, y: 566.39, width: 286.39, height: 0.68 },
+      { x: 287.36, y: 591.23, width: 286.39, height: 0.68 },
+    ];
+
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      vectorBoxes,
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'form',
+        x: 30.46,
+        y: 47.09,
+        width: 551.51,
+        height: 489.8,
+        areaRatio: 0.557,
+        sourceCount: 14,
+        sources: [
+          { type: 'vectorBox', index: 4 },
+          { type: 'vectorBox', index: 5 },
+          { type: 'vectorBox', index: 6 },
+          { type: 'vectorBox', index: 8 },
+          { type: 'vectorBox', index: 11 },
+          { type: 'vectorBox', index: 12 },
+          { type: 'vectorBox', index: 13 },
+          { type: 'vectorBox', index: 14 },
+          { type: 'vectorBox', index: 15 },
+          { type: 'vectorBox', index: 16 },
+          { type: 'vectorBox', index: 17 },
+          { type: 'vectorBox', index: 18 },
+          { type: 'vectorBox', index: 19 },
+          { type: 'vectorBox', index: 20 },
+        ],
+        reason: '14 ruled form vector lines',
+      },
+    ]);
+  });
+
+  it('emits form regions for dotted administrative write-in lines', () => {
+    const vectorBoxes = Array.from({ length: 369 }, (_, index) => ({
+      x: 157.1 + (index % 123) * 2.88,
+      y: 334.85 + Math.floor(index / 123) * 27,
+      width: index % 123 === 122 ? 1.46 : 1.44,
+      height: 0.6,
+    }));
+
+    const regions = buildVisualRegions({
+      pageWidth: 595.32,
+      pageHeight: 841.92,
+      imageBoxes: [],
+      vectorBoxes,
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'form',
+        x: 149.1,
+        y: 326.85,
+        width: 368.82,
+        height: 70.6,
+        areaRatio: 0.052,
+        sourceCount: 369,
+        sources: Array.from({ length: 16 }, (_, index) => ({ type: 'vectorBox' as const, index })),
+        reason: '369 dotted form line segments across 3 write-in lines',
+      },
+    ]);
+  });
+
   it('splits disconnected dense small vector marker fields into separate regions', () => {
     const vectorBoxes = Array.from({ length: 240 }, (_, index) => {
       const panelColumn = Math.floor(index / 60) % 2;

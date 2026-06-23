@@ -13,6 +13,7 @@ import {
   isUsefulDenseVectorBox,
   isUsefulMicroVectorBox,
 } from './predicates.js';
+import { addRuledFormVectorCandidates } from './ruledForms.js';
 import { addRuledTableVectorCandidates } from './ruledTables.js';
 import type { BoxLike, BuildVisualRegionsInput, Candidate } from './types.js';
 
@@ -154,6 +155,13 @@ export function addVectorCandidates(input: BuildVisualRegionsInput, candidates: 
     });
   }
   addRuledTableVectorCandidates(
+    input,
+    candidates,
+    (box) =>
+      isLikelySideChrome(box, input.pageWidth, input.pageHeight) ||
+      isLikelyHorizontalChrome(box, input.pageWidth, input.pageHeight),
+  );
+  addRuledFormVectorCandidates(
     input,
     candidates,
     (box) =>
