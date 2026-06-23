@@ -1,6 +1,6 @@
 import type { VectorBox } from '../../types/index.js';
 import { mergeCandidates } from './candidateMerge.js';
-import { areaRatio, pageArea, touches, unionBox } from './geometry.js';
+import { areaRatio, pageArea, touches, unionBox, visiblePageBox } from './geometry.js';
 import {
   hasNonBackgroundBox,
   isLikelyHorizontalChrome,
@@ -27,6 +27,9 @@ const DENSE_VECTOR_CLUSTER_GAP_PT = 24;
 const MIN_DENSE_MICRO_VECTOR_BOXES = 200;
 const MIN_DENSE_MICRO_VECTOR_CLUSTER_BOXES = 40;
 const MIN_DENSE_MICRO_VECTOR_CLUSTER_AREA_RATIO = 0.015;
+const MIN_DENSE_MICRO_VECTOR_FIELD_BOXES = 500;
+const MIN_DENSE_MICRO_VECTOR_FIELD_AREA_RATIO = 0.25;
+const MIN_DENSE_MICRO_VECTOR_FIELD_SPAN_RATIO = 0.45;
 
 function denseVectorItems(input: BuildVisualRegionsInput): { box: VectorBox; index: number }[] {
   return (input.vectorBoxes ?? [])
@@ -158,6 +161,7 @@ export function addVectorCandidates(input: BuildVisualRegionsInput, candidates: 
       isLikelyHorizontalChrome(box, input.pageWidth, input.pageHeight),
   );
   addDenseVectorUnionCandidate(input, candidates);
+  addDenseMicroVectorFieldCandidate(input, candidates);
   addDenseMicroVectorClusterCandidates(input, candidates);
 }
 
@@ -200,4 +204,32 @@ function addDenseMicroVectorClusterCandidates(input: BuildVisualRegionsInput, ca
       sources: cluster.items.map(({ index }) => ({ type: 'vectorBox', index })),
     });
   }
+}
+
+function addDenseMicroVectorFieldCandidate(input: BuildVisualRegionsInput, candidates: Candidate[]): void {
+  if ((input.vectorBoxes ?? []).length < MIN_DENSE_MICRO_VECTOR_FIELD_BOXES) return;
+  const useful = denseMicroVectorItems(input);
+  if (useful.length < MIN_DENSE_MICRO_VECTOR_FIELD_BOXES) return;
+
+  const field = visiblePageBox(
+    useful.reduce((box, item) => unionBox(box, item.box), useful[0].box),
+    input.pageWidth,
+    input.pageHeight,
+  );
+  const totalArea = pageArea(input);
+  if (areaRatio(field, totalArea) < MIN_DENSE_MICRO_VECTOR_FIELD_AREA_RATIO) return;
+  if (
+    field.width < input.pageWidth * MIN_DENSE_MICRO_VECTOR_FIELD_SPAN_RATIO ||
+    field.height < input.pageHeight * MIN_DENSE_MICRO_VECTOR_FIELD_SPAN_RATIO
+  ) {
+    return;
+  }
+
+  candidates.push({
+    ...field,
+    kind: 'vector',
+    priority: 2,
+    reason: `${useful.length} dense small vector markers spread across broad map/diagram field`,
+    sources: useful.map(({ index }) => ({ type: 'vectorBox', index })),
+  });
 }

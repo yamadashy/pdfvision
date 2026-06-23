@@ -467,6 +467,36 @@ describe('buildVisualRegions', () => {
     expect(regions[0].sources).toHaveLength(16);
   });
 
+  it('emits one broad crop for sparse transit-map marker fields', () => {
+    const vectorBoxes = Array.from({ length: 600 }, (_, index) => ({
+      x: 100 + (index % 30) * 36,
+      y: 110 + Math.floor(index / 30) * 34,
+      width: 6,
+      height: 6,
+    }));
+
+    const regions = buildVisualRegions({
+      pageWidth: 1200,
+      pageHeight: 900,
+      imageBoxes: [],
+      vectorBoxes,
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'vector',
+        x: 92,
+        y: 102,
+        width: 1066,
+        height: 668,
+        areaRatio: 0.659,
+        sourceCount: 600,
+        sources: Array.from({ length: 16 }, (_, index) => ({ type: 'vectorBox' as const, index })),
+        reason: '600 dense small vector markers spread across broad map/diagram field',
+      },
+    ]);
+  });
+
   it('splits dense thin vector grids into separate foreground regions', () => {
     const vectorBoxes = [
       ...Array.from({ length: 20 }, (_, index) => ({

@@ -9,6 +9,7 @@ const FORM_BACKPLANE_SINGLE_FORM_AREA_RATIO = 0.5;
 const FORM_BACKPLANE_MIN_FORM_OVERLAPS = 2;
 const VECTOR_BACKPLANE_MIN_RASTER_OVERLAPS = 2;
 const VECTOR_BACKPLANE_MIN_AREA_RATIO = 0.25;
+const DENSE_VECTOR_FIELD_MIN_SOURCES = 500;
 const EQUIVALENT_CANDIDATE_OVERLAP_RATIO = 0.98;
 const EQUIVALENT_CANDIDATE_AREA_RATIO = 0.98;
 const CONTEXTUAL_DUPLICATE_OVERLAP_RATIO = 0.85;
@@ -36,6 +37,7 @@ export function suppressBroadVectorBackplaneCandidates(candidates: Candidate[], 
 
   return candidates.filter((candidate) => {
     if (!isStandaloneVectorCandidate(candidate)) return true;
+    if (isDenseVectorFieldCandidate(candidate)) return true;
     if (areaRatio(candidate, totalArea) < VECTOR_BACKPLANE_MIN_AREA_RATIO) return true;
     const overlappingRasters = rasterCandidates.filter(
       (raster) => overlapOfSmaller(raster, candidate) >= CONTEXTUAL_DUPLICATE_CONTAINED_OVERLAP_RATIO,
@@ -50,6 +52,13 @@ function isStandaloneRasterCandidate(candidate: Candidate): boolean {
 
 function isStandaloneVectorCandidate(candidate: Candidate): boolean {
   return candidate.kind === 'vector' && candidate.sources.every((source) => source.type === 'vectorBox');
+}
+
+function isDenseVectorFieldCandidate(candidate: Candidate): boolean {
+  return (
+    candidate.sources.length >= DENSE_VECTOR_FIELD_MIN_SOURCES &&
+    candidate.reason.includes('dense small vector markers spread across broad')
+  );
 }
 
 export function dedupeCandidates(candidates: Candidate[]): Candidate[] {
