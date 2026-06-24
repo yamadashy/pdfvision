@@ -1,9 +1,9 @@
-import type { FormField, PageAnnotation, PageOcr, SearchMatch, TextSpan } from '../../types/index.js';
+import type { FormField, PageAnnotation, PageLink, PageOcr, SearchMatch, TextSpan } from '../../types/index.js';
 import { contributingBoxes, round2, unionBoxes } from './boxes.js';
 import { type CompiledSearch, nfkc } from './compiler.js';
 import { duplicateKey, suppressDuplicateOcrMatches } from './duplicates.js';
 import { buildOcrSearchLines, buildSearchLines } from './lines.js';
-import { appendAnnotationMatches, appendFormFieldMatches } from './sourceMatches.js';
+import { appendAnnotationMatches, appendFormFieldMatches, appendLinkMatches } from './sourceMatches.js';
 import type { SearchLine } from './types.js';
 
 export { type CompiledSearch, compileSearch } from './compiler.js';
@@ -56,6 +56,9 @@ const MAX_MATCHES_PER_QUERY_PER_PAGE = 10000;
  * FreeText annotation contents are included when the processor supplies
  * annotations. They use the annotation bbox and are marked
  * `source: 'annotation'`.
+ *
+ * Link targets are included when the processor supplies links. They use
+ * the clickable link bbox and are marked `source: 'link'`.
  */
 export function searchPage(
   spans: readonly TextSpan[] | undefined,
@@ -67,6 +70,7 @@ export function searchPage(
   onWarning?: (message: string) => void,
   formFields?: readonly FormField[],
   annotations?: readonly PageAnnotation[],
+  links?: readonly PageLink[],
 ): SearchMatch[] {
   const matches: SearchMatch[] = [];
 
@@ -138,6 +142,7 @@ export function searchPage(
 
   appendFormFieldMatches(matches, formFields, pageNum, compiled, MAX_MATCHES_PER_QUERY_PER_PAGE, onWarning);
   appendAnnotationMatches(matches, annotations, pageNum, compiled, MAX_MATCHES_PER_QUERY_PER_PAGE, onWarning);
+  appendLinkMatches(matches, links, pageNum, compiled, MAX_MATCHES_PER_QUERY_PER_PAGE, onWarning);
 
   // OCR pass — prefer word-level OCR geometry when available, then
   // supplement from the post-trim OCR text with a page-level bbox for

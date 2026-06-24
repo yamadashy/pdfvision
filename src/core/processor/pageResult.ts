@@ -71,6 +71,7 @@ export function buildPageResult({
       onWarning,
       data._internalFormFields,
       data._internalAnnotations,
+      data._internalLinks,
     );
   }
 

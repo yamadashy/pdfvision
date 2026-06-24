@@ -41,6 +41,7 @@ export interface PageData {
   formFields?: FormField[];
   _internalFormFields?: FormField[];
   links?: PageLink[];
+  _internalLinks?: PageLink[];
   annotations?: PageAnnotation[];
   _internalAnnotations?: PageAnnotation[];
   structure?: PageStructureNode | null;
@@ -70,4 +71,7 @@ export interface PageFlags {
   /** Build annotations internally so search can find visible FreeText
    *  annotations without forcing pages[].annotations into the public payload. */
   needAnnotationsForSearch: boolean;
+  /** Build links internally so search can find URL / destination /
+   *  attachment targets without forcing pages[].links into output. */
+  needLinksForSearch: boolean;
 }

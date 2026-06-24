@@ -61,7 +61,7 @@ Coordinates use a top-left origin: `x` grows right, `y` grows downward. The same
 | `--search-regex` | Treat each `--search` value as a JavaScript regular expression. |
 | `--search-case-sensitive` | Match case exactly. Default search is case-insensitive. |
 
-Search is NFKC-aware by default and can match native text, form-field text, visible FreeText annotations, and OCR text when `--ocr` is enabled.
+Search is NFKC-aware by default and can match native text, form-field text, link targets, visible FreeText annotations, and OCR text when `--ocr` is enabled.
 
 ## PDF Features
 

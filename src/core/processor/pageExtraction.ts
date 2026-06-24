@@ -88,7 +88,12 @@ export async function extractPageData(
   // Build layout internally for form-field labels and visual-region table
   // hints, but only expose pages[].layout when --layout is explicitly on.
   const internalLayout =
-    flags.layout || flags.visualRegions || flags.formFields || flags.links || flags.needFormFieldsForSearch
+    flags.layout ||
+    flags.visualRegions ||
+    flags.formFields ||
+    flags.links ||
+    flags.needFormFieldsForSearch ||
+    flags.needLinksForSearch
       ? buildLayout(spans, round2(width), round2(height))
       : undefined;
   const layout = flags.layout ? internalLayout : undefined;
@@ -99,6 +104,7 @@ export async function extractPageData(
     flags.visualRegions ||
     flags.annotationAppearanceHints ||
     flags.needAnnotationsForSearch ||
+    flags.needLinksForSearch ||
     flags.needFormFieldsForSearch;
   const annotations = needsAnnotations ? await page.getAnnotations({ intent: 'display' }) : undefined;
   const visibleAnnotationAppearance = annotations ? hasVisibleAnnotationAppearance(annotations) : false;
@@ -137,21 +143,24 @@ export async function extractPageData(
       : undefined;
   const formFields = flags.formFields ? allFormFields : undefined;
   const internalFormFields = flags.needFormFieldsForSearch ? allFormFields : undefined;
-  const links = flags.links
-    ? await buildLinks(annotations ?? [], height, xMin, yMin, {
-        resolveDestinationPage: (target) => resolveDestinationPage(doc, target),
-        labelLines:
-          internalLayout?.blocks.flatMap((block) =>
-            (block.lines.length > 0 ? block.lines : [block]).map((item) => ({
-              text: item.text,
-              x: item.x,
-              y: item.y,
-              width: item.width,
-              height: item.height,
-            })),
-          ) ?? [],
-      })
-    : undefined;
+  const allLinks =
+    flags.links || flags.needLinksForSearch
+      ? await buildLinks(annotations ?? [], height, xMin, yMin, {
+          resolveDestinationPage: (target) => resolveDestinationPage(doc, target),
+          labelLines:
+            internalLayout?.blocks.flatMap((block) =>
+              (block.lines.length > 0 ? block.lines : [block]).map((item) => ({
+                text: item.text,
+                x: item.x,
+                y: item.y,
+                width: item.width,
+                height: item.height,
+              })),
+            ) ?? [],
+        })
+      : undefined;
+  const links = flags.links ? allLinks : undefined;
+  const internalLinks = flags.needLinksForSearch ? allLinks : undefined;
   const allPageAnnotations =
     flags.annotations || flags.visualRegions || flags.annotationAppearanceHints || flags.needAnnotationsForSearch
       ? buildAnnotations(annotations ?? [], height, xMin, yMin, {
@@ -244,6 +253,7 @@ export async function extractPageData(
     ...(formFields !== undefined && { formFields }),
     ...(internalFormFields !== undefined && { _internalFormFields: internalFormFields }),
     ...(links !== undefined && { links }),
+    ...(internalLinks !== undefined && { _internalLinks: internalLinks }),
     ...(pageAnnotations !== undefined && { annotations: pageAnnotations }),
     ...(internalAnnotations !== undefined && { _internalAnnotations: internalAnnotations }),
     ...(structure !== undefined && { structure }),

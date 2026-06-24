@@ -28,6 +28,7 @@ export function buildPageFlags(options: ProcessDocumentOptions, state: BuildPage
     // full `pages[].spans` payload via --geometry.
     needSpansForSearch: state.hasSearch,
     needFormFieldsForSearch: state.hasSearch,
+    needLinksForSearch: state.hasSearch,
     needAnnotationsForSearch: state.hasSearch,
   };
 }

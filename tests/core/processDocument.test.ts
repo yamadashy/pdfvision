@@ -840,6 +840,23 @@ describe('processDocument', () => {
     expect(result.overview?.map((o) => o.linkCount)).toEqual([2, 0]);
   });
 
+  it('searches link targets without exposing links output', async () => {
+    const result = await processDocument('memory://link-search.pdf', {
+      sourceData: await buildPdfWithLink(),
+      noCache: true,
+      search: 'path?q=1',
+    });
+
+    expect(result.pages[0].links).toBeUndefined();
+    expect(result.pages[0].matches).toEqual([
+      expect.objectContaining({
+        text: 'path?q=1',
+        source: 'link',
+        bbox: { x: 100, y: 72, width: 120, height: 20 },
+      }),
+    ]);
+  });
+
   it('extracts a real document outline with nested items and resolved pages', async () => {
     const result = await processDocument('memory://outline.pdf', {
       sourceData: await buildPdfWithOutline(),

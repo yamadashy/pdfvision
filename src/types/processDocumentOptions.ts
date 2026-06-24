@@ -100,17 +100,17 @@ export interface ProcessDocumentOptions {
    * Internally enables span extraction so per-match bboxes are
    * available; the public `pages[].spans` still requires `geometry`,
    * and the public `pages[].layout` still requires `layout`. Form field
-   * text/choice values and visible FreeText annotation contents are
-   * searched too, even when `formFields` / `annotations` were not
-   * requested for output; those hits use the widget/annotation bbox,
-   * with comb text widgets narrowed to matching cells when pdf.js
-   * exposes enough appearance metadata, and carry
-   * `source: 'formField'` / `source: 'annotation'`. OCR text is
-   * also searched when {@link ocr} is on — those matches come back with
-   * `source: 'ocr'` and use OCR word boxes when available, with a
-   * page-level bbox fallback when OCR output lacks word layout or
-   * word-level reconstruction misses a query that exists in full
-   * `ocr.text`.
+   * text/choice values, link targets, and visible FreeText annotation
+   * contents are searched too, even when `formFields` / `links` /
+   * `annotations` were not requested for output; those hits use the
+   * widget/link/annotation bbox, with comb text widgets narrowed to
+   * matching cells when pdf.js exposes enough appearance metadata, and
+   * carry `source: 'formField'` / `source: 'link'` /
+   * `source: 'annotation'`. OCR text is also searched when {@link ocr}
+   * is on — those matches come back with `source: 'ocr'` and use OCR
+   * word boxes when available, with a page-level bbox fallback when OCR
+   * output lacks word layout or word-level reconstruction misses a query
+   * that exists in full `ocr.text`.
    */
   search?: string | string[];
   /** Treat each {@link search} query as a JavaScript regular expression

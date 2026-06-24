@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { attachFormFieldTextAppearance } from '../../src/core/formFields/types.js';
 import { processDocument } from '../../src/core/processor.js';
 import { compileSearch, searchPage } from '../../src/core/search/index.js';
-import type { FormField, PageAnnotation, TextSpan } from '../../src/types/index.js';
+import type { FormField, PageAnnotation, PageLink, TextSpan } from '../../src/types/index.js';
 
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
 const SAMPLE_JA_PDF = resolve(__dirname, '../fixtures/sample-ja.pdf');
@@ -322,6 +322,35 @@ describe('processDocument search', () => {
       bbox: { x: 169.6, y: 115.79, width: 240.01, height: 27.26 },
       boxes: [{ x: 169.6, y: 115.79, width: 240.01, height: 27.26 }],
       context: 'FreeText annotation: this is a text anotation',
+    });
+  });
+
+  it('matches link targets with clickable link bboxes', () => {
+    const compiled = compileSearch('pdf_reference', {});
+    if (!compiled) throw new Error('expected compiled search');
+    const links: PageLink[] = [
+      {
+        type: 'url',
+        target: 'https://example.com/devnet/pdf/pdf_reference.html',
+        text: 'pdf ˙reference.html',
+        x: 150.53,
+        y: 155.63,
+        width: 237.36,
+        height: 10.21,
+      },
+    ];
+
+    const matches = searchPage([], undefined, 16, 612, 792, compiled, undefined, undefined, undefined, links);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      page: 16,
+      query: 'pdf_reference',
+      bbox: { x: 150.53, y: 155.63, width: 237.36, height: 10.21 },
+      boxes: [{ x: 150.53, y: 155.63, width: 237.36, height: 10.21 }],
+      text: 'pdf_reference',
+      source: 'link',
+      context: 'url link target: https://example.com/devnet/pdf/pdf_reference.html',
     });
   });
 
