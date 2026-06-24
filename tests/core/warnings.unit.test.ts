@@ -1811,6 +1811,40 @@ describe('detectPageWarnings', () => {
       expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
     });
 
+    it('does not flag form label fragments that start with punctuation', () => {
+      // IRS Form 1040-shaped inline prompts can attach small text
+      // fragments around year/date boxes, such as ", 2025, ending".
+      // These are not useful probes for page-level reading order.
+      const labels = [
+        block(36, 80, 140, 10, { text: 'Foreign province/state/county' }),
+        block(318, 90, 70, 10, { text: ', 2025, ending' }),
+        block(36, 110, 100, 10, { text: 'Taxpayer address' }),
+      ];
+      const p: PageResult = {
+        ...page(labels),
+        text: ', 2025, ending Foreign province/state/county Taxpayer address',
+        formFields: labels.map((label, index) => ({
+          name: `field${index}`,
+          type: 'text',
+          x: label.x + label.width + 4,
+          y: label.y,
+          width: 40,
+          height: 10,
+          label: {
+            text: label.text,
+            relation: 'left',
+            x: label.x,
+            y: label.y,
+            width: label.width,
+            height: label.height,
+          },
+        })),
+      };
+
+      const out = detectPageWarnings(p);
+      expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
+    });
+
     it('flags compact math blocks whose native text stream reorders visible characters', () => {
       // PDF.js bug2004951-shaped case: the visual line is "3√x + y",
       // but the native text stream can emit the superscript after the

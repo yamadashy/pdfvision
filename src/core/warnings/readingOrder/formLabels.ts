@@ -12,7 +12,7 @@ export function detectFormLabelReadingOrderDivergence(
   const labelCounts = new Map<string, number>();
   for (const field of page.formFields) {
     const label = collapseFormLabelWhitespace((field.label?.text ?? '').normalize('NFKC'));
-    if (label.length < 5) continue;
+    if (!isMeaningfulFormLabelProbe(label)) continue;
     labelCounts.set(label, (labelCounts.get(label) ?? 0) + 1);
   }
   const uniqueLabels = new Set([...labelCounts].filter(([, count]) => count === 1).map(([label]) => label));
@@ -44,4 +44,10 @@ export function detectFormLabelReadingOrderDivergence(
 
 function collapseFormLabelWhitespace(text: string): string {
   return text.replace(/\s+/gu, ' ').trim();
+}
+
+function isMeaningfulFormLabelProbe(text: string): boolean {
+  if (text.length < 5) return false;
+  if (/^[,.;:)]/u.test(text)) return false;
+  return /[\p{Letter}\p{Number}]/u.test(text);
 }
