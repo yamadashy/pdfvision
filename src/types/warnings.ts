@@ -33,6 +33,7 @@ export interface PageWarning {
     | 'tiny_native_text_noise'
     | 'raster_backed_text_layer'
     | 'raster_text_layer_symbol_noise'
+    | 'raster_text_layer_word_fragmentation'
     | 'ocr_low_confidence'
     | 'ocr_native_text_mismatch'
     | 'ocr_native_spacing_loss'

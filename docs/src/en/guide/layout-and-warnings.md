@@ -77,7 +77,7 @@ Common warning families include:
 - flattened numeric tables.
 - native-vs-visual reading order divergence.
 - glyph-garbage native text, private-use glyph strings, or localized mojibake.
-- OCR text layers over full-page scans.
+- OCR text layers over full-page scans, including symbol noise or word fragmentation.
 - raster-dominated pages with no native text.
 - low-confidence OCR on scan-like pages.
 - large raster regions whose internal labels may need vision.

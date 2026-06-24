@@ -2826,6 +2826,37 @@ describe('detectPageWarnings', () => {
       );
     });
 
+    it('warns when a raster-backed text layer has fragmented Latin words', () => {
+      const fragmentedText = [
+        'T E C H N I C A L report text with usable context and broken words',
+        'the scan output includes t h e and r e p o r t fragments',
+        'another line has a n a l y s i s fragments beside normal prose',
+      ]
+        .join(' ')
+        .repeat(4);
+      const out = detectPageWarnings(
+        {
+          page: 1,
+          text: fragmentedText,
+          charCount: fragmentedText.length,
+          imageCount: 1,
+          vectorCount: 0,
+          textCoverage: 0.18,
+          nonPrintableRatio: 0,
+          nonPrintableCount: 0,
+          width: 566,
+          height: 747,
+          quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+        },
+        { rasterBackedTextLayer: true },
+      );
+
+      expect(out.some((warning) => warning.code === 'raster_backed_text_layer')).toBe(true);
+      const warning = out.find((item) => item.code === 'raster_text_layer_word_fragmentation');
+      expect(warning).toMatchObject({ code: 'raster_text_layer_word_fragmentation', severity: 'warning' });
+      expect(warning?.message).toContain('isolated Latin-letter fragments');
+    });
+
     it('does not add symbol-noise warnings for ordinary raster-backed OCR prose', () => {
       const prose =
         'The first Radio Astronomy Explorer spacecraft was placed in a circular orbit and continuously observed low frequency radio noise.';
@@ -2848,6 +2879,7 @@ describe('detectPageWarnings', () => {
 
       expect(out.some((warning) => warning.code === 'raster_backed_text_layer')).toBe(true);
       expect(out.filter((warning) => warning.code === 'raster_text_layer_symbol_noise')).toEqual([]);
+      expect(out.filter((warning) => warning.code === 'raster_text_layer_word_fragmentation')).toEqual([]);
     });
 
     it('suppresses near_bottom_edge when the cross-page chrome pass had no material', () => {

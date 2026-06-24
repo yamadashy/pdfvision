@@ -21,6 +21,7 @@ import {
   detectRasterBackedTextLayer,
   detectRasterImageWithoutNativeText,
   detectRasterTextLayerSymbolNoise,
+  detectRasterTextLayerWordFragmentation,
   detectVectorGraphicsWithoutNativeText,
   detectVisibleAnnotationTextMissingFromNative,
 } from './visualEvidence.js';
@@ -84,6 +85,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
   detectRawEmbeddedSourceText(page, warnings);
   detectRasterBackedTextLayer(page, context, warnings);
   detectRasterTextLayerSymbolNoise(page, context, warnings);
+  detectRasterTextLayerWordFragmentation(page, context, warnings);
   detectLowConfidenceOcr(page, context, warnings);
   detectHighConfidenceOcrNativeMismatch(page, warnings);
   detectHighConfidenceOcrNativeSpacingLoss(page, context, warnings);

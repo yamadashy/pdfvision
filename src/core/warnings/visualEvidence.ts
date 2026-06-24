@@ -14,4 +14,5 @@ export {
   detectLowConfidenceOcr,
   detectRasterBackedTextLayer,
   detectRasterTextLayerSymbolNoise,
+  detectRasterTextLayerWordFragmentation,
 } from './visualEvidence/textLayer.js';

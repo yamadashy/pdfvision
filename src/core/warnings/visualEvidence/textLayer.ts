@@ -20,6 +20,10 @@ const OCR_NATIVE_SPACING_MAX_OCR_AVG_TOKEN = 7;
 const OCR_NATIVE_SPACING_MAX_NATIVE_RUN_RATIO_OF_OCR = 0.65;
 const RASTER_TEXT_LAYER_SYMBOL_NOISE_MIN_CHARS = 80;
 const RASTER_TEXT_LAYER_SYMBOL_NOISE_RATIO_THRESHOLD = 0.35;
+const RASTER_TEXT_LAYER_FRAGMENTATION_MIN_TOKENS = 80;
+const RASTER_TEXT_LAYER_FRAGMENTATION_SINGLE_RATIO_THRESHOLD = 0.22;
+const RASTER_TEXT_LAYER_FRAGMENTATION_SHORT_RATIO_THRESHOLD = 0.42;
+const RASTER_TEXT_LAYER_FRAGMENTATION_FRAGMENT_RUN_THRESHOLD = 2;
 
 export function detectRasterBackedTextLayer(page: PageResult, context: VisualWarningContext, out: PageWarning[]): void {
   if (!context.rasterBackedTextLayer) return;
@@ -45,6 +49,27 @@ export function detectRasterTextLayerSymbolNoise(
     code: 'raster_text_layer_symbol_noise',
     severity: 'warning',
     message: `raster-backed native text is ${(stats.ratio * 100).toFixed(1)}% printable symbols/punctuation (samples: ${stats.samples.map((sample) => JSON.stringify(sample)).join(', ')}) — likely noisy OCR text over a scan; compare against the render before trusting the native text`,
+  });
+}
+
+export function detectRasterTextLayerWordFragmentation(
+  page: PageResult,
+  context: VisualWarningContext,
+  out: PageWarning[],
+): void {
+  if (!context.rasterBackedTextLayer) return;
+  if (page.quality.nativeTextStatus !== 'ok') return;
+  if (page.quality.visualStatus === 'blank') return;
+  const stats = wordFragmentationStats(page.text);
+  if (stats.tokenCount < RASTER_TEXT_LAYER_FRAGMENTATION_MIN_TOKENS) return;
+  if (stats.singleLatinRatio < RASTER_TEXT_LAYER_FRAGMENTATION_SINGLE_RATIO_THRESHOLD) return;
+  if (stats.shortTokenRatio < RASTER_TEXT_LAYER_FRAGMENTATION_SHORT_RATIO_THRESHOLD) return;
+  if (stats.fragmentRuns.length < RASTER_TEXT_LAYER_FRAGMENTATION_FRAGMENT_RUN_THRESHOLD) return;
+
+  out.push({
+    code: 'raster_text_layer_word_fragmentation',
+    severity: 'warning',
+    message: `raster-backed native text has many isolated Latin-letter fragments (${(stats.singleLatinRatio * 100).toFixed(1)}% single-letter tokens; samples: ${stats.fragmentRuns.map((sample) => JSON.stringify(sample)).join(', ')}) — likely noisy OCR text over a scan; use --ocr or compare against the render before relying on exact wording or search misses`,
   });
 }
 
@@ -144,6 +169,30 @@ function printableSymbolNoiseStats(text: string): {
     if (samples.length < 6 && !samples.includes(char)) samples.push(char);
   }
   return { total, symbolCount, ratio: total > 0 ? symbolCount / total : 0, samples };
+}
+
+function wordFragmentationStats(text: string): {
+  tokenCount: number;
+  singleLatinRatio: number;
+  shortTokenRatio: number;
+  fragmentRuns: string[];
+} {
+  const tokens = text.match(/[\p{L}\p{N}]+/gu) ?? [];
+  if (tokens.length === 0) {
+    return { tokenCount: 0, singleLatinRatio: 0, shortTokenRatio: 0, fragmentRuns: [] };
+  }
+  const singleLatinCount = tokens.filter((token) => /^[A-Za-z]$/u.test(token)).length;
+  const shortTokenCount = tokens.filter((token) => /^[A-Za-z0-9]{1,2}$/u.test(token)).length;
+  const fragmentRuns = Array.from(text.matchAll(/(?:\b[A-Za-z]\b\W+){2,}\b[A-Za-z]\b/gu))
+    .map((match) => match[0].replace(/\s+/g, ' ').trim())
+    .filter((sample, index, samples) => sample.length > 0 && samples.indexOf(sample) === index)
+    .slice(0, 4);
+  return {
+    tokenCount: tokens.length,
+    singleLatinRatio: singleLatinCount / tokens.length,
+    shortTokenRatio: shortTokenCount / tokens.length,
+    fragmentRuns,
+  };
 }
 
 function wordSpacingStats(text: string): {
