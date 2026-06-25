@@ -124,7 +124,7 @@ Many PDFs contain information outside the plain text stream. pdfvision keeps the
 
 Use `--form-fields` for applications, questionnaires, and government forms. It exposes widget type, value, checked state, choices, flags, export values, actions, bbox, and nearby labels. This is often the only reliable way to distinguish a blank box from a selected checkbox or a visible choice field.
 
-Use `--links` and `--outline` for navigation-heavy documents. Links are page-level annotations with bboxes and targets, while outlines are document-level bookmarks that preserve hierarchy and resolved destinations when available. They are useful for citations, table-of-contents entries, manuals, and reports where "where this points" is part of the evidence.
+Use `--links` and `--outline` for navigation-heavy documents. Links are page-level annotations with bboxes and targets, while outlines are document-level bookmarks that preserve hierarchy and resolved destinations when available. Link targets are also searched by `--search`, even when link output itself is not requested. They are useful for citations, table-of-contents entries, manuals, and reports where "where this points" is part of the evidence.
 
 Use `--annotations` when comments, highlights, stamps, ink, shapes, file-attachment icons, or visible FreeText notes may change the meaning of the page. FreeText annotations are also searched by `--search`, even when annotation output itself is not requested, because they can be visible to a human reader while absent from `pages[].text`.
 

@@ -115,7 +115,7 @@ PDF には plain text stream の外に意味があることがあります。pdf
 
 `--form-fields` は申請書、アンケート、行政フォームで使います。widget type、value、checked state、choices、flags、export values、actions、bbox、近傍ラベルを出します。空の box と選択済み checkbox、または可視 choice field を区別するのに役立ちます。
 
-`--links` と `--outline` はナビゲーションが多い文書で使います。links は page-level annotation と bbox/target、outline は階層と解決済み destination を保持します。引用、目次、マニュアル、レポートで「どこを指しているか」が根拠の一部になる場合に有効です。
+`--links` と `--outline` はナビゲーションが多い文書で使います。links は page-level annotation と bbox/target、outline は階層と解決済み destination を保持します。link targets は link output を要求していなくても `--search` の対象になります。引用、目次、マニュアル、レポートで「どこを指しているか」が根拠の一部になる場合に有効です。
 
 `--annotations` はコメント、ハイライト、stamp、ink、shape、file attachment icon、可視 FreeText note が意味を変える可能性がある場合に使います。FreeText annotation は `pages[].text` に無いのに人間には見えることがあるため、annotation output を要求していなくても `--search` の対象になります。
 

@@ -37,7 +37,7 @@ Visual regions are crop-ready page areas that likely contain a meaningful figure
 
 ## Can pdfvision search PDFs?
 
-Yes. `--search` emits `pages[].matches[]` with page, source, matched text, context, and bounding boxes when available. Search can cover native text, visible form-field values, FreeText annotations, and OCR output when OCR is enabled.
+Yes. `--search` emits `pages[].matches[]` with page, source, matched text, context, and bounding boxes when available. Search can cover native text, visible form-field values, clickable link targets, FreeText annotations, and OCR output when OCR is enabled.
 
 ## What coordinate system does pdfvision use?
 

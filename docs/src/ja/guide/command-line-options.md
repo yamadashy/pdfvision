@@ -61,7 +61,7 @@ description: PDF 入力、出力形式、レンダリング、OCR、検索、レ
 | `--search-regex` | 各 `--search` 値を JavaScript 正規表現として扱います。 |
 | `--search-case-sensitive` | 大文字小文字を区別します。既定は区別しません。 |
 
-検索は既定で NFKC を考慮し、ネイティブテキスト、フォームフィールド、表示される FreeText 注釈、`--ocr` 有効時の OCR テキストを対象にできます。
+検索は既定で NFKC を考慮し、ネイティブテキスト、フォームフィールド、link targets、表示される FreeText 注釈、`--ocr` 有効時の OCR テキストを対象にできます。
 
 ## PDF 機能
 
