@@ -1,4 +1,5 @@
 import type { LayoutBlock, LayoutLine, PageResult, PageWarning } from '../../types/index.js';
+import { isLikelyTinyNumericVectorGrid } from '../layout/numericVectorGrid.js';
 
 const TABULAR_NUMERIC_MIN_LINES = 12;
 const TABULAR_NUMERIC_MIN_LINE_RATIO = 0.25;
@@ -37,6 +38,7 @@ export function detectTabularNumericLayout(blocks: LayoutBlock[], out: PageWarni
   ) {
     return;
   }
+  if (isLikelyTinyNumericVectorGrid(numericLines)) return;
 
   out.push({
     code: 'tabular_numeric_layout',

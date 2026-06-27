@@ -1285,6 +1285,33 @@ describe('detectPageWarnings', () => {
     expect(out.filter((w) => w.code === 'tabular_numeric_layout')).toEqual([]);
   });
 
+  it('does not flag dense tiny numeric vector diagrams as flattened tables', () => {
+    const vectorLines = Array.from({ length: 8 }, (_, rowIndex) =>
+      Array.from({ length: 8 }, (_, columnIndex): LayoutLine => {
+        const text = rowIndex % 3 === 0 ? '-0.4' : `0.${(rowIndex + columnIndex) % 8}`;
+        return {
+          text,
+          x: 120 + columnIndex * 34,
+          y: 180 + rowIndex * 6.5,
+          width: text.startsWith('-') ? 8.5 : 6.9,
+          height: 5.04,
+          fontSize: 5.04,
+        };
+      }),
+    ).flat();
+
+    const out = detectPageWarnings(
+      page([
+        block(100, 160, 340, 90, {
+          text: vectorLines.map((item) => item.text).join('\n'),
+          lines: vectorLines,
+        }),
+      ]),
+    );
+
+    expect(out.filter((w) => w.code === 'tabular_numeric_layout')).toEqual([]);
+  });
+
   it('flags irregular financial tables when numeric columns recur across rows', () => {
     const ys = [100, 126, 151, 177, 228, 241, 255, 270];
     const out = detectPageWarnings(

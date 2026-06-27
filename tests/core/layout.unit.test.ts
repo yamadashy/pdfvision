@@ -2141,6 +2141,26 @@ describe('buildLayout — multi-column reading order', () => {
     expect(layout.tables).toBeUndefined();
   });
 
+  it('does not emit table hints for dense tiny numeric vectors inside diagrams', () => {
+    // Encoder/decoder slide diagrams can expose every vector component as
+    // native text. Those values are visible, but they are node contents,
+    // not a table whose rows should drive table visual regions.
+    const spans = Array.from({ length: 8 }, (_, rowIndex) =>
+      Array.from({ length: 8 }, (_, columnIndex) =>
+        span(
+          rowIndex % 3 === 0 ? '-0.4' : `0.${(rowIndex + columnIndex) % 8}`,
+          110 + columnIndex * 34,
+          140 + rowIndex * 6.5,
+          5.04,
+          rowIndex % 3 === 0 ? 8.5 : 6.9,
+        ),
+      ),
+    ).flat();
+
+    const layout = buildLayout(spans, 500);
+    expect(layout.tables).toBeUndefined();
+  });
+
   it('keeps irregular financial tables when numeric columns recur across rows', () => {
     const rows = [
       { label: 'Opening balance', y: 100, values: ['(25.4)', '(2.6)', '(50.2)', '(0.1)', '(78.3)'] },

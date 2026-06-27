@@ -1,5 +1,6 @@
 import type { LayoutLine, LayoutTable } from '../../types/index.js';
 import { type BBox, round2, unionBox } from './geometry.js';
+import { isLikelyTinyNumericVectorGrid } from './numericVectorGrid.js';
 import {
   isCurrencyOnlyCell,
   isTableNumericCell,
@@ -60,7 +61,9 @@ export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefin
     if (isTwoColumnNumericOnlyTable(baseRows) && baseRows.length < TWO_COLUMN_NUMERIC_TABLE_MIN_ROWS) continue;
     const nextTableFirstIndex = tables[index + 1]?.[0]?.index ?? allRowGroups.length;
     const rows = attachNumericContinuationRows(table, allRowGroups, nextTableFirstIndex);
-    result.push(toLayoutTable(attachLeadingTableRows(rows, table[0]?.index ?? 0, allRowGroups)));
+    const tableRows = attachLeadingTableRows(rows, table[0]?.index ?? 0, allRowGroups);
+    if (isLikelyTinyNumericVectorGrid(tableRows.flat())) continue;
+    result.push(toLayoutTable(tableRows));
   }
   return result.length > 0 ? result : undefined;
 }
