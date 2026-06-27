@@ -743,6 +743,31 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('does not bridge separate dense vector charts through a wide section band', () => {
+    const topChartLines = Array.from({ length: 20 }, (_, index) => ({
+      x: 60,
+      y: 120 + index * 3,
+      width: 300,
+      height: 0.5,
+    }));
+    const bottomChartLines = Array.from({ length: 20 }, (_, index) => ({
+      x: 60,
+      y: 330 + index * 3,
+      width: 300,
+      height: 0.5,
+    }));
+
+    const regions = buildVisualRegions({
+      pageWidth: 780,
+      pageHeight: 540,
+      imageBoxes: [],
+      vectorBoxes: [...topChartLines, { x: 8, y: 250, width: 764, height: 57 }, ...bottomChartLines],
+    });
+
+    expect(regions).toHaveLength(2);
+    expect(regions.map((region) => region.y)).toEqual([112, 322]);
+  });
+
   it('keeps separate raster panels instead of a broad vector backplane crop', () => {
     const regions = buildVisualRegions({
       pageWidth: 900,
