@@ -87,7 +87,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
   detectRasterTextLayerSymbolNoise(page, context, warnings);
   detectRasterTextLayerWordFragmentation(page, context, warnings);
   detectLowConfidenceOcr(page, context, warnings);
-  detectHighConfidenceOcrNativeMismatch(page, warnings);
+  detectHighConfidenceOcrNativeMismatch(page, context, warnings);
   detectHighConfidenceOcrNativeSpacingLoss(page, context, warnings);
   detectDenseVectorGraphics(page, warnings);
   detectVectorGraphicsWithoutNativeText(page, context, warnings);

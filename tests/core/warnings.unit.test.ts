@@ -322,6 +322,37 @@ describe('detectPageWarnings', () => {
     expect(out.filter((w) => w.code === 'ocr_native_text_mismatch')).toEqual([]);
   });
 
+  it('flags high-confidence OCR word mismatches on raster-backed text layers', () => {
+    const out = detectPageWarnings(
+      {
+        page: 1,
+        text: 'OF TWO UNPOWEEECD IWNNED PARAGLIDERS',
+        charCount: 39,
+        imageCount: 1,
+        vectorCount: 0,
+        textCoverage: 0.12,
+        nonPrintableRatio: 0,
+        nonPrintableCount: 0,
+        width: 612,
+        height: 792,
+        quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+        ocr: {
+          text: 'OF TWO UNPOWERED MANNED PARAGLIDERS',
+          confidence: 0.75,
+          lang: 'eng',
+          words: [{ text: 'MANNED', confidence: 0.93, x: 275, y: 356, width: 44, height: 10 }],
+        },
+      },
+      { rasterBackedTextLayer: true },
+    );
+
+    const warning = out.find((w) => w.code === 'ocr_native_text_mismatch');
+    expect(warning).toMatchObject({ code: 'ocr_native_text_mismatch', severity: 'warning' });
+    expect(warning?.message).toContain('MANNED');
+    expect(warning?.message).toContain('IWNNED');
+    expect(warning?.message).toContain('--ocr');
+  });
+
   it('does not flag OCR-native mismatches when OCR only captured part of the native text', () => {
     const out = detectPageWarnings({
       page: 1,

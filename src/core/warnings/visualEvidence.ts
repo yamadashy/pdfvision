@@ -11,6 +11,8 @@ export {
 export {
   detectHighConfidenceOcrNativeMismatch,
   detectHighConfidenceOcrNativeSpacingLoss,
+} from './visualEvidence/ocrNative.js';
+export {
   detectLowConfidenceOcr,
   detectRasterBackedTextLayer,
   detectRasterTextLayerSymbolNoise,
