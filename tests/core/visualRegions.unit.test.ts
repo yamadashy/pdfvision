@@ -1029,6 +1029,56 @@ describe('buildVisualRegions', () => {
     });
   });
 
+  it('emits a mixed crop for small raster nodes connected by vector arrows', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 960,
+      pageHeight: 540,
+      imageBoxes: [
+        { x: 190, y: 185, width: 34, height: 25 },
+        { x: 350, y: 185, width: 34, height: 25 },
+        { x: 510, y: 185, width: 34, height: 25 },
+        { x: 670, y: 185, width: 34, height: 25 },
+        { x: -160, y: 5, width: 110, height: 540 },
+      ],
+      vectorBoxes: [
+        { x: 214, y: 206, width: 29, height: 84 },
+        { x: 372, y: 206, width: 29, height: 84 },
+        { x: 530, y: 206, width: 29, height: 84 },
+        { x: 688, y: 206, width: 29, height: 84 },
+        { x: 242, y: 244, width: 130, height: 8 },
+        { x: 401, y: 244, width: 130, height: 8 },
+        { x: 559, y: 244, width: 130, height: 8 },
+        { x: 944, y: 0, width: 16, height: 78 },
+      ],
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'mixed',
+        x: 182,
+        y: 177,
+        width: 543,
+        height: 121,
+        areaRatio: 0.127,
+        sourceCount: 11,
+        sources: [
+          { type: 'imageBox', index: 0 },
+          { type: 'imageBox', index: 1 },
+          { type: 'imageBox', index: 2 },
+          { type: 'imageBox', index: 3 },
+          { type: 'vectorBox', index: 0 },
+          { type: 'vectorBox', index: 1 },
+          { type: 'vectorBox', index: 2 },
+          { type: 'vectorBox', index: 3 },
+          { type: 'vectorBox', index: 4 },
+          { type: 'vectorBox', index: 5 },
+          { type: 'vectorBox', index: 6 },
+        ],
+        reason: '7 nearby vector drawing operations; 4 small raster nodes connected by 7 vector drawing operations',
+      },
+    ]);
+  });
+
   it('suppresses top and bottom chrome regions when a foreground visual region exists', () => {
     const regions = buildVisualRegions({
       pageWidth: 600,

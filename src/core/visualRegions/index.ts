@@ -13,6 +13,7 @@ import {
   attachPlainImageLabels,
   attachTableLeadInLabels,
 } from './labels.js';
+import { addMixedDiagramCandidate } from './mixedDiagrams.js';
 import { addLabeledPageDiagramCandidate } from './pageDiagrams.js';
 import { isUsableBox } from './predicates.js';
 import { addRasterCandidates } from './rasterCandidates.js';
@@ -69,6 +70,7 @@ export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion
   const candidates: Candidate[] = [];
   addRasterCandidates(input, candidates);
   addVectorCandidates(input, candidates);
+  addMixedDiagramCandidate(input, candidates);
   addLabeledPageDiagramCandidate(input, candidates);
   addTableCandidates(input.layout, candidates, input.pageWidth, input.pageHeight);
   addFormCandidate(input.formFields, input.pageHeight, candidates);
