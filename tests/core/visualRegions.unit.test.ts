@@ -2732,6 +2732,58 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('uses long single-caption figure blocks to expand crop boxes', () => {
+    const captionLines = [
+      'Fig 1. Multi-panel example summary with a long explanation of the visible result.',
+      'Panel A shows the starting condition and Panel B shows the measured response.',
+      'The middle panels compare the same cohort under two related assumptions.',
+      'The lower panels show the outcome distribution across the full sample.',
+      'Error bars indicate the interquartile range for each measurement group.',
+      'Labels next to the panels identify the condition used for each comparison.',
+      'A dashed boundary marks the threshold that separates retained observations.',
+      'The final row summarizes the aggregate result for the visible examples.',
+      'All panels share the same axis range so the differences are comparable.',
+      'The caption remains part of the visual evidence used for the figure crop.',
+    ];
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [{ x: 100, y: 80, width: 380, height: 220 }],
+      layout: {
+        blocks: [
+          {
+            text: captionLines.join('\n'),
+            x: 118,
+            y: 314,
+            width: 362,
+            height: 98.97,
+            lines: captionLines.map((text, index) => ({
+              text,
+              x: 118,
+              y: 314 + index * 10,
+              width: index === captionLines.length - 1 ? 320 : 362,
+              height: 8.97,
+              fontSize: 8.97,
+            })),
+          },
+        ],
+      },
+    });
+
+    expect(regions[0].associatedText).toEqual([
+      {
+        text: captionLines.join(' '),
+        relation: 'caption',
+        x: 118,
+        y: 314,
+        width: 362,
+        height: 98.97,
+        blockIndex: 0,
+      },
+    ]);
+    expect(regions[0].y + regions[0].height).toBeGreaterThan(420);
+  });
+
   it('merges full figure caption continuation lines within a bounded block', () => {
     const captionLines = [
       'Figure 2. State machine describing the major activities of Trace-',
