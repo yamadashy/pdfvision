@@ -2130,6 +2130,51 @@ describe('buildLayout — multi-column reading order', () => {
     expect(rows).toContainEqual(['$ 1,069,978', '$ 948,465']);
   });
 
+  it('restores dropped long labels on numeric continuation financial rows', () => {
+    const spans: TextSpan[] = [
+      span('Net cash provided by operating activities', 19.12, 486, 7.65, 145),
+      span('118,254', 404.45, 486, 7.65, 27),
+      span('110,543', 483.6, 486, 7.65, 27),
+      span('122,151', 562.75, 486, 7.65, 27),
+      span('Net cash used in investing activities', 19.12, 497, 7.65, 132),
+      span('(2,935)', 408.7, 497, 7.65, 24),
+      span('3,705', 492.11, 497, 7.65, 19),
+      span('(22,354)', 564.06, 497, 7.65, 28),
+      span(
+        'Increase/(Decrease) in cash, cash equivalents, and restricted cash and cash equivalents',
+        19.12,
+        510.08,
+        7.65,
+        299.7,
+      ),
+      span('(794)', 416.37, 509.4, 7.65, 17.85),
+      span('5,760', 492.11, 509.4, 7.65, 19.14),
+      span('(10,952)', 564.06, 509.4, 7.65, 28.48),
+      span(
+        'Cash, cash equivalents, and restricted cash and cash equivalents, ending balances',
+        19.12,
+        520.2,
+        7.65,
+        281.87,
+      ),
+      span('$', 363.08, 520.2, 7.65, 4.25),
+      span('29,943', 408.7, 520.2, 7.65, 23.39),
+      span('$', 442.23, 520.2, 7.65, 4.25),
+      span('30,737', 487.86, 520.2, 7.65, 23.39),
+      span('$', 521.38, 520.2, 7.65, 4.25),
+      span('24,977', 567.02, 520.2, 7.65, 23.39),
+    ];
+    const layout = buildLayout(spans, 612);
+    const rows = layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text));
+
+    expect(rows).toContainEqual([
+      'Cash, cash equivalents, and restricted cash and cash equivalents, ending balances',
+      '$ 29,943',
+      '$ 30,737',
+      '$ 24,977',
+    ]);
+  });
+
   it('suppresses chart-like numeric labels with irregular row cadence', () => {
     const ys = [100, 107, 120, 139, 149, 172];
     const spans = ys.flatMap((y, index) => [

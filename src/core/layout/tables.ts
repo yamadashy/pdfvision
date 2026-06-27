@@ -33,6 +33,7 @@ const TABLE_LEADING_ROW_X_TOLERANCE_PT = 14;
 const TABLE_LEADING_HEADER_MAX_CHARS = 80;
 const TABLE_LEADING_HEADER_MAX_WORDS = 6;
 const TABLE_LEADING_HEADER_MAX_WIDTH_PT = 180;
+const TABLE_DROPPED_LABEL_X_TOLERANCE_PT = 14;
 
 export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefined {
   const allRowGroups = groupLinesByTableRow(lines).map((row) => row.sort((a, b) => a.x - b.x));
@@ -178,11 +179,14 @@ function attachNumericContinuationRows(
   const lastBaseIndex = table.at(-1)?.index ?? firstIndex;
   const rows: LayoutLine[][] = [];
   let previousIncluded: LayoutLine[] | undefined;
+  let previousLabelCell: LayoutLine | undefined;
   for (let index = firstIndex; index < scanEndIndex; index++) {
     const baseRow = baseRowsByIndex.get(index);
     if (baseRow) {
-      rows.push(baseRow);
-      previousIncluded = baseRow;
+      const row = restoreDroppedLabelCell(baseRow, allRows[index], previousLabelCell);
+      rows.push(row);
+      previousIncluded = row;
+      previousLabelCell = firstTableLabelCell(row) ?? previousLabelCell;
       continue;
     }
 
@@ -194,10 +198,35 @@ function attachNumericContinuationRows(
     if (verticalGap > TABLE_GROUP_MAX_ROW_GAP_PT) continue;
     if (!isAlignedNumericContinuationRow(candidate, numericColumnRights)) continue;
 
-    rows.push(candidate);
-    previousIncluded = candidate;
+    const row = restoreDroppedLabelCell(candidate, allRows[index], previousLabelCell);
+    rows.push(row);
+    previousIncluded = row;
+    previousLabelCell = firstTableLabelCell(row) ?? previousLabelCell;
   }
   return rows;
+}
+
+function restoreDroppedLabelCell(
+  row: LayoutLine[],
+  rawRow: LayoutLine[] | undefined,
+  previousLabelCell: LayoutLine | undefined,
+): LayoutLine[] {
+  if (!rawRow || !previousLabelCell) return row;
+  if (firstTableLabelCell(row)) return row;
+  if (!isNumericOnlyTableRow(row)) return row;
+  const droppedLabel = rawRow.find((line) => {
+    if (row.includes(line)) return false;
+    if (!isRestorableDroppedLabel(line)) return false;
+    return Math.abs(line.x - previousLabelCell.x) <= TABLE_DROPPED_LABEL_X_TOLERANCE_PT;
+  });
+  return droppedLabel ? rawRow : row;
+}
+
+function isNumericOnlyTableRow(row: LayoutLine[]): boolean {
+  return (
+    row.filter((line) => isTableNumericCell(line.text)).length >= TABLE_ROW_MIN_NUMERIC_CELLS &&
+    row.every((line) => isTableNumericCell(line.text) || isCurrencyOnlyCell(line.text))
+  );
 }
 
 function attachLeadingTableRows(rows: LayoutLine[][], firstBaseIndex: number, allRows: LayoutLine[][]): LayoutLine[][] {
@@ -419,7 +448,15 @@ function hasRecurringNumericColumns(rows: LayoutLine[][]): boolean {
 }
 
 function hasTableLabelCell(row: LayoutLine[]): boolean {
-  return row.some((line) => !isTableNumericCell(line.text) && /[\p{L}]/u.test(line.text));
+  return firstTableLabelCell(row) !== undefined;
+}
+
+function firstTableLabelCell(row: LayoutLine[]): LayoutLine | undefined {
+  return row.find(isRestorableDroppedLabel);
+}
+
+function isRestorableDroppedLabel(line: LayoutLine): boolean {
+  return !isTableNumericCell(line.text) && !isCurrencyOnlyCell(line.text) && /[\p{L}]/u.test(line.text);
 }
 
 function toLayoutTable(rows: LayoutLine[][]): LayoutTable {
