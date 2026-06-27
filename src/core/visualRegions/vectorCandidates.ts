@@ -16,6 +16,7 @@ import {
 import { addRuledFormVectorCandidates } from './ruledForms.js';
 import { addRuledTableVectorCandidates } from './ruledTables.js';
 import type { BoxLike, BuildVisualRegionsInput, Candidate } from './types.js';
+import { containsRuledVectorGrid, RULED_GRID_FRAME_REASON } from './vectorGridFrames.js';
 
 const CLUSTER_GAP_PT = 10;
 const MIN_VECTOR_CLUSTER_SOURCES = 6;
@@ -106,20 +107,30 @@ function clusterVectorBoxes(
     if (!usableRegionBox && !isUsableVectorConnectorBox(box)) continue;
     if (isLikelySideChrome(box, pageWidth, pageHeight)) continue;
     if (isLikelyHorizontalChrome(box, pageWidth, pageHeight)) continue;
-    if (skipBackgroundBoxes && isLikelyVectorBackplane(box, pageWidth, pageHeight)) continue;
+    const retainedGridFrame =
+      skipBackgroundBoxes &&
+      isLikelyVectorBackplane(box, pageWidth, pageHeight) &&
+      containsRuledVectorGrid(box, index, vectorBoxes, input);
+    if (skipBackgroundBoxes && isLikelyVectorBackplane(box, pageWidth, pageHeight) && !retainedGridFrame) continue;
     if (isLikelyUnpositionedFormWidgetVector(box, input)) continue;
-    const matches: number[] = [];
-    for (let i = 0; i < clusters.length; i++) {
-      if (touches(clusters[i], box, CLUSTER_GAP_PT)) matches.push(i);
-    }
-    if (!usableRegionBox && matches.length < 2) continue;
     const next: Candidate = {
       ...box,
       kind: 'vector',
       priority: 2,
-      reason: 'cluster of vector drawing operations',
+      reason: retainedGridFrame ? RULED_GRID_FRAME_REASON : 'cluster of vector drawing operations',
       sources: [{ type: 'vectorBox', index }],
     };
+    if (retainedGridFrame) {
+      clusters.push(next);
+      continue;
+    }
+
+    const matches: number[] = [];
+    for (let i = 0; i < clusters.length; i++) {
+      if (clusters[i].reason === RULED_GRID_FRAME_REASON) continue;
+      if (touches(clusters[i], box, CLUSTER_GAP_PT)) matches.push(i);
+    }
+    if (!usableRegionBox && matches.length < 2) continue;
     if (matches.length === 0) {
       if (!usableRegionBox) continue;
       clusters.push(next);

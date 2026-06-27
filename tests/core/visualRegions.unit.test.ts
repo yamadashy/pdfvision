@@ -257,6 +257,46 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('keeps wide table frame vectors when they contain ruled grid lines', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      vectorBoxes: [
+        { x: 36, y: 576, width: 540, height: 150 },
+        { x: 36, y: 624, width: 162, height: 0.5 },
+        { x: 36, y: 726, width: 162, height: 0.5 },
+        { x: 36, y: 624, width: 0.5, height: 102 },
+        { x: 198, y: 624, width: 0.5, height: 102 },
+        { x: 216, y: 624, width: 360, height: 102 },
+        { x: 402, y: 624, width: 0.5, height: 102 },
+      ],
+      layout: {
+        blocks: [
+          {
+            text: 'Acceptable Receipts',
+            x: 252.2,
+            y: 577.08,
+            width: 107.59,
+            height: 11,
+            role: 'heading',
+            level: 2,
+            lines: [],
+          },
+        ],
+      },
+    });
+
+    expect(regions[0]).toMatchObject({
+      kind: 'vector',
+      x: 28,
+      y: 568,
+      width: 556,
+      height: 166,
+    });
+    expect(regions[0].sources).toContainEqual({ type: 'vectorBox', index: 0 });
+  });
+
   it('ignores full-page background boxes when foreground visual boxes are present', () => {
     const regions = buildVisualRegions({
       pageWidth: 100,
