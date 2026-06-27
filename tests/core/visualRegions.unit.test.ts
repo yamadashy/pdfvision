@@ -2209,6 +2209,71 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('prefers Japanese section and chapter headings over in-region body text for vector regions', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 600,
+      pageHeight: 800,
+      imageBoxes: [],
+      vectorBoxes: [
+        { x: 98, y: 116, width: 404, height: 64 },
+        { x: 98, y: 186, width: 404, height: 64 },
+      ],
+      layout: {
+        blocks: [
+          {
+            text: '第I部:特集1 令和 6 年能登半島地震における情報通信の状況',
+            x: 75,
+            y: 86,
+            width: 400,
+            height: 14,
+            role: 'heading',
+            level: 1,
+            lines: [],
+          },
+          {
+            text: '第 1 章 令和 6 年能登半島地震における情報通信の状況',
+            x: 107,
+            y: 121,
+            width: 352,
+            height: 14,
+            role: 'heading',
+            level: 2,
+            lines: [],
+          },
+          {
+            text: '通信インフラ / テレビ・ラジオ / 郵便局の被害状況、サービス復旧の取組',
+            x: 118,
+            y: 141,
+            width: 405,
+            height: 11,
+            lines: [],
+          },
+          {
+            text: '第 2 章 情報通信が果たした役割と課題',
+            x: 107,
+            y: 187,
+            width: 254,
+            height: 14,
+            role: 'heading',
+            level: 2,
+            lines: [],
+          },
+        ],
+      },
+    });
+
+    expect(regions[0]).toMatchObject({
+      kind: 'vector',
+      associatedText: [
+        expect.objectContaining({ text: '第I部:特集1 令和 6 年能登半島地震における情報通信の状況' }),
+        expect.objectContaining({ text: '第 1 章 令和 6 年能登半島地震における情報通信の状況' }),
+        expect.objectContaining({ text: '第 2 章 情報通信が果たした役割と課題' }),
+      ],
+    });
+    expect(regions[0].associatedText?.map((item) => item.text).join('\n')).not.toContain('通信インフラ');
+    expect(regions[0].y).toBeLessThan(86);
+  });
+
   it('ignores OCR-fragment heading labels on scan-backed table regions', () => {
     const regions = buildVisualRegions({
       pageWidth: 612,

@@ -106,9 +106,9 @@ export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion
   const withCaptions = attachCaptionText(chromeAwareCandidates, input.layout);
   const withTableLeadInLabels = attachTableLeadInLabels(withCaptions, input.layout);
   const withPlainImageLabels = attachPlainImageLabels(withTableLeadInLabels, input.layout);
-  const withInRegionPlainLabels = attachInRegionPlainLabels(withPlainImageLabels, input.layout, totalArea);
-  const withHeadingLabels = attachHeadingLabels(withInRegionPlainLabels, input.layout, totalArea);
-  const withPanelTitleLabels = attachPanelTitleLabels(withHeadingLabels, input.layout, totalArea);
+  const withHeadingLabels = attachHeadingLabels(withPlainImageLabels, input.layout, totalArea);
+  const withInRegionPlainLabels = attachInRegionPlainLabels(withHeadingLabels, input.layout, totalArea);
+  const withPanelTitleLabels = attachPanelTitleLabels(withInRegionPlainLabels, input.layout, totalArea);
   const contextDeduped = dedupeContextualDuplicates(dedupeEquivalentCandidates(withPanelTitleLabels));
   return suppressContainedCandidates(contextDeduped)
     .filter((candidate) => isUsableFinalCandidate(candidate, input.pageWidth, input.pageHeight))

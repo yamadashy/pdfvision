@@ -12,7 +12,6 @@ const HEADING_LABEL_INSIDE_TOP_DEPTH_RATIO = 0.3;
 const HEADING_LABEL_INSIDE_TOP_DEPTH_MAX_PT = 72;
 const HEADING_LABEL_INSIDE_BONUS = 48;
 const HEADING_LABEL_LEVEL_PENALTY = 8;
-const HEADING_LABEL_SCORE_TOLERANCE_PT = 12;
 
 function headingLabelScore(
   candidate: Candidate,
@@ -36,8 +35,10 @@ function headingLabelScore(
     candidate.height * HEADING_LABEL_INSIDE_TOP_DEPTH_RATIO,
     HEADING_LABEL_INSIDE_TOP_DEPTH_MAX_PT,
   );
-  if (insideDepth >= -4 && insideDepth <= insideTopDepth && blockBottom <= candidate.y + candidate.height + 4) {
-    return -HEADING_LABEL_INSIDE_BONUS + Math.max(0, insideDepth) * 0.25 + overlapPenalty + levelPenalty;
+  if (insideDepth >= -4 && blockBottom <= candidate.y + candidate.height + 4) {
+    const insideBonus = insideDepth <= insideTopDepth ? HEADING_LABEL_INSIDE_BONUS : 0;
+    const score = Math.max(0, insideDepth) * 0.25 + overlapPenalty + levelPenalty - insideBonus;
+    return score <= HEADING_LABEL_MAX_GAP_PT ? score : undefined;
   }
   if (gap < -4 || gap > HEADING_LABEL_MAX_GAP_PT) return undefined;
   return gap + overlapPenalty + levelPenalty;
@@ -62,19 +63,15 @@ export function attachHeadingLabels(
           item.score !== undefined,
       )
       .sort((a, b) => a.score - b.score);
-    const bestScore = scoredLabels[0]?.score;
-    const labels = scoredLabels
-      .filter((item) => bestScore !== undefined && item.score <= bestScore + HEADING_LABEL_SCORE_TOLERANCE_PT)
-      .slice(0, MAX_ASSOCIATED_TEXT)
-      .map(({ block, blockIndex }) => ({
-        text: normalizeAssociatedText(block.text),
-        relation: 'label' as const,
-        x: block.x,
-        y: block.y,
-        width: block.width,
-        height: block.height,
-        blockIndex,
-      }));
+    const labels = scoredLabels.slice(0, MAX_ASSOCIATED_TEXT).map(({ block, blockIndex }) => ({
+      text: normalizeAssociatedText(block.text),
+      relation: 'label' as const,
+      x: block.x,
+      y: block.y,
+      width: block.width,
+      height: block.height,
+      blockIndex,
+    }));
     if (labels.length === 0) return candidate;
 
     const associatedText = mergeAssociatedText([...(candidate.associatedText ?? []), ...labels]);
