@@ -938,6 +938,46 @@ describe('buildFormFields', () => {
     ]);
   });
 
+  it('does not absorb a following caution paragraph into a checkbox option label', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'headOfHousehold',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(115.2, 181.75, 8, 8),
+          fieldValue: 'Off',
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        { text: 'Head of household', x: 126.05, y: 181.5, width: 61.45, height: 7, fontSize: 7 },
+        {
+          text: '(Check only if you’re unmarried and pay more than half the costs of keeping up a home.)',
+          x: 189.41,
+          y: 181.5,
+          width: 300,
+          height: 7,
+          fontSize: 7,
+        },
+        { text: 'Caution:', x: 96.6, y: 193.6, width: 28, height: 7, fontSize: 7 },
+        {
+          text: 'To claim certain credits or deductions on your tax return, you are required to have a social security',
+          x: 126.55,
+          y: 193.6,
+          width: 442.48,
+          height: 7,
+          fontSize: 7,
+        },
+      ],
+    );
+
+    expect(fields[0].label?.text).toBe('Head of household');
+  });
+
   it('attaches right-edge checkbox prompts across dot leaders without using line-number gutters', () => {
     const fields = buildFormFields(
       [

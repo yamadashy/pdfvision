@@ -113,6 +113,7 @@ function findAdjacentSideStackLine(
     if (stack.some((item) => item.line === line)) continue;
     if (!isLineOnCandidateSide(field, candidate, line)) continue;
     if (isLineAlignedWithSiblingChoiceField(field, candidate, line, siblings)) continue;
+    if (hasSameRowLeftPrefix(field, candidate, line, lines)) continue;
 
     const text = normalizeLabelText(line.text);
     if (!isUsablePromptFragment(text) || isDotLeaderText(text)) continue;
@@ -132,6 +133,27 @@ function findAdjacentSideStackLine(
 function isLineOnCandidateSide(field: FormField, candidate: LabelCandidate, line: LabelLine): boolean {
   if (candidate.relation === 'right') return line.x >= field.x + field.width - 1;
   return line.x + line.width <= field.x + 1;
+}
+
+function hasSameRowLeftPrefix(
+  field: FormField,
+  candidate: LabelCandidate,
+  line: LabelLine,
+  lines: readonly LabelLine[],
+): boolean {
+  if (candidate.relation !== 'right') return false;
+  const lineCenterY = centerY(line);
+  for (const prefix of lines) {
+    if (prefix === line || prefix === candidate.line) continue;
+    if (Math.abs(centerY(prefix) - lineCenterY) > Math.max(2, Math.min(prefix.height, line.height) * 0.4)) continue;
+    if (prefix.x + prefix.width > line.x + 1) continue;
+    if (line.x - (prefix.x + prefix.width) > 6) continue;
+    if (prefix.x > field.x + field.width + 1) continue;
+
+    const text = normalizeLabelText(prefix.text);
+    if (isUsablePromptFragment(text) && !isDotLeaderText(text)) return true;
+  }
+  return false;
 }
 
 function isFarLeftChoicePrompt(field: FormField, candidate: LabelCandidate): boolean {
