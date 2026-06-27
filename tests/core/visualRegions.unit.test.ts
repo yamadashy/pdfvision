@@ -923,6 +923,87 @@ describe('buildVisualRegions', () => {
     });
   });
 
+  it('keeps a broad crop for multi-column timeline-like vector pages', () => {
+    const timelineBlocks = [
+      {
+        text: 'MAPPING OUR PROGRESS AND MILESTONES',
+        x: 40,
+        y: 40,
+        width: 280,
+        height: 14,
+        role: 'heading' as const,
+        level: 1 as const,
+        lines: [
+          {
+            text: 'MAPPING OUR PROGRESS AND MILESTONES',
+            x: 40,
+            y: 40,
+            width: 280,
+            height: 14,
+            fontSize: 14,
+          },
+        ],
+      },
+      ...Array.from({ length: 5 }, (_, column) =>
+        Array.from({ length: 5 }, (_, row) => ({
+          text: row === 0 ? String(2000 + column * 5) : `Milestone ${column}-${row}`,
+          x: 40 + column * 100,
+          y: 120 + row * 110,
+          width: row === 0 ? 42 : 76,
+          height: row === 0 ? 18 : 44,
+          lines: [
+            {
+              text: row === 0 ? String(2000 + column * 5) : `Milestone ${column}-${row}`,
+              x: 40 + column * 100,
+              y: 120 + row * 110,
+              width: row === 0 ? 42 : 76,
+              height: row === 0 ? 18 : 10,
+              fontSize: row === 0 ? 18 : 8,
+            },
+          ],
+        })),
+      ).flat(),
+    ];
+    const regions = buildVisualRegions({
+      pageWidth: 600,
+      pageHeight: 800,
+      imageBoxes: [],
+      vectorBoxes: [
+        { x: 0, y: 0, width: 600, height: 800 },
+        ...Array.from({ length: 25 }, (_, index) => ({
+          x: 40 + (index % 5) * 100,
+          y: 145 + Math.floor(index / 5) * 80,
+          width: 1,
+          height: 55,
+        })),
+      ],
+      layout: {
+        blocks: timelineBlocks,
+      },
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0]).toMatchObject({
+      kind: 'vector',
+      x: 32,
+      y: 32,
+      width: 492,
+      height: 580,
+      sourceCount: 26,
+      associatedText: [
+        {
+          text: 'MAPPING OUR PROGRESS AND MILESTONES',
+          relation: 'label',
+          x: 40,
+          y: 40,
+          width: 280,
+          height: 14,
+          blockIndex: 0,
+        },
+      ],
+    });
+  });
+
   it('suppresses top and bottom chrome regions when a foreground visual region exists', () => {
     const regions = buildVisualRegions({
       pageWidth: 600,
