@@ -3,14 +3,12 @@ import {
   CHOICE_STACKED_LABEL_MAX_CHARS,
   SAME_LINE_MARKER_PROMPT_MAX_CHARS,
   SAME_LINE_TEXT_PROMPT_MAX_GAP_PT,
-  SIDE_LABEL_CONTINUATION_MAX_CHARS,
   STACKED_LABEL_MAX_CHARS,
 } from './constants.js';
 import { type BoxLike, round2, unionBox } from './geometry.js';
 import {
   collectConnectedLeftPromptLines,
   collectSameLineMarkerPromptStack,
-  collectSideLabelContinuationLines,
   collectStackedLabelLines,
   collectTrailingPromptStack,
 } from './stacks.js';
@@ -24,6 +22,8 @@ import {
   startsWithPromptItemMarker,
 } from './text.js';
 import type { LabelCandidate, LabelLine } from './types.js';
+
+export { expandChoiceSideStackedLabel, expandSideLabelContinuation } from './sideLabels.js';
 
 export function expandStackedLabel(
   field: FormField,
@@ -195,33 +195,6 @@ function markerPromptText(marker: string, text: string): string | undefined {
   const escaped = marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const seeMatch = text.match(new RegExp(`^See\\s+${escaped}\\s+(.+)`, 'iu'));
   return seeMatch ? `${marker} ${seeMatch[1]}` : undefined;
-}
-
-export function expandSideLabelContinuation(
-  field: FormField,
-  candidate: LabelCandidate,
-  lines: readonly LabelLine[],
-): FormFieldLabel | undefined {
-  if (candidate.relation !== 'left') return undefined;
-  if (field.type !== 'checkbox' && field.type !== 'radio' && field.type !== 'button') return undefined;
-
-  const continuation = collectSideLabelContinuationLines(field, candidate, lines);
-  if (continuation.length === 0) return undefined;
-
-  const promptLines = [...continuation, { line: candidate.line, text: candidate.text }];
-  const text = normalizePromptLabelText(promptLines.map(({ text }) => text).join(' '));
-  if (!isUsableLabelText(text, SIDE_LABEL_CONTINUATION_MAX_CHARS) || text === candidate.text) return undefined;
-
-  const boxLines = promptLines.map(({ line }) => line).sort((a, b) => a.y - b.y || a.x - b.x);
-  const labelBox = boxLines.slice(1).reduce<BoxLike>((box, line) => unionBox(box, line), boxLines[0] ?? candidate.line);
-  return {
-    text,
-    relation: candidate.relation,
-    x: round2(labelBox.x),
-    y: round2(labelBox.y),
-    width: round2(labelBox.width),
-    height: round2(labelBox.height),
-  };
 }
 
 export function expandLeftTrailingPromptStack(

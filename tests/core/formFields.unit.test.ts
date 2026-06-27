@@ -366,6 +366,69 @@ describe('buildFormFields', () => {
     });
   });
 
+  it('merges stacked side labels for checkbox options', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'topmostSubform[0].Page3[0].Line3_ReadOrder[0].c4_1[0]',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(50.4, 651, 12, 12),
+          fieldValue: 'Off',
+          exportValue: '1',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'topmostSubform[0].Page3[0].Line3_ReadOrder[0].c4_1[1]',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(50.4, 683, 12, 12),
+          fieldValue: 'Off',
+          exportValue: '2',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'topmostSubform[0].Page3[0].Line3_ReadOrder[0].c4_1[2]',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(136.8, 653, 12, 12),
+          fieldValue: 'Off',
+          exportValue: '3',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'topmostSubform[0].Page3[0].Line3_ReadOrder[0].c4_1[3]',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(136.8, 683, 12, 12),
+          fieldValue: 'Off',
+          exportValue: '4',
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        { text: '1st', x: 84.58, y: 645.91, width: 10.97, height: 8, fontSize: 8 },
+        { text: '3rd', x: 177.74, y: 647.91, width: 11.86, height: 8, fontSize: 8 },
+        { text: 'Quarter', x: 76.58, y: 655.51, width: 26.97, height: 8, fontSize: 8 },
+        { text: 'Quarter', x: 170.18, y: 657.51, width: 26.97, height: 8, fontSize: 8 },
+        { text: '2nd', x: 83.24, y: 677.91, width: 13.64, height: 8, fontSize: 8 },
+        { text: '4th', x: 177.96, y: 677.91, width: 11.42, height: 8, fontSize: 8 },
+        { text: 'Quarter', x: 76.58, y: 687.51, width: 26.97, height: 8, fontSize: 8 },
+        { text: 'Quarter', x: 170.18, y: 687.51, width: 26.97, height: 8, fontSize: 8 },
+      ],
+    );
+
+    expect(fields.map((field) => [field.exportValue, field.label?.text])).toEqual([
+      ['1', '1st Quarter'],
+      ['3', '3rd Quarter'],
+      ['2', '2nd Quarter'],
+      ['4', '4th Quarter'],
+    ]);
+  });
+
   it('does not attach footer chrome as checkbox labels', () => {
     const fields = buildFormFields(
       [

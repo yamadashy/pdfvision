@@ -1,5 +1,6 @@
 import type { FormField, FormFieldLabel } from '../../types/index.js';
 import {
+  expandChoiceSideStackedLabel,
   expandLeftTrailingPromptStack,
   expandSameLineMarkerPromptLabel,
   expandSideLabelContinuation,
@@ -34,6 +35,7 @@ export function findFieldLabel(
   return (
     expandSameLineMarkerPromptLabel(field, best, lines) ??
     expandLeftTrailingPromptStack(field, best, lines) ??
+    expandChoiceSideStackedLabel(field, best, lines) ??
     expandSideLabelContinuation(field, best, lines) ??
     expandStackedLabel(field, best, lines)
   );
