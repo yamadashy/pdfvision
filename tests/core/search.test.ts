@@ -976,6 +976,37 @@ describe('processDocument search', () => {
     expect(matches[0].bbox).toEqual({ x: 30, y: 20, width: 20, height: 10 });
   });
 
+  it('does not under-size table-label matches in dot-leader spans', async () => {
+    // BLS statistical tables can emit the row label and dot leaders as
+    // one wide span. Uniformly slicing that span by character count
+    // clips the label when the bbox is used as a render region.
+    const { compileSearch, searchPage } = await import('../../src/core/search/index.js');
+    const compiled = compileSearch('Total nonfarm', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const matches = searchPage(
+      [
+        {
+          text: 'Total nonfarm. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .',
+          x: 44.9,
+          y: 111.65,
+          width: 277.75,
+          height: 6.99,
+          fontSize: 6.99,
+        },
+      ],
+      undefined,
+      1,
+      612,
+      792,
+      compiled,
+    );
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0].boxes[0].x).toBe(44.9);
+    expect(matches[0].boxes[0].width).toBeGreaterThan(40);
+    expect(matches[0].boxes[0].width).toBeLessThan(80);
+  });
+
   it('narrows only the matching slice of a span-boundary phrase', async () => {
     // JICA report-shaped case: "JICA" is its own span and the CJK
     // suffix starts a longer span. Searching "JICA債" should include

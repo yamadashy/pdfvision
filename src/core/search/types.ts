@@ -15,4 +15,5 @@ export interface Box {
 
 export interface SearchOwner extends Box {
   text: string;
+  fontSize?: number;
 }
