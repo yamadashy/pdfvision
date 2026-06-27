@@ -2053,6 +2053,90 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('ignores OCR-fragment heading labels on scan-backed table regions', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      layout: {
+        blocks: [
+          {
+            text: 'REPORT NO. 824-NATIONAL ADVISORY COMMITTEE FOR AERONAUTICS',
+            x: 178.2,
+            y: 36.29,
+            width: 316.67,
+            height: 8.1,
+            role: 'heading',
+            level: 1,
+            lines: [
+              {
+                text: 'REPORT NO. 824-NATIONAL ADVISORY COMMITTEE FOR AERONAUTICS',
+                x: 178.2,
+                y: 36.29,
+                width: 316.67,
+                height: 8.1,
+                fontSize: 8,
+              },
+            ],
+          },
+          {
+            text: "2(°'>--",
+            x: 86.51,
+            y: 138.3,
+            width: 49.4,
+            height: 11.7,
+            role: 'heading',
+            level: 1,
+            lines: [{ text: "2(°'>--", x: 86.51, y: 138.3, width: 49.4, height: 11.7, fontSize: 12 }],
+          },
+          {
+            text: '~[TII',
+            x: 120.88,
+            y: 60.71,
+            width: 100.32,
+            height: 32.88,
+            role: 'heading',
+            level: 1,
+            lines: [{ text: '~[TII', x: 120.88, y: 60.71, width: 100.32, height: 32.88, fontSize: 12 }],
+          },
+          {
+            text: '/---.22 fower surface)',
+            x: 116.68,
+            y: 609.65,
+            width: 99.26,
+            height: 8.1,
+            role: 'heading',
+            level: 1,
+            lines: [{ text: '/---.22 fower surface)', x: 116.68, y: 609.65, width: 99.26, height: 8.1, fontSize: 12 }],
+          },
+          {
+            text: '(vi',
+            x: 67.25,
+            y: 610.82,
+            width: 13.94,
+            height: 21.1,
+            role: 'heading',
+            level: 1,
+            lines: [{ text: '(vi', x: 67.25, y: 610.82, width: 13.94, height: 21.1, fontSize: 12 }],
+          },
+        ],
+        tables: [
+          {
+            x: 65.44,
+            y: 97.53,
+            width: 519.01,
+            height: 157.1,
+            rowCount: 20,
+            columnCount: 16,
+            rows: [],
+          },
+        ],
+      },
+    });
+
+    expect(regions[0].associatedText).toBeUndefined();
+  });
+
   it('prefers chart headings inside a large visual region over nearby page headers', () => {
     const regions = buildVisualRegions({
       pageWidth: 600,

@@ -2,6 +2,7 @@ import type { PageLayout } from '../../../types/index.js';
 import { MAX_ASSOCIATED_TEXT, mergeAssociatedText, normalizeAssociatedText } from '../associatedText.js';
 import { areaRatio, horizontalOverlapRatio, unionBox } from '../geometry.js';
 import type { BoxLike, Candidate } from '../types.js';
+import { isUsefulVisualLabelText } from './text.js';
 
 const LABEL_MIN_HORIZONTAL_OVERLAP_RATIO = 0.2;
 const HEADING_LABEL_MAX_GAP_PT = 96;
@@ -23,6 +24,7 @@ function headingLabelScore(
   if (block.role !== 'heading' || block.repeated) return undefined;
   const text = normalizeAssociatedText(block.text);
   if (text.length === 0 || text.length > HEADING_LABEL_MAX_CHARS) return undefined;
+  if (!isUsefulVisualLabelText(text)) return undefined;
   const blockBottom = block.y + block.height;
   const gap = candidate.y - blockBottom;
   const overlap = horizontalOverlapRatio(candidate, block);
