@@ -26,7 +26,16 @@ export function attachCaptionText(candidates: Candidate[], layout: PageLayout | 
   );
   const globalCaptions = captionItems.filter((item) => item.global).slice(0, MAX_ASSOCIATED_TEXT);
   return candidates.map((candidate) => {
-    const scoredCaptions = captionItems
+    const attachedCaptionBlockIndexes = new Set(
+      (candidate.associatedText ?? [])
+        .filter((text) => text.relation === 'caption' && text.blockIndex !== undefined)
+        .map((text) => text.blockIndex),
+    );
+    const availableCaptionItems = captionItems.filter((item) => !attachedCaptionBlockIndexes.has(item.text.blockIndex));
+    const availableGlobalCaptions = globalCaptions.filter(
+      (item) => !attachedCaptionBlockIndexes.has(item.text.blockIndex),
+    );
+    const scoredCaptions = availableCaptionItems
       .map((item) => ({
         text: item.text,
         kind: item.kind,
@@ -50,10 +59,10 @@ export function attachCaptionText(candidates: Candidate[], layout: PageLayout | 
             .filter((caption) => caption.score <= bestCaptionScore + CAPTION_SCORE_TOLERANCE_PT)
             .slice(0, MAX_ASSOCIATED_TEXT);
     if (captions.length === 0) {
-      if (globalCaptions.length === 0) return candidate;
+      if (availableGlobalCaptions.length === 0) return candidate;
       const associatedText = mergeAssociatedText([
         ...(candidate.associatedText ?? []),
-        ...globalCaptions.map((caption) => caption.text),
+        ...availableGlobalCaptions.map((caption) => caption.text),
       ]);
       return { ...candidate, associatedText };
     }

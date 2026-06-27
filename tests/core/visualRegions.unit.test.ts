@@ -1655,6 +1655,93 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('groups multi-panel vector figure fragments by their shared caption', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      vectorBoxes: [
+        { x: 128, y: 120, width: 58, height: 138 },
+        { x: 208, y: 84, width: 136, height: 174 },
+        { x: 366, y: 120, width: 58, height: 138 },
+        { x: 446, y: 120, width: 58, height: 138 },
+        { x: 72, y: 288, width: 468, height: 280 },
+      ],
+      layout: {
+        blocks: [
+          {
+            text: [
+              'Figure 3: Comparison on image classification. A,B: Zero-shot classification. C,D: Linear probing.',
+              'The caption continues with details that should remain inside the crop.',
+              'C,D: Linear probing results across related datasets.',
+            ].join('\n'),
+            x: 72,
+            y: 610,
+            width: 468,
+            height: 42,
+            lines: [
+              {
+                text: 'Figure 3: Comparison on image classification. A,B: Zero-shot classification. C,D: Linear probing.',
+                x: 72,
+                y: 610,
+                width: 468,
+                height: 20,
+                fontSize: 9,
+              },
+              {
+                text: 'The caption continues with details that should remain inside the crop.',
+                x: 72,
+                y: 622,
+                width: 380,
+                height: 10,
+                fontSize: 9,
+              },
+              {
+                text: 'C,D: Linear probing results across related datasets.',
+                x: 72,
+                y: 634,
+                width: 290,
+                height: 10,
+                fontSize: 9,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'vector',
+        x: 64,
+        y: 76,
+        width: 484,
+        height: 584,
+        areaRatio: 0.583,
+        sourceCount: 5,
+        sources: [
+          { type: 'vectorBox', index: 0 },
+          { type: 'vectorBox', index: 1 },
+          { type: 'vectorBox', index: 2 },
+          { type: 'vectorBox', index: 3 },
+          { type: 'vectorBox', index: 4 },
+        ],
+        reason: '5 vector figure fragments grouped by multi-panel figure caption',
+        associatedText: [
+          {
+            text: 'Figure 3: Comparison on image classification. A,B: Zero-shot classification. C,D: Linear probing. The caption continues with details that should remain inside the crop. C,D: Linear probing results across related datasets.',
+            relation: 'caption',
+            x: 72,
+            y: 610,
+            width: 468,
+            height: 42,
+            blockIndex: 0,
+          },
+        ],
+      },
+    ]);
+  });
+
   it('groups form fields into a single form region', () => {
     const regions = buildVisualRegions({
       pageWidth: 300,
