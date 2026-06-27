@@ -1,5 +1,6 @@
 import type { FormField } from '../../../types/index.js';
 import {
+  CHOICE_SIDE_PROMPT_MAX_GAP_PT,
   MIN_HORIZONTAL_OVERLAP_RATIO,
   SAME_LINE_MARKER_PROMPT_MAX_GAP_PT,
   SAME_LINE_MARKER_PROMPT_MAX_STACK_LINES,
@@ -13,6 +14,7 @@ import {
 import { type BoxLike, centerY, horizontalOverlapRatio, unionBox } from '../geometry.js';
 import {
   isBareNumericFieldMarker,
+  isChoiceLikeField,
   isDotLeaderText,
   isUsablePromptFragment,
   normalizeLabelText,
@@ -39,6 +41,7 @@ export function collectSideLabelContinuationLines(
   field: FormField,
   candidate: LabelCandidate,
   lines: readonly LabelLine[],
+  siblings: readonly FormField[] = [],
 ): { line: LabelLine; text: string }[] {
   const stack: { line: LabelLine; text: string }[] = [];
   let bounds: BoxLike = candidate.line;
@@ -49,6 +52,7 @@ export function collectSideLabelContinuationLines(
       bounds,
       [candidate.line, ...stack.map((item) => item.line)],
       lines,
+      siblings,
     );
     if (!next) return sortPromptStack(stack);
     stack.push(next);
@@ -119,11 +123,13 @@ function findSideLabelContinuationLine(
   bounds: BoxLike,
   excluded: readonly LabelLine[],
   lines: readonly LabelLine[],
+  siblings: readonly FormField[],
 ): { line: LabelLine; text: string } | undefined {
   let best: { line: LabelLine; text: string; gap: number } | undefined;
   for (const line of lines) {
     if (excluded.includes(line)) continue;
-    if (line.x + line.width > field.x + 1) continue;
+    if (line.x + line.width > field.x + field.width + 2) continue;
+    if (isLineAlignedWithSiblingChoiceField(field, line, siblings)) continue;
 
     const text = normalizeLabelText(line.text);
     if (!isUsablePromptFragment(text) || isDotLeaderText(text)) continue;
@@ -140,6 +146,21 @@ function findSideLabelContinuationLine(
     }
   }
   return best ? { line: best.line, text: best.text } : undefined;
+}
+
+function isLineAlignedWithSiblingChoiceField(
+  field: FormField,
+  line: LabelLine,
+  siblings: readonly FormField[],
+): boolean {
+  for (const sibling of siblings) {
+    if (sibling === field || !isChoiceLikeField(sibling)) continue;
+    if (line.x + line.width > sibling.x + sibling.width + 2) continue;
+    if (sibling.x - (line.x + line.width) > CHOICE_SIDE_PROMPT_MAX_GAP_PT) continue;
+    const centerDelta = Math.abs(centerY(sibling) - centerY(line));
+    if (centerDelta <= Math.max(7, Math.max(sibling.height, line.height) * 0.9)) return true;
+  }
+  return false;
 }
 
 function startsWithSameNumericMarker(markerText: string, text: string): boolean {

@@ -878,6 +878,126 @@ describe('buildFormFields', () => {
     expect(fields[1].label?.text).toBe('Combat zone');
   });
 
+  it('keeps stacked filing status checkbox labels on their own option rows', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'single',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(97.6, 206, 8, 8),
+          fieldValue: 'Off',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'marriedJointly',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(97.6, 218, 8, 8),
+          fieldValue: 'Off',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'marriedSeparately',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(97.6, 230, 8, 8),
+          fieldValue: 'Off',
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        { text: 'Single', x: 110, y: 205.71, width: 22.07, height: 8, fontSize: 8 },
+        {
+          text: 'Married filing jointly (even if only one had income)',
+          x: 110,
+          y: 217.71,
+          width: 176.02,
+          height: 8,
+          fontSize: 8,
+        },
+        {
+          text: 'Married filing separately (MFS). Enter spouse’s SSN above',
+          x: 110,
+          y: 229.71,
+          width: 208.9,
+          height: 8,
+          fontSize: 8,
+        },
+        { text: 'and full name here:', x: 110, y: 240.71, width: 68.32, height: 8, fontSize: 8 },
+      ],
+    );
+
+    expect(fields.map((field) => field.label?.text)).toEqual([
+      'Single',
+      'Married filing jointly (even if only one had income)',
+      'Married filing separately (MFS). Enter spouse’s SSN above and full name here:',
+    ]);
+  });
+
+  it('attaches right-edge checkbox prompts across dot leaders without using line-number gutters', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'clergyScheduleSe',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(467.2, 374, 8, 8),
+          fieldValue: 'Off',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'skipEic',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(467.2, 386, 8, 8),
+          fieldValue: 'Off',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'skipActc',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(373.6, 410, 8, 8),
+          fieldValue: 'Off',
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        { text: 'b Clergy filing Schedule SE (see instructions) .', x: 100.8, y: 373.71, width: 177.42, height: 8 },
+        { text: '. . . . . . . . . . .', x: 336, y: 385.71, width: 122.22, height: 8 },
+        { text: 'c If you do not want to claim the EIC, check here .', x: 100.8, y: 385.71, width: 189.42, height: 8 },
+        {
+          text: '28 Additional child tax credit (ACTC) from Schedule 8812. If you do not want',
+          x: 91.9,
+          y: 399.11,
+          width: 289.68,
+          height: 8,
+        },
+        { text: 'to claim the ACTC, check here .', x: 115.18, y: 408.71, width: 115.02, height: 8 },
+        { text: '. . . . . .', x: 239.98, y: 408.71, width: 122.22, height: 8 },
+        { text: '28', x: 395.15, y: 409.71, width: 8.9, height: 8 },
+        { text: '28 29 30', x: 395.15, y: 409.71, width: 8.9, height: 32 },
+      ],
+    );
+
+    expect(fields.find((field) => field.name === 'clergyScheduleSe')?.label?.text).toBe(
+      'b Clergy filing Schedule SE (see instructions)',
+    );
+    expect(fields.find((field) => field.name === 'skipEic')?.label?.text).toBe(
+      'c If you do not want to claim the EIC, check here',
+    );
+    expect(fields.find((field) => field.name === 'skipActc')?.label?.text).toBe(
+      '28 Additional child tax credit (ACTC) from Schedule 8812. If you do not want to claim the ACTC, check here',
+    );
+  });
+
   it('prefers left-side instruction labels for narrow inline text fields', () => {
     const fields = buildFormFields(
       [

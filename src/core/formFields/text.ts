@@ -23,6 +23,10 @@ export function normalizePromptLabelText(text: string): string {
     .trim();
 }
 
+export function normalizeChoicePromptLabelText(text: string): string {
+  return normalizePromptLabelText(text.replace(/\s+\.\s*$/u, ''));
+}
+
 export function isUsableLabelText(text: string, maxChars = LABEL_MAX_CHARS): boolean {
   if (text.length === 0 || text.length > maxChars) return false;
   return /[\p{Letter}\p{Number}]/u.test(text);
@@ -54,6 +58,11 @@ export function isCompactFieldMarker(text: string): boolean {
 export function isBareNumericFieldMarker(text: string): boolean {
   const normalized = normalizePromptLabelText(text);
   return /^\d+\s*\$?$/u.test(normalized);
+}
+
+export function isBareLineNumberClusterText(text: string): boolean {
+  const normalized = normalizePromptLabelText(text);
+  return /^\d+[a-z]?(?:\s+\d+[a-z]?)+$/iu.test(normalized);
 }
 
 export function isTrailingPromptFragment(text: string): boolean {

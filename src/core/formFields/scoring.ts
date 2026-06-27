@@ -2,6 +2,7 @@ import type { FormField, FormFieldLabelRelation } from '../../types/index.js';
 import {
   ABOVE_LABEL_MAX_GAP_PT,
   BELOW_LABEL_MAX_GAP_PT,
+  CHOICE_SIDE_PROMPT_MAX_GAP_PT,
   INLINE_TEXT_FIELD_MAX_HEIGHT_PT,
   INLINE_TEXT_FIELD_MAX_WIDTH_PT,
   MIN_HORIZONTAL_OVERLAP_RATIO,
@@ -21,11 +22,15 @@ import {
 import { centerX, centerY, horizontalOverlapRatio, horizontalOverlapWidth, makeLabel } from './geometry.js';
 import {
   hasSemanticFieldNameMatch,
+  isBareLineNumberClusterText,
+  isBareNumericFieldMarker,
   isLikelyWrappedContinuationText,
   isTrailingPromptFragment,
   isWideRowHeaderLabelText,
   lengthPenalty,
+  normalizeChoicePromptLabelText,
   normalizePromptLabelText,
+  startsWithPromptItemMarker,
 } from './text.js';
 import type { LabelCandidate, LabelLine } from './types.js';
 
@@ -36,6 +41,7 @@ import type { LabelCandidate, LabelLine } from './types.js';
  *  per-option span and hand the first checkbox both options' text. */
 const WIDGET_CROSSING_PENALTY = 40;
 const TEXT_FIELD_RIGHT_CONTINUATION_PENALTY = 50;
+const CHOICE_LEFT_PROMPT_GAP_WEIGHT = 0.18;
 
 export function widgetCrossingPenalty(
   field: FormField,
@@ -66,6 +72,7 @@ export function widgetCrossingPenalty(
 
 export function scoreLabelCandidate(field: FormField, line: LabelLine, text: string): LabelCandidate | undefined {
   const sidePreferred = field.type === 'checkbox' || field.type === 'radio' || field.type === 'button';
+  if (sidePreferred && (isBareNumericFieldMarker(text) || isBareLineNumberClusterText(text))) return undefined;
   const inlineTextField =
     field.type === 'text' &&
     field.width <= INLINE_TEXT_FIELD_MAX_WIDTH_PT &&
@@ -98,9 +105,16 @@ function sideLabelCandidate(
     : tallTextFieldLeftLabel
       ? TALL_TEXT_FIELD_SIDE_LABEL_MAX_GAP_PT
       : SIDE_LABEL_MAX_GAP_PT;
-  if (gap < -2 || gap > maxGap) return undefined;
   const centerDelta = Math.abs(centerY(field) - centerY(line));
   const maxCenterDelta = Math.max(7, Math.max(field.height, line.height) * 0.9);
+  const wideChoiceLeftPrompt =
+    field.type !== 'text' &&
+    relation === 'left' &&
+    gap > maxGap &&
+    gap <= CHOICE_SIDE_PROMPT_MAX_GAP_PT &&
+    centerDelta <= maxCenterDelta &&
+    (startsWithPromptItemMarker(text) || isLikelyWrappedContinuationText(text));
+  if (gap < -2 || (!wideChoiceLeftPrompt && gap > maxGap)) return undefined;
   if (centerDelta > maxCenterDelta) return undefined;
   const inlineTextField =
     field.type === 'text' &&
@@ -114,15 +128,18 @@ function sideLabelCandidate(
   const sameRowTextPrompt =
     sameRowTextCandidate &&
     (inlineTextField || isTrailingPromptFragment(text) || gap <= SAME_LINE_TEXT_PROMPT_MAX_GAP_PT);
-  const scoreBase = sameRowTextPrompt || wideRowHeader ? Math.min(baseScore, 0) : baseScore;
+  const scoreBase = sameRowTextPrompt || wideRowHeader ? Math.min(baseScore, 0) : wideChoiceLeftPrompt ? 4 : baseScore;
   const scoreGapWeight = wideRowHeader
     ? Math.min(gapWeight, WIDE_ROW_HEADER_LABEL_GAP_WEIGHT)
-    : sameRowTextPrompt
-      ? Math.min(gapWeight, 0.45)
-      : gapWeight;
+    : wideChoiceLeftPrompt
+      ? Math.min(gapWeight, CHOICE_LEFT_PROMPT_GAP_WEIGHT)
+      : sameRowTextPrompt
+        ? Math.min(gapWeight, 0.45)
+        : gapWeight;
   const wrappedChoiceContinuationPenalty =
     field.type !== 'text' &&
     relation === 'left' &&
+    !wideChoiceLeftPrompt &&
     gap > SAME_LINE_TEXT_PROMPT_MAX_GAP_PT &&
     isLikelyWrappedContinuationText(text)
       ? 80
@@ -131,7 +148,11 @@ function sideLabelCandidate(
     field.type === 'text' && relation === 'right' && isLikelyWrappedContinuationText(text)
       ? TEXT_FIELD_RIGHT_CONTINUATION_PENALTY
       : 0;
-  const labelText = sameRowTextPrompt ? normalizePromptLabelText(text) : text;
+  const labelText = wideChoiceLeftPrompt
+    ? normalizeChoicePromptLabelText(text)
+    : sameRowTextPrompt
+      ? normalizePromptLabelText(text)
+      : text;
 
   return {
     label: makeLabel(line, labelText, relation),

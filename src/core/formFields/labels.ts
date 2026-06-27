@@ -35,8 +35,8 @@ export function findFieldLabel(
   return (
     expandSameLineMarkerPromptLabel(field, best, lines) ??
     expandLeftTrailingPromptStack(field, best, lines) ??
-    expandChoiceSideStackedLabel(field, best, lines) ??
-    expandSideLabelContinuation(field, best, lines) ??
+    expandChoiceSideStackedLabel(field, best, lines, siblings) ??
+    expandSideLabelContinuation(field, best, lines, siblings) ??
     expandStackedLabel(field, best, lines)
   );
 }

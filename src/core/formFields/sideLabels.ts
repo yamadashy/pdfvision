@@ -1,14 +1,19 @@
 import type { FormField, FormFieldLabel } from '../../types/index.js';
-import { SIDE_LABEL_CONTINUATION_MAX_CHARS } from './constants.js';
-import { type BoxLike, centerX, horizontalOverlapRatio, round2, unionBox } from './geometry.js';
+import {
+  CHOICE_SIDE_PROMPT_MAX_GAP_PT,
+  SIDE_LABEL_CONTINUATION_MAX_CHARS,
+  SIDE_LABEL_MAX_GAP_PT,
+} from './constants.js';
+import { type BoxLike, centerX, centerY, horizontalOverlapRatio, round2, unionBox } from './geometry.js';
 import { collectSideLabelContinuationLines } from './stacks.js';
 import {
   isChoiceLikeField,
   isDotLeaderText,
   isUsableLabelText,
   isUsablePromptFragment,
+  normalizeChoicePromptLabelText,
   normalizeLabelText,
-  normalizePromptLabelText,
+  startsWithPromptItemMarker,
 } from './text.js';
 import type { LabelCandidate, LabelLine } from './types.js';
 
@@ -21,15 +26,17 @@ export function expandChoiceSideStackedLabel(
   field: FormField,
   candidate: LabelCandidate,
   lines: readonly LabelLine[],
+  siblings: readonly FormField[] = [],
 ): FormFieldLabel | undefined {
   if (!isChoiceLikeField(field)) return undefined;
   if (candidate.relation !== 'left' && candidate.relation !== 'right') return undefined;
+  if (isFarLeftChoicePrompt(field, candidate)) return undefined;
 
-  const stack = collectSideStackedLabelLines(field, candidate, lines);
+  const stack = collectSideStackedLabelLines(field, candidate, lines, siblings);
   if (stack.length <= 1) return undefined;
 
   const sorted = stack.sort((a, b) => a.line.y - b.line.y || a.line.x - b.line.x);
-  const text = normalizePromptLabelText(sorted.map(({ text }) => text).join(' '));
+  const text = normalizeChoicePromptLabelText(sorted.map(({ text }) => text).join(' '));
   if (!isUsableLabelText(text, SIDE_LABEL_CONTINUATION_MAX_CHARS) || text === candidate.text) return undefined;
 
   const labelBox = sorted
@@ -49,15 +56,17 @@ export function expandSideLabelContinuation(
   field: FormField,
   candidate: LabelCandidate,
   lines: readonly LabelLine[],
+  siblings: readonly FormField[] = [],
 ): FormFieldLabel | undefined {
   if (candidate.relation !== 'left') return undefined;
   if (field.type !== 'checkbox' && field.type !== 'radio' && field.type !== 'button') return undefined;
+  if (isFarLeftChoicePrompt(field, candidate) && startsWithPromptItemMarker(candidate.text)) return undefined;
 
-  const continuation = collectSideLabelContinuationLines(field, candidate, lines);
+  const continuation = collectSideLabelContinuationLines(field, candidate, lines, siblings);
   if (continuation.length === 0) return undefined;
 
   const promptLines = [...continuation, { line: candidate.line, text: candidate.text }];
-  const text = normalizePromptLabelText(promptLines.map(({ text }) => text).join(' '));
+  const text = normalizeChoicePromptLabelText(promptLines.map(({ text }) => text).join(' '));
   if (!isUsableLabelText(text, SIDE_LABEL_CONTINUATION_MAX_CHARS) || text === candidate.text) return undefined;
 
   const boxLines = promptLines.map(({ line }) => line).sort((a, b) => a.y - b.y || a.x - b.x);
@@ -76,12 +85,13 @@ function collectSideStackedLabelLines(
   field: FormField,
   candidate: LabelCandidate,
   lines: readonly LabelLine[],
+  siblings: readonly FormField[],
 ): { line: LabelLine; text: string }[] {
   const stack = [{ line: candidate.line, text: candidate.text }];
   let bounds: BoxLike = candidate.line;
 
   while (stack.length < SIDE_LABEL_STACK_MAX_LINES) {
-    const next = findAdjacentSideStackLine(field, candidate, bounds, stack, lines);
+    const next = findAdjacentSideStackLine(field, candidate, bounds, stack, lines, siblings);
     if (!next) break;
     stack.push(next);
     bounds = unionBox(bounds, next.line);
@@ -96,14 +106,17 @@ function findAdjacentSideStackLine(
   bounds: BoxLike,
   stack: readonly { line: LabelLine; text: string }[],
   lines: readonly LabelLine[],
+  siblings: readonly FormField[],
 ): { line: LabelLine; text: string } | undefined {
   let best: { line: LabelLine; text: string; gap: number } | undefined;
   for (const line of lines) {
     if (stack.some((item) => item.line === line)) continue;
     if (!isLineOnCandidateSide(field, candidate, line)) continue;
+    if (isLineAlignedWithSiblingChoiceField(field, candidate, line, siblings)) continue;
 
     const text = normalizeLabelText(line.text);
     if (!isUsablePromptFragment(text) || isDotLeaderText(text)) continue;
+    if (startsWithPromptItemMarker(stack[0]?.text ?? '') && startsWithPromptItemMarker(text)) continue;
 
     const gap = verticalGap(bounds, line);
     if (gap < 0 || gap > SIDE_LABEL_STACK_MAX_GAP_PT) continue;
@@ -119,6 +132,34 @@ function findAdjacentSideStackLine(
 function isLineOnCandidateSide(field: FormField, candidate: LabelCandidate, line: LabelLine): boolean {
   if (candidate.relation === 'right') return line.x >= field.x + field.width - 1;
   return line.x + line.width <= field.x + 1;
+}
+
+function isFarLeftChoicePrompt(field: FormField, candidate: LabelCandidate): boolean {
+  return candidate.relation === 'left' && field.x - (candidate.line.x + candidate.line.width) > SIDE_LABEL_MAX_GAP_PT;
+}
+
+function isLineAlignedWithSiblingChoiceField(
+  field: FormField,
+  candidate: LabelCandidate,
+  line: LabelLine,
+  siblings: readonly FormField[],
+): boolean {
+  for (const sibling of siblings) {
+    if (sibling === field || !isChoiceLikeField(sibling)) continue;
+    if (!isLineOnCandidateSide(sibling, candidate, line)) continue;
+    if (sideGap(sibling, candidate, line) > siblingGapLimit(candidate)) continue;
+    const centerDelta = Math.abs(centerY(sibling) - centerY(line));
+    if (centerDelta <= Math.max(7, Math.max(sibling.height, line.height) * 0.9)) return true;
+  }
+  return false;
+}
+
+function sideGap(field: FormField, candidate: LabelCandidate, line: LabelLine): number {
+  return candidate.relation === 'right' ? line.x - (field.x + field.width) : field.x - (line.x + line.width);
+}
+
+function siblingGapLimit(candidate: LabelCandidate): number {
+  return candidate.relation === 'left' ? CHOICE_SIDE_PROMPT_MAX_GAP_PT : SIDE_LABEL_MAX_GAP_PT;
 }
 
 function verticalGap(a: BoxLike, b: BoxLike): number {
