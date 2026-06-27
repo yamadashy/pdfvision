@@ -1828,6 +1828,34 @@ describe('buildLayout — multi-column reading order', () => {
     ]);
   });
 
+  it('keeps long financial row labels before detached currency cells', () => {
+    // Apple cash-flow-table-shaped case: a long row label is followed by
+    // a detached "$" for the first numeric value. Side-panel trimming
+    // must not start the table after that currency marker and drop the
+    // visible row label.
+    const spans: TextSpan[] = [
+      span('Cash, cash equivalents and restricted cash, beginning balances', 19.12, 133.43, 8.1, 215.97),
+      span('$', 363.08, 134.1, 8.1, 4.25),
+      span('24,977', 408.7, 134.1, 8.1, 23.39),
+      span('$', 442.23, 134.1, 8.1, 4.25),
+      span('35,929', 487.86, 134.1, 8.1, 23.39),
+      span('$', 521.38, 134.1, 8.1, 4.25),
+      span('39,789', 567.02, 134.1, 8.1, 23.39),
+      span('Net income', 19.12, 144.21, 8.1, 40.22),
+      span('96,995', 408.7, 144.88, 8.1, 23.39),
+      span('99,803', 487.86, 144.88, 8.1, 23.39),
+      span('94,680', 567.02, 144.88, 8.1, 23.39),
+    ];
+
+    const layout = buildLayout(spans, 612);
+
+    expect(layout.tables).toHaveLength(1);
+    expect(layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text))).toEqual([
+      ['Cash, cash equivalents and restricted cash, beginning balances', '$ 24,977', '$ 35,929', '$ 39,789'],
+      ['Net income', '96,995', '99,803', '94,680'],
+    ]);
+  });
+
   it('preserves leading headers and sparse first rows for wide numeric tables', () => {
     // Attention-paper-shaped case: the table body has stable numeric
     // columns, but the visible header stack and first rows have fewer

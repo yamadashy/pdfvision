@@ -75,6 +75,7 @@ function canTrimSidePanelTableSuffix(row: LayoutLine[], start: number, suffix: L
   if (!hasSidePanelTableGap(row, start)) return false;
   const firstSuffixCell = suffix[0];
   const previousCell = row[start - 1];
+  if (previousCell && isCurrencyOnlyCell(previousCell.text)) return false;
   const startsWithCompactLabel =
     firstSuffixCell !== undefined &&
     !isTableNumericCell(firstSuffixCell.text) &&
