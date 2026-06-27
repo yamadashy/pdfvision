@@ -1,6 +1,7 @@
 import type { TextSpan } from '../../types/index.js';
 import { type JoinItem, joinPageText } from '../text/cjkJoin.js';
 import { textMatrixFontSize, textRunGeometryFromTransform } from '../text/geometry.js';
+import { isLikelyPrepressProductionText } from '../text/prepress.js';
 import type { PageFlags } from './pageData.js';
 import { normalizeText, textItemDedupeKey } from './textUtils.js';
 
@@ -60,6 +61,7 @@ export function extractPageText({
   const pageFontAliases = new Map<string, string>();
   for (const item of content.items) {
     if (!isTextItem(item)) continue;
+    if (isLikelyPrepressProductionText(item.str)) continue;
     const w = typeof item.width === 'number' ? item.width : 0;
     // pdfjs reports item.height as 0 for many PDFs (e.g. those produced by
     // certain Office exporters); fall back to the vertical scale from the
