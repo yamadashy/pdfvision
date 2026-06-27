@@ -1772,6 +1772,62 @@ describe('buildLayout — multi-column reading order', () => {
     ]);
   });
 
+  it('splits adjacent dense numeric statement values even when the gutter is narrow', () => {
+    // Berkshire annual-report-shaped case: large share-count values can
+    // sit only about 14pt apart. That is narrower than the general line
+    // segmentation threshold, but the row still has visible table columns.
+    const spans: TextSpan[] = [
+      span('Average equivalent Class A shares outstanding', 45, 616.89, 10, 199.74),
+      span('1,448,880', 362.25, 616.89, 10, 40),
+      span('1,468,876', 434.05, 616.89, 10, 40),
+      span('1,510,180', 505.85, 616.89, 10, 40),
+      span('Average equivalent Class B shares outstanding', 45, 628.39, 10, 199.74),
+      span('2,173,319,709', 344.75, 628.39, 10, 57.5),
+      span('2,203,313,642', 416.55, 628.39, 10, 57.5),
+      span('2,265,269,867', 488.35, 628.39, 10, 57.5),
+    ];
+
+    const layout = buildLayout(spans, 612);
+
+    expect(layout.tables).toHaveLength(1);
+    expect(layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text))).toEqual([
+      ['Average equivalent Class A shares outstanding', '1,448,880', '1,468,876', '1,510,180'],
+      ['Average equivalent Class B shares outstanding', '2,173,319,709', '2,203,313,642', '2,265,269,867'],
+    ]);
+  });
+
+  it('splits dense statement values when trailing currency marks the next column', () => {
+    // Berkshire shareholders' equity table-shaped case: the source text
+    // attaches a trailing "$" to each value to mark the next column.
+    // The following value can then sit less than 9pt away, but it is
+    // still a separate visible table cell.
+    const spans: TextSpan[] = [
+      span('Balance at December 31, 2020', 45, 389.65, 9, 110.7),
+      span('$', 263.15, 389.65, 9, 4.5),
+      span('35,634 $', 280.65, 389.65, 9, 34.15),
+      span('(4,243) $', 331.8, 389.65, 9, 32.65),
+      span('444,626 $', 372.95, 389.65, 9, 38.65),
+      span('(32,853) $', 421.6, 389.65, 9, 37.2),
+      span('8,172 $', 476.4, 389.65, 9, 29.7),
+      span('451,336', 514.9, 389.65, 9, 29.25),
+      span('Balance at January 1, 2021', 45, 410.85, 9, 97.22),
+      span('35,634', 280.65, 410.85, 9, 24.75),
+      span('(9,994)', 331.8, 410.85, 9, 26.24),
+      span('443,949', 372.95, 410.85, 9, 29.25),
+      span('(32,853)', 421.6, 410.85, 9, 30.74),
+      span('8,172', 476.4, 410.85, 9, 20.25),
+      span('444,908', 514.9, 410.85, 9, 29.25),
+    ];
+
+    const layout = buildLayout(spans, 612);
+
+    expect(layout.tables).toHaveLength(1);
+    expect(layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text))).toEqual([
+      ['Balance at December 31, 2020', '$ 35,634', '$ (4,243)', '$ 444,626', '$ (32,853)', '$ 8,172', '$ 451,336'],
+      ['Balance at January 1, 2021', '35,634', '(9,994)', '443,949', '(32,853)', '8,172', '444,908'],
+    ]);
+  });
+
   it('preserves leading headers and sparse first rows for wide numeric tables', () => {
     // Attention-paper-shaped case: the table body has stable numeric
     // columns, but the visible header stack and first rows have fewer
