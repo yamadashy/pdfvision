@@ -1047,6 +1047,73 @@ describe('buildFormFields', () => {
     });
   });
 
+  it('uses same-marker prompt bands when distant dot leaders separate amount labels', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'topmostSubform[0].Page4[0].f4_19[0]',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(511.2, 552, 64.8, 12),
+          fieldValue: '',
+          readOnly: false,
+          required: false,
+          annotationFlags: 4,
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        { text: '11 Standard deduction.{', x: 40.39, y: 528.43, width: 111.58, height: 39.43, fontSize: 9 },
+        { text: '11', x: 40.39, y: 528.43, width: 10.01, height: 9, fontSize: 9 },
+        { text: 'Standard deduction.', x: 64.8, y: 528.43, width: 87.17, height: 9, fontSize: 9 },
+        { text: '{', x: 97.06, y: 531.46, width: 7.49, height: 36.4, fontSize: 36.4 },
+        { text: '}', x: 399.46, y: 531.46, width: 7.49, height: 36.4, fontSize: 36.4 },
+        {
+          text: '• $32,200 if you’re married filing jointly or a qualifying surviving spouse',
+          x: 108,
+          y: 540.42,
+          width: 283.72,
+          height: 9,
+          fontSize: 9,
+        },
+        { text: 'Enter:', x: 64.8, y: 552.42, width: 23.67, height: 9, fontSize: 9 },
+        {
+          text: '• $24,150 if you’re head of household',
+          x: 108,
+          y: 552.42,
+          width: 151.55,
+          height: 9,
+          fontSize: 9,
+        },
+        ...Array.from({ length: 5 }, (_, index) => ({
+          text: '.',
+          x: 420 + index * 12,
+          y: 552.42,
+          width: 2.5,
+          height: 9,
+          fontSize: 9,
+        })),
+        { text: '11 $', x: 488.18, y: 552.42, width: 21.92, height: 9, fontSize: 9 },
+        { text: '11', x: 488.18, y: 552.42, width: 10.01, height: 9, fontSize: 9 },
+        { text: '$', x: 505.1, y: 552.42, width: 5, height: 9, fontSize: 9 },
+        {
+          text: '• $16,100 if you’re single or married filing separately',
+          x: 108,
+          y: 564.43,
+          width: 209.37,
+          height: 9,
+          fontSize: 9,
+        },
+      ],
+    );
+
+    expect(fields[0].label?.text).toBe(
+      '11 Standard deduction. • $32,200 if you’re married filing jointly or a qualifying surviving spouse Enter: • $24,150 if you’re head of household • $16,100 if you’re single or married filing separately 11 $',
+    );
+  });
+
   it('expands compact amount markers when the same prompt is also split into spans', () => {
     const dotLeaders = Array.from({ length: 20 }, (_, index) => ({
       text: '.',
