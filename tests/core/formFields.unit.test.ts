@@ -1395,6 +1395,31 @@ describe('buildFormFields', () => {
     });
   });
 
+  it('prefers a close above text-field label over right-side wrapped instruction text', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'topmostSubform[0].Page1[0].Address_ReadOrder[0].f1_21[0]',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(418.6, 142, 48.65, 14),
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        { text: 'Apt. no.', x: 421.6, y: 133, width: 24.64, height: 7, fontSize: 7 },
+        { text: 'the U.S. for more than half of 2025.', x: 470, y: 146.89, width: 91.78, height: 7, fontSize: 7 },
+      ],
+    );
+
+    expect(fields[0].label).toMatchObject({
+      text: 'Apt. no.',
+      relation: 'above',
+    });
+  });
+
   it('prefers a wide text field own above label over the adjacent column label', () => {
     const fields = buildFormFields(
       [

@@ -35,6 +35,7 @@ import type { LabelCandidate, LabelLine } from './types.js';
  *  merges that row into one line, which would otherwise out-score the
  *  per-option span and hand the first checkbox both options' text. */
 const WIDGET_CROSSING_PENALTY = 40;
+const TEXT_FIELD_RIGHT_CONTINUATION_PENALTY = 50;
 
 export function widgetCrossingPenalty(
   field: FormField,
@@ -126,6 +127,10 @@ function sideLabelCandidate(
     isLikelyWrappedContinuationText(text)
       ? 80
       : 0;
+  const textFieldRightContinuationPenalty =
+    field.type === 'text' && relation === 'right' && isLikelyWrappedContinuationText(text)
+      ? TEXT_FIELD_RIGHT_CONTINUATION_PENALTY
+      : 0;
   const labelText = sameRowTextPrompt ? normalizePromptLabelText(text) : text;
 
   return {
@@ -138,7 +143,8 @@ function sideLabelCandidate(
       Math.max(0, gap) * scoreGapWeight +
       centerDelta * 2 +
       lengthPenalty(labelText) +
-      wrappedChoiceContinuationPenalty,
+      wrappedChoiceContinuationPenalty +
+      textFieldRightContinuationPenalty,
   };
 }
 
