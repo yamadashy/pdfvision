@@ -3,6 +3,7 @@ import {
   codePointLength,
   countNonPrintableCodePoints,
   countReplacementCharacters,
+  detectAdjacentCjkDuplicateGlyphNoise,
   detectCjkInterglyphSpacingNoise,
   detectCjkMojibakeGlyphNoise,
   detectInlineUppercaseDigraphGlyphNoise,
@@ -141,6 +142,15 @@ export function detectLocalizedGlyphNoise(page: PageResult, out: PageWarning[]):
       code: 'localized_glyph_noise',
       severity: 'warning',
       message: `native text contains spaces between ${cjkInterglyphSpaces.pairCount} adjacent CJK glyph pairs (samples: ${cjkInterglyphSpaces.samples.map((s) => JSON.stringify(s)).join(', ')}) — likely PDF text-positioning artifacts; inspect the render or normalize CJK spacing before using exact text`,
+    });
+  }
+
+  const cjkDuplicateGlyphs = detectAdjacentCjkDuplicateGlyphNoise(page.text);
+  if (cjkDuplicateGlyphs) {
+    out.push({
+      code: 'localized_glyph_noise',
+      severity: 'warning',
+      message: `native text contains ${cjkDuplicateGlyphs.pairCount} adjacent duplicated CJK glyph pairs (samples: ${cjkDuplicateGlyphs.samples.map((s) => JSON.stringify(s)).join(', ')}) — likely printable character-map or text-layer duplication noise; inspect the render before trusting exact CJK text, captions, or search context`,
     });
   }
 

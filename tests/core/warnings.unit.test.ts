@@ -945,6 +945,49 @@ describe('detectPageWarnings', () => {
     expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
   });
 
+  it('flags adjacent duplicated CJK glyph pairs as printable glyph noise', () => {
+    const text =
+      '図表 1-1-29 過去 3 年間のハラスメント該当事例の有無\n' +
+      '図図表表 3377 過過去去33年年間間ののハハララススメメンントト該該当当事事例例のの有有無無';
+    const out = detectPageWarnings({
+      page: 1,
+      text,
+      charCount: Array.from(text).length,
+      imageCount: 0,
+      vectorCount: 20,
+      textCoverage: 0.04,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 595.28,
+      height: 841.89,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+    });
+
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'localized_glyph_noise', severity: 'warning' });
+    expect(out[0].message).toContain('adjacent duplicated CJK glyph pairs');
+    expect(out[0].message).toContain('"図図"');
+  });
+
+  it('does not flag ordinary Japanese prose with a few repeated CJK characters', () => {
+    const text = 'ここでは人々の暮らしを支える取り組みを説明します。各地域での活動はますます重要になります。';
+    const out = detectPageWarnings({
+      page: 1,
+      text,
+      charCount: Array.from(text).length,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.03,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok' },
+    });
+
+    expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
+  });
+
   it('flags sequential rare CJK extension glyph runs as printable glyph noise', () => {
     const out = detectPageWarnings({
       page: 1,
