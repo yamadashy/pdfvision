@@ -2536,6 +2536,74 @@ describe('buildLayout — multi-column reading order', () => {
     expect(labels.some((label) => label?.startsWith('Reasons for changes'))).toBe(false);
   });
 
+  it('splits a financial table from a prose footnote before the next table', () => {
+    // JPMorgan Chase annual-report-shaped case: a footnote paragraph can
+    // sit directly above another compact table header. The footnote must
+    // not be treated as a wrapped row label that bridges both tables.
+    const spans: TextSpan[] = [
+      span('Total stockholders’ equity', 52.5, 515.88, 8, 105),
+      span('344,758', 475.38, 515.88, 8, 24.66),
+      span('327,878', 534.02, 515.88, 8, 24.87),
+      span('Total liabilities and stockholders’ equity', 52.5, 528.63, 8, 146.3),
+      span('$', 451.5, 528.63, 8, 4.88),
+      span('4,002,814', 475.38, 528.63, 8, 24.66),
+      span('$', 510, 528.63, 8, 4.62),
+      span('3,875,393', 534.02, 528.63, 8, 24.87),
+      span(
+        '(a) The following table presents information on assets and liabilities related to consolidated VIEs at December 31, 2024 and',
+        49.5,
+        548.32,
+        8,
+        512.9,
+      ),
+      span(
+        '2023. The assets of the consolidated VIEs are used to settle the liabilities of those entities.',
+        63,
+        557.92,
+        8,
+        499.3,
+      ),
+      span(
+        'The assets and liabilities in the table below include third-party assets and liabilities of',
+        63,
+        567.52,
+        8,
+        499.48,
+      ),
+      span('consolidated VIEs. Refer to Note 14 for a further discussion.', 63, 577.12, 8, 446.82),
+      span('December 31, (in millions)', 52.5, 592.78, 8, 94.56),
+      span('2024', 481.54, 592.78, 8, 19.46),
+      span('2023', 540.31, 592.78, 8, 19.2),
+      span('Assets', 52.5, 605.53, 8, 25.4),
+      span('Trading assets', 52.5, 618.28, 8, 52.57),
+      span('$', 451.5, 618.28, 8, 4.88),
+      span('3,885', 478.88, 618.28, 8, 21.14),
+      span('$', 510, 618.28, 8, 4.62),
+      span('2,170', 540.38, 618.28, 8, 18.5),
+      span('Loans', 52.5, 631.03, 8, 22),
+      span('36,510', 475.38, 631.03, 8, 24.66),
+      span('37,611', 534.02, 631.03, 8, 24.87),
+      span('All other assets', 52.5, 643.78, 8, 58),
+      span('681', 485.16, 643.78, 8, 14.88),
+      span('591', 544, 643.78, 8, 14.88),
+      span('Total assets', 52.5, 656.53, 8, 46),
+      span('$', 451.5, 656.53, 8, 4.88),
+      span('41,076', 475.38, 656.53, 8, 24.66),
+      span('$', 510, 656.53, 8, 4.62),
+      span('40,372', 534.02, 656.53, 8, 24.87),
+    ];
+    const layout = buildLayout(spans, 612, 792);
+    const tables = layout.tables ?? [];
+    const tableRows = tables.map((table) => table.rows.map((row) => row.cells.map((cell) => cell.text)));
+    const cells = tableRows.flat(2);
+
+    expect(tables).toHaveLength(2);
+    expect(cells.some((text) => text.includes('following table presents'))).toBe(false);
+    expect(tableRows[0]).toContainEqual(['Total liabilities and stockholders’ equity', '$ 4,002,814', '$ 3,875,393']);
+    expect(tableRows[1]?.[0]).toEqual(['December 31, (in millions)', '2024', '2023']);
+    expect(tableRows[1]).toContainEqual(['Assets Trading assets', '$ 3,885', '$ 2,170']);
+  });
+
   it('splits dense recurring numeric gutters inside table rows', () => {
     const rows = [
       ['2015', '57.6', '73.3', '40.7', '81.2'],

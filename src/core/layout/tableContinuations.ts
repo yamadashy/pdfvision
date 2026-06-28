@@ -22,6 +22,8 @@ const TABLE_ROW_CADENCE_MIN_MATCH_RATIO = 0.65;
 const TABLE_ROW_CADENCE_TOLERANCE_RATIO = 0.25;
 const TABLE_ROW_CADENCE_MIN_TOLERANCE_PT = 2;
 const TABLE_DROPPED_LABEL_X_TOLERANCE_PT = 14;
+const TABLE_LABEL_CONTINUATION_PROSE_MIN_WORDS = 6;
+const TABLE_LABEL_CONTINUATION_PROSE_MIN_WIDTH_PT = 220;
 
 export function attachNumericContinuationRows(
   table: IndexedLayoutRow[],
@@ -141,10 +143,19 @@ function isLabelContinuationRow(row: LayoutLine[], label: LayoutLine, nextTop: n
   if (row.some((line) => isTableNumericCell(line.text))) return false;
   const merged = mergeLineTexts(row);
   if (merged.text.trim().endsWith(':')) return false;
+  if (isWideProseParagraphLine(merged, label)) return false;
   if (!/[\p{L}]/u.test(merged.text)) return false;
   if (Math.abs(merged.x - label.x) > Math.max(12, label.fontSize * 2)) return false;
   const gap = nextTop - (merged.y + merged.height);
   return gap >= -1 && gap <= Math.max(18, label.fontSize * 2.2);
+}
+
+function isWideProseParagraphLine(line: LayoutLine, label: LayoutLine): boolean {
+  if (line.width < Math.max(TABLE_LABEL_CONTINUATION_PROSE_MIN_WIDTH_PT, label.width * 1.5)) return false;
+  const normalized = line.text.replace(/\s+/g, ' ').trim();
+  const wordCount = normalized.split(/\s+/).filter(Boolean).length;
+  if (wordCount < TABLE_LABEL_CONTINUATION_PROSE_MIN_WORDS) return false;
+  return /[.!?](?:["')\]]*)$/u.test(normalized);
 }
 
 function rowGaps(rows: LayoutLine[][]): number[] {
