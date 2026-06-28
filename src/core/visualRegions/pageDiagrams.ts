@@ -10,6 +10,14 @@ const MIN_LAYOUT_HEIGHT_RATIO = 0.55;
 const MAX_LAYOUT_AREA_RATIO = 0.85;
 const NARROW_BLOCK_MAX_WIDTH_RATIO = 0.35;
 const SHORT_BLOCK_MAX_HEIGHT_RATIO = 0.25;
+const NARRATIVE_BLOCK_MIN_WIDTH_RATIO = 0.55;
+const NARRATIVE_BLOCK_MIN_CHARS = 90;
+const NARRATIVE_BLOCK_MIN_LINES = 3;
+const NARRATIVE_LINE_MIN_WIDTH_RATIO = 0.45;
+const NARRATIVE_LINE_MIN_CHARS = 24;
+const FOOTER_BLOCK_MIN_Y_RATIO = 0.96;
+const SIDE_CHROME_BLOCK_MAX_WIDTH_RATIO = 0.05;
+const SIDE_CHROME_BLOCK_EDGE_RATIO = 0.06;
 
 export function addLabeledPageDiagramCandidate(input: BuildVisualRegionsInput, candidates: Candidate[]): void {
   const vectorBoxes = input.vectorBoxes ?? [];
@@ -45,7 +53,38 @@ function isDiagramTextBlock(
 ): boolean {
   if (block.text.trim().length === 0) return false;
   if (block.y > input.pageHeight * 0.93 && /^\s*\d+\s*$/u.test(block.text)) return false;
+  if (isPageChromeTextBlock(block, input)) return false;
+  if (isNarrativeProseBlock(block, input)) return false;
   return true;
+}
+
+function isNarrativeProseBlock(
+  block: NonNullable<BuildVisualRegionsInput['layout']>['blocks'][number],
+  input: BuildVisualRegionsInput,
+): boolean {
+  const normalized = block.text.replace(/\s+/gu, ' ').trim();
+  if (
+    normalized.length >= NARRATIVE_LINE_MIN_CHARS &&
+    block.width >= input.pageWidth * NARRATIVE_LINE_MIN_WIDTH_RATIO &&
+    block.lines.length <= 1 &&
+    block.role !== 'heading'
+  ) {
+    return true;
+  }
+  if (normalized.length < NARRATIVE_BLOCK_MIN_CHARS) return false;
+  if (block.width < input.pageWidth * NARRATIVE_BLOCK_MIN_WIDTH_RATIO) return false;
+  return block.lines.length >= NARRATIVE_BLOCK_MIN_LINES || block.height >= input.pageHeight * 0.12;
+}
+
+function isPageChromeTextBlock(
+  block: NonNullable<BuildVisualRegionsInput['layout']>['blocks'][number],
+  input: BuildVisualRegionsInput,
+): boolean {
+  if (block.y > input.pageHeight * FOOTER_BLOCK_MIN_Y_RATIO) return true;
+  return (
+    block.x <= input.pageWidth * SIDE_CHROME_BLOCK_EDGE_RATIO &&
+    block.width <= input.pageWidth * SIDE_CHROME_BLOCK_MAX_WIDTH_RATIO
+  );
 }
 
 function countHorizontalBlockClusters(

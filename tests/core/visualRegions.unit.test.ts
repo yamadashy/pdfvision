@@ -1193,6 +1193,114 @@ describe('buildVisualRegions', () => {
     });
   });
 
+  it('does not treat narrative prose around a chart as a broad page diagram', () => {
+    const chartBlocks = [
+      {
+        text: 'Surrounding report prose introduces the chart but is not part of the visual panel.',
+        x: 56,
+        y: 70,
+        width: 460,
+        height: 10,
+        lines: [
+          {
+            text: 'Surrounding report prose introduces the chart but is not part of the visual panel.',
+            x: 56,
+            y: 70,
+            width: 460,
+            height: 10,
+            fontSize: 10,
+          },
+        ],
+      },
+      {
+        text: 'Section marker',
+        x: 18,
+        y: 125,
+        width: 14,
+        height: 150,
+        lines: [{ text: 'Section marker', x: 18, y: 125, width: 14, height: 150, fontSize: 9 }],
+      },
+      {
+        text: 'Figure 1. Chart title',
+        x: 72,
+        y: 140,
+        width: 130,
+        height: 10,
+        lines: [{ text: 'Figure 1. Chart title', x: 72, y: 140, width: 130, height: 10, fontSize: 10 }],
+      },
+      ...Array.from({ length: 24 }, (_, index) => ({
+        text: String(index % 6 === 0 ? 100 - index : index),
+        x: 105 + (index % 12) * 28,
+        y: 240 + Math.floor(index / 12) * 54,
+        width: 16,
+        height: 8,
+        lines: [
+          {
+            text: String(index % 6 === 0 ? 100 - index : index),
+            x: 105 + (index % 12) * 28,
+            y: 240 + Math.floor(index / 12) * 54,
+            width: 16,
+            height: 8,
+            fontSize: 8,
+          },
+        ],
+      })),
+      {
+        text: 'This paragraph discusses the chart result in ordinary prose and continues across several visual lines so it should not be treated as diagram label text.',
+        x: 56,
+        y: 500,
+        width: 460,
+        height: 90,
+        lines: [
+          {
+            text: 'This paragraph discusses the chart result in ordinary prose and continues',
+            x: 56,
+            y: 500,
+            width: 430,
+            height: 10,
+            fontSize: 10,
+          },
+          {
+            text: 'across several visual lines so it should not be treated as diagram label',
+            x: 56,
+            y: 515,
+            width: 420,
+            height: 10,
+            fontSize: 10,
+          },
+          { text: 'text.', x: 56, y: 530, width: 24, height: 10, fontSize: 10 },
+        ],
+      },
+      {
+        text: 'Report footer',
+        x: 55,
+        y: 772,
+        width: 100,
+        height: 8,
+        lines: [{ text: 'Report footer', x: 55, y: 772, width: 100, height: 8, fontSize: 8 }],
+      },
+    ];
+    const regions = buildVisualRegions({
+      pageWidth: 600,
+      pageHeight: 800,
+      imageBoxes: [],
+      vectorBoxes: [
+        { x: -20, y: -20, width: 640, height: 840 },
+        ...Array.from({ length: 24 }, (_, index) => ({
+          x: 105 + (index % 12) * 28,
+          y: 260 + Math.floor(index / 12) * 40,
+          width: 4,
+          height: 4,
+        })),
+      ],
+      layout: {
+        blocks: chartBlocks,
+      },
+    });
+
+    expect(regions.some((region) => region.reason.includes('broad vector page diagram'))).toBe(false);
+  });
+
   it('emits a mixed crop for small raster nodes connected by vector arrows', () => {
     const regions = buildVisualRegions({
       pageWidth: 960,
