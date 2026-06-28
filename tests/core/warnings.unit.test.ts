@@ -1768,6 +1768,66 @@ describe('detectPageWarnings', () => {
       expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
     });
 
+    it('flags glued native text across visual columns in numbered list grids', () => {
+      const blocks = [
+        block(42, 200, 150, 8, { text: '1. U.S. Passport or U.S. Passport Card' }),
+        block(42, 220, 150, 16, { text: '2. Permanent Resident Card or Alien Registration Receipt Card' }),
+        block(42, 246, 150, 32, { text: '3. Foreign passport that contains a temporary I-551 stamp' }),
+        block(42, 292, 150, 16, { text: '4. Employment Authorization Document that contains a photograph' }),
+        block(42, 318, 150, 80, {
+          text: '5. For an individual temporarily authorized to work for a specific employer',
+        }),
+        block(222, 202, 170, 40, { text: "1. Driver's license or ID card issued by a State" }),
+        block(222, 260, 170, 40, { text: '2. ID card issued by federal, state or local government agencies' }),
+        block(222, 315, 130, 8, { text: '3. School ID card with a photograph' }),
+        block(222, 333, 96, 8, { text: "4. Voter's registration card" }),
+        block(410, 196, 170, 26, { text: '1. A Social Security Account Number card' }),
+        block(410, 302, 160, 8, { text: '2. Certification of report of birth issued by the Department of State' }),
+        block(410, 336, 160, 8, { text: '3. Original or certified copy of birth certificate' }),
+        block(410, 381, 126, 8, { text: '4. Native American tribal document' }),
+      ];
+      const p = {
+        ...page(blocks, 612, 792),
+        text:
+          'LISTS OF ACCEPTABLE DOCUMENTS\n' +
+          "1. Driver's license or ID card issued by a State\n" +
+          '3. School ID card with a photograph5. For an individual temporarily authorized\n' +
+          'to work for a specific employer because of his or her status or parole',
+      };
+
+      const out = detectPageWarnings(p);
+      const divergence = out.find((w) => w.code === 'reading_order_divergence');
+      expect(divergence).toMatchObject({ severity: 'warning', blockIndex: 7 });
+      expect(divergence?.message).toContain('columnar list');
+      expect(divergence?.message).toContain('School ID card');
+    });
+
+    it('does not flag columnar numbered lists when native item boundaries remain separated', () => {
+      const blocks = [
+        block(42, 200, 150, 8, { text: '1. U.S. Passport or U.S. Passport Card' }),
+        block(42, 220, 150, 16, { text: '2. Permanent Resident Card or Alien Registration Receipt Card' }),
+        block(42, 318, 150, 80, {
+          text: '5. For an individual temporarily authorized to work for a specific employer',
+        }),
+        block(222, 202, 170, 40, { text: "1. Driver's license or ID card issued by a State" }),
+        block(222, 315, 130, 8, { text: '3. School ID card with a photograph' }),
+        block(222, 333, 96, 8, { text: "4. Voter's registration card" }),
+        block(410, 196, 170, 26, { text: '1. A Social Security Account Number card' }),
+        block(410, 302, 160, 8, { text: '2. Certification of report of birth issued by the Department of State' }),
+        block(410, 336, 160, 8, { text: '3. Original or certified copy of birth certificate' }),
+      ];
+      const p = {
+        ...page(blocks, 612, 792),
+        text:
+          'LISTS OF ACCEPTABLE DOCUMENTS\n' +
+          '3. School ID card with a photograph\n' +
+          '5. For an individual temporarily authorized to work for a specific employer',
+      };
+
+      const out = detectPageWarnings(p);
+      expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
+    });
+
     it('flags form labels whose native text order differs from visual layout order', () => {
       const labels = [
         block(32, 19, 94, 10, { text: 'Check box, unchecked' }),

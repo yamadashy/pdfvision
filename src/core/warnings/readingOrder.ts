@@ -1,5 +1,6 @@
 import type { LayoutBlock, PageResult, PageWarning } from '../../types/index.js';
 import { horizontalOverlap } from '../warningTextOverlap/index.js';
+import { detectColumnListReadingOrderDivergence } from './readingOrder/columnLists.js';
 import { shortTextSample } from './textSamples.js';
 
 export { detectFormLabelReadingOrderDivergence } from './readingOrder/formLabels.js';
@@ -47,6 +48,7 @@ export function detectReadingOrderDivergence(page: PageResult, blocks: LayoutBlo
   if (page.text.length === 0) return;
   if (blocks.length >= READING_ORDER_MIN_BLOCKS && detectHeadingReadingOrderDivergence(page, blocks, out)) return;
   if (blocks.length >= READING_ORDER_MIN_BLOCKS && detectLateBlockStartsNativeText(page, blocks, out)) return;
+  if (detectColumnListReadingOrderDivergence(page, blocks, out)) return;
   if (detectLineReadingOrderDivergence(page, blocks, out)) return;
   detectLocalMathReadingOrderDivergence(page, blocks, out);
 }
