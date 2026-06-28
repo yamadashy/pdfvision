@@ -1404,6 +1404,40 @@ describe('detectPageWarnings', () => {
     expect(out.filter((w) => w.code === 'tabular_numeric_layout')).toEqual([]);
   });
 
+  it('does not flag sparse map legend tick rows as flattened tables', () => {
+    const legendLines: LayoutLine[] = [
+      ...Array.from({ length: 8 }, (_, index) => ({
+        text: String(index),
+        x: 96.54 + index * 13.8,
+        y: 221.35,
+        width: 3.2,
+        height: 6.66,
+        fontSize: 6.66,
+      })),
+      { text: '-1.5 -1.0 -0.5', x: 90.64, y: 333.72, width: 44.79, height: 6.66, fontSize: 6.66 },
+      { text: '0', x: 145.03, y: 333.72, width: 3.2, height: 6.66, fontSize: 6.66 },
+      { text: '0.5', x: 157.93, y: 333.72, width: 7.8, height: 6.66, fontSize: 6.66 },
+      { text: '1.0', x: 175.43, y: 333.72, width: 7.8, height: 6.66, fontSize: 6.66 },
+      { text: '1.5', x: 192.93, y: 333.72, width: 7.8, height: 6.66, fontSize: 6.66 },
+      { text: '-40 -30 -20 -10', x: 92.21, y: 446.48, width: 45.07, height: 6.66, fontSize: 6.66 },
+      { text: '0', x: 145.52, y: 446.48, width: 3.16, height: 6.66, fontSize: 6.66 },
+      { text: '10', x: 154.69, y: 446.48, width: 6.17, height: 6.66, fontSize: 6.66 },
+      { text: '20', x: 166.87, y: 446.48, width: 6.35, height: 6.66, fontSize: 6.66 },
+      { text: '30 40', x: 179.23, y: 446.48, width: 19.03, height: 6.66, fontSize: 6.66 },
+    ];
+
+    const out = detectPageWarnings(
+      page([
+        block(90, 221, 120, 232, {
+          text: legendLines.map((item) => item.text).join('\n'),
+          lines: legendLines,
+        }),
+      ]),
+    );
+
+    expect(out.filter((w) => w.code === 'tabular_numeric_layout')).toEqual([]);
+  });
+
   it('does not flag dense tiny numeric vector diagrams as flattened tables', () => {
     const vectorLines = Array.from({ length: 8 }, (_, rowIndex) =>
       Array.from({ length: 8 }, (_, columnIndex): LayoutLine => {

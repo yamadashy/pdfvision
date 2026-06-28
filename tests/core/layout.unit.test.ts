@@ -2537,6 +2537,28 @@ describe('buildLayout — multi-column reading order', () => {
     expect(layout.tables).toBeUndefined();
   });
 
+  it('does not emit table hints for sparse numeric map legend ticks', () => {
+    const spans: TextSpan[] = [
+      {
+        text: 'Summary for Policymakers',
+        x: 9.22,
+        y: 223.35,
+        width: 10,
+        height: 110.77,
+        fontSize: 6.66,
+      },
+      ...Array.from({ length: 8 }, (_, index) => span(String(index), 96.54 + index * 13.8, 221.35, 6.66, 3.2)),
+      span('-1.5 -1.0 -0.5', 90.64, 333.72, 6.66, 44.79),
+      span('0', 145.03, 333.72, 6.66, 3.2),
+      span('0.5', 157.93, 333.72, 6.66, 7.8),
+      span('1.0', 175.43, 333.72, 6.66, 7.8),
+      span('1.5', 192.93, 333.72, 6.66, 7.8),
+    ];
+
+    const layout = buildLayout(spans, 612);
+    expect(layout.tables).toBeUndefined();
+  });
+
   it('keeps irregular financial tables when numeric columns recur across rows', () => {
     const rows = [
       { label: 'Opening balance', y: 100, values: ['(25.4)', '(2.6)', '(50.2)', '(0.1)', '(78.3)'] },
