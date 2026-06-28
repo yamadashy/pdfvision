@@ -1418,6 +1418,45 @@ describe('detectPageWarnings', () => {
     expect(out[0].message).toContain('36.0%');
   });
 
+  it('flags captioned medium raster figures with little overlapping native text', () => {
+    // PLOS article-shaped case: a boxplot is not page-dominating, but
+    // the nearby figure caption makes the raster chart semantically
+    // important and its axis labels are not present as native text.
+    const out = detectPageWarnings({
+      ...page(
+        [
+          block(60, 278, 240, 70, {
+            text: 'Figure 2. Distribution of citation counts by data availability.',
+          }),
+          block(330, 80, 220, 240, { text: 'body paragraph text outside the raster figure' }),
+        ],
+        612,
+        792,
+      ),
+      imageCount: 1,
+      imageBoxes: [{ x: 58, y: 60, width: 240, height: 208 }],
+      quality: { nativeTextStatus: 'ok' },
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({
+      code: 'large_raster_low_text_overlap',
+      severity: 'warning',
+      imageBoxIndex: 0,
+    });
+    expect(out[0].message).toContain('captioned raster figure');
+    expect(out[0].message).toContain('Figure 2');
+  });
+
+  it('does not flag medium raster images without nearby figure captions', () => {
+    const out = detectPageWarnings({
+      ...page([block(330, 80, 220, 240, { text: 'body paragraph text outside the raster image' })], 612, 792),
+      imageCount: 1,
+      imageBoxes: [{ x: 58, y: 60, width: 240, height: 208 }],
+      quality: { nativeTextStatus: 'ok' },
+    });
+    expect(out.filter((w) => w.code === 'large_raster_low_text_overlap')).toEqual([]);
+  });
+
   it('deduplicates large-raster warnings for repeated full-page image boxes', () => {
     // Scanned books can expose the same page-sized image through
     // multiple XObject draws. One warning is enough for an agent.
