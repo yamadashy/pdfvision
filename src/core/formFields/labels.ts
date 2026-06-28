@@ -1,4 +1,5 @@
 import type { FormField, FormFieldLabel } from '../../types/index.js';
+import { findCurrencyAnchoredPromptLabel } from './currencyPrompts.js';
 import {
   expandChoiceSideStackedLabel,
   expandLeftTrailingPromptStack,
@@ -42,6 +43,8 @@ export function findFieldLabel(
     candidate.score += widgetCrossingPenalty(field, candidate, siblings);
     if (!best || candidate.score < best.score) best = candidate;
   }
+  const currencyPrompt = findCurrencyAnchoredPromptLabel(field, lines);
+  if (currencyPrompt) return currencyPrompt;
   if (!best) return undefined;
   return (
     expandSameLineMarkerPromptLabel(field, best, lines) ??

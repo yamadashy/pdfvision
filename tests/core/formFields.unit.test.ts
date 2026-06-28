@@ -1770,6 +1770,47 @@ describe('buildFormFields', () => {
     });
   });
 
+  it('uses a currency marker to connect far-left amount prompts to text fields', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'P7_Line6_BalanceofAccounts',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(480, 120, 96, 18),
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        {
+          text: 'Only include the assets if the principal immigrant',
+          x: 373.71,
+          y: 88.84,
+          width: 198.04,
+          height: 10,
+          fontSize: 10,
+        },
+        { text: '6.', x: 36, y: 117.84, width: 7.5, height: 10, fontSize: 10 },
+        {
+          text: "Enter the balance of the principal immigrant's savings and checking accounts.",
+          x: 60,
+          y: 117.84,
+          width: 310.91,
+          height: 10,
+          fontSize: 10,
+        },
+        { text: '$', x: 471.5, y: 121.84, width: 5, height: 10, fontSize: 10 },
+      ],
+    );
+
+    expect(fields[0].label).toMatchObject({
+      text: "Enter the balance of the principal immigrant's savings and checking accounts.",
+      relation: 'left',
+    });
+  });
+
   it('prefers close above column labels over offset labels from the next row', () => {
     const fields = buildFormFields(
       [
