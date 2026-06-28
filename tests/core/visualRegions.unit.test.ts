@@ -2493,6 +2493,39 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('keeps more than three labels for dense form regions', () => {
+    const labels = ['Individual/sole proprietor', 'C corporation', 'S corporation', 'Partnership', 'Trust/estate'];
+    const formFields = labels.map((text, index) => {
+      const x = 30 + index * 42;
+      return {
+        name: `choice-${index}`,
+        type: 'checkbox' as const,
+        x,
+        y: 60,
+        width: 8,
+        height: 8,
+        label: {
+          text,
+          relation: 'right' as const,
+          x: x + 12,
+          y: 59,
+          width: 35,
+          height: 9,
+        },
+      };
+    });
+
+    const regions = buildVisualRegions({
+      pageWidth: 280,
+      pageHeight: 140,
+      imageBoxes: [],
+      formFields,
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0].associatedText?.map((item) => item.text)).toEqual(labels);
+  });
+
   it('splits medium-sized tall form clusters at major vertical bands', () => {
     const formFields = [60, 96, 132, 168].flatMap((y, band) => [
       { name: `top-${band}`, type: 'text' as const, x: 40, y, width: 80, height: 12 },

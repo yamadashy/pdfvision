@@ -45,6 +45,7 @@ export type { BuildVisualRegionsInput } from './types.js';
 const REGION_PADDING_PT = 8;
 const MAX_REGIONS = 12;
 const MAX_SOURCE_REFS = 16;
+const MAX_FORM_ASSOCIATED_TEXT = 12;
 
 function visualScore(candidate: Candidate, totalArea: number): number {
   const ratio = totalArea > 0 ? area(candidate) / totalArea : 0;
@@ -61,6 +62,9 @@ function finalizeCandidate(
   const totalArea = pageWidth * pageHeight;
   const sources = mergeSources(candidate.sources);
   const associatedText = mergeAssociatedText(candidate.associatedText ?? []);
+  const associatedTextLimit = candidateHasSourceType(candidate, 'formField')
+    ? MAX_FORM_ASSOCIATED_TEXT
+    : MAX_ASSOCIATED_TEXT;
   return {
     kind: candidate.kind,
     ...box,
@@ -68,8 +72,12 @@ function finalizeCandidate(
     sourceCount: sources.length,
     sources: sources.slice(0, MAX_SOURCE_REFS),
     reason: candidate.reason,
-    ...(associatedText.length > 0 && { associatedText: associatedText.slice(0, MAX_ASSOCIATED_TEXT) }),
+    ...(associatedText.length > 0 && { associatedText: associatedText.slice(0, associatedTextLimit) }),
   };
+}
+
+function candidateHasSourceType(candidate: Candidate, type: Candidate['sources'][number]['type']): boolean {
+  return candidate.sources.some((source) => source.type === type);
 }
 
 function padAndClampForAdjacentPeers(
