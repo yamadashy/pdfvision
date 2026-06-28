@@ -125,7 +125,7 @@ function addNestedIndexSetValue(
   addIndexSetValue(inner, innerKey, value);
 }
 
-function markBlockAsRepeatedChrome(block: LayoutBlock): void {
+export function markBlockAsRepeatedChrome(block: LayoutBlock): void {
   block.repeated = true;
   // Demote chrome from heading. A running header / page-number /
   // language-marker line that happens to be short and slightly

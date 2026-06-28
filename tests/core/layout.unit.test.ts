@@ -1512,6 +1512,26 @@ describe('buildLayout — multi-column reading order', () => {
     expect(layout.blocks.every((block) => block.lines[0]?.writingMode === 'vertical')).toBe(true);
   });
 
+  it('marks page-edge vertical navigation tabs as repeated chrome', () => {
+    const spans: TextSpan[] = [
+      span('本文の見出し', 65, 54, 18, 120),
+      span('本文の一行目がここにあります', 62, 84, 10, 220),
+      span('第', 22, 126, 8.5, 8.5),
+      span('1', 15, 132, 19.8, 13.1),
+      span('章', 22, 155, 8.5, 8.5),
+      span('働き方改革の推進などを通じた労働環境の整備など', 23, 181, 9.2, 9.2),
+      span('本文の二行目がここにあります', 62, 140, 10, 220),
+    ];
+    spans[5].height = 212;
+
+    const layout = buildLayout(spans, 595.28, 841.89);
+    const chromeTexts = layout.blocks.filter((block) => block.repeated).map((block) => block.text);
+
+    expect(chromeTexts).toEqual(expect.arrayContaining(['第', '1', '章']));
+    expect(chromeTexts).toContain('働き方改革の推進などを通じた労働環境の整備など');
+    expect(layout.blocks.find((block) => block.text === '本文の一行目がここにあります')?.repeated).toBeUndefined();
+  });
+
   it('does not treat aligned first glyphs of horizontal CJK lines as vertical writing', () => {
     const spans: TextSpan[] = [
       span('日', 50, 50, 12, 12),
