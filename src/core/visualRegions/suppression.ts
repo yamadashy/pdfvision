@@ -1,6 +1,6 @@
 import { associatedTextKey } from './associatedText.js';
 import { hasSourceType, mergeCandidateMetadataInto, mergeCandidates } from './candidateMerge.js';
-import { area, areaRatio, areaSimilarity, overlapOfSmaller } from './geometry.js';
+import { area, areaRatio, areaSimilarity, overlapArea, overlapOfSmaller, unionBox } from './geometry.js';
 import { isBackgroundLikeCandidate, isNearFullPageBox } from './predicates.js';
 import type { BuildVisualRegionsInput, Candidate } from './types.js';
 
@@ -15,6 +15,9 @@ const EQUIVALENT_CANDIDATE_AREA_RATIO = 0.98;
 const CONTEXTUAL_DUPLICATE_OVERLAP_RATIO = 0.85;
 const CONTEXTUAL_DUPLICATE_AREA_RATIO = 0.85;
 const CONTEXTUAL_DUPLICATE_CONTAINED_OVERLAP_RATIO = 0.95;
+const TABLE_COLUMN_STRIP_COVERAGE_RATIO = 0.85;
+const TABLE_COLUMN_STRIP_MAX_WIDTH_RATIO = 0.5;
+const TABLE_COLUMN_STRIP_MIN_HEIGHT_RATIO = 0.7;
 
 export function suppressFormBackplaneCandidates(candidates: Candidate[], totalArea: number): Candidate[] {
   const formCandidates = candidates.filter((candidate) => hasSourceType(candidate, 'formField'));
@@ -43,6 +46,37 @@ export function suppressBroadVectorBackplaneCandidates(candidates: Candidate[], 
       (raster) => overlapOfSmaller(raster, candidate) >= CONTEXTUAL_DUPLICATE_CONTAINED_OVERLAP_RATIO,
     );
     return overlappingRasters.length < VECTOR_BACKPLANE_MIN_RASTER_OVERLAPS;
+  });
+}
+
+export function suppressTableColumnVectorStrips(candidates: Candidate[]): Candidate[] {
+  const tableCandidates = candidates.filter((candidate) => hasSourceType(candidate, 'layoutTable'));
+  if (tableCandidates.length === 0) return candidates;
+
+  return candidates.filter((candidate) => {
+    if (!isStandaloneVectorCandidate(candidate)) return true;
+    if (candidate.associatedText && candidate.associatedText.length > 0) return true;
+
+    const overlappingTables = tableCandidates.filter((table) => overlapArea(candidate, table) > 0);
+    if (overlappingTables.length === 0) return true;
+
+    const coveredArea = overlappingTables.reduce((sum, table) => sum + overlapArea(candidate, table), 0);
+    if (coveredArea / Math.max(1, area(candidate)) < TABLE_COLUMN_STRIP_COVERAGE_RATIO) return true;
+
+    const [firstTable, ...remainingTables] = overlappingTables;
+    let tableBox = {
+      x: firstTable.x,
+      y: firstTable.y,
+      width: firstTable.width,
+      height: firstTable.height,
+    };
+    for (const table of remainingTables) {
+      tableBox = unionBox(tableBox, table);
+    }
+    return !(
+      candidate.width <= tableBox.width * TABLE_COLUMN_STRIP_MAX_WIDTH_RATIO &&
+      candidate.height >= tableBox.height * TABLE_COLUMN_STRIP_MIN_HEIGHT_RATIO
+    );
   });
 }
 

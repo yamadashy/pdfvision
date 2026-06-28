@@ -1410,6 +1410,49 @@ describe('buildVisualRegions', () => {
     expect(regions[0].reason).toContain('layout table hint with 4 rows and 3 columns');
   });
 
+  it('suppresses unlabeled vector-only column strips already covered by table regions', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 620,
+      pageHeight: 800,
+      imageBoxes: [],
+      vectorBoxes: Array.from({ length: 8 }, (_, index) => ({
+        x: 425 + index * 18,
+        y: 120,
+        width: 28,
+        height: 477,
+      })),
+      layout: {
+        blocks: [],
+        tables: [
+          {
+            x: 35,
+            y: 118,
+            width: 555,
+            height: 355,
+            rowCount: 23,
+            columnCount: 3,
+            rows: [],
+          },
+          {
+            x: 35,
+            y: 522,
+            width: 557,
+            height: 61,
+            rowCount: 5,
+            columnCount: 3,
+            rows: [],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toHaveLength(2);
+    expect(regions.map((region) => region.sources)).toEqual([
+      [{ type: 'layoutTable', index: 0 }],
+      [{ type: 'layoutTable', index: 1 }],
+    ]);
+  });
+
   it('keeps wide bottom table candidates when other foreground visuals are present', () => {
     const regions = buildVisualRegions({
       pageWidth: 300,

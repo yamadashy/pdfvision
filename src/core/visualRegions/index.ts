@@ -28,6 +28,7 @@ import {
   suppressContainedCandidates,
   suppressFormBackplaneCandidates,
   suppressLoneFullPageVectorBackplanes,
+  suppressTableColumnVectorStrips,
 } from './suppression.js';
 import { addTableCandidates } from './tableCandidates.js';
 import type { BuildVisualRegionsInput, Candidate } from './types.js';
@@ -92,8 +93,9 @@ export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion
     input.pageHeight,
   );
   const rasterPanelAwareCandidates = suppressBroadVectorBackplaneCandidates(foregroundCandidates, totalArea);
+  const tableColumnAwareCandidates = suppressTableColumnVectorStrips(rasterPanelAwareCandidates);
   const deduped = suppressBackgroundLikeCandidates(
-    dedupeCandidates(rasterPanelAwareCandidates),
+    dedupeCandidates(tableColumnAwareCandidates),
     input.pageWidth,
     input.pageHeight,
   );
@@ -112,7 +114,8 @@ export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion
   const withInRegionPlainLabels = attachInRegionPlainLabels(withHeadingLabels, input.layout, totalArea);
   const withPanelTitleLabels = attachPanelTitleLabels(withInRegionPlainLabels, input.layout, totalArea);
   const contextDeduped = dedupeContextualDuplicates(dedupeEquivalentCandidates(withPanelTitleLabels));
-  return suppressContainedCandidates(contextDeduped)
+  const finalTableColumnAwareCandidates = suppressTableColumnVectorStrips(contextDeduped);
+  return suppressContainedCandidates(finalTableColumnAwareCandidates)
     .filter((candidate) => isUsableFinalCandidate(candidate, input.pageWidth, input.pageHeight))
     .sort((a, b) => visualScore(b, totalArea) - visualScore(a, totalArea))
     .slice(0, MAX_REGIONS)
