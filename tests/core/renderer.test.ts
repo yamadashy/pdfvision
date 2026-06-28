@@ -45,6 +45,20 @@ async function buildPdfWithEdgeInk(region: RenderRegion): Promise<Uint8Array> {
   return new Uint8Array(Buffer.concat(chunks));
 }
 
+async function buildPdfWithFractionalPageInk(): Promise<Uint8Array> {
+  const chunks: Buffer[] = [];
+  const doc = new PDFDocument({ size: [360.5, 202.25], margin: 0 });
+  doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+  const done = new Promise<void>((resolveDone) => doc.on('end', resolveDone));
+
+  doc.rect(0, 0, 360.5, 202.25).fill('white');
+  doc.rect(118, 88, 70, 18).fill('black');
+  doc.end();
+
+  await done;
+  return new Uint8Array(Buffer.concat(chunks));
+}
+
 describe('renderer.isReusableImage (via renderPage cache-hit path)', () => {
   let dir: string;
   beforeEach(() => {
@@ -97,6 +111,33 @@ describe('renderer.isReusableImage (via renderPage cache-hit path)', () => {
 });
 
 describe('renderer renderedContentBox', () => {
+  it('reports content boxes for fractional full-page viewports', async () => {
+    const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    const loadingTask = getDocument(
+      buildPdfJsDocumentOptions({
+        pdfData: await buildPdfWithFractionalPageInk(),
+        filePath: 'memory://fractional-page-ink.pdf',
+      }),
+    );
+    const doc = await loadingTask.promise;
+
+    try {
+      const rendered = await renderPageToBuffer(doc, 1, 1);
+      const box = rendered.renderedContentBox;
+
+      expect(box).toBeDefined();
+      if (!box) return;
+      expect(box.width).toBeGreaterThan(60);
+      expect(box.height).toBeGreaterThan(10);
+      expect(box.x).toBeGreaterThanOrEqual(118);
+      expect(box.x + box.width).toBeLessThanOrEqual(188.5);
+      expect(box.y).toBeGreaterThanOrEqual(88);
+      expect(box.y + box.height).toBeLessThanOrEqual(106.5);
+    } finally {
+      await loadingTask.destroy();
+    }
+  });
+
   it('clamps content boxes to the requested fractional crop region', async () => {
     const region = { x: 28.3, y: 123.25, width: 477.35, height: 98.46 };
     const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');

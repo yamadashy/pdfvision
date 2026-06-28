@@ -70,8 +70,8 @@ export async function renderPageToBuffer(
   // sub-pixel regions (e.g. 0.4pt × scale 1 → 0.4px) from collapsing
   // the canvas to a 0-dim allocation that @napi-rs/canvas refuses with
   // an opaque error.
-  const canvasW = crop ? Math.max(1, Math.round(crop.width)) : viewport.width;
-  const canvasH = crop ? Math.max(1, Math.round(crop.height)) : viewport.height;
+  const canvasW = Math.max(1, Math.round(crop ? crop.width : viewport.width));
+  const canvasH = Math.max(1, Math.round(crop ? crop.height : viewport.height));
   const canvas = createCanvas(canvasW, canvasH);
   const context = canvas.getContext('2d');
 

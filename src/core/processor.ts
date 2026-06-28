@@ -7,6 +7,7 @@ import type {
   PageResult,
   ProcessDocumentOptions,
   ProcessOptions,
+  RenderedContentBox,
   VectorBox,
 } from '../types/index.js';
 import { getCacheDir, pdfFingerprint } from './io/cache.js';
@@ -139,6 +140,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     // PageResult so an agent can spot blank-rendered pages directly from
     // the structured output instead of inferring from "OCR confidence 0".
     let renderRatios: (number | undefined)[] = [];
+    let renderContentBoxes: (RenderedContentBox | undefined)[] = [];
     const imagesDir =
       options.render || renderVisualRegions
         ? prepareRenderImagesDir({
@@ -155,6 +157,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       const rendered = await renderPagesWithStats(doc, pageNumbers, imagesDir as string, renderScale, renderRegion);
       imagePaths = rendered.map((r) => r.path);
       renderRatios = rendered.map((r) => r.contentRatio);
+      renderContentBoxes = rendered.map((r) => r.renderedContentBox);
     }
 
     const flags = buildPageFlags(options, {
@@ -204,12 +207,19 @@ export async function processDocument(filePath: string, options: ProcessDocument
       });
     });
 
+    const renderContentBoxesByPage = new Map<number, RenderedContentBox>();
+    for (let i = 0; i < pageNumbers.length; i++) {
+      const box = renderContentBoxes[i];
+      if (box) renderContentBoxesByPage.set(pageNumbers[i], box);
+    }
+
     await applyVisualRegionPostProcessing({
       pages,
       layoutEnabled: flags.layout,
       visualRegionsEnabled: flags.visualRegions,
       renderVisualRegions,
       visualRegionInputsByPage,
+      renderContentBoxesByPage,
       doc,
       imagesDir,
       renderScale,

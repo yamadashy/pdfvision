@@ -31,6 +31,8 @@ const RASTER_TEXT_STRIP_VECTOR_MIN_OVERLAP_RATIO = 0.5;
 const RASTER_TEXT_STRIP_VECTOR_MIN_SOURCES = 4;
 const RASTER_TEXT_STRIP_VECTOR_MIN_AREA_RATIO = 0.02;
 const LOW_CONTENT_FULL_PAGE_RASTER_RENDER_THRESHOLD = 0.02;
+const LOW_CONTENT_SCAN_DIFFUSE_CONTENT_BOX_AREA_RATIO = 0.5;
+const LOW_CONTENT_SCAN_DIFFUSE_CONTENT_BOX_SPAN_RATIO = 0.85;
 
 export function suppressFormBackplaneCandidates(candidates: Candidate[], totalArea: number): Candidate[] {
   const formCandidates = candidates.filter((candidate) => hasSourceType(candidate, 'formField'));
@@ -275,11 +277,24 @@ function isLowContentRasterScanPage(input: BuildVisualRegionsInput): boolean {
   if (input.nativeTextStatus !== 'empty_but_visual_content') return false;
   if (input.renderContentRatio === undefined) return false;
   if (input.renderContentRatio > LOW_CONTENT_FULL_PAGE_RASTER_RENDER_THRESHOLD) return false;
+  if (input.renderedContentBox && !hasDiffuseRenderedContentBox(input)) return false;
   if ((input.layout?.blocks.length ?? 0) > 0) return false;
   if ((input.vectorBoxes?.length ?? 0) > 0) return false;
   if ((input.formFields?.length ?? 0) > 0) return false;
   if ((input.annotations?.length ?? 0) > 0) return false;
   return true;
+}
+
+function hasDiffuseRenderedContentBox(input: BuildVisualRegionsInput): boolean {
+  const box = input.renderedContentBox;
+  if (!box) return true;
+  const totalArea = input.pageWidth * input.pageHeight;
+  if (totalArea <= 0) return true;
+  if (areaRatio(box, totalArea) >= LOW_CONTENT_SCAN_DIFFUSE_CONTENT_BOX_AREA_RATIO) return true;
+  return (
+    box.width >= input.pageWidth * LOW_CONTENT_SCAN_DIFFUSE_CONTENT_BOX_SPAN_RATIO &&
+    box.height >= input.pageHeight * LOW_CONTENT_SCAN_DIFFUSE_CONTENT_BOX_SPAN_RATIO
+  );
 }
 
 export function suppressLoneFullPageVectorBackplanes(

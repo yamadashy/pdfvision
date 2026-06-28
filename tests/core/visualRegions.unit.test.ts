@@ -171,6 +171,7 @@ describe('buildVisualRegions', () => {
       visualStatus: 'ok',
       nativeTextStatus: 'empty_but_visual_content',
       renderContentRatio: 0.015,
+      renderedContentBox: { x: 5, y: 0, width: 95, height: 100 },
       layout: { blocks: [] },
       vectorBoxes: [],
       formFields: [],
@@ -178,6 +179,36 @@ describe('buildVisualRegions', () => {
     });
 
     expect(regions).toEqual([]);
+  });
+
+  it('keeps low-content full-page raster slides when rendered content is localized', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 960,
+      pageHeight: 540,
+      imageBoxes: [{ x: 0, y: 0, width: 3628.35, height: 2040.94 }],
+      visualStatus: 'ok',
+      nativeTextStatus: 'empty_but_visual_content',
+      renderContentRatio: 0.014315,
+      renderedContentBox: { x: 158.21, y: 251.47, width: 641.95, height: 42.62 },
+      layout: { blocks: [] },
+      vectorBoxes: [],
+      formFields: [],
+      annotations: [],
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'raster',
+        x: 0,
+        y: 0,
+        width: 960,
+        height: 540,
+        areaRatio: 1,
+        sourceCount: 1,
+        sources: [{ type: 'imageBox', index: 0 }],
+        reason: 'raster image covers 100.0% of the page',
+      },
+    ]);
   });
 
   it('suppresses form regions when the rendered page is blank', () => {

@@ -1,5 +1,5 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
-import type { PageResult, VisualRegion } from '../../types/index.js';
+import type { PageResult, RenderedContentBox, VisualRegion } from '../../types/index.js';
 import { markRepeatedBlocks } from '../layout/index.js';
 import { runParallel } from '../runtime/parallel.js';
 import { type BuildVisualRegionsInput, buildVisualRegions } from '../visualRegions/index.js';
@@ -13,6 +13,7 @@ interface ApplyVisualRegionPostProcessingOptions {
   visualRegionsEnabled: boolean;
   renderVisualRegions: boolean;
   visualRegionInputsByPage: ReadonlyMap<number, BuildVisualRegionsInput>;
+  renderContentBoxesByPage: ReadonlyMap<number, RenderedContentBox>;
   doc: PDFDocumentProxy;
   imagesDir: string | null;
   renderScale?: number;
@@ -24,6 +25,7 @@ export async function applyVisualRegionPostProcessing({
   visualRegionsEnabled,
   renderVisualRegions,
   visualRegionInputsByPage,
+  renderContentBoxesByPage,
   doc,
   imagesDir,
   renderScale,
@@ -51,6 +53,7 @@ export async function applyVisualRegionPostProcessing({
             visualStatus: page.quality.visualStatus,
             nativeTextStatus: page.quality.nativeTextStatus,
             renderContentRatio: page.renderContentRatio,
+            renderedContentBox: renderContentBoxesByPage.get(page.page),
           }).map((region, index) => ({
             ...region,
             id: `p${page.page}-vr${index}`,
