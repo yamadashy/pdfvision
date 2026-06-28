@@ -2099,6 +2099,38 @@ describe('detectPageWarnings', () => {
       expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
     });
 
+    it('flags body text emitted before a preceding figure caption after repeated headers are removed', () => {
+      // PLOS Biology-shaped case: cross-page chrome detection removes
+      // the running header signal, but pages[].text can still start with
+      // lower body text before the visually preceding figure caption.
+      const caption =
+        'Fig 1. Comparison of different host prediction approaches on a single test dataset. Total number of predictions and number of correct predictions.';
+      const body =
+        'correct from incorrect predictions, while the scores provided by alignment-free tools are usually not sufficient to identify correct predictions.';
+      const p = {
+        ...page(
+          [
+            block(35, 35, 80, 11, { text: 'PLOS BIOLOGY', repeated: true }),
+            block(72, 285, 450, 100, { text: caption }),
+            block(200, 396, 300, 309, { text: body }),
+            block(36, 748, 440, 8, {
+              text: 'PLOS Biology | https://doi.org/10.1371/journal.pbio.3002083',
+              repeated: true,
+            }),
+          ],
+          612,
+          792,
+        ),
+        text: `${body}\n${caption}`,
+      };
+
+      const out = detectPageWarnings(p);
+      const divergence = out.find((w) => w.code === 'reading_order_divergence');
+      expect(divergence).toMatchObject({ severity: 'warning', blockIndex: 2 });
+      expect(divergence?.message).toContain('native block order diverges');
+      expect(divergence?.message).toContain('correct from incorrect predictions');
+    });
+
     it('does not flag form label fragments that start with punctuation', () => {
       // IRS Form 1040-shaped inline prompts can attach small text
       // fragments around year/date boxes, such as ", 2025, ending".

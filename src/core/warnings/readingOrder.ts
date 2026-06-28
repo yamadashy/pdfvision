@@ -22,6 +22,8 @@ const READING_ORDER_MIN_HEADING_CHARS = 10;
 const READING_ORDER_PROBE_CHARS = 40;
 const READING_ORDER_CONTEXT_PROBE_MIN_CHARS = 32;
 const READING_ORDER_CONTEXT_MAX_Y_DELTA = 80;
+const READING_ORDER_SEQUENTIAL_MIN_Y_GAP_PT = 6;
+const READING_ORDER_SEQUENTIAL_NATIVE_DELTA_RATIO = 0.2;
 const LINE_READING_ORDER_MIN_LINES = 3;
 const LINE_READING_ORDER_MIN_PROBE_CHARS = 4;
 const LINE_READING_ORDER_PROBE_CHARS = 60;
@@ -48,6 +50,8 @@ export function detectReadingOrderDivergence(page: PageResult, blocks: LayoutBlo
   if (page.text.length === 0) return;
   if (blocks.length >= READING_ORDER_MIN_BLOCKS && detectHeadingReadingOrderDivergence(page, blocks, out)) return;
   if (blocks.length >= READING_ORDER_MIN_BLOCKS && detectLateBlockStartsNativeText(page, blocks, out)) return;
+  if (blocks.length >= READING_ORDER_MIN_BLOCKS && detectSequentialBlockReadingOrderDivergence(page, blocks, out))
+    return;
   if (detectColumnListReadingOrderDivergence(page, blocks, out)) return;
   if (detectLineReadingOrderDivergence(page, blocks, out)) return;
   detectLocalMathReadingOrderDivergence(page, blocks, out);
@@ -112,6 +116,54 @@ function detectLateBlockStartsNativeText(page: PageResult, blocks: LayoutBlock[]
       blockIndex: i,
     });
     return true;
+  }
+  return false;
+}
+
+function detectSequentialBlockReadingOrderDivergence(
+  page: PageResult,
+  blocks: LayoutBlock[],
+  out: PageWarning[],
+): boolean {
+  if (page.width <= 0 || page.height <= 0) return false;
+  const nativeText = collapseReadingOrderWhitespace(page.text);
+  if (nativeText.length === 0) return false;
+
+  let previous:
+    | {
+        block: LayoutBlock;
+        probe: string;
+        nativeIndex: number;
+      }
+    | undefined;
+  for (let blockIndex = 0; blockIndex < blocks.length; blockIndex++) {
+    const block = blocks[blockIndex];
+    if (block.repeated) continue;
+    const probe = collapseReadingOrderWhitespace(block.text).slice(0, READING_ORDER_PROBE_CHARS);
+    if (probe.length < READING_ORDER_MIN_HEADING_CHARS) continue;
+    const nativeIndex = uniqueNativeTextIndex(nativeText, probe);
+    if (nativeIndex === undefined) continue;
+
+    if (previous) {
+      const currentNativePos = nativeIndex / nativeText.length;
+      const previousNativePos = previous.nativeIndex / nativeText.length;
+      const visualGap = block.y - (previous.block.y + previous.block.height);
+      if (
+        visualGap >= READING_ORDER_SEQUENTIAL_MIN_Y_GAP_PT &&
+        currentNativePos <= READING_ORDER_NATIVE_EARLY_RATIO &&
+        previousNativePos - currentNativePos >= READING_ORDER_SEQUENTIAL_NATIVE_DELTA_RATIO
+      ) {
+        out.push({
+          code: 'reading_order_divergence',
+          severity: 'warning',
+          blockIndex,
+          message: `layout block "${shortTextSample(probe)}" appears near the start of the native text stream despite following "${shortTextSample(previous.probe)}" visually — native block order diverges from what a human reads; prefer layout.blocks order when sequence matters`,
+        });
+        return true;
+      }
+    }
+
+    previous = { block, probe, nativeIndex };
   }
   return false;
 }
