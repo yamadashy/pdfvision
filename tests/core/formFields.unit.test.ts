@@ -366,6 +366,75 @@ describe('buildFormFields', () => {
     });
   });
 
+  it('prefers immediate option labels over long left prompts for choice fields', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'CheckBox1-2-1-1',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(503.63, 342.86, 15.84, 15.84),
+          fieldValue: 'Off',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'CheckBox1-2-1-2',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(540.97, 343.36, 15.84, 15.84),
+          fieldValue: 'Off',
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        {
+          text: '1. Are you signing up for Part B because you were still working and had coverage since you turned 65? (If yes, complete item 3.) Note:',
+          x: 38.16,
+          y: 344.4,
+          width: 467.83,
+          height: 23.67,
+          fontSize: 9.5,
+        },
+        { text: 'Yes', x: 519.06, y: 344.4, width: 16.11, height: 9.5, fontSize: 9.5 },
+        { text: 'No', x: 556.52, y: 344.4, width: 13.64, height: 9.5, fontSize: 9.5 },
+      ],
+    );
+
+    expect(fields.map((field) => [field.name, field.label?.text])).toEqual([
+      ['CheckBox1-2-1-1', 'Yes'],
+      ['CheckBox1-2-1-2', 'No'],
+    ]);
+  });
+
+  it('prefers complete short option labels over same-position glyph fragments', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'CheckBox1-10-1',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(501, 333.51, 15.84, 15.84),
+          fieldValue: 'Off',
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        { text: 'Yes', x: 515.46, y: 334.76, width: 16.11, height: 9.5, fontSize: 9.5 },
+        { text: 'Y', x: 515.46, y: 334.76, width: 6.8, height: 9.5, fontSize: 9.5 },
+        { text: 'e', x: 522.36, y: 334.76, width: 4.9, height: 9.5, fontSize: 9.5 },
+        { text: 's', x: 527.1, y: 334.76, width: 4.47, height: 9.5, fontSize: 9.5 },
+      ],
+    );
+
+    expect(fields[0].label?.text).toBe('Yes');
+  });
+
   it('merges stacked side labels for checkbox options', () => {
     const fields = buildFormFields(
       [
