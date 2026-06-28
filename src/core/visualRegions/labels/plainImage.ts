@@ -16,6 +16,7 @@ const IN_REGION_PLAIN_LABEL_TOP_DEPTH_RATIO = 0.3;
 const IN_REGION_PLAIN_LABEL_TOP_DEPTH_MAX_PT = 96;
 const IN_REGION_PLAIN_LABEL_MIN_HORIZONTAL_OVERLAP_RATIO = 0.35;
 const IN_REGION_PLAIN_LABEL_SCORE_TOLERANCE_PT = 12;
+const NUMERIC_TICK_LABEL_LINE_PATTERN = /^[-+−]?\p{N}+(?:[.,]\p{N}+)?%?$/u;
 
 function isPlainImageLabelText(text: string): boolean {
   const normalized = normalizeAssociatedText(text);
@@ -35,6 +36,13 @@ function isInRegionPlainLabelText(text: string): boolean {
   if (normalized.length > 80 && /[.!?]\s/u.test(normalized)) return false;
   if (/\b(?:copyright|licensed|cc\s+by|public domain|https?:\/\/|www\.)\b/iu.test(normalized)) return false;
   return /\p{L}/u.test(normalized);
+}
+
+function looksLikeChartTickLabelBlock(block: NonNullable<PageLayout['blocks']>[number]): boolean {
+  return (
+    block.lines.length > 1 &&
+    block.lines.some((line) => NUMERIC_TICK_LABEL_LINE_PATTERN.test(normalizeAssociatedText(line.text)))
+  );
 }
 
 function plainImageLabelScore(
@@ -107,6 +115,7 @@ function inRegionPlainLabelScore(
   if (areaRatio(candidate, totalArea) < IN_REGION_PLAIN_LABEL_MIN_REGION_AREA_RATIO) return undefined;
   if (block.role === 'heading' || block.repeated) return undefined;
   if (!isInRegionPlainLabelText(block.text)) return undefined;
+  if (looksLikeChartTickLabelBlock(block)) return undefined;
   if (
     block.width < IN_REGION_PLAIN_LABEL_MIN_WIDTH_PT &&
     block.width / Math.max(1, candidate.width) < IN_REGION_PLAIN_LABEL_MIN_WIDTH_RATIO

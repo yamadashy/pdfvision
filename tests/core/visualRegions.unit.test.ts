@@ -2636,6 +2636,61 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('does not attach generic internal panel placeholders or chart tick labels as visual region labels', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 600,
+      pageHeight: 800,
+      imageBoxes: [],
+      vectorBoxes: [{ x: 80, y: 100, width: 420, height: 320 }],
+      layout: {
+        blocks: [
+          {
+            text: 'C Caption Caption Caption',
+            x: 100,
+            y: 260,
+            width: 260,
+            height: 12,
+            role: 'heading',
+            level: 1,
+            lines: [{ text: 'C Caption Caption Caption', x: 100, y: 260, width: 260, height: 12, fontSize: 12 }],
+          },
+          {
+            text: 'Lung Opacity Atelectasis Pleural Effusion Cadiomegaly\n41.60',
+            x: 320,
+            y: 160,
+            width: 176,
+            height: 13,
+            lines: [
+              {
+                text: 'Lung Opacity Atelectasis Pleural Effusion Cadiomegaly',
+                x: 320,
+                y: 160,
+                width: 176,
+                height: 6,
+                fontSize: 6.4,
+              },
+              { text: '41.60', x: 320, y: 167, width: 14, height: 6, fontSize: 5.6 },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'vector',
+        x: 72,
+        y: 92,
+        width: 436,
+        height: 336,
+        areaRatio: 0.305,
+        sourceCount: 1,
+        sources: [{ type: 'vectorBox', index: 0 }],
+        reason: '1 nearby vector drawing operations',
+      },
+    ]);
+  });
+
   it('attaches nearby plain table lead-ins to unlabeled table regions', () => {
     const regions = buildVisualRegions({
       pageWidth: 300,
