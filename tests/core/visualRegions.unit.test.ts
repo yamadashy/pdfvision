@@ -2650,6 +2650,153 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('attaches nearby source lines to figure crops', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 800,
+      pageHeight: 540,
+      imageBoxes: [{ x: 8.52, y: 185.52, width: 390.72, height: 272.04 }],
+      layout: {
+        blocks: [
+          {
+            text: '図1 業況判断DIの推移',
+            x: 122.45,
+            y: 142.42,
+            width: 152.33,
+            height: 14.04,
+            lines: [
+              { text: '図1 業況判断DIの推移', x: 122.45, y: 142.42, width: 152.33, height: 14.04, fontSize: 14.04 },
+            ],
+          },
+          {
+            text: '資料:日本銀行「全国企業短期経済観測調査」(2024年4月)',
+            x: 17.54,
+            y: 502.42,
+            width: 244.35,
+            height: 9,
+            lines: [
+              {
+                text: '資料:日本銀行「全国企業短期経済観測調査」(2024年4月)',
+                x: 17.54,
+                y: 502.42,
+                width: 244.35,
+                height: 9,
+                fontSize: 9,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions[0]).toMatchObject({
+      kind: 'raster',
+      x: 0.52,
+      y: 134.42,
+      width: 406.72,
+      height: 385,
+      associatedText: [
+        {
+          text: '図1 業況判断DIの推移',
+          relation: 'caption',
+          blockIndex: 0,
+        },
+        {
+          text: '資料:日本銀行「全国企業短期経済観測調査」(2024年4月)',
+          relation: 'caption',
+          blockIndex: 1,
+        },
+      ],
+    });
+  });
+
+  it('keeps padding from crossing into adjacent raster figure crops', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 800,
+      pageHeight: 540,
+      imageBoxes: [
+        { x: 391.32, y: 174.96, width: 380.16, height: 307.32 },
+        { x: 8.52, y: 185.52, width: 390.72, height: 272.04 },
+      ],
+      layout: {
+        blocks: [
+          {
+            text: '図1 業況判断DIの推移',
+            x: 122.45,
+            y: 142.42,
+            width: 152.33,
+            height: 14.04,
+            lines: [
+              { text: '図1 業況判断DIの推移', x: 122.45, y: 142.42, width: 152.33, height: 14.04, fontSize: 14.04 },
+            ],
+          },
+          {
+            text: '図2 製造業の営業利益の推移',
+            x: 485.18,
+            y: 142.42,
+            width: 189.38,
+            height: 14.04,
+            lines: [
+              {
+                text: '図2 製造業の営業利益の推移',
+                x: 485.18,
+                y: 142.42,
+                width: 189.38,
+                height: 14.04,
+                fontSize: 14.04,
+              },
+            ],
+          },
+          {
+            text: '資料:日本銀行「全国企業短期経済観測調査」(2024年4月)',
+            x: 17.54,
+            y: 502.42,
+            width: 244.35,
+            height: 9,
+            lines: [
+              {
+                text: '資料:日本銀行「全国企業短期経済観測調査」(2024年4月)',
+                x: 17.54,
+                y: 502.42,
+                width: 244.35,
+                height: 9,
+                fontSize: 9,
+              },
+            ],
+          },
+          {
+            text: '資料:財務省「法人企業統計調査」(2024年3月)',
+            x: 426.34,
+            y: 502.42,
+            width: 199.36,
+            height: 9,
+            lines: [
+              {
+                text: '資料:財務省「法人企業統計調査」(2024年3月)',
+                x: 426.34,
+                y: 502.42,
+                width: 199.36,
+                height: 9,
+                fontSize: 9,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions.map((region) => ({ x: region.x, y: region.y, width: region.width, height: region.height }))).toEqual(
+      [
+        { x: 0.52, y: 134.42, width: 392.12, height: 385 },
+        { x: 392.64, y: 134.42, width: 386.84, height: 385 },
+      ],
+    );
+    expect(regions[0].x + regions[0].width).toBeLessThanOrEqual(regions[1].x);
+    expect(regions.map((region) => region.associatedText?.at(-1)?.text)).toEqual([
+      '資料:日本銀行「全国企業短期経済観測調査」(2024年4月)',
+      '資料:財務省「法人企業統計調査」(2024年3月)',
+    ]);
+  });
+
   it('deduplicates overlapping regions expanded by the same caption', () => {
     const regions = buildVisualRegions({
       pageWidth: 600,
