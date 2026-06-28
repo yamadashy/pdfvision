@@ -947,6 +947,59 @@ describe('buildFormFields', () => {
     expect(fields[1].label?.text).toBe('Combat zone');
   });
 
+  it('allows close form-number labels for checkbox options without reusing the row prompt', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'c2_9',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(312.6, 158, 8, 8),
+          fieldValue: 'Off',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'c2_10',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(370.2, 158, 8, 8),
+          fieldValue: 'Off',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'c2_11',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(427.8, 158, 8, 8),
+          fieldValue: 'Off',
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        {
+          text: '16 Tax (see instructions). Check if any from Form(s):',
+          x: 91.9,
+          y: 157.71,
+          width: 198.44,
+          height: 8,
+          fontSize: 8,
+        },
+        { text: '1', x: 302.4, y: 157.71, width: 4.45, height: 8, fontSize: 8 },
+        { text: '8814', x: 325, y: 157.71, width: 17.79, height: 8, fontSize: 8 },
+        { text: '2', x: 360, y: 157.71, width: 4.45, height: 8, fontSize: 8 },
+        { text: '4972', x: 382.6, y: 157.71, width: 17.79, height: 8, fontSize: 8 },
+        { text: '3', x: 417.6, y: 157.71, width: 4.45, height: 8, fontSize: 8 },
+      ],
+    );
+
+    expect(fields.find((field) => field.name === 'c2_9')?.label?.text).toBe('8814');
+    expect(fields.find((field) => field.name === 'c2_10')?.label?.text).toBe('4972');
+    expect(fields.find((field) => field.name === 'c2_11')?.label).toBeUndefined();
+  });
+
   it('keeps stacked filing status checkbox labels on their own option rows', () => {
     const fields = buildFormFields(
       [

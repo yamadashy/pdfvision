@@ -20,6 +20,7 @@ import {
   isStandaloneInstructionReference,
   isUsableLabelText,
   normalizeLabelText,
+  startsWithPromptItemMarker,
 } from './text.js';
 import type { LabelCandidate, LabelLine } from './types.js';
 
@@ -54,6 +55,7 @@ export function findFieldLabel(
   const currencyPrompt = findCurrencyAnchoredPromptLabel(field, lines);
   if (currencyPrompt) return currencyPrompt;
   if (!best) return undefined;
+  if (isMarkerOnlyChoicePromptFallback(field, best, lines)) return undefined;
   return (
     expandSameLineMarkerPromptLabel(field, best, lines) ??
     expandLeftTrailingPromptStack(field, best, lines) ??
@@ -82,7 +84,6 @@ function findImmediateChoiceOptionLabel(
     const text = normalizeLabelText(line.text);
     if (!isUsableLabelText(text, CHOICE_OPTION_LABEL_MAX_CHARS)) continue;
     if (isFormLabelChromeText(text)) continue;
-    if (isBareNumericFieldMarker(text) || isBareLineNumberClusterText(text)) continue;
     if (overlapRatio(field, line) >= 0.35) continue;
     if (lineCrossesSiblingChoiceField(field, line, siblings)) continue;
 
@@ -102,10 +103,50 @@ function findImmediateChoiceOptionLabel(
     if (!relation) continue;
 
     const gap = relation === 'right' ? rightGap : leftGap;
+    if (
+      (isBareNumericFieldMarker(text) || isBareLineNumberClusterText(text)) &&
+      !isCloseNumericChoiceOptionLabel(text, relation, gap)
+    ) {
+      continue;
+    }
     const score = (relation === 'right' ? 0 : 4) + Math.max(0, gap) * 2 + centerDelta - Math.min(text.length, 16) * 0.2;
     if (!best || score < best.score) best = { line, text, relation, score };
   }
   return best ? makeLabel(best.line, best.text, best.relation) : undefined;
+}
+
+function isCloseNumericChoiceOptionLabel(text: string, relation: LabelCandidate['relation'], gap: number): boolean {
+  return relation === 'right' && gap >= -2 && gap <= CHOICE_OPTION_LABEL_MAX_GAP_PT && /^\d{3,}$/u.test(text);
+}
+
+function isMarkerOnlyChoicePromptFallback(
+  field: FormField,
+  candidate: LabelCandidate,
+  lines: readonly LabelLine[],
+): boolean {
+  if (!isChoiceLikeField(field)) return false;
+  if (candidate.relation !== 'left') return false;
+  if (field.x - (candidate.line.x + candidate.line.width) <= CHOICE_OPTION_LABEL_MAX_GAP_PT) return false;
+  if (!startsWithPromptItemMarker(candidate.text)) return false;
+  return hasImmediateLeftChoiceMarker(field, lines);
+}
+
+function hasImmediateLeftChoiceMarker(field: FormField, lines: readonly LabelLine[]): boolean {
+  for (const line of lines) {
+    const text = normalizeLabelText(line.text);
+    if (!isOrdinalChoiceMarkerText(text)) continue;
+    if (overlapRatio(field, line) >= 0.35) continue;
+    const centerDelta = Math.abs(centerY(field) - centerY(line));
+    const maxCenterDelta = Math.max(7, Math.max(field.height, line.height) * 0.9);
+    if (centerDelta > maxCenterDelta) continue;
+    const leftGap = field.x - (line.x + line.width);
+    if (leftGap >= -2 && leftGap <= CHOICE_OPTION_LABEL_MAX_GAP_PT) return true;
+  }
+  return false;
+}
+
+function isOrdinalChoiceMarkerText(text: string): boolean {
+  return /^\d{1,2}[a-z]?$/iu.test(text) || /^\([a-z]\)$/iu.test(text);
 }
 
 function lineCrossesSiblingChoiceField(field: FormField, line: LabelLine, siblings: readonly FormField[]): boolean {
