@@ -460,6 +460,28 @@ describe('detectPageWarnings', () => {
     expect(out.filter((w) => w.code === 'ocr_low_confidence')).toEqual([]);
   });
 
+  it('flags low-confidence OCR noise on blank renders', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '',
+      charCount: 0,
+      imageCount: 1,
+      vectorCount: 0,
+      textCoverage: 0,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'empty', visualStatus: 'blank' },
+      ocr: { text: '-— -—— ——\n-\n’\n. BN', confidence: 0.2, lang: 'eng' },
+    });
+
+    expect(out.filter((w) => w.code === 'ocr_low_confidence')).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'ocr_low_confidence', severity: 'warning' });
+    expect(out[0].message).toContain('blank render');
+    expect(out[0].message).toContain('20.0%');
+  });
+
   it('flags localized non-printable glyph noise below the mixed-glyph ratio threshold', () => {
     // Heritage Financial slide p5-shaped case: native text is otherwise
     // usable, but bullet glyphs come through as C1 control code points.

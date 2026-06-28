@@ -60,7 +60,15 @@ export function detectRasterTextLayerWordFragmentation(
 export function detectLowConfidenceOcr(page: PageResult, context: VisualWarningContext, out: PageWarning[]): void {
   if (!page.ocr) return;
   if (page.ocr.confidence >= LOW_CONFIDENCE_OCR_THRESHOLD) return;
-  if (page.quality.visualStatus === 'blank') return;
+  if (page.quality.visualStatus === 'blank') {
+    if (page.ocr.text.trim().length === 0) return;
+    out.push({
+      code: 'ocr_low_confidence',
+      severity: 'warning',
+      message: `OCR produced low-confidence text on a blank render (${(page.ocr.confidence * 100).toFixed(1)}%) — treat recognized text as likely scan noise unless the rendered page shows real content`,
+    });
+    return;
+  }
   const nativeNeedsOcr = nativeExtractionNeedsOcr(page.quality.nativeTextStatus);
   if (!nativeNeedsOcr && !context.rasterBackedTextLayer) return;
 
