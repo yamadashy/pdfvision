@@ -802,6 +802,75 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('attaches nearby headings to compact ruled form grids', () => {
+    const vectorBoxes = [
+      { x: 316.55, y: 215.75, width: 130.1, height: 0.5 },
+      { x: 316.55, y: 239.75, width: 130.1, height: 0.5 },
+      { x: 316.55, y: 215.5, width: 0.5, height: 24.75 },
+      { x: 446.15, y: 215.75, width: 130.1, height: 0.5 },
+      { x: 446.15, y: 239.75, width: 130.1, height: 0.5 },
+      { x: 575.75, y: 215.5, width: 0.5, height: 24.75 },
+      { x: 446.15, y: 215.5, width: 0.5, height: 24.75 },
+      { x: 316.55, y: 251.75, width: 130.1, height: 0.5 },
+      { x: 316.55, y: 239.75, width: 0.5, height: 12.5 },
+      { x: 446.15, y: 251.75, width: 130.1, height: 0.5 },
+      { x: 575.75, y: 239.75, width: 0.5, height: 12.5 },
+      { x: 446.15, y: 239.75, width: 0.5, height: 12.5 },
+      { x: 316.55, y: 275.75, width: 130.1, height: 0.5 },
+      { x: 316.55, y: 251.75, width: 0.5, height: 24.5 },
+      { x: 446.15, y: 275.75, width: 130.1, height: 0.5 },
+      { x: 575.75, y: 251.75, width: 0.5, height: 24.5 },
+      { x: 446.15, y: 251.75, width: 0.5, height: 24.5 },
+      { x: 316.55, y: 335.75, width: 130.1, height: 0.5 },
+      { x: 316.55, y: 275.75, width: 0.5, height: 60.5 },
+      { x: 446.15, y: 335.75, width: 130.1, height: 0.5 },
+      { x: 575.75, y: 275.75, width: 0.5, height: 60.5 },
+      { x: 446.15, y: 275.75, width: 0.5, height: 60.5 },
+      { x: 316.55, y: 347.75, width: 130.1, height: 0.5 },
+      { x: 316.55, y: 335.75, width: 0.5, height: 12.5 },
+      { x: 446.15, y: 347.75, width: 130.1, height: 0.5 },
+      { x: 575.75, y: 335.75, width: 0.5, height: 12.5 },
+      { x: 446.15, y: 335.75, width: 0.5, height: 12.5 },
+      { x: 316.55, y: 359.75, width: 130.1, height: 0.5 },
+      { x: 316.55, y: 347.75, width: 0.5, height: 12.75 },
+      { x: 446.15, y: 359.75, width: 130.1, height: 0.5 },
+      { x: 575.75, y: 347.75, width: 0.5, height: 12.75 },
+      { x: 446.15, y: 347.75, width: 0.5, height: 12.75 },
+    ];
+
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      vectorBoxes,
+      layout: {
+        blocks: [
+          {
+            text: 'Line 3a',
+            role: 'heading',
+            x: 316.8,
+            y: 169.14,
+            width: 34.26,
+            height: 10,
+            lines: [{ text: 'Line 3a', x: 316.8, y: 169.14, width: 34.26, height: 10, fontSize: 10 }],
+          },
+        ],
+      },
+    });
+
+    expect(regions[0]).toMatchObject({
+      kind: 'form',
+      reason: '32 ruled form vector lines',
+      associatedText: [
+        {
+          text: 'Line 3a',
+          relation: 'label',
+          blockIndex: 0,
+        },
+      ],
+    });
+  });
+
   it('emits form regions for dotted administrative write-in lines', () => {
     const vectorBoxes = Array.from({ length: 369 }, (_, index) => ({
       x: 157.1 + (index % 123) * 2.88,
