@@ -2470,6 +2470,47 @@ describe('buildLayout — multi-column reading order', () => {
     expect(layout.tables).toBeUndefined();
   });
 
+  it('does not emit table hints for dense tiny multi-value chart labels', () => {
+    // Japanese white-paper chart-shaped case: stacked bar/line charts can
+    // expose many 3pt data labels. Some PDF text runs combine adjacent
+    // year values, but they are chart annotations rather than table cells.
+    const spans = Array.from({ length: 6 }, (_, rowIndex) =>
+      Array.from({ length: 8 }, (_, columnIndex) => {
+        const first = `${12 + rowIndex},${String(columnIndex).padStart(3, '0')}`;
+        const second = `${13 + rowIndex},${String(columnIndex).padStart(3, '0')}`;
+        const text =
+          columnIndex % 3 === 0 ? `${first} ${second}` : `${(rowIndex + 1) * (columnIndex + 2)}.${columnIndex}`;
+        return span(text, 80 + columnIndex * 42, 340 + rowIndex * 13, 3.2, text.length * 2.4);
+      }),
+    ).flat();
+
+    const layout = buildLayout(spans, 612);
+    expect(layout.tables).toBeUndefined();
+  });
+
+  it('does not emit aligned text table hints for shallow tiny chart header labels', () => {
+    const spans: TextSpan[] = [
+      span('(万人)', 71, 329, 3.2, 14),
+      span('実績値', 296, 328, 4, 12),
+      span('推計値', 400, 328, 4, 12),
+      span('(%)', 522, 329, 3.2, 8),
+      span('45.0', 523, 336, 3.2, 8),
+      span('12,693 12,777 12,806', 254, 354, 3.2, 46),
+      span('12,709', 304, 357, 3.2, 13),
+      span('12,557', 237, 359, 3.2, 13),
+      span('48 98', 281, 361, 3.2, 23),
+      span('12,615', 321, 361, 3.2, 12),
+      span('12,361', 221, 363, 3.2, 12),
+      span('13', 249, 365, 3.2, 5),
+      span('23', 263, 362, 3.2, 5),
+      span('12,435', 338, 364, 3.2, 13),
+      span('総人口', 393, 362, 4.5, 14),
+    ];
+
+    const layout = buildLayout(spans, 612);
+    expect(layout.tables).toBeUndefined();
+  });
+
   it('keeps irregular financial tables when numeric columns recur across rows', () => {
     const rows = [
       { label: 'Opening balance', y: 100, values: ['(25.4)', '(2.6)', '(50.2)', '(0.1)', '(78.3)'] },

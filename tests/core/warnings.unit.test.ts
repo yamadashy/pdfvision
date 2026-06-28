@@ -1431,6 +1431,36 @@ describe('detectPageWarnings', () => {
     expect(out.filter((w) => w.code === 'tabular_numeric_layout')).toEqual([]);
   });
 
+  it('does not flag dense tiny multi-value chart labels as flattened tables', () => {
+    const chartLines = Array.from({ length: 6 }, (_, rowIndex) =>
+      Array.from({ length: 8 }, (_, columnIndex): LayoutLine => {
+        const first = `${12 + rowIndex},${String(columnIndex).padStart(3, '0')}`;
+        const second = `${13 + rowIndex},${String(columnIndex).padStart(3, '0')}`;
+        const text =
+          columnIndex % 3 === 0 ? `${first} ${second}` : `${(rowIndex + 1) * (columnIndex + 2)}.${columnIndex}`;
+        return {
+          text,
+          x: 80 + columnIndex * 42,
+          y: 340 + rowIndex * 13,
+          width: text.length * 2.4,
+          height: 3.2,
+          fontSize: 3.2,
+        };
+      }),
+    ).flat();
+
+    const out = detectPageWarnings(
+      page([
+        block(80, 340, 340, 80, {
+          text: chartLines.map((item) => item.text).join('\n'),
+          lines: chartLines,
+        }),
+      ]),
+    );
+
+    expect(out.filter((w) => w.code === 'tabular_numeric_layout')).toEqual([]);
+  });
+
   it('flags irregular financial tables when numeric columns recur across rows', () => {
     const ys = [100, 126, 151, 177, 228, 241, 255, 270];
     const out = detectPageWarnings(

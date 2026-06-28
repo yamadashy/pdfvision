@@ -1,5 +1,6 @@
 import type { LayoutLine, LayoutTable } from '../../types/index.js';
 import { type BBox, round2, unionBox } from './geometry.js';
+import { isLikelyTinyNumericChartFragment } from './numericVectorGrid.js';
 import { tableCandidateRow } from './tableCandidateRows.js';
 import { isTableNumericCell, normalizeTableCurrencyCells } from './tableCells.js';
 import { attachLabelContinuationRows } from './tableContinuations.js';
@@ -29,7 +30,10 @@ export function detectSparseSingleRowTables(allRows: LayoutLine[][]): LayoutTabl
     const headerRows = collectSparseTableHeaderRows(allRows, index, bodyRow, label);
     if (!isSparseHeaderStack(headerRows, bodyRow, label)) continue;
 
-    tables.push(toSparseLayoutTable([...headerRows, bodyRow]));
+    const rows = [...headerRows, bodyRow];
+    if (isLikelyTinyNumericChartFragment(rows.flat())) continue;
+
+    tables.push(toSparseLayoutTable(rows));
   }
 
   return tables;

@@ -1,6 +1,6 @@
 import type { LayoutLine, LayoutTable } from '../../types/index.js';
 import { type BBox, round2, unionBox } from './geometry.js';
-import { isLikelyTinyNumericVectorGrid } from './numericVectorGrid.js';
+import { isLikelyTinyNumericChartFragment, isLikelyTinyNumericVectorGrid } from './numericVectorGrid.js';
 import { detectSparseSingleRowTables } from './sparseTables.js';
 import { tableCandidateRow } from './tableCandidateRows.js';
 import { isTableNumericCell, normalizeTableCurrencyCells } from './tableCells.js';
@@ -60,6 +60,7 @@ export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefin
     const rows = attachNumericContinuationRows(table, allRowGroups, nextTableFirstIndex);
     const tableRows = attachLeadingTableRows(rows, table[0]?.index ?? 0, allRowGroups);
     if (isLikelyTinyNumericVectorGrid(tableRows.flat())) continue;
+    if (isLikelyTinyNumericChartFragment(tableRows.flat())) continue;
     result.push(toLayoutTable(tableRows));
   }
   for (const table of alignedTextTables) {
@@ -122,8 +123,10 @@ function detectAlignedTextTables(allRowGroups: LayoutLine[][]): LayoutTable[] {
   for (const group of groups) {
     const baseRows = group.map(({ row }) => row);
     if (isLikelyTinyNumericVectorGrid(baseRows.flat())) continue;
+    if (isLikelyTinyNumericChartFragment(baseRows.flat())) continue;
     if (!isAlignedTextTableGroup(baseRows)) continue;
     const rows = attachAlignedTextHeaderRows(group, allRowGroups);
+    if (isLikelyTinyNumericChartFragment(rows.flat())) continue;
     tables.push(toLayoutTable(rows));
   }
   return tables;
