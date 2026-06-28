@@ -1785,6 +1785,86 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('groups dense raster figure grids by their nearby figure caption', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 600,
+      pageHeight: 800,
+      imageBoxes: [
+        { x: 60, y: 120, width: 100, height: 80 },
+        { x: 180, y: 120, width: 100, height: 80 },
+        { x: 300, y: 120, width: 100, height: 80 },
+        { x: 420, y: 120, width: 100, height: 80 },
+        { x: 60, y: 220, width: 100, height: 80 },
+        { x: 180, y: 220, width: 100, height: 80 },
+        { x: 300, y: 220, width: 100, height: 80 },
+        { x: 420, y: 220, width: 100, height: 80 },
+        { x: 60, y: 320, width: 100, height: 80 },
+        { x: 180, y: 320, width: 100, height: 80 },
+        { x: 300, y: 320, width: 100, height: 80 },
+        { x: 420, y: 320, width: 100, height: 80 },
+      ],
+      layout: {
+        blocks: [
+          {
+            text: 'Figure 2: Example images with overlaid masks from a dataset.',
+            x: 50,
+            y: 420,
+            width: 495,
+            height: 20,
+            lines: [
+              {
+                text: 'Figure 2: Example images with overlaid masks from a dataset.',
+                x: 50,
+                y: 420,
+                width: 495,
+                height: 20,
+                fontSize: 10,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'raster',
+        x: 42,
+        y: 112,
+        width: 511,
+        height: 336,
+        areaRatio: 0.358,
+        sourceCount: 12,
+        sources: [
+          { type: 'imageBox', index: 0 },
+          { type: 'imageBox', index: 1 },
+          { type: 'imageBox', index: 2 },
+          { type: 'imageBox', index: 3 },
+          { type: 'imageBox', index: 4 },
+          { type: 'imageBox', index: 5 },
+          { type: 'imageBox', index: 6 },
+          { type: 'imageBox', index: 7 },
+          { type: 'imageBox', index: 8 },
+          { type: 'imageBox', index: 9 },
+          { type: 'imageBox', index: 10 },
+          { type: 'imageBox', index: 11 },
+        ],
+        reason: '12 raster figure panels grouped by figure caption',
+        associatedText: [
+          {
+            text: 'Figure 2: Example images with overlaid masks from a dataset.',
+            relation: 'caption',
+            x: 50,
+            y: 420,
+            width: 495,
+            height: 20,
+            blockIndex: 0,
+          },
+        ],
+      },
+    ]);
+  });
+
   it('groups form fields into a single form region', () => {
     const regions = buildVisualRegions({
       pageWidth: 300,

@@ -2,7 +2,7 @@ import type { VisualRegion } from '../../types/index.js';
 import { addAnnotationCandidates } from './annotationCandidates.js';
 import { MAX_ASSOCIATED_TEXT, mergeAssociatedText } from './associatedText.js';
 import { mergeSources } from './candidateMerge.js';
-import { addCaptionedVectorFigureCandidates } from './captionedFigures.js';
+import { addCaptionedFigureCandidates } from './captionedFigures.js';
 import { attachCaptionText } from './captions.js';
 import { suppressRepeatedChromeCandidates } from './chromeSuppression.js';
 import { addFormCandidate } from './formCandidates.js';
@@ -106,7 +106,7 @@ export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion
     input.pageWidth,
     input.pageHeight,
   );
-  const captionedFigureCandidates = addCaptionedVectorFigureCandidates(input, chromeAwareCandidates);
+  const captionedFigureCandidates = addCaptionedFigureCandidates(input, chromeAwareCandidates);
   const withCaptions = attachCaptionText(captionedFigureCandidates, input.layout);
   const withTableLeadInLabels = attachTableLeadInLabels(withCaptions, input.layout);
   const withPlainImageLabels = attachPlainImageLabels(withTableLeadInLabels, input.layout);
