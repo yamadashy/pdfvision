@@ -1,6 +1,14 @@
 import type { VectorBox } from '../../types/index.js';
 import { mergeCandidates } from './candidateMerge.js';
-import { areaRatio, pageArea, touches, unionBox, visiblePageBox } from './geometry.js';
+import {
+  areaRatio,
+  isFinitePositiveBox,
+  overlapArea,
+  pageArea,
+  touches,
+  unionBox,
+  visiblePageBox,
+} from './geometry.js';
 import {
   hasNonBackgroundBox,
   isLikelyHorizontalChrome,
@@ -102,9 +110,11 @@ function clusterVectorBoxes(
   input: BuildVisualRegionsInput,
 ): Candidate[] {
   const clusters: Candidate[] = [];
+  const deferredDetails: Candidate[] = [];
   for (const [index, box] of vectorBoxes.entries()) {
     const usableRegionBox = isUsableBox(box);
-    if (!usableRegionBox && !isUsableVectorConnectorBox(box)) continue;
+    const usableConnectorBox = isUsableVectorConnectorBox(box);
+    if (!usableRegionBox && !usableConnectorBox && !isFinitePositiveBox(box)) continue;
     if (isLikelySideChrome(box, pageWidth, pageHeight)) continue;
     if (isLikelyHorizontalChrome(box, pageWidth, pageHeight)) continue;
     const retainedGridFrame =
@@ -124,13 +134,20 @@ function clusterVectorBoxes(
       clusters.push(next);
       continue;
     }
+    if (!usableRegionBox && !usableConnectorBox) {
+      deferredDetails.push(next);
+      continue;
+    }
 
     const matches: number[] = [];
     for (let i = 0; i < clusters.length; i++) {
       if (clusters[i].reason === RULED_GRID_FRAME_REASON) continue;
       if (touches(clusters[i], box, CLUSTER_GAP_PT)) matches.push(i);
     }
-    if (!usableRegionBox && matches.length < 2) continue;
+    if (!usableRegionBox && matches.length < 2) {
+      deferredDetails.push(next);
+      continue;
+    }
     if (matches.length === 0) {
       if (!usableRegionBox) continue;
       clusters.push(next);
@@ -143,7 +160,36 @@ function clusterVectorBoxes(
     }
     clusters[matches[0]] = merged;
   }
+  return mergeDeferredVectorDetails(clusters, deferredDetails);
+}
+
+function mergeDeferredVectorDetails(clusters: Candidate[], deferredDetails: readonly Candidate[]): Candidate[] {
+  const consumed = new Set<number>();
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const [index, detail] of deferredDetails.entries()) {
+      if (consumed.has(index)) continue;
+      const clusterIndex = bestOverlappingClusterIndex(detail, clusters);
+      if (clusterIndex === -1) continue;
+      clusters[clusterIndex] = mergeCandidates(clusters[clusterIndex], detail);
+      consumed.add(index);
+      changed = true;
+    }
+  }
   return clusters;
+}
+
+function bestOverlappingClusterIndex(detail: Candidate, clusters: readonly Candidate[]): number {
+  let bestIndex = -1;
+  let bestOverlap = 0;
+  for (const [index, cluster] of clusters.entries()) {
+    const overlap = overlapArea(cluster, detail);
+    if (overlap <= bestOverlap) continue;
+    bestIndex = index;
+    bestOverlap = overlap;
+  }
+  return bestIndex;
 }
 
 export function addVectorCandidates(input: BuildVisualRegionsInput, candidates: Candidate[]): void {

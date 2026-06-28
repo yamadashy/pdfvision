@@ -582,6 +582,84 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('keeps overlapping vector details inside compact diagrams', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      vectorBoxes: [
+        { x: 128.96, y: 93.03, width: 53.16, height: 12.31 },
+        { x: 128.96, y: 117.54, width: 53.16, height: 12.31 },
+        { x: 155.29, y: 105.34, width: 0.5, height: 9.26 },
+        { x: 153.58, y: 113.62, width: 3.92, height: 3.92 },
+        { x: 155.29, y: 80.83, width: 0.5, height: 9.26 },
+        { x: 153.58, y: 89.11, width: 3.92, height: 3.92 },
+        { x: 155.29, y: 129.85, width: 0.5, height: 5.12 },
+        { x: 153.58, y: 133.99, width: 3.92, height: 4.03 },
+        { x: 151.4, y: 138.02, width: 8.17, height: 8.17 },
+        { x: 153.47, y: 141.8, width: 4.14, height: 0.5 },
+        { x: 155.29, y: 140.09, width: 0.5, height: 4.03 },
+        { x: 155.29, y: 146.19, width: 0.5, height: 5.12 },
+        { x: 153.58, y: 150.33, width: 3.92, height: 4.03 },
+        { x: 159.57, y: 84.86, width: 42.98, height: 57.19 },
+        { x: 159.57, y: 140.09, width: 4.03, height: 3.92 },
+        { x: 155.54, y: 84.61, width: 4.03, height: 0.5 },
+      ],
+      layout: {
+        blocks: [
+          {
+            text: 'F(x) + x\nFigure 2. Residual learning: a building block.',
+            x: 86.62,
+            y: 137.71,
+            width: 163.24,
+            height: 27.25,
+            lines: [
+              { text: 'F(x) + x', x: 106.92, y: 137.71, width: 36.41, height: 9.25, fontSize: 9.25 },
+              {
+                text: 'Figure 2. Residual learning: a building block.',
+                x: 86.62,
+                y: 155.99,
+                width: 163.24,
+                height: 8.97,
+                fontSize: 8.97,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'vector',
+        x: 78.62,
+        y: 72.83,
+        width: 179.24,
+        height: 100.13,
+        areaRatio: 0.037,
+        sourceCount: 14,
+        sources: [
+          ...Array.from({ length: 11 }, (_, index) => ({ type: 'vectorBox' as const, index })),
+          { type: 'vectorBox' as const, index: 13 },
+          { type: 'vectorBox' as const, index: 14 },
+          { type: 'vectorBox' as const, index: 15 },
+        ],
+        reason: '14 nearby vector drawing operations',
+        associatedText: [
+          {
+            text: 'Figure 2. Residual learning: a building block.',
+            relation: 'caption',
+            x: 86.62,
+            y: 155.99,
+            width: 163.24,
+            height: 8.97,
+            blockIndex: 0,
+          },
+        ],
+      },
+    ]);
+  });
+
   it('creates a fallback region for dense thin vector grid lines', () => {
     const vectorBoxes = Array.from({ length: 40 }, (_, index) => ({
       x: 20,
@@ -1597,14 +1675,18 @@ describe('buildVisualRegions', () => {
         width: 317.55,
         height: 349.86,
         areaRatio: 0.264,
-        sourceCount: 4,
+        sourceCount: 8,
         sources: [
           { type: 'vectorBox', index: 2 },
+          { type: 'vectorBox', index: 3 },
+          { type: 'vectorBox', index: 4 },
           { type: 'vectorBox', index: 5 },
           { type: 'vectorBox', index: 6 },
           { type: 'vectorBox', index: 7 },
+          { type: 'vectorBox', index: 8 },
+          { type: 'vectorBox', index: 9 },
         ],
-        reason: '4 nearby vector drawing operations',
+        reason: '8 nearby vector drawing operations',
         associatedText: [
           {
             text: 'Industry data sharing intent',

@@ -14,6 +14,8 @@ import {
 const CAPTION_CONTINUATION_TOTAL_MAX_CHARS = 600;
 const LONG_CAPTION_BLOCK_TOTAL_MAX_CHARS = 1800;
 const LONG_CAPTION_BLOCK_MAX_LINES = 24;
+const PRE_CAPTION_DIAGRAM_LABEL_MAX_CHARS = 40;
+const PRE_CAPTION_DIAGRAM_LABEL_MAX_WIDTH = 140;
 
 export function captionTextsFromBlock(
   block: NonNullable<PageLayout['blocks']>[number],
@@ -70,8 +72,17 @@ export function captionTextsFromBlock(
   ];
 }
 
-function hasNonCaptionTextBefore(lines: { text: string }[], index: number): boolean {
-  return lines.slice(0, index).some((line) => line.text.length > 0 && !isCaptionText(line.text));
+function hasNonCaptionTextBefore(lines: { line: BoxLike & { text: string }; text: string }[], index: number): boolean {
+  return lines
+    .slice(0, index)
+    .some((line) => line.text.length > 0 && !isCaptionText(line.text) && !isCompactPreCaptionDiagramLabel(line));
+}
+
+function isCompactPreCaptionDiagramLabel(item: { line: BoxLike; text: string }): boolean {
+  if (item.text.length > PRE_CAPTION_DIAGRAM_LABEL_MAX_CHARS) return false;
+  if (item.line.width > PRE_CAPTION_DIAGRAM_LABEL_MAX_WIDTH) return false;
+  if (/[.!?。！？]\s*$/u.test(item.text)) return false;
+  return /[\p{L}\p{N}]/u.test(item.text);
 }
 
 function captionTextFromLongSingleCaptionBlock(
