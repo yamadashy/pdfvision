@@ -33,6 +33,7 @@ import {
   suppressTableColumnVectorStrips,
 } from './suppression.js';
 import { addTableCandidates } from './tableCandidates.js';
+import { clampCrossColumnTableCandidatesToCaptionColumn } from './tableColumnClamp.js';
 import type { BuildVisualRegionsInput, Candidate } from './types.js';
 import { addVectorCandidates } from './vectorCandidates.js';
 
@@ -112,7 +113,8 @@ export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion
   );
   const captionedFigureCandidates = addCaptionedFigureCandidates(input, chromeAwareCandidates);
   const withCaptions = attachCaptionText(captionedFigureCandidates, input.layout);
-  const withTableLeadInLabels = attachTableLeadInLabels(withCaptions, input.layout);
+  const columnAwareTables = clampCrossColumnTableCandidatesToCaptionColumn(withCaptions, input.pageWidth);
+  const withTableLeadInLabels = attachTableLeadInLabels(columnAwareTables, input.layout);
   const withPlainImageLabels = attachPlainImageLabels(withTableLeadInLabels, input.layout);
   const withHeadingLabels = attachHeadingLabels(withPlainImageLabels, input.layout, totalArea);
   const withInRegionPlainLabels = attachInRegionPlainLabels(withHeadingLabels, input.layout, totalArea);

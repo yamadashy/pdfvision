@@ -4611,4 +4611,63 @@ describe('buildVisualRegions', () => {
       },
     ]);
   });
+
+  it('clamps cross-column table hints to the caption column', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      layout: {
+        blocks: [
+          {
+            text: 'Table 7. Object detection mAP (%) on the PASCAL VOC test sets.',
+            x: 308.86,
+            y: 262.95,
+            width: 236.25,
+            height: 20,
+            lines: [
+              {
+                text: 'Table 7. Object detection mAP (%) on the PASCAL VOC test sets.',
+                x: 308.86,
+                y: 262.95,
+                width: 236.25,
+                height: 20,
+                fontSize: 9,
+              },
+            ],
+          },
+        ],
+        tables: [
+          {
+            x: 68.73,
+            y: 211.69,
+            width: 441.6,
+            height: 50.88,
+            rowCount: 5,
+            columnCount: 5,
+            rows: [
+              {
+                y: 211.69,
+                height: 8.97,
+                cells: [
+                  { text: 'training data', x: 343.64, y: 211.69, width: 45.07, height: 8.97 },
+                  { text: '07+12', x: 415.79, y: 211.69, width: 22.99, height: 8.97 },
+                  { text: '07++12', x: 474.08, y: 211.69, width: 28.05, height: 8.97 },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0]).toMatchObject({
+      kind: 'table',
+      reason: 'layout table hint with 5 rows and 5 columns',
+    });
+    expect(regions[0].x).toBeGreaterThan(260);
+    expect(regions[0].width).toBeLessThan(300);
+    expect(regions[0].associatedText?.[0]?.text).toContain('Table 7');
+  });
 });
