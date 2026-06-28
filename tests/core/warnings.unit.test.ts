@@ -2307,6 +2307,47 @@ describe('detectPageWarnings', () => {
       expect(out.filter((w) => w.code === 'text_overlap')).toHaveLength(1);
     });
 
+    it('does not flag overlapping native labels contained in the same raster figure', () => {
+      // Screenshot/chart PDFs can expose some labels as native text over
+      // a raster panel. Overlapping label bboxes inside that panel are
+      // figure structure, not independent page text colliding.
+      const upperLabels = block(122, 290, 170, 16, {
+        text: 'Hotel Pet Moving 1.8%',
+        lines: [line('Hotel Pet Moving 1.8%', 122, 290, 170, 16)],
+      });
+      const lowerLabels = block(220, 296, 70, 18, {
+        text: 'Finance Cook- Weather',
+        lines: [line('Finance Cook- Weather', 220, 296, 70, 18)],
+      });
+      const p = {
+        ...page([upperLabels, lowerLabels], 612, 792),
+        imageCount: 1,
+        imageBoxes: [{ x: 106, y: 256, width: 399, height: 146 }],
+      };
+
+      const out = detectPageWarnings(p);
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
+    it('still flags overlapping labels outside raster figure regions', () => {
+      const upperLabels = block(122, 290, 170, 16, {
+        text: 'Hotel Pet Moving 1.8%',
+        lines: [line('Hotel Pet Moving 1.8%', 122, 290, 170, 16)],
+      });
+      const lowerLabels = block(220, 296, 70, 18, {
+        text: 'Finance Cook- Weather',
+        lines: [line('Finance Cook- Weather', 220, 296, 70, 18)],
+      });
+      const p = {
+        ...page([upperLabels, lowerLabels], 612, 792),
+        imageCount: 1,
+        imageBoxes: [{ x: 320, y: 60, width: 80, height: 80 }],
+      };
+
+      const out = detectPageWarnings(p);
+      expect(out.some((w) => w.code === 'text_overlap')).toBe(true);
+    });
+
     it('still flags a small independent label that collides with a text line', () => {
       const paragraph = block(50, 100, 400, 40, {
         text: 'The main paragraph has an overlapping callout.',

@@ -114,7 +114,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
   const chromeDetectionReliable = context.chromeDetectionReliable !== false;
 
   detectOffPage(blocks, page.width, page.height, warnings);
-  detectTextOverlap(blocks, warnings);
+  detectTextOverlap(blocks, warnings, page.imageBoxes ?? context.imageBoxes, page);
   detectTabularNumericLayout(blocks, warnings);
   detectReadingOrderDivergence(page, blocks, warnings);
   detectFormLabelReadingOrderDivergence(page, blocks, warnings);
