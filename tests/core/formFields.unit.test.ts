@@ -1711,6 +1711,65 @@ describe('buildFormFields', () => {
     });
   });
 
+  it('does not use a previous row amount marker for the next amount field', () => {
+    const fields = buildFormFields(
+      [{ subtype: 'Widget', fieldName: 'line8b', fieldType: 'Tx', rect: rectFromTopLeft(511.2, 456, 64.8, 12) }],
+      792,
+      0,
+      0,
+      [
+        {
+          text: 'a Enter your total income . . . . . . . . . . . . . . . . . . .',
+          x: 64.8,
+          y: 444.42,
+          width: 445.3,
+          height: 9,
+          fontSize: 9,
+        },
+        { text: '8a $', x: 488.04, y: 444.42, width: 22.06, height: 9, fontSize: 9 },
+        {
+          text: 'b Subtract line 4 from line 8a. If line 4 is greater than line 8a, enter -0- here and on line 10. Skip line 9',
+          x: 64.8,
+          y: 456.43,
+          width: 410.22,
+          height: 9,
+          fontSize: 9,
+        },
+        { text: '8b $', x: 487.95, y: 456.43, width: 22.15, height: 9, fontSize: 9 },
+      ],
+    );
+
+    expect(fields.find((field) => field.name === 'line8b')?.label?.text).toBe(
+      'b Subtract line 4 from line 8a. If line 4 is greater than line 8a, enter -0- here and on line 10. Skip line 9 8b $',
+    );
+  });
+
+  it('prefers the actual prompt over standalone instruction-reference text', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'identityProtectionPin',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(504, 654, 72, 12),
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        { text: 'If the IRS sent you an Identity', x: 464.8, y: 636.5, width: 92.06, height: 7, fontSize: 7 },
+        { text: 'Protection PIN, enter it here', x: 464.8, y: 645, width: 86.86, height: 7, fontSize: 7 },
+        { text: '(see inst.)', x: 464.8, y: 653.49, width: 29.69, height: 7, fontSize: 7 },
+      ],
+    );
+
+    expect(fields[0].label).toMatchObject({
+      text: 'If the IRS sent you an Identity Protection PIN, enter it here',
+      relation: 'above',
+    });
+  });
+
   it('prefers close above column labels over offset labels from the next row', () => {
     const fields = buildFormFields(
       [

@@ -12,6 +12,7 @@ import { type BoxLike, centerY, horizontalOverlapRatio, overlapRatio, unionBox }
 import {
   isChoiceLikeField,
   isFormSectionHeadingText,
+  isShortStandaloneFieldLabel,
   isUsableLabelText,
   normalizeLabelText,
   startsWithPromptItemMarker,
@@ -48,6 +49,14 @@ function findAdjacentStackLine(
     if (!isUsableLabelText(text)) continue;
     if (overlapRatio(field, line) >= 0.35) continue;
     if (candidate.relation === 'above' && isBroadStackedHeaderLine(text, bounds, line)) continue;
+    if (candidate.relation === 'above' && isSeparateShortFieldLabel(candidate.text, text, bounds, line)) continue;
+    if (
+      candidate.relation === 'above' &&
+      startsWithPromptItemMarker(stack[0]?.text ?? '') &&
+      startsWithPromptItemMarker(text)
+    ) {
+      continue;
+    }
     if (!isStackCompatibleLine(candidate.line, bounds, line)) continue;
 
     const gap = candidate.relation === 'above' ? aboveStackLineGap(bounds, line) : line.y - (bounds.y + bounds.height);
@@ -81,6 +90,11 @@ function aboveStackLineGap(bounds: BoxLike, line: LabelLine): number | undefined
   const downwardGap = line.y - (bounds.y + bounds.height);
   if (downwardGap < -1 || downwardGap > STACKED_LABEL_MAX_GAP_PT) return undefined;
   return downwardGap;
+}
+
+function isSeparateShortFieldLabel(anchorText: string, lineText: string, bounds: BoxLike, line: LabelLine): boolean {
+  if (line.y + line.height > bounds.y + 1) return false;
+  return isShortStandaloneFieldLabel(anchorText) && isShortStandaloneFieldLabel(lineText);
 }
 
 function isSameRowChoiceContinuationLine(field: FormField, line: LabelLine, text: string): boolean {

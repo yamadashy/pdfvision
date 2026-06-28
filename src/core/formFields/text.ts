@@ -73,8 +73,26 @@ export function isTrailingPromptFragment(text: string): boolean {
   );
 }
 
+export function isStandaloneInstructionReference(text: string): boolean {
+  const normalized = normalizePromptLabelText(text)
+    .replace(/^\((.*)\)$/u, '$1')
+    .trim();
+  return /^see\s+(?:inst\.?|instructions)\.?$/iu.test(normalized);
+}
+
 export function isLikelyWrappedContinuationText(text: string): boolean {
   return /^(?:[a-z]|and\b|or\b|the\b|this\b|that\b|otherwise\b)/u.test(normalizePromptLabelText(text));
+}
+
+export function isShortStandaloneFieldLabel(text: string): boolean {
+  const normalized = normalizePromptLabelText(text);
+  if (normalized.length === 0 || normalized.length > 60) return false;
+  if (isStandaloneInstructionReference(normalized)) return false;
+  if (isLikelyWrappedContinuationText(normalized) || startsWithPromptItemMarker(normalized)) return false;
+  const withoutCommonAbbreviations = normalized.replace(/\b(?:no|apt)\./giu, (match) => match.slice(0, -1));
+  if (/[,!?;:]/u.test(withoutCommonAbbreviations)) return false;
+  if (/\.(?!\s*$)/u.test(withoutCommonAbbreviations)) return false;
+  return /[\p{Letter}\p{Number}]/u.test(normalized);
 }
 
 export function isWideRowHeaderLabelText(text: string): boolean {

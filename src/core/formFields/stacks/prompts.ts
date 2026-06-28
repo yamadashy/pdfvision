@@ -13,7 +13,6 @@ import {
 } from '../constants.js';
 import { type BoxLike, centerY, horizontalOverlapRatio, unionBox } from '../geometry.js';
 import {
-  isBareNumericFieldMarker,
   isChoiceLikeField,
   isDotLeaderText,
   isUsablePromptFragment,
@@ -104,11 +103,7 @@ export function collectSameLineMarkerPromptStack(
       ...sameLinePrompt.map((item) => item.line),
     ]);
     if (!next) return sortPromptStack(stack);
-    if (
-      isBareNumericFieldMarker(markerText) &&
-      startsWithPromptItemMarker(next.text) &&
-      !startsWithSameNumericMarker(markerText, next.text)
-    ) {
+    if (startsWithPromptItemMarker(next.text) && !startsWithCompatibleMarker(markerText, next.text)) {
       return sortPromptStack(stack);
     }
     stack.push(next);
@@ -163,10 +158,19 @@ function isLineAlignedWithSiblingChoiceField(
   return false;
 }
 
-function startsWithSameNumericMarker(markerText: string, text: string): boolean {
+function startsWithCompatibleMarker(markerText: string, text: string): boolean {
   const marker = normalizeLabelText(markerText).replace(/\s*\$/u, '').trim();
-  if (!/^\d+$/u.test(marker)) return false;
-  return new RegExp(`^${marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'u').test(normalizeLabelText(text));
+  const markerMatch = /^(?:(\d+)(?:\(([a-z])\)|([a-z]))?|([a-z]))$/iu.exec(marker);
+  if (!markerMatch) return false;
+  const [, numberPart, parenthesizedLetter, suffixLetter, bareLetter] = markerMatch;
+  const letterPart = parenthesizedLetter ?? suffixLetter ?? bareLetter;
+  const compatibleMarkers = [marker, letterPart, letterPart ? `(${letterPart})` : undefined].filter(
+    (item): item is string => item !== undefined && item.length > 0,
+  );
+  if (numberPart && !letterPart) compatibleMarkers.push(numberPart);
+  if (compatibleMarkers.length === 0) return false;
+  const escaped = compatibleMarkers.map((item) => item.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  return new RegExp(`^(?:${escaped.join('|')})(?:\\b|\\s|$)`, 'iu').test(normalizeLabelText(text));
 }
 
 function findPromptStackLine(
