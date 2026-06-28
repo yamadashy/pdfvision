@@ -34,6 +34,7 @@ import {
 } from './suppression.js';
 import { addTableCandidates } from './tableCandidates.js';
 import { clampCrossColumnTableCandidatesToCaptionColumn } from './tableColumnClamp.js';
+import { mergeTableHeaderCandidatesIntoFollowingTables } from './tableHeaderMerge.js';
 import { mergeStackedSameLabelTableCandidates } from './tableLabelMerge.js';
 import type { BuildVisualRegionsInput, Candidate } from './types.js';
 import { addVectorCandidates } from './vectorCandidates.js';
@@ -120,7 +121,8 @@ export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion
   const withHeadingLabels = attachHeadingLabels(withPlainImageLabels, input.layout, totalArea);
   const withInRegionPlainLabels = attachInRegionPlainLabels(withHeadingLabels, input.layout, totalArea);
   const withPanelTitleLabels = attachPanelTitleLabels(withInRegionPlainLabels, input.layout, totalArea);
-  const stackedTableMerged = mergeStackedSameLabelTableCandidates(withPanelTitleLabels);
+  const tableHeaderMerged = mergeTableHeaderCandidatesIntoFollowingTables(withPanelTitleLabels);
+  const stackedTableMerged = mergeStackedSameLabelTableCandidates(tableHeaderMerged);
   const contextDeduped = dedupeContextualDuplicates(dedupeEquivalentCandidates(stackedTableMerged));
   const finalTableColumnAwareCandidates = suppressTableColumnVectorStrips(contextDeduped);
   return suppressContainedCandidates(finalTableColumnAwareCandidates)

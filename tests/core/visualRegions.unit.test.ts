@@ -4722,4 +4722,83 @@ describe('buildVisualRegions', () => {
     expect(regions[0].y).toBeLessThan(60);
     expect(regions[0].height).toBeGreaterThan(400);
   });
+
+  it('merges split table header candidates into following table bodies', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      layout: {
+        blocks: [],
+        tables: [
+          {
+            x: 55,
+            y: 92.63,
+            width: 494,
+            height: 148.09,
+            rowCount: 6,
+            columnCount: 4,
+            rows: [],
+          },
+          {
+            x: 55,
+            y: 219.22,
+            width: 488.95,
+            height: 228.48,
+            rowCount: 16,
+            columnCount: 4,
+            rows: [],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0]).toMatchObject({
+      kind: 'table',
+      sourceCount: 2,
+    });
+    expect(regions[0].y).toBeLessThan(90);
+    expect(regions[0].height).toBeGreaterThan(360);
+  });
+
+  it('merges vector-only column header grids into following table bodies', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      vectorBoxes: [
+        { x: 314.5, y: 471.06, width: 67.15, height: 18.4 },
+        { x: 381.65, y: 470.56, width: 5.05, height: 18.9 },
+        { x: 386.7, y: 471.06, width: 8.95, height: 18.4 },
+        { x: 395.65, y: 471.06, width: 67.15, height: 18.4 },
+        { x: 462.8, y: 470.56, width: 5.05, height: 18.9 },
+        { x: 467.85, y: 471.06, width: 8.95, height: 18.4 },
+        { x: 476.8, y: 471.06, width: 67.15, height: 18.4 },
+        { x: 314.5, y: 470.56, width: 229.45, height: 0.5 },
+      ],
+      layout: {
+        blocks: [],
+        tables: [
+          {
+            x: 55,
+            y: 512.3,
+            width: 488.95,
+            height: 147.98,
+            rowCount: 9,
+            columnCount: 4,
+            rows: [],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0]).toMatchObject({
+      kind: 'table',
+      sourceCount: 9,
+    });
+    expect(regions[0].y).toBeLessThan(465);
+    expect(regions[0].height).toBeGreaterThan(190);
+  });
 });
