@@ -3310,6 +3310,51 @@ describe('buildVisualRegions', () => {
     });
   });
 
+  it('attaches numeric panel titles from individual layout lines', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 600,
+      pageHeight: 800,
+      imageBoxes: [],
+      vectorBoxes: [{ x: 100, y: 150, width: 150, height: 120 }],
+      layout: {
+        blocks: [
+          {
+            text: 'Surrounding report prose is grouped with the panel title\n(1)GDP growth\n600 (trillion yen)',
+            x: 70,
+            y: 110,
+            width: 300,
+            height: 40,
+            lines: [
+              {
+                text: 'Surrounding report prose is grouped with the panel title',
+                x: 130,
+                y: 110,
+                width: 240,
+                height: 10,
+                fontSize: 10,
+              },
+              { text: '(1)GDP growth', x: 70, y: 126, width: 130, height: 10, fontSize: 10 },
+              { text: '600 (trillion yen)', x: 105, y: 140, width: 95, height: 10, fontSize: 10 },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0].associatedText).toEqual([
+      {
+        text: '(1)GDP growth',
+        relation: 'label',
+        x: 70,
+        y: 126,
+        width: 130,
+        height: 10,
+        blockIndex: 0,
+      },
+    ]);
+  });
+
   it('does not attach Japanese prose inside callout boxes as labels', () => {
     const regions = buildVisualRegions({
       pageWidth: 600,
