@@ -221,6 +221,64 @@ describe('buildVisualRegions', () => {
     expect(regions).toEqual([]);
   });
 
+  it('does not merge column figures through near-full-width page header rules', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      vectorBoxes: [
+        { x: 55.44, y: 57.35, width: 486, height: 0.5 },
+        { x: 55.44, y: 67.06, width: 234, height: 157.17 },
+      ],
+      layout: {
+        blocks: [
+          {
+            text: 'Figure 5. Zero-shot CLIP outperforms few-shot linear probes.',
+            x: 54.94,
+            y: 236.19,
+            width: 236.08,
+            height: 9,
+            lines: [
+              {
+                text: 'Figure 5. Zero-shot CLIP outperforms few-shot linear probes.',
+                x: 54.94,
+                y: 236.19,
+                width: 236.08,
+                height: 9,
+                fontSize: 9,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'vector',
+        x: 46.94,
+        y: 59.06,
+        width: 252.08,
+        height: 194.13,
+        areaRatio: 0.101,
+        sourceCount: 1,
+        sources: [{ type: 'vectorBox', index: 1 }],
+        reason: '1 nearby vector drawing operations',
+        associatedText: [
+          {
+            text: 'Figure 5. Zero-shot CLIP outperforms few-shot linear probes.',
+            relation: 'caption',
+            x: 54.94,
+            y: 236.19,
+            width: 236.08,
+            height: 9,
+            blockIndex: 0,
+          },
+        ],
+      },
+    ]);
+  });
+
   it('suppresses lone full-page vector backplanes', () => {
     const regions = buildVisualRegions({
       pageWidth: 100,
