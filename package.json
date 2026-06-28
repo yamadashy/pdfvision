@@ -77,17 +77,17 @@
     "@biomejs/biome": "^2.5.0",
     "@expo-google-fonts/noto-sans-jp": "^0.4.3",
     "@secretlint/secretlint-rule-preset-recommend": "^13.0.2",
-    "@types/node": "^25.9.3",
+    "@types/node": "^25.9.4",
     "@types/pdfkit": "^0.17.6",
-    "@typescript/native-preview": "^7.0.0-dev.20260613.1",
-    "@vitest/coverage-v8": "^4.1.8",
-    "oxlint": "^1.69.0",
+    "@typescript/native-preview": "^7.0.0-dev.20260621.1",
+    "@vitest/coverage-v8": "^4.1.9",
+    "oxlint": "^1.70.0",
     "pdfkit": "^0.19.1",
     "secretlint": "^13.0.2",
-    "tsdown": "^0.22.2",
+    "tsdown": "^0.22.3",
     "typescript": "^6.0.3",
     "vitepress": "^1.6.4",
     "vitepress-plugin-llms": "^1.13.1",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.9"
   }
 }
