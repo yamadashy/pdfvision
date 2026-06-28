@@ -46,6 +46,51 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('does not label full-page raster scans with arbitrary internal OCR text', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 566,
+      pageHeight: 747,
+      imageBoxes: [{ x: 0, y: 0, width: 566, height: 747 }],
+      layout: {
+        blocks: [
+          {
+            text: 'tube located close to the wing surface in a',
+            x: 108,
+            y: 286,
+            width: 210,
+            height: 10,
+            role: 'heading',
+            level: 2,
+            lines: [
+              {
+                text: 'tube located close to the wing surface in a',
+                x: 108,
+                y: 286,
+                width: 210,
+                height: 10,
+                fontSize: 10,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'raster',
+        x: 0,
+        y: 0,
+        width: 566,
+        height: 747,
+        areaRatio: 1,
+        sourceCount: 1,
+        sources: [{ type: 'imageBox', index: 0 }],
+        reason: 'raster image covers 100.0% of the page',
+      },
+    ]);
+  });
+
   it('suppresses full-page raster regions when the rendered page is blank', () => {
     const regions = buildVisualRegions({
       pageWidth: 100,

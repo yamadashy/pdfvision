@@ -16,6 +16,7 @@ const IN_REGION_PLAIN_LABEL_TOP_DEPTH_RATIO = 0.3;
 const IN_REGION_PLAIN_LABEL_TOP_DEPTH_MAX_PT = 96;
 const IN_REGION_PLAIN_LABEL_MIN_HORIZONTAL_OVERLAP_RATIO = 0.35;
 const IN_REGION_PLAIN_LABEL_SCORE_TOLERANCE_PT = 12;
+const IN_REGION_PLAIN_LABEL_MAX_RASTER_AREA_RATIO = 0.9;
 const NUMERIC_TICK_LABEL_LINE_PATTERN = /^[-+−]?\p{N}+(?:[.,]\p{N}+)?%?$/u;
 
 function isPlainImageLabelText(text: string): boolean {
@@ -111,8 +112,12 @@ function inRegionPlainLabelScore(
 ): number | undefined {
   if (candidate.kind !== 'raster' && candidate.kind !== 'mixed' && candidate.kind !== 'vector') return undefined;
   if (hasSourceType(candidate, 'layoutTable')) return undefined;
+  const candidateAreaRatio = areaRatio(candidate, totalArea);
+  if (candidate.kind === 'raster' && candidateAreaRatio >= IN_REGION_PLAIN_LABEL_MAX_RASTER_AREA_RATIO) {
+    return undefined;
+  }
   if (candidate.associatedText && candidate.associatedText.length > 0) return undefined;
-  if (areaRatio(candidate, totalArea) < IN_REGION_PLAIN_LABEL_MIN_REGION_AREA_RATIO) return undefined;
+  if (candidateAreaRatio < IN_REGION_PLAIN_LABEL_MIN_REGION_AREA_RATIO) return undefined;
   if (block.role === 'heading' || block.repeated) return undefined;
   if (!isInRegionPlainLabelText(block.text)) return undefined;
   if (looksLikeChartTickLabelBlock(block)) return undefined;

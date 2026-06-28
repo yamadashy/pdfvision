@@ -12,6 +12,7 @@ const HEADING_LABEL_INSIDE_TOP_DEPTH_RATIO = 0.3;
 const HEADING_LABEL_INSIDE_TOP_DEPTH_MAX_PT = 72;
 const HEADING_LABEL_INSIDE_BONUS = 48;
 const HEADING_LABEL_LEVEL_PENALTY = 8;
+const HEADING_LABEL_MAX_RASTER_AREA_RATIO = 0.9;
 
 function headingLabelScore(
   candidate: Candidate,
@@ -19,7 +20,9 @@ function headingLabelScore(
   totalArea: number,
 ): number | undefined {
   if (candidate.associatedText && candidate.associatedText.length > 0) return undefined;
-  if (areaRatio(candidate, totalArea) < HEADING_LABEL_MIN_REGION_AREA_RATIO) return undefined;
+  const candidateAreaRatio = areaRatio(candidate, totalArea);
+  if (candidate.kind === 'raster' && candidateAreaRatio >= HEADING_LABEL_MAX_RASTER_AREA_RATIO) return undefined;
+  if (candidateAreaRatio < HEADING_LABEL_MIN_REGION_AREA_RATIO) return undefined;
   if (block.role !== 'heading' || block.repeated) return undefined;
   const text = normalizeAssociatedText(block.text);
   if (text.length === 0 || text.length > HEADING_LABEL_MAX_CHARS) return undefined;
