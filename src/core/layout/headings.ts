@@ -1,4 +1,4 @@
-import type { LayoutBlock } from '../../types/index.js';
+import type { LayoutBlock, LayoutLine } from '../../types/index.js';
 import { median } from './geometry.js';
 import {
   isDecimalSectionHeadingText,
@@ -8,6 +8,7 @@ import {
   isLikelyBodySentenceFragment,
   isNumberedHeadingText,
 } from './headingText.js';
+import { isTableNumericCell } from './tableCells.js';
 
 export { isNumberedHeadingText } from './headingText.js';
 
@@ -36,6 +37,10 @@ const TOP_CENTERED_ALL_CAPS_TITLE_CENTER_TOLERANCE_RATIO = 0.12;
  *  body lines (footnote refs, math runs) so a strict-equal would underflow
  *  the body-char count. ±5% covers the observed drift. */
 const BODY_FONT_TOLERANCE = 0.05;
+const MIN_BODY_FONT_SAMPLE_CHARS = 100;
+const TINY_NUMERIC_ANNOTATION_MAX_FONT_SIZE_PT = 5.5;
+const TINY_NUMERIC_ANNOTATION_MAX_HEIGHT_PT = 6.5;
+const TINY_NUMERIC_ANNOTATION_MAX_WIDTH_PT = 90;
 
 /** Max non-whitespace chars before a block is "long" — long blocks are body
  *  paragraphs even when their dominant fontSize lifts them off the median. */
@@ -57,6 +62,41 @@ function isCompactDiagramLabelText(text: string, nonWsChars: number, ratio: numb
   const trimmed = text.trim();
   if (isNumberedHeadingText(trimmed)) return false;
   return !/\s/u.test(trimmed);
+}
+
+function isSupplementalNoteBlock(text: string): boolean {
+  const trimmed = text.trim();
+  return (
+    /^(?:資料|出典|参考|Source|Sources|Notes?)[:：]/iu.test(trimmed) || /^\(?注\s*\d*\)?[).、\s:：]/u.test(trimmed)
+  );
+}
+
+function isTinyNumericAnnotationLine(line: LayoutLine): boolean {
+  return (
+    line.fontSize <= TINY_NUMERIC_ANNOTATION_MAX_FONT_SIZE_PT &&
+    line.height <= TINY_NUMERIC_ANNOTATION_MAX_HEIGHT_PT &&
+    line.width <= TINY_NUMERIC_ANNOTATION_MAX_WIDTH_PT &&
+    isTableNumericCell(line.text)
+  );
+}
+
+function appendWeightedFontSamples(samples: number[], line: LayoutLine): void {
+  const weight = Math.max(line.text.length, 1);
+  for (let i = 0; i < weight; i++) samples.push(line.fontSize);
+}
+
+function collectBodyFontSamples(blocks: readonly LayoutBlock[]): { all: number[]; filtered: number[] } {
+  const all: number[] = [];
+  const filtered: number[] = [];
+  for (const block of blocks) {
+    const supplementalNote = isSupplementalNoteBlock(block.text);
+    for (const line of block.lines) {
+      appendWeightedFontSamples(all, line);
+      if (supplementalNote || isTinyNumericAnnotationLine(line)) continue;
+      appendWeightedFontSamples(filtered, line);
+    }
+  }
+  return { all, filtered };
 }
 
 function isTopTitleCandidate(block: LayoutBlock, ratio: number, lineCount: number, nonWsChars: number): boolean {
@@ -203,13 +243,9 @@ function demoteTopBylineHeadings(blocks: LayoutBlock[]): void {
  */
 export function classifyHeadings(blocks: LayoutBlock[], pageWidth = 0, pageHeight = 0): void {
   if (blocks.length === 0) return;
-  const charWeighted: number[] = [];
-  for (const b of blocks) {
-    for (const line of b.lines) {
-      const weight = Math.max(line.text.length, 1);
-      for (let i = 0; i < weight; i++) charWeighted.push(line.fontSize);
-    }
-  }
+  const fontSamples = collectBodyFontSamples(blocks);
+  const charWeighted =
+    fontSamples.filtered.length >= MIN_BODY_FONT_SAMPLE_CHARS ? fontSamples.filtered : fontSamples.all;
   if (charWeighted.length === 0) return;
   const bodyFontSize = median(charWeighted);
   if (bodyFontSize <= 0) return;

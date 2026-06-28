@@ -47,6 +47,32 @@ describe('buildLayout — heading classification', () => {
     }
   });
 
+  it('does not let tiny chart labels and source notes lower the body font baseline', () => {
+    const chartLabels = Array.from({ length: 48 }, (_, index) => {
+      const row = Math.floor(index / 8);
+      const column = index % 8;
+      const text = column % 3 === 0 ? `12,${String(index).padStart(3, '0')}` : `${row + 1}.${column}`;
+      return span(text, 80 + column * 42, 340 + row * 13, 3.2, text.length * 2.4);
+    });
+    const note =
+      'Source: long small-print chart note with enough characters to dominate a naive page median if sampled as body.';
+    const spans: TextSpan[] = [
+      span('令和5年4月に国立社会保障人口問題研究', 312, 120, 11.34, 238),
+      span('所が公表した日本の将来推計人口における', 312, 140, 11.34, 238),
+      span('出生中位死亡中位仮定による推計結果', 312, 160, 11.34, 238),
+      span('本節においては全てこの仮定に基づく推計結果', 312, 180, 11.34, 238),
+      span('将来の出生死亡及び国際人口移動について仮定', 312, 200, 11.34, 238),
+      span('これらに基づいて将来の人口構造の推移を示す', 312, 220, 11.34, 238),
+      ...chartLabels,
+      span(note, 72, 650, 7.09, 456),
+      span(note, 72, 659, 7.09, 456),
+    ];
+
+    const layout = buildLayout(spans, 612, 792);
+    const body = layout.blocks.find((block) => block.text.includes('令和5年4月'));
+    expect(body?.role).toBeUndefined();
+  });
+
   it('uses char-weighted median so a single short oversize line stays a heading', () => {
     // The heading is one short word at 30pt; body is many sentences at
     // 11pt. An unweighted median across blocks would flip to 11pt anyway,
