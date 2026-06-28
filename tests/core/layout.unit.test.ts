@@ -1772,6 +1772,67 @@ describe('buildLayout — multi-column reading order', () => {
     ]);
   });
 
+  it('emits table hints for aligned text-heavy Japanese statistical tables', () => {
+    // Statistics Bureau yearbook-shaped case: the visible table has
+    // repeated Japanese label columns and only one numeric-like cell per
+    // row, so pure numeric-table detection is too strict.
+    const spans: TextSpan[] = [
+      span('1-6 主な山', 174.95, 26.86, 9.9, 54.81),
+      span('山名', 24, 54, 7.8, 16),
+      span('読み', 84, 54, 7.8, 16),
+      span('標高', 154, 54, 7.8, 16),
+      span('所在', 220, 54, 7.8, 16),
+      span('備考', 300, 54, 7.8, 16),
+      span('富士山', 24, 76, 7.4, 22),
+      span('ふじさん', 84, 76, 7.4, 30),
+      span('3,776', 154, 76, 7.4, 24),
+      span('山梨、静岡', 220, 76, 7.4, 50),
+      span('最高峰', 300, 76, 7.4, 30),
+      span('北岳', 24, 88, 7.4, 16),
+      span('きただけ', 84, 88, 7.4, 30),
+      span('3,193', 154, 88, 7.4, 24),
+      span('山梨', 220, 88, 7.4, 20),
+      span('白根山', 300, 88, 7.4, 30),
+      span('間ノ岳', 24, 100, 7.4, 22),
+      span('あいのだけ', 84, 100, 7.4, 38),
+      span('3,190', 154, 100, 7.4, 24),
+      span('山梨、静岡', 220, 100, 7.4, 50),
+      span('白根山', 300, 100, 7.4, 30),
+      span('槍ヶ岳', 24, 112, 7.4, 22),
+      span('やりがたけ', 84, 112, 7.4, 38),
+      span('3,180', 154, 112, 7.4, 24),
+      span('長野', 220, 112, 7.4, 20),
+      span('北アルプス', 300, 112, 7.4, 45),
+      span('赤石岳', 24, 124, 7.4, 22),
+      span('あかいしだけ', 84, 124, 7.4, 46),
+      span('3,121', 154, 124, 7.4, 24),
+      span('長野、静岡', 220, 124, 7.4, 50),
+      span('南アルプス', 300, 124, 7.4, 45),
+      span('前穂高岳', 24, 136, 7.4, 38),
+      span('まえほたかだけ', 84, 136, 7.4, 60),
+      span('3,090', 154, 136, 7.4, 24),
+      span('長野', 220, 136, 7.4, 20),
+      span('北アルプス', 300, 136, 7.4, 45),
+      span('資料 国土交通省国土地理院「日本の主な山岳標高」', 24, 170, 7.4, 227),
+    ];
+
+    const layout = buildLayout(spans, 419.53, 595.28);
+    const table = layout.tables?.find((candidate) => candidate.y < 70);
+
+    expect(table).toBeDefined();
+    expect(table?.y).toBeLessThanOrEqual(54.27);
+    expect(table?.rowCount).toBeGreaterThanOrEqual(7);
+    expect(table?.columnCount).toBeGreaterThanOrEqual(5);
+    expect(table?.rows[0].cells.map((cell) => cell.text)).toContain('山名');
+    expect(table?.rows.map((row) => row.cells.map((cell) => cell.text))).toContainEqual([
+      '富士山',
+      'ふじさん',
+      '3,776',
+      '山梨、静岡',
+      '最高峰',
+    ]);
+  });
+
   it('splits adjacent dense numeric statement values even when the gutter is narrow', () => {
     // Berkshire annual-report-shaped case: large share-count values can
     // sit only about 14pt apart. That is narrower than the general line
