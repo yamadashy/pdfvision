@@ -9,6 +9,7 @@ import { collectSideLabelContinuationLines } from './stacks.js';
 import {
   isChoiceLikeField,
   isDotLeaderText,
+  isExplanatoryFormParagraphStart,
   isUsableLabelText,
   isUsablePromptFragment,
   normalizeChoicePromptLabelText,
@@ -21,6 +22,8 @@ const SIDE_LABEL_STACK_MAX_GAP_PT = 6;
 const SIDE_LABEL_STACK_MAX_LINES = 3;
 const SIDE_LABEL_STACK_CENTER_TOLERANCE_PT = 18;
 const SIDE_LABEL_STACK_MIN_OVERLAP_RATIO = 0.3;
+const SIDE_LABEL_STACK_BROAD_UPWARD_WIDTH_RATIO = 2.5;
+const SIDE_LABEL_STACK_BROAD_UPWARD_EXTRA_WIDTH_PT = 120;
 
 export function expandChoiceSideStackedLabel(
   field: FormField,
@@ -117,6 +120,9 @@ function findAdjacentSideStackLine(
 
     const text = normalizeLabelText(line.text);
     if (!isUsablePromptFragment(text) || isDotLeaderText(text)) continue;
+    if (candidate.relation === 'right' && isExplanatoryFormParagraphStart(text)) continue;
+    if (candidate.relation === 'right' && isExplanatoryParagraphContinuation(line, lines)) continue;
+    if (isBroadUpwardRightSideStackLine(candidate, bounds, line, text)) continue;
     if (startsWithPromptItemMarker(stack[0]?.text ?? '') && startsWithPromptItemMarker(text)) continue;
 
     const gap = verticalGap(bounds, line);
@@ -158,6 +164,45 @@ function hasSameRowLeftPrefix(
 
 function isFarLeftChoicePrompt(field: FormField, candidate: LabelCandidate): boolean {
   return candidate.relation === 'left' && field.x - (candidate.line.x + candidate.line.width) > SIDE_LABEL_MAX_GAP_PT;
+}
+
+function isBroadUpwardRightSideStackLine(
+  candidate: LabelCandidate,
+  bounds: BoxLike,
+  line: LabelLine,
+  text: string,
+): boolean {
+  if (candidate.relation !== 'right') return false;
+  if (line.y + line.height > bounds.y + 1) return false;
+  if (startsWithPromptItemMarker(text)) return false;
+  return (
+    line.width >
+    Math.max(
+      bounds.width * SIDE_LABEL_STACK_BROAD_UPWARD_WIDTH_RATIO,
+      bounds.width + SIDE_LABEL_STACK_BROAD_UPWARD_EXTRA_WIDTH_PT,
+    )
+  );
+}
+
+function isExplanatoryParagraphContinuation(line: LabelLine, lines: readonly LabelLine[]): boolean {
+  return lines.some((prefix) => isExplanatoryPrefixForLine(prefix, line));
+}
+
+function isExplanatoryPrefixForLine(prefix: LabelLine, line: LabelLine): boolean {
+  if (prefix === line) return false;
+  if (!isExplanatoryFormParagraphStart(normalizeLabelText(prefix.text))) return false;
+  if (line.y < prefix.y - 1) return false;
+  if (line.y - prefix.y > 24) return false;
+  if (line.x < prefix.x - 1) return false;
+
+  const sameRow = Math.abs(centerY(prefix) - centerY(line)) <= Math.max(2, Math.min(prefix.height, line.height) * 0.5);
+  if (sameRow) {
+    return prefix.x + prefix.width <= line.x + 1 && line.x - (prefix.x + prefix.width) <= 8;
+  }
+
+  return (
+    Math.abs(line.x - prefix.x) <= 14 || horizontalOverlapRatio(prefix, line) >= SIDE_LABEL_STACK_MIN_OVERLAP_RATIO
+  );
 }
 
 function isLineAlignedWithSiblingChoiceField(

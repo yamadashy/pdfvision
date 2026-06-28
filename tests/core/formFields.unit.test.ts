@@ -1083,6 +1083,73 @@ describe('buildFormFields', () => {
     });
   });
 
+  it('does not absorb W-9 note paragraphs into checkbox option labels', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'llc',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(73, 193.5, 8, 8),
+          fieldValue: 'Off',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'other',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(73, 230, 8, 8),
+          fieldValue: 'Off',
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        {
+          text: 'LLC. Enter the tax classification (C = C corporation, S = S corporation, P = Partnership)',
+          x: 86.4,
+          y: 193.5,
+          width: 283.14,
+          height: 7,
+          fontSize: 7,
+        },
+        { text: 'Note:', x: 86.4, y: 203.37, width: 17.71, height: 7, fontSize: 7 },
+        {
+          text: 'Check the “LLC” box above and, in the entry space, enter the appropriate code (C, S, or P) for the tax',
+          x: 106.04,
+          y: 203.37,
+          width: 314.61,
+          height: 7,
+          fontSize: 7,
+        },
+        {
+          text: 'classification of the LLC, unless it is a disregarded entity. A disregarded entity should instead check the appropriate',
+          x: 86.4,
+          y: 211.12,
+          width: 357.6,
+          height: 7,
+          fontSize: 7,
+        },
+        {
+          text: 'box for the tax classification of its owner.',
+          x: 86.4,
+          y: 218.87,
+          width: 127.04,
+          height: 7,
+          fontSize: 7,
+        },
+        { text: 'Other (see instructions)', x: 86.4, y: 230, width: 72.35, height: 7, fontSize: 7 },
+      ],
+    );
+
+    expect(fields.find((field) => field.name === 'llc')?.label?.text).toBe(
+      'LLC. Enter the tax classification (C = C corporation, S = S corporation, P = Partnership)',
+    );
+    expect(fields.find((field) => field.name === 'other')?.label?.text).toBe('Other (see instructions)');
+  });
+
   it('merges stacked prompt text above a trailing inline text-field label', () => {
     const fields = buildFormFields(
       [{ subtype: 'Widget', fieldName: 'fatcaCode', fieldType: 'Tx', rect: [500.6, 552, 576, 564] }],

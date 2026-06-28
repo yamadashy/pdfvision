@@ -87,6 +87,10 @@ export function isFormSectionHeadingText(text: string): boolean {
   return /^(?:section|part)\s+(?:\d+|[ivxlcdm]+)\b[.:]?/iu.test(normalizePromptLabelText(text));
 }
 
+export function isExplanatoryFormParagraphStart(text: string): boolean {
+  return /^(?:note|caution|warning|reminder)\s*:/iu.test(normalizePromptLabelText(text));
+}
+
 export function startsWithPromptItemMarker(text: string): boolean {
   const normalized = normalizePromptLabelText(text);
   return /^(?:\d+(?:\([a-z]\)|[a-z])?|\([a-z]\)|[a-z]\s+[A-Z])/u.test(normalized);

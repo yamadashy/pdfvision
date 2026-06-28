@@ -8,7 +8,13 @@ import {
 } from './expansion.js';
 import { overlapRatio } from './geometry.js';
 import { scoreLabelCandidate, widgetCrossingPenalty } from './scoring.js';
-import { isFormLabelChromeText, isSemanticFieldNameMismatch, isUsableLabelText, normalizeLabelText } from './text.js';
+import {
+  isExplanatoryFormParagraphStart,
+  isFormLabelChromeText,
+  isSemanticFieldNameMismatch,
+  isUsableLabelText,
+  normalizeLabelText,
+} from './text.js';
 import type { LabelCandidate, LabelLine } from './types.js';
 
 export type { LabelLine } from './types.js';
@@ -24,6 +30,7 @@ export function findFieldLabel(
     const text = normalizeLabelText(line.text);
     if (!isUsableLabelText(text)) continue;
     if (isFormLabelChromeText(text)) continue;
+    if (field.type === 'checkbox' && isExplanatoryFormParagraphStart(text)) continue;
     if (overlapRatio(field, line) >= 0.35) continue;
     if (isSemanticFieldNameMismatch(field, text)) continue;
     const candidate = scoreLabelCandidate(field, line, text);
