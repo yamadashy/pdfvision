@@ -42,6 +42,29 @@ describe('computeContentRatio', () => {
     expect(computeContentRatio(fillRgba(100, 0, 0, 0, 255))).toBe(0);
   });
 
+  it('keeps visibly non-uniform low-contrast dark rasters distinct from blank canvases', () => {
+    const buf = new Uint8ClampedArray(100 * 4);
+    for (let i = 0; i < 60 * 4; i += 4) {
+      buf[i] = 24;
+      buf[i + 1] = 24;
+      buf[i + 2] = 24;
+      buf[i + 3] = 255;
+    }
+    for (let i = 60 * 4; i < 80 * 4; i += 4) {
+      buf[i] = 0;
+      buf[i + 1] = 0;
+      buf[i + 2] = 0;
+      buf[i + 3] = 255;
+    }
+    for (let i = 80 * 4; i < buf.length; i += 4) {
+      buf[i] = 40;
+      buf[i + 1] = 40;
+      buf[i + 2] = 40;
+      buf[i + 3] = 255;
+    }
+    expect(computeContentRatio(buf)).toBe(0.0005);
+  });
+
   it('returns 0 for a uniformly off-white / beige page (paper scan background)', () => {
     // Old-paper scans render to a mid-cream luminance (~230). Without
     // background-relative classification this would count as content;

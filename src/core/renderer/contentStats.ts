@@ -18,6 +18,12 @@ const LUM_BUCKET_SIZE = 16;
  * real ink (which is many buckets darker / lighter).
  */
 const CONTENT_LUM_DELTA = LUM_BUCKET_SIZE * 2;
+/**
+ * Smallest corroborated visual trace used by page-quality classification.
+ * This keeps low-contrast but visibly non-uniform full-page rasters from
+ * collapsing to the same signal as a truly uniform blank canvas.
+ */
+const LOW_CONTRAST_TRACE_RATIO = 0.0005;
 
 export interface PixelContentBox {
   x: number;
@@ -67,12 +73,16 @@ export function computeContentStats(rgba: Uint8ClampedArray, width?: number, hei
   const bucketCount = Math.ceil(256 / LUM_BUCKET_SIZE);
   const hist = new Uint32Array(bucketCount);
   let opaque = 0;
+  let minLum = Number.POSITIVE_INFINITY;
+  let maxLum = Number.NEGATIVE_INFINITY;
   for (let i = 0; i < rgba.length; i += 4) {
     if (rgba[i + 3] < ALPHA_THRESHOLD) continue;
     // BT.601 luma; integer math keeps the hot loop branch-free.
     const lum = (rgba[i] * 299 + rgba[i + 1] * 587 + rgba[i + 2] * 114) / 1000;
     hist[Math.min(bucketCount - 1, lum / LUM_BUCKET_SIZE) | 0]++;
     opaque++;
+    minLum = Math.min(minLum, lum);
+    maxLum = Math.max(maxLum, lum);
   }
   if (opaque === 0) return { contentRatio: 0 };
 
@@ -115,6 +125,9 @@ export function computeContentStats(rgba: Uint8ClampedArray, width?: number, hei
     }
   }
   const contentRatio = Math.round((content / totalPx) * 1_000_000) / 1_000_000;
+  if (content === 0 && maxLum - minLum >= CONTENT_LUM_DELTA) {
+    return { contentRatio: LOW_CONTRAST_TRACE_RATIO };
+  }
   return {
     contentRatio,
     ...(content > 0 &&
