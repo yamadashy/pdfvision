@@ -1,6 +1,7 @@
 import type { LayoutLine, LayoutTable } from '../../types/index.js';
 import { type BBox, round2, unionBox } from './geometry.js';
 import { isLikelyTinyNumericVectorGrid } from './numericVectorGrid.js';
+import { detectSparseSingleRowTables } from './sparseTables.js';
 import { tableCandidateRow } from './tableCandidateRows.js';
 import { isTableNumericCell, normalizeTableCurrencyCells } from './tableCells.js';
 import {
@@ -28,11 +29,15 @@ const ALIGNED_TEXT_TABLE_MIN_LABEL_ROW_RATIO = 0.5;
 export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefined {
   const allRowGroups = groupLinesByTableRow(lines).map((row) => row.sort((a, b) => a.x - b.x));
   const alignedTextTables = detectAlignedTextTables(allRowGroups);
+  const sparseSingleRowTables = detectSparseSingleRowTables(allRowGroups);
   const rowGroups: IndexedLayoutRow[] = allRowGroups
     .map((row, index) => ({ row: tableCandidateRow(row), index }))
     .filter((item): item is IndexedLayoutRow => item.row !== undefined)
     .map(({ row, index }) => ({ row: attachLabelContinuationRows(row, index, allRowGroups), index }));
-  if (rowGroups.length < 2) return alignedTextTables.length > 0 ? alignedTextTables : undefined;
+  if (rowGroups.length < 2) {
+    const fallback = [...alignedTextTables, ...sparseSingleRowTables];
+    return fallback.length > 0 ? fallback : undefined;
+  }
 
   const tables: IndexedLayoutRow[][] = [];
   for (const row of rowGroups) {
@@ -58,6 +63,10 @@ export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefin
     result.push(toLayoutTable(tableRows));
   }
   for (const table of alignedTextTables) {
+    if (result.some((existing) => overlapOfSmaller(existing, table) >= 0.5)) continue;
+    result.push(table);
+  }
+  for (const table of sparseSingleRowTables) {
     if (result.some((existing) => overlapOfSmaller(existing, table) >= 0.5)) continue;
     result.push(table);
   }

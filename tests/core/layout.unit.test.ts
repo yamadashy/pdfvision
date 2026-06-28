@@ -1792,6 +1792,63 @@ describe('buildLayout — multi-column reading order', () => {
     ]);
   });
 
+  it('emits table hints for sparse financial tables with one data row', () => {
+    // Federal Reserve H.4.1-shaped case: a multi-level header sits above
+    // a single data row. The row count is too small for recurring-row
+    // table detection, but agents still need the visible header/value
+    // association instead of a flattened text stream.
+    const spans: TextSpan[] = [
+      span('4. Information on Principal Accounts of Credit Facilities LLC', 35, 273.06, 11, 314.46),
+      span('Millions of dollars', 35, 285.9, 8, 61.9),
+      span('Wednesday Jun 24, 2026', 331.63, 296.1, 8, 90.7),
+      span('Net portfolio holdings of', 373.2, 306.2, 8, 84.1),
+      span('Credit Facilities LLC', 379.5, 317.69, 8, 71.6),
+      span('Outstanding', 235.93, 330.19, 8, 43.14),
+      span('Credit Facilities LLC:', 35, 336.39, 8, 73.8),
+      span('principal', 242.6, 339.39, 8, 29.8),
+      span('Outstanding', 316.83, 339.39, 8, 43.14),
+      span('amount', 244.2, 348.59, 8, 26.7),
+      span('amount of', 320.7, 348.59, 8, 35.6),
+      span('Treasury', 406, 348.59, 8, 31.6),
+      span('of loan', 245.5, 357.79, 8, 24),
+      span('facility', 327.4, 357.79, 8, 22.2),
+      span('contributions', 399.1, 357.79, 8, 45.4),
+      span('extended to', 236.6, 366.99, 8, 41.8),
+      span('asset', 328.9, 366.99, 8, 19.1),
+      span('and', 415.1, 366.99, 8, 13.3),
+      span('the LLC1', 242.1, 376.69, 8, 30.8),
+      span('purchases2', 318.6, 376.69, 8, 39.7),
+      span('other assets3', 398.6, 376.69, 8, 46.4),
+      span('Total', 489.61, 376.69, 8, 17.78),
+      span('MS Facilities 2020 LLC (Main Street Lending', 35, 386.89, 8, 158.74),
+      span('0', 278.1, 395.38, 8, 4.8),
+      span('92', 358.8, 395.38, 8, 9.6),
+      span('534', 435, 395.38, 8, 14.4),
+      span('626', 507.5, 395.38, 8, 14.4),
+      span('Program)', 35, 396.1, 8, 33.3),
+      span('Note: Components may not sum to totals because of rounding.', 35, 406.29, 8, 222.46),
+    ];
+
+    const layout = buildLayout(spans, 612, 792);
+    const table = layout.tables?.find((candidate) =>
+      candidate.rows.some((row) => row.cells.some((cell) => cell.text === '626')),
+    );
+
+    expect(table).toBeDefined();
+    expect(table?.rowCount).toBeGreaterThanOrEqual(7);
+    expect(table?.columnCount).toBeGreaterThanOrEqual(4);
+    expect(table?.rows.map((row) => row.cells.map((cell) => cell.text))).toContainEqual([
+      'MS Facilities 2020 LLC (Main Street Lending Program)',
+      '0',
+      '92',
+      '534',
+      '626',
+    ]);
+    expect(table?.rows.flatMap((row) => row.cells.map((cell) => cell.text))).not.toContain(
+      '4. Information on Principal Accounts of Credit Facilities LLC',
+    );
+  });
+
   it('emits table hints for aligned text-heavy Japanese statistical tables', () => {
     // Statistics Bureau yearbook-shaped case: the visible table has
     // repeated Japanese label columns and only one numeric-like cell per
