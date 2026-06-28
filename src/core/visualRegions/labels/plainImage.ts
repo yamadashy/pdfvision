@@ -4,6 +4,7 @@ import { isCaptionText } from '../captions.js';
 import { areaRatio, horizontalOverlapRatio, unionBox } from '../geometry.js';
 import type { BoxLike, Candidate } from '../types.js';
 import { hasSourceType } from './sources.js';
+import { isUsefulVisualLabelText } from './text.js';
 
 const PLAIN_IMAGE_LABEL_MAX_GAP_PT = 28;
 const PLAIN_IMAGE_LABEL_MIN_HORIZONTAL_OVERLAP_RATIO = 0.45;
@@ -17,6 +18,7 @@ const IN_REGION_PLAIN_LABEL_TOP_DEPTH_MAX_PT = 96;
 const IN_REGION_PLAIN_LABEL_MIN_HORIZONTAL_OVERLAP_RATIO = 0.35;
 const IN_REGION_PLAIN_LABEL_SCORE_TOLERANCE_PT = 12;
 const IN_REGION_PLAIN_LABEL_MAX_RASTER_AREA_RATIO = 0.9;
+const LARGE_RASTER_HEADING_AREA_RATIO = 0.5;
 const NUMERIC_TICK_LABEL_LINE_PATTERN = /^[-+−]?\p{N}+(?:[.,]\p{N}+)?%?$/u;
 const CJK_PROSE_PUNCTUATION_PATTERN = /[、，]/u;
 const CJK_TEXT_PATTERN = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u;
@@ -79,10 +81,15 @@ function plainImageLabelScore(
   return gap + (1 - overlap) * 24;
 }
 
-export function attachPlainImageLabels(candidates: Candidate[], layout: PageLayout | undefined): Candidate[] {
+export function attachPlainImageLabels(
+  candidates: Candidate[],
+  layout: PageLayout | undefined,
+  totalArea: number,
+): Candidate[] {
   const blocks = layout?.blocks ?? [];
   if (blocks.length === 0) return candidates;
   return candidates.map((candidate) => {
+    if (hasLargeRasterHeadingInside(candidate, blocks, totalArea)) return candidate;
     const labels = blocks
       .map((block, blockIndex) => ({
         block,
@@ -109,6 +116,27 @@ export function attachPlainImageLabels(candidates: Candidate[], layout: PageLayo
     const associatedText = mergeAssociatedText([...(candidate.associatedText ?? []), ...labels]);
     const box = labels.reduce<BoxLike>((acc, label) => unionBox(acc, label), candidate);
     return { ...candidate, ...box, associatedText };
+  });
+}
+
+function hasLargeRasterHeadingInside(
+  candidate: Candidate,
+  blocks: readonly NonNullable<PageLayout['blocks']>[number][],
+  totalArea: number,
+): boolean {
+  if (candidate.kind !== 'raster') return false;
+  if (candidate.associatedText && candidate.associatedText.length > 0) return false;
+  if (areaRatio(candidate, totalArea) < LARGE_RASTER_HEADING_AREA_RATIO) return false;
+  const topDepth = Math.min(
+    candidate.height * IN_REGION_PLAIN_LABEL_TOP_DEPTH_RATIO,
+    IN_REGION_PLAIN_LABEL_TOP_DEPTH_MAX_PT,
+  );
+  return blocks.some((block) => {
+    if (block.role !== 'heading' || block.repeated) return false;
+    if (!isUsefulVisualLabelText(block.text)) return false;
+    if (block.y < candidate.y - 4 || block.y + block.height > candidate.y + candidate.height + 4) return false;
+    if (block.y - candidate.y > topDepth) return false;
+    return horizontalOverlapRatio(candidate, block) >= IN_REGION_PLAIN_LABEL_MIN_HORIZONTAL_OVERLAP_RATIO;
   });
 }
 

@@ -3166,6 +3166,48 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('prefers in-region headings over footer labels for large raster slides', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 720,
+      pageHeight: 405.36,
+      imageBoxes: [{ x: 30.24, y: 0.01, width: 648, height: 376.89 }],
+      layout: {
+        blocks: [
+          {
+            text: 'Welcome to CS231n',
+            role: 'heading',
+            x: 197.03,
+            y: 23.21,
+            width: 326.75,
+            height: 40.42,
+            lines: [{ text: 'Welcome to CS231n', x: 197.03, y: 23.21, width: 326.75, height: 40.42, fontSize: 40 }],
+          },
+          {
+            text: 'March 31, 2026',
+            x: 602.84,
+            y: 382.17,
+            width: 70.2,
+            height: 10.83,
+            lines: [{ text: 'March 31, 2026', x: 602.84, y: 382.17, width: 70.2, height: 10.83, fontSize: 10 }],
+          },
+          {
+            text: 'CS231n: Lecture 1 - 2',
+            x: 343.54,
+            y: 383.19,
+            width: 107.61,
+            height: 11.92,
+            lines: [
+              { text: 'CS231n: Lecture 1 - 2', x: 343.54, y: 383.19, width: 107.61, height: 11.92, fontSize: 10 },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0].associatedText?.map((item) => item.text)).toEqual(['Welcome to CS231n']);
+  });
+
   it('attaches short plain labels below raster images', () => {
     const regions = buildVisualRegions({
       pageWidth: 200,

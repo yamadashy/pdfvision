@@ -117,7 +117,7 @@ export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion
   const withCaptions = attachCaptionText(captionedFigureCandidates, input.layout);
   const columnAwareTables = clampCrossColumnTableCandidatesToCaptionColumn(withCaptions, input.pageWidth);
   const withTableLeadInLabels = attachTableLeadInLabels(columnAwareTables, input.layout);
-  const withPlainImageLabels = attachPlainImageLabels(withTableLeadInLabels, input.layout);
+  const withPlainImageLabels = attachPlainImageLabels(withTableLeadInLabels, input.layout, totalArea);
   const withHeadingLabels = attachHeadingLabels(withPlainImageLabels, input.layout, totalArea);
   const withInRegionPlainLabels = attachInRegionPlainLabels(withHeadingLabels, input.layout, totalArea);
   const withPanelTitleLabels = attachPanelTitleLabels(withInRegionPlainLabels, input.layout, totalArea);
