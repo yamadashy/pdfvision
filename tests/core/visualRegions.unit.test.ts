@@ -4670,4 +4670,56 @@ describe('buildVisualRegions', () => {
     expect(regions[0].width).toBeLessThan(300);
     expect(regions[0].associatedText?.[0]?.text).toContain('Table 7');
   });
+
+  it('merges stacked table crops that share the same label', () => {
+    const labelText =
+      'CONSOLIDATED STATEMENTS OF OPERATIONS (In millions, except number of shares, which are reflected in thousands, and per-share amounts)';
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      layout: {
+        blocks: [
+          {
+            text: labelText,
+            x: 134.12,
+            y: 78.3,
+            width: 343.97,
+            height: 17.55,
+            role: 'heading',
+            lines: [{ text: labelText, x: 134.12, y: 78.3, width: 343.97, height: 17.55, fontSize: 9 }],
+          },
+        ],
+        tables: [
+          {
+            x: 19.12,
+            y: 60.08,
+            width: 571.22,
+            height: 97.2,
+            rowCount: 7,
+            columnCount: 4,
+            rows: [],
+          },
+          {
+            x: 19.12,
+            y: 121.06,
+            width: 573.48,
+            height: 344.69,
+            rowCount: 21,
+            columnCount: 4,
+            rows: [],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0]).toMatchObject({
+      kind: 'table',
+      sourceCount: 2,
+    });
+    expect(regions[0].associatedText?.[0]?.text).toBe(labelText);
+    expect(regions[0].y).toBeLessThan(60);
+    expect(regions[0].height).toBeGreaterThan(400);
+  });
 });
