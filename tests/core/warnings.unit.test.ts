@@ -549,6 +549,26 @@ describe('detectPageWarnings', () => {
     expect(out[0].message).toContain('18 non-printable');
   });
 
+  it('flags long repeated CJK glyph runs in otherwise readable text', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: `2024年（令和6年）の本文は正常に読める。\n${'令'.repeat(12)}\n本文は続く。`,
+      charCount: 48,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.1,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 595,
+      height: 842,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+    });
+
+    const warning = out.find((w) => w.code === 'localized_glyph_noise' && w.message.includes('repeated CJK glyph'));
+    expect(warning?.message).toContain('repeated CJK glyph');
+    expect(warning?.message).toContain('令令');
+  });
+
   it('flags page-wide glyph garbage when native text is mixed or unusable', () => {
     const mixed = detectPageWarnings({
       page: 1,
