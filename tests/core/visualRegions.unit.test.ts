@@ -163,6 +163,23 @@ describe('buildVisualRegions', () => {
     expect(regions).toEqual([]);
   });
 
+  it('suppresses low-content full-page raster scans without native text', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 100,
+      pageHeight: 100,
+      imageBoxes: [{ x: 0, y: 0, width: 100, height: 100 }],
+      visualStatus: 'ok',
+      nativeTextStatus: 'empty_but_visual_content',
+      renderContentRatio: 0.015,
+      layout: { blocks: [] },
+      vectorBoxes: [],
+      formFields: [],
+      annotations: [],
+    });
+
+    expect(regions).toEqual([]);
+  });
+
   it('suppresses form regions when the rendered page is blank', () => {
     const regions = buildVisualRegions({
       pageWidth: 612,

@@ -50,6 +50,7 @@ export async function applyVisualRegionPostProcessing({
             ...input,
             visualStatus: page.quality.visualStatus,
             nativeTextStatus: page.quality.nativeTextStatus,
+            renderContentRatio: page.renderContentRatio,
           }).map((region, index) => ({
             ...region,
             id: `p${page.page}-vr${index}`,

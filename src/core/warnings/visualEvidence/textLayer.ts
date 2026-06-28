@@ -1,4 +1,5 @@
 import type { PageResult, PageWarning } from '../../../types/index.js';
+import { isLowContentFullPageRasterScan } from './lowContentRaster.js';
 import type { VisualWarningContext } from './types.js';
 
 const LOW_CONFIDENCE_OCR_THRESHOLD = 0.5;
@@ -60,6 +61,7 @@ export function detectRasterTextLayerWordFragmentation(
 export function detectLowConfidenceOcr(page: PageResult, context: VisualWarningContext, out: PageWarning[]): void {
   if (!page.ocr) return;
   if (page.ocr.confidence >= LOW_CONFIDENCE_OCR_THRESHOLD) return;
+  if (isLowContentFullPageRasterScan(page, page.imageBoxes ?? context.imageBoxes)) return;
   if (page.quality.visualStatus === 'blank') {
     if (page.ocr.text.trim().length === 0) return;
     out.push({

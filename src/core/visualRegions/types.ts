@@ -20,6 +20,7 @@ export interface BuildVisualRegionsInput {
   annotations?: readonly PageAnnotation[];
   visualStatus?: 'ok' | 'sparse' | 'blank';
   nativeTextStatus?: PageQuality['nativeTextStatus'];
+  renderContentRatio?: number;
 }
 
 export interface BoxLike {

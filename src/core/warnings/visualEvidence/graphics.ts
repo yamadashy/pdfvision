@@ -1,4 +1,5 @@
 import type { PageResult, PageWarning, VectorBox } from '../../../types/index.js';
+import { isLowContentFullPageRasterScan } from './lowContentRaster.js';
 import { type BoxLike, clippedArea, overlapRatio, type VisualWarningContext } from './types.js';
 
 const DENSE_VECTOR_GRAPHICS_COUNT_THRESHOLD = 250;
@@ -51,6 +52,7 @@ export function detectRasterImageWithoutNativeText(
 ): void {
   const imageBoxes = page.imageBoxes ?? context.imageBoxes;
   if (!imageBoxes || imageBoxes.length === 0) return;
+  if (isLowContentFullPageRasterScan(page, imageBoxes)) return;
   if (page.charCount > 0) return;
   if (page.quality.nativeTextStatus !== 'empty_but_visual_content') return;
   if (page.quality.visualStatus === 'blank') return;
@@ -84,6 +86,7 @@ export function detectLargeRasterLowTextOverlap(
 ): void {
   const imageBoxes = page.imageBoxes ?? context.imageBoxes;
   if (!imageBoxes || imageBoxes.length === 0) return;
+  if (isLowContentFullPageRasterScan(page, imageBoxes)) return;
   if (!canCompareNativeTextAgainstRaster(page.quality.nativeTextStatus)) return;
   const pageArea = page.width * page.height;
   if (pageArea <= 0) return;

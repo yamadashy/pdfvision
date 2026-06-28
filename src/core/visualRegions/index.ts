@@ -29,6 +29,7 @@ import {
   suppressContainedCandidates,
   suppressFormBackplaneCandidates,
   suppressLoneFullPageVectorBackplanes,
+  suppressLowContentFullPageRasterScans,
   suppressTableColumnVectorStrips,
 } from './suppression.js';
 import { addTableCandidates } from './tableCandidates.js';
@@ -87,7 +88,8 @@ export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion
     input.pageHeight,
     input.visualStatus,
   );
-  const backplaneAwareCandidates = suppressLoneFullPageVectorBackplanes(blankAwareCandidates, input);
+  const lowContentAwareCandidates = suppressLowContentFullPageRasterScans(blankAwareCandidates, input);
+  const backplaneAwareCandidates = suppressLoneFullPageVectorBackplanes(lowContentAwareCandidates, input);
   const foregroundCandidates = suppressBackgroundLikeCandidates(
     backplaneAwareCandidates,
     input.pageWidth,

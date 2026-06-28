@@ -482,6 +482,52 @@ describe('detectPageWarnings', () => {
     expect(out[0].message).toContain('20.0%');
   });
 
+  it('suppresses OCR and raster warnings for low-content blank scan pages', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '',
+      charCount: 0,
+      imageCount: 1,
+      vectorCount: 0,
+      textCoverage: 0,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 610,
+      height: 792,
+      renderContentRatio: 0.000703,
+      imageBoxes: [{ x: 0, y: 0, width: 610, height: 792 }],
+      quality: { nativeTextStatus: 'empty_but_visual_content', visualStatus: 'sparse' },
+      ocr: { text: 'EE 5 \\ A i', confidence: 0.5, lang: 'eng' },
+    });
+
+    expect(out).toEqual([]);
+  });
+
+  it('keeps raster warnings for low-density pages with strong OCR text', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '',
+      charCount: 0,
+      imageCount: 1,
+      vectorCount: 0,
+      textCoverage: 0,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 610,
+      height: 792,
+      renderContentRatio: 0.004746,
+      imageBoxes: [{ x: 0, y: 0, width: 610, height: 792 }],
+      quality: { nativeTextStatus: 'empty_but_visual_content', visualStatus: 'sparse' },
+      ocr: {
+        text: 'For sale by the National Technical Information Service, Springfield, Virginia 22151',
+        confidence: 0.95,
+        lang: 'eng',
+      },
+    });
+
+    expect(out.map((w) => w.code)).toEqual(['large_raster_low_text_overlap', 'raster_image_no_native_text']);
+  });
+
   it('flags localized non-printable glyph noise below the mixed-glyph ratio threshold', () => {
     // Heritage Financial slide p5-shaped case: native text is otherwise
     // usable, but bullet glyphs come through as C1 control code points.

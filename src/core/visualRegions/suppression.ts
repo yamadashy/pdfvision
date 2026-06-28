@@ -30,6 +30,7 @@ const RASTER_TEXT_STRIP_VECTOR_MERGE_GAP_PT = 12;
 const RASTER_TEXT_STRIP_VECTOR_MIN_OVERLAP_RATIO = 0.5;
 const RASTER_TEXT_STRIP_VECTOR_MIN_SOURCES = 4;
 const RASTER_TEXT_STRIP_VECTOR_MIN_AREA_RATIO = 0.02;
+const LOW_CONTENT_FULL_PAGE_RASTER_RENDER_THRESHOLD = 0.02;
 
 export function suppressFormBackplaneCandidates(candidates: Candidate[], totalArea: number): Candidate[] {
   const formCandidates = candidates.filter((candidate) => hasSourceType(candidate, 'formField'));
@@ -253,6 +254,32 @@ export function suppressBlankFullPageCandidates(
 ): Candidate[] {
   if (visualStatus !== 'blank') return candidates;
   return candidates.filter((candidate) => !isNearFullPageBox(candidate, pageWidth, pageHeight));
+}
+
+export function suppressLowContentFullPageRasterScans(
+  candidates: Candidate[],
+  input: BuildVisualRegionsInput,
+): Candidate[] {
+  if (!isLowContentRasterScanPage(input)) return candidates;
+  return candidates.filter(
+    (candidate) =>
+      !(
+        candidate.kind === 'raster' &&
+        candidate.sources.every((source) => source.type === 'imageBox') &&
+        isNearFullPageBox(candidate, input.pageWidth, input.pageHeight)
+      ),
+  );
+}
+
+function isLowContentRasterScanPage(input: BuildVisualRegionsInput): boolean {
+  if (input.nativeTextStatus !== 'empty_but_visual_content') return false;
+  if (input.renderContentRatio === undefined) return false;
+  if (input.renderContentRatio > LOW_CONTENT_FULL_PAGE_RASTER_RENDER_THRESHOLD) return false;
+  if ((input.layout?.blocks.length ?? 0) > 0) return false;
+  if ((input.vectorBoxes?.length ?? 0) > 0) return false;
+  if ((input.formFields?.length ?? 0) > 0) return false;
+  if ((input.annotations?.length ?? 0) > 0) return false;
+  return true;
 }
 
 export function suppressLoneFullPageVectorBackplanes(
