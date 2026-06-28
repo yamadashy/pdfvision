@@ -8,6 +8,8 @@ interface ResolvePageNumbersInput {
   renderRegion?: RenderRegion;
 }
 
+const RENDER_REGION_BOUNDS_EPSILON_PT = 0.01;
+
 export async function resolvePageNumbers({ doc, options, renderRegion }: ResolvePageNumbersInput): Promise<number[]> {
   const totalPages = doc.numPages;
   let pageNumbers: number[];
@@ -56,7 +58,7 @@ export async function resolvePageNumbers({ doc, options, renderRegion }: Resolve
     const pageH = Math.abs(view[3] - view[1]);
     const right = renderRegion.x + renderRegion.width;
     const bottom = renderRegion.y + renderRegion.height;
-    if (right > pageW || bottom > pageH) {
+    if (right > pageW + RENDER_REGION_BOUNDS_EPSILON_PT || bottom > pageH + RENDER_REGION_BOUNDS_EPSILON_PT) {
       throw new Error(
         `renderRegion ${right}×${bottom} (right×bottom) falls outside page ${pageNumbers[0]} bounds ${pageW}×${pageH} (width×height, PDF points)`,
       );

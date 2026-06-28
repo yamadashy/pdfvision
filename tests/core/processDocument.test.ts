@@ -1170,6 +1170,18 @@ describe('processDocument', () => {
     ).rejects.toThrow(/renderRegion .* falls outside page/);
   });
 
+  it('allows renderRegion edges that only exceed page bounds by 2dp rounding noise', async () => {
+    const result = await processDocument(SAMPLE_PDF, {
+      pages: '1',
+      render: true,
+      renderRegion: { x: 0, y: 700, width: 100, height: 92.01 },
+      noCache: true,
+    });
+
+    expect(result.pages[0].renderRegion).toEqual({ x: 0, y: 700, width: 100, height: 92.01 });
+    expect(result.pages[0].image).toBeDefined();
+  });
+
   it('rejects renderRegion whose width/height rounds to 0 after 2dp canonicalisation', async () => {
     // `0.004` passes the raw `> 0` check, then rounds to `0` after the
     // 2dp canonicalisation that makes the value flow consistently through

@@ -91,6 +91,26 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('keeps rounded visual-region boxes inside non-integer page bounds', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 595.2756,
+      pageHeight: 841.8896,
+      imageBoxes: [],
+      vectorBoxes: [{ x: 144.97, y: 704.15, width: 301.41, height: 137.7396 }],
+    });
+    const region = regions[0];
+
+    expect(region).toMatchObject({
+      kind: 'vector',
+      x: 136.97,
+      y: 696.15,
+      width: 317.41,
+      height: 145.73,
+    });
+    expect(region && region.x + region.width).toBeLessThanOrEqual(595.2756);
+    expect(region && region.y + region.height).toBeLessThanOrEqual(841.8896);
+  });
+
   it('suppresses full-page raster regions when the rendered page is blank', () => {
     const regions = buildVisualRegions({
       pageWidth: 100,
