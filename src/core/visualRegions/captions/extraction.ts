@@ -27,6 +27,7 @@ export function captionTextsFromBlock(
   for (let i = 0; i < lines.length; i++) {
     const item = lines[i];
     if (!item || !isCaptionText(item.text)) continue;
+    if (hasNonCaptionTextBefore(lines, i)) continue;
 
     const textParts = [trimGluedJapaneseTableHeaderFromCaption(item.text, item.line, lines[i + 1]?.line)];
     let captionBox: BoxLike = item.line;
@@ -67,6 +68,10 @@ export function captionTextsFromBlock(
       blockIndex,
     },
   ];
+}
+
+function hasNonCaptionTextBefore(lines: { text: string }[], index: number): boolean {
+  return lines.slice(0, index).some((line) => line.text.length > 0 && !isCaptionText(line.text));
 }
 
 function captionTextFromLongSingleCaptionBlock(
