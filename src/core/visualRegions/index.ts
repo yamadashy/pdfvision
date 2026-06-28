@@ -22,6 +22,7 @@ import {
   dedupeCandidates,
   dedupeContextualDuplicates,
   dedupeEquivalentCandidates,
+  mergeRasterTextStripsIntoNearbyVectorCharts,
   suppressBackgroundLikeCandidates,
   suppressBlankFullPageCandidates,
   suppressBroadVectorBackplaneCandidates,
@@ -94,8 +95,9 @@ export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion
   );
   const rasterPanelAwareCandidates = suppressBroadVectorBackplaneCandidates(foregroundCandidates, totalArea);
   const tableColumnAwareCandidates = suppressTableColumnVectorStrips(rasterPanelAwareCandidates);
+  const rasterStripAwareCandidates = mergeRasterTextStripsIntoNearbyVectorCharts(tableColumnAwareCandidates, totalArea);
   const deduped = suppressBackgroundLikeCandidates(
-    dedupeCandidates(tableColumnAwareCandidates),
+    dedupeCandidates(rasterStripAwareCandidates),
     input.pageWidth,
     input.pageHeight,
   );

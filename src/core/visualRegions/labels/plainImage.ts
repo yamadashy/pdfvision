@@ -18,6 +18,8 @@ const IN_REGION_PLAIN_LABEL_MIN_HORIZONTAL_OVERLAP_RATIO = 0.35;
 const IN_REGION_PLAIN_LABEL_SCORE_TOLERANCE_PT = 12;
 const IN_REGION_PLAIN_LABEL_MAX_RASTER_AREA_RATIO = 0.9;
 const NUMERIC_TICK_LABEL_LINE_PATTERN = /^[-+−]?\p{N}+(?:[.,]\p{N}+)?%?$/u;
+const CJK_PROSE_PUNCTUATION_PATTERN = /[、，]/u;
+const CJK_TEXT_PATTERN = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u;
 
 function isPlainImageLabelText(text: string): boolean {
   const normalized = normalizeAssociatedText(text);
@@ -34,9 +36,14 @@ function isInRegionPlainLabelText(text: string): boolean {
   if (normalized.length === 0 || normalized.length > IN_REGION_PLAIN_LABEL_MAX_CHARS) return false;
   if (isCaptionText(normalized)) return false;
   if (/[。！？]/u.test(normalized)) return false;
+  if (looksLikeCjkProseLine(normalized)) return false;
   if (normalized.length > 80 && /[.!?]\s/u.test(normalized)) return false;
   if (/\b(?:copyright|licensed|cc\s+by|public domain|https?:\/\/|www\.)\b/iu.test(normalized)) return false;
   return /\p{L}/u.test(normalized);
+}
+
+function looksLikeCjkProseLine(text: string): boolean {
+  return text.length >= 24 && CJK_TEXT_PATTERN.test(text) && CJK_PROSE_PUNCTUATION_PATTERN.test(text);
 }
 
 function looksLikeChartTickLabelBlock(block: NonNullable<PageLayout['blocks']>[number]): boolean {

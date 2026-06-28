@@ -111,6 +111,47 @@ describe('buildVisualRegions', () => {
     expect(region && region.y + region.height).toBeLessThanOrEqual(841.8896);
   });
 
+  it('merges nearby raster text strips into vector chart regions', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 595.2756,
+      pageHeight: 841.8896,
+      imageBoxes: [{ x: 156.08, y: 666.85, width: 154.19, height: 32.82 }],
+      vectorBoxes: [{ x: 144.97, y: 704.15, width: 301.41, height: 137.7396 }],
+      layout: {
+        blocks: [
+          {
+            text: 'め、配偶者からの暴力、インターネット上の誹謗中傷、そして違法薬物等についてまとめ',
+            x: 62.36,
+            y: 673.29,
+            width: 453.54,
+            height: 11.34,
+            lines: [
+              {
+                text: 'め、配偶者からの暴力、インターネット上の誹謗中傷、そして違法薬物等についてまとめ',
+                x: 62.36,
+                y: 673.29,
+                width: 453.54,
+                height: 11.34,
+                fontSize: 11.34,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0]).toMatchObject({
+      kind: 'mixed',
+      x: 136.97,
+      y: 658.85,
+      sources: expect.arrayContaining([{ type: 'imageBox', index: 0 }]),
+    });
+    expect(regions[0].sources).toContainEqual({ type: 'vectorBox', index: 0 });
+    expect(regions[0].reason).toContain('small horizontal raster text strip');
+    expect(regions[0].associatedText).toBeUndefined();
+  });
+
   it('suppresses full-page raster regions when the rendered page is blank', () => {
     const regions = buildVisualRegions({
       pageWidth: 100,

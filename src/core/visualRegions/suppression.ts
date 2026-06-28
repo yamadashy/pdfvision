@@ -1,6 +1,14 @@
 import { associatedTextKey } from './associatedText.js';
 import { hasSourceType, mergeCandidateMetadataInto, mergeCandidates } from './candidateMerge.js';
-import { area, areaRatio, areaSimilarity, overlapArea, overlapOfSmaller, unionBox } from './geometry.js';
+import {
+  area,
+  areaRatio,
+  areaSimilarity,
+  horizontalOverlapRatio,
+  overlapArea,
+  overlapOfSmaller,
+  unionBox,
+} from './geometry.js';
 import { isBackgroundLikeCandidate, isNearFullPageBox } from './predicates.js';
 import type { BuildVisualRegionsInput, Candidate } from './types.js';
 
@@ -18,6 +26,10 @@ const CONTEXTUAL_DUPLICATE_CONTAINED_OVERLAP_RATIO = 0.95;
 const TABLE_COLUMN_STRIP_COVERAGE_RATIO = 0.85;
 const TABLE_COLUMN_STRIP_MAX_WIDTH_RATIO = 0.5;
 const TABLE_COLUMN_STRIP_MIN_HEIGHT_RATIO = 0.7;
+const RASTER_TEXT_STRIP_VECTOR_MERGE_GAP_PT = 12;
+const RASTER_TEXT_STRIP_VECTOR_MIN_OVERLAP_RATIO = 0.5;
+const RASTER_TEXT_STRIP_VECTOR_MIN_SOURCES = 4;
+const RASTER_TEXT_STRIP_VECTOR_MIN_AREA_RATIO = 0.02;
 
 export function suppressFormBackplaneCandidates(candidates: Candidate[], totalArea: number): Candidate[] {
   const formCandidates = candidates.filter((candidate) => hasSourceType(candidate, 'formField'));
@@ -80,12 +92,70 @@ export function suppressTableColumnVectorStrips(candidates: Candidate[]): Candid
   });
 }
 
+export function mergeRasterTextStripsIntoNearbyVectorCharts(candidates: Candidate[], totalArea: number): Candidate[] {
+  const consumed = new Set<number>();
+  const replacements = new Map<number, Candidate>();
+
+  for (const [index, candidate] of candidates.entries()) {
+    if (!isRasterTextStripCandidate(candidate)) continue;
+    const targetIndex = findNearbyVectorChartIndex(candidate, candidates, totalArea);
+    if (targetIndex === -1) continue;
+
+    const target = replacements.get(targetIndex) ?? candidates[targetIndex];
+    replacements.set(targetIndex, mergeCandidates(target, candidate));
+    consumed.add(index);
+  }
+
+  return candidates.flatMap((candidate, index) => {
+    if (consumed.has(index)) return [];
+    return [replacements.get(index) ?? candidate];
+  });
+}
+
 function isStandaloneRasterCandidate(candidate: Candidate): boolean {
   return candidate.kind === 'raster' && candidate.sources.every((source) => source.type === 'imageBox');
 }
 
 function isStandaloneVectorCandidate(candidate: Candidate): boolean {
   return candidate.kind === 'vector' && candidate.sources.every((source) => source.type === 'vectorBox');
+}
+
+function isRasterTextStripCandidate(candidate: Candidate): boolean {
+  return isStandaloneRasterCandidate(candidate) && candidate.reason.includes('raster text');
+}
+
+function findNearbyVectorChartIndex(raster: Candidate, candidates: readonly Candidate[], totalArea: number): number {
+  let bestIndex = -1;
+  let bestGap = Number.POSITIVE_INFINITY;
+
+  for (const [index, candidate] of candidates.entries()) {
+    if (!isVectorChartMergeTarget(candidate, totalArea)) continue;
+    if (horizontalOverlapRatio(raster, candidate) < RASTER_TEXT_STRIP_VECTOR_MIN_OVERLAP_RATIO) continue;
+    const gap = verticalGap(raster, candidate);
+    if (gap > RASTER_TEXT_STRIP_VECTOR_MERGE_GAP_PT) continue;
+    if (gap < bestGap) {
+      bestGap = gap;
+      bestIndex = index;
+    }
+  }
+
+  return bestIndex;
+}
+
+function isVectorChartMergeTarget(candidate: Candidate, totalArea: number): boolean {
+  if (candidate.kind !== 'vector') return false;
+  if (!hasSourceType(candidate, 'vectorBox')) return false;
+  if (hasSourceType(candidate, 'layoutTable') || hasSourceType(candidate, 'formField')) return false;
+
+  const vectorSources = candidate.sources.filter((source) => source.type === 'vectorBox').length;
+  return (
+    vectorSources >= RASTER_TEXT_STRIP_VECTOR_MIN_SOURCES ||
+    areaRatio(candidate, totalArea) >= RASTER_TEXT_STRIP_VECTOR_MIN_AREA_RATIO
+  );
+}
+
+function verticalGap(a: Candidate, b: Candidate): number {
+  return Math.max(a.y - (b.y + b.height), b.y - (a.y + a.height), 0);
 }
 
 function isDenseVectorFieldCandidate(candidate: Candidate): boolean {
@@ -229,6 +299,16 @@ export function suppressContainedCandidates(candidates: Candidate[]): Candidate[
 
 function canSuppressContainedCandidate(candidate: Candidate, other: Candidate): boolean {
   if (other.kind === candidate.kind) return true;
+  if (
+    candidate.kind === 'vector' &&
+    other.kind === 'mixed' &&
+    hasSourceType(candidate, 'vectorBox') &&
+    hasSourceType(other, 'vectorBox') &&
+    hasSourceType(other, 'imageBox') &&
+    (!candidate.associatedText || candidate.associatedText.length === 0)
+  ) {
+    return true;
+  }
   return (
     candidate.kind === 'vector' &&
     !hasSourceType(candidate, 'formField') &&
