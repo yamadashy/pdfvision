@@ -1792,6 +1792,48 @@ describe('buildLayout — multi-column reading order', () => {
     ]);
   });
 
+  it('keeps fiscal date headers above financial statement value columns', () => {
+    // Amazon annual-report-shaped case: the fiscal date header can be
+    // emitted as a single text run above two numeric value columns. It
+    // is still the visible column header for the table below.
+    const spans: TextSpan[] = [
+      span('December 31, 2023 December 31, 2024', 402.79, 93.03, 7.76, 138.36),
+      span('Cash and cash equivalents', 50.75, 104.57, 9.7, 102),
+      span('$', 400.67, 105.22, 9.7, 4.85),
+      span('73,387', 439.51, 105.22, 9.7, 26.68),
+      span('$', 476.33, 105.22, 9.7, 4.85),
+      span('78,779', 515.17, 105.22, 9.7, 26.67),
+      span('Restricted cash included in accounts receivable, net and other', 50.75, 119.12, 9.7, 238.65),
+      span('497', 451.64, 119.77, 9.7, 14.55),
+      span('247', 527.3, 119.77, 9.7, 14.55),
+      span('Restricted cash included in other assets', 50.75, 133.67, 9.7, 152.03),
+      span('6', 461.34, 134.32, 9.7, 4.85),
+      span('3,286', 520.02, 134.32, 9.7, 21.83),
+      span(
+        'Total cash, cash equivalents, and restricted cash shown in the consolidated statements of',
+        50.75,
+        148.22,
+        9.7,
+        342.84,
+      ),
+      span('cash flows', 50.75, 159.86, 9.7, 41.19),
+      span('$', 400.67, 158.33, 9.7, 4.85),
+      span('73,890', 439.51, 158.33, 9.7, 26.68),
+      span('$', 476.33, 158.33, 9.7, 4.85),
+      span('82,312', 515.17, 158.33, 9.7, 26.67),
+    ];
+    const layout = buildLayout(spans, 612, 792);
+    const rows = layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text));
+
+    expect(rows?.[0]).toEqual(['December 31, 2023 December 31, 2024']);
+    expect(rows).toContainEqual(['Cash and cash equivalents', '$ 73,387', '$ 78,779']);
+    expect(rows).toContainEqual([
+      'Total cash, cash equivalents, and restricted cash shown in the consolidated statements of cash flows',
+      '$ 73,890',
+      '$ 82,312',
+    ]);
+  });
+
   it('emits table hints for sparse financial tables with one data row', () => {
     // Federal Reserve H.4.1-shaped case: a multi-level header sits above
     // a single data row. The row count is too small for recurring-row

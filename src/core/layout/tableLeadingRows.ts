@@ -18,6 +18,10 @@ const TABLE_LEADING_ROW_X_TOLERANCE_PT = 14;
 const TABLE_LEADING_HEADER_MAX_CHARS = 80;
 const TABLE_LEADING_HEADER_MAX_WORDS = 6;
 const TABLE_LEADING_HEADER_MAX_WIDTH_PT = 180;
+const TABLE_LEADING_DATE_HEADER_X_TOLERANCE_PT = 20;
+const TABLE_LEADING_DATE_HEADER_MIN_COLUMNS = 2;
+const TABLE_LEADING_DATE_HEADER_PATTERN =
+  /^(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+\d{1,2},?(?:\s+\d{4})?(?:\s+(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+\d{1,2},?(?:\s+\d{4})?)*$/iu;
 
 export function attachLeadingTableRows(
   rows: LayoutLine[][],
@@ -31,8 +35,17 @@ export function attachLeadingTableRows(
   const leadingColumnRights =
     numericColumnRights.length >= TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS
       ? numericColumnRights
-      : firstRowNumericColumnRights(rows);
-  if (leadingColumnRights.length < TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS) return rows;
+      : firstRowNumericColumnRights(rows, TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS);
+  const dateHeaderColumnRights =
+    leadingColumnRights.length >= TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS
+      ? leadingColumnRights
+      : twoColumnDateHeaderRights(rows);
+  if (
+    leadingColumnRights.length < TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS &&
+    dateHeaderColumnRights.length < TABLE_LEADING_DATE_HEADER_MIN_COLUMNS
+  ) {
+    return rows;
+  }
 
   const labelLeft = recurringLabelColumnLeft(rows);
   const tableBox = unionBox(rows.flat());
@@ -45,7 +58,18 @@ export function attachLeadingTableRows(
 
     const verticalGap = rowY(nextIncluded) - rowBottom(candidate);
     if (verticalGap < -TABLE_LEADING_ROW_MAX_OVERLAP_PT || verticalGap > TABLE_LEADING_ROW_MAX_GAP_PT) break;
-    if (!isLeadingTableRow(candidate, tableBox, leadingColumnRights, labelLeft, leadingRows.length > 0)) break;
+    if (
+      !isLeadingTableRow(
+        candidate,
+        tableBox,
+        leadingColumnRights,
+        dateHeaderColumnRights,
+        labelLeft,
+        leadingRows.length > 0,
+      )
+    ) {
+      break;
+    }
 
     leadingRows.unshift(candidate);
     nextIncluded = candidate;
@@ -54,13 +78,22 @@ export function attachLeadingTableRows(
   return leadingRows.length > 0 ? [...leadingRows, ...rows] : rows;
 }
 
-function firstRowNumericColumnRights(rows: LayoutLine[][]): number[] {
+function firstRowNumericColumnRights(rows: LayoutLine[][], minColumns: number): number[] {
   if (rows.length < TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROWS) return [];
   const firstRow = rows[0];
   if (!firstRow) return [];
   const numericCells = firstRow.filter((line) => isTableNumericCell(line.text));
-  if (numericCells.length < TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS) return [];
+  if (numericCells.length < minColumns) return [];
   return numericCells.map((line, index) => numericColumnMatchRight(line, numericCells[index + 1]));
+}
+
+function twoColumnDateHeaderRights(rows: LayoutLine[][]): number[] {
+  const recurring = recurringNumericColumnRights(rows, {
+    minColumns: TABLE_LEADING_DATE_HEADER_MIN_COLUMNS,
+    minRows: Math.min(rows.length, Math.max(2, Math.ceil(rows.length * TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROW_RATIO))),
+  });
+  if (recurring.length >= TABLE_LEADING_DATE_HEADER_MIN_COLUMNS) return recurring;
+  return firstRowNumericColumnRights(rows, TABLE_LEADING_DATE_HEADER_MIN_COLUMNS);
 }
 
 function recurringLabelColumnLeft(rows: LayoutLine[][]): number | undefined {
@@ -76,6 +109,7 @@ function isLeadingTableRow(
   row: LayoutLine[],
   tableBox: BBox,
   numericColumnRights: number[],
+  dateHeaderColumnRights: number[],
   labelLeft: number | undefined,
   allowSingleLabelHeader: boolean,
 ): boolean {
@@ -99,8 +133,28 @@ function isLeadingTableRow(
     );
 
   if (alignedNumericCells.length > 0) return row.length >= 2 || labelAligned;
-  if (row.length >= 2) return true;
-  return allowSingleLabelHeader && labelAligned;
+  if (numericColumnRights.length >= TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS && row.length >= 2) return true;
+  if (isSingleDateHeaderOverNumericColumns(row, dateHeaderColumnRights)) return true;
+  return (
+    numericColumnRights.length >= TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS && allowSingleLabelHeader && labelAligned
+  );
+}
+
+function isSingleDateHeaderOverNumericColumns(row: LayoutLine[], numericColumnRights: number[]): boolean {
+  if (row.length !== 1 || numericColumnRights.length < TABLE_LEADING_DATE_HEADER_MIN_COLUMNS) return false;
+  const line = row[0];
+  if (!line) return false;
+  const text = line.text.replace(/\s+/gu, ' ').trim();
+  if (!TABLE_LEADING_DATE_HEADER_PATTERN.test(text)) return false;
+
+  const left = line.x;
+  const right = line.x + line.width;
+  const minNumericRight = Math.min(...numericColumnRights);
+  const maxNumericRight = Math.max(...numericColumnRights);
+  return (
+    right >= minNumericRight - TABLE_LEADING_DATE_HEADER_X_TOLERANCE_PT &&
+    left <= maxNumericRight + TABLE_LEADING_DATE_HEADER_X_TOLERANCE_PT
+  );
 }
 
 function isCompactLeadingTableCell(line: LayoutLine): boolean {
