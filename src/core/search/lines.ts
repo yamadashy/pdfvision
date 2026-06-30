@@ -8,7 +8,7 @@ import {
 import { isRtlDominantPositionedText, textOrder } from '../text/textDirection.js';
 import { isLikelyCompactTableHeaderRow } from './compactTableHeaders.js';
 import { nfkc } from './compiler.js';
-import { withSyntheticSearchLines } from './syntheticLines.js';
+import { withHyphenatedSearchLines, withSyntheticSearchLines } from './syntheticLines.js';
 import type { SearchLine, SearchOwner } from './types.js';
 import { buildVerticalSearchLines } from './verticalLines.js';
 
@@ -123,7 +123,7 @@ export function buildOcrSearchLines(words: readonly OcrWord[] | undefined, norma
     }
     if (text.length > 0) lines.push({ text, owners });
   }
-  return lines;
+  return withHyphenatedSearchLines(lines, { allowRaggedBreaks: true, includeDehyphenated: true });
 }
 
 function spaceGapThreshold(prev: TextSpan, cur: TextSpan, fontSize: number): number {

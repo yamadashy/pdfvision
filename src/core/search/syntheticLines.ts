@@ -5,6 +5,7 @@ const HYPHENATED_SEARCH_LINE_SCAN_LIMIT = 6;
 const HYPHENATED_SEARCH_LINE_MAX_GAP_RATIO = 2.5;
 const HYPHENATED_SEARCH_LINE_MAX_GAP_PT = 24;
 const HYPHENATED_SEARCH_LINE_X_TOLERANCE_PT = 12;
+const HYPHENATED_SEARCH_LINE_RAGGED_WIDTH_RATIO = 0.75;
 const STACKED_LABEL_SCAN_LIMIT = 24;
 const STACKED_LABEL_MAX_VERTICAL_GAP_RATIO = 1.6;
 const STACKED_LABEL_MAX_VERTICAL_GAP_PT = 14;
@@ -17,20 +18,29 @@ export function withSyntheticSearchLines(lines: readonly SearchLine[]): SearchLi
   return withHyphenatedSearchLines(withStackedSearchLines(lines));
 }
 
-function withHyphenatedSearchLines(lines: readonly SearchLine[]): SearchLine[] {
+export function withHyphenatedSearchLines(
+  lines: readonly SearchLine[],
+  options: { allowRaggedBreaks?: boolean; includeDehyphenated?: boolean } = {},
+): SearchLine[] {
   const synthetic: SearchLine[] = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const lineText = line.text.trimEnd();
     if (!lineText.endsWith('-')) continue;
-    const lineBox = searchLineBox(line);
+    const trailingSpaces = line.text.length - lineText.length;
+    const lineOwners = line.owners.slice(0, line.owners.length - trailingSpaces);
+    // Use the boundary word boxes, not the whole line boxes: noisy OCR neighbors
+    // can otherwise make adjacent hyphenated title lines appear vertically merged.
+    const lineBox = lastSearchOwnerBox(lineOwners);
     if (!lineBox) continue;
 
     for (let j = i + 1; j < lines.length && j <= i + HYPHENATED_SEARCH_LINE_SCAN_LIMIT; j++) {
       const next = lines[j];
       const nextText = next.text.trimStart();
       if (!/^[\p{L}\p{N}]/u.test(nextText)) continue;
-      const nextBox = searchLineBox(next);
+      const leadingSpaces = next.text.length - nextText.length;
+      const nextOwners = next.owners.slice(leadingSpaces);
+      const nextBox = firstSearchOwnerBox(nextOwners);
       if (!nextBox) continue;
       const verticalGap = nextBox.y - (lineBox.y + lineBox.height);
       if (verticalGap < -1) continue;
@@ -39,19 +49,51 @@ function withHyphenatedSearchLines(lines: readonly SearchLine[]): SearchLine[] {
       ) {
         break;
       }
-      if (Math.abs(nextBox.x - lineBox.x) > HYPHENATED_SEARCH_LINE_X_TOLERANCE_PT) continue;
+      if (!areHyphenatedLineBoxesAligned(lineBox, nextBox, options)) continue;
 
-      const trailingSpaces = line.text.length - lineText.length;
-      const leadingSpaces = next.text.length - nextText.length;
       synthetic.push({
         text: `${lineText}${nextText}`,
-        owners: [...line.owners.slice(0, line.owners.length - trailingSpaces), ...next.owners.slice(leadingSpaces)],
+        owners: [...lineOwners, ...nextOwners],
         syntheticHyphenated: true,
       });
+      if (options.includeDehyphenated === true) {
+        synthetic.push({
+          text: `${lineText.slice(0, -1)}${nextText}`,
+          owners: [...lineOwners.slice(0, -1), ...nextOwners],
+          syntheticDehyphenated: true,
+        });
+      }
       break;
     }
   }
   return synthetic.length === 0 ? [...lines] : [...lines, ...synthetic];
+}
+
+function areHyphenatedLineBoxesAligned(
+  lineBox: Box,
+  nextBox: Box,
+  options: { allowRaggedBreaks?: boolean; includeDehyphenated?: boolean },
+): boolean {
+  const horizontalOverlap =
+    Math.min(lineBox.x + lineBox.width, nextBox.x + nextBox.width) - Math.max(lineBox.x, nextBox.x);
+  if (horizontalOverlap > 0 || Math.abs(nextBox.x - lineBox.x) <= HYPHENATED_SEARCH_LINE_X_TOLERANCE_PT) return true;
+  const raggedTolerance = Math.max(
+    HYPHENATED_SEARCH_LINE_X_TOLERANCE_PT,
+    lineBox.width * HYPHENATED_SEARCH_LINE_RAGGED_WIDTH_RATIO,
+  );
+  return options.allowRaggedBreaks === true && lineBox.x > nextBox.x && lineBox.x - nextBox.x <= raggedTolerance;
+}
+
+function firstSearchOwnerBox(owners: readonly (SearchOwner | undefined)[]): Box | undefined {
+  return owners.find((owner) => owner !== undefined);
+}
+
+function lastSearchOwnerBox(owners: readonly (SearchOwner | undefined)[]): Box | undefined {
+  for (let i = owners.length - 1; i >= 0; i--) {
+    const owner = owners[i];
+    if (owner !== undefined) return owner;
+  }
+  return undefined;
 }
 
 function withStackedSearchLines(lines: readonly SearchLine[]): SearchLine[] {

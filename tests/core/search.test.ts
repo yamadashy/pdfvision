@@ -1243,6 +1243,42 @@ describe('processDocument search', () => {
     });
   });
 
+  it('matches dehyphenated OCR words across adjacent line breaks', async () => {
+    const { compileSearch, searchPage } = await import('../../src/core/search/index.js');
+    const compiled = compileSearch('WONDERFUL', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const matches = searchPage(
+      undefined,
+      {
+        text: 'Ihe WONDER-\nFUL WIZARD',
+        confidence: 0.9,
+        lang: 'eng',
+        words: [
+          { text: 'Ihe', confidence: 0.69, x: 0, y: 24, width: 136, height: 84.5 },
+          { text: 'WONDER-', confidence: 0.91, x: 169.5, y: 31.5, width: 287.5, height: 62 },
+          { text: 'FUL', confidence: 0.88, x: 0, y: 100, width: 150.5, height: 72.5 },
+          { text: 'WIZARD', confidence: 0.93, x: 196, y: 99, width: 266, height: 75 },
+        ],
+      },
+      1,
+      465,
+      618,
+      compiled,
+    );
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      page: 1,
+      query: 'WONDERFUL',
+      bbox: { x: 0, y: 31.5, width: 415.93, height: 141 },
+      boxes: [
+        { x: 169.5, y: 31.5, width: 246.43, height: 62 },
+        { x: 0, y: 100, width: 150.5, height: 72.5 },
+      ],
+      text: 'WONDERFUL',
+      source: 'ocr',
+    });
+  });
+
   it('does not insert OCR search spaces between CJK word boxes', async () => {
     const { compileSearch, searchPage } = await import('../../src/core/search/index.js');
     const compiled = compileSearch('東京大学', {});

@@ -92,6 +92,7 @@ export function searchPage(
     for (let mi = 0; mi < compiled.matchers.length; mi++) {
       const m = compiled.matchers[mi];
       if (line.syntheticHyphenated && !m.query.includes('-')) continue;
+      if (line.syntheticDehyphenated && m.query.includes('-')) continue;
       if (line.syntheticStacked && !/\s/u.test(m.query)) continue;
       if (nativeCapped.has(mi)) continue;
       // Reset lastIndex so the same RegExp object can be reused
@@ -108,6 +109,7 @@ export function searchPage(
         }
         const hitBoxes = contributingBoxes(line, hit.index, hit.index + hit[0].length);
         if (hitBoxes.length === 0) continue;
+        if ((line.syntheticHyphenated || line.syntheticDehyphenated) && hitBoxes.length < 2) continue;
         if (line.syntheticStacked && hitBoxes.length < 2) continue;
         if (line.syntheticVertical && hitBoxes.length < 2) continue;
         const box = unionBoxes(hitBoxes);
@@ -159,6 +161,8 @@ export function searchPage(
       const searchLines = (lines: readonly SearchLine[], duplicateBudget?: Map<string, number>) => {
         for (const line of lines) {
           const ocrHaystack = line.text;
+          if (line.syntheticHyphenated && !m.query.includes('-')) continue;
+          if (line.syntheticDehyphenated && m.query.includes('-')) continue;
           m.regex.lastIndex = 0;
           while (true) {
             const hit = m.regex.exec(ocrHaystack);
@@ -175,6 +179,7 @@ export function searchPage(
             const end = Math.min(ocrHaystack.length, hit.index + hit[0].length + 60);
             const context = ocrHaystack.slice(start, end).replace(/\s+/g, ' ').trim();
             const hitBoxes = contributingBoxes(line, hit.index, hit.index + hit[0].length);
+            if ((line.syntheticHyphenated || line.syntheticDehyphenated) && hitBoxes.length < 2) continue;
             const hitKey = matcherDuplicateKey(hit[0]);
             const remainingDuplicates = duplicateBudget?.get(hitKey) ?? 0;
             if (remainingDuplicates > 0) {
