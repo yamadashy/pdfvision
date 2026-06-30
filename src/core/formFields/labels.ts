@@ -9,6 +9,7 @@ import {
 } from './expansion.js';
 import { centerY, makeLabel, overlapRatio } from './geometry.js';
 import { scoreLabelCandidate, widgetCrossingPenalty } from './scoring.js';
+import { isAbovePreviousSectionHeadingCandidate, trimAboveSectionBoundaryLabel } from './sectionBoundaries.js';
 import {
   isBareLineNumberClusterText,
   isBareNumericFieldMarker,
@@ -48,21 +49,22 @@ export function findFieldLabel(
     if (isSemanticFieldNameMismatch(field, text)) continue;
     const candidate = scoreLabelCandidate(field, line, text);
     if (!candidate) continue;
+    if (isAbovePreviousSectionHeadingCandidate(field, line, candidate.relation, lines)) continue;
     if (isPreviousRowMarkerCandidate(field, line, text, candidate.relation, lines)) continue;
     candidate.score += widgetCrossingPenalty(field, candidate, siblings);
     if (!best || candidate.score < best.score) best = candidate;
   }
   const currencyPrompt = findCurrencyAnchoredPromptLabel(field, lines);
-  if (currencyPrompt) return currencyPrompt;
+  if (currencyPrompt) return trimAboveSectionBoundaryLabel(field, currencyPrompt, lines);
   if (!best) return undefined;
   if (isMarkerOnlyChoicePromptFallback(field, best, lines)) return undefined;
-  return (
+  const label =
     expandSameLineMarkerPromptLabel(field, best, lines) ??
     expandLeftTrailingPromptStack(field, best, lines) ??
     expandChoiceSideStackedLabel(field, best, lines, siblings) ??
     expandSideLabelContinuation(field, best, lines, siblings) ??
-    expandStackedLabel(field, best, lines)
-  );
+    expandStackedLabel(field, best, lines);
+  return trimAboveSectionBoundaryLabel(field, label, lines);
 }
 
 function findImmediateChoiceOptionLabel(

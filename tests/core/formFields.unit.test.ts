@@ -545,6 +545,96 @@ describe('buildFormFields', () => {
     });
   });
 
+  it('does not cross a section heading when stacking labels above blank table rows', () => {
+    const dotLeaders = Array.from({ length: 23 }, (_, index) => ({
+      text: '.',
+      x: 216 + index * 12,
+      y: 505.71,
+      width: 2.22,
+      height: 8,
+      fontSize: 8,
+    }));
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'c2_8[0]',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(489.6, 505.78, 8.44, 8.44),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'c2_8[1]',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(540, 505.78, 8.44, 8.44),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'PartVTable[0].Item1[0].f2_15[0]',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(36, 540, 424.8, 12),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'PartVTable[0].Item1[0].f2_16[0]',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(468, 540, 108, 12),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'PartVTable[0].Item2[0].f2_17[0]',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(36, 564, 424.8, 12),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'PartVTable[0].Item2[0].f2_18[0]',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(468, 564, 108, 12),
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        { text: 'b If “Yes,” is the evidence written? . .', x: 50.4, y: 505.71, width: 155.82, height: 8, fontSize: 8 },
+        { text: 'b', x: 50.4, y: 505.71, width: 4.89, height: 8, fontSize: 8 },
+        { text: 'If “Yes,” is the evidence written?', x: 64.8, y: 505.71, width: 116.01, height: 8, fontSize: 8 },
+        ...dotLeaders,
+        { text: 'Yes', x: 503.6, y: 505.71, width: 14.22, height: 8, fontSize: 8 },
+        { text: 'No', x: 554, y: 505.71, width: 10.82, height: 8, fontSize: 8 },
+        { text: 'Part V', x: 39.55, y: 515.14, width: 28.9, height: 10, fontSize: 10 },
+        {
+          text: 'Other Expenses. List below business expenses not included on lines 8-27a, or line 30.',
+          x: 86.4,
+          y: 515.14,
+          width: 388.42,
+          height: 10,
+          fontSize: 10,
+        },
+        { text: 'Other Expenses.', x: 86.4, y: 515.14, width: 78.53, height: 10, fontSize: 10 },
+        {
+          text: 'List below business expenses not included on lines 8-27a, or line 30.',
+          x: 167.71,
+          y: 515.14,
+          width: 307.11,
+          height: 10,
+          fontSize: 10,
+        },
+      ],
+    );
+
+    const firstRow = fields.find((field) => field.name === 'PartVTable[0].Item1[0].f2_15[0]');
+    const secondRow = fields.find((field) => field.name === 'PartVTable[0].Item2[0].f2_17[0]');
+    expect(firstRow?.label?.text).toBe(
+      'Other Expenses. List below business expenses not included on lines 8-27a, or line 30.',
+    );
+    expect(firstRow?.label?.text).not.toContain('If “Yes,”');
+    expect(secondRow?.label?.text).toBe('Part V');
+  });
+
   it('merges stacked above-label lines for narrow form fields', () => {
     const fields = buildFormFields(
       [{ subtype: 'Widget', fieldName: 'ein', fieldType: 'Tx', rect: [100, 88, 180, 100] }],

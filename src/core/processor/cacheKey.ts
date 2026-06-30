@@ -47,9 +47,9 @@ export function buildCacheKey(input: CacheKeyInput): string {
   const rasterizes = !!input.render || !!input.ocr || !!input.renderVisualRegions;
   const payload = JSON.stringify({
     pages: input.pages ?? 'all',
-    // Bump when the on-disk DocumentResult shape changes so older entries
-    // (missing newly-added page fields) are not handed out as fresh results.
-    format: 'structured-v130',
+    // Bump when DocumentResult shape or extraction semantics change so older
+    // entries are not handed out as fresh results.
+    format: 'structured-v131',
     passwordHash:
       input.password !== undefined ? createHash('sha256').update(input.password).digest('hex').slice(0, 16) : null,
     render: !!input.render,

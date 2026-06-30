@@ -57,6 +57,13 @@ function findAdjacentStackLine(
     ) {
       continue;
     }
+    if (
+      candidate.relation === 'above' &&
+      line.y + line.height <= bounds.y + 1 &&
+      isAnchoredToSectionHeadingBand(candidate.line, lines)
+    ) {
+      continue;
+    }
     if (!isStackCompatibleLine(candidate.line, bounds, line)) continue;
 
     const gap = candidate.relation === 'above' ? aboveStackLineGap(bounds, line) : line.y - (bounds.y + bounds.height);
@@ -102,6 +109,18 @@ function isSameRowChoiceContinuationLine(field: FormField, line: LabelLine, text
   if (line.x + line.width > field.x + 1) return false;
   if (startsWithPromptItemMarker(text) || isFormSectionHeadingText(text)) return false;
   return Math.abs(centerY(line) - centerY(field)) <= Math.max(7, Math.max(field.height, line.height) * 0.9);
+}
+
+function isAnchoredToSectionHeadingBand(anchor: LabelLine, lines: readonly LabelLine[]): boolean {
+  if (isFormSectionHeadingText(normalizeLabelText(anchor.text))) return true;
+  const anchorCenterY = centerY(anchor);
+  return lines.some((line) => {
+    if (line === anchor) return false;
+    if (Math.abs(centerY(line) - anchorCenterY) > Math.max(3, Math.max(line.height, anchor.height) * 0.45)) {
+      return false;
+    }
+    return isFormSectionHeadingText(normalizeLabelText(line.text));
+  });
 }
 
 function isStackCompatibleLine(anchor: LabelLine, bounds: BoxLike, line: LabelLine): boolean {
