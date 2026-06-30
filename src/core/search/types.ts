@@ -3,6 +3,7 @@ export interface SearchLine {
   owners: (SearchOwner | undefined)[];
   syntheticHyphenated?: boolean;
   syntheticDehyphenated?: boolean;
+  syntheticJoinIndex?: number;
   syntheticStacked?: boolean;
   syntheticVertical?: boolean;
 }

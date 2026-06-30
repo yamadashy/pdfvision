@@ -107,7 +107,9 @@ export function searchPage(
           m.regex.lastIndex++;
           continue;
         }
-        const hitBoxes = contributingBoxes(line, hit.index, hit.index + hit[0].length);
+        const hitEnd = hit.index + hit[0].length;
+        if (!hitCrossesSyntheticJoin(line, hit.index, hitEnd)) continue;
+        const hitBoxes = contributingBoxes(line, hit.index, hitEnd);
         if (hitBoxes.length === 0) continue;
         if ((line.syntheticHyphenated || line.syntheticDehyphenated) && hitBoxes.length < 2) continue;
         if (line.syntheticStacked && hitBoxes.length < 2) continue;
@@ -176,9 +178,11 @@ export function searchPage(
             // precision. ±60 chars matches a single line of typical text;
             // larger windows clutter JSON output.
             const start = Math.max(0, hit.index - 60);
-            const end = Math.min(ocrHaystack.length, hit.index + hit[0].length + 60);
+            const hitEnd = hit.index + hit[0].length;
+            if (!hitCrossesSyntheticJoin(line, hit.index, hitEnd)) continue;
+            const end = Math.min(ocrHaystack.length, hitEnd + 60);
             const context = ocrHaystack.slice(start, end).replace(/\s+/g, ' ').trim();
-            const hitBoxes = contributingBoxes(line, hit.index, hit.index + hit[0].length);
+            const hitBoxes = contributingBoxes(line, hit.index, hitEnd);
             if ((line.syntheticHyphenated || line.syntheticDehyphenated) && hitBoxes.length < 2) continue;
             const hitKey = matcherDuplicateKey(hit[0]);
             const remainingDuplicates = duplicateBudget?.get(hitKey) ?? 0;
@@ -225,4 +229,9 @@ export function searchPage(
 
   matches.push(...suppressDuplicateOcrMatches(matches, ocrMatches, compiled));
   return matches;
+}
+
+function hitCrossesSyntheticJoin(line: SearchLine, start: number, end: number): boolean {
+  if (line.syntheticJoinIndex === undefined) return true;
+  return start < line.syntheticJoinIndex && end > line.syntheticJoinIndex;
 }

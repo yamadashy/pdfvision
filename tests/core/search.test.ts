@@ -575,6 +575,32 @@ describe('processDocument search', () => {
     expect(matches[0].boxes).toHaveLength(2);
   });
 
+  it('only emits stacked synthetic-line hits that cross the stacked boundary', () => {
+    const spans: TextSpan[] = [
+      { text: '図3', x: 456.72, y: 168.94, width: 28.08, height: 14.04, fontSize: 14.04 },
+      { text: '若年就業者(', x: 493.92, y: 168.94, width: 84.24, height: 14.04, fontSize: 14.04 },
+      { text: '34', x: 578.18, y: 168.94, width: 18.99, height: 14.04, fontSize: 14.04 },
+      { text: '歳以下)数の推移', x: 597.14, y: 168.94, width: 111.14, height: 14.04, fontSize: 14.04 },
+      { text: '34', x: 585.67, y: 193.56, width: 11.23, height: 9, fontSize: 9 },
+      { text: '歳以下の就業者数(製造業)', x: 596.95, y: 193.56, width: 115.34, height: 9, fontSize: 9 },
+    ];
+
+    const topOnly = compileSearch('図3 若年就業者', {});
+    const crossStack = compileSearch('推移 34歳以下の就業者数', {});
+    if (!topOnly || !crossStack) throw new Error('expected compiled search');
+
+    expect(searchPage(spans, undefined, 1, 792, 612, topOnly)).toHaveLength(1);
+    const crossStackMatches = searchPage(spans, undefined, 1, 792, 612, crossStack);
+
+    expect(crossStackMatches).toHaveLength(1);
+    expect(crossStackMatches[0]).toMatchObject({
+      text: '推移 34歳以下の就業者数',
+      source: 'native',
+      page: 1,
+    });
+    expect(crossStackMatches[0].boxes.length).toBeGreaterThanOrEqual(3);
+  });
+
   it('matches phrases across Type3-style wide word spacing rows', () => {
     const spans: TextSpan[] = [
       { text: 'ab', x: 50, y: 60, width: 20, height: 10, fontSize: 10 },

@@ -55,12 +55,15 @@ export function withHyphenatedSearchLines(
         text: `${lineText}${nextText}`,
         owners: [...lineOwners, ...nextOwners],
         syntheticHyphenated: true,
+        syntheticJoinIndex: lineOwners.length,
       });
       if (options.includeDehyphenated === true) {
+        const dehyphenatedJoinIndex = lineOwners.length - 1;
         synthetic.push({
           text: `${lineText.slice(0, -1)}${nextText}`,
           owners: [...lineOwners.slice(0, -1), ...nextOwners],
           syntheticDehyphenated: true,
+          syntheticJoinIndex: dehyphenatedJoinIndex,
         });
       }
       break;
@@ -123,6 +126,7 @@ function withStackedSearchLines(lines: readonly SearchLine[]): SearchLine[] {
         text: `${top.text} ${bottom.text}`,
         owners: [...top.owners, undefined, ...bottom.owners],
         syntheticStacked: true,
+        syntheticJoinIndex: top.owners.length,
       });
       break;
     }
