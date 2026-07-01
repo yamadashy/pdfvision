@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { buildQuietTesseractWorkerScript, parseOcrLang } from '../../src/core/ocr/index.js';
+import { buildQuietTesseractWorkerScript, effectiveOcrRenderScale, parseOcrLang } from '../../src/core/ocr/index.js';
 import { buildCacheKey } from '../../src/core/processor/cacheKey.js';
 import { processDocument } from '../../src/core/processor.js';
 
@@ -53,6 +53,16 @@ describe('buildQuietTesseractWorkerScript', () => {
     expect(script).toContain('controlTraineddataNoise');
     expect(script).toContain('TESSDATA_PREFIX');
     expect(script).toContain('require("/tmp/worker path \\"quoted\\".js")');
+  });
+});
+
+describe('effectiveOcrRenderScale', () => {
+  it('keeps OCR rasterization at least the default scale', () => {
+    expect(effectiveOcrRenderScale(undefined)).toBe(2);
+    expect(effectiveOcrRenderScale(0.5)).toBe(2);
+    expect(effectiveOcrRenderScale(1)).toBe(2);
+    expect(effectiveOcrRenderScale(2)).toBe(2);
+    expect(effectiveOcrRenderScale(3)).toBe(3);
   });
 });
 

@@ -102,7 +102,8 @@ Options:
       --render-output <dir>
                           Directory for rendered page or visual-region PNGs
                           (requires --render or --render-visual-regions)
-      --render-scale <n>  Rasterisation multiplier (default 2; bounds (0, 4]).
+      --render-scale <n>  Rasterisation multiplier (default 2; bounds (0, 4]);
+                          OCR keeps at least scale 2 for recognition quality.
                           Requires --render, --render-visual-regions, or --ocr.
       --geometry          Emit per-text-item bbox + font size in pages[].spans (json/xml/toon)
       --layout            Reconstruct lines + blocks + numeric-table hints in pages[].layout;

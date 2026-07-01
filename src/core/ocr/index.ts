@@ -9,6 +9,10 @@ import { ensureQuietTesseractWorker } from './worker.js';
 
 export { buildQuietTesseractWorkerScript } from './worker.js';
 
+export function effectiveOcrRenderScale(scale: number | undefined): number {
+  return Math.max(scale ?? DEFAULT_OCR_RENDER_SCALE, DEFAULT_OCR_RENDER_SCALE);
+}
+
 /**
  * One OCR worker, reusable across many pages. Created once per
  * `processDocument` call so the heavy traineddata load (~15-20MB per
@@ -153,10 +157,11 @@ export async function attachOcr(
       // contentRatio is already set on the page from the render pass in
       // that case, so we skip recomputing it.
       const cachedImage = imagePaths?.[i];
+      const cachedImageScale = scale ?? DEFAULT_OCR_RENDER_SCALE;
       let png: Buffer;
       let contentRatio: number | undefined;
       const page = await doc.getPage(pageNumbers[i]);
-      const ocrScale = scale ?? DEFAULT_OCR_RENDER_SCALE;
+      const ocrScale = effectiveOcrRenderScale(scale);
       const viewport = page.getViewport({ scale: ocrScale });
       const transform: OcrWordTransform = {
         scale: ocrScale,
@@ -164,10 +169,10 @@ export async function attachOcr(
         pageView: page.view,
         viewport,
       };
-      if (cachedImage) {
+      if (cachedImage && cachedImageScale === ocrScale) {
         png = await readFile(cachedImage);
       } else {
-        const rasterised = await renderPageToBuffer(doc, pageNumbers[i], scale, region);
+        const rasterised = await renderPageToBuffer(doc, pageNumbers[i], ocrScale, region);
         png = rasterised.buffer;
         contentRatio = rasterised.contentRatio;
       }

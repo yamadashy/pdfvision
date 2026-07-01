@@ -29,7 +29,8 @@ Options
                           Without this, PNGs land under the cache (or OS tmp with --no-cache).
       --render-scale <n>  Rasterisation multiplier for --render / --render-visual-regions / --ocr.
                           Default 2 (≈144 DPI on a letter page). Smaller values shrink the PNG
-                          (and vision-model payload); larger values capture more detail.
+                          (and vision-model payload); OCR keeps at least scale 2 for recognition
+                          quality; larger values capture more detail.
                           Accepts decimals; bounds (0, 4].
       --render-region <x,y,width,height>
                           Render only the given sub-rectangle (PDF points, top-left origin, y

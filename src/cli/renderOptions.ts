@@ -36,9 +36,8 @@ function resolveRenderScale(
 ): number | undefined {
   // --render-scale parses as a number with explicit error messaging so
   // the user sees the actual bounds (0, 4] instead of a generic NaN
-  // failure inside the processor. Allows --ocr-only scale changes too
-  // (OCR's internal rasterise respects the scale), so we don't gate
-  // on --render here.
+  // failure inside the processor. Allows --ocr-only scale changes too,
+  // although OCR itself enforces a minimum scale for recognition quality.
   const renderScaleRaw = values['render-scale'] as string | undefined;
   if (renderScaleRaw === undefined) return undefined;
 

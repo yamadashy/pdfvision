@@ -66,7 +66,7 @@ Invalid selectors fail loudly instead of guessing: empty segments, zero, negativ
 pdfvision document.pdf --render --render-output ./images --format json
 ```
 
-Rendered PNG paths are attached to each page. Use `--render-scale` to control image detail:
+Rendered PNG paths are attached to each page. Use `--render-scale` to control image detail; OCR keeps at least scale 2 for recognition quality:
 
 ```bash
 pdfvision document.pdf --render --render-scale 3
