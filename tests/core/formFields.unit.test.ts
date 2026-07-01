@@ -468,6 +468,38 @@ describe('buildFormFields', () => {
     });
   });
 
+  it('expands immediate checkbox labels across stacked right-side lines', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'g28Attached',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(42.5, 313, 10, 10),
+          fieldValue: 'Off',
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        { text: 'Select this box if', x: 60, y: 309.84, width: 69.72, height: 10, fontSize: 10 },
+        { text: 'Form G-28 is', x: 60, y: 321.84, width: 56.66, height: 10, fontSize: 10 },
+        { text: 'attached.', x: 60, y: 333.84, width: 39.16, height: 10, fontSize: 10 },
+      ],
+    );
+
+    expect(fields[0].label).toEqual({
+      text: 'Select this box if Form G-28 is attached.',
+      relation: 'right',
+      x: 60,
+      y: 309.84,
+      width: 69.72,
+      height: 34,
+    });
+  });
+
   it('prefers complete short option labels over same-position glyph fragments', () => {
     const fields = buildFormFields(
       [

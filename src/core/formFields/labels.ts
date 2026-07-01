@@ -36,8 +36,12 @@ export function findFieldLabel(
   siblings: readonly FormField[] = [],
 ): FormFieldLabel | undefined {
   if (lines.length === 0) return undefined;
-  const immediateChoiceLabel = findImmediateChoiceOptionLabel(field, lines, siblings);
-  if (immediateChoiceLabel) return immediateChoiceLabel;
+  const immediateChoiceCandidate = findImmediateChoiceOptionLabelCandidate(field, lines, siblings);
+  if (immediateChoiceCandidate) {
+    return (
+      expandChoiceSideStackedLabel(field, immediateChoiceCandidate, lines, siblings) ?? immediateChoiceCandidate.label
+    );
+  }
   let best: LabelCandidate | undefined;
   for (const line of lines) {
     const text = normalizeLabelText(line.text);
@@ -68,11 +72,11 @@ export function findFieldLabel(
   return trimAboveSectionBoundaryLabel(field, label, lines);
 }
 
-function findImmediateChoiceOptionLabel(
+function findImmediateChoiceOptionLabelCandidate(
   field: FormField,
   lines: readonly LabelLine[],
   siblings: readonly FormField[],
-): FormFieldLabel | undefined {
+): LabelCandidate | undefined {
   if (!isChoiceLikeField(field)) return undefined;
   let best:
     | {
@@ -115,7 +119,15 @@ function findImmediateChoiceOptionLabel(
     const score = (relation === 'right' ? 0 : 4) + Math.max(0, gap) * 2 + centerDelta - Math.min(text.length, 16) * 0.2;
     if (!best || score < best.score) best = { line, text, relation, score };
   }
-  return best ? makeLabel(best.line, best.text, best.relation) : undefined;
+  return best
+    ? {
+        label: makeLabel(best.line, best.text, best.relation),
+        line: best.line,
+        text: best.text,
+        relation: best.relation,
+        score: best.score,
+      }
+    : undefined;
 }
 
 function isCloseNumericChoiceOptionLabel(text: string, relation: LabelCandidate['relation'], gap: number): boolean {
