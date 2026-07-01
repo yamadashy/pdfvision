@@ -2115,6 +2115,60 @@ describe('buildLayout — multi-column reading order', () => {
     expect(rows).toContainEqual(['GNMT + RL [38]', '24.6', '39.92', '2.3 · 10^19', '1.4 · 10^20']);
   });
 
+  it('merges split multi-row header tables into the following data table', () => {
+    const spans: TextSpan[] = [
+      span('HOUSEHOLD DATA', 38, 33, 10, 95),
+      span('Summary table A. Household data, seasonally adjusted', 38, 44, 10, 266),
+      span('[Numbers in thousands]', 43, 55, 9, 96),
+      span('Updated: June 2026', 38, 62, 8, 78),
+      span('Table A-1', 535, 62, 8, 37),
+      span('May', 313, 73, 8, 15),
+      span('Mar.', 370, 73, 8, 16),
+      span('Apr.', 427, 73, 8, 15),
+      span('May', 483, 73, 8, 15),
+      span('Change from:', 523, 68, 8, 49),
+      span('Category', 147, 78, 8, 32),
+      span('2025', 312, 82, 8, 18),
+      span('2026', 369, 82, 8, 18),
+      span('2026', 425, 82, 8, 18),
+      span('2026', 482, 82, 8, 18),
+      span('Apr. 2026-', 529, 78, 8, 38),
+      span('Civilian noninstitutional population . . .', 38, 115, 8, 251),
+      span('273,385', 317, 115, 8, 29),
+      span('274,858', 374, 115, 8, 29),
+      span('274,955', 431, 115, 8, 29),
+      span('275,054', 487, 115, 8, 29),
+      span('99', 564, 115, 8, 9),
+      span('Civilian labor force . . .', 46, 126, 8, 243),
+      span('170,492', 317, 126, 8, 29),
+      span('170,087', 374, 126, 8, 29),
+      span('169,995', 431, 126, 8, 29),
+      span('170,078', 487, 126, 8, 29),
+      span('83', 564, 126, 8, 9),
+      span('Participation rate . . .', 54, 137, 8, 235),
+      span('62.4', 331, 137, 8, 16),
+      span('61.9', 387, 137, 8, 16),
+      span('61.8', 444, 137, 8, 16),
+      span('61.8', 501, 137, 8, 16),
+      span('0.0', 562, 137, 8, 11),
+      span('Employed . . .', 54, 148, 8, 235),
+      span('163,244', 317, 148, 8, 29),
+      span('162,848', 374, 148, 8, 29),
+      span('162,622', 431, 148, 8, 29),
+      span('162,771', 487, 148, 8, 29),
+      span('149', 559, 148, 8, 13),
+    ];
+    const layout = buildLayout(spans, 612);
+    const tableRows = layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text));
+
+    expect(layout.tables).toHaveLength(1);
+    expect(tableRows?.slice(0, 3)).toEqual([
+      ['May', 'Mar.', 'Apr.', 'May', 'Change from:'],
+      ['Category', '2025', '2026', '2026', '2026', 'Apr. 2026-'],
+      ['Civilian noninstitutional population . . .', '273,385', '274,858', '274,955', '275,054', '99'],
+    ]);
+  });
+
   it('keeps benchmark score and percentile rows in wide table hints', () => {
     // GPT-4 technical-report-shaped case: early rows use score/total and
     // percentile cells before the table later switches to plain percent

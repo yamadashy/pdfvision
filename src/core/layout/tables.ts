@@ -6,6 +6,7 @@ import {
   isLikelyTinyNumericVectorGrid,
 } from './numericVectorGrid.js';
 import { detectSparseSingleRowTables } from './sparseTables.js';
+import { mergeSplitHeaderTables } from './splitHeaderTables.js';
 import { tableCandidateRow } from './tableCandidateRows.js';
 import { isTableNumericCell, normalizeTableCurrencyCells } from './tableCells.js';
 import {
@@ -76,7 +77,8 @@ export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefin
     if (result.some((existing) => overlapOfSmaller(existing, table) >= 0.5)) continue;
     result.push(table);
   }
-  return result.length > 0 ? result : undefined;
+  const merged = mergeSplitHeaderTables(result);
+  return merged.length > 0 ? merged : undefined;
 }
 
 function isTwoColumnNumericOnlyTable(rows: LayoutLine[][]): boolean {
