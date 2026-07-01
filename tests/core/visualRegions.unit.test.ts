@@ -1127,6 +1127,50 @@ describe('buildVisualRegions', () => {
     expect(regions.map((region) => region.y)).toEqual([112, 322]);
   });
 
+  it('splits broad vector chart rows by figure caption grid cells', () => {
+    const chartBoxes = (x: number, y: number) => [
+      { x, y, width: 175, height: 22 },
+      ...Array.from({ length: 8 }, (_, index) => ({
+        x: x + 12,
+        y: y + 34 + index * 8,
+        width: 145,
+        height: 0.8,
+      })),
+      { x: x + 12, y: y + 34, width: 0.8, height: 56 },
+      { x: x + 156, y: y + 34, width: 0.8, height: 56 },
+    ];
+    const vectorBoxes = [
+      ...chartBoxes(10, 160),
+      ...chartBoxes(190, 160),
+      ...chartBoxes(10, 350),
+      ...chartBoxes(190, 350),
+    ];
+
+    const regions = buildVisualRegions({
+      pageWidth: 380,
+      pageHeight: 540,
+      imageBoxes: [],
+      vectorBoxes,
+      layout: {
+        blocks: [
+          captionBlock('図1 左上の推移', 52, 164, 90, 14),
+          captionBlock('図3 右上の推移', 232, 164, 90, 14),
+          captionBlock('図2 左下の推移', 52, 354, 90, 14),
+          captionBlock('図4 右下の推移', 232, 354, 90, 14),
+        ],
+      },
+    });
+
+    expect(regions).toHaveLength(4);
+    expect(regions.map((region) => region.associatedText?.[0]?.text)).toEqual([
+      '図1 左上の推移',
+      '図3 右上の推移',
+      '図2 左下の推移',
+      '図4 右下の推移',
+    ]);
+    expect(regions.map((region) => region.width)).toEqual([191, 191, 191, 191]);
+  });
+
   it('keeps separate raster panels instead of a broad vector backplane crop', () => {
     const regions = buildVisualRegions({
       pageWidth: 900,
@@ -5124,3 +5168,14 @@ describe('buildVisualRegions', () => {
     expect(regions[0].height).toBeGreaterThan(190);
   });
 });
+
+function captionBlock(text: string, x: number, y: number, width: number, height: number) {
+  return {
+    text,
+    x,
+    y,
+    width,
+    height,
+    lines: [{ text, x, y, width, height, fontSize: height }],
+  };
+}

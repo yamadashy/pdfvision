@@ -3,6 +3,7 @@ import { addAnnotationCandidates } from './annotationCandidates.js';
 import { MAX_ASSOCIATED_TEXT, mergeAssociatedText } from './associatedText.js';
 import { mergeSources } from './candidateMerge.js';
 import { addCaptionedFigureCandidates } from './captionedFigures.js';
+import { splitBroadVectorCaptionGrids } from './captionGridSplit.js';
 import { attachCaptionText } from './captions.js';
 import { suppressRepeatedChromeCandidates } from './chromeSuppression.js';
 import { addFormCandidate } from './formCandidates.js';
@@ -187,7 +188,14 @@ export function buildVisualRegions(input: BuildVisualRegionsInput): VisualRegion
   );
   const captionedFigureCandidates = addCaptionedFigureCandidates(input, chromeAwareCandidates);
   const withCaptions = attachCaptionText(captionedFigureCandidates, input.layout);
-  const withSourceLines = attachSourceLines(withCaptions, input.layout);
+  const captionGridAwareCandidates = splitBroadVectorCaptionGrids(
+    withCaptions,
+    input.layout,
+    input.vectorBoxes,
+    input.pageWidth,
+    input.pageHeight,
+  );
+  const withSourceLines = attachSourceLines(captionGridAwareCandidates, input.layout);
   const columnAwareTables = clampCrossColumnTableCandidatesToCaptionColumn(withSourceLines, input.pageWidth);
   const withTableLeadInLabels = attachTableLeadInLabels(columnAwareTables, input.layout);
   const withPlainImageLabels = attachPlainImageLabels(withTableLeadInLabels, input.layout, totalArea);
