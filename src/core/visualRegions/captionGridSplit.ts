@@ -1,8 +1,7 @@
 import type { PageLayout, VectorBox, VisualRegionAssociatedText } from '../../types/index.js';
 import { mergeSources } from './candidateMerge.js';
-import { captionTextsFromBlock } from './captions/extraction.js';
+import { captionGridAnchors } from './captions/gridAnchors.js';
 import { captionScore } from './captions/scoring.js';
-import { captionKind } from './captions/text.js';
 import { areaRatio, round2, unionBox } from './geometry.js';
 import type { BoxLike, Candidate } from './types.js';
 
@@ -43,7 +42,7 @@ export function splitBroadVectorCaptionGrids(
   pageHeight: number,
 ): Candidate[] {
   if (!layout || !vectorBoxes || vectorBoxes.length === 0) return [...candidates];
-  const captions = figureCaptions(layout);
+  const captions = captionGridAnchors(layout);
   if (captions.length < 2) return [...candidates];
 
   return candidates.flatMap((candidate) => {
@@ -100,14 +99,6 @@ function splitCandidateByCaptionGrid(
   }
 
   return splits;
-}
-
-function figureCaptions(layout: PageLayout): CaptionAnchor[] {
-  return layout.blocks.flatMap((block, index) =>
-    block.repeated
-      ? []
-      : captionTextsFromBlock(block, index).filter((caption) => captionKind(caption.text) === 'figure'),
-  );
 }
 
 function candidateVectorSources(candidate: Candidate, vectorBoxes: readonly VectorBox[]): VectorSourceItem[] {

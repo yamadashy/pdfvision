@@ -24,6 +24,7 @@ export function isUsefulVisualLabelText(text: string): boolean {
   if (letterCount < 2 && cjkCount === 0) return false;
 
   const numberCount = normalized.match(/\p{N}/gu)?.length ?? 0;
+  if (cjkCount === 1 && letterCount === 1 && numberCount === 0) return false;
   const meaningfulRatio = (letterCount + numberCount) / nonSpaceLength;
   return meaningfulRatio >= OCR_FRAGMENT_MIN_MEANINGFUL_RATIO;
 }

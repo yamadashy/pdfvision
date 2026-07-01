@@ -1171,6 +1171,42 @@ describe('buildVisualRegions', () => {
     expect(regions.map((region) => region.width)).toEqual([191, 191, 191, 191]);
   });
 
+  it('splits broad vector chart rows by numbered statistical chart titles', () => {
+    const chartBoxes = (x: number, y: number) => [
+      { x, y: y + 30, width: 150, height: 82 },
+      ...Array.from({ length: 8 }, (_, index) => ({
+        x,
+        y: y + 42 + index * 10,
+        width: 150,
+        height: 0.8,
+      })),
+      { x, y: y + 30, width: 0.8, height: 82 },
+      { x: x + 150, y: y + 30, width: 0.8, height: 82 },
+    ];
+
+    const regions = buildVisualRegions({
+      pageWidth: 420,
+      pageHeight: 300,
+      imageBoxes: [],
+      vectorBoxes: [{ x: 176, y: 74, width: 44, height: 82 }, ...chartBoxes(32, 44), ...chartBoxes(214, 44)],
+      layout: {
+        blocks: [
+          captionBlock('14 経営組織別民営事業所数と', 32, 28, 114, 8, 'heading'),
+          captionBlock('15 基幹的農業従事者', 214, 28, 80, 8, 'heading'),
+          captionBlock('従業者数の構成比(令和3年)', 40, 38, 118, 8, 'heading'),
+          captionBlock('事', 35, 78, 8, 8, 'heading'),
+          captionBlock('業', 35, 88, 8, 8, 'heading'),
+        ],
+      },
+    });
+
+    expect(regions).toHaveLength(2);
+    expect(regions.map((region) => region.associatedText?.map((item) => item.text))).toEqual([
+      ['14 経営組織別民営事業所数と 従業者数の構成比(令和3年)'],
+      ['15 基幹的農業従事者'],
+    ]);
+  });
+
   it('keeps separate raster panels instead of a broad vector backplane crop', () => {
     const regions = buildVisualRegions({
       pageWidth: 900,
@@ -5169,13 +5205,14 @@ describe('buildVisualRegions', () => {
   });
 });
 
-function captionBlock(text: string, x: number, y: number, width: number, height: number) {
+function captionBlock(text: string, x: number, y: number, width: number, height: number, role?: 'heading') {
   return {
     text,
     x,
     y,
     width,
     height,
+    ...(role && { role }),
     lines: [{ text, x, y, width, height, fontSize: height }],
   };
 }
