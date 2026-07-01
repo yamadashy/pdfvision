@@ -1577,6 +1577,64 @@ describe('buildFormFields', () => {
     });
   });
 
+  it('trims overlapping dot-leader row labels before scoring adjacent-column labels', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'Savings Accounts',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(224.86, 302.78, 82.57, 9.72),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'Accounts Payable',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(499.44, 303.2, 70.71, 9.72),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'Automobiles',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(224.86, 415.28, 82.57, 11.28),
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        {
+          text: 'Savings Accounts................................',
+          x: 34,
+          y: 302.78,
+          width: 275,
+          height: 9,
+          fontSize: 9,
+        },
+        { text: 'Accounts Payable', x: 334.56, y: 292.2, width: 72.09, height: 9, fontSize: 9 },
+        {
+          text: 'Automobiles...............................................',
+          x: 34,
+          y: 415.28,
+          width: 275,
+          height: 9,
+          fontSize: 9,
+        },
+        {
+          text: 'Other Liabilities....................................',
+          x: 334.56,
+          y: 416.43,
+          width: 170.03,
+          height: 9,
+          fontSize: 9,
+        },
+      ],
+    );
+
+    expect(fields.find((field) => field.name === 'Savings Accounts')?.label?.text).toBe('Savings Accounts');
+    expect(fields.find((field) => field.name === 'Automobiles')?.label?.text).toBe('Automobiles');
+  });
+
   it('uses same-marker prompt bands when distant dot leaders separate amount labels', () => {
     const fields = buildFormFields(
       [

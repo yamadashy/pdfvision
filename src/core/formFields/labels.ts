@@ -1,5 +1,7 @@
 import type { FormField, FormFieldLabel } from '../../types/index.js';
+import { chooseCurrencyAwareLabel } from './currencyLabelChoice.js';
 import { findCurrencyAnchoredPromptLabel } from './currencyPrompts.js';
+import { trimDotLeaderLabelLine } from './dotLeaderLabels.js';
 import {
   expandChoiceSideStackedLabel,
   expandLeftTrailingPromptStack,
@@ -44,18 +46,19 @@ export function findFieldLabel(
   }
   let best: LabelCandidate | undefined;
   for (const line of lines) {
-    const text = normalizeLabelText(line.text);
+    const labelLine = trimDotLeaderLabelLine(field, line, normalizeLabelText(line.text)) ?? line;
+    const text = normalizeLabelText(labelLine.text);
     if (!isUsableLabelText(text)) continue;
     if (isFormLabelChromeText(text)) continue;
     if (field.type === 'text' && isStandaloneInstructionReference(text)) continue;
     if (field.type === 'checkbox' && isExplanatoryFormParagraphStart(text)) continue;
-    if (overlapRatio(field, line) >= 0.35) continue;
+    if (overlapRatio(field, labelLine) >= 0.35) continue;
     if (isSemanticFieldNameMismatch(field, text)) continue;
-    const candidate = scoreLabelCandidate(field, line, text);
+    const candidate = scoreLabelCandidate(field, labelLine, text);
     if (!candidate) continue;
-    if (isSiblingChoiceOptionCandidate(field, line, text, candidate.relation, siblings)) continue;
-    if (isAbovePreviousSectionHeadingCandidate(field, line, candidate.relation, lines)) continue;
-    if (isPreviousRowMarkerCandidate(field, line, text, candidate.relation, lines)) continue;
+    if (isSiblingChoiceOptionCandidate(field, labelLine, text, candidate.relation, siblings)) continue;
+    if (isAbovePreviousSectionHeadingCandidate(field, labelLine, candidate.relation, lines)) continue;
+    if (isPreviousRowMarkerCandidate(field, labelLine, text, candidate.relation, lines)) continue;
     candidate.score += widgetCrossingPenalty(field, candidate, siblings);
     if (!best || candidate.score < best.score) best = candidate;
   }
@@ -77,24 +80,6 @@ export function findFieldLabel(
     expandSideLabelContinuation(field, best, lines, siblings) ??
     expandStackedLabel(field, best, lines);
   return trimAboveSectionBoundaryLabel(field, label, lines);
-}
-
-function chooseCurrencyAwareLabel(
-  candidate: LabelCandidate,
-  markerPromptLabel: FormFieldLabel | undefined,
-  currencyPrompt: FormFieldLabel,
-): FormFieldLabel {
-  if (!markerPromptLabel || candidate.relation !== 'left' || !isCompactFieldMarker(candidate.text)) {
-    return currencyPrompt;
-  }
-  const markerTokens = informativeTokenCount(markerPromptLabel.text);
-  const currencyTokens = informativeTokenCount(currencyPrompt.text);
-  return markerTokens >= Math.max(4, currencyTokens + 2) ? markerPromptLabel : currencyPrompt;
-}
-
-function informativeTokenCount(text: string): number {
-  const tokens = normalizeLabelText(text).match(/[\p{Letter}\p{Number}]+(?:['’][\p{Letter}\p{Number}]+)?/gu);
-  return tokens?.filter((token) => !/^\d+(?:\([a-z]\)|[a-z])?$/iu.test(token)).length ?? 0;
 }
 
 function findImmediateChoiceOptionLabelCandidate(
