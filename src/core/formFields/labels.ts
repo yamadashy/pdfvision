@@ -49,6 +49,7 @@ export function findFieldLabel(
     if (isSemanticFieldNameMismatch(field, text)) continue;
     const candidate = scoreLabelCandidate(field, line, text);
     if (!candidate) continue;
+    if (isSiblingChoiceOptionCandidate(field, line, text, candidate.relation, siblings)) continue;
     if (isAbovePreviousSectionHeadingCandidate(field, line, candidate.relation, lines)) continue;
     if (isPreviousRowMarkerCandidate(field, line, text, candidate.relation, lines)) continue;
     candidate.score += widgetCrossingPenalty(field, candidate, siblings);
@@ -119,6 +120,32 @@ function findImmediateChoiceOptionLabel(
 
 function isCloseNumericChoiceOptionLabel(text: string, relation: LabelCandidate['relation'], gap: number): boolean {
   return relation === 'right' && gap >= -2 && gap <= CHOICE_OPTION_LABEL_MAX_GAP_PT && /^\d{3,}$/u.test(text);
+}
+
+function isSiblingChoiceOptionCandidate(
+  field: FormField,
+  line: LabelLine,
+  text: string,
+  relation: LabelCandidate['relation'],
+  siblings: readonly FormField[],
+): boolean {
+  if (field.type !== 'text' || relation !== 'above') return false;
+  if (!isUsableLabelText(text, CHOICE_OPTION_LABEL_MAX_CHARS)) return false;
+
+  for (const sibling of siblings) {
+    if (sibling === field || !isChoiceLikeField(sibling)) continue;
+    if (sibling.y > field.y + field.height - 1) continue;
+    const centerDelta = Math.abs(centerY(sibling) - centerY(line));
+    const maxCenterDelta = Math.max(7, Math.max(sibling.height, line.height) * 0.9);
+    if (centerDelta > maxCenterDelta) continue;
+    const siblingRight = sibling.x + sibling.width;
+    const lineRight = line.x + line.width;
+    const rightGap = line.x - siblingRight;
+    const leftGap = sibling.x - lineRight;
+    if (rightGap >= -2 && rightGap <= CHOICE_OPTION_LABEL_MAX_GAP_PT) return true;
+    if (leftGap >= -2 && leftGap <= CHOICE_OPTION_LABEL_MAX_GAP_PT) return true;
+  }
+  return false;
 }
 
 function isMarkerOnlyChoicePromptFallback(

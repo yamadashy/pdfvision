@@ -409,6 +409,65 @@ describe('buildFormFields', () => {
     ]);
   });
 
+  it('does not reuse checkbox option labels as following text-field labels', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'lastArrivalYes',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(498, 235.03, 10, 10),
+          fieldValue: 'Off',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'lastArrivalNo',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(540, 235.03, 10, 10),
+          fieldValue: 'Off',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'currentImmigrationStatus',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(396, 252, 180.36, 18),
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        {
+          text: '13. Was your last arrival the first time you were physically present in the United States?',
+          x: 36,
+          y: 232.84,
+          width: 361.17,
+          height: 10,
+          fontSize: 10,
+        },
+        { text: 'Yes', x: 515.04, y: 232.87, width: 15.55, height: 10, fontSize: 10 },
+        { text: 'No', x: 557.97, y: 232.87, width: 12.22, height: 10, fontSize: 10 },
+        {
+          text: '14. What is your current immigration status (if it has changed since your last arrival)?',
+          x: 36,
+          y: 253.84,
+          width: 352,
+          height: 10,
+          fontSize: 10,
+        },
+      ],
+    );
+
+    expect(fields.find((field) => field.name === 'lastArrivalYes')?.label?.text).toBe('Yes');
+    expect(fields.find((field) => field.name === 'lastArrivalNo')?.label?.text).toBe('No');
+    expect(fields.find((field) => field.name === 'currentImmigrationStatus')?.label).toMatchObject({
+      text: '14. What is your current immigration status (if it has changed since your last arrival)?',
+      relation: 'left',
+    });
+  });
+
   it('prefers complete short option labels over same-position glyph fragments', () => {
     const fields = buildFormFields(
       [
