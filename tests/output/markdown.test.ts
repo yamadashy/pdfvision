@@ -217,6 +217,72 @@ describe('formatMarkdown', () => {
     expect(out).not.toContain('215.21,39.48');
   });
 
+  it('renders detected layout tables as row-major Markdown tables', () => {
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 2,
+        pages: [
+          makePage({
+            page: 1,
+            text: 'flattened table body',
+            charCount: 20,
+            layout: {
+              blocks: [{ text: 'flattened table body', x: 10, y: 20, width: 180, height: 12, lines: [] }],
+              tables: [
+                {
+                  x: 10,
+                  y: 40,
+                  width: 300,
+                  height: 48,
+                  rowCount: 3,
+                  columnCount: 3,
+                  rows: [
+                    {
+                      y: 40,
+                      height: 12,
+                      cells: [
+                        { text: 'Metric', x: 10, y: 40, width: 80, height: 12 },
+                        { text: '2024', x: 120, y: 40, width: 50, height: 12 },
+                        { text: '2023', x: 220, y: 40, width: 50, height: 12 },
+                      ],
+                    },
+                    {
+                      y: 56,
+                      height: 12,
+                      cells: [
+                        { text: 'Revenue | products', x: 10, y: 56, width: 80, height: 12 },
+                        { text: '$ 10', x: 120, y: 56, width: 50, height: 12 },
+                        { text: '$ 9', x: 220, y: 56, width: 50, height: 12 },
+                      ],
+                    },
+                    {
+                      y: 72,
+                      height: 12,
+                      cells: [
+                        { text: 'Services', x: 10, y: 72, width: 80, height: 12 },
+                        { text: '$ 4', x: 120, y: 72, width: 50, height: 12 },
+                        { text: '$ 3', x: 220, y: 72, width: 50, height: 12 },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          }),
+          makePage({ page: 2, text: 'plain', charCount: 5 }),
+        ],
+      }),
+    );
+
+    expect(out).toMatch(/\| Page \| Chars \| Images \| Coverage \| Size \(pt\) \| Tables \| Blocks \|/);
+    expect(out).toMatch(/\| 1 \| 20 \| 0 \| 0% \| 612×792 \| 1 \| 1 \|/);
+    expect(out).toContain('tables: 1');
+    expect(out).toContain('### Layout tables');
+    expect(out).toContain('#### Table 1 (3 rows × 3 columns, bbox 10,40,300,48)');
+    expect(out).toContain('| C1 | C2 | C3 |');
+    expect(out).toContain('| Revenue \\| products | $ 10 | $ 9 |');
+  });
+
   it('adds visual-region counts and crop-ready region tables in Markdown', () => {
     const out = formatMarkdown(
       makeResult({

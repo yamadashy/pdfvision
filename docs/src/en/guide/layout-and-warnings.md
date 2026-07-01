@@ -22,7 +22,7 @@ Layout output includes:
 - `pages[].layout.tables`: numeric-table hints when rows and columns may be flattened in native text.
 - vertical CJK text recovery when text should be read as a vertical stack.
 
-Markdown output can use recovered layout order when the native text stream diverges from visual reading order.
+Markdown output can use recovered layout order when the native text stream diverges from visual reading order. It also renders detected `layout.tables[]` as per-page layout table sections, preserving row/value relationships for financial statements and other numeric tables in chat-readable output.
 
 Use layout when:
 

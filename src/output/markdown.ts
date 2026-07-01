@@ -1,32 +1,15 @@
 import type { DocumentResult, PageResult } from '../types/index.js';
+import { appendAnnotations } from './markdown/annotations.js';
 import { appendLayers, appendOutline, appendViewer } from './markdown/documentSections.js';
-import {
-  annotationBorder,
-  annotationColor,
-  annotationFileAttachment,
-  annotationFlags,
-  annotationShape,
-  escapeInline,
-  escapeTableCell,
-  fieldActions,
-  fieldExportValue,
-  fieldFlags,
-  fieldLabel,
-  fieldOptions,
-  fieldResetForm,
-  fieldValue,
-  formatBox,
-  formatJavaScriptActions,
-  jsActionCount,
-  linkAttachment,
-  linkSafety,
-  linkTarget,
-  visualRegionAssociatedText,
-  visualRegionSources,
-} from './markdown/helpers.js';
+import { appendFormFields } from './markdown/formFields.js';
+import { escapeInline, escapeTableCell, jsActionCount } from './markdown/helpers.js';
+import { appendLayoutTables } from './markdown/layoutTables.js';
+import { appendLinks } from './markdown/links.js';
 import { appendOverview, formatSize } from './markdown/overview.js';
+import { appendJavaScriptActions, appendOcr, appendPageImage, appendWarnings } from './markdown/pageArtifacts.js';
 import { appendSearchMatches } from './markdown/pageSections.js';
 import { appendStructureItem, structureNodeCount } from './markdown/structure.js';
+import { appendVisualRegions } from './markdown/visualRegions.js';
 
 /** Options that influence the Markdown rendering without changing the
  *  underlying `DocumentResult`. JSON / XML formatters don't need them
@@ -169,6 +152,8 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     const rotationFragment = page.rotation !== undefined ? ` · rotation: ${page.rotation}°` : '';
     const vectorsFragment = page.vectorCount > 0 ? ` · vectors: ${page.vectorCount}` : '';
     const vectorBoxesFragment = page.vectorBoxes !== undefined ? ` · vectorBoxes: ${page.vectorBoxes.length}` : '';
+    const layoutTablesFragment =
+      (page.layout?.tables?.length ?? 0) > 0 ? ` · tables: ${page.layout?.tables?.length}` : '';
     const visualRegionsFragment =
       page.visualRegions !== undefined ? ` · visualRegions: ${page.visualRegions.length}` : '';
     const formFieldsFragment = page.formFields !== undefined ? ` · formFields: ${page.formFields.length}` : '';
@@ -200,12 +185,15 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     // because no search ran. Mirrors the overview Matches column.
     const matchesFragment = page.matches !== undefined ? ` · matches: ${page.matches.length}` : '';
     lines.push(
-      `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${pageLabelFragment}${nonPrintFragment}${renderFragment}${rotationFragment}${vectorsFragment}${vectorBoxesFragment}${visualRegionsFragment}${formFieldsFragment}${linksFragment}${annotationsFragment}${structureFragment}${jsActionsFragment}${nativeFragment}${visualFragment}${warningsFragment}${matchesFragment} · size: ${formatSize(page)}pt_`,
+      `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${pageLabelFragment}${nonPrintFragment}${renderFragment}${rotationFragment}${vectorsFragment}${vectorBoxesFragment}${layoutTablesFragment}${visualRegionsFragment}${formFieldsFragment}${linksFragment}${annotationsFragment}${structureFragment}${jsActionsFragment}${nativeFragment}${visualFragment}${warningsFragment}${matchesFragment} · size: ${formatSize(page)}pt_`,
     );
     const body = pageBody(page, options);
     if (body) {
       lines.push('');
       lines.push(body);
+    }
+    if (page.layout?.tables && page.layout.tables.length > 0) {
+      appendLayoutTables(lines, page.layout.tables);
     }
     if (page.matches) {
       appendSearchMatches(lines, page.matches);
@@ -220,150 +208,14 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
         appendStructureItem(lines, page.structure);
       }
     }
-    if (page.visualRegions) {
-      lines.push('');
-      lines.push('### Visual regions');
-      if (page.visualRegions.length === 0) {
-        lines.push('');
-        lines.push('_No crop-ready visual regions found._');
-      } else {
-        lines.push('');
-        const showRegionImages = page.visualRegions.some((region) => region.image !== undefined);
-        const showAssociatedText = page.visualRegions.some((region) => (region.associatedText?.length ?? 0) > 0);
-        const imageHeader = showRegionImages ? ' Image | Render |' : '';
-        const imageSep = showRegionImages ? ' --- | ---: |' : '';
-        const associatedTextHeader = showAssociatedText ? ' Text |' : '';
-        const associatedTextSep = showAssociatedText ? ' --- |' : '';
-        lines.push(`| ID | Kind | BBox | Area |${imageHeader}${associatedTextHeader} Sources | Reason |`);
-        lines.push(`| --- | --- | --- | ---: |${imageSep}${associatedTextSep} --- | --- |`);
-        for (const region of page.visualRegions) {
-          const imageCells = showRegionImages
-            ? ` ${escapeTableCell(region.image ?? '')} | ${
-                region.renderContentRatio !== undefined ? `${(region.renderContentRatio * 100).toFixed(2)}%` : ''
-              } |`
-            : '';
-          const associatedTextCell = showAssociatedText
-            ? ` ${escapeTableCell(visualRegionAssociatedText(region))} |`
-            : '';
-          lines.push(
-            `| ${escapeTableCell(region.id ?? '')} | ${region.kind} | ${formatBox(region)} | ${(region.areaRatio * 100).toFixed(1)}% |${imageCells}${associatedTextCell} ${escapeTableCell(visualRegionSources(region))} | ${escapeTableCell(region.reason)} |`,
-          );
-        }
-      }
-    }
-    if (page.formFields) {
-      lines.push('');
-      lines.push('### Form fields');
-      if (page.formFields.length === 0) {
-        lines.push('');
-        lines.push('_No interactive form fields found._');
-      } else {
-        lines.push('');
-        const showFieldActions = page.formFields.some((field) => field.actions !== undefined);
-        const showFieldReset = page.formFields.some((field) => field.resetForm !== undefined);
-        const showExportValue = page.formFields.some((field) => fieldExportValue(field).length > 0);
-        lines.push(
-          `| Type | Name | Label | Value |${showExportValue ? ' Export |' : ''} Options |${showFieldReset ? ' Reset |' : ''}${showFieldActions ? ' Actions |' : ''} Flags | BBox |`,
-        );
-        lines.push(
-          `| --- | --- | --- | --- |${showExportValue ? ' --- |' : ''} --- |${showFieldReset ? ' --- |' : ''}${showFieldActions ? ' --- |' : ''} --- | --- |`,
-        );
-        for (const field of page.formFields) {
-          const resetCell = showFieldReset ? ` ${escapeTableCell(fieldResetForm(field))} |` : '';
-          const actionsCell = showFieldActions ? ` ${escapeTableCell(fieldActions(field))} |` : '';
-          const exportCell = showExportValue ? ` ${escapeTableCell(fieldExportValue(field))} |` : '';
-          lines.push(
-            `| ${field.type} | ${escapeTableCell(field.name)} | ${escapeTableCell(fieldLabel(field))} | ${escapeTableCell(fieldValue(field))} |${exportCell} ${escapeTableCell(fieldOptions(field))} |${resetCell}${actionsCell} ${escapeTableCell(fieldFlags(field))} | ${formatBox(field)} |`,
-          );
-        }
-      }
-    }
-    if (page.jsActions) {
-      lines.push('');
-      lines.push('### JavaScript actions');
-      lines.push('');
-      lines.push(`- ${escapeInline(formatJavaScriptActions(page.jsActions))}`);
-    }
-    if (page.links) {
-      lines.push('');
-      lines.push('### Links');
-      if (page.links.length === 0) {
-        lines.push('');
-        lines.push('_No clickable links found._');
-      } else {
-        lines.push('');
-        const showLinkSafety = page.links.some((link) => link.unsafe === true || link.newWindow !== undefined);
-        const showLinkAttachment = page.links.some((link) => link.attachment !== undefined);
-        const safetyHeader = showLinkSafety ? ' Safety |' : '';
-        const attachmentHeader = showLinkAttachment ? ' Attachment |' : '';
-        lines.push(`| Type | Text | Target | TargetPage |${safetyHeader}${attachmentHeader} BBox |`);
-        lines.push(
-          `| --- | --- | --- | ---: |${showLinkSafety ? ' --- |' : ''}${showLinkAttachment ? ' --- |' : ''} --- |`,
-        );
-        for (const link of page.links) {
-          const safetyCell = showLinkSafety ? ` ${escapeTableCell(linkSafety(link))} |` : '';
-          const attachmentCell = showLinkAttachment ? ` ${escapeTableCell(linkAttachment(link))} |` : '';
-          lines.push(
-            `| ${link.type} | ${escapeTableCell(link.text ?? '')} | ${escapeTableCell(linkTarget(link.target))} | ${link.page ?? ''} |${safetyCell}${attachmentCell} ${formatBox(link)} |`,
-          );
-        }
-      }
-    }
-    if (page.annotations) {
-      lines.push('');
-      lines.push('### Annotations');
-      if (page.annotations.length === 0) {
-        lines.push('');
-        lines.push('_No non-link annotations found._');
-      } else {
-        lines.push('');
-        lines.push('| Type | Name | Contents | Title | File | Flags | BBox | Color | Border | Shape | QuadBoxes |');
-        lines.push('| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---: |');
-        for (const annotation of page.annotations) {
-          lines.push(
-            `| ${escapeTableCell(annotation.subtype)} | ${escapeTableCell(annotation.name ?? '')} | ${escapeTableCell(annotation.contents ?? '')} | ${escapeTableCell(annotation.title ?? '')} | ${escapeTableCell(annotationFileAttachment(annotation))} | ${annotationFlags(annotation)} | ${formatBox(annotation)} | ${annotationColor(annotation)} | ${escapeTableCell(annotationBorder(annotation))} | ${escapeTableCell(annotationShape(annotation))} | ${annotation.quadBoxes?.length ?? 0} |`,
-          );
-        }
-      }
-    }
-    if (page.warnings && page.warnings.length > 0) {
-      // Per-warning blockquote section. Placed after the body so the
-      // agent reads the page content first and only sees the anomaly
-      // list when it specifically looks for problems. Blockquote `>`
-      // is visually distinct from body paragraphs and parses cleanly
-      // in both plain Markdown viewers and LLM contexts.
-      lines.push('');
-      lines.push('### Warnings');
-      lines.push('');
-      for (const w of page.warnings) {
-        // Severity goes first as a bold label so a quick scan
-        // separates `error` (likely render-broken / data-integrity)
-        // from `warning` (typesetting concern). Code follows in
-        // parentheses for the machine-readable handle.
-        lines.push(`> **${w.severity}** (${w.code}): ${w.message}`);
-      }
-    }
-    if (page.ocr) {
-      // OCR sits below the native text so the agent reads pdfjs first
-      // and only consults OCR when text is empty/garbled. The label
-      // surfaces lang + confidence so a low-confidence page is obvious
-      // without inspecting the JSON form.
-      const confPct = Math.round(page.ocr.confidence * 100);
-      lines.push('');
-      lines.push(`### OCR (${page.ocr.lang}, confidence ${confPct}%)`);
-      if (page.ocr.text) {
-        lines.push('');
-        lines.push(page.ocr.text);
-      }
-    }
-    if (page.image) {
-      lines.push('');
-      // Use the <...> link destination form so paths with spaces or
-      // parentheses (common with `--render-output ./my (drafts)/`) don't
-      // break the image link. Filesystem paths effectively never contain
-      // `<` or `>`, so no further escaping is needed.
-      lines.push(`![Page ${page.page}](<${page.image}>)`);
-    }
+    appendVisualRegions(lines, page);
+    appendFormFields(lines, page);
+    appendJavaScriptActions(lines, page);
+    appendLinks(lines, page);
+    appendAnnotations(lines, page);
+    appendWarnings(lines, page);
+    appendOcr(lines, page);
+    appendPageImage(lines, page);
   }
   return lines.join('\n');
 }
