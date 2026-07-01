@@ -60,16 +60,41 @@ export function findFieldLabel(
     if (!best || candidate.score < best.score) best = candidate;
   }
   const currencyPrompt = findCurrencyAnchoredPromptLabel(field, lines);
-  if (currencyPrompt) return trimAboveSectionBoundaryLabel(field, currencyPrompt, lines);
-  if (!best) return undefined;
+  if (!best) return currencyPrompt ? trimAboveSectionBoundaryLabel(field, currencyPrompt, lines) : undefined;
   if (isMarkerOnlyChoicePromptFallback(field, best, lines)) return undefined;
+  const markerPromptLabel = expandSameLineMarkerPromptLabel(field, best, lines);
+  if (currencyPrompt) {
+    return trimAboveSectionBoundaryLabel(
+      field,
+      chooseCurrencyAwareLabel(best, markerPromptLabel, currencyPrompt),
+      lines,
+    );
+  }
   const label =
-    expandSameLineMarkerPromptLabel(field, best, lines) ??
+    markerPromptLabel ??
     expandLeftTrailingPromptStack(field, best, lines) ??
     expandChoiceSideStackedLabel(field, best, lines, siblings) ??
     expandSideLabelContinuation(field, best, lines, siblings) ??
     expandStackedLabel(field, best, lines);
   return trimAboveSectionBoundaryLabel(field, label, lines);
+}
+
+function chooseCurrencyAwareLabel(
+  candidate: LabelCandidate,
+  markerPromptLabel: FormFieldLabel | undefined,
+  currencyPrompt: FormFieldLabel,
+): FormFieldLabel {
+  if (!markerPromptLabel || candidate.relation !== 'left' || !isCompactFieldMarker(candidate.text)) {
+    return currencyPrompt;
+  }
+  const markerTokens = informativeTokenCount(markerPromptLabel.text);
+  const currencyTokens = informativeTokenCount(currencyPrompt.text);
+  return markerTokens >= Math.max(4, currencyTokens + 2) ? markerPromptLabel : currencyPrompt;
+}
+
+function informativeTokenCount(text: string): number {
+  const tokens = normalizeLabelText(text).match(/[\p{Letter}\p{Number}]+(?:['’][\p{Letter}\p{Number}]+)?/gu);
+  return tokens?.filter((token) => !/^\d+(?:\([a-z]\)|[a-z])?$/iu.test(token)).length ?? 0;
 }
 
 function findImmediateChoiceOptionLabelCandidate(

@@ -1797,6 +1797,37 @@ describe('buildFormFields', () => {
     expect(fields[0].label?.text).toBe('(b) Multiply the number of other dependents by $500 3(b) $');
   });
 
+  it('prefers stacked subitem prompts over same-row currency examples', () => {
+    const fields = buildFormFields(
+      [{ subtype: 'Widget', fieldName: 'line3aAmount', fieldType: 'Tx', rect: [417.6, 300, 481.65, 312] }],
+      792,
+      0,
+      0,
+      [
+        {
+          text: '(a) Multiply the number of qualifying children under age 17 by',
+          x: 122.36,
+          y: 469.12,
+          width: 259.23,
+          height: 9,
+          fontSize: 9,
+        },
+        {
+          text: '$2,200 . . . . . . . . . . . . . . . . . .',
+          x: 136.78,
+          y: 479.92,
+          width: 237.65,
+          height: 9,
+          fontSize: 9,
+        },
+        { text: '3(a) $', x: 391.85, y: 480.42, width: 24.81, height: 9, fontSize: 9 },
+        { text: '$', x: 410.1, y: 480.42, width: 5, height: 9, fontSize: 9 },
+      ],
+    );
+
+    expect(fields[0].label?.text).toBe('(a) Multiply the number of qualifying children under age 17 by $2,200 3(a) $');
+  });
+
   it('does not absorb previous subitem rows into bare total amount markers', () => {
     const dotLeaders = Array.from({ length: 8 }, (_, index) => ({
       text: '.',
@@ -1838,6 +1869,7 @@ describe('buildFormFields', () => {
         },
         ...dotLeaders,
         { text: '3', x: 490.7, y: 516.42, width: 5, height: 9, fontSize: 9 },
+        { text: '$', x: 505.1, y: 516.42, width: 5, height: 9, fontSize: 9 },
       ],
     );
 
