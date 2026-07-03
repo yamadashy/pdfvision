@@ -5,7 +5,9 @@ import type { LabelLine } from './types.js';
 
 const CURRENCY_PROMPT_MAX_MARKER_GAP_PT = 14;
 const CURRENCY_PROMPT_MAX_PROMPT_GAP_PT = 140;
+const CURRENCY_PROMPT_LETTERED_ROW_MAX_PROMPT_GAP_PT = 280;
 const CURRENCY_PROMPT_MARKER_PREFIX_MAX_GAP_PT = 24;
+const CURRENCY_PROMPT_ROW_EPSILON_PT = 0.75;
 
 export function findCurrencyAnchoredPromptLabel(
   field: FormField,
@@ -56,10 +58,17 @@ function nearestCurrencyPromptLine(marker: LabelLine, lines: readonly LabelLine[
     if (!isUsableLabelText(text) || isCurrencyMarker(text) || isCompactFieldMarker(text)) continue;
 
     const gap = marker.x - (line.x + line.width);
-    if (gap < -2 || gap > CURRENCY_PROMPT_MAX_PROMPT_GAP_PT) continue;
+    const maxGap = startsWithLetteredRowPrompt(text)
+      ? CURRENCY_PROMPT_LETTERED_ROW_MAX_PROMPT_GAP_PT
+      : CURRENCY_PROMPT_MAX_PROMPT_GAP_PT;
+    if (gap < -2 || gap > maxGap) continue;
     if (!best || gap < best.gap) best = { line, gap };
   }
   return best?.line;
+}
+
+function startsWithLetteredRowPrompt(text: string): boolean {
+  return /^[A-Z]\.\s+[\p{Letter}\p{Number}]/iu.test(normalizePromptLabelText(text));
 }
 
 function nearestPromptMarkerPrefix(prompt: LabelLine, lines: readonly LabelLine[]): LabelLine | undefined {
@@ -75,7 +84,10 @@ function nearestPromptMarkerPrefix(prompt: LabelLine, lines: readonly LabelLine[
 }
 
 function sameVisualRow(a: Pick<LabelLine, 'y' | 'height'>, b: Pick<LabelLine, 'y' | 'height'>): boolean {
-  return Math.abs(verticalCenter(a) - verticalCenter(b)) <= Math.max(5, Math.max(a.height, b.height) * 0.6);
+  return (
+    Math.abs(verticalCenter(a) - verticalCenter(b)) <=
+    Math.max(5, Math.max(a.height, b.height) * 0.6) + CURRENCY_PROMPT_ROW_EPSILON_PT
+  );
 }
 
 function verticalCenter(box: Pick<LabelLine, 'y' | 'height'>): number {

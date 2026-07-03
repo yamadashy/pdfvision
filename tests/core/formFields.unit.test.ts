@@ -1635,6 +1635,87 @@ describe('buildFormFields', () => {
     expect(fields.find((field) => field.name === 'Automobiles')?.label?.text).toBe('Automobiles');
   });
 
+  it('prefers lettered row prompts around currency markers over wrapped continuations', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'utilitiesAmount',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(478.83, 190.46, 114.45, 30.32),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'transportationAmount',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(478.83, 339.66, 114.45, 19.92),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'tuitionAmount',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(478.83, 393.02, 114.45, 19.92),
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        {
+          text: 'C. Utilities (gas, electric, telephone, Internet, trash',
+          x: 48.75,
+          y: 189.89,
+          width: 356.8,
+          height: 12,
+          fontSize: 12,
+        },
+        {
+          text: 'collection, water, sewer, oil, propane, coal, wood, etc.)',
+          x: 64.59,
+          y: 204.29,
+          width: 288.12,
+          height: 12,
+          fontSize: 12,
+        },
+        { text: '$', x: 468.03, y: 197.09, width: 6.67, height: 12, fontSize: 12 },
+        {
+          text: 'H. Other Transportation (bus, taxi, etc.)',
+          x: 48.75,
+          y: 341.09,
+          width: 208.08,
+          height: 12,
+          fontSize: 12,
+        },
+        { text: '$', x: 468.03, y: 341.09, width: 6.67, height: 12, fontSize: 12 },
+        {
+          text: 'I. Medical/Dental (prescriptions and medical equipment)',
+          x: 48.75,
+          y: 360.6,
+          width: 350.81,
+          height: 12,
+          fontSize: 12,
+        },
+        {
+          text: 'J. Tuition and School Expenses',
+          x: 48.75,
+          y: 395.45,
+          width: 168.08,
+          height: 12,
+          fontSize: 12,
+        },
+        { text: '$', x: 468.03, y: 394.45, width: 6.67, height: 12, fontSize: 12 },
+      ],
+    );
+
+    expect(fields.find((field) => field.name === 'utilitiesAmount')?.label?.text).toBe(
+      'C. Utilities (gas, electric, telephone, Internet, trash',
+    );
+    expect(fields.find((field) => field.name === 'transportationAmount')?.label?.text).toBe(
+      'H. Other Transportation (bus, taxi, etc.)',
+    );
+    expect(fields.find((field) => field.name === 'tuitionAmount')?.label?.text).toBe('J. Tuition and School Expenses');
+  });
+
   it('uses same-marker prompt bands when distant dot leaders separate amount labels', () => {
     const fields = buildFormFields(
       [
