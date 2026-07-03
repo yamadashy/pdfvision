@@ -93,6 +93,22 @@ export function isLikelySparseNumericLegendFragment(lines: readonly LayoutLine[]
   return hasTallSideLabel(lines) || hasSparseLegendRowCadence(rows);
 }
 
+export function isLikelyMirroredChartAxisTable(lines: readonly LayoutLine[]): boolean {
+  if (lines.length < 12) return false;
+
+  const rows = groupRows(lines);
+  const mirroredRows = rows.filter(isMirroredAxisLabelRow).length;
+  if (mirroredRows < Math.max(6, Math.ceil(rows.length * 0.3))) return false;
+
+  const axisTickRows = rows.filter(isAxisTickRow).length;
+  if (axisTickRows === 0) return false;
+
+  const dataLikeRows = rows.filter(
+    (row) => row.filter((line) => isTableNumericCell(line.text) && !normalizedAxisLabel(line.text)).length >= 2,
+  ).length;
+  return dataLikeRows <= axisTickRows + 2;
+}
+
 export function isTinyVectorNumericCell(line: LayoutLine): boolean {
   const text = line.text.trim();
   if (!isTinyVectorNumericText(text)) return false;
@@ -129,6 +145,53 @@ function hasSparseLegendRowCadence(rowCenters: readonly number[]): boolean {
   const sorted = [...rowCenters].sort((a, b) => a - b);
   const gaps = sorted.slice(1).map((center, index) => center - sorted[index]);
   return gaps.some((gap) => gap >= NUMERIC_LEGEND_MIN_ROW_GAP_PT);
+}
+
+function groupRows(lines: readonly LayoutLine[]): LayoutLine[][] {
+  const rows: LayoutLine[][] = [];
+  for (const line of [...lines].sort((a, b) => a.y - b.y || a.x - b.x)) {
+    const row = rows.find(
+      (candidate) => Math.abs(rowCenter(candidate) - centerY(line)) <= TINY_VECTOR_NUMERIC_ROW_TOLERANCE_PT,
+    );
+    if (row) row.push(line);
+    else rows.push([line]);
+  }
+  return rows;
+}
+
+function isMirroredAxisLabelRow(row: readonly LayoutLine[]): boolean {
+  if (row.filter((line) => isTableNumericCell(line.text) && !normalizedAxisLabel(line.text)).length > 1) return false;
+  const labels = new Map<string, number>();
+  for (const line of row) {
+    const label = normalizedAxisLabel(line.text);
+    if (!label) continue;
+    labels.set(label, (labels.get(label) ?? 0) + 1);
+  }
+  return [...labels.values()].some((count) => count >= 2);
+}
+
+function isAxisTickRow(row: readonly LayoutLine[]): boolean {
+  const numericLines = row.filter((line) => isTableNumericCell(line.text) && !normalizedAxisLabel(line.text));
+  return numericLines.length >= 6 && numericLines.length / row.length >= 0.75;
+}
+
+function normalizedAxisLabel(text: string): string | undefined {
+  const normalized = text.replace(/\s+/gu, ' ').trim();
+  if (normalized.length === 0 || normalized.length > 24) return undefined;
+  if (!/\p{N}/u.test(normalized)) return undefined;
+  if (!/[~〜\-–—]/u.test(normalized) && !/(?:歳|才|years?|yrs?)\b/iu.test(normalized)) return undefined;
+  return normalized
+    .replace(/[〜–—]/gu, '~')
+    .replace(/\s*~\s*/gu, '~')
+    .toLocaleLowerCase();
+}
+
+function rowCenter(row: readonly LayoutLine[]): number {
+  return row.reduce((sum, line) => sum + centerY(line), 0) / Math.max(row.length, 1);
+}
+
+function centerY(line: LayoutLine): number {
+  return line.y + line.height / 2;
 }
 
 function isTinyVectorNumericText(text: string): boolean {

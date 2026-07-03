@@ -1,6 +1,7 @@
 import type { LayoutLine, LayoutTable } from '../../types/index.js';
 import { type BBox, round2, unionBox } from './geometry.js';
 import {
+  isLikelyMirroredChartAxisTable,
   isLikelySparseNumericLegendFragment,
   isLikelyTinyNumericChartFragment,
   isLikelyTinyNumericVectorGrid,
@@ -67,6 +68,7 @@ export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefin
     if (isLikelyTinyNumericVectorGrid(tableRows.flat())) continue;
     if (isLikelyTinyNumericChartFragment(tableRows.flat())) continue;
     if (isLikelySparseNumericLegendFragment(tableRows.flat())) continue;
+    if (isLikelyMirroredChartAxisTable(tableRows.flat())) continue;
     result.push(toLayoutTable(tableRows));
   }
   for (const table of alignedTextTables) {
@@ -132,10 +134,12 @@ function detectAlignedTextTables(allRowGroups: LayoutLine[][]): LayoutTable[] {
     if (isLikelyTinyNumericVectorGrid(baseRows.flat())) continue;
     if (isLikelyTinyNumericChartFragment(baseRows.flat())) continue;
     if (isLikelySparseNumericLegendFragment(baseRows.flat())) continue;
+    if (isLikelyMirroredChartAxisTable(baseRows.flat())) continue;
     if (!isAlignedTextTableGroup(baseRows)) continue;
     const rows = attachAlignedTextHeaderRows(group, allRowGroups);
     if (isLikelyTinyNumericChartFragment(rows.flat())) continue;
     if (isLikelySparseNumericLegendFragment(rows.flat())) continue;
+    if (isLikelyMirroredChartAxisTable(rows.flat())) continue;
     tables.push(toLayoutTable(rows));
   }
   return tables;

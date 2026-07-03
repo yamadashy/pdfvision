@@ -2169,6 +2169,23 @@ describe('buildLayout — multi-column reading order', () => {
     ]);
   });
 
+  it('does not treat mirrored chart axis labels as layout tables', () => {
+    const axisTicks = ['8', '6', '4', '2', '0', '2', '4', '6', '8'];
+    const ageLabels = ['85~89', '80~84', '75~79', '70~74', '65~69', '60~64', '55~59', '50~54'];
+    const spans: TextSpan[] = [
+      ...ageLabels.flatMap((label, index) => [
+        span(label, 110, 120 + index * 12, 8, 24),
+        span(label, 330, 120 + index * 12, 8, 24),
+      ]),
+      ...axisTicks.map((tick, index) => span(tick, 95 + index * 25, 230, 8, 8)),
+      ...axisTicks.map((tick, index) => span(tick, 320 + index * 25, 230, 8, 8)),
+    ];
+
+    const layout = buildLayout(spans, 612);
+
+    expect(layout.tables).toBeUndefined();
+  });
+
   it('keeps benchmark score and percentile rows in wide table hints', () => {
     // GPT-4 technical-report-shaped case: early rows use score/total and
     // percentile cells before the table later switches to plain percent

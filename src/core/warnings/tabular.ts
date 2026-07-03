@@ -1,5 +1,9 @@
 import type { LayoutBlock, LayoutLine, PageResult, PageWarning } from '../../types/index.js';
-import { isLikelySparseNumericLegendFragment, isLikelyTinyNumericVectorGrid } from '../layout/numericVectorGrid.js';
+import {
+  isLikelyMirroredChartAxisTable,
+  isLikelySparseNumericLegendFragment,
+  isLikelyTinyNumericVectorGrid,
+} from '../layout/numericVectorGrid.js';
 
 const TABULAR_NUMERIC_MIN_LINES = 12;
 const TABULAR_NUMERIC_MIN_LINE_RATIO = 0.25;
@@ -40,6 +44,7 @@ export function detectTabularNumericLayout(blocks: LayoutBlock[], out: PageWarni
   }
   if (isLikelyTinyNumericVectorGrid(numericLines)) return;
   if (isLikelySparseNumericLegendFragment(numericLines)) return;
+  if (isLikelyMirroredChartAxisTable(allLines)) return;
 
   out.push({
     code: 'tabular_numeric_layout',

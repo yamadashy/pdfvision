@@ -1495,6 +1495,30 @@ describe('detectPageWarnings', () => {
     expect(out.filter((w) => w.code === 'tabular_numeric_layout')).toEqual([]);
   });
 
+  it('does not flag mirrored chart axis labels as flattened tables', () => {
+    const axisTicks = ['8', '6', '4', '2', '0', '2', '4', '6', '8'];
+    const ageLabels = ['85~89', '80~84', '75~79', '70~74', '65~69', '60~64', '55~59', '50~54'];
+    const chartLines: LayoutLine[] = [
+      ...ageLabels.flatMap((label, index) => [
+        line(label, 110, 120 + index * 12, 24),
+        line(label, 330, 120 + index * 12, 24),
+      ]),
+      ...axisTicks.map((tick, index) => line(tick, 95 + index * 25, 230, 8)),
+      ...axisTicks.map((tick, index) => line(tick, 320 + index * 25, 230, 8)),
+    ];
+
+    const out = detectPageWarnings(
+      page([
+        block(90, 110, 460, 140, {
+          text: chartLines.map((item) => item.text).join('\n'),
+          lines: chartLines,
+        }),
+      ]),
+    );
+
+    expect(out.filter((w) => w.code === 'tabular_numeric_layout')).toEqual([]);
+  });
+
   it('flags irregular financial tables when numeric columns recur across rows', () => {
     const ys = [100, 126, 151, 177, 228, 241, 255, 270];
     const out = detectPageWarnings(
