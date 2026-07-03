@@ -10,6 +10,7 @@ const LATIN_WORD_RE = /^[\p{Script=Latin}\p{M}]+$/u;
 const LATIN_WORD_END_RE = /[\p{Script=Latin}\p{M}]$/u;
 const LATIN_WORD_START_RE = /^[\p{Script=Latin}\p{M}]/u;
 const LATIN_WORD_OR_NUMBER_END_RE = /[\p{Script=Latin}\p{M}\p{N}]$/u;
+const NUMBER_START_RE = /^\p{N}/u;
 const GREEK_SYMBOL_END_RE = /\p{Script=Greek}$/u;
 const GREEK_SYMBOL_START_RE = /^\p{Script=Greek}/u;
 const SENTENCE_PUNCTUATION_END_RE = /[.!?。．]$/u;
@@ -44,6 +45,10 @@ export function shouldInsertSemanticSpace(prevText: string, curText: string, gap
     LATIN_WORD_OR_NUMBER_END_RE.test(prev) &&
     LATIN_WORD_START_RE.test(cur)
   ) {
+    return true;
+  }
+
+  if (gap > fontSize * LATIN_WORD_SPACE_MIN_GAP_RATIO && LATIN_WORD_END_RE.test(prev) && NUMBER_START_RE.test(cur)) {
     return true;
   }
 

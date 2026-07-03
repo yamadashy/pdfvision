@@ -1,11 +1,22 @@
-import type { PageResult, PageWarning } from '../../../types/index.js';
+import type { PageAnnotation, PageResult, PageWarning } from '../../../types/index.js';
 import { shortTextSample } from '../textSamples.js';
 import { normalizeComparableText } from './textComparison.js';
 import type { VisualWarningContext } from './types.js';
 
-export function detectVisibleAnnotationTextMissingFromNative(page: PageResult, out: PageWarning[]): void {
+interface AnnotationWarningContext {
+  annotations?: readonly PageAnnotation[];
+}
+
+export function detectVisibleAnnotationTextMissingFromNative(
+  page: PageResult,
+  contextOrOut: AnnotationWarningContext | PageWarning[],
+  maybeOut?: PageWarning[],
+): void {
+  const context = Array.isArray(contextOrOut) ? undefined : contextOrOut;
+  const out = Array.isArray(contextOrOut) ? contextOrOut : maybeOut;
+  if (!out) return;
   const annotations =
-    page.annotations?.filter((annotation) => {
+    (context?.annotations ?? page.annotations)?.filter((annotation) => {
       if (annotation.subtype !== 'FreeText') return false;
       if (annotation.hasAppearance !== true) return false;
       if (!annotation.contents?.trim()) return false;

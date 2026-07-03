@@ -366,6 +366,229 @@ describe('buildFormFields', () => {
     });
   });
 
+  it('prefers immediate option labels over long left prompts for choice fields', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'CheckBox1-2-1-1',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(503.63, 342.86, 15.84, 15.84),
+          fieldValue: 'Off',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'CheckBox1-2-1-2',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(540.97, 343.36, 15.84, 15.84),
+          fieldValue: 'Off',
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        {
+          text: '1. Are you signing up for Part B because you were still working and had coverage since you turned 65? (If yes, complete item 3.) Note:',
+          x: 38.16,
+          y: 344.4,
+          width: 467.83,
+          height: 23.67,
+          fontSize: 9.5,
+        },
+        { text: 'Yes', x: 519.06, y: 344.4, width: 16.11, height: 9.5, fontSize: 9.5 },
+        { text: 'No', x: 556.52, y: 344.4, width: 13.64, height: 9.5, fontSize: 9.5 },
+      ],
+    );
+
+    expect(fields.map((field) => [field.name, field.label?.text])).toEqual([
+      ['CheckBox1-2-1-1', 'Yes'],
+      ['CheckBox1-2-1-2', 'No'],
+    ]);
+  });
+
+  it('does not reuse checkbox option labels as following text-field labels', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'lastArrivalYes',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(498, 235.03, 10, 10),
+          fieldValue: 'Off',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'lastArrivalNo',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(540, 235.03, 10, 10),
+          fieldValue: 'Off',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'currentImmigrationStatus',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(396, 252, 180.36, 18),
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        {
+          text: '13. Was your last arrival the first time you were physically present in the United States?',
+          x: 36,
+          y: 232.84,
+          width: 361.17,
+          height: 10,
+          fontSize: 10,
+        },
+        { text: 'Yes', x: 515.04, y: 232.87, width: 15.55, height: 10, fontSize: 10 },
+        { text: 'No', x: 557.97, y: 232.87, width: 12.22, height: 10, fontSize: 10 },
+        {
+          text: '14. What is your current immigration status (if it has changed since your last arrival)?',
+          x: 36,
+          y: 253.84,
+          width: 352,
+          height: 10,
+          fontSize: 10,
+        },
+      ],
+    );
+
+    expect(fields.find((field) => field.name === 'lastArrivalYes')?.label?.text).toBe('Yes');
+    expect(fields.find((field) => field.name === 'lastArrivalNo')?.label?.text).toBe('No');
+    expect(fields.find((field) => field.name === 'currentImmigrationStatus')?.label).toMatchObject({
+      text: '14. What is your current immigration status (if it has changed since your last arrival)?',
+      relation: 'left',
+    });
+  });
+
+  it('expands immediate checkbox labels across stacked right-side lines', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'g28Attached',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(42.5, 313, 10, 10),
+          fieldValue: 'Off',
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        { text: 'Select this box if', x: 60, y: 309.84, width: 69.72, height: 10, fontSize: 10 },
+        { text: 'Form G-28 is', x: 60, y: 321.84, width: 56.66, height: 10, fontSize: 10 },
+        { text: 'attached.', x: 60, y: 333.84, width: 39.16, height: 10, fontSize: 10 },
+      ],
+    );
+
+    expect(fields[0].label).toEqual({
+      text: 'Select this box if Form G-28 is attached.',
+      relation: 'right',
+      x: 60,
+      y: 309.84,
+      width: 69.72,
+      height: 34,
+    });
+  });
+
+  it('prefers complete short option labels over same-position glyph fragments', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'CheckBox1-10-1',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(501, 333.51, 15.84, 15.84),
+          fieldValue: 'Off',
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        { text: 'Yes', x: 515.46, y: 334.76, width: 16.11, height: 9.5, fontSize: 9.5 },
+        { text: 'Y', x: 515.46, y: 334.76, width: 6.8, height: 9.5, fontSize: 9.5 },
+        { text: 'e', x: 522.36, y: 334.76, width: 4.9, height: 9.5, fontSize: 9.5 },
+        { text: 's', x: 527.1, y: 334.76, width: 4.47, height: 9.5, fontSize: 9.5 },
+      ],
+    );
+
+    expect(fields[0].label?.text).toBe('Yes');
+  });
+
+  it('merges stacked side labels for checkbox options', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'topmostSubform[0].Page3[0].Line3_ReadOrder[0].c4_1[0]',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(50.4, 651, 12, 12),
+          fieldValue: 'Off',
+          exportValue: '1',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'topmostSubform[0].Page3[0].Line3_ReadOrder[0].c4_1[1]',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(50.4, 683, 12, 12),
+          fieldValue: 'Off',
+          exportValue: '2',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'topmostSubform[0].Page3[0].Line3_ReadOrder[0].c4_1[2]',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(136.8, 653, 12, 12),
+          fieldValue: 'Off',
+          exportValue: '3',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'topmostSubform[0].Page3[0].Line3_ReadOrder[0].c4_1[3]',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(136.8, 683, 12, 12),
+          fieldValue: 'Off',
+          exportValue: '4',
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        { text: '1st', x: 84.58, y: 645.91, width: 10.97, height: 8, fontSize: 8 },
+        { text: '3rd', x: 177.74, y: 647.91, width: 11.86, height: 8, fontSize: 8 },
+        { text: 'Quarter', x: 76.58, y: 655.51, width: 26.97, height: 8, fontSize: 8 },
+        { text: 'Quarter', x: 170.18, y: 657.51, width: 26.97, height: 8, fontSize: 8 },
+        { text: '2nd', x: 83.24, y: 677.91, width: 13.64, height: 8, fontSize: 8 },
+        { text: '4th', x: 177.96, y: 677.91, width: 11.42, height: 8, fontSize: 8 },
+        { text: 'Quarter', x: 76.58, y: 687.51, width: 26.97, height: 8, fontSize: 8 },
+        { text: 'Quarter', x: 170.18, y: 687.51, width: 26.97, height: 8, fontSize: 8 },
+      ],
+    );
+
+    expect(fields.map((field) => [field.exportValue, field.label?.text])).toEqual([
+      ['1', '1st Quarter'],
+      ['3', '3rd Quarter'],
+      ['2', '2nd Quarter'],
+      ['4', '4th Quarter'],
+    ]);
+  });
+
   it('does not attach footer chrome as checkbox labels', () => {
     const fields = buildFormFields(
       [
@@ -411,6 +634,96 @@ describe('buildFormFields', () => {
       width: 25.93,
       height: 7,
     });
+  });
+
+  it('does not cross a section heading when stacking labels above blank table rows', () => {
+    const dotLeaders = Array.from({ length: 23 }, (_, index) => ({
+      text: '.',
+      x: 216 + index * 12,
+      y: 505.71,
+      width: 2.22,
+      height: 8,
+      fontSize: 8,
+    }));
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'c2_8[0]',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(489.6, 505.78, 8.44, 8.44),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'c2_8[1]',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(540, 505.78, 8.44, 8.44),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'PartVTable[0].Item1[0].f2_15[0]',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(36, 540, 424.8, 12),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'PartVTable[0].Item1[0].f2_16[0]',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(468, 540, 108, 12),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'PartVTable[0].Item2[0].f2_17[0]',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(36, 564, 424.8, 12),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'PartVTable[0].Item2[0].f2_18[0]',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(468, 564, 108, 12),
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        { text: 'b If “Yes,” is the evidence written? . .', x: 50.4, y: 505.71, width: 155.82, height: 8, fontSize: 8 },
+        { text: 'b', x: 50.4, y: 505.71, width: 4.89, height: 8, fontSize: 8 },
+        { text: 'If “Yes,” is the evidence written?', x: 64.8, y: 505.71, width: 116.01, height: 8, fontSize: 8 },
+        ...dotLeaders,
+        { text: 'Yes', x: 503.6, y: 505.71, width: 14.22, height: 8, fontSize: 8 },
+        { text: 'No', x: 554, y: 505.71, width: 10.82, height: 8, fontSize: 8 },
+        { text: 'Part V', x: 39.55, y: 515.14, width: 28.9, height: 10, fontSize: 10 },
+        {
+          text: 'Other Expenses. List below business expenses not included on lines 8-27a, or line 30.',
+          x: 86.4,
+          y: 515.14,
+          width: 388.42,
+          height: 10,
+          fontSize: 10,
+        },
+        { text: 'Other Expenses.', x: 86.4, y: 515.14, width: 78.53, height: 10, fontSize: 10 },
+        {
+          text: 'List below business expenses not included on lines 8-27a, or line 30.',
+          x: 167.71,
+          y: 515.14,
+          width: 307.11,
+          height: 10,
+          fontSize: 10,
+        },
+      ],
+    );
+
+    const firstRow = fields.find((field) => field.name === 'PartVTable[0].Item1[0].f2_15[0]');
+    const secondRow = fields.find((field) => field.name === 'PartVTable[0].Item2[0].f2_17[0]');
+    expect(firstRow?.label?.text).toBe(
+      'Other Expenses. List below business expenses not included on lines 8-27a, or line 30.',
+    );
+    expect(firstRow?.label?.text).not.toContain('If “Yes,”');
+    expect(secondRow?.label?.text).toBe('Part V');
   });
 
   it('merges stacked above-label lines for narrow form fields', () => {
@@ -815,6 +1128,219 @@ describe('buildFormFields', () => {
     expect(fields[1].label?.text).toBe('Combat zone');
   });
 
+  it('allows close form-number labels for checkbox options without reusing the row prompt', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'c2_9',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(312.6, 158, 8, 8),
+          fieldValue: 'Off',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'c2_10',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(370.2, 158, 8, 8),
+          fieldValue: 'Off',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'c2_11',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(427.8, 158, 8, 8),
+          fieldValue: 'Off',
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        {
+          text: '16 Tax (see instructions). Check if any from Form(s):',
+          x: 91.9,
+          y: 157.71,
+          width: 198.44,
+          height: 8,
+          fontSize: 8,
+        },
+        { text: '1', x: 302.4, y: 157.71, width: 4.45, height: 8, fontSize: 8 },
+        { text: '8814', x: 325, y: 157.71, width: 17.79, height: 8, fontSize: 8 },
+        { text: '2', x: 360, y: 157.71, width: 4.45, height: 8, fontSize: 8 },
+        { text: '4972', x: 382.6, y: 157.71, width: 17.79, height: 8, fontSize: 8 },
+        { text: '3', x: 417.6, y: 157.71, width: 4.45, height: 8, fontSize: 8 },
+      ],
+    );
+
+    expect(fields.find((field) => field.name === 'c2_9')?.label?.text).toBe('8814');
+    expect(fields.find((field) => field.name === 'c2_10')?.label?.text).toBe('4972');
+    expect(fields.find((field) => field.name === 'c2_11')?.label).toBeUndefined();
+  });
+
+  it('keeps stacked filing status checkbox labels on their own option rows', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'single',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(97.6, 206, 8, 8),
+          fieldValue: 'Off',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'marriedJointly',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(97.6, 218, 8, 8),
+          fieldValue: 'Off',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'marriedSeparately',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(97.6, 230, 8, 8),
+          fieldValue: 'Off',
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        { text: 'Single', x: 110, y: 205.71, width: 22.07, height: 8, fontSize: 8 },
+        {
+          text: 'Married filing jointly (even if only one had income)',
+          x: 110,
+          y: 217.71,
+          width: 176.02,
+          height: 8,
+          fontSize: 8,
+        },
+        {
+          text: 'Married filing separately (MFS). Enter spouse’s SSN above',
+          x: 110,
+          y: 229.71,
+          width: 208.9,
+          height: 8,
+          fontSize: 8,
+        },
+        { text: 'and full name here:', x: 110, y: 240.71, width: 68.32, height: 8, fontSize: 8 },
+      ],
+    );
+
+    expect(fields.map((field) => field.label?.text)).toEqual([
+      'Single',
+      'Married filing jointly (even if only one had income)',
+      'Married filing separately (MFS). Enter spouse’s SSN above and full name here:',
+    ]);
+  });
+
+  it('does not absorb a following caution paragraph into a checkbox option label', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'headOfHousehold',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(115.2, 181.75, 8, 8),
+          fieldValue: 'Off',
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        { text: 'Head of household', x: 126.05, y: 181.5, width: 61.45, height: 7, fontSize: 7 },
+        {
+          text: '(Check only if you’re unmarried and pay more than half the costs of keeping up a home.)',
+          x: 189.41,
+          y: 181.5,
+          width: 300,
+          height: 7,
+          fontSize: 7,
+        },
+        { text: 'Caution:', x: 96.6, y: 193.6, width: 28, height: 7, fontSize: 7 },
+        {
+          text: 'To claim certain credits or deductions on your tax return, you are required to have a social security',
+          x: 126.55,
+          y: 193.6,
+          width: 442.48,
+          height: 7,
+          fontSize: 7,
+        },
+      ],
+    );
+
+    expect(fields[0].label?.text).toBe('Head of household');
+  });
+
+  it('attaches right-edge checkbox prompts across dot leaders without using line-number gutters', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'clergyScheduleSe',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(467.2, 374, 8, 8),
+          fieldValue: 'Off',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'skipEic',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(467.2, 386, 8, 8),
+          fieldValue: 'Off',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'skipActc',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(373.6, 410, 8, 8),
+          fieldValue: 'Off',
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        { text: 'b Clergy filing Schedule SE (see instructions) .', x: 100.8, y: 373.71, width: 177.42, height: 8 },
+        { text: '. . . . . . . . . . .', x: 336, y: 385.71, width: 122.22, height: 8 },
+        { text: 'c If you do not want to claim the EIC, check here .', x: 100.8, y: 385.71, width: 189.42, height: 8 },
+        {
+          text: '28 Additional child tax credit (ACTC) from Schedule 8812. If you do not want',
+          x: 91.9,
+          y: 399.11,
+          width: 289.68,
+          height: 8,
+        },
+        { text: 'to claim the ACTC, check here .', x: 115.18, y: 408.71, width: 115.02, height: 8 },
+        { text: '. . . . . .', x: 239.98, y: 408.71, width: 122.22, height: 8 },
+        { text: '28', x: 395.15, y: 409.71, width: 8.9, height: 8 },
+        { text: '28 29 30', x: 395.15, y: 409.71, width: 8.9, height: 32 },
+      ],
+    );
+
+    expect(fields.find((field) => field.name === 'clergyScheduleSe')?.label?.text).toBe(
+      'b Clergy filing Schedule SE (see instructions)',
+    );
+    expect(fields.find((field) => field.name === 'skipEic')?.label?.text).toBe(
+      'c If you do not want to claim the EIC, check here',
+    );
+    expect(fields.find((field) => field.name === 'skipActc')?.label?.text).toBe(
+      '28 Additional child tax credit (ACTC) from Schedule 8812. If you do not want to claim the ACTC, check here',
+    );
+  });
+
   it('prefers left-side instruction labels for narrow inline text fields', () => {
     const fields = buildFormFields(
       [
@@ -858,6 +1384,73 @@ describe('buildFormFields', () => {
       text: 'Exempt payee code (if any)',
       relation: 'left',
     });
+  });
+
+  it('does not absorb W-9 note paragraphs into checkbox option labels', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'llc',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(73, 193.5, 8, 8),
+          fieldValue: 'Off',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'other',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: rectFromTopLeft(73, 230, 8, 8),
+          fieldValue: 'Off',
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        {
+          text: 'LLC. Enter the tax classification (C = C corporation, S = S corporation, P = Partnership)',
+          x: 86.4,
+          y: 193.5,
+          width: 283.14,
+          height: 7,
+          fontSize: 7,
+        },
+        { text: 'Note:', x: 86.4, y: 203.37, width: 17.71, height: 7, fontSize: 7 },
+        {
+          text: 'Check the “LLC” box above and, in the entry space, enter the appropriate code (C, S, or P) for the tax',
+          x: 106.04,
+          y: 203.37,
+          width: 314.61,
+          height: 7,
+          fontSize: 7,
+        },
+        {
+          text: 'classification of the LLC, unless it is a disregarded entity. A disregarded entity should instead check the appropriate',
+          x: 86.4,
+          y: 211.12,
+          width: 357.6,
+          height: 7,
+          fontSize: 7,
+        },
+        {
+          text: 'box for the tax classification of its owner.',
+          x: 86.4,
+          y: 218.87,
+          width: 127.04,
+          height: 7,
+          fontSize: 7,
+        },
+        { text: 'Other (see instructions)', x: 86.4, y: 230, width: 72.35, height: 7, fontSize: 7 },
+      ],
+    );
+
+    expect(fields.find((field) => field.name === 'llc')?.label?.text).toBe(
+      'LLC. Enter the tax classification (C = C corporation, S = S corporation, P = Partnership)',
+    );
+    expect(fields.find((field) => field.name === 'other')?.label?.text).toBe('Other (see instructions)');
   });
 
   it('merges stacked prompt text above a trailing inline text-field label', () => {
@@ -982,6 +1575,212 @@ describe('buildFormFields', () => {
       width: 399.15,
       height: 8,
     });
+  });
+
+  it('trims overlapping dot-leader row labels before scoring adjacent-column labels', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'Savings Accounts',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(224.86, 302.78, 82.57, 9.72),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'Accounts Payable',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(499.44, 303.2, 70.71, 9.72),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'Automobiles',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(224.86, 415.28, 82.57, 11.28),
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        {
+          text: 'Savings Accounts................................',
+          x: 34,
+          y: 302.78,
+          width: 275,
+          height: 9,
+          fontSize: 9,
+        },
+        { text: 'Accounts Payable', x: 334.56, y: 292.2, width: 72.09, height: 9, fontSize: 9 },
+        {
+          text: 'Automobiles...............................................',
+          x: 34,
+          y: 415.28,
+          width: 275,
+          height: 9,
+          fontSize: 9,
+        },
+        {
+          text: 'Other Liabilities....................................',
+          x: 334.56,
+          y: 416.43,
+          width: 170.03,
+          height: 9,
+          fontSize: 9,
+        },
+      ],
+    );
+
+    expect(fields.find((field) => field.name === 'Savings Accounts')?.label?.text).toBe('Savings Accounts');
+    expect(fields.find((field) => field.name === 'Automobiles')?.label?.text).toBe('Automobiles');
+  });
+
+  it('prefers lettered row prompts around currency markers over wrapped continuations', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'utilitiesAmount',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(478.83, 190.46, 114.45, 30.32),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'transportationAmount',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(478.83, 339.66, 114.45, 19.92),
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'tuitionAmount',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(478.83, 393.02, 114.45, 19.92),
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        {
+          text: 'C. Utilities (gas, electric, telephone, Internet, trash',
+          x: 48.75,
+          y: 189.89,
+          width: 356.8,
+          height: 12,
+          fontSize: 12,
+        },
+        {
+          text: 'collection, water, sewer, oil, propane, coal, wood, etc.)',
+          x: 64.59,
+          y: 204.29,
+          width: 288.12,
+          height: 12,
+          fontSize: 12,
+        },
+        { text: '$', x: 468.03, y: 197.09, width: 6.67, height: 12, fontSize: 12 },
+        {
+          text: 'H. Other Transportation (bus, taxi, etc.)',
+          x: 48.75,
+          y: 341.09,
+          width: 208.08,
+          height: 12,
+          fontSize: 12,
+        },
+        { text: '$', x: 468.03, y: 341.09, width: 6.67, height: 12, fontSize: 12 },
+        {
+          text: 'I. Medical/Dental (prescriptions and medical equipment)',
+          x: 48.75,
+          y: 360.6,
+          width: 350.81,
+          height: 12,
+          fontSize: 12,
+        },
+        {
+          text: 'J. Tuition and School Expenses',
+          x: 48.75,
+          y: 395.45,
+          width: 168.08,
+          height: 12,
+          fontSize: 12,
+        },
+        { text: '$', x: 468.03, y: 394.45, width: 6.67, height: 12, fontSize: 12 },
+      ],
+    );
+
+    expect(fields.find((field) => field.name === 'utilitiesAmount')?.label?.text).toBe(
+      'C. Utilities (gas, electric, telephone, Internet, trash',
+    );
+    expect(fields.find((field) => field.name === 'transportationAmount')?.label?.text).toBe(
+      'H. Other Transportation (bus, taxi, etc.)',
+    );
+    expect(fields.find((field) => field.name === 'tuitionAmount')?.label?.text).toBe('J. Tuition and School Expenses');
+  });
+
+  it('uses same-marker prompt bands when distant dot leaders separate amount labels', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'topmostSubform[0].Page4[0].f4_19[0]',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(511.2, 552, 64.8, 12),
+          fieldValue: '',
+          readOnly: false,
+          required: false,
+          annotationFlags: 4,
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        { text: '11 Standard deduction.{', x: 40.39, y: 528.43, width: 111.58, height: 39.43, fontSize: 9 },
+        { text: '11', x: 40.39, y: 528.43, width: 10.01, height: 9, fontSize: 9 },
+        { text: 'Standard deduction.', x: 64.8, y: 528.43, width: 87.17, height: 9, fontSize: 9 },
+        { text: '{', x: 97.06, y: 531.46, width: 7.49, height: 36.4, fontSize: 36.4 },
+        { text: '}', x: 399.46, y: 531.46, width: 7.49, height: 36.4, fontSize: 36.4 },
+        {
+          text: '• $32,200 if you’re married filing jointly or a qualifying surviving spouse',
+          x: 108,
+          y: 540.42,
+          width: 283.72,
+          height: 9,
+          fontSize: 9,
+        },
+        { text: 'Enter:', x: 64.8, y: 552.42, width: 23.67, height: 9, fontSize: 9 },
+        {
+          text: '• $24,150 if you’re head of household',
+          x: 108,
+          y: 552.42,
+          width: 151.55,
+          height: 9,
+          fontSize: 9,
+        },
+        ...Array.from({ length: 5 }, (_, index) => ({
+          text: '.',
+          x: 420 + index * 12,
+          y: 552.42,
+          width: 2.5,
+          height: 9,
+          fontSize: 9,
+        })),
+        { text: '11 $', x: 488.18, y: 552.42, width: 21.92, height: 9, fontSize: 9 },
+        { text: '11', x: 488.18, y: 552.42, width: 10.01, height: 9, fontSize: 9 },
+        { text: '$', x: 505.1, y: 552.42, width: 5, height: 9, fontSize: 9 },
+        {
+          text: '• $16,100 if you’re single or married filing separately',
+          x: 108,
+          y: 564.43,
+          width: 209.37,
+          height: 9,
+          fontSize: 9,
+        },
+      ],
+    );
+
+    expect(fields[0].label?.text).toBe(
+      '11 Standard deduction. • $32,200 if you’re married filing jointly or a qualifying surviving spouse Enter: • $24,150 if you’re head of household • $16,100 if you’re single or married filing separately 11 $',
+    );
   });
 
   it('expands compact amount markers when the same prompt is also split into spans', () => {
@@ -1137,6 +1936,37 @@ describe('buildFormFields', () => {
     expect(fields[0].label?.text).toBe('(b) Multiply the number of other dependents by $500 3(b) $');
   });
 
+  it('prefers stacked subitem prompts over same-row currency examples', () => {
+    const fields = buildFormFields(
+      [{ subtype: 'Widget', fieldName: 'line3aAmount', fieldType: 'Tx', rect: [417.6, 300, 481.65, 312] }],
+      792,
+      0,
+      0,
+      [
+        {
+          text: '(a) Multiply the number of qualifying children under age 17 by',
+          x: 122.36,
+          y: 469.12,
+          width: 259.23,
+          height: 9,
+          fontSize: 9,
+        },
+        {
+          text: '$2,200 . . . . . . . . . . . . . . . . . .',
+          x: 136.78,
+          y: 479.92,
+          width: 237.65,
+          height: 9,
+          fontSize: 9,
+        },
+        { text: '3(a) $', x: 391.85, y: 480.42, width: 24.81, height: 9, fontSize: 9 },
+        { text: '$', x: 410.1, y: 480.42, width: 5, height: 9, fontSize: 9 },
+      ],
+    );
+
+    expect(fields[0].label?.text).toBe('(a) Multiply the number of qualifying children under age 17 by $2,200 3(a) $');
+  });
+
   it('does not absorb previous subitem rows into bare total amount markers', () => {
     const dotLeaders = Array.from({ length: 8 }, (_, index) => ({
       text: '.',
@@ -1178,6 +2008,7 @@ describe('buildFormFields', () => {
         },
         ...dotLeaders,
         { text: '3', x: 490.7, y: 516.42, width: 5, height: 9, fontSize: 9 },
+        { text: '$', x: 505.1, y: 516.42, width: 5, height: 9, fontSize: 9 },
       ],
     );
 
@@ -1354,6 +2185,106 @@ describe('buildFormFields', () => {
     });
   });
 
+  it('does not use a previous row amount marker for the next amount field', () => {
+    const fields = buildFormFields(
+      [{ subtype: 'Widget', fieldName: 'line8b', fieldType: 'Tx', rect: rectFromTopLeft(511.2, 456, 64.8, 12) }],
+      792,
+      0,
+      0,
+      [
+        {
+          text: 'a Enter your total income . . . . . . . . . . . . . . . . . . .',
+          x: 64.8,
+          y: 444.42,
+          width: 445.3,
+          height: 9,
+          fontSize: 9,
+        },
+        { text: '8a $', x: 488.04, y: 444.42, width: 22.06, height: 9, fontSize: 9 },
+        {
+          text: 'b Subtract line 4 from line 8a. If line 4 is greater than line 8a, enter -0- here and on line 10. Skip line 9',
+          x: 64.8,
+          y: 456.43,
+          width: 410.22,
+          height: 9,
+          fontSize: 9,
+        },
+        { text: '8b $', x: 487.95, y: 456.43, width: 22.15, height: 9, fontSize: 9 },
+      ],
+    );
+
+    expect(fields.find((field) => field.name === 'line8b')?.label?.text).toBe(
+      'b Subtract line 4 from line 8a. If line 4 is greater than line 8a, enter -0- here and on line 10. Skip line 9 8b $',
+    );
+  });
+
+  it('prefers the actual prompt over standalone instruction-reference text', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'identityProtectionPin',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(504, 654, 72, 12),
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        { text: 'If the IRS sent you an Identity', x: 464.8, y: 636.5, width: 92.06, height: 7, fontSize: 7 },
+        { text: 'Protection PIN, enter it here', x: 464.8, y: 645, width: 86.86, height: 7, fontSize: 7 },
+        { text: '(see inst.)', x: 464.8, y: 653.49, width: 29.69, height: 7, fontSize: 7 },
+      ],
+    );
+
+    expect(fields[0].label).toMatchObject({
+      text: 'If the IRS sent you an Identity Protection PIN, enter it here',
+      relation: 'above',
+    });
+  });
+
+  it('uses a currency marker to connect far-left amount prompts to text fields', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'P7_Line6_BalanceofAccounts',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(480, 120, 96, 18),
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        {
+          text: 'Only include the assets if the principal immigrant',
+          x: 373.71,
+          y: 88.84,
+          width: 198.04,
+          height: 10,
+          fontSize: 10,
+        },
+        { text: '6.', x: 36, y: 117.84, width: 7.5, height: 10, fontSize: 10 },
+        {
+          text: "Enter the balance of the principal immigrant's savings and checking accounts.",
+          x: 60,
+          y: 117.84,
+          width: 310.91,
+          height: 10,
+          fontSize: 10,
+        },
+        { text: '$', x: 471.5, y: 121.84, width: 5, height: 10, fontSize: 10 },
+      ],
+    );
+
+    expect(fields[0].label).toMatchObject({
+      text: "Enter the balance of the principal immigrant's savings and checking accounts.",
+      relation: 'left',
+    });
+  });
+
   it('prefers close above column labels over offset labels from the next row', () => {
     const fields = buildFormFields(
       [
@@ -1391,6 +2322,31 @@ describe('buildFormFields', () => {
 
     expect(fields[0].label).toMatchObject({
       text: 'Middle Initial',
+      relation: 'above',
+    });
+  });
+
+  it('prefers a close above text-field label over right-side wrapped instruction text', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'topmostSubform[0].Page1[0].Address_ReadOrder[0].f1_21[0]',
+          fieldType: 'Tx',
+          rect: rectFromTopLeft(418.6, 142, 48.65, 14),
+        },
+      ],
+      792,
+      0,
+      0,
+      [
+        { text: 'Apt. no.', x: 421.6, y: 133, width: 24.64, height: 7, fontSize: 7 },
+        { text: 'the U.S. for more than half of 2025.', x: 470, y: 146.89, width: 91.78, height: 7, fontSize: 7 },
+      ],
+    );
+
+    expect(fields[0].label).toMatchObject({
+      text: 'Apt. no.',
       relation: 'above',
     });
   });

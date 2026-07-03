@@ -2,7 +2,8 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { buildQuietTesseractWorkerScript, parseOcrLang } from '../../src/core/ocr/index.js';
+import { buildQuietTesseractWorkerScript, effectiveOcrRenderScale, parseOcrLang } from '../../src/core/ocr/index.js';
+import { buildCacheKey } from '../../src/core/processor/cacheKey.js';
 import { processDocument } from '../../src/core/processor.js';
 
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
@@ -49,7 +50,19 @@ describe('buildQuietTesseractWorkerScript', () => {
     const script = buildQuietTesseractWorkerScript('/tmp/worker path "quoted".js');
     expect(script).toContain('Image too small to scale!!');
     expect(script).toContain('Line cannot be recognized!!');
+    expect(script).toContain('controlTraineddataNoise');
+    expect(script).toContain('TESSDATA_PREFIX');
     expect(script).toContain('require("/tmp/worker path \\"quoted\\".js")');
+  });
+});
+
+describe('effectiveOcrRenderScale', () => {
+  it('keeps OCR rasterization at least the default scale', () => {
+    expect(effectiveOcrRenderScale(undefined)).toBe(2);
+    expect(effectiveOcrRenderScale(0.5)).toBe(2);
+    expect(effectiveOcrRenderScale(1)).toBe(2);
+    expect(effectiveOcrRenderScale(2)).toBe(2);
+    expect(effectiveOcrRenderScale(3)).toBe(3);
   });
 });
 
@@ -142,15 +155,15 @@ describe('processDocument with --ocr', () => {
     expect(secondMs).toBeLessThan(firstMs / 2);
   });
 
-  it('keys --ocr-lang separately so eng and eng+jpn do not share a cache slot', { timeout: 120_000 }, async () => {
-    // Run with `eng`, then with `eng+jpn`. The second call must NOT
-    // reuse the `eng` cache entry — its `ocr.lang` echoes the caller's
-    // string verbatim, so a cache-key collision would surface as
-    // `lang === 'eng'` despite the caller asking for `eng+jpn`.
-    const eng = await processDocument(SAMPLE_PDF, { ocr: true, ocrLang: 'eng', noCache: false });
-    expect(eng.pages[0].ocr?.lang).toBe('eng');
-    const both = await processDocument(SAMPLE_PDF, { ocr: true, ocrLang: 'eng+jpn', noCache: false });
-    expect(both.pages[0].ocr?.lang).toBe('eng+jpn');
+  it('keys --ocr-lang separately so eng and eng+jpn do not share a cache slot', () => {
+    // This is a cache-key invariant, not a language-quality check. Avoid
+    // booting tesseract with `jpn`, which would make the test depend on
+    // external traineddata availability.
+    const eng = buildCacheKey({ ocr: true, ocrLang: 'eng' });
+    const both = buildCacheKey({ ocr: true, ocrLang: 'eng+jpn' });
+    const spacedBoth = buildCacheKey({ ocr: true, ocrLang: ' eng + jpn ' });
+    expect(both).not.toBe(eng);
+    expect(spacedBoth).toBe(both);
   });
 
   it('attaches one ocr entry per page when extracting multi-page docs', { timeout: 180_000 }, async () => {

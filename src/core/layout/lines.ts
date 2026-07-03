@@ -12,6 +12,7 @@ import {
   isRecurringSidePanelStartCandidate,
   isRecurringTableGutterCandidate,
   isTableGutterNumericSpan,
+  isTrailingCurrencyTableGutterCandidate,
 } from './gutters.js';
 import { joinLineSpans } from './lineText.js';
 import { hasVerticalTextShape } from './verticalText.js';
@@ -197,6 +198,7 @@ export function buildLayoutLines(spans: TextSpan[], pageWidth = 0): LayoutLine[]
   const lines: LayoutLine[] = lineGroups.flatMap((group) => {
     const xSorted = [...group].sort((a, b) => a.x - b.x);
     const groupBox = unionBox(xSorted);
+    const numericSpanCount = xSorted.filter(isTableGutterNumericSpan).length;
     const preserveWideWordSpacing = isLikelyWideWordSpacingRow(xSorted, pageWidth);
     const preserveCjkDisplaySpacing = isLikelyCjkDisplaySpacingRow(xSorted);
     const subLines: TextSpan[][] = [[xSorted[0]]];
@@ -221,7 +223,15 @@ export function buildLayoutLines(spans: TextSpan[], pageWidth = 0): LayoutLine[]
         hasRecurringGutter(recurringTableGutterBins, prev, cur) &&
         isTableGutterNumericSpan(prev) &&
         isTableGutterNumericSpan(cur) &&
-        isRecurringTableGutterCandidate(groupBox, gap, fontSize, pageWidth);
+        (isRecurringTableGutterCandidate(groupBox, gap, fontSize, pageWidth) ||
+          isTrailingCurrencyTableGutterCandidate(groupBox, prev, cur, gap, fontSize, pageWidth));
+      const denseNumericTableGutter =
+        pageWidth > 0 &&
+        numericSpanCount >= 3 &&
+        isTableGutterNumericSpan(prev) &&
+        isTableGutterNumericSpan(cur) &&
+        (isRecurringTableGutterCandidate(groupBox, gap, fontSize, pageWidth) ||
+          isTrailingCurrencyTableGutterCandidate(groupBox, prev, cur, gap, fontSize, pageWidth));
       const misalignedLeftSidePanelBoundary = isMisalignedLeftSidePanelBoundaryCandidate(
         groupBox,
         prev,
@@ -231,13 +241,14 @@ export function buildLayoutLines(spans: TextSpan[], pageWidth = 0): LayoutLine[]
         pageWidth,
       );
       if (
-        !preserveWideWordSpacing &&
         !preserveCjkDisplaySpacing &&
-        (gap > segmentGap ||
-          recurringGutter ||
-          recurringSidePanelStart ||
-          recurringTableGutter ||
-          misalignedLeftSidePanelBoundary)
+        (denseNumericTableGutter ||
+          (!preserveWideWordSpacing &&
+            (gap > segmentGap ||
+              recurringGutter ||
+              recurringSidePanelStart ||
+              recurringTableGutter ||
+              misalignedLeftSidePanelBoundary)))
       ) {
         subLines.push([cur]);
       } else {

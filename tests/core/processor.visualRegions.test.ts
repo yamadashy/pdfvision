@@ -45,18 +45,37 @@ async function buildPdfWithSparseRasterImage(): Promise<Uint8Array> {
   return new Uint8Array(Buffer.concat(chunks));
 }
 
+async function buildPdfWithBlankFullPageImage(): Promise<Uint8Array> {
+  const chunks: Buffer[] = [];
+  const doc = new PDFDocument({ size: [612, 792], margin: 0 });
+  doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+  const done = new Promise<void>((resolveDone) => doc.on('end', resolveDone));
+
+  const canvas = createCanvas(100, 100);
+  const context = canvas.getContext('2d');
+  context.fillStyle = 'white';
+  context.fillRect(0, 0, 100, 100);
+  doc.image(canvas.toBuffer('image/png'), 0, 0, { width: 612, height: 792 });
+  doc.end();
+
+  await done;
+  return new Uint8Array(Buffer.concat(chunks));
+}
+
 async function buildRotatedPdfWithFullPageImage(): Promise<Uint8Array> {
   const chunks: Buffer[] = [];
   const doc = new PDFDocument({ size: [596, 842], margin: 0 });
   doc.on('data', (chunk: Buffer) => chunks.push(chunk));
   const done = new Promise<void>((resolveDone) => doc.on('end', resolveDone));
 
-  const png = Buffer.from(
-    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=',
-    'base64',
-  );
+  const canvas = createCanvas(100, 100);
+  const context = canvas.getContext('2d');
+  context.fillStyle = 'white';
+  context.fillRect(0, 0, 100, 100);
+  context.fillStyle = 'black';
+  context.fillRect(20, 20, 50, 40);
   (doc.page.dictionary.data as Record<string, unknown>).Rotate = 270;
-  doc.image(png, 0, 0, { width: 596, height: 842 });
+  doc.image(canvas.toBuffer('image/png'), 0, 0, { width: 596, height: 842 });
   doc.end();
 
   await done;
@@ -167,6 +186,23 @@ describe('processDocument visualRegions: true', () => {
     expect(contentBox.height).toBeLessThan(region.height);
     expect(contentBox.x + contentBox.width).toBeLessThanOrEqual(region.x + region.width);
     expect(contentBox.y + contentBox.height).toBeLessThanOrEqual(region.y + region.height);
+  });
+
+  it('uses rendered full-page region evidence to suppress blank raster pages', async () => {
+    const result = await processDocument('memory://blank-full-page-image.pdf', {
+      sourceData: await buildPdfWithBlankFullPageImage(),
+      noCache: true,
+      renderVisualRegions: true,
+      renderScale: 1,
+    });
+    const page = result.pages[0];
+
+    expect(page.image).toBeUndefined();
+    expect(page.renderContentRatio).toBeTypeOf('number');
+    expect(page.quality).toEqual({ nativeTextStatus: 'empty', visualStatus: 'blank' });
+    expect(page.visualRegions).toEqual([]);
+    expect(page.warnings?.map((warning) => warning.code) ?? []).not.toContain('raster_image_no_native_text');
+    expect(page.warnings?.map((warning) => warning.code) ?? []).not.toContain('large_raster_low_text_overlap');
   });
 
   it('emits and renders visual regions for rotated image-only pages', async () => {

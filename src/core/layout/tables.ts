@@ -1,45 +1,49 @@
 import type { LayoutLine, LayoutTable } from '../../types/index.js';
 import { type BBox, round2, unionBox } from './geometry.js';
 import {
-  isCurrencyOnlyCell,
-  isTableNumericCell,
-  normalizeTableCurrencyCells,
-  numericColumnMatchRight,
-} from './tableCells.js';
-import { groupLinesByTableRow, mergeLineTexts, rowBottom, rowY } from './tableRows.js';
+  isLikelyMirroredChartAxisTable,
+  isLikelySparseNumericLegendFragment,
+  isLikelyTinyNumericChartFragment,
+  isLikelyTinyNumericVectorGrid,
+} from './numericVectorGrid.js';
+import { detectSparseSingleRowTables } from './sparseTables.js';
+import { mergeSplitHeaderTables } from './splitHeaderTables.js';
+import { tableCandidateRow } from './tableCandidateRows.js';
+import { isTableNumericCell, normalizeTableCurrencyCells } from './tableCells.js';
+import {
+  attachLabelContinuationRows,
+  attachNumericContinuationRows,
+  hasRegularTableRowCadence,
+  type IndexedLayoutRow,
+} from './tableContinuations.js';
+import { attachLeadingTableRows } from './tableLeadingRows.js';
+import { groupLinesByTableRow, rowBottom, rowY } from './tableRows.js';
 
 export { isTableNumericCell } from './tableCells.js';
 
-interface IndexedLayoutRow {
-  row: LayoutLine[];
-  index: number;
-}
-
-const TABLE_ROW_MIN_CELLS = 3;
-const TABLE_ROW_MIN_NUMERIC_CELLS = 2;
 const TWO_COLUMN_NUMERIC_TABLE_MIN_ROWS = 4;
 const TABLE_GROUP_MAX_ROW_GAP_PT = 48;
-const TABLE_ROW_CADENCE_MIN_MATCH_RATIO = 0.65;
-const TABLE_ROW_CADENCE_TOLERANCE_RATIO = 0.25;
-const TABLE_ROW_CADENCE_MIN_TOLERANCE_PT = 2;
-const TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROWS = 4;
-const TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS = 3;
-const TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROW_RATIO = 0.6;
-const TABLE_RECURRING_NUMERIC_COLUMN_TOLERANCE_PT = 10;
-const TABLE_LEADING_ROW_MAX_GAP_PT = 24;
-const TABLE_LEADING_ROW_MAX_OVERLAP_PT = 4;
-const TABLE_LEADING_ROW_X_TOLERANCE_PT = 14;
-const TABLE_LEADING_HEADER_MAX_CHARS = 80;
-const TABLE_LEADING_HEADER_MAX_WORDS = 6;
-const TABLE_LEADING_HEADER_MAX_WIDTH_PT = 180;
+const ALIGNED_TEXT_TABLE_MIN_ROWS = 5;
+const ALIGNED_TEXT_TABLE_MAX_ROW_GAP_PT = 24;
+const ALIGNED_TEXT_TABLE_MIN_CELLS = 3;
+const ALIGNED_TEXT_TABLE_MIN_RECURRING_COLUMNS = 3;
+const ALIGNED_TEXT_TABLE_COLUMN_TOLERANCE_PT = 10;
+const ALIGNED_TEXT_TABLE_HEADER_MAX_GAP_PT = 28;
+const ALIGNED_TEXT_TABLE_MAX_CELL_WIDTH_PT = 220;
+const ALIGNED_TEXT_TABLE_MIN_LABEL_ROW_RATIO = 0.5;
 
 export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefined {
   const allRowGroups = groupLinesByTableRow(lines).map((row) => row.sort((a, b) => a.x - b.x));
+  const alignedTextTables = detectAlignedTextTables(allRowGroups);
+  const sparseSingleRowTables = detectSparseSingleRowTables(allRowGroups);
   const rowGroups: IndexedLayoutRow[] = allRowGroups
     .map((row, index) => ({ row: tableCandidateRow(row), index }))
     .filter((item): item is IndexedLayoutRow => item.row !== undefined)
     .map(({ row, index }) => ({ row: attachLabelContinuationRows(row, index, allRowGroups), index }));
-  if (rowGroups.length < 2) return undefined;
+  if (rowGroups.length < 2) {
+    const fallback = [...alignedTextTables, ...sparseSingleRowTables];
+    return fallback.length > 0 ? fallback : undefined;
+  }
 
   const tables: IndexedLayoutRow[][] = [];
   for (const row of rowGroups) {
@@ -60,47 +64,23 @@ export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefin
     if (isTwoColumnNumericOnlyTable(baseRows) && baseRows.length < TWO_COLUMN_NUMERIC_TABLE_MIN_ROWS) continue;
     const nextTableFirstIndex = tables[index + 1]?.[0]?.index ?? allRowGroups.length;
     const rows = attachNumericContinuationRows(table, allRowGroups, nextTableFirstIndex);
-    result.push(toLayoutTable(attachLeadingTableRows(rows, table[0]?.index ?? 0, allRowGroups)));
+    const tableRows = attachLeadingTableRows(rows, table[0]?.index ?? 0, allRowGroups);
+    if (isLikelyTinyNumericVectorGrid(tableRows.flat())) continue;
+    if (isLikelyTinyNumericChartFragment(tableRows.flat())) continue;
+    if (isLikelySparseNumericLegendFragment(tableRows.flat())) continue;
+    if (isLikelyMirroredChartAxisTable(tableRows.flat())) continue;
+    result.push(toLayoutTable(tableRows));
   }
-  return result.length > 0 ? result : undefined;
-}
-
-const TABLE_SIDE_PANEL_MIN_GAP_PT = 40;
-const TABLE_COMPACT_LABEL_MAX_WIDTH_PT = 140;
-const TABLE_COMPACT_LABEL_MAX_CHARS = 60;
-
-function tableCandidateRow(row: LayoutLine[]): LayoutLine[] | undefined {
-  if (!isLikelyTableRow(row)) return undefined;
-  for (let start = 1; start < row.length; start++) {
-    const suffix = row.slice(start);
-    if (!isLikelyTableRow(suffix)) continue;
-    if (!isTableLikeSuffix(suffix)) continue;
-    if (canTrimSidePanelTableSuffix(row, start, suffix)) return suffix;
+  for (const table of alignedTextTables) {
+    if (result.some((existing) => overlapOfSmaller(existing, table) >= 0.5)) continue;
+    result.push(table);
   }
-  if (isTableLikeSuffix(row)) return row;
-  for (let end = row.length - 1; end >= TABLE_ROW_MIN_CELLS; end--) {
-    const prefix = row.slice(0, end);
-    const trailing = row.slice(end);
-    if (!isLikelyTableRow(prefix)) continue;
-    if (!isTableLikeSuffix(prefix)) continue;
-    if (canTrimTrailingProseTablePrefix(prefix, trailing)) return prefix;
+  for (const table of sparseSingleRowTables) {
+    if (result.some((existing) => overlapOfSmaller(existing, table) >= 0.5)) continue;
+    result.push(table);
   }
-  return row;
-}
-
-function isLikelyTableRow(row: LayoutLine[]): boolean {
-  const numericCells = row.filter((line) => isTableNumericCell(line.text)).length;
-  if (row.length === TABLE_ROW_MIN_NUMERIC_CELLS) return numericCells === TABLE_ROW_MIN_NUMERIC_CELLS;
-  if (row.length < TABLE_ROW_MIN_CELLS) return false;
-  return numericCells >= TABLE_ROW_MIN_NUMERIC_CELLS;
-}
-
-function isTableLikeSuffix(row: LayoutLine[]): boolean {
-  const numericCells = row.filter((line) => isTableNumericCell(line.text)).length;
-  if (numericCells < TABLE_ROW_MIN_NUMERIC_CELLS) return false;
-  return row.every(
-    (line) => isTableNumericCell(line.text) || isCurrencyOnlyCell(line.text) || isCompactTableLabelCell(line),
-  );
+  const merged = mergeSplitHeaderTables(result);
+  return merged.length > 0 ? merged : undefined;
 }
 
 function isTwoColumnNumericOnlyTable(rows: LayoutLine[][]): boolean {
@@ -108,315 +88,6 @@ function isTwoColumnNumericOnlyTable(rows: LayoutLine[][]): boolean {
     const normalized = normalizeTableCurrencyCells(row);
     return normalized.length === 2 && normalized.every((cell) => isTableNumericCell(cell.text));
   });
-}
-
-function isCompactTableLabelCell(line: LayoutLine): boolean {
-  const text = line.text.replace(/\s+/g, ' ').trim();
-  if (text.length === 0 || text.length > TABLE_COMPACT_LABEL_MAX_CHARS) return false;
-  if (!/[\p{L}]/u.test(text)) return false;
-  return line.width <= TABLE_COMPACT_LABEL_MAX_WIDTH_PT;
-}
-
-function hasSidePanelTableGap(row: LayoutLine[], start: number): boolean {
-  const prev = row[start - 1];
-  const cur = row[start];
-  if (!prev || !cur) return false;
-  const gap = cur.x - (prev.x + prev.width);
-  return gap >= Math.max(TABLE_SIDE_PANEL_MIN_GAP_PT, cur.fontSize * 4);
-}
-
-function canTrimSidePanelTableSuffix(row: LayoutLine[], start: number, suffix: LayoutLine[]): boolean {
-  if (!hasSidePanelTableGap(row, start)) return false;
-  const firstSuffixCell = suffix[0];
-  const previousCell = row[start - 1];
-  const startsWithCompactLabel =
-    firstSuffixCell !== undefined &&
-    !isTableNumericCell(firstSuffixCell.text) &&
-    isCompactTableLabelCell(firstSuffixCell);
-  if (start === 1) return startsWithCompactLabel && isProseBeforeSidePanel(row[0]);
-  if (!startsWithCompactLabel && previousCell && isTableNumericCell(previousCell.text)) return false;
-  return startsWithCompactLabel || row.slice(0, start).some(isProseBeforeSidePanel);
-}
-
-function canTrimTrailingProseTablePrefix(prefix: LayoutLine[], trailing: LayoutLine[]): boolean {
-  const lastPrefixCell = prefix.at(-1);
-  const firstTrailingCell = trailing[0];
-  if (!lastPrefixCell || !firstTrailingCell) return false;
-  const gap = firstTrailingCell.x - (lastPrefixCell.x + lastPrefixCell.width);
-  if (gap < Math.max(TABLE_SIDE_PANEL_MIN_GAP_PT, firstTrailingCell.fontSize * 4)) return false;
-  return trailing.every(isProseBeforeSidePanel);
-}
-
-function isProseBeforeSidePanel(line: LayoutLine): boolean {
-  const text = line.text.replace(/\s+/g, ' ').trim();
-  if (!/[\p{L}]/u.test(text)) return false;
-  const wordCount = text.split(/\s+/).filter(Boolean).length;
-  if (wordCount < 4) return false;
-  return line.width > TABLE_COMPACT_LABEL_MAX_WIDTH_PT || /[.!?:;]/u.test(text);
-}
-
-function attachNumericContinuationRows(
-  table: IndexedLayoutRow[],
-  allRows: LayoutLine[][],
-  scanEndIndex: number,
-): LayoutLine[][] {
-  const baseRowsByIndex = new Map(table.map(({ row, index }) => [index, row]));
-  const baseRows = table.map(({ row }) => row);
-  const numericColumnRights = recurringNumericColumnRights(baseRows, {
-    minColumns: TABLE_ROW_MIN_NUMERIC_CELLS,
-    minRows: Math.min(
-      baseRows.length,
-      Math.max(2, Math.ceil(baseRows.length * TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROW_RATIO)),
-    ),
-  });
-  if (numericColumnRights.length < TABLE_ROW_MIN_NUMERIC_CELLS) return baseRows;
-
-  const firstIndex = table[0]?.index ?? 0;
-  const lastBaseIndex = table.at(-1)?.index ?? firstIndex;
-  const rows: LayoutLine[][] = [];
-  let previousIncluded: LayoutLine[] | undefined;
-  for (let index = firstIndex; index < scanEndIndex; index++) {
-    const baseRow = baseRowsByIndex.get(index);
-    if (baseRow) {
-      rows.push(baseRow);
-      previousIncluded = baseRow;
-      continue;
-    }
-
-    if (!previousIncluded) continue;
-    const candidate = allRows[index];
-    if (!candidate) continue;
-    const verticalGap = rowY(candidate) - rowBottom(previousIncluded);
-    if (index > lastBaseIndex && verticalGap > TABLE_GROUP_MAX_ROW_GAP_PT) break;
-    if (verticalGap > TABLE_GROUP_MAX_ROW_GAP_PT) continue;
-    if (!isAlignedNumericContinuationRow(candidate, numericColumnRights)) continue;
-
-    rows.push(candidate);
-    previousIncluded = candidate;
-  }
-  return rows;
-}
-
-function attachLeadingTableRows(rows: LayoutLine[][], firstBaseIndex: number, allRows: LayoutLine[][]): LayoutLine[][] {
-  const numericColumnRights = recurringNumericColumnRights(rows, {
-    minColumns: TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS,
-    minRows: Math.min(rows.length, Math.max(2, Math.ceil(rows.length * TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROW_RATIO))),
-  });
-  const leadingColumnRights =
-    numericColumnRights.length >= TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS
-      ? numericColumnRights
-      : firstRowNumericColumnRights(rows);
-  if (leadingColumnRights.length < TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS) return rows;
-
-  const labelLeft = recurringLabelColumnLeft(rows);
-  const tableBox = unionBox(rows.flat());
-  const leadingRows: LayoutLine[][] = [];
-  let nextIncluded = rows[0];
-
-  for (let index = firstBaseIndex - 1; index >= 0; index--) {
-    const candidate = allRows[index];
-    if (!candidate || !nextIncluded) break;
-
-    const verticalGap = rowY(nextIncluded) - rowBottom(candidate);
-    if (verticalGap < -TABLE_LEADING_ROW_MAX_OVERLAP_PT || verticalGap > TABLE_LEADING_ROW_MAX_GAP_PT) break;
-    if (!isLeadingTableRow(candidate, tableBox, leadingColumnRights, labelLeft, leadingRows.length > 0)) break;
-
-    leadingRows.unshift(candidate);
-    nextIncluded = candidate;
-  }
-
-  return leadingRows.length > 0 ? [...leadingRows, ...rows] : rows;
-}
-
-function firstRowNumericColumnRights(rows: LayoutLine[][]): number[] {
-  if (rows.length < TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROWS) return [];
-  const firstRow = rows[0];
-  if (!firstRow) return [];
-  const numericCells = firstRow.filter((line) => isTableNumericCell(line.text));
-  if (numericCells.length < TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS) return [];
-  return numericCells.map((line, index) => numericColumnMatchRight(line, numericCells[index + 1]));
-}
-
-function recurringLabelColumnLeft(rows: LayoutLine[][]): number | undefined {
-  const lefts = rows
-    .map((row) => row.find((line) => !isTableNumericCell(line.text) && !isCurrencyOnlyCell(line.text)))
-    .filter((line): line is LayoutLine => line !== undefined && isCompactTableLabelCell(line))
-    .map((line) => line.x);
-  if (lefts.length < 2) return undefined;
-  return medianNumber(lefts);
-}
-
-function isLeadingTableRow(
-  row: LayoutLine[],
-  tableBox: BBox,
-  numericColumnRights: number[],
-  labelLeft: number | undefined,
-  allowSingleLabelHeader: boolean,
-): boolean {
-  if (row.length === 0) return false;
-  if (!row.every(isCompactLeadingTableCell)) return false;
-
-  const rowBox = unionBox(row);
-  if (!hasTableBandOverlap(rowBox, tableBox)) return false;
-
-  const alignedNumericCells = row.filter((line) => {
-    if (!isTableNumericCell(line.text)) return false;
-    const right = numericColumnMatchRight(line, undefined);
-    return numericColumnRights.some(
-      (columnRight) => Math.abs(columnRight - right) <= TABLE_RECURRING_NUMERIC_COLUMN_TOLERANCE_PT,
-    );
-  });
-  const labelAligned =
-    labelLeft !== undefined &&
-    row.some(
-      (line) => Math.abs(line.x - labelLeft) <= TABLE_LEADING_ROW_X_TOLERANCE_PT && isCompactTableLabelCell(line),
-    );
-
-  if (alignedNumericCells.length > 0) return row.length >= 2 || labelAligned;
-  if (row.length >= 2) return true;
-  return allowSingleLabelHeader && labelAligned;
-}
-
-function isCompactLeadingTableCell(line: LayoutLine): boolean {
-  const text = line.text.replace(/\s+/g, ' ').trim();
-  if (text.length === 0 || text.length > TABLE_LEADING_HEADER_MAX_CHARS) return false;
-  if (isTableNumericCell(text) || isCurrencyOnlyCell(text)) return true;
-  if (!/[\p{L}]/u.test(text)) return false;
-  if (/[!?:;]/u.test(text) || /\.(?:\s|$)/u.test(text)) return false;
-  if (text.split(/\s+/).filter(Boolean).length > TABLE_LEADING_HEADER_MAX_WORDS) return false;
-  return line.width <= TABLE_LEADING_HEADER_MAX_WIDTH_PT;
-}
-
-function hasTableBandOverlap(rowBox: BBox, tableBox: BBox): boolean {
-  const left = tableBox.x - TABLE_LEADING_ROW_X_TOLERANCE_PT;
-  const right = tableBox.x + tableBox.width + TABLE_LEADING_ROW_X_TOLERANCE_PT;
-  const overlap = Math.min(rowBox.x + rowBox.width, right) - Math.max(rowBox.x, left);
-  return overlap > 0 && overlap >= Math.min(rowBox.width, tableBox.width) * 0.6;
-}
-
-function recurringNumericColumnRights(
-  rows: LayoutLine[][],
-  options: { minColumns: number; minRows: number },
-): number[] {
-  const columns: { right: number; rowIndexes: Set<number>; sampleCount: number }[] = [];
-  for (const [rowIndex, row] of rows.entries()) {
-    const numericCells = row.filter((line) => isTableNumericCell(line.text));
-    for (let cellIndex = 0; cellIndex < numericCells.length; cellIndex++) {
-      const line = numericCells[cellIndex];
-      if (!line) continue;
-      const right = numericColumnMatchRight(line, numericCells[cellIndex + 1]);
-      let column = columns.find(
-        (candidate) => Math.abs(candidate.right - right) <= TABLE_RECURRING_NUMERIC_COLUMN_TOLERANCE_PT,
-      );
-      if (!column) {
-        column = { right, rowIndexes: new Set(), sampleCount: 0 };
-        columns.push(column);
-      }
-      column.right = (column.right * column.sampleCount + right) / (column.sampleCount + 1);
-      column.sampleCount += 1;
-      column.rowIndexes.add(rowIndex);
-    }
-  }
-  const recurringColumns = columns
-    .filter((column) => column.rowIndexes.size >= options.minRows)
-    .sort((a, b) => a.right - b.right)
-    .map((column) => column.right);
-  return recurringColumns.length >= options.minColumns ? recurringColumns : [];
-}
-
-function isAlignedNumericContinuationRow(row: LayoutLine[], columnRights: number[]): boolean {
-  const valueCells = row.filter((line) => isTableNumericCell(line.text));
-  if (valueCells.length < TABLE_ROW_MIN_NUMERIC_CELLS) return false;
-  if (row.some((line) => !isTableNumericCell(line.text) && !isCurrencyOnlyCell(line.text))) return false;
-
-  let matchedCells = 0;
-  const matchedColumns = new Set<number>();
-  for (let cellIndex = 0; cellIndex < valueCells.length; cellIndex++) {
-    const cell = valueCells[cellIndex];
-    if (!cell) continue;
-    const right = numericColumnMatchRight(cell, valueCells[cellIndex + 1]);
-    const columnIndex = columnRights.findIndex(
-      (columnRight) => Math.abs(columnRight - right) <= TABLE_RECURRING_NUMERIC_COLUMN_TOLERANCE_PT,
-    );
-    if (columnIndex < 0) return false;
-    matchedCells += 1;
-    matchedColumns.add(columnIndex);
-  }
-  return matchedCells >= TABLE_ROW_MIN_NUMERIC_CELLS && matchedColumns.size >= TABLE_ROW_MIN_NUMERIC_CELLS;
-}
-
-function attachLabelContinuationRows(row: LayoutLine[], rowIndex: number, allRows: LayoutLine[][]): LayoutLine[] {
-  const label = row.find((line) => !isTableNumericCell(line.text) && /[\p{L}]/u.test(line.text));
-  if (!label) return row;
-
-  const continuations: LayoutLine[] = [];
-  let previousBottom = label.y;
-  for (let index = rowIndex - 1; index >= 0; index--) {
-    const candidate = allRows[index];
-    if (!isLabelContinuationRow(candidate, label, previousBottom)) break;
-    continuations.unshift(mergeLineTexts(candidate));
-    previousBottom = rowY(candidate);
-  }
-  if (continuations.length === 0) return row;
-
-  const mergedLabel = mergeLineTexts([...continuations, label]);
-  return row.map((line) => (line === label ? mergedLabel : line));
-}
-
-function isLabelContinuationRow(row: LayoutLine[], label: LayoutLine, nextTop: number): boolean {
-  if (row.length === 0 || row.length > 2) return false;
-  if (row.some((line) => isTableNumericCell(line.text))) return false;
-  const merged = mergeLineTexts(row);
-  if (merged.text.trim().endsWith(':')) return false;
-  if (!/[\p{L}]/u.test(merged.text)) return false;
-  if (Math.abs(merged.x - label.x) > Math.max(12, label.fontSize * 2)) return false;
-  const gap = nextTop - (merged.y + merged.height);
-  return gap >= -1 && gap <= Math.max(18, label.fontSize * 2.2);
-}
-
-function hasRegularTableRowCadence(rows: LayoutLine[][]): boolean {
-  const gaps = rowGaps(rows);
-  if (gaps.length < 2) return true;
-  if (cadenceMatchRatio(gaps) >= TABLE_ROW_CADENCE_MIN_MATCH_RATIO) return true;
-  return hasRecurringNumericColumns(rows);
-}
-
-function rowGaps(rows: LayoutLine[][]): number[] {
-  const ys = rows.map(rowY).sort((a, b) => a - b);
-  return ys
-    .slice(1)
-    .map((y, index) => y - ys[index])
-    .filter((gap) => gap > 0.5);
-}
-
-function cadenceMatchRatio(gaps: number[]): number {
-  if (gaps.length === 0) return 1;
-  const median = medianNumber(gaps);
-  const tolerance = Math.max(TABLE_ROW_CADENCE_MIN_TOLERANCE_PT, median * TABLE_ROW_CADENCE_TOLERANCE_RATIO);
-  return gaps.filter((gap) => Math.abs(gap - median) <= tolerance).length / gaps.length;
-}
-
-function medianNumber(values: number[]): number {
-  const sorted = [...values].sort((a, b) => a - b);
-  return sorted[Math.floor(sorted.length / 2)] ?? 0;
-}
-
-function hasRecurringNumericColumns(rows: LayoutLine[][]): boolean {
-  const minRows = Math.max(
-    TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROWS,
-    Math.ceil(rows.length * TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROW_RATIO),
-  );
-  if (rows.filter(hasTableLabelCell).length < minRows) return false;
-  return (
-    recurringNumericColumnRights(rows, {
-      minColumns: TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS,
-      minRows,
-    }).length >= TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS
-  );
-}
-
-function hasTableLabelCell(row: LayoutLine[]): boolean {
-  return row.some((line) => !isTableNumericCell(line.text) && /[\p{L}]/u.test(line.text));
 }
 
 function toLayoutTable(rows: LayoutLine[][]): LayoutTable {
@@ -439,4 +110,127 @@ function toLayoutTable(rows: LayoutLine[][]): LayoutTable {
       })),
     })),
   };
+}
+
+function detectAlignedTextTables(allRowGroups: LayoutLine[][]): LayoutTable[] {
+  const candidateRows: IndexedLayoutRow[] = allRowGroups
+    .map((row, index) => ({ row: alignedTextTableCandidateRow(row), index }))
+    .filter((item): item is IndexedLayoutRow => item.row !== undefined);
+  const groups: IndexedLayoutRow[][] = [];
+
+  for (const row of candidateRows) {
+    const previousGroup = groups.at(-1);
+    const previousRow = previousGroup?.at(-1);
+    if (previousRow && rowY(row.row) - rowBottom(previousRow.row) <= ALIGNED_TEXT_TABLE_MAX_ROW_GAP_PT) {
+      previousGroup?.push(row);
+    } else {
+      groups.push([row]);
+    }
+  }
+
+  const tables: LayoutTable[] = [];
+  for (const group of groups) {
+    const baseRows = group.map(({ row }) => row);
+    if (isLikelyTinyNumericVectorGrid(baseRows.flat())) continue;
+    if (isLikelyTinyNumericChartFragment(baseRows.flat())) continue;
+    if (isLikelySparseNumericLegendFragment(baseRows.flat())) continue;
+    if (isLikelyMirroredChartAxisTable(baseRows.flat())) continue;
+    if (!isAlignedTextTableGroup(baseRows)) continue;
+    const rows = attachAlignedTextHeaderRows(group, allRowGroups);
+    if (isLikelyTinyNumericChartFragment(rows.flat())) continue;
+    if (isLikelySparseNumericLegendFragment(rows.flat())) continue;
+    if (isLikelyMirroredChartAxisTable(rows.flat())) continue;
+    tables.push(toLayoutTable(rows));
+  }
+  return tables;
+}
+
+function alignedTextTableCandidateRow(row: LayoutLine[]): LayoutLine[] | undefined {
+  if (row.length < ALIGNED_TEXT_TABLE_MIN_CELLS) return undefined;
+  if (row.some((line) => line.width > ALIGNED_TEXT_TABLE_MAX_CELL_WIDTH_PT)) return undefined;
+  if (!row.some((line) => /\p{N}/u.test(line.text))) return undefined;
+  if (row.filter((line) => /[\p{L}\p{N}]/u.test(line.text)).length < ALIGNED_TEXT_TABLE_MIN_CELLS) {
+    return undefined;
+  }
+  return row;
+}
+
+function isAlignedTextTableGroup(rows: LayoutLine[][]): boolean {
+  if (rows.length < ALIGNED_TEXT_TABLE_MIN_ROWS) return false;
+  if (!hasRegularTableRowCadence(rows)) return false;
+  if (rows.filter(hasTextLabelCell).length < Math.ceil(rows.length * ALIGNED_TEXT_TABLE_MIN_LABEL_ROW_RATIO)) {
+    return false;
+  }
+  const recurringColumns = recurringColumnBins(rows).filter(
+    (count) => count >= Math.max(3, Math.ceil(rows.length * 0.35)),
+  );
+  return recurringColumns.length >= ALIGNED_TEXT_TABLE_MIN_RECURRING_COLUMNS;
+}
+
+function hasTextLabelCell(row: LayoutLine[]): boolean {
+  return row.some((line) => !isTableNumericCell(line.text) && /[\p{L}]/u.test(line.text));
+}
+
+function attachAlignedTextHeaderRows(group: IndexedLayoutRow[], allRows: LayoutLine[][]): LayoutLine[][] {
+  const rows = group.map(({ row }) => row);
+  const firstIndex = group[0]?.index ?? 0;
+  const bodyBox = unionBox(rows.flat());
+  const headers: LayoutLine[][] = [];
+
+  for (let index = firstIndex - 1; index >= 0; index--) {
+    const candidate = allRows[index];
+    if (!isAlignedTextTableHeaderRow(candidate, bodyBox, headers[0] ?? rows[0])) break;
+    headers.unshift(candidate);
+  }
+
+  return [...headers, ...rows];
+}
+
+function isAlignedTextTableHeaderRow(
+  row: LayoutLine[] | undefined,
+  tableBox: BBox,
+  nextRow: LayoutLine[] | undefined,
+): row is LayoutLine[] {
+  if (!row || !nextRow) return false;
+  if (row.length < 2) return false;
+  if (row.some((line) => line.width > ALIGNED_TEXT_TABLE_MAX_CELL_WIDTH_PT)) return false;
+  if (row.some((line) => !/[\p{L}\p{N}()（）]/u.test(line.text))) return false;
+  if (rowY(nextRow) - rowBottom(row) > ALIGNED_TEXT_TABLE_HEADER_MAX_GAP_PT) return false;
+
+  const rowBox = unionBox(row);
+  const overlap = Math.min(rowBox.x + rowBox.width, tableBox.x + tableBox.width) - Math.max(rowBox.x, tableBox.x);
+  return overlap >= Math.min(rowBox.width, tableBox.width) * 0.35;
+}
+
+function recurringColumnBins(rows: LayoutLine[][]): number[] {
+  const bins: number[] = [];
+  for (const line of rows.flat()) {
+    const index = bins.findIndex((x) => Math.abs(x - line.x) <= ALIGNED_TEXT_TABLE_COLUMN_TOLERANCE_PT);
+    if (index === -1) {
+      bins.push(line.x);
+    }
+  }
+
+  return bins.map((bin) => {
+    let count = 0;
+    for (const row of rows) {
+      if (row.some((line) => Math.abs(line.x - bin) <= ALIGNED_TEXT_TABLE_COLUMN_TOLERANCE_PT)) count++;
+    }
+    return count;
+  });
+}
+
+function overlapOfSmaller(a: BBox, b: BBox): number {
+  const smaller = Math.min(area(a), area(b));
+  return smaller > 0 ? overlapArea(a, b) / smaller : 0;
+}
+
+function overlapArea(a: BBox, b: BBox): number {
+  const x = Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x));
+  const y = Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y));
+  return x * y;
+}
+
+function area(box: BBox): number {
+  return Math.max(0, box.width) * Math.max(0, box.height);
 }

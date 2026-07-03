@@ -134,6 +134,23 @@ function pdfHexString(value: string): string {
   return `<${Buffer.from(value, 'utf8').toString('hex')}>`;
 }
 
+function buildPdfWithVisibleFreeTextAnnotation(): Uint8Array {
+  const pageText = 'BT /F1 12 Tf 72 720 Td (FreeText) Tj ET';
+  const pageTextLength = Buffer.byteLength(pageText, 'binary');
+  const appearance = 'q 0 0 1 rg BT /F1 12 Tf 0 5 Td (FreeText content) Tj ET Q';
+  const appearanceLength = Buffer.byteLength(appearance, 'binary');
+
+  return buildRawPdf([
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 6 0 R >> >> /Annots [4 0 R] /Contents 5 0 R >>',
+    `<< /Type /Annot /Subtype /FreeText /Rect [72 650 220 670] /Contents ${pdfHexString('FreeText content')} /F 4 /DA (/F1 12 Tf 0 0 1 rg) /AP << /N 7 0 R >> >>`,
+    `<< /Length ${pageTextLength} >>\nstream\n${pageText}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    `<< /Type /XObject /Subtype /Form /FormType 1 /BBox [0 0 148 20] /Resources << /Font << /F1 6 0 R >> >> /Length ${appearanceLength} >>\nstream\n${appearance}\nendstream`,
+  ]);
+}
+
 function pdfUtf16HexString(value: string): string {
   const bytes = Buffer.alloc(2 + value.length * 2);
   bytes[0] = 0xfe;
@@ -162,6 +179,19 @@ function buildPdfWithAttachment(): Uint8Array {
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
     '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> >>',
     '<< /Type /Filespec /F (hello.txt) /UF (hello.txt) /Desc (Supplement file) /EF << /F 5 0 R /UF 5 0 R >> >>',
+    `<< /Type /EmbeddedFile /Subtype /text#2Fplain /Length ${size} /Params << /Size ${size} >> >>\nstream\n${content}\nendstream`,
+  ]);
+}
+
+function buildPdfWithFileAttachmentAnnotation(): Uint8Array {
+  const content = 'annotation attachment';
+  const size = Buffer.byteLength(content, 'binary');
+  return buildRawPdf([
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> /Annots [4 0 R] >>',
+    '<< /Type /Annot /Subtype /FileAttachment /Rect [70 724 90 748] /Name /PushPin /Contents (Supplement file) /FS 5 0 R /F 4 >>',
+    '<< /Type /Filespec /F (annotation.txt) /UF (annotation.txt) /Desc (Annotation supplement) /EF << /F 6 0 R /UF 6 0 R >> >>',
     `<< /Type /EmbeddedFile /Subtype /text#2Fplain /Length ${size} /Params << /Size ${size} >> >>\nstream\n${content}\nendstream`,
   ]);
 }
@@ -689,6 +719,17 @@ describe('processDocument', () => {
     expect(JSON.stringify(result.attachments)).not.toContain('hello attachment');
   });
 
+  it('extracts file-attachment annotations as document attachment metadata', async () => {
+    const result = await processDocument('memory://attachment-annotation.pdf', {
+      sourceData: buildPdfWithFileAttachmentAnnotation(),
+      noCache: true,
+      attachments: true,
+    });
+
+    expect(result.attachments).toEqual([{ name: 'annotation.txt', description: 'Annotation supplement', size: 21 }]);
+    expect(JSON.stringify(result.attachments)).not.toContain('annotation attachment');
+  });
+
   it('writes embedded attachments into a per-PDF output subdirectory', async () => {
     const baseDir = mkdtempSync(resolve(tmpdir(), 'pdfvision-attachment-output-'));
     try {
@@ -799,6 +840,23 @@ describe('processDocument', () => {
     expect(result.overview?.map((o) => o.linkCount)).toEqual([2, 0]);
   });
 
+  it('searches link targets without exposing links output', async () => {
+    const result = await processDocument('memory://link-search.pdf', {
+      sourceData: await buildPdfWithLink(),
+      noCache: true,
+      search: 'path?q=1',
+    });
+
+    expect(result.pages[0].links).toBeUndefined();
+    expect(result.pages[0].matches).toEqual([
+      expect.objectContaining({
+        text: 'path?q=1',
+        source: 'link',
+        bbox: { x: 100, y: 72, width: 120, height: 20 },
+      }),
+    ]);
+  });
+
   it('extracts a real document outline with nested items and resolved pages', async () => {
     const result = await processDocument('memory://outline.pdf', {
       sourceData: await buildPdfWithOutline(),
@@ -846,6 +904,24 @@ describe('processDocument', () => {
       }),
     ]);
     expect(result.pages[0].links).toHaveLength(1);
+  });
+
+  it('warns about visible FreeText annotation text missing from baseline native text', async () => {
+    const result = await processDocument('memory://visible-freetext.pdf', {
+      sourceData: buildPdfWithVisibleFreeTextAnnotation(),
+      noCache: true,
+    });
+
+    const page = result.pages[0];
+    expect(page.text).toBe('FreeText');
+    expect(page.annotations).toBeUndefined();
+    expect(page.warnings).toContainEqual(
+      expect.objectContaining({
+        code: 'annotation_text_missing_from_native',
+        severity: 'warning',
+      }),
+    );
+    expect(page.warnings?.[0].message).toContain('FreeText content');
   });
 
   it('uses visible annotations as visual-region seeds without exposing annotations by default', async () => {
@@ -1094,6 +1170,18 @@ describe('processDocument', () => {
     ).rejects.toThrow(/renderRegion .* falls outside page/);
   });
 
+  it('allows renderRegion edges that only exceed page bounds by 2dp rounding noise', async () => {
+    const result = await processDocument(SAMPLE_PDF, {
+      pages: '1',
+      render: true,
+      renderRegion: { x: 0, y: 700, width: 100, height: 92.01 },
+      noCache: true,
+    });
+
+    expect(result.pages[0].renderRegion).toEqual({ x: 0, y: 700, width: 100, height: 92.01 });
+    expect(result.pages[0].image).toBeDefined();
+  });
+
   it('rejects renderRegion whose width/height rounds to 0 after 2dp canonicalisation', async () => {
     // `0.004` passes the raw `> 0` check, then rounds to `0` after the
     // 2dp canonicalisation that makes the value flow consistently through
@@ -1153,6 +1241,7 @@ describe('processDocument', () => {
     expect(result.pages[0]).toMatchObject({
       width: 596,
       height: 842,
+      rotation: 270,
       renderRegion: { x: 0, y: 0, width: 596, height: 842 },
     });
     const img = await loadImage(result.pages[0].image as string);

@@ -57,6 +57,7 @@ Each `pages[]` entry includes:
 
 - `text` and optional `rawText`.
 - page dimensions in PDF points.
+- optional page rotation in degrees when the PDF page is rotated.
 - density fields mirrored from the overview.
 - optional `image` path when `--render` is used.
 - optional `spans`, `layout`, `imageBoxes`, `vectorBoxes`, `visualRegions`, `formFields`, `links`, `annotations`, `structure`, `ocr`, `warnings`, and `matches`.
@@ -96,7 +97,9 @@ Practical interpretation:
 
 ## Coordinates
 
-All boxes use PDF user-space points with a top-left origin. `x` grows right and `y` grows downward. This matches rendered PNG orientation and makes `--render-region` straightforward.
+All boxes use PDF user-space points with a top-left origin. `x` grows right and `y` grows downward. `width` / `height` and geometry stay in the page MediaBox coordinate system.
+
+On unrotated pages, this matches the rendered PNG orientation. On rotated pages, `pages[].rotation` carries the clockwise page rotation and rendered PNGs follow the human-visible rotated viewport. Pass bboxes directly to `--render-region`; for full-page PNG overlays, map through the rotated PDF viewport instead of only scaling by `image.width / page.width`.
 
 Coordinate-bearing fields include spans, layout blocks and lines, image boxes, vector boxes, visual regions, form fields, links, annotations, structure references, OCR words, and search matches. This means an agent can move from structured extraction to a visual crop without inventing a new coordinate system.
 
@@ -121,7 +124,7 @@ Many PDFs contain information outside the plain text stream. pdfvision keeps the
 
 Use `--form-fields` for applications, questionnaires, and government forms. It exposes widget type, value, checked state, choices, flags, export values, actions, bbox, and nearby labels. This is often the only reliable way to distinguish a blank box from a selected checkbox or a visible choice field.
 
-Use `--links` and `--outline` for navigation-heavy documents. Links are page-level annotations with bboxes and targets, while outlines are document-level bookmarks that preserve hierarchy and resolved destinations when available. They are useful for citations, table-of-contents entries, manuals, and reports where "where this points" is part of the evidence.
+Use `--links` and `--outline` for navigation-heavy documents. Links are page-level annotations with bboxes and targets, while outlines are document-level bookmarks that preserve hierarchy and resolved destinations when available. Link targets are also searched by `--search`, even when link output itself is not requested. They are useful for citations, table-of-contents entries, manuals, and reports where "where this points" is part of the evidence.
 
 Use `--annotations` when comments, highlights, stamps, ink, shapes, file-attachment icons, or visible FreeText notes may change the meaning of the page. FreeText annotations are also searched by `--search`, even when annotation output itself is not requested, because they can be visible to a human reader while absent from `pages[].text`.
 
@@ -129,7 +132,7 @@ Use `--viewer`, `--page-labels`, and `--layers` when the PDF's viewer state matt
 
 Use `--structure` when a tagged PDF may contain accessibility roles, figure alt text, language hints, or logical grouping that visual layout alone does not reveal. Tagged structure is supplied by the PDF author and should be compared with visible page evidence when accuracy matters.
 
-Use `--attachments` for PDFs with an attachment pane or supplemental files. Structured output includes attachment metadata and size; bytes are written only when `--attachment-output` is explicitly provided. Attachment paths are evidence that files were extracted, not a signal that the files are safe to open.
+Use `--attachments` for PDFs with an attachment pane, page file-attachment icons, or supplemental files. Structured output includes attachment metadata and size; bytes are written only when `--attachment-output` is explicitly provided. Attachment paths are evidence that files were extracted, not a signal that the files are safe to open.
 
 ## Detailed Schema
 

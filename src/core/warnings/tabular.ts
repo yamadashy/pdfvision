@@ -1,4 +1,9 @@
 import type { LayoutBlock, LayoutLine, PageResult, PageWarning } from '../../types/index.js';
+import {
+  isLikelyMirroredChartAxisTable,
+  isLikelySparseNumericLegendFragment,
+  isLikelyTinyNumericVectorGrid,
+} from '../layout/numericVectorGrid.js';
 
 const TABULAR_NUMERIC_MIN_LINES = 12;
 const TABULAR_NUMERIC_MIN_LINE_RATIO = 0.25;
@@ -37,6 +42,9 @@ export function detectTabularNumericLayout(blocks: LayoutBlock[], out: PageWarni
   ) {
     return;
   }
+  if (isLikelyTinyNumericVectorGrid(numericLines)) return;
+  if (isLikelySparseNumericLegendFragment(numericLines)) return;
+  if (isLikelyMirroredChartAxisTable(allLines)) return;
 
   out.push({
     code: 'tabular_numeric_layout',
@@ -61,7 +69,7 @@ export function detectDotLeaderNoise(page: PageResult, out: PageWarning[]): void
   out.push({
     code: 'dot_leader_noise',
     severity: 'warning',
-    message: `page contains ${stats.lineCount} standalone dotted leader lines (${stats.dotCount} leader marks) — table-of-contents or table leaders may have been extracted away from their labels; inspect layout or render when page numbers or row associations matter`,
+    message: `page contains ${stats.lineCount} standalone dotted leader/noise lines (${stats.dotCount} dot marks) — table-of-contents leaders, map stipple, or decorative dot patterns may have been represented as native text; inspect layout or render before trusting dotted text or row associations`,
   });
 }
 

@@ -1,12 +1,13 @@
 import { existsSync, lstatSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
-import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { RenderedContentBox, RenderRegion } from '../../types/index.js';
 import { atomicWrite } from '../io/atomicWrite.js';
 import { runParallel } from '../runtime/parallel.js';
-import { computeContentStats, type PixelContentBox, type RenderStats } from './contentStats.js';
-import { type PageViewportLike, type ViewportCrop, viewportCropForRegion } from './crop.js';
+import { contentBoxFromViewportPixels } from './contentBox.js';
+import { computeContentStats, type RenderStats } from './contentStats.js';
+import { type ViewportCrop, viewportCropForRegion } from './crop.js';
 
 export { computeContentRatio } from './contentStats.js';
 export { viewportCropForRegion } from './crop.js';
@@ -69,8 +70,8 @@ export async function renderPageToBuffer(
   // sub-pixel regions (e.g. 0.4pt × scale 1 → 0.4px) from collapsing
   // the canvas to a 0-dim allocation that @napi-rs/canvas refuses with
   // an opaque error.
-  const canvasW = crop ? Math.max(1, Math.round(crop.width)) : viewport.width;
-  const canvasH = crop ? Math.max(1, Math.round(crop.height)) : viewport.height;
+  const canvasW = Math.max(1, Math.round(crop ? crop.width : viewport.width));
+  const canvasH = Math.max(1, Math.round(crop ? crop.height : viewport.height));
   const canvas = createCanvas(canvasW, canvasH);
   const context = canvas.getContext('2d');
 
@@ -94,7 +95,7 @@ export async function renderPageToBuffer(
     buffer,
     contentRatio: stats.contentRatio,
     ...(stats.contentBoxPx && {
-      renderedContentBox: contentBoxFromViewportPixels(page, viewport, crop, stats.contentBoxPx),
+      renderedContentBox: contentBoxFromViewportPixels(page, viewport, crop, stats.contentBoxPx, region),
     }),
   };
 }
@@ -114,43 +115,6 @@ async function computeContentStatsFromPng(path: string): Promise<RenderStats> {
   context.drawImage(img, 0, 0);
   const rgba = context.getImageData(0, 0, img.width, img.height).data;
   return computeContentStats(rgba, img.width, img.height);
-}
-
-function contentBoxFromViewportPixels(
-  page: PDFPageProxy,
-  viewport: PageViewportLike,
-  crop: ViewportCrop | undefined,
-  box: PixelContentBox,
-): RenderedContentBox {
-  const left = (crop?.x ?? 0) + box.x;
-  const top = (crop?.y ?? 0) + box.y;
-  const right = left + box.width;
-  const bottom = top + box.height;
-  const corners = [
-    viewport.convertToPdfPoint(left, top),
-    viewport.convertToPdfPoint(right, top),
-    viewport.convertToPdfPoint(right, bottom),
-    viewport.convertToPdfPoint(left, bottom),
-  ];
-  const xs = corners.map((point) => point[0]);
-  const ys = corners.map((point) => point[1]);
-  const view = page.view;
-  const viewMinX = Math.min(view[0], view[2]);
-  const viewMaxY = Math.max(view[1], view[3]);
-  const pdfLeft = Math.min(...xs);
-  const pdfRight = Math.max(...xs);
-  const pdfTop = Math.max(...ys);
-  const pdfBottom = Math.min(...ys);
-  return {
-    x: round2(pdfLeft - viewMinX),
-    y: round2(viewMaxY - pdfTop),
-    width: round2(Math.max(0, pdfRight - pdfLeft)),
-    height: round2(Math.max(0, pdfTop - pdfBottom)),
-  };
-}
-
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
 }
 
 /**
@@ -194,7 +158,7 @@ export async function renderPageWithStats(
       return {
         path: outputPath,
         contentRatio: stats.contentRatio,
-        renderedContentBox: contentBoxFromViewportPixels(page, viewport, crop, stats.contentBoxPx),
+        renderedContentBox: contentBoxFromViewportPixels(page, viewport, crop, stats.contentBoxPx, region),
       };
     } catch {
       // Corrupt or partially-written cached PNG (e.g. disk error mid-write

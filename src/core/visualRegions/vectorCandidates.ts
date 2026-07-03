@@ -1,6 +1,14 @@
 import type { VectorBox } from '../../types/index.js';
 import { mergeCandidates } from './candidateMerge.js';
-import { areaRatio, pageArea, touches, unionBox } from './geometry.js';
+import {
+  areaRatio,
+  isFinitePositiveBox,
+  overlapArea,
+  pageArea,
+  touches,
+  unionBox,
+  visiblePageBox,
+} from './geometry.js';
 import {
   hasNonBackgroundBox,
   isLikelyHorizontalChrome,
@@ -13,8 +21,10 @@ import {
   isUsefulDenseVectorBox,
   isUsefulMicroVectorBox,
 } from './predicates.js';
+import { addRuledFormVectorCandidates } from './ruledForms.js';
 import { addRuledTableVectorCandidates } from './ruledTables.js';
 import type { BoxLike, BuildVisualRegionsInput, Candidate } from './types.js';
+import { containsRuledVectorGrid, RULED_GRID_FRAME_REASON } from './vectorGridFrames.js';
 
 const CLUSTER_GAP_PT = 10;
 const MIN_VECTOR_CLUSTER_SOURCES = 6;
@@ -27,6 +37,9 @@ const DENSE_VECTOR_CLUSTER_GAP_PT = 24;
 const MIN_DENSE_MICRO_VECTOR_BOXES = 200;
 const MIN_DENSE_MICRO_VECTOR_CLUSTER_BOXES = 40;
 const MIN_DENSE_MICRO_VECTOR_CLUSTER_AREA_RATIO = 0.015;
+const MIN_DENSE_MICRO_VECTOR_FIELD_BOXES = 500;
+const MIN_DENSE_MICRO_VECTOR_FIELD_AREA_RATIO = 0.25;
+const MIN_DENSE_MICRO_VECTOR_FIELD_SPAN_RATIO = 0.45;
 
 function denseVectorItems(input: BuildVisualRegionsInput): { box: VectorBox; index: number }[] {
   return (input.vectorBoxes ?? [])
@@ -34,9 +47,7 @@ function denseVectorItems(input: BuildVisualRegionsInput): { box: VectorBox; ind
     .filter(
       ({ box }) =>
         isUsefulDenseVectorBox(box, MIN_DENSE_VECTOR_LINE_LENGTH_PT) &&
-        !isNearFullPageBox(box, input.pageWidth, input.pageHeight) &&
-        !isLikelySideChrome(box, input.pageWidth, input.pageHeight) &&
-        !isLikelyHorizontalChrome(box, input.pageWidth, input.pageHeight) &&
+        !isLikelyVectorBackplane(box, input.pageWidth, input.pageHeight) &&
         !isLikelyUnpositionedFormWidgetVector(box, input),
     );
 }
@@ -47,9 +58,7 @@ function denseMicroVectorItems(input: BuildVisualRegionsInput): { box: VectorBox
     .filter(
       ({ box }) =>
         isUsefulMicroVectorBox(box) &&
-        !isNearFullPageBox(box, input.pageWidth, input.pageHeight) &&
-        !isLikelySideChrome(box, input.pageWidth, input.pageHeight) &&
-        !isLikelyHorizontalChrome(box, input.pageWidth, input.pageHeight) &&
+        !isLikelyVectorBackplane(box, input.pageWidth, input.pageHeight) &&
         !isLikelyUnpositionedFormWidgetVector(box, input),
     );
 }
@@ -101,25 +110,44 @@ function clusterVectorBoxes(
   input: BuildVisualRegionsInput,
 ): Candidate[] {
   const clusters: Candidate[] = [];
+  const deferredDetails: Candidate[] = [];
   for (const [index, box] of vectorBoxes.entries()) {
     const usableRegionBox = isUsableBox(box);
-    if (!usableRegionBox && !isUsableVectorConnectorBox(box)) continue;
+    const usableConnectorBox = isUsableVectorConnectorBox(box);
+    if (!usableRegionBox && !usableConnectorBox && !isFinitePositiveBox(box)) continue;
     if (isLikelySideChrome(box, pageWidth, pageHeight)) continue;
     if (isLikelyHorizontalChrome(box, pageWidth, pageHeight)) continue;
-    if (skipBackgroundBoxes && isLikelyVectorBackplane(box, pageWidth, pageHeight)) continue;
+    const retainedGridFrame =
+      skipBackgroundBoxes &&
+      isLikelyVectorBackplane(box, pageWidth, pageHeight) &&
+      containsRuledVectorGrid(box, index, vectorBoxes, input);
+    if (skipBackgroundBoxes && isLikelyVectorBackplane(box, pageWidth, pageHeight) && !retainedGridFrame) continue;
     if (isLikelyUnpositionedFormWidgetVector(box, input)) continue;
-    const matches: number[] = [];
-    for (let i = 0; i < clusters.length; i++) {
-      if (touches(clusters[i], box, CLUSTER_GAP_PT)) matches.push(i);
-    }
-    if (!usableRegionBox && matches.length < 2) continue;
     const next: Candidate = {
       ...box,
       kind: 'vector',
       priority: 2,
-      reason: 'cluster of vector drawing operations',
+      reason: retainedGridFrame ? RULED_GRID_FRAME_REASON : 'cluster of vector drawing operations',
       sources: [{ type: 'vectorBox', index }],
     };
+    if (retainedGridFrame) {
+      clusters.push(next);
+      continue;
+    }
+    if (!usableRegionBox && !usableConnectorBox) {
+      deferredDetails.push(next);
+      continue;
+    }
+
+    const matches: number[] = [];
+    for (let i = 0; i < clusters.length; i++) {
+      if (clusters[i].reason === RULED_GRID_FRAME_REASON) continue;
+      if (touches(clusters[i], box, CLUSTER_GAP_PT)) matches.push(i);
+    }
+    if (!usableRegionBox && matches.length < 2) {
+      deferredDetails.push(next);
+      continue;
+    }
     if (matches.length === 0) {
       if (!usableRegionBox) continue;
       clusters.push(next);
@@ -132,7 +160,36 @@ function clusterVectorBoxes(
     }
     clusters[matches[0]] = merged;
   }
+  return mergeDeferredVectorDetails(clusters, deferredDetails);
+}
+
+function mergeDeferredVectorDetails(clusters: Candidate[], deferredDetails: readonly Candidate[]): Candidate[] {
+  const consumed = new Set<number>();
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const [index, detail] of deferredDetails.entries()) {
+      if (consumed.has(index)) continue;
+      const clusterIndex = bestOverlappingClusterIndex(detail, clusters);
+      if (clusterIndex === -1) continue;
+      clusters[clusterIndex] = mergeCandidates(clusters[clusterIndex], detail);
+      consumed.add(index);
+      changed = true;
+    }
+  }
   return clusters;
+}
+
+function bestOverlappingClusterIndex(detail: Candidate, clusters: readonly Candidate[]): number {
+  let bestIndex = -1;
+  let bestOverlap = 0;
+  for (const [index, cluster] of clusters.entries()) {
+    const overlap = overlapArea(cluster, detail);
+    if (overlap <= bestOverlap) continue;
+    bestIndex = index;
+    bestOverlap = overlap;
+  }
+  return bestIndex;
 }
 
 export function addVectorCandidates(input: BuildVisualRegionsInput, candidates: Candidate[]): void {
@@ -161,7 +218,15 @@ export function addVectorCandidates(input: BuildVisualRegionsInput, candidates: 
       isLikelySideChrome(box, input.pageWidth, input.pageHeight) ||
       isLikelyHorizontalChrome(box, input.pageWidth, input.pageHeight),
   );
+  addRuledFormVectorCandidates(
+    input,
+    candidates,
+    (box) =>
+      isLikelySideChrome(box, input.pageWidth, input.pageHeight) ||
+      isLikelyHorizontalChrome(box, input.pageWidth, input.pageHeight),
+  );
   addDenseVectorUnionCandidate(input, candidates);
+  addDenseMicroVectorFieldCandidate(input, candidates);
   addDenseMicroVectorClusterCandidates(input, candidates);
 }
 
@@ -204,4 +269,32 @@ function addDenseMicroVectorClusterCandidates(input: BuildVisualRegionsInput, ca
       sources: cluster.items.map(({ index }) => ({ type: 'vectorBox', index })),
     });
   }
+}
+
+function addDenseMicroVectorFieldCandidate(input: BuildVisualRegionsInput, candidates: Candidate[]): void {
+  if ((input.vectorBoxes ?? []).length < MIN_DENSE_MICRO_VECTOR_FIELD_BOXES) return;
+  const useful = denseMicroVectorItems(input);
+  if (useful.length < MIN_DENSE_MICRO_VECTOR_FIELD_BOXES) return;
+
+  const field = visiblePageBox(
+    useful.reduce((box, item) => unionBox(box, item.box), useful[0].box),
+    input.pageWidth,
+    input.pageHeight,
+  );
+  const totalArea = pageArea(input);
+  if (areaRatio(field, totalArea) < MIN_DENSE_MICRO_VECTOR_FIELD_AREA_RATIO) return;
+  if (
+    field.width < input.pageWidth * MIN_DENSE_MICRO_VECTOR_FIELD_SPAN_RATIO ||
+    field.height < input.pageHeight * MIN_DENSE_MICRO_VECTOR_FIELD_SPAN_RATIO
+  ) {
+    return;
+  }
+
+  candidates.push({
+    ...field,
+    kind: 'vector',
+    priority: 2,
+    reason: `${useful.length} dense small vector markers spread across broad map/diagram field`,
+    sources: useful.map(({ index }) => ({ type: 'vectorBox', index })),
+  });
 }

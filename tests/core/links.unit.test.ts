@@ -46,7 +46,69 @@ describe('buildLinks', () => {
 
     expect(links).toEqual([
       { type: 'destination', target: ['chapter', { name: 'XYZ' }], x: 20, y: 50, width: 20, height: 20 },
-      { type: 'url', target: 'mailto:reader@example.com', x: 10, y: 80, width: 10, height: 10 },
+      { type: 'url', target: 'mailto:reader@example.com', unsafe: true, x: 10, y: 80, width: 10, height: 10 },
+    ]);
+  });
+
+  it('marks unsafe URL fallbacks and new-window requests from viewer actions', async () => {
+    const links = await buildLinks(
+      [
+        {
+          subtype: 'Link',
+          unsafeUrl: '../../0021/002156/215675E.pdf#15',
+          newWindow: true,
+          rect: [5, 10, 190, 40],
+        },
+      ],
+      50,
+    );
+
+    expect(links).toEqual([
+      {
+        type: 'url',
+        target: '../../0021/002156/215675E.pdf#15',
+        unsafe: true,
+        newWindow: true,
+        x: 5,
+        y: 10,
+        width: 185,
+        height: 30,
+      },
+    ]);
+  });
+
+  it('extracts embedded-file link targets without attachment bytes', async () => {
+    const links = await buildLinks(
+      [
+        {
+          subtype: 'Link',
+          attachment: {
+            filename: 'Empty page.pdf',
+            description: 'Sample attachment',
+            content: new Uint8Array([1, 2, 3, 4]),
+          },
+          attachmentDest: '[0,{"name":"Fit"}]',
+          rect: [12.5, 51, 35.3, 66.3],
+        },
+      ],
+      100,
+    );
+
+    expect(links).toEqual([
+      {
+        type: 'attachment',
+        target: 'Empty page.pdf',
+        attachment: {
+          name: 'Empty page.pdf',
+          description: 'Sample attachment',
+          size: 4,
+          destination: '[0,{"name":"Fit"}]',
+        },
+        x: 12.5,
+        y: 33.7,
+        width: 22.8,
+        height: 15.3,
+      },
     ]);
   });
 

@@ -113,7 +113,7 @@ OCR 不會覆蓋原生文字。使用方應比較 `page.text` 與 `page.ocr?.tex
 
 使用 `--form-fields` 處理申請表、問卷和政府表單。它暴露 widget type、value、checked state、choices、flags、export values、actions、bbox 和附近標籤，常用於區分空框、已選核取方塊和可見 choice field。
 
-使用 `--links` 與 `--outline` 處理導覽密集的文件。links 是帶 bbox 與 target 的頁面級 annotation，outline 是保留層級和 resolved destination 的文件級書籤。它們適用於引用、目錄、手冊和「指向哪裡」也是證據一部分的報告。
+使用 `--links` 與 `--outline` 處理導覽密集的文件。links 是帶 bbox 與 target 的頁面級 annotation，outline 是保留層級和 resolved destination 的文件級書籤。即使未請求 link output，link targets 也會被 `--search` 搜尋。它們適用於引用、目錄、手冊和「指向哪裡」也是證據一部分的報告。
 
 使用 `--annotations` 處理評論、高亮、stamp、ink、shape、file-attachment icons 或可見 FreeText notes 可能改變頁面含義的情況。FreeText annotations 也會被 `--search` 搜尋，因為它們可能對人類可見，卻不在 `pages[].text` 中。
 
@@ -121,7 +121,7 @@ OCR 不會覆蓋原生文字。使用方應比較 `page.text` 與 `page.ocr?.tex
 
 使用 `--structure` 處理 tagged PDF 可能包含 accessibility roles、figure alt text、language hints 或邏輯分組的情況。tagged structure 由 PDF 作者提供，準確性重要時應與可見頁面證據比對。
 
-使用 `--attachments` 處理帶附件面板或補充檔案的 PDF。結構化輸出包含附件 metadata 與大小；只有顯式提供 `--attachment-output` 時才寫出 bytes。附件路徑只是檔案被擷取的證據，不代表這些檔案可以安全開啟。
+使用 `--attachments` 處理帶附件面板、頁面 file-attachment icons 或補充檔案的 PDF。結構化輸出包含附件 metadata 與大小；只有顯式提供 `--attachment-output` 時才寫出 bytes。附件路徑只是檔案被擷取的證據，不代表這些檔案可以安全開啟。
 
 ## 詳細 schema
 

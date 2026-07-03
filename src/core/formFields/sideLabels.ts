@@ -1,0 +1,241 @@
+import type { FormField, FormFieldLabel } from '../../types/index.js';
+import {
+  CHOICE_SIDE_PROMPT_MAX_GAP_PT,
+  SIDE_LABEL_CONTINUATION_MAX_CHARS,
+  SIDE_LABEL_MAX_GAP_PT,
+} from './constants.js';
+import { type BoxLike, centerX, centerY, horizontalOverlapRatio, round2, unionBox } from './geometry.js';
+import { collectSideLabelContinuationLines } from './stacks.js';
+import {
+  isChoiceLikeField,
+  isDotLeaderText,
+  isExplanatoryFormParagraphStart,
+  isUsableLabelText,
+  isUsablePromptFragment,
+  normalizeChoicePromptLabelText,
+  normalizeLabelText,
+  startsWithPromptItemMarker,
+} from './text.js';
+import type { LabelCandidate, LabelLine } from './types.js';
+
+const SIDE_LABEL_STACK_MAX_GAP_PT = 6;
+const SIDE_LABEL_STACK_MAX_LINES = 3;
+const SIDE_LABEL_STACK_CENTER_TOLERANCE_PT = 18;
+const SIDE_LABEL_STACK_MIN_OVERLAP_RATIO = 0.3;
+const SIDE_LABEL_STACK_BROAD_UPWARD_WIDTH_RATIO = 2.5;
+const SIDE_LABEL_STACK_BROAD_UPWARD_EXTRA_WIDTH_PT = 120;
+
+export function expandChoiceSideStackedLabel(
+  field: FormField,
+  candidate: LabelCandidate,
+  lines: readonly LabelLine[],
+  siblings: readonly FormField[] = [],
+): FormFieldLabel | undefined {
+  if (!isChoiceLikeField(field)) return undefined;
+  if (candidate.relation !== 'left' && candidate.relation !== 'right') return undefined;
+  if (isFarLeftChoicePrompt(field, candidate)) return undefined;
+
+  const stack = collectSideStackedLabelLines(field, candidate, lines, siblings);
+  if (stack.length <= 1) return undefined;
+
+  const sorted = stack.sort((a, b) => a.line.y - b.line.y || a.line.x - b.line.x);
+  const text = normalizeChoicePromptLabelText(sorted.map(({ text }) => text).join(' '));
+  if (!isUsableLabelText(text, SIDE_LABEL_CONTINUATION_MAX_CHARS) || text === candidate.text) return undefined;
+
+  const labelBox = sorted
+    .slice(1)
+    .reduce<BoxLike>((box, item) => unionBox(box, item.line), sorted[0]?.line ?? candidate.line);
+  return {
+    text,
+    relation: candidate.relation,
+    x: round2(labelBox.x),
+    y: round2(labelBox.y),
+    width: round2(labelBox.width),
+    height: round2(labelBox.height),
+  };
+}
+
+export function expandSideLabelContinuation(
+  field: FormField,
+  candidate: LabelCandidate,
+  lines: readonly LabelLine[],
+  siblings: readonly FormField[] = [],
+): FormFieldLabel | undefined {
+  if (candidate.relation !== 'left') return undefined;
+  if (field.type !== 'checkbox' && field.type !== 'radio' && field.type !== 'button') return undefined;
+  if (isFarLeftChoicePrompt(field, candidate) && startsWithPromptItemMarker(candidate.text)) return undefined;
+
+  const continuation = collectSideLabelContinuationLines(field, candidate, lines, siblings);
+  if (continuation.length === 0) return undefined;
+
+  const promptLines = [...continuation, { line: candidate.line, text: candidate.text }];
+  const text = normalizeChoicePromptLabelText(promptLines.map(({ text }) => text).join(' '));
+  if (!isUsableLabelText(text, SIDE_LABEL_CONTINUATION_MAX_CHARS) || text === candidate.text) return undefined;
+
+  const boxLines = promptLines.map(({ line }) => line).sort((a, b) => a.y - b.y || a.x - b.x);
+  const labelBox = boxLines.slice(1).reduce<BoxLike>((box, line) => unionBox(box, line), boxLines[0] ?? candidate.line);
+  return {
+    text,
+    relation: candidate.relation,
+    x: round2(labelBox.x),
+    y: round2(labelBox.y),
+    width: round2(labelBox.width),
+    height: round2(labelBox.height),
+  };
+}
+
+function collectSideStackedLabelLines(
+  field: FormField,
+  candidate: LabelCandidate,
+  lines: readonly LabelLine[],
+  siblings: readonly FormField[],
+): { line: LabelLine; text: string }[] {
+  const stack = [{ line: candidate.line, text: candidate.text }];
+  let bounds: BoxLike = candidate.line;
+
+  while (stack.length < SIDE_LABEL_STACK_MAX_LINES) {
+    const next = findAdjacentSideStackLine(field, candidate, bounds, stack, lines, siblings);
+    if (!next) break;
+    stack.push(next);
+    bounds = unionBox(bounds, next.line);
+  }
+
+  return stack;
+}
+
+function findAdjacentSideStackLine(
+  field: FormField,
+  candidate: LabelCandidate,
+  bounds: BoxLike,
+  stack: readonly { line: LabelLine; text: string }[],
+  lines: readonly LabelLine[],
+  siblings: readonly FormField[],
+): { line: LabelLine; text: string } | undefined {
+  let best: { line: LabelLine; text: string; gap: number } | undefined;
+  for (const line of lines) {
+    if (stack.some((item) => item.line === line)) continue;
+    if (!isLineOnCandidateSide(field, candidate, line)) continue;
+    if (isLineAlignedWithSiblingChoiceField(field, candidate, line, siblings)) continue;
+    if (hasSameRowLeftPrefix(field, candidate, line, lines)) continue;
+
+    const text = normalizeLabelText(line.text);
+    if (!isUsablePromptFragment(text) || isDotLeaderText(text)) continue;
+    if (candidate.relation === 'right' && isExplanatoryFormParagraphStart(text)) continue;
+    if (candidate.relation === 'right' && isExplanatoryParagraphContinuation(line, lines)) continue;
+    if (isBroadUpwardRightSideStackLine(candidate, bounds, line, text)) continue;
+    if (startsWithPromptItemMarker(stack[0]?.text ?? '') && startsWithPromptItemMarker(text)) continue;
+
+    const gap = verticalGap(bounds, line);
+    if (gap < 0 || gap > SIDE_LABEL_STACK_MAX_GAP_PT) continue;
+    if (!isStackAligned(bounds, line)) continue;
+
+    if (!best || gap < best.gap || (gap === best.gap && line.y < best.line.y)) {
+      best = { line, text, gap };
+    }
+  }
+  return best ? { line: best.line, text: best.text } : undefined;
+}
+
+function isLineOnCandidateSide(field: FormField, candidate: LabelCandidate, line: LabelLine): boolean {
+  if (candidate.relation === 'right') return line.x >= field.x + field.width - 1;
+  return line.x + line.width <= field.x + 1;
+}
+
+function hasSameRowLeftPrefix(
+  field: FormField,
+  candidate: LabelCandidate,
+  line: LabelLine,
+  lines: readonly LabelLine[],
+): boolean {
+  if (candidate.relation !== 'right') return false;
+  const lineCenterY = centerY(line);
+  for (const prefix of lines) {
+    if (prefix === line || prefix === candidate.line) continue;
+    if (Math.abs(centerY(prefix) - lineCenterY) > Math.max(2, Math.min(prefix.height, line.height) * 0.4)) continue;
+    if (prefix.x + prefix.width > line.x + 1) continue;
+    if (line.x - (prefix.x + prefix.width) > 6) continue;
+    if (prefix.x > field.x + field.width + 1) continue;
+
+    const text = normalizeLabelText(prefix.text);
+    if (isUsablePromptFragment(text) && !isDotLeaderText(text)) return true;
+  }
+  return false;
+}
+
+function isFarLeftChoicePrompt(field: FormField, candidate: LabelCandidate): boolean {
+  return candidate.relation === 'left' && field.x - (candidate.line.x + candidate.line.width) > SIDE_LABEL_MAX_GAP_PT;
+}
+
+function isBroadUpwardRightSideStackLine(
+  candidate: LabelCandidate,
+  bounds: BoxLike,
+  line: LabelLine,
+  text: string,
+): boolean {
+  if (candidate.relation !== 'right') return false;
+  if (line.y + line.height > bounds.y + 1) return false;
+  if (startsWithPromptItemMarker(text)) return false;
+  return (
+    line.width >
+    Math.max(
+      bounds.width * SIDE_LABEL_STACK_BROAD_UPWARD_WIDTH_RATIO,
+      bounds.width + SIDE_LABEL_STACK_BROAD_UPWARD_EXTRA_WIDTH_PT,
+    )
+  );
+}
+
+function isExplanatoryParagraphContinuation(line: LabelLine, lines: readonly LabelLine[]): boolean {
+  return lines.some((prefix) => isExplanatoryPrefixForLine(prefix, line));
+}
+
+function isExplanatoryPrefixForLine(prefix: LabelLine, line: LabelLine): boolean {
+  if (prefix === line) return false;
+  if (!isExplanatoryFormParagraphStart(normalizeLabelText(prefix.text))) return false;
+  if (line.y < prefix.y - 1) return false;
+  if (line.y - prefix.y > 24) return false;
+  if (line.x < prefix.x - 1) return false;
+
+  const sameRow = Math.abs(centerY(prefix) - centerY(line)) <= Math.max(2, Math.min(prefix.height, line.height) * 0.5);
+  if (sameRow) {
+    return prefix.x + prefix.width <= line.x + 1 && line.x - (prefix.x + prefix.width) <= 8;
+  }
+
+  return (
+    Math.abs(line.x - prefix.x) <= 14 || horizontalOverlapRatio(prefix, line) >= SIDE_LABEL_STACK_MIN_OVERLAP_RATIO
+  );
+}
+
+function isLineAlignedWithSiblingChoiceField(
+  field: FormField,
+  candidate: LabelCandidate,
+  line: LabelLine,
+  siblings: readonly FormField[],
+): boolean {
+  for (const sibling of siblings) {
+    if (sibling === field || !isChoiceLikeField(sibling)) continue;
+    if (!isLineOnCandidateSide(sibling, candidate, line)) continue;
+    if (sideGap(sibling, candidate, line) > siblingGapLimit(candidate)) continue;
+    const centerDelta = Math.abs(centerY(sibling) - centerY(line));
+    if (centerDelta <= Math.max(7, Math.max(sibling.height, line.height) * 0.9)) return true;
+  }
+  return false;
+}
+
+function sideGap(field: FormField, candidate: LabelCandidate, line: LabelLine): number {
+  return candidate.relation === 'right' ? line.x - (field.x + field.width) : field.x - (line.x + line.width);
+}
+
+function siblingGapLimit(candidate: LabelCandidate): number {
+  return candidate.relation === 'left' ? CHOICE_SIDE_PROMPT_MAX_GAP_PT : SIDE_LABEL_MAX_GAP_PT;
+}
+
+function verticalGap(a: BoxLike, b: BoxLike): number {
+  if (b.y + b.height <= a.y) return a.y - (b.y + b.height);
+  if (a.y + a.height <= b.y) return b.y - (a.y + a.height);
+  return -1;
+}
+
+function isStackAligned(bounds: BoxLike, line: LabelLine): boolean {
+  if (horizontalOverlapRatio(bounds, line) >= SIDE_LABEL_STACK_MIN_OVERLAP_RATIO) return true;
+  return Math.abs(centerX(bounds) - centerX(line)) <= SIDE_LABEL_STACK_CENTER_TOLERANCE_PT;
+}

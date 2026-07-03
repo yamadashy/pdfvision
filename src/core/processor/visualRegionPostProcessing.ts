@@ -1,8 +1,11 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
-import type { PageResult } from '../../types/index.js';
+import type { PageResult, RenderedContentBox, VisualRegion } from '../../types/index.js';
 import { markRepeatedBlocks } from '../layout/index.js';
 import { runParallel } from '../runtime/parallel.js';
 import { type BuildVisualRegionsInput, buildVisualRegions } from '../visualRegions/index.js';
+
+const BLANK_REGION_RENDER_THRESHOLD = 0.001;
+const FULL_PAGE_REGION_AREA_RATIO_THRESHOLD = 0.9;
 
 interface ApplyVisualRegionPostProcessingOptions {
   pages: PageResult[];
@@ -10,6 +13,7 @@ interface ApplyVisualRegionPostProcessingOptions {
   visualRegionsEnabled: boolean;
   renderVisualRegions: boolean;
   visualRegionInputsByPage: ReadonlyMap<number, BuildVisualRegionsInput>;
+  renderContentBoxesByPage: ReadonlyMap<number, RenderedContentBox>;
   doc: PDFDocumentProxy;
   imagesDir: string | null;
   renderScale?: number;
@@ -21,6 +25,7 @@ export async function applyVisualRegionPostProcessing({
   visualRegionsEnabled,
   renderVisualRegions,
   visualRegionInputsByPage,
+  renderContentBoxesByPage,
   doc,
   imagesDir,
   renderScale,
@@ -47,6 +52,8 @@ export async function applyVisualRegionPostProcessing({
             ...input,
             visualStatus: page.quality.visualStatus,
             nativeTextStatus: page.quality.nativeTextStatus,
+            renderContentRatio: page.renderContentRatio,
+            renderedContentBox: renderContentBoxesByPage.get(page.page),
           }).map((region, index) => ({
             ...region,
             id: `p${page.page}-vr${index}`,
@@ -66,4 +73,27 @@ export async function applyVisualRegionPostProcessing({
     region.renderContentRatio = rendered.contentRatio;
     if (rendered.renderedContentBox) region.renderedContentBox = rendered.renderedContentBox;
   });
+
+  applyFullPageBlankRegionEvidence(pages);
+}
+
+function applyFullPageBlankRegionEvidence(pages: PageResult[]): void {
+  for (const page of pages) {
+    if (!page.visualRegions || page.visualRegions.length === 0) continue;
+    const blankFullPageRegions = page.visualRegions.filter(isBlankFullPageRenderedRegion);
+    if (blankFullPageRegions.length === 0) continue;
+
+    if (page.renderContentRatio === undefined) {
+      page.renderContentRatio = Math.max(...blankFullPageRegions.map((region) => region.renderContentRatio ?? 0));
+    }
+    page.visualRegions = page.visualRegions.filter((region) => !isBlankFullPageRenderedRegion(region));
+  }
+}
+
+function isBlankFullPageRenderedRegion(region: VisualRegion): boolean {
+  if (region.renderContentRatio === undefined) return false;
+  return (
+    region.areaRatio >= FULL_PAGE_REGION_AREA_RATIO_THRESHOLD &&
+    region.renderContentRatio <= BLANK_REGION_RENDER_THRESHOLD
+  );
 }

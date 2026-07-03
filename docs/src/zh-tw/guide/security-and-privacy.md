@@ -67,7 +67,7 @@ Viewer permissions 會作為 document metadata 報告。它們描述 PDF 希望 
 
 ## Search Regex 安全
 
-預設搜尋把 query 當作 literal text。`--search-regex` 會把每個 query 編譯為 JavaScript regular expression，並在 native text、form-field text、visible FreeText annotations，以及啟用 OCR 時的 OCR text 上執行。
+預設搜尋把 query 當作 literal text。`--search-regex` 會把每個 query 編譯為 JavaScript regular expression，並在 native text、form-field text、clickable link targets、visible FreeText annotations，以及啟用 OCR 時的 OCR text 上執行。
 
 只對可信 pattern 啟用 regex mode。pdfvision 會限制每個 query、page、source 輸出的 match 數，但 JavaScript regular expressions 仍可能在單次 catastrophic-backtracking match 中消耗過多時間。向 untrusted users 暴露 regex search 的應用應自行使用 timeout 或 worker isolation。
 

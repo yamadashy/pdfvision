@@ -1,6 +1,14 @@
 import { associatedTextKey } from './associatedText.js';
 import { hasSourceType, mergeCandidateMetadataInto, mergeCandidates } from './candidateMerge.js';
-import { area, areaRatio, areaSimilarity, overlapOfSmaller } from './geometry.js';
+import {
+  area,
+  areaRatio,
+  areaSimilarity,
+  horizontalOverlapRatio,
+  overlapArea,
+  overlapOfSmaller,
+  unionBox,
+} from './geometry.js';
 import { isBackgroundLikeCandidate, isNearFullPageBox } from './predicates.js';
 import type { BuildVisualRegionsInput, Candidate } from './types.js';
 
@@ -9,11 +17,22 @@ const FORM_BACKPLANE_SINGLE_FORM_AREA_RATIO = 0.5;
 const FORM_BACKPLANE_MIN_FORM_OVERLAPS = 2;
 const VECTOR_BACKPLANE_MIN_RASTER_OVERLAPS = 2;
 const VECTOR_BACKPLANE_MIN_AREA_RATIO = 0.25;
+const DENSE_VECTOR_FIELD_MIN_SOURCES = 500;
 const EQUIVALENT_CANDIDATE_OVERLAP_RATIO = 0.98;
 const EQUIVALENT_CANDIDATE_AREA_RATIO = 0.98;
 const CONTEXTUAL_DUPLICATE_OVERLAP_RATIO = 0.85;
 const CONTEXTUAL_DUPLICATE_AREA_RATIO = 0.85;
 const CONTEXTUAL_DUPLICATE_CONTAINED_OVERLAP_RATIO = 0.95;
+const TABLE_COLUMN_STRIP_COVERAGE_RATIO = 0.85;
+const TABLE_COLUMN_STRIP_MAX_WIDTH_RATIO = 0.5;
+const TABLE_COLUMN_STRIP_MIN_HEIGHT_RATIO = 0.7;
+const RASTER_TEXT_STRIP_VECTOR_MERGE_GAP_PT = 12;
+const RASTER_TEXT_STRIP_VECTOR_MIN_OVERLAP_RATIO = 0.5;
+const RASTER_TEXT_STRIP_VECTOR_MIN_SOURCES = 4;
+const RASTER_TEXT_STRIP_VECTOR_MIN_AREA_RATIO = 0.02;
+const LOW_CONTENT_FULL_PAGE_RASTER_RENDER_THRESHOLD = 0.02;
+const LOW_CONTENT_SCAN_DIFFUSE_CONTENT_BOX_AREA_RATIO = 0.5;
+const LOW_CONTENT_SCAN_DIFFUSE_CONTENT_BOX_SPAN_RATIO = 0.85;
 
 export function suppressFormBackplaneCandidates(candidates: Candidate[], totalArea: number): Candidate[] {
   const formCandidates = candidates.filter((candidate) => hasSourceType(candidate, 'formField'));
@@ -36,11 +55,63 @@ export function suppressBroadVectorBackplaneCandidates(candidates: Candidate[], 
 
   return candidates.filter((candidate) => {
     if (!isStandaloneVectorCandidate(candidate)) return true;
+    if (isDenseVectorFieldCandidate(candidate)) return true;
     if (areaRatio(candidate, totalArea) < VECTOR_BACKPLANE_MIN_AREA_RATIO) return true;
     const overlappingRasters = rasterCandidates.filter(
       (raster) => overlapOfSmaller(raster, candidate) >= CONTEXTUAL_DUPLICATE_CONTAINED_OVERLAP_RATIO,
     );
     return overlappingRasters.length < VECTOR_BACKPLANE_MIN_RASTER_OVERLAPS;
+  });
+}
+
+export function suppressTableColumnVectorStrips(candidates: Candidate[]): Candidate[] {
+  const tableCandidates = candidates.filter((candidate) => hasSourceType(candidate, 'layoutTable'));
+  if (tableCandidates.length === 0) return candidates;
+
+  return candidates.filter((candidate) => {
+    if (!isStandaloneVectorCandidate(candidate)) return true;
+    if (candidate.associatedText && candidate.associatedText.length > 0) return true;
+
+    const overlappingTables = tableCandidates.filter((table) => overlapArea(candidate, table) > 0);
+    if (overlappingTables.length === 0) return true;
+
+    const coveredArea = overlappingTables.reduce((sum, table) => sum + overlapArea(candidate, table), 0);
+    if (coveredArea / Math.max(1, area(candidate)) < TABLE_COLUMN_STRIP_COVERAGE_RATIO) return true;
+
+    const [firstTable, ...remainingTables] = overlappingTables;
+    let tableBox = {
+      x: firstTable.x,
+      y: firstTable.y,
+      width: firstTable.width,
+      height: firstTable.height,
+    };
+    for (const table of remainingTables) {
+      tableBox = unionBox(tableBox, table);
+    }
+    return !(
+      candidate.width <= tableBox.width * TABLE_COLUMN_STRIP_MAX_WIDTH_RATIO &&
+      candidate.height >= tableBox.height * TABLE_COLUMN_STRIP_MIN_HEIGHT_RATIO
+    );
+  });
+}
+
+export function mergeRasterTextStripsIntoNearbyVectorCharts(candidates: Candidate[], totalArea: number): Candidate[] {
+  const consumed = new Set<number>();
+  const replacements = new Map<number, Candidate>();
+
+  for (const [index, candidate] of candidates.entries()) {
+    if (!isRasterTextStripCandidate(candidate)) continue;
+    const targetIndex = findNearbyVectorChartIndex(candidate, candidates, totalArea);
+    if (targetIndex === -1) continue;
+
+    const target = replacements.get(targetIndex) ?? candidates[targetIndex];
+    replacements.set(targetIndex, mergeCandidates(target, candidate));
+    consumed.add(index);
+  }
+
+  return candidates.flatMap((candidate, index) => {
+    if (consumed.has(index)) return [];
+    return [replacements.get(index) ?? candidate];
   });
 }
 
@@ -50,6 +121,51 @@ function isStandaloneRasterCandidate(candidate: Candidate): boolean {
 
 function isStandaloneVectorCandidate(candidate: Candidate): boolean {
   return candidate.kind === 'vector' && candidate.sources.every((source) => source.type === 'vectorBox');
+}
+
+function isRasterTextStripCandidate(candidate: Candidate): boolean {
+  return isStandaloneRasterCandidate(candidate) && candidate.reason.includes('raster text');
+}
+
+function findNearbyVectorChartIndex(raster: Candidate, candidates: readonly Candidate[], totalArea: number): number {
+  let bestIndex = -1;
+  let bestGap = Number.POSITIVE_INFINITY;
+
+  for (const [index, candidate] of candidates.entries()) {
+    if (!isVectorChartMergeTarget(candidate, totalArea)) continue;
+    if (horizontalOverlapRatio(raster, candidate) < RASTER_TEXT_STRIP_VECTOR_MIN_OVERLAP_RATIO) continue;
+    const gap = verticalGap(raster, candidate);
+    if (gap > RASTER_TEXT_STRIP_VECTOR_MERGE_GAP_PT) continue;
+    if (gap < bestGap) {
+      bestGap = gap;
+      bestIndex = index;
+    }
+  }
+
+  return bestIndex;
+}
+
+function isVectorChartMergeTarget(candidate: Candidate, totalArea: number): boolean {
+  if (candidate.kind !== 'vector') return false;
+  if (!hasSourceType(candidate, 'vectorBox')) return false;
+  if (hasSourceType(candidate, 'layoutTable') || hasSourceType(candidate, 'formField')) return false;
+
+  const vectorSources = candidate.sources.filter((source) => source.type === 'vectorBox').length;
+  return (
+    vectorSources >= RASTER_TEXT_STRIP_VECTOR_MIN_SOURCES ||
+    areaRatio(candidate, totalArea) >= RASTER_TEXT_STRIP_VECTOR_MIN_AREA_RATIO
+  );
+}
+
+function verticalGap(a: Candidate, b: Candidate): number {
+  return Math.max(a.y - (b.y + b.height), b.y - (a.y + a.height), 0);
+}
+
+function isDenseVectorFieldCandidate(candidate: Candidate): boolean {
+  return (
+    candidate.sources.length >= DENSE_VECTOR_FIELD_MIN_SOURCES &&
+    candidate.reason.includes('dense small vector markers spread across broad')
+  );
 }
 
 export function dedupeCandidates(candidates: Candidate[]): Candidate[] {
@@ -142,6 +258,45 @@ export function suppressBlankFullPageCandidates(
   return candidates.filter((candidate) => !isNearFullPageBox(candidate, pageWidth, pageHeight));
 }
 
+export function suppressLowContentFullPageRasterScans(
+  candidates: Candidate[],
+  input: BuildVisualRegionsInput,
+): Candidate[] {
+  if (!isLowContentRasterScanPage(input)) return candidates;
+  return candidates.filter(
+    (candidate) =>
+      !(
+        candidate.kind === 'raster' &&
+        candidate.sources.every((source) => source.type === 'imageBox') &&
+        isNearFullPageBox(candidate, input.pageWidth, input.pageHeight)
+      ),
+  );
+}
+
+function isLowContentRasterScanPage(input: BuildVisualRegionsInput): boolean {
+  if (input.nativeTextStatus !== 'empty_but_visual_content') return false;
+  if (input.renderContentRatio === undefined) return false;
+  if (input.renderContentRatio > LOW_CONTENT_FULL_PAGE_RASTER_RENDER_THRESHOLD) return false;
+  if (input.renderedContentBox && !hasDiffuseRenderedContentBox(input)) return false;
+  if ((input.layout?.blocks.length ?? 0) > 0) return false;
+  if ((input.vectorBoxes?.length ?? 0) > 0) return false;
+  if ((input.formFields?.length ?? 0) > 0) return false;
+  if ((input.annotations?.length ?? 0) > 0) return false;
+  return true;
+}
+
+function hasDiffuseRenderedContentBox(input: BuildVisualRegionsInput): boolean {
+  const box = input.renderedContentBox;
+  if (!box) return true;
+  const totalArea = input.pageWidth * input.pageHeight;
+  if (totalArea <= 0) return true;
+  if (areaRatio(box, totalArea) >= LOW_CONTENT_SCAN_DIFFUSE_CONTENT_BOX_AREA_RATIO) return true;
+  return (
+    box.width >= input.pageWidth * LOW_CONTENT_SCAN_DIFFUSE_CONTENT_BOX_SPAN_RATIO &&
+    box.height >= input.pageHeight * LOW_CONTENT_SCAN_DIFFUSE_CONTENT_BOX_SPAN_RATIO
+  );
+}
+
 export function suppressLoneFullPageVectorBackplanes(
   candidates: Candidate[],
   input: BuildVisualRegionsInput,
@@ -186,6 +341,16 @@ export function suppressContainedCandidates(candidates: Candidate[]): Candidate[
 
 function canSuppressContainedCandidate(candidate: Candidate, other: Candidate): boolean {
   if (other.kind === candidate.kind) return true;
+  if (
+    candidate.kind === 'vector' &&
+    other.kind === 'mixed' &&
+    hasSourceType(candidate, 'vectorBox') &&
+    hasSourceType(other, 'vectorBox') &&
+    hasSourceType(other, 'imageBox') &&
+    (!candidate.associatedText || candidate.associatedText.length === 0)
+  ) {
+    return true;
+  }
   return (
     candidate.kind === 'vector' &&
     !hasSourceType(candidate, 'formField') &&

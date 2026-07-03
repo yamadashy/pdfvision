@@ -17,6 +17,8 @@ pdfvision report.pdf --search "revenue" --json
 
 Matches are emitted in `pages[].matches[]`. Each match includes the page number, query, source, text snippet, and a bounding box when pdfvision can locate the visible area.
 
+Markdown output also shows a per-page `Search matches` table when `--search` is used. Use JSON, XML, or TOON when a downstream tool needs to consume the coordinates directly.
+
 Repeat `--search` to run multiple queries in one pass:
 
 ```bash
@@ -46,15 +48,17 @@ Search can match:
 
 - native PDF text.
 - text and choice values from `--form-fields`.
+- clickable link targets from `--links`.
 - visible FreeText annotation contents from `--annotations`.
 - OCR text from `--ocr`, using OCR word boxes when available.
 
-OCR matches that duplicate native, form-field, or annotation matches are suppressed so agents do not see the same visible text twice.
+OCR matches that duplicate native, form-field, link, or annotation matches are suppressed so agents do not see the same visible text twice.
 
 The match `source` helps the agent decide how much to trust it:
 
 - `native`: text came from the PDF text layer.
 - `formField`: text came from a visible widget value or display value.
+- `link`: text came from a clickable link target.
 - `annotation`: text came from a visible FreeText annotation.
 - `ocr`: text came from page pixels and may need confidence review.
 

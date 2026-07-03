@@ -47,6 +47,32 @@ describe('buildLayout — heading classification', () => {
     }
   });
 
+  it('does not let tiny chart labels and source notes lower the body font baseline', () => {
+    const chartLabels = Array.from({ length: 48 }, (_, index) => {
+      const row = Math.floor(index / 8);
+      const column = index % 8;
+      const text = column % 3 === 0 ? `12,${String(index).padStart(3, '0')}` : `${row + 1}.${column}`;
+      return span(text, 80 + column * 42, 340 + row * 13, 3.2, text.length * 2.4);
+    });
+    const note =
+      'Source: long small-print chart note with enough characters to dominate a naive page median if sampled as body.';
+    const spans: TextSpan[] = [
+      span('令和5年4月に国立社会保障人口問題研究', 312, 120, 11.34, 238),
+      span('所が公表した日本の将来推計人口における', 312, 140, 11.34, 238),
+      span('出生中位死亡中位仮定による推計結果', 312, 160, 11.34, 238),
+      span('本節においては全てこの仮定に基づく推計結果', 312, 180, 11.34, 238),
+      span('将来の出生死亡及び国際人口移動について仮定', 312, 200, 11.34, 238),
+      span('これらに基づいて将来の人口構造の推移を示す', 312, 220, 11.34, 238),
+      ...chartLabels,
+      span(note, 72, 650, 7.09, 456),
+      span(note, 72, 659, 7.09, 456),
+    ];
+
+    const layout = buildLayout(spans, 612, 792);
+    const body = layout.blocks.find((block) => block.text.includes('令和5年4月'));
+    expect(body?.role).toBeUndefined();
+  });
+
   it('uses char-weighted median so a single short oversize line stays a heading', () => {
     // The heading is one short word at 30pt; body is many sentences at
     // 11pt. An unweighted median across blocks would flip to 11pt anyway,
@@ -1512,6 +1538,26 @@ describe('buildLayout — multi-column reading order', () => {
     expect(layout.blocks.every((block) => block.lines[0]?.writingMode === 'vertical')).toBe(true);
   });
 
+  it('marks page-edge vertical navigation tabs as repeated chrome', () => {
+    const spans: TextSpan[] = [
+      span('本文の見出し', 65, 54, 18, 120),
+      span('本文の一行目がここにあります', 62, 84, 10, 220),
+      span('第', 22, 126, 8.5, 8.5),
+      span('1', 15, 132, 19.8, 13.1),
+      span('章', 22, 155, 8.5, 8.5),
+      span('働き方改革の推進などを通じた労働環境の整備など', 23, 181, 9.2, 9.2),
+      span('本文の二行目がここにあります', 62, 140, 10, 220),
+    ];
+    spans[5].height = 212;
+
+    const layout = buildLayout(spans, 595.28, 841.89);
+    const chromeTexts = layout.blocks.filter((block) => block.repeated).map((block) => block.text);
+
+    expect(chromeTexts).toEqual(expect.arrayContaining(['第', '1', '章']));
+    expect(chromeTexts).toContain('働き方改革の推進などを通じた労働環境の整備など');
+    expect(layout.blocks.find((block) => block.text === '本文の一行目がここにあります')?.repeated).toBeUndefined();
+  });
+
   it('does not treat aligned first glyphs of horizontal CJK lines as vertical writing', () => {
     const spans: TextSpan[] = [
       span('日', 50, 50, 12, 12),
@@ -1772,6 +1818,250 @@ describe('buildLayout — multi-column reading order', () => {
     ]);
   });
 
+  it('keeps fiscal date headers above financial statement value columns', () => {
+    // Amazon annual-report-shaped case: the fiscal date header can be
+    // emitted as a single text run above two numeric value columns. It
+    // is still the visible column header for the table below.
+    const spans: TextSpan[] = [
+      span('December 31, 2023 December 31, 2024', 402.79, 93.03, 7.76, 138.36),
+      span('Cash and cash equivalents', 50.75, 104.57, 9.7, 102),
+      span('$', 400.67, 105.22, 9.7, 4.85),
+      span('73,387', 439.51, 105.22, 9.7, 26.68),
+      span('$', 476.33, 105.22, 9.7, 4.85),
+      span('78,779', 515.17, 105.22, 9.7, 26.67),
+      span('Restricted cash included in accounts receivable, net and other', 50.75, 119.12, 9.7, 238.65),
+      span('497', 451.64, 119.77, 9.7, 14.55),
+      span('247', 527.3, 119.77, 9.7, 14.55),
+      span('Restricted cash included in other assets', 50.75, 133.67, 9.7, 152.03),
+      span('6', 461.34, 134.32, 9.7, 4.85),
+      span('3,286', 520.02, 134.32, 9.7, 21.83),
+      span(
+        'Total cash, cash equivalents, and restricted cash shown in the consolidated statements of',
+        50.75,
+        148.22,
+        9.7,
+        342.84,
+      ),
+      span('cash flows', 50.75, 159.86, 9.7, 41.19),
+      span('$', 400.67, 158.33, 9.7, 4.85),
+      span('73,890', 439.51, 158.33, 9.7, 26.68),
+      span('$', 476.33, 158.33, 9.7, 4.85),
+      span('82,312', 515.17, 158.33, 9.7, 26.67),
+    ];
+    const layout = buildLayout(spans, 612, 792);
+    const rows = layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text));
+
+    expect(rows?.[0]).toEqual(['December 31, 2023 December 31, 2024']);
+    expect(rows).toContainEqual(['Cash and cash equivalents', '$ 73,387', '$ 78,779']);
+    expect(rows).toContainEqual([
+      'Total cash, cash equivalents, and restricted cash shown in the consolidated statements of cash flows',
+      '$ 73,890',
+      '$ 82,312',
+    ]);
+  });
+
+  it('emits table hints for sparse financial tables with one data row', () => {
+    // Federal Reserve H.4.1-shaped case: a multi-level header sits above
+    // a single data row. The row count is too small for recurring-row
+    // table detection, but agents still need the visible header/value
+    // association instead of a flattened text stream.
+    const spans: TextSpan[] = [
+      span('4. Information on Principal Accounts of Credit Facilities LLC', 35, 273.06, 11, 314.46),
+      span('Millions of dollars', 35, 285.9, 8, 61.9),
+      span('Wednesday Jun 24, 2026', 331.63, 296.1, 8, 90.7),
+      span('Net portfolio holdings of', 373.2, 306.2, 8, 84.1),
+      span('Credit Facilities LLC', 379.5, 317.69, 8, 71.6),
+      span('Outstanding', 235.93, 330.19, 8, 43.14),
+      span('Credit Facilities LLC:', 35, 336.39, 8, 73.8),
+      span('principal', 242.6, 339.39, 8, 29.8),
+      span('Outstanding', 316.83, 339.39, 8, 43.14),
+      span('amount', 244.2, 348.59, 8, 26.7),
+      span('amount of', 320.7, 348.59, 8, 35.6),
+      span('Treasury', 406, 348.59, 8, 31.6),
+      span('of loan', 245.5, 357.79, 8, 24),
+      span('facility', 327.4, 357.79, 8, 22.2),
+      span('contributions', 399.1, 357.79, 8, 45.4),
+      span('extended to', 236.6, 366.99, 8, 41.8),
+      span('asset', 328.9, 366.99, 8, 19.1),
+      span('and', 415.1, 366.99, 8, 13.3),
+      span('the LLC1', 242.1, 376.69, 8, 30.8),
+      span('purchases2', 318.6, 376.69, 8, 39.7),
+      span('other assets3', 398.6, 376.69, 8, 46.4),
+      span('Total', 489.61, 376.69, 8, 17.78),
+      span('MS Facilities 2020 LLC (Main Street Lending', 35, 386.89, 8, 158.74),
+      span('0', 278.1, 395.38, 8, 4.8),
+      span('92', 358.8, 395.38, 8, 9.6),
+      span('534', 435, 395.38, 8, 14.4),
+      span('626', 507.5, 395.38, 8, 14.4),
+      span('Program)', 35, 396.1, 8, 33.3),
+      span('Note: Components may not sum to totals because of rounding.', 35, 406.29, 8, 222.46),
+    ];
+
+    const layout = buildLayout(spans, 612, 792);
+    const table = layout.tables?.find((candidate) =>
+      candidate.rows.some((row) => row.cells.some((cell) => cell.text === '626')),
+    );
+
+    expect(table).toBeDefined();
+    expect(table?.rowCount).toBeGreaterThanOrEqual(7);
+    expect(table?.columnCount).toBeGreaterThanOrEqual(4);
+    expect(table?.rows.map((row) => row.cells.map((cell) => cell.text))).toContainEqual([
+      'MS Facilities 2020 LLC (Main Street Lending Program)',
+      '0',
+      '92',
+      '534',
+      '626',
+    ]);
+    expect(table?.rows.flatMap((row) => row.cells.map((cell) => cell.text))).not.toContain(
+      '4. Information on Principal Accounts of Credit Facilities LLC',
+    );
+  });
+
+  it('emits table hints for aligned text-heavy Japanese statistical tables', () => {
+    // Statistics Bureau yearbook-shaped case: the visible table has
+    // repeated Japanese label columns and only one numeric-like cell per
+    // row, so pure numeric-table detection is too strict.
+    const spans: TextSpan[] = [
+      span('1-6 主な山', 174.95, 26.86, 9.9, 54.81),
+      span('山名', 24, 54, 7.8, 16),
+      span('読み', 84, 54, 7.8, 16),
+      span('標高', 154, 54, 7.8, 16),
+      span('所在', 220, 54, 7.8, 16),
+      span('備考', 300, 54, 7.8, 16),
+      span('富士山', 24, 76, 7.4, 22),
+      span('ふじさん', 84, 76, 7.4, 30),
+      span('3,776', 154, 76, 7.4, 24),
+      span('山梨、静岡', 220, 76, 7.4, 50),
+      span('最高峰', 300, 76, 7.4, 30),
+      span('北岳', 24, 88, 7.4, 16),
+      span('きただけ', 84, 88, 7.4, 30),
+      span('3,193', 154, 88, 7.4, 24),
+      span('山梨', 220, 88, 7.4, 20),
+      span('白根山', 300, 88, 7.4, 30),
+      span('間ノ岳', 24, 100, 7.4, 22),
+      span('あいのだけ', 84, 100, 7.4, 38),
+      span('3,190', 154, 100, 7.4, 24),
+      span('山梨、静岡', 220, 100, 7.4, 50),
+      span('白根山', 300, 100, 7.4, 30),
+      span('槍ヶ岳', 24, 112, 7.4, 22),
+      span('やりがたけ', 84, 112, 7.4, 38),
+      span('3,180', 154, 112, 7.4, 24),
+      span('長野', 220, 112, 7.4, 20),
+      span('北アルプス', 300, 112, 7.4, 45),
+      span('赤石岳', 24, 124, 7.4, 22),
+      span('あかいしだけ', 84, 124, 7.4, 46),
+      span('3,121', 154, 124, 7.4, 24),
+      span('長野、静岡', 220, 124, 7.4, 50),
+      span('南アルプス', 300, 124, 7.4, 45),
+      span('前穂高岳', 24, 136, 7.4, 38),
+      span('まえほたかだけ', 84, 136, 7.4, 60),
+      span('3,090', 154, 136, 7.4, 24),
+      span('長野', 220, 136, 7.4, 20),
+      span('北アルプス', 300, 136, 7.4, 45),
+      span('資料 国土交通省国土地理院「日本の主な山岳標高」', 24, 170, 7.4, 227),
+    ];
+
+    const layout = buildLayout(spans, 419.53, 595.28);
+    const table = layout.tables?.find((candidate) => candidate.y < 70);
+
+    expect(table).toBeDefined();
+    expect(table?.y).toBeLessThanOrEqual(54.27);
+    expect(table?.rowCount).toBeGreaterThanOrEqual(7);
+    expect(table?.columnCount).toBeGreaterThanOrEqual(5);
+    expect(table?.rows[0].cells.map((cell) => cell.text)).toContain('山名');
+    expect(table?.rows.map((row) => row.cells.map((cell) => cell.text))).toContainEqual([
+      '富士山',
+      'ふじさん',
+      '3,776',
+      '山梨、静岡',
+      '最高峰',
+    ]);
+  });
+
+  it('splits adjacent dense numeric statement values even when the gutter is narrow', () => {
+    // Berkshire annual-report-shaped case: large share-count values can
+    // sit only about 14pt apart. That is narrower than the general line
+    // segmentation threshold, but the row still has visible table columns.
+    const spans: TextSpan[] = [
+      span('Average equivalent Class A shares outstanding', 45, 616.89, 10, 199.74),
+      span('1,448,880', 362.25, 616.89, 10, 40),
+      span('1,468,876', 434.05, 616.89, 10, 40),
+      span('1,510,180', 505.85, 616.89, 10, 40),
+      span('Average equivalent Class B shares outstanding', 45, 628.39, 10, 199.74),
+      span('2,173,319,709', 344.75, 628.39, 10, 57.5),
+      span('2,203,313,642', 416.55, 628.39, 10, 57.5),
+      span('2,265,269,867', 488.35, 628.39, 10, 57.5),
+    ];
+
+    const layout = buildLayout(spans, 612);
+
+    expect(layout.tables).toHaveLength(1);
+    expect(layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text))).toEqual([
+      ['Average equivalent Class A shares outstanding', '1,448,880', '1,468,876', '1,510,180'],
+      ['Average equivalent Class B shares outstanding', '2,173,319,709', '2,203,313,642', '2,265,269,867'],
+    ]);
+  });
+
+  it('splits dense statement values when trailing currency marks the next column', () => {
+    // Berkshire shareholders' equity table-shaped case: the source text
+    // attaches a trailing "$" to each value to mark the next column.
+    // The following value can then sit less than 9pt away, but it is
+    // still a separate visible table cell.
+    const spans: TextSpan[] = [
+      span('Balance at December 31, 2020', 45, 389.65, 9, 110.7),
+      span('$', 263.15, 389.65, 9, 4.5),
+      span('35,634 $', 280.65, 389.65, 9, 34.15),
+      span('(4,243) $', 331.8, 389.65, 9, 32.65),
+      span('444,626 $', 372.95, 389.65, 9, 38.65),
+      span('(32,853) $', 421.6, 389.65, 9, 37.2),
+      span('8,172 $', 476.4, 389.65, 9, 29.7),
+      span('451,336', 514.9, 389.65, 9, 29.25),
+      span('Balance at January 1, 2021', 45, 410.85, 9, 97.22),
+      span('35,634', 280.65, 410.85, 9, 24.75),
+      span('(9,994)', 331.8, 410.85, 9, 26.24),
+      span('443,949', 372.95, 410.85, 9, 29.25),
+      span('(32,853)', 421.6, 410.85, 9, 30.74),
+      span('8,172', 476.4, 410.85, 9, 20.25),
+      span('444,908', 514.9, 410.85, 9, 29.25),
+    ];
+
+    const layout = buildLayout(spans, 612);
+
+    expect(layout.tables).toHaveLength(1);
+    expect(layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text))).toEqual([
+      ['Balance at December 31, 2020', '$ 35,634', '$ (4,243)', '$ 444,626', '$ (32,853)', '$ 8,172', '$ 451,336'],
+      ['Balance at January 1, 2021', '35,634', '(9,994)', '443,949', '(32,853)', '8,172', '444,908'],
+    ]);
+  });
+
+  it('keeps long financial row labels before detached currency cells', () => {
+    // Apple cash-flow-table-shaped case: a long row label is followed by
+    // a detached "$" for the first numeric value. Side-panel trimming
+    // must not start the table after that currency marker and drop the
+    // visible row label.
+    const spans: TextSpan[] = [
+      span('Cash, cash equivalents and restricted cash, beginning balances', 19.12, 133.43, 8.1, 215.97),
+      span('$', 363.08, 134.1, 8.1, 4.25),
+      span('24,977', 408.7, 134.1, 8.1, 23.39),
+      span('$', 442.23, 134.1, 8.1, 4.25),
+      span('35,929', 487.86, 134.1, 8.1, 23.39),
+      span('$', 521.38, 134.1, 8.1, 4.25),
+      span('39,789', 567.02, 134.1, 8.1, 23.39),
+      span('Net income', 19.12, 144.21, 8.1, 40.22),
+      span('96,995', 408.7, 144.88, 8.1, 23.39),
+      span('99,803', 487.86, 144.88, 8.1, 23.39),
+      span('94,680', 567.02, 144.88, 8.1, 23.39),
+    ];
+
+    const layout = buildLayout(spans, 612);
+
+    expect(layout.tables).toHaveLength(1);
+    expect(layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text))).toEqual([
+      ['Cash, cash equivalents and restricted cash, beginning balances', '$ 24,977', '$ 35,929', '$ 39,789'],
+      ['Net income', '96,995', '99,803', '94,680'],
+    ]);
+  });
+
   it('preserves leading headers and sparse first rows for wide numeric tables', () => {
     // Attention-paper-shaped case: the table body has stable numeric
     // columns, but the visible header stack and first rows have fewer
@@ -1823,6 +2113,77 @@ describe('buildLayout — multi-column reading order', () => {
       ['Deep-Att + PosUnk [39]', '39.2', '1.0 · 10^20'],
     ]);
     expect(rows).toContainEqual(['GNMT + RL [38]', '24.6', '39.92', '2.3 · 10^19', '1.4 · 10^20']);
+  });
+
+  it('merges split multi-row header tables into the following data table', () => {
+    const spans: TextSpan[] = [
+      span('HOUSEHOLD DATA', 38, 33, 10, 95),
+      span('Summary table A. Household data, seasonally adjusted', 38, 44, 10, 266),
+      span('[Numbers in thousands]', 43, 55, 9, 96),
+      span('Updated: June 2026', 38, 62, 8, 78),
+      span('Table A-1', 535, 62, 8, 37),
+      span('May', 313, 73, 8, 15),
+      span('Mar.', 370, 73, 8, 16),
+      span('Apr.', 427, 73, 8, 15),
+      span('May', 483, 73, 8, 15),
+      span('Change from:', 523, 68, 8, 49),
+      span('Category', 147, 78, 8, 32),
+      span('2025', 312, 82, 8, 18),
+      span('2026', 369, 82, 8, 18),
+      span('2026', 425, 82, 8, 18),
+      span('2026', 482, 82, 8, 18),
+      span('Apr. 2026-', 529, 78, 8, 38),
+      span('Civilian noninstitutional population . . .', 38, 115, 8, 251),
+      span('273,385', 317, 115, 8, 29),
+      span('274,858', 374, 115, 8, 29),
+      span('274,955', 431, 115, 8, 29),
+      span('275,054', 487, 115, 8, 29),
+      span('99', 564, 115, 8, 9),
+      span('Civilian labor force . . .', 46, 126, 8, 243),
+      span('170,492', 317, 126, 8, 29),
+      span('170,087', 374, 126, 8, 29),
+      span('169,995', 431, 126, 8, 29),
+      span('170,078', 487, 126, 8, 29),
+      span('83', 564, 126, 8, 9),
+      span('Participation rate . . .', 54, 137, 8, 235),
+      span('62.4', 331, 137, 8, 16),
+      span('61.9', 387, 137, 8, 16),
+      span('61.8', 444, 137, 8, 16),
+      span('61.8', 501, 137, 8, 16),
+      span('0.0', 562, 137, 8, 11),
+      span('Employed . . .', 54, 148, 8, 235),
+      span('163,244', 317, 148, 8, 29),
+      span('162,848', 374, 148, 8, 29),
+      span('162,622', 431, 148, 8, 29),
+      span('162,771', 487, 148, 8, 29),
+      span('149', 559, 148, 8, 13),
+    ];
+    const layout = buildLayout(spans, 612);
+    const tableRows = layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text));
+
+    expect(layout.tables).toHaveLength(1);
+    expect(tableRows?.slice(0, 3)).toEqual([
+      ['May', 'Mar.', 'Apr.', 'May', 'Change from:'],
+      ['Category', '2025', '2026', '2026', '2026', 'Apr. 2026-'],
+      ['Civilian noninstitutional population . . .', '273,385', '274,858', '274,955', '275,054', '99'],
+    ]);
+  });
+
+  it('does not treat mirrored chart axis labels as layout tables', () => {
+    const axisTicks = ['8', '6', '4', '2', '0', '2', '4', '6', '8'];
+    const ageLabels = ['85~89', '80~84', '75~79', '70~74', '65~69', '60~64', '55~59', '50~54'];
+    const spans: TextSpan[] = [
+      ...ageLabels.flatMap((label, index) => [
+        span(label, 110, 120 + index * 12, 8, 24),
+        span(label, 330, 120 + index * 12, 8, 24),
+      ]),
+      ...axisTicks.map((tick, index) => span(tick, 95 + index * 25, 230, 8, 8)),
+      ...axisTicks.map((tick, index) => span(tick, 320 + index * 25, 230, 8, 8)),
+    ];
+
+    const layout = buildLayout(spans, 612);
+
+    expect(layout.tables).toBeUndefined();
   });
 
   it('keeps benchmark score and percentile rows in wide table hints', () => {
@@ -2130,6 +2491,51 @@ describe('buildLayout — multi-column reading order', () => {
     expect(rows).toContainEqual(['$ 1,069,978', '$ 948,465']);
   });
 
+  it('restores dropped long labels on numeric continuation financial rows', () => {
+    const spans: TextSpan[] = [
+      span('Net cash provided by operating activities', 19.12, 486, 7.65, 145),
+      span('118,254', 404.45, 486, 7.65, 27),
+      span('110,543', 483.6, 486, 7.65, 27),
+      span('122,151', 562.75, 486, 7.65, 27),
+      span('Net cash used in investing activities', 19.12, 497, 7.65, 132),
+      span('(2,935)', 408.7, 497, 7.65, 24),
+      span('3,705', 492.11, 497, 7.65, 19),
+      span('(22,354)', 564.06, 497, 7.65, 28),
+      span(
+        'Increase/(Decrease) in cash, cash equivalents, and restricted cash and cash equivalents',
+        19.12,
+        510.08,
+        7.65,
+        299.7,
+      ),
+      span('(794)', 416.37, 509.4, 7.65, 17.85),
+      span('5,760', 492.11, 509.4, 7.65, 19.14),
+      span('(10,952)', 564.06, 509.4, 7.65, 28.48),
+      span(
+        'Cash, cash equivalents, and restricted cash and cash equivalents, ending balances',
+        19.12,
+        520.2,
+        7.65,
+        281.87,
+      ),
+      span('$', 363.08, 520.2, 7.65, 4.25),
+      span('29,943', 408.7, 520.2, 7.65, 23.39),
+      span('$', 442.23, 520.2, 7.65, 4.25),
+      span('30,737', 487.86, 520.2, 7.65, 23.39),
+      span('$', 521.38, 520.2, 7.65, 4.25),
+      span('24,977', 567.02, 520.2, 7.65, 23.39),
+    ];
+    const layout = buildLayout(spans, 612);
+    const rows = layout.tables?.[0].rows.map((row) => row.cells.map((cell) => cell.text));
+
+    expect(rows).toContainEqual([
+      'Cash, cash equivalents, and restricted cash and cash equivalents, ending balances',
+      '$ 29,943',
+      '$ 30,737',
+      '$ 24,977',
+    ]);
+  });
+
   it('suppresses chart-like numeric labels with irregular row cadence', () => {
     const ys = [100, 107, 120, 139, 149, 172];
     const spans = ys.flatMap((y, index) => [
@@ -2137,6 +2543,89 @@ describe('buildLayout — multi-column reading order', () => {
       span(`${70 - index * 2}.0`, 180, y + (index % 2 === 0 ? 0 : 1.5), 8, 20),
       span(`${30 + index}.0`, 260, y, 8, 20),
     ]);
+    const layout = buildLayout(spans, 612);
+    expect(layout.tables).toBeUndefined();
+  });
+
+  it('does not emit table hints for dense tiny numeric vectors inside diagrams', () => {
+    // Encoder/decoder slide diagrams can expose every vector component as
+    // native text. Those values are visible, but they are node contents,
+    // not a table whose rows should drive table visual regions.
+    const spans = Array.from({ length: 8 }, (_, rowIndex) =>
+      Array.from({ length: 8 }, (_, columnIndex) =>
+        span(
+          rowIndex % 3 === 0 ? '-0.4' : `0.${(rowIndex + columnIndex) % 8}`,
+          110 + columnIndex * 34,
+          140 + rowIndex * 6.5,
+          5.04,
+          rowIndex % 3 === 0 ? 8.5 : 6.9,
+        ),
+      ),
+    ).flat();
+
+    const layout = buildLayout(spans, 500);
+    expect(layout.tables).toBeUndefined();
+  });
+
+  it('does not emit table hints for dense tiny multi-value chart labels', () => {
+    // Japanese white-paper chart-shaped case: stacked bar/line charts can
+    // expose many 3pt data labels. Some PDF text runs combine adjacent
+    // year values, but they are chart annotations rather than table cells.
+    const spans = Array.from({ length: 6 }, (_, rowIndex) =>
+      Array.from({ length: 8 }, (_, columnIndex) => {
+        const first = `${12 + rowIndex},${String(columnIndex).padStart(3, '0')}`;
+        const second = `${13 + rowIndex},${String(columnIndex).padStart(3, '0')}`;
+        const text =
+          columnIndex % 3 === 0 ? `${first} ${second}` : `${(rowIndex + 1) * (columnIndex + 2)}.${columnIndex}`;
+        return span(text, 80 + columnIndex * 42, 340 + rowIndex * 13, 3.2, text.length * 2.4);
+      }),
+    ).flat();
+
+    const layout = buildLayout(spans, 612);
+    expect(layout.tables).toBeUndefined();
+  });
+
+  it('does not emit aligned text table hints for shallow tiny chart header labels', () => {
+    const spans: TextSpan[] = [
+      span('(万人)', 71, 329, 3.2, 14),
+      span('実績値', 296, 328, 4, 12),
+      span('推計値', 400, 328, 4, 12),
+      span('(%)', 522, 329, 3.2, 8),
+      span('45.0', 523, 336, 3.2, 8),
+      span('12,693 12,777 12,806', 254, 354, 3.2, 46),
+      span('12,709', 304, 357, 3.2, 13),
+      span('12,557', 237, 359, 3.2, 13),
+      span('48 98', 281, 361, 3.2, 23),
+      span('12,615', 321, 361, 3.2, 12),
+      span('12,361', 221, 363, 3.2, 12),
+      span('13', 249, 365, 3.2, 5),
+      span('23', 263, 362, 3.2, 5),
+      span('12,435', 338, 364, 3.2, 13),
+      span('総人口', 393, 362, 4.5, 14),
+    ];
+
+    const layout = buildLayout(spans, 612);
+    expect(layout.tables).toBeUndefined();
+  });
+
+  it('does not emit table hints for sparse numeric map legend ticks', () => {
+    const spans: TextSpan[] = [
+      {
+        text: 'Summary for Policymakers',
+        x: 9.22,
+        y: 223.35,
+        width: 10,
+        height: 110.77,
+        fontSize: 6.66,
+      },
+      ...Array.from({ length: 8 }, (_, index) => span(String(index), 96.54 + index * 13.8, 221.35, 6.66, 3.2)),
+      span('-1.5 -1.0 -0.5', 90.64, 333.72, 6.66, 44.79),
+      span('0', 145.03, 333.72, 6.66, 3.2),
+      span('0.5', 157.93, 333.72, 6.66, 7.8),
+      span('1.0', 175.43, 333.72, 6.66, 7.8),
+      span('1.5', 192.93, 333.72, 6.66, 7.8),
+    ];
+
     const layout = buildLayout(spans, 612);
     expect(layout.tables).toBeUndefined();
   });
@@ -2205,6 +2694,74 @@ describe('buildLayout — multi-column reading order', () => {
     );
     expect(labels).toContain('Changes in valuation period');
     expect(labels.some((label) => label?.startsWith('Reasons for changes'))).toBe(false);
+  });
+
+  it('splits a financial table from a prose footnote before the next table', () => {
+    // JPMorgan Chase annual-report-shaped case: a footnote paragraph can
+    // sit directly above another compact table header. The footnote must
+    // not be treated as a wrapped row label that bridges both tables.
+    const spans: TextSpan[] = [
+      span('Total stockholders’ equity', 52.5, 515.88, 8, 105),
+      span('344,758', 475.38, 515.88, 8, 24.66),
+      span('327,878', 534.02, 515.88, 8, 24.87),
+      span('Total liabilities and stockholders’ equity', 52.5, 528.63, 8, 146.3),
+      span('$', 451.5, 528.63, 8, 4.88),
+      span('4,002,814', 475.38, 528.63, 8, 24.66),
+      span('$', 510, 528.63, 8, 4.62),
+      span('3,875,393', 534.02, 528.63, 8, 24.87),
+      span(
+        '(a) The following table presents information on assets and liabilities related to consolidated VIEs at December 31, 2024 and',
+        49.5,
+        548.32,
+        8,
+        512.9,
+      ),
+      span(
+        '2023. The assets of the consolidated VIEs are used to settle the liabilities of those entities.',
+        63,
+        557.92,
+        8,
+        499.3,
+      ),
+      span(
+        'The assets and liabilities in the table below include third-party assets and liabilities of',
+        63,
+        567.52,
+        8,
+        499.48,
+      ),
+      span('consolidated VIEs. Refer to Note 14 for a further discussion.', 63, 577.12, 8, 446.82),
+      span('December 31, (in millions)', 52.5, 592.78, 8, 94.56),
+      span('2024', 481.54, 592.78, 8, 19.46),
+      span('2023', 540.31, 592.78, 8, 19.2),
+      span('Assets', 52.5, 605.53, 8, 25.4),
+      span('Trading assets', 52.5, 618.28, 8, 52.57),
+      span('$', 451.5, 618.28, 8, 4.88),
+      span('3,885', 478.88, 618.28, 8, 21.14),
+      span('$', 510, 618.28, 8, 4.62),
+      span('2,170', 540.38, 618.28, 8, 18.5),
+      span('Loans', 52.5, 631.03, 8, 22),
+      span('36,510', 475.38, 631.03, 8, 24.66),
+      span('37,611', 534.02, 631.03, 8, 24.87),
+      span('All other assets', 52.5, 643.78, 8, 58),
+      span('681', 485.16, 643.78, 8, 14.88),
+      span('591', 544, 643.78, 8, 14.88),
+      span('Total assets', 52.5, 656.53, 8, 46),
+      span('$', 451.5, 656.53, 8, 4.88),
+      span('41,076', 475.38, 656.53, 8, 24.66),
+      span('$', 510, 656.53, 8, 4.62),
+      span('40,372', 534.02, 656.53, 8, 24.87),
+    ];
+    const layout = buildLayout(spans, 612, 792);
+    const tables = layout.tables ?? [];
+    const tableRows = tables.map((table) => table.rows.map((row) => row.cells.map((cell) => cell.text)));
+    const cells = tableRows.flat(2);
+
+    expect(tables).toHaveLength(2);
+    expect(cells.some((text) => text.includes('following table presents'))).toBe(false);
+    expect(tableRows[0]).toContainEqual(['Total liabilities and stockholders’ equity', '$ 4,002,814', '$ 3,875,393']);
+    expect(tableRows[1]?.[0]).toEqual(['December 31, (in millions)', '2024', '2023']);
+    expect(tableRows[1]).toContainEqual(['Assets Trading assets', '$ 3,885', '$ 2,170']);
   });
 
   it('splits dense recurring numeric gutters inside table rows', () => {

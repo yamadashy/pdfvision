@@ -29,7 +29,8 @@ Options
                           Without this, PNGs land under the cache (or OS tmp with --no-cache).
       --render-scale <n>  Rasterisation multiplier for --render / --render-visual-regions / --ocr.
                           Default 2 (≈144 DPI on a letter page). Smaller values shrink the PNG
-                          (and vision-model payload); larger values capture more detail.
+                          (and vision-model payload); OCR keeps at least scale 2 for recognition
+                          quality; larger values capture more detail.
                           Accepts decimals; bounds (0, 4].
       --render-region <x,y,width,height>
                           Render only the given sub-rectangle (PDF points, top-left origin, y
@@ -130,10 +131,11 @@ Options
                           by default; case-insensitive; NFKC-aware (matches
                           compatibility codepoints like \`ﬁ\` (U+FB01 ligature) for
                           \`fi\`). Also searches text/choice form field values
-                          (marked source:'formField'), visible FreeText
-                          annotations (source:'annotation'), and OCR text when
-                          --ocr is on (source:'ocr'); duplicate OCR hits
-                          already covered by non-OCR matches are suppressed.
+                          (marked source:'formField'), clickable link targets
+                          (source:'link'), visible FreeText annotations
+                          (source:'annotation'), and OCR text when --ocr is on
+                          (source:'ocr'); duplicate OCR hits already covered by
+                          non-OCR matches are suppressed.
       --search-regex      Treat each --search query as a JavaScript regular expression
                           (default: literal substring).
       --search-case-sensitive

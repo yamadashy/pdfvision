@@ -4,6 +4,10 @@ export function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+function floor2(n: number): number {
+  return Math.floor(n * 100 + 1e-9) / 100;
+}
+
 export function round3(n: number): number {
   return Math.round(n * 1000) / 1000;
 }
@@ -44,11 +48,15 @@ export function padAndClamp(box: BoxLike, pageWidth: number, pageHeight: number,
   const top = Math.max(0, box.y - padding);
   const right = Math.min(pageWidth, box.x + box.width + padding);
   const bottom = Math.min(pageHeight, box.y + box.height + padding);
+  const x = round2(left);
+  const y = round2(top);
+  const roundedRight = Math.min(round2(right), floor2(pageWidth));
+  const roundedBottom = Math.min(round2(bottom), floor2(pageHeight));
   return {
-    x: round2(left),
-    y: round2(top),
-    width: round2(Math.max(0, right - left)),
-    height: round2(Math.max(0, bottom - top)),
+    x,
+    y,
+    width: round2(Math.max(0, roundedRight - x)),
+    height: round2(Math.max(0, roundedBottom - y)),
   };
 }
 

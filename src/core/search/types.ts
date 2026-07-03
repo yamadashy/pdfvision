@@ -2,6 +2,9 @@ export interface SearchLine {
   text: string;
   owners: (SearchOwner | undefined)[];
   syntheticHyphenated?: boolean;
+  syntheticDehyphenated?: boolean;
+  syntheticJoinIndex?: number;
+  syntheticStacked?: boolean;
   syntheticVertical?: boolean;
 }
 
@@ -14,4 +17,5 @@ export interface Box {
 
 export interface SearchOwner extends Box {
   text: string;
+  fontSize?: number;
 }

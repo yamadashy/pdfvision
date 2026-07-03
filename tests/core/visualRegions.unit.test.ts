@@ -46,6 +46,112 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('does not label full-page raster scans with arbitrary internal OCR text', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 566,
+      pageHeight: 747,
+      imageBoxes: [{ x: 0, y: 0, width: 566, height: 747 }],
+      layout: {
+        blocks: [
+          {
+            text: 'tube located close to the wing surface in a',
+            x: 108,
+            y: 286,
+            width: 210,
+            height: 10,
+            role: 'heading',
+            level: 2,
+            lines: [
+              {
+                text: 'tube located close to the wing surface in a',
+                x: 108,
+                y: 286,
+                width: 210,
+                height: 10,
+                fontSize: 10,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'raster',
+        x: 0,
+        y: 0,
+        width: 566,
+        height: 747,
+        areaRatio: 1,
+        sourceCount: 1,
+        sources: [{ type: 'imageBox', index: 0 }],
+        reason: 'raster image covers 100.0% of the page',
+      },
+    ]);
+  });
+
+  it('keeps rounded visual-region boxes inside non-integer page bounds', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 595.2756,
+      pageHeight: 841.8896,
+      imageBoxes: [],
+      vectorBoxes: [{ x: 144.97, y: 704.15, width: 301.41, height: 137.7396 }],
+    });
+    const region = regions[0];
+
+    expect(region).toMatchObject({
+      kind: 'vector',
+      x: 136.97,
+      y: 696.15,
+      width: 317.41,
+      height: 145.73,
+    });
+    expect(region && region.x + region.width).toBeLessThanOrEqual(595.2756);
+    expect(region && region.y + region.height).toBeLessThanOrEqual(841.8896);
+  });
+
+  it('merges nearby raster text strips into vector chart regions', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 595.2756,
+      pageHeight: 841.8896,
+      imageBoxes: [{ x: 156.08, y: 666.85, width: 154.19, height: 32.82 }],
+      vectorBoxes: [{ x: 144.97, y: 704.15, width: 301.41, height: 137.7396 }],
+      layout: {
+        blocks: [
+          {
+            text: 'め、配偶者からの暴力、インターネット上の誹謗中傷、そして違法薬物等についてまとめ',
+            x: 62.36,
+            y: 673.29,
+            width: 453.54,
+            height: 11.34,
+            lines: [
+              {
+                text: 'め、配偶者からの暴力、インターネット上の誹謗中傷、そして違法薬物等についてまとめ',
+                x: 62.36,
+                y: 673.29,
+                width: 453.54,
+                height: 11.34,
+                fontSize: 11.34,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0]).toMatchObject({
+      kind: 'mixed',
+      x: 136.97,
+      y: 658.85,
+      sources: expect.arrayContaining([{ type: 'imageBox', index: 0 }]),
+    });
+    expect(regions[0].sources).toContainEqual({ type: 'vectorBox', index: 0 });
+    expect(regions[0].reason).toContain('small horizontal raster text strip');
+    expect(regions[0].associatedText).toBeUndefined();
+  });
+
   it('suppresses full-page raster regions when the rendered page is blank', () => {
     const regions = buildVisualRegions({
       pageWidth: 100,
@@ -55,6 +161,54 @@ describe('buildVisualRegions', () => {
     });
 
     expect(regions).toEqual([]);
+  });
+
+  it('suppresses low-content full-page raster scans without native text', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 100,
+      pageHeight: 100,
+      imageBoxes: [{ x: 0, y: 0, width: 100, height: 100 }],
+      visualStatus: 'ok',
+      nativeTextStatus: 'empty_but_visual_content',
+      renderContentRatio: 0.015,
+      renderedContentBox: { x: 5, y: 0, width: 95, height: 100 },
+      layout: { blocks: [] },
+      vectorBoxes: [],
+      formFields: [],
+      annotations: [],
+    });
+
+    expect(regions).toEqual([]);
+  });
+
+  it('keeps low-content full-page raster slides when rendered content is localized', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 960,
+      pageHeight: 540,
+      imageBoxes: [{ x: 0, y: 0, width: 3628.35, height: 2040.94 }],
+      visualStatus: 'ok',
+      nativeTextStatus: 'empty_but_visual_content',
+      renderContentRatio: 0.014315,
+      renderedContentBox: { x: 158.21, y: 251.47, width: 641.95, height: 42.62 },
+      layout: { blocks: [] },
+      vectorBoxes: [],
+      formFields: [],
+      annotations: [],
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'raster',
+        x: 0,
+        y: 0,
+        width: 960,
+        height: 540,
+        areaRatio: 1,
+        sourceCount: 1,
+        sources: [{ type: 'imageBox', index: 0 }],
+        reason: 'raster image covers 100.0% of the page',
+      },
+    ]);
   });
 
   it('suppresses form regions when the rendered page is blank', () => {
@@ -210,6 +364,75 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('suppresses compact raster text strips inside vector header chrome bands', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [{ x: 36, y: 27, width: 138, height: 28 }],
+      vectorBoxes: [{ x: 36, y: 54, width: 540, height: 0.5 }],
+    });
+
+    expect(regions).toEqual([]);
+  });
+
+  it('does not merge column figures through near-full-width page header rules', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      vectorBoxes: [
+        { x: 55.44, y: 57.35, width: 486, height: 0.5 },
+        { x: 55.44, y: 67.06, width: 234, height: 157.17 },
+      ],
+      layout: {
+        blocks: [
+          {
+            text: 'Figure 5. Zero-shot CLIP outperforms few-shot linear probes.',
+            x: 54.94,
+            y: 236.19,
+            width: 236.08,
+            height: 9,
+            lines: [
+              {
+                text: 'Figure 5. Zero-shot CLIP outperforms few-shot linear probes.',
+                x: 54.94,
+                y: 236.19,
+                width: 236.08,
+                height: 9,
+                fontSize: 9,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'vector',
+        x: 46.94,
+        y: 59.06,
+        width: 252.08,
+        height: 194.13,
+        areaRatio: 0.101,
+        sourceCount: 1,
+        sources: [{ type: 'vectorBox', index: 1 }],
+        reason: '1 nearby vector drawing operations',
+        associatedText: [
+          {
+            text: 'Figure 5. Zero-shot CLIP outperforms few-shot linear probes.',
+            relation: 'caption',
+            x: 54.94,
+            y: 236.19,
+            width: 236.08,
+            height: 9,
+            blockIndex: 0,
+          },
+        ],
+      },
+    ]);
+  });
+
   it('suppresses lone full-page vector backplanes', () => {
     const regions = buildVisualRegions({
       pageWidth: 100,
@@ -244,6 +467,46 @@ describe('buildVisualRegions', () => {
         reason: '1 nearby vector drawing operations',
       },
     ]);
+  });
+
+  it('keeps wide table frame vectors when they contain ruled grid lines', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      vectorBoxes: [
+        { x: 36, y: 576, width: 540, height: 150 },
+        { x: 36, y: 624, width: 162, height: 0.5 },
+        { x: 36, y: 726, width: 162, height: 0.5 },
+        { x: 36, y: 624, width: 0.5, height: 102 },
+        { x: 198, y: 624, width: 0.5, height: 102 },
+        { x: 216, y: 624, width: 360, height: 102 },
+        { x: 402, y: 624, width: 0.5, height: 102 },
+      ],
+      layout: {
+        blocks: [
+          {
+            text: 'Acceptable Receipts',
+            x: 252.2,
+            y: 577.08,
+            width: 107.59,
+            height: 11,
+            role: 'heading',
+            level: 2,
+            lines: [],
+          },
+        ],
+      },
+    });
+
+    expect(regions[0]).toMatchObject({
+      kind: 'vector',
+      x: 28,
+      y: 568,
+      width: 556,
+      height: 166,
+    });
+    expect(regions[0].sources).toContainEqual({ type: 'vectorBox', index: 0 });
   });
 
   it('ignores full-page background boxes when foreground visual boxes are present', () => {
@@ -367,6 +630,84 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('keeps overlapping vector details inside compact diagrams', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      vectorBoxes: [
+        { x: 128.96, y: 93.03, width: 53.16, height: 12.31 },
+        { x: 128.96, y: 117.54, width: 53.16, height: 12.31 },
+        { x: 155.29, y: 105.34, width: 0.5, height: 9.26 },
+        { x: 153.58, y: 113.62, width: 3.92, height: 3.92 },
+        { x: 155.29, y: 80.83, width: 0.5, height: 9.26 },
+        { x: 153.58, y: 89.11, width: 3.92, height: 3.92 },
+        { x: 155.29, y: 129.85, width: 0.5, height: 5.12 },
+        { x: 153.58, y: 133.99, width: 3.92, height: 4.03 },
+        { x: 151.4, y: 138.02, width: 8.17, height: 8.17 },
+        { x: 153.47, y: 141.8, width: 4.14, height: 0.5 },
+        { x: 155.29, y: 140.09, width: 0.5, height: 4.03 },
+        { x: 155.29, y: 146.19, width: 0.5, height: 5.12 },
+        { x: 153.58, y: 150.33, width: 3.92, height: 4.03 },
+        { x: 159.57, y: 84.86, width: 42.98, height: 57.19 },
+        { x: 159.57, y: 140.09, width: 4.03, height: 3.92 },
+        { x: 155.54, y: 84.61, width: 4.03, height: 0.5 },
+      ],
+      layout: {
+        blocks: [
+          {
+            text: 'F(x) + x\nFigure 2. Residual learning: a building block.',
+            x: 86.62,
+            y: 137.71,
+            width: 163.24,
+            height: 27.25,
+            lines: [
+              { text: 'F(x) + x', x: 106.92, y: 137.71, width: 36.41, height: 9.25, fontSize: 9.25 },
+              {
+                text: 'Figure 2. Residual learning: a building block.',
+                x: 86.62,
+                y: 155.99,
+                width: 163.24,
+                height: 8.97,
+                fontSize: 8.97,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'vector',
+        x: 78.62,
+        y: 72.83,
+        width: 179.24,
+        height: 100.13,
+        areaRatio: 0.037,
+        sourceCount: 14,
+        sources: [
+          ...Array.from({ length: 11 }, (_, index) => ({ type: 'vectorBox' as const, index })),
+          { type: 'vectorBox' as const, index: 13 },
+          { type: 'vectorBox' as const, index: 14 },
+          { type: 'vectorBox' as const, index: 15 },
+        ],
+        reason: '14 nearby vector drawing operations',
+        associatedText: [
+          {
+            text: 'Figure 2. Residual learning: a building block.',
+            relation: 'caption',
+            x: 86.62,
+            y: 155.99,
+            width: 163.24,
+            height: 8.97,
+            blockIndex: 0,
+          },
+        ],
+      },
+    ]);
+  });
+
   it('creates a fallback region for dense thin vector grid lines', () => {
     const vectorBoxes = Array.from({ length: 40 }, (_, index) => ({
       x: 20,
@@ -393,6 +734,169 @@ describe('buildVisualRegions', () => {
         sourceCount: 40,
         sources: Array.from({ length: 16 }, (_, index) => ({ type: 'vectorBox' as const, index })),
         reason: '40 vector drawing boxes across dense page structure',
+      },
+    ]);
+  });
+
+  it('emits form regions for ruled administrative form grids without table captions', () => {
+    const vectorBoxes = [
+      { x: 203.79, y: 563.21, width: 53.76, height: 0.5 },
+      { x: 207.63, y: 588.04, width: 46.08, height: 0.5 },
+      { x: 37.79, y: 54.41, width: 0.68, height: 474.47 },
+      { x: 59.93, y: 55.09, width: 0.68, height: 473.8 },
+      { x: 287.13, y: 55.09, width: 0.68, height: 473.8 },
+      { x: 369.35, y: 55.09, width: 0.68, height: 473.8 },
+      { x: 423.11, y: 55.09, width: 0.68, height: 473.8 },
+      { x: 573.29, y: 55.09, width: 0.68, height: 473.8 },
+      { x: 396.21, y: 100.26, width: 0.68, height: 428.63 },
+      { x: 38.46, y: 54.41, width: 535.51, height: 0.68 },
+      { x: 370.03, y: 73.85, width: 53.76, height: 0.68 },
+      { x: 38.46, y: 99.58, width: 535.51, height: 0.68 },
+      { x: 38.46, y: 138.22, width: 535.51, height: 0.68 },
+      { x: 38.46, y: 217.93, width: 535.51, height: 0.68 },
+      { x: 38.46, y: 256.54, width: 535.51, height: 0.68 },
+      { x: 38.46, y: 335.14, width: 535.51, height: 0.68 },
+      { x: 38.46, y: 373.74, width: 535.51, height: 0.7 },
+      { x: 38.46, y: 412.37, width: 535.51, height: 0.68 },
+      { x: 38.46, y: 450.98, width: 535.51, height: 0.68 },
+      { x: 38.46, y: 489.6, width: 535.51, height: 0.68 },
+      { x: 38.46, y: 528.21, width: 535.51, height: 0.68 },
+      { x: 287.36, y: 566.39, width: 286.39, height: 0.68 },
+      { x: 287.36, y: 591.23, width: 286.39, height: 0.68 },
+    ];
+
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      vectorBoxes,
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'form',
+        x: 30.46,
+        y: 47.09,
+        width: 551.51,
+        height: 489.8,
+        areaRatio: 0.557,
+        sourceCount: 14,
+        sources: [
+          { type: 'vectorBox', index: 4 },
+          { type: 'vectorBox', index: 5 },
+          { type: 'vectorBox', index: 6 },
+          { type: 'vectorBox', index: 8 },
+          { type: 'vectorBox', index: 11 },
+          { type: 'vectorBox', index: 12 },
+          { type: 'vectorBox', index: 13 },
+          { type: 'vectorBox', index: 14 },
+          { type: 'vectorBox', index: 15 },
+          { type: 'vectorBox', index: 16 },
+          { type: 'vectorBox', index: 17 },
+          { type: 'vectorBox', index: 18 },
+          { type: 'vectorBox', index: 19 },
+          { type: 'vectorBox', index: 20 },
+        ],
+        reason: '14 ruled form vector lines',
+      },
+    ]);
+  });
+
+  it('attaches nearby headings to compact ruled form grids', () => {
+    const vectorBoxes = [
+      { x: 316.55, y: 215.75, width: 130.1, height: 0.5 },
+      { x: 316.55, y: 239.75, width: 130.1, height: 0.5 },
+      { x: 316.55, y: 215.5, width: 0.5, height: 24.75 },
+      { x: 446.15, y: 215.75, width: 130.1, height: 0.5 },
+      { x: 446.15, y: 239.75, width: 130.1, height: 0.5 },
+      { x: 575.75, y: 215.5, width: 0.5, height: 24.75 },
+      { x: 446.15, y: 215.5, width: 0.5, height: 24.75 },
+      { x: 316.55, y: 251.75, width: 130.1, height: 0.5 },
+      { x: 316.55, y: 239.75, width: 0.5, height: 12.5 },
+      { x: 446.15, y: 251.75, width: 130.1, height: 0.5 },
+      { x: 575.75, y: 239.75, width: 0.5, height: 12.5 },
+      { x: 446.15, y: 239.75, width: 0.5, height: 12.5 },
+      { x: 316.55, y: 275.75, width: 130.1, height: 0.5 },
+      { x: 316.55, y: 251.75, width: 0.5, height: 24.5 },
+      { x: 446.15, y: 275.75, width: 130.1, height: 0.5 },
+      { x: 575.75, y: 251.75, width: 0.5, height: 24.5 },
+      { x: 446.15, y: 251.75, width: 0.5, height: 24.5 },
+      { x: 316.55, y: 335.75, width: 130.1, height: 0.5 },
+      { x: 316.55, y: 275.75, width: 0.5, height: 60.5 },
+      { x: 446.15, y: 335.75, width: 130.1, height: 0.5 },
+      { x: 575.75, y: 275.75, width: 0.5, height: 60.5 },
+      { x: 446.15, y: 275.75, width: 0.5, height: 60.5 },
+      { x: 316.55, y: 347.75, width: 130.1, height: 0.5 },
+      { x: 316.55, y: 335.75, width: 0.5, height: 12.5 },
+      { x: 446.15, y: 347.75, width: 130.1, height: 0.5 },
+      { x: 575.75, y: 335.75, width: 0.5, height: 12.5 },
+      { x: 446.15, y: 335.75, width: 0.5, height: 12.5 },
+      { x: 316.55, y: 359.75, width: 130.1, height: 0.5 },
+      { x: 316.55, y: 347.75, width: 0.5, height: 12.75 },
+      { x: 446.15, y: 359.75, width: 130.1, height: 0.5 },
+      { x: 575.75, y: 347.75, width: 0.5, height: 12.75 },
+      { x: 446.15, y: 347.75, width: 0.5, height: 12.75 },
+    ];
+
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      vectorBoxes,
+      layout: {
+        blocks: [
+          {
+            text: 'Line 3a',
+            role: 'heading',
+            x: 316.8,
+            y: 169.14,
+            width: 34.26,
+            height: 10,
+            lines: [{ text: 'Line 3a', x: 316.8, y: 169.14, width: 34.26, height: 10, fontSize: 10 }],
+          },
+        ],
+      },
+    });
+
+    expect(regions[0]).toMatchObject({
+      kind: 'form',
+      reason: '32 ruled form vector lines',
+      associatedText: [
+        {
+          text: 'Line 3a',
+          relation: 'label',
+          blockIndex: 0,
+        },
+      ],
+    });
+  });
+
+  it('emits form regions for dotted administrative write-in lines', () => {
+    const vectorBoxes = Array.from({ length: 369 }, (_, index) => ({
+      x: 157.1 + (index % 123) * 2.88,
+      y: 334.85 + Math.floor(index / 123) * 27,
+      width: index % 123 === 122 ? 1.46 : 1.44,
+      height: 0.6,
+    }));
+
+    const regions = buildVisualRegions({
+      pageWidth: 595.32,
+      pageHeight: 841.92,
+      imageBoxes: [],
+      vectorBoxes,
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'form',
+        x: 149.1,
+        y: 326.85,
+        width: 368.82,
+        height: 70.6,
+        areaRatio: 0.052,
+        sourceCount: 369,
+        sources: Array.from({ length: 16 }, (_, index) => ({ type: 'vectorBox' as const, index })),
+        reason: '369 dotted form line segments across 3 write-in lines',
       },
     ]);
   });
@@ -454,6 +958,36 @@ describe('buildVisualRegions', () => {
       },
     ]);
     expect(regions[0].sources).toHaveLength(16);
+  });
+
+  it('emits one broad crop for sparse transit-map marker fields', () => {
+    const vectorBoxes = Array.from({ length: 600 }, (_, index) => ({
+      x: 100 + (index % 30) * 36,
+      y: 110 + Math.floor(index / 30) * 34,
+      width: 6,
+      height: 6,
+    }));
+
+    const regions = buildVisualRegions({
+      pageWidth: 1200,
+      pageHeight: 900,
+      imageBoxes: [],
+      vectorBoxes,
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'vector',
+        x: 92,
+        y: 102,
+        width: 1066,
+        height: 668,
+        areaRatio: 0.659,
+        sourceCount: 600,
+        sources: Array.from({ length: 16 }, (_, index) => ({ type: 'vectorBox' as const, index })),
+        reason: '600 dense small vector markers spread across broad map/diagram field',
+      },
+    ]);
   });
 
   it('splits dense thin vector grids into separate foreground regions', () => {
@@ -565,6 +1099,111 @@ describe('buildVisualRegions', () => {
         sources: Array.from({ length: 16 }, (_, index) => ({ type: 'vectorBox' as const, index })),
         reason: '40 vector drawing boxes across dense page structure',
       },
+    ]);
+  });
+
+  it('does not bridge separate dense vector charts through a wide section band', () => {
+    const topChartLines = Array.from({ length: 20 }, (_, index) => ({
+      x: 60,
+      y: 120 + index * 3,
+      width: 300,
+      height: 0.5,
+    }));
+    const bottomChartLines = Array.from({ length: 20 }, (_, index) => ({
+      x: 60,
+      y: 330 + index * 3,
+      width: 300,
+      height: 0.5,
+    }));
+
+    const regions = buildVisualRegions({
+      pageWidth: 780,
+      pageHeight: 540,
+      imageBoxes: [],
+      vectorBoxes: [...topChartLines, { x: 8, y: 250, width: 764, height: 57 }, ...bottomChartLines],
+    });
+
+    expect(regions).toHaveLength(2);
+    expect(regions.map((region) => region.y)).toEqual([112, 322]);
+  });
+
+  it('splits broad vector chart rows by figure caption grid cells', () => {
+    const chartBoxes = (x: number, y: number) => [
+      { x, y, width: 175, height: 22 },
+      ...Array.from({ length: 8 }, (_, index) => ({
+        x: x + 12,
+        y: y + 34 + index * 8,
+        width: 145,
+        height: 0.8,
+      })),
+      { x: x + 12, y: y + 34, width: 0.8, height: 56 },
+      { x: x + 156, y: y + 34, width: 0.8, height: 56 },
+    ];
+    const vectorBoxes = [
+      ...chartBoxes(10, 160),
+      ...chartBoxes(190, 160),
+      ...chartBoxes(10, 350),
+      ...chartBoxes(190, 350),
+    ];
+
+    const regions = buildVisualRegions({
+      pageWidth: 380,
+      pageHeight: 540,
+      imageBoxes: [],
+      vectorBoxes,
+      layout: {
+        blocks: [
+          captionBlock('図1 左上の推移', 52, 164, 90, 14),
+          captionBlock('図3 右上の推移', 232, 164, 90, 14),
+          captionBlock('図2 左下の推移', 52, 354, 90, 14),
+          captionBlock('図4 右下の推移', 232, 354, 90, 14),
+        ],
+      },
+    });
+
+    expect(regions).toHaveLength(4);
+    expect(regions.map((region) => region.associatedText?.[0]?.text)).toEqual([
+      '図1 左上の推移',
+      '図3 右上の推移',
+      '図2 左下の推移',
+      '図4 右下の推移',
+    ]);
+    expect(regions.map((region) => region.width)).toEqual([191, 191, 191, 191]);
+  });
+
+  it('splits broad vector chart rows by numbered statistical chart titles', () => {
+    const chartBoxes = (x: number, y: number) => [
+      { x, y: y + 30, width: 150, height: 82 },
+      ...Array.from({ length: 8 }, (_, index) => ({
+        x,
+        y: y + 42 + index * 10,
+        width: 150,
+        height: 0.8,
+      })),
+      { x, y: y + 30, width: 0.8, height: 82 },
+      { x: x + 150, y: y + 30, width: 0.8, height: 82 },
+    ];
+
+    const regions = buildVisualRegions({
+      pageWidth: 420,
+      pageHeight: 300,
+      imageBoxes: [],
+      vectorBoxes: [{ x: 176, y: 74, width: 44, height: 82 }, ...chartBoxes(32, 44), ...chartBoxes(214, 44)],
+      layout: {
+        blocks: [
+          captionBlock('14 経営組織別民営事業所数と', 32, 28, 114, 8, 'heading'),
+          captionBlock('15 基幹的農業従事者', 214, 28, 80, 8, 'heading'),
+          captionBlock('従業者数の構成比(令和3年)', 40, 38, 118, 8, 'heading'),
+          captionBlock('事', 35, 78, 8, 8, 'heading'),
+          captionBlock('業', 35, 88, 8, 8, 'heading'),
+        ],
+      },
+    });
+
+    expect(regions).toHaveLength(2);
+    expect(regions.map((region) => region.associatedText?.map((item) => item.text))).toEqual([
+      ['14 経営組織別民営事業所数と 従業者数の構成比(令和3年)'],
+      ['15 基幹的農業従事者'],
     ]);
   });
 
@@ -748,6 +1387,245 @@ describe('buildVisualRegions', () => {
     });
   });
 
+  it('keeps a broad crop for multi-column timeline-like vector pages', () => {
+    const timelineBlocks = [
+      {
+        text: 'MAPPING OUR PROGRESS AND MILESTONES',
+        x: 40,
+        y: 40,
+        width: 280,
+        height: 14,
+        role: 'heading' as const,
+        level: 1 as const,
+        lines: [
+          {
+            text: 'MAPPING OUR PROGRESS AND MILESTONES',
+            x: 40,
+            y: 40,
+            width: 280,
+            height: 14,
+            fontSize: 14,
+          },
+        ],
+      },
+      ...Array.from({ length: 5 }, (_, column) =>
+        Array.from({ length: 5 }, (_, row) => ({
+          text: row === 0 ? String(2000 + column * 5) : `Milestone ${column}-${row}`,
+          x: 40 + column * 100,
+          y: 120 + row * 110,
+          width: row === 0 ? 42 : 76,
+          height: row === 0 ? 18 : 44,
+          lines: [
+            {
+              text: row === 0 ? String(2000 + column * 5) : `Milestone ${column}-${row}`,
+              x: 40 + column * 100,
+              y: 120 + row * 110,
+              width: row === 0 ? 42 : 76,
+              height: row === 0 ? 18 : 10,
+              fontSize: row === 0 ? 18 : 8,
+            },
+          ],
+        })),
+      ).flat(),
+    ];
+    const regions = buildVisualRegions({
+      pageWidth: 600,
+      pageHeight: 800,
+      imageBoxes: [],
+      vectorBoxes: [
+        { x: 0, y: 0, width: 600, height: 800 },
+        ...Array.from({ length: 25 }, (_, index) => ({
+          x: 40 + (index % 5) * 100,
+          y: 145 + Math.floor(index / 5) * 80,
+          width: 1,
+          height: 55,
+        })),
+      ],
+      layout: {
+        blocks: timelineBlocks,
+      },
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0]).toMatchObject({
+      kind: 'vector',
+      x: 32,
+      y: 32,
+      width: 492,
+      height: 580,
+      sourceCount: 26,
+      associatedText: [
+        {
+          text: 'MAPPING OUR PROGRESS AND MILESTONES',
+          relation: 'label',
+          x: 40,
+          y: 40,
+          width: 280,
+          height: 14,
+          blockIndex: 0,
+        },
+      ],
+    });
+  });
+
+  it('does not treat narrative prose around a chart as a broad page diagram', () => {
+    const chartBlocks = [
+      {
+        text: 'Surrounding report prose introduces the chart but is not part of the visual panel.',
+        x: 56,
+        y: 70,
+        width: 460,
+        height: 10,
+        lines: [
+          {
+            text: 'Surrounding report prose introduces the chart but is not part of the visual panel.',
+            x: 56,
+            y: 70,
+            width: 460,
+            height: 10,
+            fontSize: 10,
+          },
+        ],
+      },
+      {
+        text: 'Section marker',
+        x: 18,
+        y: 125,
+        width: 14,
+        height: 150,
+        lines: [{ text: 'Section marker', x: 18, y: 125, width: 14, height: 150, fontSize: 9 }],
+      },
+      {
+        text: 'Figure 1. Chart title',
+        x: 72,
+        y: 140,
+        width: 130,
+        height: 10,
+        lines: [{ text: 'Figure 1. Chart title', x: 72, y: 140, width: 130, height: 10, fontSize: 10 }],
+      },
+      ...Array.from({ length: 24 }, (_, index) => ({
+        text: String(index % 6 === 0 ? 100 - index : index),
+        x: 105 + (index % 12) * 28,
+        y: 240 + Math.floor(index / 12) * 54,
+        width: 16,
+        height: 8,
+        lines: [
+          {
+            text: String(index % 6 === 0 ? 100 - index : index),
+            x: 105 + (index % 12) * 28,
+            y: 240 + Math.floor(index / 12) * 54,
+            width: 16,
+            height: 8,
+            fontSize: 8,
+          },
+        ],
+      })),
+      {
+        text: 'This paragraph discusses the chart result in ordinary prose and continues across several visual lines so it should not be treated as diagram label text.',
+        x: 56,
+        y: 500,
+        width: 460,
+        height: 90,
+        lines: [
+          {
+            text: 'This paragraph discusses the chart result in ordinary prose and continues',
+            x: 56,
+            y: 500,
+            width: 430,
+            height: 10,
+            fontSize: 10,
+          },
+          {
+            text: 'across several visual lines so it should not be treated as diagram label',
+            x: 56,
+            y: 515,
+            width: 420,
+            height: 10,
+            fontSize: 10,
+          },
+          { text: 'text.', x: 56, y: 530, width: 24, height: 10, fontSize: 10 },
+        ],
+      },
+      {
+        text: 'Report footer',
+        x: 55,
+        y: 772,
+        width: 100,
+        height: 8,
+        lines: [{ text: 'Report footer', x: 55, y: 772, width: 100, height: 8, fontSize: 8 }],
+      },
+    ];
+    const regions = buildVisualRegions({
+      pageWidth: 600,
+      pageHeight: 800,
+      imageBoxes: [],
+      vectorBoxes: [
+        { x: -20, y: -20, width: 640, height: 840 },
+        ...Array.from({ length: 24 }, (_, index) => ({
+          x: 105 + (index % 12) * 28,
+          y: 260 + Math.floor(index / 12) * 40,
+          width: 4,
+          height: 4,
+        })),
+      ],
+      layout: {
+        blocks: chartBlocks,
+      },
+    });
+
+    expect(regions.some((region) => region.reason.includes('broad vector page diagram'))).toBe(false);
+  });
+
+  it('emits a mixed crop for small raster nodes connected by vector arrows', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 960,
+      pageHeight: 540,
+      imageBoxes: [
+        { x: 190, y: 185, width: 34, height: 25 },
+        { x: 350, y: 185, width: 34, height: 25 },
+        { x: 510, y: 185, width: 34, height: 25 },
+        { x: 670, y: 185, width: 34, height: 25 },
+        { x: -160, y: 5, width: 110, height: 540 },
+      ],
+      vectorBoxes: [
+        { x: 214, y: 206, width: 29, height: 84 },
+        { x: 372, y: 206, width: 29, height: 84 },
+        { x: 530, y: 206, width: 29, height: 84 },
+        { x: 688, y: 206, width: 29, height: 84 },
+        { x: 242, y: 244, width: 130, height: 8 },
+        { x: 401, y: 244, width: 130, height: 8 },
+        { x: 559, y: 244, width: 130, height: 8 },
+        { x: 944, y: 0, width: 16, height: 78 },
+      ],
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'mixed',
+        x: 182,
+        y: 177,
+        width: 543,
+        height: 121,
+        areaRatio: 0.127,
+        sourceCount: 11,
+        sources: [
+          { type: 'imageBox', index: 0 },
+          { type: 'imageBox', index: 1 },
+          { type: 'imageBox', index: 2 },
+          { type: 'imageBox', index: 3 },
+          { type: 'vectorBox', index: 0 },
+          { type: 'vectorBox', index: 1 },
+          { type: 'vectorBox', index: 2 },
+          { type: 'vectorBox', index: 3 },
+          { type: 'vectorBox', index: 4 },
+          { type: 'vectorBox', index: 5 },
+          { type: 'vectorBox', index: 6 },
+        ],
+        reason: '7 nearby vector drawing operations; 4 small raster nodes connected by 7 vector drawing operations',
+      },
+    ]);
+  });
+
   it('suppresses top and bottom chrome regions when a foreground visual region exists', () => {
     const regions = buildVisualRegions({
       pageWidth: 600,
@@ -861,6 +1739,47 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('does not merge an inset page frame into foreground figure and table crops', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 600,
+      pageHeight: 800,
+      imageBoxes: [{ x: 120, y: 340, width: 360, height: 200 }],
+      vectorBoxes: [
+        { x: 80, y: 640, width: 180, height: 100 },
+        { x: 260, y: 640, width: 260, height: 100 },
+        { x: 55, y: 55, width: 490, height: 700 },
+      ],
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'raster',
+        x: 112,
+        y: 332,
+        width: 376,
+        height: 216,
+        areaRatio: 0.169,
+        sourceCount: 1,
+        sources: [{ type: 'imageBox', index: 0 }],
+        reason: 'raster image covers 15.0% of the page',
+      },
+      {
+        kind: 'vector',
+        x: 72,
+        y: 632,
+        width: 456,
+        height: 116,
+        areaRatio: 0.11,
+        sourceCount: 2,
+        sources: [
+          { type: 'vectorBox', index: 0 },
+          { type: 'vectorBox', index: 1 },
+        ],
+        reason: '2 nearby vector drawing operations',
+      },
+    ]);
+  });
+
   it('keeps chart crops separate from wide vector text panels and title bands', () => {
     const regions = buildVisualRegions({
       pageWidth: 780,
@@ -953,14 +1872,18 @@ describe('buildVisualRegions', () => {
         width: 317.55,
         height: 349.86,
         areaRatio: 0.264,
-        sourceCount: 4,
+        sourceCount: 8,
         sources: [
           { type: 'vectorBox', index: 2 },
+          { type: 'vectorBox', index: 3 },
+          { type: 'vectorBox', index: 4 },
           { type: 'vectorBox', index: 5 },
           { type: 'vectorBox', index: 6 },
           { type: 'vectorBox', index: 7 },
+          { type: 'vectorBox', index: 8 },
+          { type: 'vectorBox', index: 9 },
         ],
-        reason: '4 nearby vector drawing operations',
+        reason: '8 nearby vector drawing operations',
         associatedText: [
           {
             text: 'Industry data sharing intent',
@@ -1036,6 +1959,49 @@ describe('buildVisualRegions', () => {
     });
     expect(regions[0].sources).toContainEqual({ type: 'layoutTable', index: 0 });
     expect(regions[0].reason).toContain('layout table hint with 4 rows and 3 columns');
+  });
+
+  it('suppresses unlabeled vector-only column strips already covered by table regions', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 620,
+      pageHeight: 800,
+      imageBoxes: [],
+      vectorBoxes: Array.from({ length: 8 }, (_, index) => ({
+        x: 425 + index * 18,
+        y: 120,
+        width: 28,
+        height: 477,
+      })),
+      layout: {
+        blocks: [],
+        tables: [
+          {
+            x: 35,
+            y: 118,
+            width: 555,
+            height: 355,
+            rowCount: 23,
+            columnCount: 3,
+            rows: [],
+          },
+          {
+            x: 35,
+            y: 522,
+            width: 557,
+            height: 61,
+            rowCount: 5,
+            columnCount: 3,
+            rows: [],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toHaveLength(2);
+    expect(regions.map((region) => region.sources)).toEqual([
+      [{ type: 'layoutTable', index: 0 }],
+      [{ type: 'layoutTable', index: 1 }],
+    ]);
   });
 
   it('keeps wide bottom table candidates when other foreground visuals are present', () => {
@@ -1283,6 +2249,173 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('groups multi-panel vector figure fragments by their shared caption', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      vectorBoxes: [
+        { x: 128, y: 120, width: 58, height: 138 },
+        { x: 208, y: 84, width: 136, height: 174 },
+        { x: 366, y: 120, width: 58, height: 138 },
+        { x: 446, y: 120, width: 58, height: 138 },
+        { x: 72, y: 288, width: 468, height: 280 },
+      ],
+      layout: {
+        blocks: [
+          {
+            text: [
+              'Figure 3: Comparison on image classification. A,B: Zero-shot classification. C,D: Linear probing.',
+              'The caption continues with details that should remain inside the crop.',
+              'C,D: Linear probing results across related datasets.',
+            ].join('\n'),
+            x: 72,
+            y: 610,
+            width: 468,
+            height: 42,
+            lines: [
+              {
+                text: 'Figure 3: Comparison on image classification. A,B: Zero-shot classification. C,D: Linear probing.',
+                x: 72,
+                y: 610,
+                width: 468,
+                height: 20,
+                fontSize: 9,
+              },
+              {
+                text: 'The caption continues with details that should remain inside the crop.',
+                x: 72,
+                y: 622,
+                width: 380,
+                height: 10,
+                fontSize: 9,
+              },
+              {
+                text: 'C,D: Linear probing results across related datasets.',
+                x: 72,
+                y: 634,
+                width: 290,
+                height: 10,
+                fontSize: 9,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'vector',
+        x: 64,
+        y: 76,
+        width: 484,
+        height: 584,
+        areaRatio: 0.583,
+        sourceCount: 5,
+        sources: [
+          { type: 'vectorBox', index: 0 },
+          { type: 'vectorBox', index: 1 },
+          { type: 'vectorBox', index: 2 },
+          { type: 'vectorBox', index: 3 },
+          { type: 'vectorBox', index: 4 },
+        ],
+        reason: '5 vector figure fragments grouped by multi-panel figure caption',
+        associatedText: [
+          {
+            text: 'Figure 3: Comparison on image classification. A,B: Zero-shot classification. C,D: Linear probing. The caption continues with details that should remain inside the crop. C,D: Linear probing results across related datasets.',
+            relation: 'caption',
+            x: 72,
+            y: 610,
+            width: 468,
+            height: 42,
+            blockIndex: 0,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('groups dense raster figure grids by their nearby figure caption', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 600,
+      pageHeight: 800,
+      imageBoxes: [
+        { x: 60, y: 120, width: 100, height: 80 },
+        { x: 180, y: 120, width: 100, height: 80 },
+        { x: 300, y: 120, width: 100, height: 80 },
+        { x: 420, y: 120, width: 100, height: 80 },
+        { x: 60, y: 220, width: 100, height: 80 },
+        { x: 180, y: 220, width: 100, height: 80 },
+        { x: 300, y: 220, width: 100, height: 80 },
+        { x: 420, y: 220, width: 100, height: 80 },
+        { x: 60, y: 320, width: 100, height: 80 },
+        { x: 180, y: 320, width: 100, height: 80 },
+        { x: 300, y: 320, width: 100, height: 80 },
+        { x: 420, y: 320, width: 100, height: 80 },
+      ],
+      layout: {
+        blocks: [
+          {
+            text: 'Figure 2: Example images with overlaid masks from a dataset.',
+            x: 50,
+            y: 420,
+            width: 495,
+            height: 20,
+            lines: [
+              {
+                text: 'Figure 2: Example images with overlaid masks from a dataset.',
+                x: 50,
+                y: 420,
+                width: 495,
+                height: 20,
+                fontSize: 10,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'raster',
+        x: 42,
+        y: 112,
+        width: 511,
+        height: 336,
+        areaRatio: 0.358,
+        sourceCount: 12,
+        sources: [
+          { type: 'imageBox', index: 0 },
+          { type: 'imageBox', index: 1 },
+          { type: 'imageBox', index: 2 },
+          { type: 'imageBox', index: 3 },
+          { type: 'imageBox', index: 4 },
+          { type: 'imageBox', index: 5 },
+          { type: 'imageBox', index: 6 },
+          { type: 'imageBox', index: 7 },
+          { type: 'imageBox', index: 8 },
+          { type: 'imageBox', index: 9 },
+          { type: 'imageBox', index: 10 },
+          { type: 'imageBox', index: 11 },
+        ],
+        reason: '12 raster figure panels grouped by figure caption',
+        associatedText: [
+          {
+            text: 'Figure 2: Example images with overlaid masks from a dataset.',
+            relation: 'caption',
+            x: 50,
+            y: 420,
+            width: 495,
+            height: 20,
+            blockIndex: 0,
+          },
+        ],
+      },
+    ]);
+  });
+
   it('groups form fields into a single form region', () => {
     const regions = buildVisualRegions({
       pageWidth: 300,
@@ -1509,6 +2642,39 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('keeps more than three labels for dense form regions', () => {
+    const labels = ['Individual/sole proprietor', 'C corporation', 'S corporation', 'Partnership', 'Trust/estate'];
+    const formFields = labels.map((text, index) => {
+      const x = 30 + index * 42;
+      return {
+        name: `choice-${index}`,
+        type: 'checkbox' as const,
+        x,
+        y: 60,
+        width: 8,
+        height: 8,
+        label: {
+          text,
+          relation: 'right' as const,
+          x: x + 12,
+          y: 59,
+          width: 35,
+          height: 9,
+        },
+      };
+    });
+
+    const regions = buildVisualRegions({
+      pageWidth: 280,
+      pageHeight: 140,
+      imageBoxes: [],
+      formFields,
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0].associatedText?.map((item) => item.text)).toEqual(labels);
+  });
+
   it('splits medium-sized tall form clusters at major vertical bands', () => {
     const formFields = [60, 96, 132, 168].flatMap((y, band) => [
       { name: `top-${band}`, type: 'text' as const, x: 40, y, width: 80, height: 12 },
@@ -1663,6 +2829,153 @@ describe('buildVisualRegions', () => {
           },
         ],
       },
+    ]);
+  });
+
+  it('attaches nearby source lines to figure crops', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 800,
+      pageHeight: 540,
+      imageBoxes: [{ x: 8.52, y: 185.52, width: 390.72, height: 272.04 }],
+      layout: {
+        blocks: [
+          {
+            text: '図1 業況判断DIの推移',
+            x: 122.45,
+            y: 142.42,
+            width: 152.33,
+            height: 14.04,
+            lines: [
+              { text: '図1 業況判断DIの推移', x: 122.45, y: 142.42, width: 152.33, height: 14.04, fontSize: 14.04 },
+            ],
+          },
+          {
+            text: '資料:日本銀行「全国企業短期経済観測調査」(2024年4月)',
+            x: 17.54,
+            y: 502.42,
+            width: 244.35,
+            height: 9,
+            lines: [
+              {
+                text: '資料:日本銀行「全国企業短期経済観測調査」(2024年4月)',
+                x: 17.54,
+                y: 502.42,
+                width: 244.35,
+                height: 9,
+                fontSize: 9,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions[0]).toMatchObject({
+      kind: 'raster',
+      x: 0.52,
+      y: 134.42,
+      width: 406.72,
+      height: 385,
+      associatedText: [
+        {
+          text: '図1 業況判断DIの推移',
+          relation: 'caption',
+          blockIndex: 0,
+        },
+        {
+          text: '資料:日本銀行「全国企業短期経済観測調査」(2024年4月)',
+          relation: 'caption',
+          blockIndex: 1,
+        },
+      ],
+    });
+  });
+
+  it('keeps padding from crossing into adjacent raster figure crops', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 800,
+      pageHeight: 540,
+      imageBoxes: [
+        { x: 391.32, y: 174.96, width: 380.16, height: 307.32 },
+        { x: 8.52, y: 185.52, width: 390.72, height: 272.04 },
+      ],
+      layout: {
+        blocks: [
+          {
+            text: '図1 業況判断DIの推移',
+            x: 122.45,
+            y: 142.42,
+            width: 152.33,
+            height: 14.04,
+            lines: [
+              { text: '図1 業況判断DIの推移', x: 122.45, y: 142.42, width: 152.33, height: 14.04, fontSize: 14.04 },
+            ],
+          },
+          {
+            text: '図2 製造業の営業利益の推移',
+            x: 485.18,
+            y: 142.42,
+            width: 189.38,
+            height: 14.04,
+            lines: [
+              {
+                text: '図2 製造業の営業利益の推移',
+                x: 485.18,
+                y: 142.42,
+                width: 189.38,
+                height: 14.04,
+                fontSize: 14.04,
+              },
+            ],
+          },
+          {
+            text: '資料:日本銀行「全国企業短期経済観測調査」(2024年4月)',
+            x: 17.54,
+            y: 502.42,
+            width: 244.35,
+            height: 9,
+            lines: [
+              {
+                text: '資料:日本銀行「全国企業短期経済観測調査」(2024年4月)',
+                x: 17.54,
+                y: 502.42,
+                width: 244.35,
+                height: 9,
+                fontSize: 9,
+              },
+            ],
+          },
+          {
+            text: '資料:財務省「法人企業統計調査」(2024年3月)',
+            x: 426.34,
+            y: 502.42,
+            width: 199.36,
+            height: 9,
+            lines: [
+              {
+                text: '資料:財務省「法人企業統計調査」(2024年3月)',
+                x: 426.34,
+                y: 502.42,
+                width: 199.36,
+                height: 9,
+                fontSize: 9,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions.map((region) => ({ x: region.x, y: region.y, width: region.width, height: region.height }))).toEqual(
+      [
+        { x: 0.52, y: 134.42, width: 392.12, height: 385 },
+        { x: 392.64, y: 134.42, width: 386.84, height: 385 },
+      ],
+    );
+    expect(regions[0].x + regions[0].width).toBeLessThanOrEqual(regions[1].x);
+    expect(regions.map((region) => region.associatedText?.at(-1)?.text)).toEqual([
+      '資料:日本銀行「全国企業短期経済観測調査」(2024年4月)',
+      '資料:財務省「法人企業統計調査」(2024年3月)',
     ]);
   });
 
@@ -1837,6 +3150,155 @@ describe('buildVisualRegions', () => {
     ]);
   });
 
+  it('prefers Japanese section and chapter headings over in-region body text for vector regions', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 600,
+      pageHeight: 800,
+      imageBoxes: [],
+      vectorBoxes: [
+        { x: 98, y: 116, width: 404, height: 64 },
+        { x: 98, y: 186, width: 404, height: 64 },
+      ],
+      layout: {
+        blocks: [
+          {
+            text: '第I部:特集1 令和 6 年能登半島地震における情報通信の状況',
+            x: 75,
+            y: 86,
+            width: 400,
+            height: 14,
+            role: 'heading',
+            level: 1,
+            lines: [],
+          },
+          {
+            text: '第 1 章 令和 6 年能登半島地震における情報通信の状況',
+            x: 107,
+            y: 121,
+            width: 352,
+            height: 14,
+            role: 'heading',
+            level: 2,
+            lines: [],
+          },
+          {
+            text: '通信インフラ / テレビ・ラジオ / 郵便局の被害状況、サービス復旧の取組',
+            x: 118,
+            y: 141,
+            width: 405,
+            height: 11,
+            lines: [],
+          },
+          {
+            text: '第 2 章 情報通信が果たした役割と課題',
+            x: 107,
+            y: 187,
+            width: 254,
+            height: 14,
+            role: 'heading',
+            level: 2,
+            lines: [],
+          },
+        ],
+      },
+    });
+
+    expect(regions[0]).toMatchObject({
+      kind: 'vector',
+      associatedText: [
+        expect.objectContaining({ text: '第I部:特集1 令和 6 年能登半島地震における情報通信の状況' }),
+        expect.objectContaining({ text: '第 1 章 令和 6 年能登半島地震における情報通信の状況' }),
+        expect.objectContaining({ text: '第 2 章 情報通信が果たした役割と課題' }),
+      ],
+    });
+    expect(regions[0].associatedText?.map((item) => item.text).join('\n')).not.toContain('通信インフラ');
+    expect(regions[0].y).toBeLessThan(86);
+  });
+
+  it('ignores OCR-fragment heading labels on scan-backed table regions', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      layout: {
+        blocks: [
+          {
+            text: 'REPORT NO. 824-NATIONAL ADVISORY COMMITTEE FOR AERONAUTICS',
+            x: 178.2,
+            y: 36.29,
+            width: 316.67,
+            height: 8.1,
+            role: 'heading',
+            level: 1,
+            lines: [
+              {
+                text: 'REPORT NO. 824-NATIONAL ADVISORY COMMITTEE FOR AERONAUTICS',
+                x: 178.2,
+                y: 36.29,
+                width: 316.67,
+                height: 8.1,
+                fontSize: 8,
+              },
+            ],
+          },
+          {
+            text: "2(°'>--",
+            x: 86.51,
+            y: 138.3,
+            width: 49.4,
+            height: 11.7,
+            role: 'heading',
+            level: 1,
+            lines: [{ text: "2(°'>--", x: 86.51, y: 138.3, width: 49.4, height: 11.7, fontSize: 12 }],
+          },
+          {
+            text: '~[TII',
+            x: 120.88,
+            y: 60.71,
+            width: 100.32,
+            height: 32.88,
+            role: 'heading',
+            level: 1,
+            lines: [{ text: '~[TII', x: 120.88, y: 60.71, width: 100.32, height: 32.88, fontSize: 12 }],
+          },
+          {
+            text: '/---.22 fower surface)',
+            x: 116.68,
+            y: 609.65,
+            width: 99.26,
+            height: 8.1,
+            role: 'heading',
+            level: 1,
+            lines: [{ text: '/---.22 fower surface)', x: 116.68, y: 609.65, width: 99.26, height: 8.1, fontSize: 12 }],
+          },
+          {
+            text: '(vi',
+            x: 67.25,
+            y: 610.82,
+            width: 13.94,
+            height: 21.1,
+            role: 'heading',
+            level: 1,
+            lines: [{ text: '(vi', x: 67.25, y: 610.82, width: 13.94, height: 21.1, fontSize: 12 }],
+          },
+        ],
+        tables: [
+          {
+            x: 65.44,
+            y: 97.53,
+            width: 519.01,
+            height: 157.1,
+            rowCount: 20,
+            columnCount: 16,
+            rows: [],
+          },
+        ],
+      },
+    });
+
+    expect(regions[0].associatedText).toBeUndefined();
+  });
+
   it('prefers chart headings inside a large visual region over nearby page headers', () => {
     const regions = buildVisualRegions({
       pageWidth: 600,
@@ -1901,6 +3363,61 @@ describe('buildVisualRegions', () => {
             blockIndex: 1,
           },
         ],
+      },
+    ]);
+  });
+
+  it('does not attach generic internal panel placeholders or chart tick labels as visual region labels', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 600,
+      pageHeight: 800,
+      imageBoxes: [],
+      vectorBoxes: [{ x: 80, y: 100, width: 420, height: 320 }],
+      layout: {
+        blocks: [
+          {
+            text: 'C Caption Caption Caption',
+            x: 100,
+            y: 260,
+            width: 260,
+            height: 12,
+            role: 'heading',
+            level: 1,
+            lines: [{ text: 'C Caption Caption Caption', x: 100, y: 260, width: 260, height: 12, fontSize: 12 }],
+          },
+          {
+            text: 'Lung Opacity Atelectasis Pleural Effusion Cadiomegaly\n41.60',
+            x: 320,
+            y: 160,
+            width: 176,
+            height: 13,
+            lines: [
+              {
+                text: 'Lung Opacity Atelectasis Pleural Effusion Cadiomegaly',
+                x: 320,
+                y: 160,
+                width: 176,
+                height: 6,
+                fontSize: 6.4,
+              },
+              { text: '41.60', x: 320, y: 167, width: 14, height: 6, fontSize: 5.6 },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toEqual([
+      {
+        kind: 'vector',
+        x: 72,
+        y: 92,
+        width: 436,
+        height: 336,
+        areaRatio: 0.305,
+        sourceCount: 1,
+        sources: [{ type: 'vectorBox', index: 0 }],
+        reason: '1 nearby vector drawing operations',
       },
     ]);
   });
@@ -1976,6 +3493,48 @@ describe('buildVisualRegions', () => {
         ],
       },
     ]);
+  });
+
+  it('prefers in-region headings over footer labels for large raster slides', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 720,
+      pageHeight: 405.36,
+      imageBoxes: [{ x: 30.24, y: 0.01, width: 648, height: 376.89 }],
+      layout: {
+        blocks: [
+          {
+            text: 'Welcome to CS231n',
+            role: 'heading',
+            x: 197.03,
+            y: 23.21,
+            width: 326.75,
+            height: 40.42,
+            lines: [{ text: 'Welcome to CS231n', x: 197.03, y: 23.21, width: 326.75, height: 40.42, fontSize: 40 }],
+          },
+          {
+            text: 'March 31, 2026',
+            x: 602.84,
+            y: 382.17,
+            width: 70.2,
+            height: 10.83,
+            lines: [{ text: 'March 31, 2026', x: 602.84, y: 382.17, width: 70.2, height: 10.83, fontSize: 10 }],
+          },
+          {
+            text: 'CS231n: Lecture 1 - 2',
+            x: 343.54,
+            y: 383.19,
+            width: 107.61,
+            height: 11.92,
+            lines: [
+              { text: 'CS231n: Lecture 1 - 2', x: 343.54, y: 383.19, width: 107.61, height: 11.92, fontSize: 10 },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0].associatedText?.map((item) => item.text)).toEqual(['Welcome to CS231n']);
   });
 
   it('attaches short plain labels below raster images', () => {
@@ -2182,6 +3741,119 @@ describe('buildVisualRegions', () => {
         },
       ],
     });
+  });
+
+  it('attaches nearby panel titles above visual regions that already have in-region labels', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      vectorBoxes: [{ x: 208, y: 139, width: 280, height: 160 }],
+      layout: {
+        blocks: [
+          {
+            text: '(b) Synthesis of assessment of observed change in heavy precipitation and confidence in human contribution',
+            x: 200,
+            y: 108,
+            width: 304,
+            height: 19,
+            lines: [
+              {
+                text: '(b) Synthesis of assessment of observed change in heavy precipitation and confidence in human contribution',
+                x: 200,
+                y: 108,
+                width: 304,
+                height: 19,
+                fontSize: 9,
+              },
+            ],
+          },
+          {
+            text: 'North America NWN NEN GIC Europe',
+            x: 208,
+            y: 139,
+            width: 124,
+            height: 14,
+            lines: [
+              {
+                text: 'North America NWN NEN GIC Europe',
+                x: 208,
+                y: 139,
+                width: 124,
+                height: 14,
+                fontSize: 7,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0]).toMatchObject({
+      kind: 'vector',
+      x: 192,
+      y: 100,
+      width: 320,
+      height: 207,
+      associatedText: [
+        {
+          text: '(b) Synthesis of assessment of observed change in heavy precipitation and confidence in human contribution',
+          relation: 'label',
+          blockIndex: 0,
+        },
+        {
+          text: 'North America NWN NEN GIC Europe',
+          relation: 'label',
+          blockIndex: 1,
+        },
+      ],
+    });
+  });
+
+  it('attaches numeric panel titles from individual layout lines', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 600,
+      pageHeight: 800,
+      imageBoxes: [],
+      vectorBoxes: [{ x: 100, y: 150, width: 150, height: 120 }],
+      layout: {
+        blocks: [
+          {
+            text: 'Surrounding report prose is grouped with the panel title\n(1)GDP growth\n600 (trillion yen)',
+            x: 70,
+            y: 110,
+            width: 300,
+            height: 40,
+            lines: [
+              {
+                text: 'Surrounding report prose is grouped with the panel title',
+                x: 130,
+                y: 110,
+                width: 240,
+                height: 10,
+                fontSize: 10,
+              },
+              { text: '(1)GDP growth', x: 70, y: 126, width: 130, height: 10, fontSize: 10 },
+              { text: '600 (trillion yen)', x: 105, y: 140, width: 95, height: 10, fontSize: 10 },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0].associatedText).toEqual([
+      {
+        text: '(1)GDP growth',
+        relation: 'label',
+        x: 70,
+        y: 126,
+        width: 130,
+        height: 10,
+        blockIndex: 0,
+      },
+    ]);
   });
 
   it('does not attach Japanese prose inside callout boxes as labels', () => {
@@ -2446,6 +4118,58 @@ describe('buildVisualRegions', () => {
         blockIndex: 0,
       },
     ]);
+  });
+
+  it('uses long single-caption figure blocks to expand crop boxes', () => {
+    const captionLines = [
+      'Fig 1. Multi-panel example summary with a long explanation of the visible result.',
+      'Panel A shows the starting condition and Panel B shows the measured response.',
+      'The middle panels compare the same cohort under two related assumptions.',
+      'The lower panels show the outcome distribution across the full sample.',
+      'Error bars indicate the interquartile range for each measurement group.',
+      'Labels next to the panels identify the condition used for each comparison.',
+      'A dashed boundary marks the threshold that separates retained observations.',
+      'The final row summarizes the aggregate result for the visible examples.',
+      'All panels share the same axis range so the differences are comparable.',
+      'The caption remains part of the visual evidence used for the figure crop.',
+    ];
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [{ x: 100, y: 80, width: 380, height: 220 }],
+      layout: {
+        blocks: [
+          {
+            text: captionLines.join('\n'),
+            x: 118,
+            y: 314,
+            width: 362,
+            height: 98.97,
+            lines: captionLines.map((text, index) => ({
+              text,
+              x: 118,
+              y: 314 + index * 10,
+              width: index === captionLines.length - 1 ? 320 : 362,
+              height: 8.97,
+              fontSize: 8.97,
+            })),
+          },
+        ],
+      },
+    });
+
+    expect(regions[0].associatedText).toEqual([
+      {
+        text: captionLines.join(' '),
+        relation: 'caption',
+        x: 118,
+        y: 314,
+        width: 362,
+        height: 98.97,
+        blockIndex: 0,
+      },
+    ]);
+    expect(regions[0].y + regions[0].height).toBeGreaterThan(420);
   });
 
   it('merges full figure caption continuation lines within a bounded block', () => {
@@ -3289,4 +5013,206 @@ describe('buildVisualRegions', () => {
       },
     ]);
   });
+
+  it('clamps cross-column table hints to the caption column', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      layout: {
+        blocks: [
+          {
+            text: 'Table 7. Object detection mAP (%) on the PASCAL VOC test sets.',
+            x: 308.86,
+            y: 262.95,
+            width: 236.25,
+            height: 20,
+            lines: [
+              {
+                text: 'Table 7. Object detection mAP (%) on the PASCAL VOC test sets.',
+                x: 308.86,
+                y: 262.95,
+                width: 236.25,
+                height: 20,
+                fontSize: 9,
+              },
+            ],
+          },
+        ],
+        tables: [
+          {
+            x: 68.73,
+            y: 211.69,
+            width: 441.6,
+            height: 50.88,
+            rowCount: 5,
+            columnCount: 5,
+            rows: [
+              {
+                y: 211.69,
+                height: 8.97,
+                cells: [
+                  { text: 'training data', x: 343.64, y: 211.69, width: 45.07, height: 8.97 },
+                  { text: '07+12', x: 415.79, y: 211.69, width: 22.99, height: 8.97 },
+                  { text: '07++12', x: 474.08, y: 211.69, width: 28.05, height: 8.97 },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0]).toMatchObject({
+      kind: 'table',
+      reason: 'layout table hint with 5 rows and 5 columns',
+    });
+    expect(regions[0].x).toBeGreaterThan(260);
+    expect(regions[0].width).toBeLessThan(300);
+    expect(regions[0].associatedText?.[0]?.text).toContain('Table 7');
+  });
+
+  it('merges stacked table crops that share the same label', () => {
+    const labelText =
+      'CONSOLIDATED STATEMENTS OF OPERATIONS (In millions, except number of shares, which are reflected in thousands, and per-share amounts)';
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      layout: {
+        blocks: [
+          {
+            text: labelText,
+            x: 134.12,
+            y: 78.3,
+            width: 343.97,
+            height: 17.55,
+            role: 'heading',
+            lines: [{ text: labelText, x: 134.12, y: 78.3, width: 343.97, height: 17.55, fontSize: 9 }],
+          },
+        ],
+        tables: [
+          {
+            x: 19.12,
+            y: 60.08,
+            width: 571.22,
+            height: 97.2,
+            rowCount: 7,
+            columnCount: 4,
+            rows: [],
+          },
+          {
+            x: 19.12,
+            y: 121.06,
+            width: 573.48,
+            height: 344.69,
+            rowCount: 21,
+            columnCount: 4,
+            rows: [],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0]).toMatchObject({
+      kind: 'table',
+      sourceCount: 2,
+    });
+    expect(regions[0].associatedText?.[0]?.text).toBe(labelText);
+    expect(regions[0].y).toBeLessThan(60);
+    expect(regions[0].height).toBeGreaterThan(400);
+  });
+
+  it('merges split table header candidates into following table bodies', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      layout: {
+        blocks: [],
+        tables: [
+          {
+            x: 55,
+            y: 92.63,
+            width: 494,
+            height: 148.09,
+            rowCount: 6,
+            columnCount: 4,
+            rows: [],
+          },
+          {
+            x: 55,
+            y: 219.22,
+            width: 488.95,
+            height: 228.48,
+            rowCount: 16,
+            columnCount: 4,
+            rows: [],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0]).toMatchObject({
+      kind: 'table',
+      sourceCount: 2,
+    });
+    expect(regions[0].y).toBeLessThan(90);
+    expect(regions[0].height).toBeGreaterThan(360);
+  });
+
+  it('merges vector-only column header grids into following table bodies', () => {
+    const regions = buildVisualRegions({
+      pageWidth: 612,
+      pageHeight: 792,
+      imageBoxes: [],
+      vectorBoxes: [
+        { x: 314.5, y: 471.06, width: 67.15, height: 18.4 },
+        { x: 381.65, y: 470.56, width: 5.05, height: 18.9 },
+        { x: 386.7, y: 471.06, width: 8.95, height: 18.4 },
+        { x: 395.65, y: 471.06, width: 67.15, height: 18.4 },
+        { x: 462.8, y: 470.56, width: 5.05, height: 18.9 },
+        { x: 467.85, y: 471.06, width: 8.95, height: 18.4 },
+        { x: 476.8, y: 471.06, width: 67.15, height: 18.4 },
+        { x: 314.5, y: 470.56, width: 229.45, height: 0.5 },
+      ],
+      layout: {
+        blocks: [],
+        tables: [
+          {
+            x: 55,
+            y: 512.3,
+            width: 488.95,
+            height: 147.98,
+            rowCount: 9,
+            columnCount: 4,
+            rows: [],
+          },
+        ],
+      },
+    });
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0]).toMatchObject({
+      kind: 'table',
+      sourceCount: 9,
+    });
+    expect(regions[0].y).toBeLessThan(465);
+    expect(regions[0].height).toBeGreaterThan(190);
+  });
 });
+
+function captionBlock(text: string, x: number, y: number, width: number, height: number, role?: 'heading') {
+  return {
+    text,
+    x,
+    y,
+    width,
+    height,
+    ...(role && { role }),
+    lines: [{ text, x, y, width, height, fontSize: height }],
+  };
+}

@@ -40,6 +40,7 @@ export function buildPageResult({
     nonPrintableRatio: data.nonPrintableRatio,
     nonPrintableCount: data.nonPrintableCount,
     ...(renderRatio !== undefined && { renderContentRatio: renderRatio }),
+    ...(data.rotation !== undefined && { rotation: data.rotation }),
     width: data.width,
     height: data.height,
     ...(data.spans !== undefined && { spans: data.spans }),
@@ -70,6 +71,7 @@ export function buildPageResult({
       onWarning,
       data._internalFormFields,
       data._internalAnnotations,
+      data._internalLinks,
     );
   }
 

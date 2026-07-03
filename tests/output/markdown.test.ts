@@ -66,6 +66,16 @@ describe('formatMarkdown', () => {
     expect(out).toMatch(/\nhello world$/);
   });
 
+  it('surfaces page rotation on rotated pages', () => {
+    const out = formatMarkdown(
+      makeResult({
+        pages: [makePage({ page: 1, text: 'rotated', charCount: 7, rotation: 90 })],
+      }),
+    );
+
+    expect(out).toMatch(/rotation: 90°/);
+  });
+
   it('emits a Markdown image link when the page has a rendered PNG path', () => {
     const out = formatMarkdown(
       makeResult({
@@ -165,6 +175,22 @@ describe('formatMarkdown', () => {
     expect(out).toMatch(/vectors: 12/);
   });
 
+  it('adds a Rotation column when any overview page is rotated', () => {
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 2,
+        pages: [
+          makePage({ page: 1, text: 'plain', charCount: 5 }),
+          makePage({ page: 2, text: 'rotated', charCount: 7, rotation: 270 }),
+        ],
+      }),
+    );
+
+    expect(out).toMatch(/\| Page \| Chars \| Images \| Coverage \| Size \(pt\) \| Rotation \|/);
+    expect(out).toMatch(/\| 1 \| 5 \| 0 \| 0% \| 612×792 \| — \|/);
+    expect(out).toMatch(/\| 2 \| 7 \| 0 \| 0% \| 612×792 \| 270° \|/);
+  });
+
   it('adds vector-box counts without rendering a large bbox table in Markdown', () => {
     const out = formatMarkdown(
       makeResult({
@@ -189,6 +215,72 @@ describe('formatMarkdown', () => {
     expect(out).toMatch(/\| 2 \| 7 \| 0 \| 0% \| 612×792 \| 12 \| 2 \|/);
     expect(out).toContain('vectorBoxes: 2');
     expect(out).not.toContain('215.21,39.48');
+  });
+
+  it('renders detected layout tables as row-major Markdown tables', () => {
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 2,
+        pages: [
+          makePage({
+            page: 1,
+            text: 'flattened table body',
+            charCount: 20,
+            layout: {
+              blocks: [{ text: 'flattened table body', x: 10, y: 20, width: 180, height: 12, lines: [] }],
+              tables: [
+                {
+                  x: 10,
+                  y: 40,
+                  width: 300,
+                  height: 48,
+                  rowCount: 3,
+                  columnCount: 3,
+                  rows: [
+                    {
+                      y: 40,
+                      height: 12,
+                      cells: [
+                        { text: 'Metric', x: 10, y: 40, width: 80, height: 12 },
+                        { text: '2024', x: 120, y: 40, width: 50, height: 12 },
+                        { text: '2023', x: 220, y: 40, width: 50, height: 12 },
+                      ],
+                    },
+                    {
+                      y: 56,
+                      height: 12,
+                      cells: [
+                        { text: 'Revenue | products', x: 10, y: 56, width: 80, height: 12 },
+                        { text: '$ 10', x: 120, y: 56, width: 50, height: 12 },
+                        { text: '$ 9', x: 220, y: 56, width: 50, height: 12 },
+                      ],
+                    },
+                    {
+                      y: 72,
+                      height: 12,
+                      cells: [
+                        { text: 'Services', x: 10, y: 72, width: 80, height: 12 },
+                        { text: '$ 4', x: 120, y: 72, width: 50, height: 12 },
+                        { text: '$ 3', x: 220, y: 72, width: 50, height: 12 },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          }),
+          makePage({ page: 2, text: 'plain', charCount: 5 }),
+        ],
+      }),
+    );
+
+    expect(out).toMatch(/\| Page \| Chars \| Images \| Coverage \| Size \(pt\) \| Tables \| Blocks \|/);
+    expect(out).toMatch(/\| 1 \| 20 \| 0 \| 0% \| 612×792 \| 1 \| 1 \|/);
+    expect(out).toContain('tables: 1');
+    expect(out).toContain('### Layout tables');
+    expect(out).toContain('#### Table 1 (3 rows × 3 columns, bbox 10,40,300,48)');
+    expect(out).toContain('| C1 | C2 | C3 |');
+    expect(out).toContain('| Revenue \\| products | $ 10 | $ 9 |');
   });
 
   it('adds visual-region counts and crop-ready region tables in Markdown', () => {
@@ -424,6 +516,87 @@ describe('formatMarkdown', () => {
     expect(out).toContain('| url | Example \\| link | https://example.com?q=a\\|b |  | 100,72,60,20 |');
     expect(out).toContain('| destination | Citation | ["cite.transformer",{"name":"Fit"}] | 3 | 40,180,40,12 |');
     expect(out).toContain('_No clickable links found._');
+  });
+
+  it('adds link safety and attachment columns only when needed', () => {
+    const out = formatMarkdown(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 'linked',
+            charCount: 6,
+            links: [
+              {
+                type: 'url',
+                target: '../../0021/002156/215675E.pdf#15',
+                unsafe: true,
+                newWindow: true,
+                x: 5,
+                y: 10,
+                width: 185,
+                height: 30,
+              },
+              {
+                type: 'attachment',
+                target: 'Empty page.pdf',
+                attachment: {
+                  name: 'Empty page.pdf',
+                  size: 2356,
+                  destination: '[0,{"name":"Fit"}]',
+                },
+                x: 12.5,
+                y: 33.7,
+                width: 22.8,
+                height: 15.3,
+              },
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toContain('| Type | Text | Target | TargetPage | Safety | Attachment | BBox |');
+    expect(out).toContain('| url |  | ../../0021/002156/215675E.pdf#15 |  | unsafe, newWindow=true |  | 5,10,185,30 |');
+    expect(out).toContain(
+      '| attachment |  | Empty page.pdf |  |  | Empty page.pdf; dest=[0,{"name":"Fit"}]; 2356 bytes | 12.5,33.7,22.8,15.3 |',
+    );
+  });
+
+  it('adds search match counts and a match table when search ran', () => {
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 2,
+        pages: [
+          makePage({
+            page: 1,
+            text: 'searchable text',
+            charCount: 15,
+            matches: [
+              {
+                page: 1,
+                query: 'text|term',
+                queryIndex: 1,
+                source: 'native',
+                text: 'text|term',
+                context: 'near text|term',
+                bbox: { x: 100, y: 72, width: 60, height: 12 },
+                boxes: [{ x: 100, y: 72, width: 60, height: 12 }],
+              },
+            ],
+          }),
+          makePage({ page: 2, text: 'plain', charCount: 5, matches: [] }),
+        ],
+      }),
+    );
+
+    expect(out).toMatch(/\| Page \| Chars \| Images \| Coverage \| Size \(pt\) \| Matches \|/);
+    expect(out).toMatch(/\| 1 \| 15 \| 0 \| 0% \| 612×792 \| 1 \|/);
+    expect(out).toContain('matches: 1');
+    expect(out).toContain('### Search matches');
+    expect(out).toContain('| Query | Query# | Source | Text | Context | BBox |');
+    expect(out).toContain('| text\\|term | 1 | native | text\\|term | near text\\|term | 100,72,60,12 |');
+    expect(out).toContain('_No search matches found._');
   });
 
   it('adds annotation counts and an annotations table when comments or markup are present', () => {

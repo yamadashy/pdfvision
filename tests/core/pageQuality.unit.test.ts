@@ -148,6 +148,20 @@ describe('derivePageQuality', () => {
     });
   });
 
+  it('keeps low-contrast image traces distinct from blank renders', () => {
+    const quality = derivePageQuality(
+      makePage({
+        imageCount: 1,
+        renderContentRatio: 0.0005,
+      }),
+    );
+
+    expect(quality).toEqual({
+      nativeTextStatus: 'empty_but_visual_content',
+      visualStatus: 'sparse',
+    });
+  });
+
   it('keeps tiny visible annotation appearances distinct from blank renders', () => {
     const quality = derivePageQuality(
       makePage({

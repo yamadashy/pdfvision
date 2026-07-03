@@ -1,6 +1,7 @@
 import type { TextSpan } from '../../types/index.js';
 import { type JoinItem, joinPageText } from '../text/cjkJoin.js';
 import { textMatrixFontSize, textRunGeometryFromTransform } from '../text/geometry.js';
+import { isLikelyPrepressProductionText } from '../text/prepress.js';
 import type { PageFlags } from './pageData.js';
 import { normalizeText, textItemDedupeKey } from './textUtils.js';
 
@@ -57,8 +58,10 @@ export function extractPageText({
   let textArea = 0;
   const spans: TextSpan[] = [];
   const seenTextItems = new Map<string, number>();
+  const pageFontAliases = new Map<string, string>();
   for (const item of content.items) {
     if (!isTextItem(item)) continue;
+    if (isLikelyPrepressProductionText(item.str)) continue;
     const w = typeof item.width === 'number' ? item.width : 0;
     // pdfjs reports item.height as 0 for many PDFs (e.g. those produced by
     // certain Office exporters); fall back to the vertical scale from the
@@ -77,6 +80,18 @@ export function extractPageText({
     }
     textArea += Math.abs(w * h);
 
+    const geometry = transform
+      ? textRunGeometryFromTransform({
+          transform,
+          width: w,
+          height: h,
+          pageHeight,
+          viewMinX,
+          viewMinY,
+          dir: typeof item.dir === 'string' ? item.dir : undefined,
+        })
+      : undefined;
+
     // Feed the page-text joiner. x/fontSize default to 0 when the
     // item lacks a transform (pdf.js does this for synthetic-EOL
     // items); the joiner already handles zero fontSize by falling back
@@ -87,6 +102,7 @@ export function extractPageText({
     joinItems.push({
       str: item.str,
       x: itemX,
+      ...(geometry && { y: geometry.y }),
       width: w,
       fontSize: itemFontSize,
       hasEOL: !!item.hasEOL,
@@ -98,20 +114,11 @@ export function extractPageText({
     // sometimes carries a synthetic width that exceeds the page width.
     // The aggregate `text` already preserves the spaces, so layout
     // analysis loses nothing; downstream agents get a cleaner signal.
-    if (wantSpans && item.str.trim().length > 0 && transform) {
-      const geometry = textRunGeometryFromTransform({
-        transform,
-        width: w,
-        height: h,
-        pageHeight,
-        viewMinX,
-        viewMinY,
-        dir: typeof item.dir === 'string' ? item.dir : undefined,
-      });
+    if (wantSpans && item.str.trim().length > 0 && geometry) {
       spans.push({
         text: flags.normalize ? normalizeText(item.str) : item.str,
         ...geometry,
-        ...(typeof item.fontName === 'string' && { fontName: item.fontName }),
+        ...(typeof item.fontName === 'string' && { fontName: stablePageFontName(item.fontName, pageFontAliases) }),
       });
     }
   }
@@ -130,4 +137,12 @@ export function extractPageText({
 
 function isTextItem(item: unknown): item is TextItemLike {
   return !!item && typeof item === 'object' && 'str' in item && typeof (item as TextItemLike).str === 'string';
+}
+
+function stablePageFontName(rawFontName: string, aliases: Map<string, string>): string {
+  const existing = aliases.get(rawFontName);
+  if (existing) return existing;
+  const alias = `font${aliases.size + 1}`;
+  aliases.set(rawFontName, alias);
+  return alias;
 }

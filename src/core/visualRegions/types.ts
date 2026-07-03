@@ -4,6 +4,7 @@ import type {
   PageAnnotation,
   PageLayout,
   PageQuality,
+  RenderedContentBox,
   VectorBox,
   VisualRegionAssociatedText,
   VisualRegionKind,
@@ -20,6 +21,8 @@ export interface BuildVisualRegionsInput {
   annotations?: readonly PageAnnotation[];
   visualStatus?: 'ok' | 'sparse' | 'blank';
   nativeTextStatus?: PageQuality['nativeTextStatus'];
+  renderContentRatio?: number;
+  renderedContentBox?: RenderedContentBox;
 }
 
 export interface BoxLike {

@@ -40,10 +40,12 @@ export interface SearchMatch {
   /** Where the match came from. `'native'` = pdf.js text stream
    *  (precise bbox via spans). `'formField'` = a text/choice widget
    *  value (widget bbox). `'annotation'` = visible FreeText annotation
-   *  contents (annotation bbox). `'ocr'` = `pages[].ocr.text`
+   *  contents (annotation bbox). `'link'` = clickable link target
+   *  metadata such as a URL, destination, or attachment filename.
+   *  `'ocr'` = `pages[].ocr.text`
    *  (word-level bbox when `pages[].ocr.words` exists and matches,
    *  otherwise page-level fallback). */
-  source: 'native' | 'formField' | 'annotation' | 'ocr';
+  source: 'native' | 'formField' | 'annotation' | 'link' | 'ocr';
   /** Optional surrounding-line text (typically ±N characters from the
    *  match) for human / LLM readability. Trimmed and de-newlined. */
   context?: string;

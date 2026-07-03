@@ -3,9 +3,11 @@ import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type {
   DocumentResult,
   ImageBox,
+  PageAnnotation,
   PageResult,
   ProcessDocumentOptions,
   ProcessOptions,
+  RenderedContentBox,
   VectorBox,
 } from '../types/index.js';
 import { getCacheDir, pdfFingerprint } from './io/cache.js';
@@ -138,6 +140,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     // PageResult so an agent can spot blank-rendered pages directly from
     // the structured output instead of inferring from "OCR confidence 0".
     let renderRatios: (number | undefined)[] = [];
+    let renderContentBoxes: (RenderedContentBox | undefined)[] = [];
     const imagesDir =
       options.render || renderVisualRegions
         ? prepareRenderImagesDir({
@@ -154,6 +157,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       const rendered = await renderPagesWithStats(doc, pageNumbers, imagesDir as string, renderScale, renderRegion);
       imagePaths = rendered.map((r) => r.path);
       renderRatios = rendered.map((r) => r.contentRatio);
+      renderContentBoxes = rendered.map((r) => r.renderedContentBox);
     }
 
     const flags = buildPageFlags(options, {
@@ -166,6 +170,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     const optionalContentTextByPage = new Map<number, boolean>();
     const warningImageBoxesByPage = new Map<number, ImageBox[]>();
     const warningVectorBoxesByPage = new Map<number, VectorBox[]>();
+    const warningAnnotationsByPage = new Map<number, PageAnnotation[]>();
     const visualRegionInputsByPage = new Map<number, BuildVisualRegionsInput>();
     const annotationAppearanceByPage = new Map<number, boolean>();
     const imageOps = buildImageOps(OPS);
@@ -186,6 +191,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       optionalContentTextByPage.set(pageNum, data.optionalContentText);
       warningImageBoxesByPage.set(pageNum, data._warningImageBoxes ?? []);
       warningVectorBoxesByPage.set(pageNum, data._warningVectorBoxes ?? []);
+      warningAnnotationsByPage.set(pageNum, data._warningAnnotations ?? []);
       if (data._visualRegionInput) visualRegionInputsByPage.set(pageNum, data._visualRegionInput);
       if (data.hasVisibleAnnotationAppearance) annotationAppearanceByPage.set(pageNum, true);
       return buildPageResult({
@@ -201,12 +207,19 @@ export async function processDocument(filePath: string, options: ProcessDocument
       });
     });
 
+    const renderContentBoxesByPage = new Map<number, RenderedContentBox>();
+    for (let i = 0; i < pageNumbers.length; i++) {
+      const box = renderContentBoxes[i];
+      if (box) renderContentBoxesByPage.set(pageNumbers[i], box);
+    }
+
     await applyVisualRegionPostProcessing({
       pages,
       layoutEnabled: flags.layout,
       visualRegionsEnabled: flags.visualRegions,
       renderVisualRegions,
       visualRegionInputsByPage,
+      renderContentBoxesByPage,
       doc,
       imagesDir,
       renderScale,
@@ -254,6 +267,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
         hasHiddenOptionalContent,
         imageBoxes: warningImageBoxesByPage.get(p.page),
         vectorBoxes: warningVectorBoxesByPage.get(p.page),
+        annotations: warningAnnotationsByPage.get(p.page),
         pdfJsWarnings,
       });
       if (warnings.length > 0) p.warnings = warnings;

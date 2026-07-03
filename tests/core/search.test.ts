@@ -1,8 +1,9 @@
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { attachFormFieldTextAppearance } from '../../src/core/formFields/types.js';
 import { processDocument } from '../../src/core/processor.js';
 import { compileSearch, searchPage } from '../../src/core/search/index.js';
-import type { FormField, PageAnnotation, TextSpan } from '../../src/types/index.js';
+import type { FormField, PageAnnotation, PageLink, TextSpan } from '../../src/types/index.js';
 
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
 const SAMPLE_JA_PDF = resolve(__dirname, '../fixtures/sample-ja.pdf');
@@ -324,6 +325,72 @@ describe('processDocument search', () => {
     });
   });
 
+  it('matches link targets with clickable link bboxes', () => {
+    const compiled = compileSearch('pdf_reference', {});
+    if (!compiled) throw new Error('expected compiled search');
+    const links: PageLink[] = [
+      {
+        type: 'url',
+        target: 'https://example.com/devnet/pdf/pdf_reference.html',
+        text: 'pdf ˙reference.html',
+        x: 150.53,
+        y: 155.63,
+        width: 237.36,
+        height: 10.21,
+      },
+    ];
+
+    const matches = searchPage([], undefined, 16, 612, 792, compiled, undefined, undefined, undefined, links);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      page: 16,
+      query: 'pdf_reference',
+      bbox: { x: 150.53, y: 155.63, width: 237.36, height: 10.21 },
+      boxes: [{ x: 150.53, y: 155.63, width: 237.36, height: 10.21 }],
+      text: 'pdf_reference',
+      source: 'link',
+      context: 'url link target: https://example.com/devnet/pdf/pdf_reference.html',
+    });
+  });
+
+  it('narrows comb text form-field matches to the matched cells when appearance metadata is available', () => {
+    const field: FormField = {
+      name: 'CombText',
+      type: 'text',
+      value: 'abcdefghijklmnopqrstuvwxyz',
+      x: 145.98,
+      y: 200.84,
+      width: 445.48,
+      height: 19.84,
+      label: {
+        text: 'Single line, combs',
+        relation: 'left',
+        x: 10,
+        y: 200.84,
+        width: 100,
+        height: 10,
+      },
+    };
+    attachFormFieldTextAppearance(field, { comb: true, maxLen: 26 });
+    const compiled = compileSearch('z', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage([], undefined, 1, 612, 792, compiled, undefined, [field]);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      query: 'z',
+      text: 'z',
+      source: 'formField',
+      page: 1,
+      bbox: { x: 574.33, y: 200.84, width: 17.13, height: 19.84 },
+      boxes: [{ x: 574.33, y: 200.84, width: 17.13, height: 19.84 }],
+      context: 'Single line, combs: abcdefghijklmnopqrstuvwxyz',
+    });
+    expect(JSON.stringify(field)).not.toContain('maxLen');
+  });
+
   it('keeps visible FreeText annotation matches when the same text appears elsewhere', () => {
     const spans: TextSpan[] = [
       {
@@ -449,6 +516,26 @@ describe('processDocument search', () => {
     expect(matches[0].boxes).toHaveLength(2);
   });
 
+  it('matches phrases across tight Latin-to-number gaps', () => {
+    const spans: TextSpan[] = [
+      { text: 'Appendix', x: 222.67, y: 100.54, width: 28.05, height: 7.31, fontSize: 7.31 },
+      { text: 'Table', x: 252.38, y: 100.54, width: 16.2, height: 7.31, fontSize: 7.31 },
+      { text: '1.', x: 270.24, y: 100.54, width: 5.55, height: 7.31, fontSize: 7.31 },
+    ];
+    const compiled = compileSearch('Appendix Table 1', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 612, 792, compiled);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'Appendix Table 1',
+      source: 'native',
+      page: 1,
+    });
+    expect(matches[0].boxes).toHaveLength(3);
+  });
+
   it('matches phrases across tight Latin-to-Greek symbol gaps', () => {
     const spans: TextSpan[] = [
       { text: 'if', x: 200.01, y: 454.83, width: 5.47, height: 10, fontSize: 10 },
@@ -488,6 +575,32 @@ describe('processDocument search', () => {
     expect(matches[0].boxes).toHaveLength(2);
   });
 
+  it('only emits stacked synthetic-line hits that cross the stacked boundary', () => {
+    const spans: TextSpan[] = [
+      { text: '図3', x: 456.72, y: 168.94, width: 28.08, height: 14.04, fontSize: 14.04 },
+      { text: '若年就業者(', x: 493.92, y: 168.94, width: 84.24, height: 14.04, fontSize: 14.04 },
+      { text: '34', x: 578.18, y: 168.94, width: 18.99, height: 14.04, fontSize: 14.04 },
+      { text: '歳以下)数の推移', x: 597.14, y: 168.94, width: 111.14, height: 14.04, fontSize: 14.04 },
+      { text: '34', x: 585.67, y: 193.56, width: 11.23, height: 9, fontSize: 9 },
+      { text: '歳以下の就業者数(製造業)', x: 596.95, y: 193.56, width: 115.34, height: 9, fontSize: 9 },
+    ];
+
+    const topOnly = compileSearch('図3 若年就業者', {});
+    const crossStack = compileSearch('推移 34歳以下の就業者数', {});
+    if (!topOnly || !crossStack) throw new Error('expected compiled search');
+
+    expect(searchPage(spans, undefined, 1, 792, 612, topOnly)).toHaveLength(1);
+    const crossStackMatches = searchPage(spans, undefined, 1, 792, 612, crossStack);
+
+    expect(crossStackMatches).toHaveLength(1);
+    expect(crossStackMatches[0]).toMatchObject({
+      text: '推移 34歳以下の就業者数',
+      source: 'native',
+      page: 1,
+    });
+    expect(crossStackMatches[0].boxes.length).toBeGreaterThanOrEqual(3);
+  });
+
   it('matches phrases across Type3-style wide word spacing rows', () => {
     const spans: TextSpan[] = [
       { text: 'ab', x: 50, y: 60, width: 20, height: 10, fontSize: 10 },
@@ -506,6 +619,112 @@ describe('processDocument search', () => {
       page: 1,
     });
     expect(matches[0].boxes).toHaveLength(3);
+  });
+
+  it('matches compact table header phrases across small column gaps', () => {
+    const spans: TextSpan[] = [
+      { text: 'Advance Estimate', x: 275.42, y: 290.72, width: 79.79, height: 10.98, fontSize: 10.98 },
+      { text: 'Second Estimate', x: 369.94, y: 290.72, width: 74.08, height: 10.98, fontSize: 10.98 },
+      { text: 'Third Estimate', x: 459.94, y: 290.72, width: 64.84, height: 10.98, fontSize: 10.98 },
+    ];
+    const compiled = compileSearch('Advance Estimate Second Estimate Third Estimate', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 612, 792, compiled);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'Advance Estimate Second Estimate Third Estimate',
+      source: 'native',
+      page: 1,
+    });
+    expect(matches[0].boxes).toHaveLength(3);
+    expect(matches[0].bbox).toEqual({ x: 275.42, y: 290.72, width: 249.36, height: 10.98 });
+  });
+
+  it('matches compact table header phrases across wider short-label column gaps', () => {
+    const spans: TextSpan[] = [
+      { text: 'Layer Type', x: 124.55, y: 114.23, width: 45.4, height: 9.96, fontSize: 9.96 },
+      { text: 'Complexity per Layer', x: 239.7, y: 114.23, width: 87.84, height: 9.96, fontSize: 9.96 },
+      { text: 'Sequential', x: 340.33, y: 114.23, width: 42.06, height: 9.96, fontSize: 9.96 },
+      { text: 'Maximum Path Length', x: 395.17, y: 114.23, width: 92.28, height: 9.96, fontSize: 9.96 },
+    ];
+    const compiled = compileSearch('Layer Type Complexity per Layer Sequential', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 612, 792, compiled);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'Layer Type Complexity per Layer Sequential',
+      source: 'native',
+      page: 1,
+    });
+    expect(matches[0].boxes).toHaveLength(3);
+    expect(matches[0].bbox).toEqual({ x: 124.55, y: 114.23, width: 257.84, height: 9.96 });
+  });
+
+  it('matches short stacked table header labels across adjacent lines', () => {
+    const spans: TextSpan[] = [
+      { text: 'Total', x: 371.3, y: 96.48, width: 18.2, height: 8, fontSize: 8 },
+      { text: 'Boston', x: 421.28, y: 96.48, width: 25.34, height: 8, fontSize: 8 },
+      { text: 'Chicago', x: 512.2, y: 96.48, width: 30.24, height: 8, fontSize: 8 },
+      { text: 'Minneapolis', x: 560.1, y: 96.48, width: 44.8, height: 8, fontSize: 8 },
+      { text: 'Kansas', x: 622.16, y: 91.43, width: 26.68, height: 8, fontSize: 8 },
+      { text: 'Dallas', x: 674.19, y: 96.48, width: 21.8, height: 8, fontSize: 8 },
+      { text: 'San', x: 733.2, y: 91.43, width: 13.34, height: 8, fontSize: 8 },
+      { text: 'City', x: 628.61, y: 102.08, width: 13.78, height: 8, fontSize: 8 },
+      { text: 'Francisco', x: 724.1, y: 102.08, width: 35.12, height: 8, fontSize: 8 },
+    ];
+    const compiled = compileSearch('Kansas City', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 792, 612, compiled);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'Kansas City',
+      source: 'native',
+      page: 1,
+    });
+    expect(matches[0].boxes).toHaveLength(2);
+  });
+
+  it('does not duplicate single-token matches from stacked table header labels', () => {
+    const spans: TextSpan[] = [
+      { text: 'Kansas', x: 622.16, y: 91.43, width: 26.68, height: 8, fontSize: 8 },
+      { text: 'City', x: 628.61, y: 102.08, width: 13.78, height: 8, fontSize: 8 },
+    ];
+    const compiled = compileSearch('Kansas', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 792, 612, compiled);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'Kansas',
+      source: 'native',
+      page: 1,
+    });
+  });
+
+  it('does not duplicate multi-word labels that only hit one side of a stacked line', () => {
+    const spans: TextSpan[] = [
+      { text: 'Investment banking fees', x: 34.5, y: 83.21, width: 78.91, height: 8, fontSize: 8 },
+      { text: 'Principal transactions', x: 34.5, y: 94.02, width: 76.2, height: 8, fontSize: 8 },
+    ];
+    const compiled = compileSearch('Investment banking fees', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 576, 790, compiled);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'Investment banking fees',
+      source: 'native',
+      page: 1,
+    });
+    expect(matches[0].boxes).toHaveLength(1);
   });
 
   it('does not match phrases across narrow recurring column gutters', () => {
@@ -783,6 +1002,37 @@ describe('processDocument search', () => {
     expect(matches[0].bbox).toEqual({ x: 30, y: 20, width: 20, height: 10 });
   });
 
+  it('does not under-size table-label matches in dot-leader spans', async () => {
+    // BLS statistical tables can emit the row label and dot leaders as
+    // one wide span. Uniformly slicing that span by character count
+    // clips the label when the bbox is used as a render region.
+    const { compileSearch, searchPage } = await import('../../src/core/search/index.js');
+    const compiled = compileSearch('Total nonfarm', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const matches = searchPage(
+      [
+        {
+          text: 'Total nonfarm. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .',
+          x: 44.9,
+          y: 111.65,
+          width: 277.75,
+          height: 6.99,
+          fontSize: 6.99,
+        },
+      ],
+      undefined,
+      1,
+      612,
+      792,
+      compiled,
+    );
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0].boxes[0].x).toBe(44.9);
+    expect(matches[0].boxes[0].width).toBeGreaterThan(40);
+    expect(matches[0].boxes[0].width).toBeLessThan(80);
+  });
+
   it('narrows only the matching slice of a span-boundary phrase', async () => {
     // JICA report-shaped case: "JICA" is its own span and the CJK
     // suffix starts a longer span. Searching "JICA債" should include
@@ -1015,6 +1265,42 @@ describe('processDocument search', () => {
         { x: 112, y: 20, width: 36, height: 12 },
       ],
       text: 'near Geneva',
+      source: 'ocr',
+    });
+  });
+
+  it('matches dehyphenated OCR words across adjacent line breaks', async () => {
+    const { compileSearch, searchPage } = await import('../../src/core/search/index.js');
+    const compiled = compileSearch('WONDERFUL', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const matches = searchPage(
+      undefined,
+      {
+        text: 'Ihe WONDER-\nFUL WIZARD',
+        confidence: 0.9,
+        lang: 'eng',
+        words: [
+          { text: 'Ihe', confidence: 0.69, x: 0, y: 24, width: 136, height: 84.5 },
+          { text: 'WONDER-', confidence: 0.91, x: 169.5, y: 31.5, width: 287.5, height: 62 },
+          { text: 'FUL', confidence: 0.88, x: 0, y: 100, width: 150.5, height: 72.5 },
+          { text: 'WIZARD', confidence: 0.93, x: 196, y: 99, width: 266, height: 75 },
+        ],
+      },
+      1,
+      465,
+      618,
+      compiled,
+    );
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      page: 1,
+      query: 'WONDERFUL',
+      bbox: { x: 0, y: 31.5, width: 415.93, height: 141 },
+      boxes: [
+        { x: 169.5, y: 31.5, width: 246.43, height: 62 },
+        { x: 0, y: 100, width: 150.5, height: 72.5 },
+      ],
+      text: 'WONDERFUL',
       source: 'ocr',
     });
   });

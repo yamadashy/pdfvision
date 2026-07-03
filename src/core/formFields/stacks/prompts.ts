@@ -1,5 +1,6 @@
 import type { FormField } from '../../../types/index.js';
 import {
+  CHOICE_SIDE_PROMPT_MAX_GAP_PT,
   MIN_HORIZONTAL_OVERLAP_RATIO,
   SAME_LINE_MARKER_PROMPT_MAX_GAP_PT,
   SAME_LINE_MARKER_PROMPT_MAX_STACK_LINES,
@@ -12,7 +13,7 @@ import {
 } from '../constants.js';
 import { type BoxLike, centerY, horizontalOverlapRatio, unionBox } from '../geometry.js';
 import {
-  isBareNumericFieldMarker,
+  isChoiceLikeField,
   isDotLeaderText,
   isUsablePromptFragment,
   normalizeLabelText,
@@ -39,6 +40,7 @@ export function collectSideLabelContinuationLines(
   field: FormField,
   candidate: LabelCandidate,
   lines: readonly LabelLine[],
+  siblings: readonly FormField[] = [],
 ): { line: LabelLine; text: string }[] {
   const stack: { line: LabelLine; text: string }[] = [];
   let bounds: BoxLike = candidate.line;
@@ -49,6 +51,7 @@ export function collectSideLabelContinuationLines(
       bounds,
       [candidate.line, ...stack.map((item) => item.line)],
       lines,
+      siblings,
     );
     if (!next) return sortPromptStack(stack);
     stack.push(next);
@@ -100,11 +103,7 @@ export function collectSameLineMarkerPromptStack(
       ...sameLinePrompt.map((item) => item.line),
     ]);
     if (!next) return sortPromptStack(stack);
-    if (
-      isBareNumericFieldMarker(markerText) &&
-      startsWithPromptItemMarker(next.text) &&
-      !startsWithSameNumericMarker(markerText, next.text)
-    ) {
+    if (startsWithPromptItemMarker(next.text) && !startsWithCompatibleMarker(markerText, next.text)) {
       return sortPromptStack(stack);
     }
     stack.push(next);
@@ -119,11 +118,13 @@ function findSideLabelContinuationLine(
   bounds: BoxLike,
   excluded: readonly LabelLine[],
   lines: readonly LabelLine[],
+  siblings: readonly FormField[],
 ): { line: LabelLine; text: string } | undefined {
   let best: { line: LabelLine; text: string; gap: number } | undefined;
   for (const line of lines) {
     if (excluded.includes(line)) continue;
-    if (line.x + line.width > field.x + 1) continue;
+    if (line.x + line.width > field.x + field.width + 2) continue;
+    if (isLineAlignedWithSiblingChoiceField(field, line, siblings)) continue;
 
     const text = normalizeLabelText(line.text);
     if (!isUsablePromptFragment(text) || isDotLeaderText(text)) continue;
@@ -142,10 +143,34 @@ function findSideLabelContinuationLine(
   return best ? { line: best.line, text: best.text } : undefined;
 }
 
-function startsWithSameNumericMarker(markerText: string, text: string): boolean {
+function isLineAlignedWithSiblingChoiceField(
+  field: FormField,
+  line: LabelLine,
+  siblings: readonly FormField[],
+): boolean {
+  for (const sibling of siblings) {
+    if (sibling === field || !isChoiceLikeField(sibling)) continue;
+    if (line.x + line.width > sibling.x + sibling.width + 2) continue;
+    if (sibling.x - (line.x + line.width) > CHOICE_SIDE_PROMPT_MAX_GAP_PT) continue;
+    const centerDelta = Math.abs(centerY(sibling) - centerY(line));
+    if (centerDelta <= Math.max(7, Math.max(sibling.height, line.height) * 0.9)) return true;
+  }
+  return false;
+}
+
+function startsWithCompatibleMarker(markerText: string, text: string): boolean {
   const marker = normalizeLabelText(markerText).replace(/\s*\$/u, '').trim();
-  if (!/^\d+$/u.test(marker)) return false;
-  return new RegExp(`^${marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'u').test(normalizeLabelText(text));
+  const markerMatch = /^(?:(\d+)(?:\(([a-z])\)|([a-z]))?|([a-z]))$/iu.exec(marker);
+  if (!markerMatch) return false;
+  const [, numberPart, parenthesizedLetter, suffixLetter, bareLetter] = markerMatch;
+  const letterPart = parenthesizedLetter ?? suffixLetter ?? bareLetter;
+  const compatibleMarkers = [marker, letterPart, letterPart ? `(${letterPart})` : undefined].filter(
+    (item): item is string => item !== undefined && item.length > 0,
+  );
+  if (numberPart && !letterPart) compatibleMarkers.push(numberPart);
+  if (compatibleMarkers.length === 0) return false;
+  const escaped = compatibleMarkers.map((item) => item.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  return new RegExp(`^(?:${escaped.join('|')})(?:\\b|\\s|$)`, 'iu').test(normalizeLabelText(text));
 }
 
 function findPromptStackLine(

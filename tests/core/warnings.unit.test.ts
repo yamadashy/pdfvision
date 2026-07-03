@@ -322,6 +322,37 @@ describe('detectPageWarnings', () => {
     expect(out.filter((w) => w.code === 'ocr_native_text_mismatch')).toEqual([]);
   });
 
+  it('flags high-confidence OCR word mismatches on raster-backed text layers', () => {
+    const out = detectPageWarnings(
+      {
+        page: 1,
+        text: 'OF TWO UNPOWEEECD IWNNED PARAGLIDERS',
+        charCount: 39,
+        imageCount: 1,
+        vectorCount: 0,
+        textCoverage: 0.12,
+        nonPrintableRatio: 0,
+        nonPrintableCount: 0,
+        width: 612,
+        height: 792,
+        quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+        ocr: {
+          text: 'OF TWO UNPOWERED MANNED PARAGLIDERS',
+          confidence: 0.75,
+          lang: 'eng',
+          words: [{ text: 'MANNED', confidence: 0.93, x: 275, y: 356, width: 44, height: 10 }],
+        },
+      },
+      { rasterBackedTextLayer: true },
+    );
+
+    const warning = out.find((w) => w.code === 'ocr_native_text_mismatch');
+    expect(warning).toMatchObject({ code: 'ocr_native_text_mismatch', severity: 'warning' });
+    expect(warning?.message).toContain('MANNED');
+    expect(warning?.message).toContain('IWNNED');
+    expect(warning?.message).toContain('--ocr');
+  });
+
   it('does not flag OCR-native mismatches when OCR only captured part of the native text', () => {
     const out = detectPageWarnings({
       page: 1,
@@ -338,6 +369,52 @@ describe('detectPageWarnings', () => {
       ocr: { text: 'Project 2061 Science for All Americans', confidence: 0.93, lang: 'eng+jpn' },
     });
     expect(out.filter((w) => w.code === 'ocr_native_text_mismatch')).toEqual([]);
+  });
+
+  it('flags high-confidence OCR that preserves word spacing better than raster-backed native text', () => {
+    const nativeText =
+      'VISIT OUR WEBSITE\nOurwebsite, www.socialsecurity.gov, isa valuableresourcefor\n' +
+      'informationaboutall of SocialSecurity programs. Atourwebsite, youalsocan applyfor benefits and requesta statement.';
+    const ocrText =
+      'VISIT OUR WEBSITE\nOur website, www.socialsecurity.gov, is a valuable resource for\n' +
+      'information about all of Social Security programs. At our website, you also can apply for benefits and request a statement.';
+    const out = detectPageWarnings(
+      {
+        ...page([]),
+        text: nativeText,
+        charCount: nativeText.length,
+        imageCount: 2,
+        textCoverage: 0.18,
+        quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+        ocr: { text: ocrText, confidence: 0.91, lang: 'eng' },
+      },
+      { rasterBackedTextLayer: true },
+    );
+
+    const warning = out.find((w) => w.code === 'ocr_native_spacing_loss');
+    expect(warning).toMatchObject({ code: 'ocr_native_spacing_loss', severity: 'warning' });
+    expect(warning?.message).toContain('word spacing');
+    expect(warning?.message).toContain('word boundaries');
+  });
+
+  it('does not flag OCR spacing loss when native and OCR spacing are similar', () => {
+    const text =
+      'VISIT OUR WEBSITE\nOur website, www.socialsecurity.gov, is a valuable resource for\n' +
+      'information about all of Social Security programs. At our website, you also can apply for benefits and request a statement.';
+    const out = detectPageWarnings(
+      {
+        ...page([]),
+        text,
+        charCount: text.length,
+        imageCount: 2,
+        textCoverage: 0.18,
+        quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+        ocr: { text, confidence: 0.91, lang: 'eng' },
+      },
+      { rasterBackedTextLayer: true },
+    );
+
+    expect(out.filter((w) => w.code === 'ocr_native_spacing_loss')).toEqual([]);
   });
 
   it('flags low-confidence OCR on raster-backed text layers even when native status is ok', () => {
@@ -383,6 +460,74 @@ describe('detectPageWarnings', () => {
     expect(out.filter((w) => w.code === 'ocr_low_confidence')).toEqual([]);
   });
 
+  it('flags low-confidence OCR noise on blank renders', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '',
+      charCount: 0,
+      imageCount: 1,
+      vectorCount: 0,
+      textCoverage: 0,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'empty', visualStatus: 'blank' },
+      ocr: { text: '-— -—— ——\n-\n’\n. BN', confidence: 0.2, lang: 'eng' },
+    });
+
+    expect(out.filter((w) => w.code === 'ocr_low_confidence')).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'ocr_low_confidence', severity: 'warning' });
+    expect(out[0].message).toContain('blank render');
+    expect(out[0].message).toContain('20.0%');
+  });
+
+  it('suppresses OCR and raster warnings for low-content blank scan pages', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '',
+      charCount: 0,
+      imageCount: 1,
+      vectorCount: 0,
+      textCoverage: 0,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 610,
+      height: 792,
+      renderContentRatio: 0.000703,
+      imageBoxes: [{ x: 0, y: 0, width: 610, height: 792 }],
+      quality: { nativeTextStatus: 'empty_but_visual_content', visualStatus: 'sparse' },
+      ocr: { text: 'EE 5 \\ A i', confidence: 0.5, lang: 'eng' },
+    });
+
+    expect(out).toEqual([]);
+  });
+
+  it('keeps raster warnings for low-density pages with strong OCR text', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '',
+      charCount: 0,
+      imageCount: 1,
+      vectorCount: 0,
+      textCoverage: 0,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 610,
+      height: 792,
+      renderContentRatio: 0.004746,
+      imageBoxes: [{ x: 0, y: 0, width: 610, height: 792 }],
+      quality: { nativeTextStatus: 'empty_but_visual_content', visualStatus: 'sparse' },
+      ocr: {
+        text: 'For sale by the National Technical Information Service, Springfield, Virginia 22151',
+        confidence: 0.95,
+        lang: 'eng',
+      },
+    });
+
+    expect(out.map((w) => w.code)).toEqual(['large_raster_low_text_overlap', 'raster_image_no_native_text']);
+  });
+
   it('flags localized non-printable glyph noise below the mixed-glyph ratio threshold', () => {
     // Heritage Financial slide p5-shaped case: native text is otherwise
     // usable, but bullet glyphs come through as C1 control code points.
@@ -402,6 +547,26 @@ describe('detectPageWarnings', () => {
     expect(out).toHaveLength(1);
     expect(out[0]).toMatchObject({ code: 'localized_glyph_noise', severity: 'warning' });
     expect(out[0].message).toContain('18 non-printable');
+  });
+
+  it('flags long repeated CJK glyph runs in otherwise readable text', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: `2024年（令和6年）の本文は正常に読める。\n${'令'.repeat(12)}\n本文は続く。`,
+      charCount: 48,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.1,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 595,
+      height: 842,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+    });
+
+    const warning = out.find((w) => w.code === 'localized_glyph_noise' && w.message.includes('repeated CJK glyph'));
+    expect(warning?.message).toContain('repeated CJK glyph');
+    expect(warning?.message).toContain('令令');
   });
 
   it('flags page-wide glyph garbage when native text is mixed or unusable', () => {
@@ -498,6 +663,31 @@ describe('detectPageWarnings', () => {
     });
     expect(out.filter((w) => w.code === 'glyph_garbage_text')).toEqual([]);
     expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
+  });
+
+  it('flags raw embedded LaTeX source payloads in native text', () => {
+    const payload = `<latexit sha1_base64="7yFrn0YPyuP5dVIvc7Tl2zcbS/g=">${'AAAB+Hic'.repeat(20)}</latexit>`;
+    const out = detectPageWarnings({
+      page: 1,
+      text: `Figure caption ${payload} visible paragraph`,
+      charCount: payload.length + 32,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.12,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+    });
+
+    expect(out).toContainEqual(
+      expect.objectContaining({
+        code: 'raw_embedded_source_text',
+        severity: 'warning',
+      }),
+    );
+    expect(out.find((w) => w.code === 'raw_embedded_source_text')?.message).toContain('raw embedded LaTeX source');
   });
 
   it('flags localized private-use glyphs when they dominate a short text run', () => {
@@ -874,6 +1064,49 @@ describe('detectPageWarnings', () => {
     expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
   });
 
+  it('flags adjacent duplicated CJK glyph pairs as printable glyph noise', () => {
+    const text =
+      '図表 1-1-29 過去 3 年間のハラスメント該当事例の有無\n' +
+      '図図表表 3377 過過去去33年年間間ののハハララススメメンントト該該当当事事例例のの有有無無';
+    const out = detectPageWarnings({
+      page: 1,
+      text,
+      charCount: Array.from(text).length,
+      imageCount: 0,
+      vectorCount: 20,
+      textCoverage: 0.04,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 595.28,
+      height: 841.89,
+      quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+    });
+
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: 'localized_glyph_noise', severity: 'warning' });
+    expect(out[0].message).toContain('adjacent duplicated CJK glyph pairs');
+    expect(out[0].message).toContain('"図図"');
+  });
+
+  it('does not flag ordinary Japanese prose with a few repeated CJK characters', () => {
+    const text = 'ここでは人々の暮らしを支える取り組みを説明します。各地域での活動はますます重要になります。';
+    const out = detectPageWarnings({
+      page: 1,
+      text,
+      charCount: Array.from(text).length,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0.03,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok' },
+    });
+
+    expect(out.filter((w) => w.code === 'localized_glyph_noise')).toEqual([]);
+  });
+
   it('flags sequential rare CJK extension glyph runs as printable glyph noise', () => {
     const out = detectPageWarnings({
       page: 1,
@@ -1115,7 +1348,7 @@ describe('detectPageWarnings', () => {
         severity: 'warning',
       }),
     ]);
-    expect(out[0].message).toContain('standalone dotted leader lines');
+    expect(out[0].message).toContain('standalone dotted leader/noise lines');
   });
 
   it('does not flag ordinary ellipsis prose as dotted leader noise', () => {
@@ -1168,6 +1401,121 @@ describe('detectPageWarnings', () => {
         }),
       ]),
     );
+    expect(out.filter((w) => w.code === 'tabular_numeric_layout')).toEqual([]);
+  });
+
+  it('does not flag sparse map legend tick rows as flattened tables', () => {
+    const legendLines: LayoutLine[] = [
+      ...Array.from({ length: 8 }, (_, index) => ({
+        text: String(index),
+        x: 96.54 + index * 13.8,
+        y: 221.35,
+        width: 3.2,
+        height: 6.66,
+        fontSize: 6.66,
+      })),
+      { text: '-1.5 -1.0 -0.5', x: 90.64, y: 333.72, width: 44.79, height: 6.66, fontSize: 6.66 },
+      { text: '0', x: 145.03, y: 333.72, width: 3.2, height: 6.66, fontSize: 6.66 },
+      { text: '0.5', x: 157.93, y: 333.72, width: 7.8, height: 6.66, fontSize: 6.66 },
+      { text: '1.0', x: 175.43, y: 333.72, width: 7.8, height: 6.66, fontSize: 6.66 },
+      { text: '1.5', x: 192.93, y: 333.72, width: 7.8, height: 6.66, fontSize: 6.66 },
+      { text: '-40 -30 -20 -10', x: 92.21, y: 446.48, width: 45.07, height: 6.66, fontSize: 6.66 },
+      { text: '0', x: 145.52, y: 446.48, width: 3.16, height: 6.66, fontSize: 6.66 },
+      { text: '10', x: 154.69, y: 446.48, width: 6.17, height: 6.66, fontSize: 6.66 },
+      { text: '20', x: 166.87, y: 446.48, width: 6.35, height: 6.66, fontSize: 6.66 },
+      { text: '30 40', x: 179.23, y: 446.48, width: 19.03, height: 6.66, fontSize: 6.66 },
+    ];
+
+    const out = detectPageWarnings(
+      page([
+        block(90, 221, 120, 232, {
+          text: legendLines.map((item) => item.text).join('\n'),
+          lines: legendLines,
+        }),
+      ]),
+    );
+
+    expect(out.filter((w) => w.code === 'tabular_numeric_layout')).toEqual([]);
+  });
+
+  it('does not flag dense tiny numeric vector diagrams as flattened tables', () => {
+    const vectorLines = Array.from({ length: 8 }, (_, rowIndex) =>
+      Array.from({ length: 8 }, (_, columnIndex): LayoutLine => {
+        const text = rowIndex % 3 === 0 ? '-0.4' : `0.${(rowIndex + columnIndex) % 8}`;
+        return {
+          text,
+          x: 120 + columnIndex * 34,
+          y: 180 + rowIndex * 6.5,
+          width: text.startsWith('-') ? 8.5 : 6.9,
+          height: 5.04,
+          fontSize: 5.04,
+        };
+      }),
+    ).flat();
+
+    const out = detectPageWarnings(
+      page([
+        block(100, 160, 340, 90, {
+          text: vectorLines.map((item) => item.text).join('\n'),
+          lines: vectorLines,
+        }),
+      ]),
+    );
+
+    expect(out.filter((w) => w.code === 'tabular_numeric_layout')).toEqual([]);
+  });
+
+  it('does not flag dense tiny multi-value chart labels as flattened tables', () => {
+    const chartLines = Array.from({ length: 6 }, (_, rowIndex) =>
+      Array.from({ length: 8 }, (_, columnIndex): LayoutLine => {
+        const first = `${12 + rowIndex},${String(columnIndex).padStart(3, '0')}`;
+        const second = `${13 + rowIndex},${String(columnIndex).padStart(3, '0')}`;
+        const text =
+          columnIndex % 3 === 0 ? `${first} ${second}` : `${(rowIndex + 1) * (columnIndex + 2)}.${columnIndex}`;
+        return {
+          text,
+          x: 80 + columnIndex * 42,
+          y: 340 + rowIndex * 13,
+          width: text.length * 2.4,
+          height: 3.2,
+          fontSize: 3.2,
+        };
+      }),
+    ).flat();
+
+    const out = detectPageWarnings(
+      page([
+        block(80, 340, 340, 80, {
+          text: chartLines.map((item) => item.text).join('\n'),
+          lines: chartLines,
+        }),
+      ]),
+    );
+
+    expect(out.filter((w) => w.code === 'tabular_numeric_layout')).toEqual([]);
+  });
+
+  it('does not flag mirrored chart axis labels as flattened tables', () => {
+    const axisTicks = ['8', '6', '4', '2', '0', '2', '4', '6', '8'];
+    const ageLabels = ['85~89', '80~84', '75~79', '70~74', '65~69', '60~64', '55~59', '50~54'];
+    const chartLines: LayoutLine[] = [
+      ...ageLabels.flatMap((label, index) => [
+        line(label, 110, 120 + index * 12, 24),
+        line(label, 330, 120 + index * 12, 24),
+      ]),
+      ...axisTicks.map((tick, index) => line(tick, 95 + index * 25, 230, 8)),
+      ...axisTicks.map((tick, index) => line(tick, 320 + index * 25, 230, 8)),
+    ];
+
+    const out = detectPageWarnings(
+      page([
+        block(90, 110, 460, 140, {
+          text: chartLines.map((item) => item.text).join('\n'),
+          lines: chartLines,
+        }),
+      ]),
+    );
+
     expect(out.filter((w) => w.code === 'tabular_numeric_layout')).toEqual([]);
   });
 
@@ -1246,6 +1594,45 @@ describe('detectPageWarnings', () => {
     expect(out[0].message).toContain('36.0%');
   });
 
+  it('flags captioned medium raster figures with little overlapping native text', () => {
+    // PLOS article-shaped case: a boxplot is not page-dominating, but
+    // the nearby figure caption makes the raster chart semantically
+    // important and its axis labels are not present as native text.
+    const out = detectPageWarnings({
+      ...page(
+        [
+          block(60, 278, 240, 70, {
+            text: 'Figure 2. Distribution of citation counts by data availability.',
+          }),
+          block(330, 80, 220, 240, { text: 'body paragraph text outside the raster figure' }),
+        ],
+        612,
+        792,
+      ),
+      imageCount: 1,
+      imageBoxes: [{ x: 58, y: 60, width: 240, height: 208 }],
+      quality: { nativeTextStatus: 'ok' },
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({
+      code: 'large_raster_low_text_overlap',
+      severity: 'warning',
+      imageBoxIndex: 0,
+    });
+    expect(out[0].message).toContain('captioned raster figure');
+    expect(out[0].message).toContain('Figure 2');
+  });
+
+  it('does not flag medium raster images without nearby figure captions', () => {
+    const out = detectPageWarnings({
+      ...page([block(330, 80, 220, 240, { text: 'body paragraph text outside the raster image' })], 612, 792),
+      imageCount: 1,
+      imageBoxes: [{ x: 58, y: 60, width: 240, height: 208 }],
+      quality: { nativeTextStatus: 'ok' },
+    });
+    expect(out.filter((w) => w.code === 'large_raster_low_text_overlap')).toEqual([]);
+  });
+
   it('deduplicates large-raster warnings for repeated full-page image boxes', () => {
     // Scanned books can expose the same page-sized image through
     // multiple XObject draws. One warning is enough for an agent.
@@ -1318,6 +1705,32 @@ describe('detectPageWarnings', () => {
       imageBoxIndex: 0,
     });
     expect(out[0].message).toContain('native text is empty');
+  });
+
+  it('flags raster-dominated pages whose human-visible text is not native text', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '',
+      charCount: 0,
+      imageCount: 1,
+      vectorCount: 0,
+      textCoverage: 0,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 1000,
+      height: 1000,
+      imageBoxes: [{ x: 0, y: 0, width: 1000, height: 1000 }],
+      quality: { nativeTextStatus: 'empty_but_visual_content', visualStatus: 'ok' },
+    });
+
+    const warning = out.find((w) => w.code === 'raster_image_no_native_text');
+    expect(warning).toMatchObject({
+      code: 'raster_image_no_native_text',
+      severity: 'warning',
+      imageBoxIndex: 0,
+    });
+    expect(warning?.message).toContain('native text is empty');
+    expect(warning?.message).toContain('OCR');
   });
 
   it('flags tiled raster pages when each tile is below the single-image threshold', () => {
@@ -1570,6 +1983,66 @@ describe('detectPageWarnings', () => {
       expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
     });
 
+    it('flags glued native text across visual columns in numbered list grids', () => {
+      const blocks = [
+        block(42, 200, 150, 8, { text: '1. U.S. Passport or U.S. Passport Card' }),
+        block(42, 220, 150, 16, { text: '2. Permanent Resident Card or Alien Registration Receipt Card' }),
+        block(42, 246, 150, 32, { text: '3. Foreign passport that contains a temporary I-551 stamp' }),
+        block(42, 292, 150, 16, { text: '4. Employment Authorization Document that contains a photograph' }),
+        block(42, 318, 150, 80, {
+          text: '5. For an individual temporarily authorized to work for a specific employer',
+        }),
+        block(222, 202, 170, 40, { text: "1. Driver's license or ID card issued by a State" }),
+        block(222, 260, 170, 40, { text: '2. ID card issued by federal, state or local government agencies' }),
+        block(222, 315, 130, 8, { text: '3. School ID card with a photograph' }),
+        block(222, 333, 96, 8, { text: "4. Voter's registration card" }),
+        block(410, 196, 170, 26, { text: '1. A Social Security Account Number card' }),
+        block(410, 302, 160, 8, { text: '2. Certification of report of birth issued by the Department of State' }),
+        block(410, 336, 160, 8, { text: '3. Original or certified copy of birth certificate' }),
+        block(410, 381, 126, 8, { text: '4. Native American tribal document' }),
+      ];
+      const p = {
+        ...page(blocks, 612, 792),
+        text:
+          'LISTS OF ACCEPTABLE DOCUMENTS\n' +
+          "1. Driver's license or ID card issued by a State\n" +
+          '3. School ID card with a photograph5. For an individual temporarily authorized\n' +
+          'to work for a specific employer because of his or her status or parole',
+      };
+
+      const out = detectPageWarnings(p);
+      const divergence = out.find((w) => w.code === 'reading_order_divergence');
+      expect(divergence).toMatchObject({ severity: 'warning', blockIndex: 7 });
+      expect(divergence?.message).toContain('columnar list');
+      expect(divergence?.message).toContain('School ID card');
+    });
+
+    it('does not flag columnar numbered lists when native item boundaries remain separated', () => {
+      const blocks = [
+        block(42, 200, 150, 8, { text: '1. U.S. Passport or U.S. Passport Card' }),
+        block(42, 220, 150, 16, { text: '2. Permanent Resident Card or Alien Registration Receipt Card' }),
+        block(42, 318, 150, 80, {
+          text: '5. For an individual temporarily authorized to work for a specific employer',
+        }),
+        block(222, 202, 170, 40, { text: "1. Driver's license or ID card issued by a State" }),
+        block(222, 315, 130, 8, { text: '3. School ID card with a photograph' }),
+        block(222, 333, 96, 8, { text: "4. Voter's registration card" }),
+        block(410, 196, 170, 26, { text: '1. A Social Security Account Number card' }),
+        block(410, 302, 160, 8, { text: '2. Certification of report of birth issued by the Department of State' }),
+        block(410, 336, 160, 8, { text: '3. Original or certified copy of birth certificate' }),
+      ];
+      const p = {
+        ...page(blocks, 612, 792),
+        text:
+          'LISTS OF ACCEPTABLE DOCUMENTS\n' +
+          '3. School ID card with a photograph\n' +
+          '5. For an individual temporarily authorized to work for a specific employer',
+      };
+
+      const out = detectPageWarnings(p);
+      expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
+    });
+
     it('flags form labels whose native text order differs from visual layout order', () => {
       const labels = [
         block(32, 19, 94, 10, { text: 'Check box, unchecked' }),
@@ -1686,6 +2159,94 @@ describe('detectPageWarnings', () => {
       const p = {
         ...page(blocks, 612, 792),
         text: `Request for Taxpayer Identification Number\nBefore you begin, see ${bottomHeading}, below.\n${body}\nNew line instructions continue in the right column.\n${bottomHeading}\n${bottomBody}`,
+      };
+
+      const out = detectPageWarnings(p);
+      expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
+    });
+
+    it('does not flag repeated side/footer labels that also appear in the header', () => {
+      // IRS Form 1040-shaped case: the same form label appears in both
+      // the top header and the bottom footer. A late footer block should
+      // not bind to the first native occurrence and look like a reading
+      // order divergence.
+      const formLabel = 'Form 1040 (2024)';
+      const body = 'Tax and credits line item text follows in visual order. '.repeat(24);
+      const blocks = [
+        block(36, 24, 110, 10, { text: formLabel }),
+        block(36, 72, 470, 260, { text: body.slice(0, 520) }),
+        block(36, 350, 470, 260, { text: body.slice(520) }),
+        block(540, 760, 60, 10, { text: formLabel }),
+      ];
+      const p = {
+        ...page(blocks, 612, 792),
+        text: `${formLabel} Page 2\n${body}\n${formLabel}`,
+      };
+
+      const out = detectPageWarnings(p);
+      expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
+    });
+
+    it('flags body text emitted before a preceding figure caption after repeated headers are removed', () => {
+      // PLOS Biology-shaped case: cross-page chrome detection removes
+      // the running header signal, but pages[].text can still start with
+      // lower body text before the visually preceding figure caption.
+      const caption =
+        'Fig 1. Comparison of different host prediction approaches on a single test dataset. Total number of predictions and number of correct predictions.';
+      const body =
+        'correct from incorrect predictions, while the scores provided by alignment-free tools are usually not sufficient to identify correct predictions.';
+      const p = {
+        ...page(
+          [
+            block(35, 35, 80, 11, { text: 'PLOS BIOLOGY', repeated: true }),
+            block(72, 285, 450, 100, { text: caption }),
+            block(200, 396, 300, 309, { text: body }),
+            block(36, 748, 440, 8, {
+              text: 'PLOS Biology | https://doi.org/10.1371/journal.pbio.3002083',
+              repeated: true,
+            }),
+          ],
+          612,
+          792,
+        ),
+        text: `${body}\n${caption}`,
+      };
+
+      const out = detectPageWarnings(p);
+      const divergence = out.find((w) => w.code === 'reading_order_divergence');
+      expect(divergence).toMatchObject({ severity: 'warning', blockIndex: 2 });
+      expect(divergence?.message).toContain('native block order diverges');
+      expect(divergence?.message).toContain('correct from incorrect predictions');
+    });
+
+    it('does not flag form label fragments that start with punctuation', () => {
+      // IRS Form 1040-shaped inline prompts can attach small text
+      // fragments around year/date boxes, such as ", 2025, ending".
+      // These are not useful probes for page-level reading order.
+      const labels = [
+        block(36, 80, 140, 10, { text: 'Foreign province/state/county' }),
+        block(318, 90, 70, 10, { text: ', 2025, ending' }),
+        block(36, 110, 100, 10, { text: 'Taxpayer address' }),
+      ];
+      const p: PageResult = {
+        ...page(labels),
+        text: ', 2025, ending Foreign province/state/county Taxpayer address',
+        formFields: labels.map((label, index) => ({
+          name: `field${index}`,
+          type: 'text',
+          x: label.x + label.width + 4,
+          y: label.y,
+          width: 40,
+          height: 10,
+          label: {
+            text: label.text,
+            relation: 'left',
+            x: label.x,
+            y: label.y,
+            width: label.width,
+            height: label.height,
+          },
+        })),
       };
 
       const out = detectPageWarnings(p);
@@ -1903,6 +2464,38 @@ describe('detectPageWarnings', () => {
       expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
     });
 
+    it('does not flag compact subscript-only variable runs over formula prose', () => {
+      // Transformer paper p.4 emits the subscripts from "d_k, d_k and d_v"
+      // as a separate tiny block ("k k v") overlapping the prose line.
+      // This is normal inline math typography, not a visible collision.
+      const paragraph = block(107.64, 658, 396.35, 20.87, {
+        text: 'linear projections to d , d and d dimensions, respectively. On each of these projected versions of',
+        lines: [
+          line(
+            'we found it beneficial to linearly project the queries, keys and values h times with different, learned',
+            107.64,
+            658,
+            396.35,
+            9.96,
+          ),
+          line(
+            'linear projections to d , d and d dimensions, respectively. On each of these projected versions of',
+            108,
+            668.91,
+            395.99,
+            9.96,
+          ),
+        ],
+      });
+      const subscripts = block(195.66, 673.4, 48.56, 6.97, {
+        text: 'k k v',
+        lines: [line('k k v', 195.66, 673.4, 48.56, 6.97)],
+      });
+
+      const out = detectPageWarnings(page([paragraph, subscripts]));
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
     it('still flags overlapping compact diagram label groups', () => {
       // Dense figure labels can overlap because the diagram itself is
       // spatial, not a prose line with inline math annotations.
@@ -1920,6 +2513,47 @@ describe('detectPageWarnings', () => {
       });
       const out = detectPageWarnings(page([upperLabels, lowerLabels]));
       expect(out.filter((w) => w.code === 'text_overlap')).toHaveLength(1);
+    });
+
+    it('does not flag overlapping native labels contained in the same raster figure', () => {
+      // Screenshot/chart PDFs can expose some labels as native text over
+      // a raster panel. Overlapping label bboxes inside that panel are
+      // figure structure, not independent page text colliding.
+      const upperLabels = block(122, 290, 170, 16, {
+        text: 'Hotel Pet Moving 1.8%',
+        lines: [line('Hotel Pet Moving 1.8%', 122, 290, 170, 16)],
+      });
+      const lowerLabels = block(220, 296, 70, 18, {
+        text: 'Finance Cook- Weather',
+        lines: [line('Finance Cook- Weather', 220, 296, 70, 18)],
+      });
+      const p = {
+        ...page([upperLabels, lowerLabels], 612, 792),
+        imageCount: 1,
+        imageBoxes: [{ x: 106, y: 256, width: 399, height: 146 }],
+      };
+
+      const out = detectPageWarnings(p);
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
+    it('still flags overlapping labels outside raster figure regions', () => {
+      const upperLabels = block(122, 290, 170, 16, {
+        text: 'Hotel Pet Moving 1.8%',
+        lines: [line('Hotel Pet Moving 1.8%', 122, 290, 170, 16)],
+      });
+      const lowerLabels = block(220, 296, 70, 18, {
+        text: 'Finance Cook- Weather',
+        lines: [line('Finance Cook- Weather', 220, 296, 70, 18)],
+      });
+      const p = {
+        ...page([upperLabels, lowerLabels], 612, 792),
+        imageCount: 1,
+        imageBoxes: [{ x: 320, y: 60, width: 80, height: 80 }],
+      };
+
+      const out = detectPageWarnings(p);
+      expect(out.some((w) => w.code === 'text_overlap')).toBe(true);
     });
 
     it('still flags a small independent label that collides with a text line', () => {
@@ -2240,6 +2874,38 @@ describe('detectPageWarnings', () => {
 
       expect(detailed).toHaveLength(8);
       expect(summary?.message).toMatch(/additional block bbox overlaps omitted/);
+    });
+
+    it('does not flag overlapping map stipple dot texture blocks as text collisions', () => {
+      const dotLines = Array.from({ length: 6 }, (_, index) =>
+        line(`${'. '.repeat(24)}${index === 2 ? 'BAY ' : ''}${'. '.repeat(12)}`, 100, 100 + index * 2, 210, 10),
+      );
+      const nearbyDotLines = Array.from({ length: 5 }, (_, index) =>
+        line(`${'. '.repeat(18)}${index === 1 ? 'F ' : ''}${'. '.repeat(16)}`, 110, 104 + index * 2, 200, 10),
+      );
+      const out = detectPageWarnings(
+        page([
+          block(100, 100, 220, 24, { text: dotLines.map((item) => item.text).join('\n'), lines: dotLines }),
+          block(110, 104, 210, 22, {
+            text: nearbyDotLines.map((item) => item.text).join('\n'),
+            lines: nearbyDotLines,
+          }),
+        ]),
+      );
+
+      expect(out.some((w) => w.code === 'dot_leader_noise')).toBe(true);
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
+    });
+
+    it('does not flag short single-line dot texture overlaps as text collisions', () => {
+      const out = detectPageWarnings(
+        page([
+          block(100, 100, 120, 12, { text: '... .......... ....' }),
+          block(106, 102, 130, 12, { text: '.... ....... ... ..' }),
+        ]),
+      );
+
+      expect(out.filter((w) => w.code === 'text_overlap')).toEqual([]);
     });
 
     it('does not flag compact subscript blocks embedded in a displayed formula', () => {
@@ -2643,6 +3309,37 @@ describe('detectPageWarnings', () => {
       );
     });
 
+    it('warns when a raster-backed text layer has fragmented Latin words', () => {
+      const fragmentedText = [
+        'T E C H N I C A L report text with usable context and broken words',
+        'the scan output includes t h e and r e p o r t fragments',
+        'another line has a n a l y s i s fragments beside normal prose',
+      ]
+        .join(' ')
+        .repeat(4);
+      const out = detectPageWarnings(
+        {
+          page: 1,
+          text: fragmentedText,
+          charCount: fragmentedText.length,
+          imageCount: 1,
+          vectorCount: 0,
+          textCoverage: 0.18,
+          nonPrintableRatio: 0,
+          nonPrintableCount: 0,
+          width: 566,
+          height: 747,
+          quality: { nativeTextStatus: 'ok', visualStatus: 'ok' },
+        },
+        { rasterBackedTextLayer: true },
+      );
+
+      expect(out.some((warning) => warning.code === 'raster_backed_text_layer')).toBe(true);
+      const warning = out.find((item) => item.code === 'raster_text_layer_word_fragmentation');
+      expect(warning).toMatchObject({ code: 'raster_text_layer_word_fragmentation', severity: 'warning' });
+      expect(warning?.message).toContain('isolated Latin-letter fragments');
+    });
+
     it('does not add symbol-noise warnings for ordinary raster-backed OCR prose', () => {
       const prose =
         'The first Radio Astronomy Explorer spacecraft was placed in a circular orbit and continuously observed low frequency radio noise.';
@@ -2665,6 +3362,7 @@ describe('detectPageWarnings', () => {
 
       expect(out.some((warning) => warning.code === 'raster_backed_text_layer')).toBe(true);
       expect(out.filter((warning) => warning.code === 'raster_text_layer_symbol_noise')).toEqual([]);
+      expect(out.filter((warning) => warning.code === 'raster_text_layer_word_fragmentation')).toEqual([]);
     });
 
     it('suppresses near_bottom_edge when the cross-page chrome pass had no material', () => {

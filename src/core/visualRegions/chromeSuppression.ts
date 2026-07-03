@@ -1,7 +1,7 @@
 import type { PageLayout, VectorBox } from '../../types/index.js';
 import { hasSourceType } from './candidateMerge.js';
 import { area, isFinitePositiveBox, overlapArea, unionBox, visiblePageBox } from './geometry.js';
-import { isLikelyHorizontalChrome, isUsableBox } from './predicates.js';
+import { isLikelyHorizontalChrome } from './predicates.js';
 import type { BoxLike, Candidate } from './types.js';
 
 const REPEATED_CHROME_EDGE_RATIO = 0.12;
@@ -59,7 +59,7 @@ function vectorChromeBands(
 ): BoxLike[] {
   const bands: BoxLike[] = [];
   for (const box of vectorBoxes ?? []) {
-    if (!isUsableBox(box) || !isLikelyHorizontalChrome(box, pageWidth, pageHeight)) continue;
+    if (!isFinitePositiveBox(box) || !isLikelyHorizontalChrome(box, pageWidth, pageHeight)) continue;
     const padded = edgeChromeBandForBox(box, pageWidth, pageHeight);
     if (!padded) continue;
     pushMergedChromeBand(bands, padded);
@@ -68,11 +68,24 @@ function vectorChromeBands(
 }
 
 function isSuppressibleRepeatedChromeCandidate(candidate: Candidate): boolean {
+  return isSuppressibleVectorChromeCandidate(candidate) || isSuppressibleRasterTextStripChromeCandidate(candidate);
+}
+
+function isSuppressibleVectorChromeCandidate(candidate: Candidate): boolean {
   return (
     candidate.kind === 'vector' &&
     hasSourceType(candidate, 'vectorBox') &&
     !hasSourceType(candidate, 'layoutTable') &&
     !hasSourceType(candidate, 'formField') &&
+    !hasSourceType(candidate, 'annotation')
+  );
+}
+
+function isSuppressibleRasterTextStripChromeCandidate(candidate: Candidate): boolean {
+  return (
+    candidate.kind === 'raster' &&
+    candidate.priority <= 2 &&
+    hasSourceType(candidate, 'imageBox') &&
     !hasSourceType(candidate, 'annotation')
   );
 }

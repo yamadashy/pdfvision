@@ -27,6 +27,8 @@ export interface JoinItem {
   str: string;
   /** Top-left x of the glyph in PDF user-space points (from `transform[4]`). */
   x: number;
+  /** Top-left y of the glyph in top-down page coordinates, when geometry is available. */
+  y?: number;
   /** Glyph run width in points (from item.width, may be 0 on broken PDFs). */
   width: number;
   /** Glyph height in points — used as a fontSize proxy when fontSize is unknown. */
@@ -52,6 +54,7 @@ export interface JoinItem {
  * fontSize).
  */
 export const CJK_TIGHT_GAP_RATIO = 0.3;
+const SYNTHETIC_LINE_BREAK_GAP_RATIO = 1.5;
 const RTL_WORD_SPACE_MIN_GAP_RATIO = 0.12;
 const LATIN_TIGHT_ARTIFACT_SPACE_RATIO = 0.12;
 const LATIN_WORD_FRAGMENT_END_RE = /[\p{Script=Latin}\p{M}\p{N}]$/u;
@@ -108,8 +111,20 @@ export function joinPageText(items: readonly JoinItem[]): string {
       line = [];
     }
   };
+  const trimTrailingWhitespace = () => {
+    while (line.length > 0 && isWhitespaceOnly(line[line.length - 1].str)) line.pop();
+  };
+  const pushNewline = () => {
+    if (parts.at(-1) !== '\n') parts.push('\n');
+  };
 
   for (const item of items) {
+    if (startsSyntheticVisualLine(line, item)) {
+      trimTrailingWhitespace();
+      flushLine();
+      pushNewline();
+    }
+
     if (item.hasEOL) {
       if (item.str.length > 0) line.push(item);
       flushLine();
@@ -120,6 +135,14 @@ export function joinPageText(items: readonly JoinItem[]): string {
   }
   flushLine();
   return parts.join('');
+}
+
+function startsSyntheticVisualLine(line: readonly JoinItem[], item: JoinItem): boolean {
+  if (isWhitespaceOnly(item.str)) return false;
+  const prev = [...line].reverse().find((candidate) => !isWhitespaceOnly(candidate.str));
+  if (!prev || prev.y === undefined || item.y === undefined) return false;
+  const fontSize = Math.max(prev.fontSize, item.fontSize, 1);
+  return Math.abs(item.y - prev.y) > fontSize * SYNTHETIC_LINE_BREAK_GAP_RATIO;
 }
 
 function joinLineItems(items: readonly JoinItem[]): string {

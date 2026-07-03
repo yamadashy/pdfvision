@@ -6,19 +6,16 @@ import {
   shouldInsertSemanticSpace,
 } from '../text/spacing.js';
 import { isRtlDominantPositionedText, textOrder } from '../text/textDirection.js';
-import { unionBoxes } from './boxes.js';
+import { isLikelyCompactTableHeaderRow } from './compactTableHeaders.js';
 import { nfkc } from './compiler.js';
-import type { Box, SearchLine, SearchOwner } from './types.js';
+import { withHyphenatedSearchLines, withSyntheticSearchLines } from './syntheticLines.js';
+import type { SearchLine, SearchOwner } from './types.js';
 import { buildVerticalSearchLines } from './verticalLines.js';
 
 const DEFAULT_SPACE_GAP_RATIO = 0.25;
 const FONT_SIZE_FALLBACK_PT = 12;
 const SEARCH_SEGMENT_GAP_RATIO = 1.25;
 const SEARCH_SEGMENT_MIN_GAP_PT = 14;
-const HYPHENATED_SEARCH_LINE_SCAN_LIMIT = 6;
-const HYPHENATED_SEARCH_LINE_MAX_GAP_RATIO = 2.5;
-const HYPHENATED_SEARCH_LINE_MAX_GAP_PT = 24;
-const HYPHENATED_SEARCH_LINE_X_TOLERANCE_PT = 12;
 
 export function buildSearchLines(spans: readonly TextSpan[] | undefined, pageWidth: number): SearchLine[] {
   if (!spans || spans.length === 0) return [];
@@ -39,6 +36,7 @@ export function buildSearchLines(spans: readonly TextSpan[] | undefined, pageWid
     const xSorted = [...group].sort((a, b) => a.x - b.x);
     const preserveWideWordSpacing = isLikelyWideWordSpacingRow(xSorted, pageWidth);
     const preserveCjkDisplaySpacing = isLikelyCjkDisplaySpacingRow(xSorted);
+    const preserveCompactTableHeader = isLikelyCompactTableHeaderRow(xSorted, pageWidth, FONT_SIZE_FALLBACK_PT);
     const segments: TextSpan[][] = [[xSorted[0]]];
 
     for (let i = 1; i < xSorted.length; i++) {
@@ -47,7 +45,7 @@ export function buildSearchLines(spans: readonly TextSpan[] | undefined, pageWid
       const gap = span.x - (prev.x + prev.width);
       const fontSize = span.fontSize || prev.fontSize || FONT_SIZE_FALLBACK_PT;
       const segmentGap = Math.max(fontSize * SEARCH_SEGMENT_GAP_RATIO, SEARCH_SEGMENT_MIN_GAP_PT);
-      if (!preserveWideWordSpacing && !preserveCjkDisplaySpacing && gap > segmentGap) {
+      if (!preserveWideWordSpacing && !preserveCjkDisplaySpacing && !preserveCompactTableHeader && gap > segmentGap) {
         segments.push([span]);
         continue;
       }
@@ -82,55 +80,7 @@ export function buildSearchLines(spans: readonly TextSpan[] | undefined, pageWid
     }
   }
   const augmented = [...lines, ...buildVerticalSearchLines(spans)];
-  return withHyphenatedSearchLines(augmented);
-}
-
-function withHyphenatedSearchLines(lines: readonly SearchLine[]): SearchLine[] {
-  const synthetic: SearchLine[] = [];
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const lineText = line.text.trimEnd();
-    if (!lineText.endsWith('-')) continue;
-    const lineBox = searchLineBox(line);
-    if (!lineBox) continue;
-
-    for (let j = i + 1; j < lines.length && j <= i + HYPHENATED_SEARCH_LINE_SCAN_LIMIT; j++) {
-      const next = lines[j];
-      const nextText = next.text.trimStart();
-      if (!/^[\p{L}\p{N}]/u.test(nextText)) continue;
-      const nextBox = searchLineBox(next);
-      if (!nextBox) continue;
-      const verticalGap = nextBox.y - (lineBox.y + lineBox.height);
-      if (verticalGap < -1) continue;
-      if (
-        verticalGap > Math.max(lineBox.height * HYPHENATED_SEARCH_LINE_MAX_GAP_RATIO, HYPHENATED_SEARCH_LINE_MAX_GAP_PT)
-      ) {
-        break;
-      }
-      if (Math.abs(nextBox.x - lineBox.x) > HYPHENATED_SEARCH_LINE_X_TOLERANCE_PT) continue;
-
-      const trailingSpaces = line.text.length - lineText.length;
-      const leadingSpaces = next.text.length - nextText.length;
-      synthetic.push({
-        text: `${lineText}${nextText}`,
-        owners: [...line.owners.slice(0, line.owners.length - trailingSpaces), ...next.owners.slice(leadingSpaces)],
-        syntheticHyphenated: true,
-      });
-      break;
-    }
-  }
-  return synthetic.length === 0 ? [...lines] : [...lines, ...synthetic];
-}
-
-function searchLineBox(line: SearchLine): Box | undefined {
-  const seen = new Set<SearchOwner>();
-  const boxes: Box[] = [];
-  for (const owner of line.owners) {
-    if (!owner || seen.has(owner)) continue;
-    seen.add(owner);
-    boxes.push(owner);
-  }
-  return boxes.length === 0 ? undefined : unionBoxes(boxes);
+  return withSyntheticSearchLines(augmented);
 }
 
 export function buildOcrSearchLines(words: readonly OcrWord[] | undefined, normalize: boolean): SearchLine[] {
@@ -173,7 +123,7 @@ export function buildOcrSearchLines(words: readonly OcrWord[] | undefined, norma
     }
     if (text.length > 0) lines.push({ text, owners });
   }
-  return lines;
+  return withHyphenatedSearchLines(lines, { allowRaggedBreaks: true, includeDehyphenated: true });
 }
 
 function spaceGapThreshold(prev: TextSpan, cur: TextSpan, fontSize: number): number {

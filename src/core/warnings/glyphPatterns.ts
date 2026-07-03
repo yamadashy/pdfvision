@@ -12,6 +12,14 @@ const CJK_INTERGLYPH_SPACE_MIN_CJK_COUNT = 8;
 const CJK_INTERGLYPH_SPACE_MIN_PAIR_COUNT = 5;
 const CJK_INTERGLYPH_SPACE_PAIR_RATIO_THRESHOLD = 0.45;
 const CJK_INTERGLYPH_SPACE_SAMPLE_LIMIT = 3;
+const CJK_DUPLICATE_GLYPH_MIN_CJK_COUNT = 20;
+const CJK_DUPLICATE_GLYPH_MIN_PAIR_COUNT = 6;
+const CJK_DUPLICATE_GLYPH_PAIR_RATIO_THRESHOLD = 0.04;
+const CJK_DUPLICATE_GLYPH_SAMPLE_LIMIT = 4;
+const CJK_REPEATED_SINGLE_GLYPH_RUN_MIN_COUNT = 8;
+const CJK_REPEATED_SINGLE_GLYPH_RUN_SAMPLE_LIMIT = 3;
+const CJK_REPEATED_SINGLE_GLYPH_RUN_PATTERN =
+  /([\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])(?:[ \t\u3000]*\1){7,}/gu;
 const SEQUENTIAL_CJK_EXTENSION_GLYPH_MIN_COUNT = 8;
 const SEQUENTIAL_CJK_EXTENSION_GLYPH_DOMINANCE_THRESHOLD = 0.75;
 const SEQUENTIAL_CJK_EXTENSION_GLYPH_MAX_STEP = 4;
@@ -68,6 +76,42 @@ export function detectCjkInterglyphSpacingNoise(text: string): { pairCount: numb
   const ratio = pairCount / Math.max(1, cjkCount - 1);
   if (ratio < CJK_INTERGLYPH_SPACE_PAIR_RATIO_THRESHOLD) return undefined;
   return { pairCount, samples };
+}
+
+export function detectAdjacentCjkDuplicateGlyphNoise(
+  text: string,
+): { pairCount: number; samples: string[] } | undefined {
+  const chars = Array.from(text);
+  const cjkCount = chars.filter(isCjkTextChar).length;
+  if (cjkCount < CJK_DUPLICATE_GLYPH_MIN_CJK_COUNT) return undefined;
+
+  let pairCount = 0;
+  const samples: string[] = [];
+  for (let i = 0; i < chars.length - 1; i++) {
+    const left = chars[i];
+    if (left !== chars[i + 1] || !isCjkTextChar(left)) continue;
+    pairCount++;
+    const sample = `${left}${left}`;
+    if (!samples.includes(sample) && samples.length < CJK_DUPLICATE_GLYPH_SAMPLE_LIMIT) samples.push(sample);
+    i++;
+  }
+
+  if (pairCount < CJK_DUPLICATE_GLYPH_MIN_PAIR_COUNT) return undefined;
+  const ratio = pairCount / Math.max(1, cjkCount);
+  if (ratio < CJK_DUPLICATE_GLYPH_PAIR_RATIO_THRESHOLD) return undefined;
+  return { pairCount, samples };
+}
+
+export function detectRepeatedSingleCjkGlyphRun(text: string): { samples: string[] } | undefined {
+  const samples: string[] = [];
+  for (const match of text.matchAll(CJK_REPEATED_SINGLE_GLYPH_RUN_PATTERN)) {
+    const sample = match[0].replace(/\s+/gu, ' ').trim();
+    const count = Array.from(sample).filter((char) => char === match[1]).length;
+    if (count < CJK_REPEATED_SINGLE_GLYPH_RUN_MIN_COUNT) continue;
+    if (!samples.includes(sample)) samples.push(sample);
+    if (samples.length >= CJK_REPEATED_SINGLE_GLYPH_RUN_SAMPLE_LIMIT) break;
+  }
+  return samples.length > 0 ? { samples } : undefined;
 }
 
 export function detectSequentialCjkExtensionGlyphNoise(text: string): { samples: string[] } | undefined {

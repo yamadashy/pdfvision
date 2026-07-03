@@ -19,6 +19,8 @@ const RECURRING_SIDE_PANEL_MIN_ROWS = 2;
 const RECURRING_TABLE_GUTTER_MIN_ROWS = 4;
 const RECURRING_TABLE_GUTTER_MIN_NUMERIC_SPANS = 3;
 const RECURRING_TABLE_GUTTER_MIN_WIDTH_PT = 96;
+const TRAILING_CURRENCY_TABLE_GUTTER_GAP_RATIO = 0.75;
+const TRAILING_CURRENCY_TABLE_GUTTER_MIN_GAP_PT = 6;
 
 function gutterBin(prev: BBox, cur: BBox): number {
   const gap = cur.x - (prev.x + prev.width);
@@ -204,7 +206,28 @@ export function isRecurringTableGutterCandidate(
   return gap >= Math.max(fontSize * RECURRING_GUTTER_GAP_RATIO, RECURRING_GUTTER_MIN_GAP_PT);
 }
 
+export function isTrailingCurrencyTableGutterCandidate(
+  groupBox: BBox,
+  prev: TextSpan,
+  cur: TextSpan,
+  gap: number,
+  fontSize: number,
+  pageWidth: number,
+): boolean {
+  if (!hasTrailingCurrencyForNextValue(prev.text, cur.text)) return false;
+  if (groupBox.width < Math.min(pageWidth * 0.4, RECURRING_TABLE_GUTTER_MIN_WIDTH_PT)) return false;
+  return (
+    gap >= Math.max(fontSize * TRAILING_CURRENCY_TABLE_GUTTER_GAP_RATIO, TRAILING_CURRENCY_TABLE_GUTTER_MIN_GAP_PT)
+  );
+}
+
 export function isTableGutterNumericSpan(span: TextSpan): boolean {
   const text = span.text.trim();
   return text === '-' || isTableNumericCell(text);
+}
+
+function hasTrailingCurrencyForNextValue(text: string, nextText: string): boolean {
+  if (!isTableNumericCell(nextText)) return false;
+  const match = /^(.+?)\s*[$¥€£]$/u.exec(text.trim());
+  return match !== null && isTableNumericCell(match[1] ?? '');
 }

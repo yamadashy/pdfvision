@@ -3,6 +3,7 @@ import { isStandaloneNumericLineAfterProse, mergeAdjacentColumnBlocks, reorderFo
 import { unionBox } from './geometry.js';
 import { classifyHeadings } from './headings.js';
 import { buildLayoutLines } from './lines.js';
+import { markPageEdgeChromeBlocks } from './pageEdgeChrome.js';
 import { detectLayoutTables } from './tables.js';
 import { compareLayoutBlocks, extractVerticalCjkBlocks } from './verticalText.js';
 
@@ -99,6 +100,7 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0, pageHeight = 0): P
   ].sort(compareLayoutBlocks);
 
   classifyHeadings(blocks, pageWidth, pageHeight);
+  markPageEdgeChromeBlocks(blocks, pageWidth, pageHeight);
   const ordered = pageWidth > 0 ? reorderForColumns(blocks, pageWidth, pageHeight) : blocks;
   if (ordered !== blocks)
     return { blocks: mergeAdjacentColumnBlocks(ordered, pageWidth), ...(tables !== undefined && { tables }) };

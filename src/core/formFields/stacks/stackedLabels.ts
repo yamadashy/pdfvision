@@ -12,6 +12,7 @@ import { type BoxLike, centerY, horizontalOverlapRatio, overlapRatio, unionBox }
 import {
   isChoiceLikeField,
   isFormSectionHeadingText,
+  isShortStandaloneFieldLabel,
   isUsableLabelText,
   normalizeLabelText,
   startsWithPromptItemMarker,
@@ -48,6 +49,21 @@ function findAdjacentStackLine(
     if (!isUsableLabelText(text)) continue;
     if (overlapRatio(field, line) >= 0.35) continue;
     if (candidate.relation === 'above' && isBroadStackedHeaderLine(text, bounds, line)) continue;
+    if (candidate.relation === 'above' && isSeparateShortFieldLabel(candidate.text, text, bounds, line)) continue;
+    if (
+      candidate.relation === 'above' &&
+      startsWithPromptItemMarker(stack[0]?.text ?? '') &&
+      startsWithPromptItemMarker(text)
+    ) {
+      continue;
+    }
+    if (
+      candidate.relation === 'above' &&
+      line.y + line.height <= bounds.y + 1 &&
+      isAnchoredToSectionHeadingBand(candidate.line, lines)
+    ) {
+      continue;
+    }
     if (!isStackCompatibleLine(candidate.line, bounds, line)) continue;
 
     const gap = candidate.relation === 'above' ? aboveStackLineGap(bounds, line) : line.y - (bounds.y + bounds.height);
@@ -83,11 +99,28 @@ function aboveStackLineGap(bounds: BoxLike, line: LabelLine): number | undefined
   return downwardGap;
 }
 
+function isSeparateShortFieldLabel(anchorText: string, lineText: string, bounds: BoxLike, line: LabelLine): boolean {
+  if (line.y + line.height > bounds.y + 1) return false;
+  return isShortStandaloneFieldLabel(anchorText) && isShortStandaloneFieldLabel(lineText);
+}
+
 function isSameRowChoiceContinuationLine(field: FormField, line: LabelLine, text: string): boolean {
   if (!isChoiceLikeField(field)) return false;
   if (line.x + line.width > field.x + 1) return false;
   if (startsWithPromptItemMarker(text) || isFormSectionHeadingText(text)) return false;
   return Math.abs(centerY(line) - centerY(field)) <= Math.max(7, Math.max(field.height, line.height) * 0.9);
+}
+
+function isAnchoredToSectionHeadingBand(anchor: LabelLine, lines: readonly LabelLine[]): boolean {
+  if (isFormSectionHeadingText(normalizeLabelText(anchor.text))) return true;
+  const anchorCenterY = centerY(anchor);
+  return lines.some((line) => {
+    if (line === anchor) return false;
+    if (Math.abs(centerY(line) - anchorCenterY) > Math.max(3, Math.max(line.height, anchor.height) * 0.45)) {
+      return false;
+    }
+    return isFormSectionHeadingText(normalizeLabelText(line.text));
+  });
 }
 
 function isStackCompatibleLine(anchor: LabelLine, bounds: BoxLike, line: LabelLine): boolean {

@@ -110,6 +110,15 @@ export interface PageResult {
    */
   renderContentRatio?: number;
   /**
+   * Clockwise page rotation in degrees from the PDF page dictionary,
+   * present only for rotated pages. Geometry fields (`spans`,
+   * `layout.blocks`, `imageBoxes`, `renderRegion`, etc.) remain in the
+   * unrotated MediaBox coordinate system; renderers map those boxes through
+   * the rotated viewport so full-page and cropped PNGs follow the
+   * human-visible orientation.
+   */
+  rotation?: number;
+  /**
    * Page width in PDF user-space units (typically PostScript points = 1/72 in).
    * Derived from the page MediaBox via pdf.js `page.view`.
    */

@@ -123,6 +123,15 @@ describe('joinPageText (CJK-aware whitespace handling)', () => {
     expect(joinPageText(items)).toBe('人\n人');
   });
 
+  it('synthesizes a newline when pdf.js omits EOL across distant visual lines', () => {
+    const items: JoinItem[] = [
+      { str: '3', x: 658.37, y: 365.69, width: 11.52, fontSize: 20.06, hasEOL: false },
+      { str: 'int main() {', x: 201.46, y: 207.19, width: 59.53, fontSize: 13.1, hasEOL: true },
+    ];
+
+    expect(joinPageText(items)).toBe('3\nint main() {\n\n');
+  });
+
   it('drops the artifact even when the joiner has no fontSize on one side', () => {
     // PDFs from some Office exporters report `fontSize: 0` on
     // individual items. We fall back to the other neighbour rather

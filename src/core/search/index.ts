@@ -1,9 +1,9 @@
-import type { FormField, PageAnnotation, PageOcr, SearchMatch, TextSpan } from '../../types/index.js';
+import type { FormField, PageAnnotation, PageLink, PageOcr, SearchMatch, TextSpan } from '../../types/index.js';
 import { contributingBoxes, round2, unionBoxes } from './boxes.js';
 import { type CompiledSearch, nfkc } from './compiler.js';
 import { duplicateKey, suppressDuplicateOcrMatches } from './duplicates.js';
 import { buildOcrSearchLines, buildSearchLines } from './lines.js';
-import { appendAnnotationMatches, appendFormFieldMatches } from './sourceMatches.js';
+import { appendAnnotationMatches, appendFormFieldMatches, appendLinkMatches } from './sourceMatches.js';
 import type { SearchLine } from './types.js';
 
 export { type CompiledSearch, compileSearch } from './compiler.js';
@@ -48,13 +48,17 @@ const MAX_MATCHES_PER_QUERY_PER_PAGE = 10000;
  * so the consumer can tell them apart from native text-stream matches.
  *
  * Form field value matches are included when the processor supplies
- * form fields. They use the widget bbox and are marked
- * `source: 'formField'` because widget appearance text is not always
- * part of the native text stream.
+ * form fields. They use the widget bbox, narrowed to the matching cells
+ * for comb text widgets when pdf.js exposes enough appearance metadata,
+ * and are marked `source: 'formField'` because widget appearance text is
+ * not always part of the native text stream.
  *
  * FreeText annotation contents are included when the processor supplies
  * annotations. They use the annotation bbox and are marked
  * `source: 'annotation'`.
+ *
+ * Link targets are included when the processor supplies links. They use
+ * the clickable link bbox and are marked `source: 'link'`.
  */
 export function searchPage(
   spans: readonly TextSpan[] | undefined,
@@ -66,6 +70,7 @@ export function searchPage(
   onWarning?: (message: string) => void,
   formFields?: readonly FormField[],
   annotations?: readonly PageAnnotation[],
+  links?: readonly PageLink[],
 ): SearchMatch[] {
   const matches: SearchMatch[] = [];
 
@@ -87,6 +92,8 @@ export function searchPage(
     for (let mi = 0; mi < compiled.matchers.length; mi++) {
       const m = compiled.matchers[mi];
       if (line.syntheticHyphenated && !m.query.includes('-')) continue;
+      if (line.syntheticDehyphenated && m.query.includes('-')) continue;
+      if (line.syntheticStacked && !/\s/u.test(m.query)) continue;
       if (nativeCapped.has(mi)) continue;
       // Reset lastIndex so the same RegExp object can be reused
       // across spans (`g` flag is stateful).
@@ -100,8 +107,12 @@ export function searchPage(
           m.regex.lastIndex++;
           continue;
         }
-        const hitBoxes = contributingBoxes(line, hit.index, hit.index + hit[0].length);
+        const hitEnd = hit.index + hit[0].length;
+        if (!hitCrossesSyntheticJoin(line, hit.index, hitEnd)) continue;
+        const hitBoxes = contributingBoxes(line, hit.index, hitEnd);
         if (hitBoxes.length === 0) continue;
+        if ((line.syntheticHyphenated || line.syntheticDehyphenated) && hitBoxes.length < 2) continue;
+        if (line.syntheticStacked && hitBoxes.length < 2) continue;
         if (line.syntheticVertical && hitBoxes.length < 2) continue;
         const box = unionBoxes(hitBoxes);
         matches.push({
@@ -135,6 +146,7 @@ export function searchPage(
 
   appendFormFieldMatches(matches, formFields, pageNum, compiled, MAX_MATCHES_PER_QUERY_PER_PAGE, onWarning);
   appendAnnotationMatches(matches, annotations, pageNum, compiled, MAX_MATCHES_PER_QUERY_PER_PAGE, onWarning);
+  appendLinkMatches(matches, links, pageNum, compiled, MAX_MATCHES_PER_QUERY_PER_PAGE, onWarning);
 
   // OCR pass — prefer word-level OCR geometry when available, then
   // supplement from the post-trim OCR text with a page-level bbox for
@@ -151,6 +163,8 @@ export function searchPage(
       const searchLines = (lines: readonly SearchLine[], duplicateBudget?: Map<string, number>) => {
         for (const line of lines) {
           const ocrHaystack = line.text;
+          if (line.syntheticHyphenated && !m.query.includes('-')) continue;
+          if (line.syntheticDehyphenated && m.query.includes('-')) continue;
           m.regex.lastIndex = 0;
           while (true) {
             const hit = m.regex.exec(ocrHaystack);
@@ -164,9 +178,12 @@ export function searchPage(
             // precision. ±60 chars matches a single line of typical text;
             // larger windows clutter JSON output.
             const start = Math.max(0, hit.index - 60);
-            const end = Math.min(ocrHaystack.length, hit.index + hit[0].length + 60);
+            const hitEnd = hit.index + hit[0].length;
+            if (!hitCrossesSyntheticJoin(line, hit.index, hitEnd)) continue;
+            const end = Math.min(ocrHaystack.length, hitEnd + 60);
             const context = ocrHaystack.slice(start, end).replace(/\s+/g, ' ').trim();
-            const hitBoxes = contributingBoxes(line, hit.index, hit.index + hit[0].length);
+            const hitBoxes = contributingBoxes(line, hit.index, hitEnd);
+            if ((line.syntheticHyphenated || line.syntheticDehyphenated) && hitBoxes.length < 2) continue;
             const hitKey = matcherDuplicateKey(hit[0]);
             const remainingDuplicates = duplicateBudget?.get(hitKey) ?? 0;
             if (remainingDuplicates > 0) {
@@ -212,4 +229,9 @@ export function searchPage(
 
   matches.push(...suppressDuplicateOcrMatches(matches, ocrMatches, compiled));
   return matches;
+}
+
+function hitCrossesSyntheticJoin(line: SearchLine, start: number, end: number): boolean {
+  if (line.syntheticJoinIndex === undefined) return true;
+  return start < line.syntheticJoinIndex && end > line.syntheticJoinIndex;
 }

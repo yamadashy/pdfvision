@@ -4,13 +4,15 @@
  * against chrome, off-page bboxes, localized glyph noise / replacement
  * characters / CJK mojibake,
  * page-wide glyph-index garbage, tiny native text that may not be human-visible,
+ * raw embedded producer/source payloads that leak into native text,
  * dense vector graphics whose form fields or chart paths are not text,
  * vector-only visual pages with no native text,
+ * raster-dominated pages with no native text,
  * numeric table-like layouts whose rows/columns may flatten into plain text,
  * local math/text-order divergences whose visual order differs from native text,
  * large image regions whose internal labels will not appear in native text,
  * optional-content layer text that may include default-hidden content,
- * OCR-backed scan layers whose bboxes may drift from pixels, etc.
+ * OCR-backed scan layers whose bboxes or word boundaries may drift from pixels, etc.
  */
 export interface PageWarning {
   /** Machine-readable rule identifier. */
@@ -22,15 +24,19 @@ export interface PageWarning {
     | 'glyph_garbage_text'
     | 'localized_glyph_noise'
     | 'font_mapping_warning'
+    | 'raw_embedded_source_text'
     | 'dense_vector_graphics'
     | 'vector_graphics_no_native_text'
+    | 'raster_image_no_native_text'
     | 'tabular_numeric_layout'
     | 'dot_leader_noise'
     | 'tiny_native_text_noise'
     | 'raster_backed_text_layer'
     | 'raster_text_layer_symbol_noise'
+    | 'raster_text_layer_word_fragmentation'
     | 'ocr_low_confidence'
     | 'ocr_native_text_mismatch'
+    | 'ocr_native_spacing_loss'
     | 'large_raster_low_text_overlap'
     | 'annotation_text_missing_from_native'
     | 'optional_content_text_may_include_hidden_layers'

@@ -61,7 +61,7 @@ description: pdfvision CLI 选项参考，涵盖 PDF 输入、输出格式、渲
 | `--search-regex` | 将每个 `--search` 值当作 JavaScript 正则表达式。 |
 | `--search-case-sensitive` | 精确区分大小写。默认不区分大小写。 |
 
-搜索默认感知 NFKC，可匹配原生文本、表单字段、可见 FreeText 注释，以及启用 `--ocr` 时的 OCR 文本。
+搜索默认感知 NFKC，可匹配原生文本、表单字段、link targets、可见 FreeText 注释，以及启用 `--ocr` 时的 OCR 文本。
 
 ## PDF 功能
 

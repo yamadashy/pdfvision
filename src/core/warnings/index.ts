@@ -1,10 +1,11 @@
-import type { ImageBox, PageResult, PageWarning, VectorBox } from '../../types/index.js';
+import type { ImageBox, PageAnnotation, PageResult, PageWarning, VectorBox } from '../../types/index.js';
 import { detectTextOverlap } from '../warningTextOverlap/index.js';
 import { detectBodyNearRepeatedChrome, detectNearBottomEdge, detectOffPage } from './edge.js';
 import {
   detectFontMappingWarning,
   detectGlyphGarbageText,
   detectLocalizedGlyphNoise,
+  detectRawEmbeddedSourceText,
   detectTinyNativeTextNoise,
   hasUnreliableGlyphGeometry,
 } from './glyphText.js';
@@ -13,11 +14,14 @@ import { detectDotLeaderNoise, detectTabularNumericLayout } from './tabular.js';
 import {
   detectDenseVectorGraphics,
   detectHighConfidenceOcrNativeMismatch,
+  detectHighConfidenceOcrNativeSpacingLoss,
   detectLargeRasterLowTextOverlap,
   detectLowConfidenceOcr,
   detectOptionalContentTextHiddenLayerRisk,
   detectRasterBackedTextLayer,
+  detectRasterImageWithoutNativeText,
   detectRasterTextLayerSymbolNoise,
+  detectRasterTextLayerWordFragmentation,
   detectVectorGraphicsWithoutNativeText,
   detectVisibleAnnotationTextMissingFromNative,
 } from './visualEvidence.js';
@@ -47,6 +51,9 @@ export interface PageWarningContext {
   /** Internal vector bboxes used for warnings even when public
    *  `pages[].vectorBoxes` was not requested. */
   vectorBoxes?: VectorBox[];
+  /** Internal annotations used for warnings even when public
+   *  `pages[].annotations` was not requested. */
+  annotations?: PageAnnotation[];
   /** Non-fatal pdf.js warnings captured during parsing/rendering. */
   pdfJsWarnings?: readonly string[];
 }
@@ -75,14 +82,18 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
   detectGlyphGarbageText(page, warnings);
   detectLocalizedGlyphNoise(page, warnings);
   detectFontMappingWarning(page, context, warnings);
+  detectRawEmbeddedSourceText(page, warnings);
   detectRasterBackedTextLayer(page, context, warnings);
   detectRasterTextLayerSymbolNoise(page, context, warnings);
+  detectRasterTextLayerWordFragmentation(page, context, warnings);
   detectLowConfidenceOcr(page, context, warnings);
-  detectHighConfidenceOcrNativeMismatch(page, warnings);
+  detectHighConfidenceOcrNativeMismatch(page, context, warnings);
+  detectHighConfidenceOcrNativeSpacingLoss(page, context, warnings);
   detectDenseVectorGraphics(page, warnings);
   detectVectorGraphicsWithoutNativeText(page, context, warnings);
+  detectRasterImageWithoutNativeText(page, context, warnings);
   detectLargeRasterLowTextOverlap(page, context, warnings);
-  detectVisibleAnnotationTextMissingFromNative(page, warnings);
+  detectVisibleAnnotationTextMissingFromNative(page, context, warnings);
   detectOptionalContentTextHiddenLayerRisk(context, warnings);
   detectDotLeaderNoise(page, warnings);
   detectTinyNativeTextNoise(page, warnings);
@@ -103,7 +114,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
   const chromeDetectionReliable = context.chromeDetectionReliable !== false;
 
   detectOffPage(blocks, page.width, page.height, warnings);
-  detectTextOverlap(blocks, warnings);
+  detectTextOverlap(blocks, warnings, page.imageBoxes ?? context.imageBoxes, page);
   detectTabularNumericLayout(blocks, warnings);
   detectReadingOrderDivergence(page, blocks, warnings);
   detectFormLabelReadingOrderDivergence(page, blocks, warnings);

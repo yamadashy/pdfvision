@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   isRasterBackedTextLayer,
+  RASTER_BACKED_TEXT_LAYER_FULL_PAGE_MAX_VECTOR_OPS,
   RASTER_BACKED_TEXT_LAYER_MAX_VECTOR_OPS,
 } from '../../src/core/quality/rasterBackedTextLayer.js';
 import type { ImageBox } from '../../src/types/index.js';
@@ -30,8 +31,27 @@ describe('isRasterBackedTextLayer', () => {
     expect(detect({ vectorCount: RASTER_BACKED_TEXT_LAYER_MAX_VECTOR_OPS })).toBe(true);
   });
 
+  it('allows decorative vector marks on near-complete scanned covers', () => {
+    expect(
+      detect({
+        vectorCount: RASTER_BACKED_TEXT_LAYER_FULL_PAGE_MAX_VECTOR_OPS,
+        textCoverage: 0.097,
+        charCount: 457,
+      }),
+    ).toBe(true);
+  });
+
   it('rejects pages with substantial vector content', () => {
-    expect(detect({ vectorCount: RASTER_BACKED_TEXT_LAYER_MAX_VECTOR_OPS + 1 })).toBe(false);
+    expect(detect({ vectorCount: RASTER_BACKED_TEXT_LAYER_FULL_PAGE_MAX_VECTOR_OPS + 1 })).toBe(false);
+  });
+
+  it('keeps the lower vector cap for partial raster backdrops', () => {
+    expect(
+      detect({
+        vectorCount: RASTER_BACKED_TEXT_LAYER_MAX_VECTOR_OPS + 1,
+        imageBoxes: [{ x: 0, y: 0, width: pageWidth, height: pageHeight * 0.95 }],
+      }),
+    ).toBe(false);
   });
 
   it('requires enough full-page raster coverage', () => {

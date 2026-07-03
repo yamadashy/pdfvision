@@ -60,6 +60,16 @@ describe('processDocument geometry: true', () => {
     }
   });
 
+  it('keeps span font aliases stable when the page range changes', async () => {
+    // pdf.js raw font keys include document/page-load counters, so the same
+    // page can otherwise expose different `g_d*_f*` names when extracted
+    // alone vs after earlier pages. Public geometry should stay comparable.
+    const multiPage = await processDocument(SAMPLE_JA_PDF, { noCache: true, geometry: true, pages: '1,2' });
+    const singlePage = await processDocument(SAMPLE_JA_PDF, { noCache: true, geometry: true, pages: '2' });
+
+    expect(multiPage.pages.find((page) => page.page === 2)?.spans).toEqual(singlePage.pages[0].spans);
+  });
+
   it('keeps cache entries with vs without geometry separate', async () => {
     // Without the cache key bumping, the second call could return the
     // first call's payload and the spans field would be missing.

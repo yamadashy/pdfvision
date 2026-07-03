@@ -1,4 +1,5 @@
 import type { PageResult, PageWarning, VectorBox } from '../../../types/index.js';
+import { isLowContentFullPageRasterScan } from './lowContentRaster.js';
 import { type BoxLike, clippedArea, overlapRatio, type VisualWarningContext } from './types.js';
 
 const DENSE_VECTOR_GRAPHICS_COUNT_THRESHOLD = 250;
@@ -6,6 +7,12 @@ const EDGE_HAIRLINE_MAX_THICKNESS = 1.5;
 const EDGE_HAIRLINE_MARGIN_RATIO = 0.01;
 const EDGE_HAIRLINE_MIN_MARGIN = 2;
 const LARGE_RASTER_AREA_RATIO_THRESHOLD = 0.2;
+const CAPTIONED_RASTER_AREA_RATIO_THRESHOLD = 0.08;
+const CAPTIONED_RASTER_MIN_WIDTH_RATIO = 0.25;
+const CAPTIONED_RASTER_MIN_HEIGHT_RATIO = 0.12;
+const FIGURE_CAPTION_MAX_GAP_PT = 72;
+const FIGURE_CAPTION_PATTERN = /^(?:fig(?:ure)?\.?|chart|graph|map|plate)\s*\d*/iu;
+const RASTER_NO_TEXT_AREA_RATIO_THRESHOLD = 0.5;
 const AGGREGATE_RASTER_AREA_RATIO_THRESHOLD = 0.2;
 const AGGREGATE_RASTER_TILE_MIN_AREA_RATIO = 0.02;
 const LARGE_RASTER_TEXT_OVERLAP_RATIO_THRESHOLD = 0.01;
@@ -38,6 +45,40 @@ export function detectVectorGraphicsWithoutNativeText(
   });
 }
 
+export function detectRasterImageWithoutNativeText(
+  page: PageResult,
+  context: VisualWarningContext,
+  out: PageWarning[],
+): void {
+  const imageBoxes = page.imageBoxes ?? context.imageBoxes;
+  if (!imageBoxes || imageBoxes.length === 0) return;
+  if (isLowContentFullPageRasterScan(page, imageBoxes)) return;
+  if (page.charCount > 0) return;
+  if (page.quality.nativeTextStatus !== 'empty_but_visual_content') return;
+  if (page.quality.visualStatus === 'blank') return;
+  const pageArea = page.width * page.height;
+  if (pageArea <= 0) return;
+
+  const exposeImageBoxIndex = page.imageBoxes !== undefined;
+  let best: { box: BoxLike; index: number; areaRatio: number } | undefined;
+  for (let i = 0; i < imageBoxes.length; i++) {
+    const image = imageBoxes[i];
+    const imageArea = clippedArea(image, { x: 0, y: 0, width: page.width, height: page.height });
+    const areaRatio = imageArea / pageArea;
+    if (areaRatio < RASTER_NO_TEXT_AREA_RATIO_THRESHOLD) continue;
+    if (best && areaRatio <= best.areaRatio) continue;
+    best = { box: image, index: i, areaRatio };
+  }
+  if (!best) return;
+
+  out.push({
+    code: 'raster_image_no_native_text',
+    severity: 'warning',
+    message: `raster image covers ${(best.areaRatio * 100).toFixed(1)}% of the page but native text is empty — human-visible text inside the image will not appear in pages[].text; compare the render or OCR when exact text matters`,
+    ...(exposeImageBoxIndex && { imageBoxIndex: best.index }),
+  });
+}
+
 export function detectLargeRasterLowTextOverlap(
   page: PageResult,
   context: VisualWarningContext,
@@ -45,6 +86,7 @@ export function detectLargeRasterLowTextOverlap(
 ): void {
   const imageBoxes = page.imageBoxes ?? context.imageBoxes;
   if (!imageBoxes || imageBoxes.length === 0) return;
+  if (isLowContentFullPageRasterScan(page, imageBoxes)) return;
   if (!canCompareNativeTextAgainstRaster(page.quality.nativeTextStatus)) return;
   const pageArea = page.width * page.height;
   if (pageArea <= 0) return;
@@ -58,16 +100,25 @@ export function detectLargeRasterLowTextOverlap(
     if (warnedImages.some((warned) => overlapRatio(image, warned) >= 0.95)) continue;
     const imageArea = clippedArea(image, { x: 0, y: 0, width: page.width, height: page.height });
     const imageAreaRatio = imageArea / pageArea;
-    if (imageAreaRatio < LARGE_RASTER_AREA_RATIO_THRESHOLD) continue;
+    const caption = findNearbyFigureCaption(image, textBoxes, page);
+    const isCaptionedMediumRaster =
+      caption !== undefined &&
+      imageAreaRatio >= CAPTIONED_RASTER_AREA_RATIO_THRESHOLD &&
+      image.width >= page.width * CAPTIONED_RASTER_MIN_WIDTH_RATIO &&
+      image.height >= page.height * CAPTIONED_RASTER_MIN_HEIGHT_RATIO;
+    const isLargeRaster = imageAreaRatio >= LARGE_RASTER_AREA_RATIO_THRESHOLD;
+    if (!isLargeRaster && !isCaptionedMediumRaster) continue;
 
     const textOverlap = textBoxes.reduce((sum, box) => sum + clippedArea(box, image), 0);
     const textOverlapRatio = imageArea > 0 ? textOverlap / imageArea : 0;
     if (textOverlapRatio >= LARGE_RASTER_TEXT_OVERLAP_RATIO_THRESHOLD) continue;
 
+    const imageLabel = isLargeRaster ? 'large raster image' : 'captioned raster figure';
+    const captionContext = caption ? ` near caption "${caption}"` : '';
     const message =
       textBoxes.length > 0
-        ? `large raster image covers ${(imageAreaRatio * 100).toFixed(1)}% of the page with little native-text overlap (${(textOverlapRatio * 100).toFixed(2)}%) — labels, chart text, or map text inside the image will not appear in native text`
-        : `large raster image covers ${(imageAreaRatio * 100).toFixed(1)}% of the page while native text is ${page.quality.nativeTextStatus === 'empty_but_visual_content' ? 'empty' : 'sparse'} — labels, chart text, or map text inside the image will not appear in native text`;
+        ? `${imageLabel} covers ${(imageAreaRatio * 100).toFixed(1)}% of the page${captionContext} with little native-text overlap (${(textOverlapRatio * 100).toFixed(2)}%) — labels, chart text, or map text inside the image will not appear in native text`
+        : `${imageLabel} covers ${(imageAreaRatio * 100).toFixed(1)}% of the page while native text is ${page.quality.nativeTextStatus === 'empty_but_visual_content' ? 'empty' : 'sparse'} — labels, chart text, or map text inside the image will not appear in native text`;
     out.push({
       code: 'large_raster_low_text_overlap',
       severity: 'warning',
@@ -79,6 +130,24 @@ export function detectLargeRasterLowTextOverlap(
   if (warnedImages.length === 0) {
     detectAggregateRasterLowTextOverlap(page, imageBoxes, textBoxes, pageArea, out);
   }
+}
+
+function findNearbyFigureCaption(
+  image: BoxLike,
+  textBoxes: readonly (BoxLike & { text?: string })[],
+  page: Pick<PageResult, 'width' | 'height'>,
+): string | undefined {
+  for (const box of textBoxes) {
+    const text = box.text?.replace(/\s+/gu, ' ').trim();
+    if (!text || !FIGURE_CAPTION_PATTERN.test(text)) continue;
+    const verticalGap = Math.max(box.y - (image.y + image.height), image.y - (box.y + box.height), 0);
+    if (verticalGap > FIGURE_CAPTION_MAX_GAP_PT) continue;
+    const horizontalOverlap = Math.min(image.x + image.width, box.x + box.width) - Math.max(image.x, box.x);
+    if (horizontalOverlap <= Math.min(image.width, box.width) * 0.25) continue;
+    if (box.x > page.width || box.y > page.height) continue;
+    return text.slice(0, 60);
+  }
+  return undefined;
 }
 
 function isPageEdgeHairline(box: VectorBox, page: Pick<PageResult, 'width' | 'height'>): boolean {

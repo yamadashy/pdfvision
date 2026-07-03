@@ -134,7 +134,12 @@ function isMathLikeAnnotationText(text: string, neighbourText: string): boolean 
 }
 
 function hasFormulaContextSignal(text: string): boolean {
-  return hasMathSignal(text) || /\b[A-Z]\s*(?:,|and)\s*[A-Z]\b/u.test(text) || isVariableTokenList(text);
+  return (
+    hasMathSignal(text) ||
+    /\b[A-Z]\s*(?:,|and)\s*[A-Z]\b/u.test(text) ||
+    hasFormulaVariableSequence(text) ||
+    isVariableTokenList(text)
+  );
 }
 
 function hasMathSignal(text: string): boolean {
@@ -158,6 +163,18 @@ function isVariableTokenList(text: string): boolean {
     .split(/\s+/)
     .filter(Boolean);
   return tokens.length >= 2 && tokens.every((token) => /^[A-Za-z]$/u.test(token));
+}
+
+function hasFormulaVariableSequence(text: string): boolean {
+  const normalized = text.replace(/\s+/g, ' ').trim();
+  if (
+    !/\b(?:attention|dimension|dimensions|head|heads|key|keys|matrices|matrix|model|models|parameter|parameters|projection|projections|queries|query|value|values|vector|vectors)\b/iu.test(
+      normalized,
+    )
+  ) {
+    return false;
+  }
+  return /(?:^|[\s(])(?:[A-Za-z]\s*(?:[,;]|\band\b|\bor\b)\s*)+[A-Za-z](?:[\s).,;]|$)/u.test(normalized);
 }
 
 function sitsOnNeighbourLine(

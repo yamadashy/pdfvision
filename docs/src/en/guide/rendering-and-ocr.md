@@ -29,7 +29,7 @@ Use `--render-scale` to control detail:
 pdfvision document.pdf --render --render-scale 3
 ```
 
-Smaller values reduce image size. Larger values help with small labels and dense diagrams.
+Smaller values reduce rendered image size. OCR still uses at least scale 2 for recognition quality; larger values help with small labels and dense diagrams.
 
 Render full pages when:
 

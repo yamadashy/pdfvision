@@ -67,7 +67,7 @@ viewer permissions は document metadata として報告されます。PDF が r
 
 ## Search Regex の安全性
 
-既定の検索は query を literal text として扱います。`--search-regex` は各 query を JavaScript regular expression としてコンパイルし、native text、form-field text、visible FreeText annotations、OCR 有効時の OCR text に対して実行します。
+既定の検索は query を literal text として扱います。`--search-regex` は各 query を JavaScript regular expression としてコンパイルし、native text、form-field text、clickable link targets、visible FreeText annotations、OCR 有効時の OCR text に対して実行します。
 
 regex mode は信頼できる pattern にだけ使ってください。pdfvision は query、page、source ごとの出力 match 数を制限しますが、JavaScript regular expression は結果を出す前に catastrophic backtracking で長時間かかる可能性があります。untrusted user に regex search を公開するアプリケーションでは、独自の timeout や worker isolation を使ってください。
 

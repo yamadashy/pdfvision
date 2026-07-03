@@ -22,7 +22,7 @@ Layout output includes:
 - `pages[].layout.tables`: numeric-table hints when rows and columns may be flattened in native text.
 - vertical CJK text recovery when text should be read as a vertical stack.
 
-Markdown output can use recovered layout order when the native text stream diverges from visual reading order.
+Markdown output can use recovered layout order when the native text stream diverges from visual reading order. It also renders detected `layout.tables[]` as per-page layout table sections, preserving row/value relationships for financial statements and other numeric tables in chat-readable output.
 
 Use layout when:
 
@@ -77,7 +77,8 @@ Common warning families include:
 - flattened numeric tables.
 - native-vs-visual reading order divergence.
 - glyph-garbage native text, private-use glyph strings, or localized mojibake.
-- OCR text layers over full-page scans.
+- OCR text layers over full-page scans, including symbol noise or word fragmentation.
+- raster-dominated pages with no native text.
 - low-confidence OCR on scan-like pages.
 - large raster regions whose internal labels may need vision.
 - dense vector pages such as forms, charts, or diagrams.

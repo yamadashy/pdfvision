@@ -67,7 +67,7 @@ Viewer permissions are reported as document metadata. They describe what the PDF
 
 ## Search Regex Safety
 
-Default search treats queries as literal text. `--search-regex` compiles each query as a JavaScript regular expression and runs it against native text, form-field text, visible FreeText annotations, and OCR text when OCR is enabled.
+Default search treats queries as literal text. `--search-regex` compiles each query as a JavaScript regular expression and runs it against native text, form-field text, clickable link targets, visible FreeText annotations, and OCR text when OCR is enabled.
 
 Only enable regex mode for trusted patterns. pdfvision caps emitted matches per query, page, and source, but JavaScript regular expressions can still spend excessive time inside a single catastrophic-backtracking match before any result is emitted. Applications that expose regex search to untrusted users should wrap extraction in their own timeout or worker isolation.
 
