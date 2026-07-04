@@ -24,12 +24,19 @@ const READING_ORDER_CONTEXT_PROBE_MIN_CHARS = 32;
 const READING_ORDER_CONTEXT_MAX_Y_DELTA = 80;
 const READING_ORDER_SEQUENTIAL_MIN_Y_GAP_PT = 6;
 const READING_ORDER_SEQUENTIAL_NATIVE_DELTA_RATIO = 0.2;
+const READING_ORDER_SLIDE_TITLE_TOP_Y_RATIO = 0.15;
+const READING_ORDER_SLIDE_TITLE_NATIVE_LATE_RATIO = 0.75;
+const READING_ORDER_SLIDE_TITLE_MIN_CHARS = 2;
+const READING_ORDER_SLIDE_TITLE_MAX_CHARS = 40;
+const READING_ORDER_SLIDE_TITLE_CJK_MIN_CHARS = 3;
 const LINE_READING_ORDER_MIN_LINES = 3;
 const LINE_READING_ORDER_MIN_PROBE_CHARS = 4;
 const LINE_READING_ORDER_PROBE_CHARS = 60;
 const LOCAL_READING_ORDER_MIN_COMPACT_CHARS = 4;
 const LOCAL_READING_ORDER_MAX_COMPACT_CHARS = 40;
 const LOCAL_READING_ORDER_PROBE_CHARS = 50;
+const READING_ORDER_CJK_SCRIPT = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
+const READING_ORDER_URL_SCHEME = /^[a-z][a-z\d+.-]*:\/\//iu;
 const LOCAL_READING_ORDER_STRONG_MATH_SYMBOL = /[√∛∜∑∫∏∈∉∞≈≠≤≥±×÷=^]/u;
 const LOCAL_READING_ORDER_WEAK_MATH_SYMBOL = /[+\-*/]/u;
 const LOCAL_READING_ORDER_NUMBER = /\p{Number}/u;
@@ -39,6 +46,8 @@ const LOCAL_READING_ORDER_NUMBER = /\p{Number}/u;
  * reading order the layout pass reconstructed. Detection is anchored
  * on headings: a heading that is *early* in layout order (top of the
  * visual flow) but *late* in `page.text` is unambiguous divergence,
+ * and slide-style title boxes can show the same signal even on sparse
+ * 2-3 block pages where the title text object was drawn last,
  * whereas comparing whole-page block permutations would fire on benign
  * column-ordering nuances. A second narrow path catches short math
  * blocks whose superscripts or operators are emitted out of visual order
@@ -52,6 +61,7 @@ export function detectReadingOrderDivergence(page: PageResult, blocks: LayoutBlo
   if (blocks.length >= READING_ORDER_MIN_BLOCKS && detectLateBlockStartsNativeText(page, blocks, out)) return;
   if (blocks.length >= READING_ORDER_MIN_BLOCKS && detectSequentialBlockReadingOrderDivergence(page, blocks, out))
     return;
+  if (blocks.length >= 2 && detectSlideTitleReadingOrderDivergence(page, blocks, out)) return;
   if (detectColumnListReadingOrderDivergence(page, blocks, out)) return;
   if (detectLineReadingOrderDivergence(page, blocks, out)) return;
   detectLocalMathReadingOrderDivergence(page, blocks, out);
@@ -82,6 +92,82 @@ function detectHeadingReadingOrderDivergence(page: PageResult, blocks: LayoutBlo
     return true;
   }
   return false;
+}
+
+function detectSlideTitleReadingOrderDivergence(page: PageResult, blocks: LayoutBlock[], out: PageWarning[]): boolean {
+  if (page.height <= 0) return false;
+  const block = blocks[0];
+  if (block.repeated) return false;
+  if (!isVisuallyIsolatedTopBlock(block, blocks, page.height)) return false;
+  if (!looksLikeSlideTitleBlock(block)) return false;
+
+  const probe = sliceReadingOrderProbe(firstReadingOrderLine(block.text), READING_ORDER_PROBE_CHARS);
+  if (!hasSlideTitleProbeLength(probe)) return false;
+  const nativeIndex = page.text.indexOf(probe);
+  if (nativeIndex < 0) return false;
+  const nativePos = nativeIndex / page.text.length;
+  if (nativePos < READING_ORDER_SLIDE_TITLE_NATIVE_LATE_RATIO) return false;
+  if (!hasEarlierOtherBlockProbe(page.text, blocks, nativeIndex)) return false;
+
+  out.push({
+    code: 'reading_order_divergence',
+    severity: 'warning',
+    blockIndex: 0,
+    message: `visually-first title "${probe}" appears at the end of the native text stream despite leading the visual reading order — native text order diverges from what a human reads; prefer layout.blocks order when sequence matters`,
+  });
+  return true;
+}
+
+function isVisuallyIsolatedTopBlock(block: LayoutBlock, blocks: LayoutBlock[], pageHeight: number): boolean {
+  if (block.y > pageHeight * READING_ORDER_SLIDE_TITLE_TOP_Y_RATIO) return false;
+  const bottom = block.y + block.height;
+  return blocks.slice(1).every((otherBlock) => otherBlock.y - bottom >= READING_ORDER_SEQUENTIAL_MIN_Y_GAP_PT);
+}
+
+function looksLikeSlideTitleBlock(block: LayoutBlock): boolean {
+  if (block.role === 'heading') return true;
+  if (!hasSingleVisualLine(block)) return false;
+  const firstLine = firstReadingOrderLine(block.text);
+  if (READING_ORDER_URL_SCHEME.test(firstLine)) return false;
+  const lineLength = codePointLength(firstLine);
+  return lineLength >= READING_ORDER_SLIDE_TITLE_MIN_CHARS && lineLength <= READING_ORDER_SLIDE_TITLE_MAX_CHARS;
+}
+
+function hasSingleVisualLine(block: LayoutBlock): boolean {
+  if (block.lines.length > 0) {
+    return block.lines.filter((line) => line.text.trim().length > 0).length === 1;
+  }
+  return block.text.split('\n').filter((line) => line.trim().length > 0).length === 1;
+}
+
+function hasSlideTitleProbeLength(probe: string): boolean {
+  const minLength = READING_ORDER_CJK_SCRIPT.test(probe)
+    ? READING_ORDER_SLIDE_TITLE_CJK_MIN_CHARS
+    : READING_ORDER_MIN_HEADING_CHARS;
+  return codePointLength(probe) >= minLength;
+}
+
+function hasEarlierOtherBlockProbe(text: string, blocks: LayoutBlock[], titleNativeIndex: number): boolean {
+  for (const block of blocks.slice(1)) {
+    if (block.repeated) continue;
+    const probe = sliceReadingOrderProbe(firstReadingOrderLine(block.text), READING_ORDER_PROBE_CHARS);
+    if (codePointLength(probe) < READING_ORDER_SLIDE_TITLE_MIN_CHARS) continue;
+    const nativeIndex = text.indexOf(probe);
+    if (nativeIndex >= 0 && nativeIndex < titleNativeIndex) return true;
+  }
+  return false;
+}
+
+function firstReadingOrderLine(text: string): string {
+  return text.split('\n', 1)[0].trim();
+}
+
+function sliceReadingOrderProbe(text: string, maxLength: number): string {
+  return Array.from(text).slice(0, maxLength).join('');
+}
+
+function codePointLength(text: string): number {
+  return Array.from(text).length;
 }
 
 function detectLateBlockStartsNativeText(page: PageResult, blocks: LayoutBlock[], out: PageWarning[]): boolean {

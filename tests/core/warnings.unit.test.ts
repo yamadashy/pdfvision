@@ -1983,6 +1983,86 @@ describe('detectPageWarnings', () => {
       expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
     });
 
+    it('flags a sparse slide heading whose CJK title is emitted last in native text', () => {
+      const title = '狩野モデル';
+      const url = 'https://www.juse.or.jp/software/55/';
+      const blocks = [
+        block(120, 0, 360, 58, { text: title, role: 'heading', lines: [line(title, 120, 0, 360, 58)] }),
+        block(180, 1046, 980, 22, { text: url, lines: [line(url, 180, 1046, 980, 22)] }),
+      ];
+      const p = { ...page(blocks, 1920, 1080), text: `${url}\n${title}`, charCount: url.length + title.length + 1 };
+
+      const out = detectPageWarnings(p);
+      const divergence = out.find((w) => w.code === 'reading_order_divergence');
+      expect(divergence).toMatchObject({ severity: 'warning', blockIndex: 0 });
+      expect(divergence?.message).toContain('visually-first title');
+      expect(divergence?.message).toContain(title);
+    });
+
+    it('flags a sparse slide header without heading role when the CJK title is emitted last', () => {
+      const title = '自己紹介';
+      const account = 't-wada\nt_wada\ntwada';
+      const emoji = '📷🙆 📹🙅\n🙆';
+      const blocks = [
+        block(96, 0, 270, 64, { text: title, lines: [line(title, 96, 0, 270, 64)] }),
+        block(120, 95, 420, 90, { text: account }),
+        block(140, 690, 360, 120, { text: emoji }),
+      ];
+      const p = {
+        ...page(blocks, 1920, 1080),
+        text: `${account}\n\n${emoji}\n\n${title}`,
+        charCount: account.length + emoji.length + title.length + 4,
+      };
+
+      const out = detectPageWarnings(p);
+      const divergence = out.find((w) => w.code === 'reading_order_divergence');
+      expect(divergence).toMatchObject({ severity: 'warning', blockIndex: 0 });
+      expect(divergence?.message).toContain(title);
+    });
+
+    it('does not flag a sparse slide title when native order is already title-first', () => {
+      const title = '狩野モデル';
+      const url = 'https://www.juse.or.jp/software/55/';
+      const blocks = [
+        block(120, 0, 360, 58, { text: title, role: 'heading', lines: [line(title, 120, 0, 360, 58)] }),
+        block(180, 1046, 980, 22, { text: url, lines: [line(url, 180, 1046, 980, 22)] }),
+      ];
+      const p = { ...page(blocks, 1920, 1080), text: `${title}\n${url}`, charCount: url.length + title.length + 1 };
+
+      const out = detectPageWarnings(p);
+      expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
+    });
+
+    it('does not flag a sparse top paragraph emitted last when it is too long to be a title', () => {
+      const paragraph = 'This is a long paragraph block that should not look like a slide title';
+      const body = 'Earlier body text';
+      const blocks = [
+        block(100, 0, 720, 26, { text: paragraph, lines: [line(paragraph, 100, 0, 720, 26)] }),
+        block(100, 120, 300, 18, { text: body, lines: [line(body, 100, 120, 300, 18)] }),
+      ];
+      const p = {
+        ...page(blocks, 1280, 720),
+        text: `${body}\n${paragraph}`,
+        charCount: body.length + paragraph.length + 1,
+      };
+
+      const out = detectPageWarnings(p);
+      expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
+    });
+
+    it('does not flag repeated slide chrome emitted last', () => {
+      const title = '自己紹介';
+      const body = 't-wada';
+      const blocks = [
+        block(96, 0, 270, 64, { text: title, repeated: true, lines: [line(title, 96, 0, 270, 64)] }),
+        block(120, 95, 420, 30, { text: body, lines: [line(body, 120, 95, 420, 30)] }),
+      ];
+      const p = { ...page(blocks, 1920, 1080), text: `${body}\n${title}`, charCount: body.length + title.length + 1 };
+
+      const out = detectPageWarnings(p);
+      expect(out.filter((w) => w.code === 'reading_order_divergence')).toEqual([]);
+    });
+
     it('flags glued native text across visual columns in numbered list grids', () => {
       const blocks = [
         block(42, 200, 150, 8, { text: '1. U.S. Passport or U.S. Passport Card' }),
