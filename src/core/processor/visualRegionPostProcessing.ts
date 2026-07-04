@@ -1,6 +1,6 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { PageResult, RenderedContentBox, VisualRegion } from '../../types/index.js';
-import { markRepeatedBlocks } from '../layout/index.js';
+import { markPageEdgeChromeBlocks, markRepeatedBlocks } from '../layout/index.js';
 import { runParallel } from '../runtime/parallel.js';
 import { type BuildVisualRegionsInput, buildVisualRegions } from '../visualRegions/index.js';
 
@@ -30,11 +30,10 @@ export async function applyVisualRegionPostProcessing({
   imagesDir,
   renderScale,
 }: ApplyVisualRegionPostProcessingOptions): Promise<void> {
-  // Repeated-chrome detection has to wait until every selected page is
-  // populated, since a single page can't tell its own chrome from its
-  // body. Run it on public layout when --layout is on and on the
-  // internal layout used by visualRegions otherwise, so
-  // caption association can suppress repeated header/footer text
+  // Chrome detection has to wait until every selected page is populated,
+  // since most chrome needs cross-page evidence. Run it on public layout
+  // when --layout is on and on the internal layout used by visualRegions
+  // otherwise, so caption association can suppress repeated chrome text
   // without exposing pages[].layout.
   if (layoutEnabled || visualRegionsEnabled) {
     const pagesForRepeated = pages.map((page) => {
@@ -42,6 +41,7 @@ export async function applyVisualRegionPostProcessing({
       return layout ? { ...page, layout } : page;
     });
     markRepeatedBlocks(pagesForRepeated);
+    markPageEdgeChromeBlocks(pagesForRepeated);
   }
 
   if (visualRegionsEnabled) {

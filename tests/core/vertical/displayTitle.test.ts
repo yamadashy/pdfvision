@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildLayout } from '../../../src/core/layout/index.js';
-import type { TextSpan } from '../../../src/types/index.js';
+import { buildLayout, markPageEdgeChromeBlocks } from '../../../src/core/layout/index.js';
+import type { LayoutBlock, PageLayout, PageResult, TextSpan } from '../../../src/types/index.js';
 import { span } from './helpers.js';
 
 describe('vertical display-title layout', () => {
@@ -94,6 +94,8 @@ describe('vertical display-title layout', () => {
   });
 
   it('marks page-edge vertical navigation tabs as repeated chrome', () => {
+    const width = 595.28;
+    const height = 841.89;
     const spans: TextSpan[] = [
       span('本文の見出し', 65, 54, 18, 120),
       span('本文の一行目がここにあります', 62, 84, 10, 220),
@@ -105,12 +107,55 @@ describe('vertical display-title layout', () => {
     ];
     spans[5].height = 212;
 
-    const layout = buildLayout(spans, 595.28, 841.89);
+    const layout = buildLayout(spans, width, height);
+    markPageEdgeChromeBlocks([pageWithLayout(1, layout, width, height)]);
     const chromeTexts = layout.blocks.filter((block) => block.repeated).map((block) => block.text);
 
     expect(chromeTexts).toEqual(expect.arrayContaining(['第', '1', '章']));
-    expect(chromeTexts).toContain('働き方改革の推進などを通じた労働環境の整備など');
+    expect(chromeTexts).not.toContain('働き方改革の推進などを通じた労働環境の整備など');
     expect(layout.blocks.find((block) => block.text === '本文の一行目がここにあります')?.repeated).toBeUndefined();
+  });
+
+  it('does not mark sentence-like vertical edge blocks as repeated on a single page', () => {
+    const page = pageWithBlocks(1, [
+      verticalBlock('主たる給与から控除を受ける扶養親族を記載してください。', 22, 120, 9, 220),
+    ]);
+
+    markPageEdgeChromeBlocks([page]);
+
+    expect(page.layout?.blocks[0].repeated).toBeUndefined();
+  });
+
+  it('marks short chapter-style vertical edge blocks on a single page', () => {
+    const page = pageWithBlocks(1, [verticalBlock('第1章', 22, 120, 9, 100)]);
+
+    markPageEdgeChromeBlocks([page]);
+
+    expect(page.layout?.blocks[0].repeated).toBe(true);
+  });
+
+  it('marks recurring short vertical edge text across pages', () => {
+    const pages = [
+      pageWithBlocks(1, [verticalBlock('付録1', 22, 120, 9, 100)]),
+      pageWithBlocks(2, [verticalBlock('付録1', 22, 130, 9, 100)]),
+    ];
+
+    markPageEdgeChromeBlocks(pages);
+
+    expect(pages[0].layout?.blocks[0].repeated).toBe(true);
+    expect(pages[1].layout?.blocks[0].repeated).toBe(true);
+  });
+
+  it('does not mark unique long vertical edge text in multi-page scope', () => {
+    const pages = [
+      pageWithBlocks(1, [verticalBlock('主たる給与から控除を受ける', 22, 120, 9, 160)]),
+      pageWithBlocks(2, [verticalBlock('給与所得者の基礎控除申告書', 22, 120, 9, 160)]),
+    ];
+
+    markPageEdgeChromeBlocks(pages);
+
+    expect(pages[0].layout?.blocks[0].repeated).toBeUndefined();
+    expect(pages[1].layout?.blocks[0].repeated).toBeUndefined();
   });
 
   it('does not merge vertical side labels into horizontal text lines', () => {
@@ -128,3 +173,37 @@ describe('vertical display-title layout', () => {
     expect(version?.text).toBe('(Version 2)');
   });
 });
+
+function pageWithLayout(page: number, layout: PageLayout, width: number, height: number): PageResult {
+  const text = layout.blocks.map((block) => block.text).join('\n');
+  return {
+    page,
+    text,
+    charCount: text.length,
+    imageCount: 0,
+    vectorCount: 0,
+    textCoverage: 0.1,
+    nonPrintableRatio: 0,
+    nonPrintableCount: 0,
+    width,
+    height,
+    quality: { nativeTextStatus: 'ok' },
+    layout,
+  };
+}
+
+function pageWithBlocks(page: number, blocks: LayoutBlock[], width = 595.28, height = 841.89): PageResult {
+  return pageWithLayout(page, { blocks }, width, height);
+}
+
+function verticalBlock(text: string, x: number, y: number, width: number, height: number): LayoutBlock {
+  return {
+    text,
+    x,
+    y,
+    width,
+    height,
+    writingMode: 'vertical',
+    lines: [{ text, x, y, width, height, fontSize: width, writingMode: 'vertical' }],
+  };
+}
