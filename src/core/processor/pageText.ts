@@ -1,5 +1,10 @@
 import type { TextSpan } from '../../types/index.js';
 import {
+  extractHorizontalRubyAnalysis,
+  type HorizontalRubyAssociation,
+  horizontalRubyReadingText,
+} from '../layout/horizontalRuby.js';
+import {
   extractBodyVerticalCjkRunAnalysis,
   extractTallVerticalRuns,
   rubyAssociationText,
@@ -154,14 +159,31 @@ export function extractPageText({
 
   const verticalAnalysis = extractBodyVerticalCjkRunAnalysis(verticalJoinSpans);
   const tallVerticalRuns = extractTallVerticalRuns(verticalJoinSpans).filter((run) => run.hasTatechuyoko);
+  const verticalAnalysisSpans = collectVerticalAnalysisSpans(verticalAnalysis);
+  const horizontalAnalysis =
+    verticalAnalysis.rubyAssociations.length > 0
+      ? { rubySpans: [], rubyAssociations: [] }
+      : extractHorizontalRubyAnalysis(
+          verticalAnalysisSpans.size > 0
+            ? verticalJoinSpans.filter((span) => !verticalAnalysisSpans.has(span))
+            : verticalJoinSpans,
+        );
   const rubyItemIndices = collectRubyItemIndices(verticalAnalysis.rubySpans, verticalJoinSpanIndices);
+  const horizontalRubyItemIndices = collectRubyItemIndices(horizontalAnalysis.rubySpans, verticalJoinSpanIndices);
   const gutterAnnotationItemIndices = collectRubyItemIndices(
     verticalAnalysis.gutterAnnotationSpans,
     verticalJoinSpanIndices,
   );
-  const excludedVerticalItemIndices = new Set([...rubyItemIndices, ...gutterAnnotationItemIndices]);
-  const rubyAttachments = collectRubyTextAttachments(verticalAnalysis.rubyAssociations, verticalJoinSpanIndices);
-  const filteredJoin = filterRubyJoinItems(joinItems, excludedVerticalItemIndices, rubyAttachments);
+  const excludedTextItemIndices = new Set([
+    ...rubyItemIndices,
+    ...horizontalRubyItemIndices,
+    ...gutterAnnotationItemIndices,
+  ]);
+  const rubyAttachments = mergeRubyTextAttachments(
+    collectRubyTextAttachments(verticalAnalysis.rubyAssociations, verticalJoinSpanIndices),
+    collectHorizontalRubyTextAttachments(horizontalAnalysis.rubyAssociations, verticalJoinSpanIndices),
+  );
+  const filteredJoin = filterRubyJoinItems(joinItems, excludedTextItemIndices, rubyAttachments);
   const rawText = joinPageText(filteredJoin.items, {
     verticalRuns: [
       ...buildTallVerticalJoinRuns(tallVerticalRuns, verticalJoinSpanIndices, filteredJoin.indexMap),
@@ -257,6 +279,20 @@ function collectRubyItemIndices(
   return indices;
 }
 
+function collectVerticalAnalysisSpans(analysis: {
+  blocks: readonly VerticalCjkRunBlock[];
+  rubySpans: readonly TextSpan[];
+  gutterAnnotationSpans: readonly TextSpan[];
+}): ReadonlySet<TextSpan> {
+  const spans = new Set<TextSpan>([...analysis.rubySpans, ...analysis.gutterAnnotationSpans]);
+  for (const block of analysis.blocks) {
+    for (const column of block.columns) {
+      for (const span of column.spans) spans.add(span);
+    }
+  }
+  return spans;
+}
+
 function collectRubyTextAttachments(
   rubyAssociations: readonly VerticalRubyAssociation[],
   spanItemIndices: ReadonlyMap<TextSpan, number>,
@@ -278,6 +314,44 @@ function collectRubyTextAttachments(
   return attachments;
 }
 
+function collectHorizontalRubyTextAttachments(
+  rubyAssociations: readonly HorizontalRubyAssociation[],
+  spanItemIndices: ReadonlyMap<TextSpan, number>,
+): ReadonlyMap<number, readonly RubyTextAttachment[]> {
+  const attachments = new Map<number, RubyTextAttachment[]>();
+  for (const association of rubyAssociations) {
+    const baseEnd = association.baseRanges.at(-1);
+    if (!baseEnd) continue;
+    const index = spanItemIndices.get(baseEnd.span);
+    if (index === undefined) continue;
+    const attachment = { offset: baseEnd.end, text: horizontalRubyReadingText(association) };
+    const texts = attachments.get(index);
+    if (texts) {
+      texts.push(attachment);
+    } else {
+      attachments.set(index, [attachment]);
+    }
+  }
+  return attachments;
+}
+
+function mergeRubyTextAttachments(
+  ...sources: readonly ReadonlyMap<number, readonly RubyTextAttachment[]>[]
+): ReadonlyMap<number, readonly RubyTextAttachment[]> {
+  const merged = new Map<number, RubyTextAttachment[]>();
+  for (const source of sources) {
+    for (const [index, attachments] of source) {
+      const existing = merged.get(index);
+      if (existing) {
+        existing.push(...attachments);
+      } else {
+        merged.set(index, [...attachments]);
+      }
+    }
+  }
+  return merged;
+}
+
 function filterRubyJoinItems(
   items: readonly JoinItem[],
   rubyItemIndices: ReadonlySet<number>,
@@ -291,11 +365,11 @@ function filterRubyJoinItems(
     indexMap.set(index, filtered.length);
     const attachments = rubyAttachments.get(index);
     const item = attachments && attachments.length > 0 ? attachRubyText(items[index], attachments) : items[index];
-    filtered.push(
+    const verticalAdjusted =
       attachments && attachments.length > 0
         ? clearTrailingRubyEolBeforeVerticalContinuation(item, items, index, rubyItemIndices, attachments)
-        : item,
-    );
+        : item;
+    filtered.push(clearTrailingRubyEolBeforeHorizontalContinuation(verticalAdjusted, items, index, rubyItemIndices));
   }
 
   return { items: filtered, indexMap };
@@ -339,9 +413,17 @@ function nextNonRubyTextItem(
   index: number,
   rubyItemIndices: ReadonlySet<number>,
 ): JoinItem | undefined {
+  return nextNonRubyTextItemWithIndex(items, index, rubyItemIndices)?.item;
+}
+
+function nextNonRubyTextItemWithIndex(
+  items: readonly JoinItem[],
+  index: number,
+  rubyItemIndices: ReadonlySet<number>,
+): { index: number; item: JoinItem } | undefined {
   for (let nextIndex = index + 1; nextIndex < items.length; nextIndex++) {
     if (rubyItemIndices.has(nextIndex) || isRubyAdjacentSeparator(items, nextIndex, rubyItemIndices)) continue;
-    if (items[nextIndex].str.trim().length > 0) return items[nextIndex];
+    if (items[nextIndex].str.trim().length > 0) return { index: nextIndex, item: items[nextIndex] };
   }
   return undefined;
 }
@@ -354,6 +436,36 @@ function isSameVerticalColumnContinuation(prev: JoinItem, next: JoinItem): boole
 
   const estimatedBottom = prev.y + Array.from(prev.str).length * fontSize;
   return Math.abs(next.y - estimatedBottom) <= fontSize * 0.5;
+}
+
+function clearTrailingRubyEolBeforeHorizontalContinuation(
+  item: JoinItem,
+  items: readonly JoinItem[],
+  index: number,
+  rubyItemIndices: ReadonlySet<number>,
+): JoinItem {
+  if (!item.hasEOL || item.dir === 'ttb') return item;
+  const next = nextNonRubyTextItemWithIndex(items, index, rubyItemIndices);
+  if (!next || !hasRubyItemBetween(index, next.index, rubyItemIndices)) return item;
+  if (!isSameHorizontalLineContinuation(items[index], next.item)) return item;
+  return { ...item, hasEOL: false };
+}
+
+function hasRubyItemBetween(startIndex: number, endIndex: number, rubyItemIndices: ReadonlySet<number>): boolean {
+  for (let index = startIndex + 1; index < endIndex; index++) {
+    if (rubyItemIndices.has(index)) return true;
+  }
+  return false;
+}
+
+function isSameHorizontalLineContinuation(prev: JoinItem, next: JoinItem): boolean {
+  if (prev.y === undefined || next.y === undefined) return false;
+  if (next.dir === 'ttb') return false;
+  const fontSize = Math.max(prev.fontSize, next.fontSize, 1);
+  if (Math.abs(prev.y - next.y) > Math.max(fontSize * 0.45, 2)) return false;
+  const gap = next.x - (prev.x + prev.width);
+  if (gap < -fontSize * 0.25) return false;
+  return gap <= Math.max(fontSize * 1.5, 24);
 }
 
 function isRubyAdjacentSeparator(
