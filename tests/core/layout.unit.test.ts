@@ -24,6 +24,23 @@ function verticalGlyphs(text: string, x: number, y: number, fontSize: number, st
   return Array.from(text).map((glyph, index) => span(glyph, x, y + index * step, fontSize, fontSize));
 }
 
+function verticalSpan(
+  text: string,
+  x: number,
+  y: number,
+  fontSize: number,
+  height = Array.from(text).length * fontSize,
+): TextSpan {
+  return {
+    text,
+    x,
+    y,
+    width: fontSize,
+    height,
+    fontSize,
+  };
+}
+
 function verticalGlyphTexts(
   texts: readonly string[],
   x: number,
@@ -1660,6 +1677,22 @@ describe('buildLayout — multi-column reading order', () => {
     expect(analysis.rubySpans.map((item) => item.text).join('')).toBe('わた');
     expect(analysis.blocks[0].columns.map((column) => column.spans.map((item) => item.text).join(''))).toEqual([
       '東京で相当の地位を得たい',
+    ]);
+  });
+
+  it('attaches ruby to an internal range of a multi-character vertical body span', () => {
+    const body = verticalSpan('甲朱雀乙丙丁戊己庚辛', 300, 100, 12);
+    const ruby = verticalSpan('すざく', 312, 112, 6, 24);
+    const spans = [body, ruby];
+
+    const analysis = extractBodyVerticalCjkRunAnalysis(spans);
+    expect(analysis.rubySpans).toEqual([ruby]);
+    expect(analysis.rubyAssociations).toHaveLength(1);
+    expect(analysis.rubyAssociations[0].baseRanges).toMatchObject([{ span: body, start: 1, end: 3 }]);
+
+    const layout = buildLayout(spans, 595);
+    expect(layout.blocks.filter((block) => block.writingMode === 'vertical').map((block) => block.text)).toEqual([
+      '甲朱雀《すざく》乙丙丁戊己庚辛',
     ]);
   });
 

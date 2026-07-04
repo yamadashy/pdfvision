@@ -35,6 +35,11 @@ interface ExtractPageTextInput {
   viewMinY: number;
 }
 
+interface RubyTextAttachment {
+  offset: number;
+  text: string;
+}
+
 export interface ExtractedPageText {
   text: string;
   rawText?: string;
@@ -223,6 +228,7 @@ function buildVerticalJoinRuns(
         if (mappedIndex === undefined) continue;
         itemIndices.push(mappedIndex);
       }
+      if (column.spans.length < 2) continue;
       if (itemIndices.length === column.spans.length) {
         runs.push({
           itemIndices,
@@ -249,18 +255,19 @@ function collectRubyItemIndices(
 function collectRubyTextAttachments(
   rubyAssociations: readonly VerticalRubyAssociation[],
   spanItemIndices: ReadonlyMap<TextSpan, number>,
-): ReadonlyMap<number, readonly string[]> {
-  const attachments = new Map<number, string[]>();
+): ReadonlyMap<number, readonly RubyTextAttachment[]> {
+  const attachments = new Map<number, RubyTextAttachment[]>();
   for (const association of rubyAssociations) {
-    const baseEnd = association.baseSpans.at(-1);
+    const baseEnd = association.baseRanges.at(-1);
     if (!baseEnd) continue;
-    const index = spanItemIndices.get(baseEnd);
+    const index = spanItemIndices.get(baseEnd.span);
     if (index === undefined) continue;
+    const attachment = { offset: baseEnd.end, text: rubyAssociationText(association) };
     const texts = attachments.get(index);
     if (texts) {
-      texts.push(rubyAssociationText(association));
+      texts.push(attachment);
     } else {
-      attachments.set(index, [rubyAssociationText(association)]);
+      attachments.set(index, [attachment]);
     }
   }
   return attachments;
@@ -269,7 +276,7 @@ function collectRubyTextAttachments(
 function filterRubyJoinItems(
   items: readonly JoinItem[],
   rubyItemIndices: ReadonlySet<number>,
-  rubyAttachments: ReadonlyMap<number, readonly string[]> = new Map(),
+  rubyAttachments: ReadonlyMap<number, readonly RubyTextAttachment[]> = new Map(),
 ): { items: JoinItem[]; indexMap: ReadonlyMap<number, number> } {
   const filtered: JoinItem[] = [];
   const indexMap = new Map<number, number>();
@@ -278,17 +285,70 @@ function filterRubyJoinItems(
     if (rubyItemIndices.has(index) || isRubyAdjacentSeparator(items, index, rubyItemIndices)) continue;
     indexMap.set(index, filtered.length);
     const attachments = rubyAttachments.get(index);
-    filtered.push(attachments && attachments.length > 0 ? attachRubyText(items[index], attachments) : items[index]);
+    const item = attachments && attachments.length > 0 ? attachRubyText(items[index], attachments) : items[index];
+    filtered.push(
+      attachments && attachments.length > 0
+        ? clearTrailingRubyEolBeforeVerticalContinuation(item, items, index, rubyItemIndices, attachments)
+        : item,
+    );
   }
 
   return { items: filtered, indexMap };
 }
 
-function attachRubyText(item: JoinItem, readings: readonly string[]): JoinItem {
+function attachRubyText(item: JoinItem, attachments: readonly RubyTextAttachment[]): JoinItem {
   return {
     ...item,
-    str: `${item.str}${readings.map((reading) => `《${reading}》`).join('')}`,
+    str: itemTextWithRuby(item.str, attachments),
   };
+}
+
+function itemTextWithRuby(text: string, attachments: readonly RubyTextAttachment[]): string {
+  const sorted = [...attachments].sort((a, b) => a.offset - b.offset);
+  let out = '';
+  let cursor = 0;
+  for (const attachment of sorted) {
+    const offset = Math.max(cursor, Math.min(text.length, attachment.offset));
+    out += text.slice(cursor, offset);
+    out += `《${attachment.text}》`;
+    cursor = offset;
+  }
+  return out + text.slice(cursor);
+}
+
+function clearTrailingRubyEolBeforeVerticalContinuation(
+  item: JoinItem,
+  items: readonly JoinItem[],
+  index: number,
+  rubyItemIndices: ReadonlySet<number>,
+  attachments: readonly RubyTextAttachment[],
+): JoinItem {
+  if (!item.hasEOL || !attachments.some((attachment) => attachment.offset >= items[index].str.length)) return item;
+  const next = nextNonRubyTextItem(items, index, rubyItemIndices);
+  if (!next || !isSameVerticalColumnContinuation(items[index], next)) return item;
+  return { ...item, hasEOL: false, continuesVerticalFlow: true };
+}
+
+function nextNonRubyTextItem(
+  items: readonly JoinItem[],
+  index: number,
+  rubyItemIndices: ReadonlySet<number>,
+): JoinItem | undefined {
+  for (let nextIndex = index + 1; nextIndex < items.length; nextIndex++) {
+    if (rubyItemIndices.has(nextIndex) || isRubyAdjacentSeparator(items, nextIndex, rubyItemIndices)) continue;
+    if (items[nextIndex].str.trim().length > 0) return items[nextIndex];
+  }
+  return undefined;
+}
+
+function isSameVerticalColumnContinuation(prev: JoinItem, next: JoinItem): boolean {
+  if (prev.dir !== 'ttb' || next.dir !== 'ttb') return false;
+  if (prev.y === undefined || next.y === undefined) return false;
+  const fontSize = Math.max(prev.fontSize, next.fontSize, 1);
+  if (Math.abs(prev.x - next.x) > Math.max(fontSize * 0.2, 2)) return false;
+
+  const estimatedBottom = prev.y + Array.from(prev.str).length * fontSize;
+  return Math.abs(next.y - estimatedBottom) <= fontSize * 0.5;
 }
 
 function isRubyAdjacentSeparator(

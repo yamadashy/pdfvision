@@ -144,6 +144,101 @@ describe('extractPageText', () => {
     expect(result.text).toBe('甲基基《よみ》乙丙丁戊');
   });
 
+  it('attaches ruby inside a multi-character vertical body span', () => {
+    const base = '天地玄黄宇宙洪荒日月盈昃辰宿列張寒来暑往秋収冬蔵雨';
+    const rainIndex = Array.from(base).indexOf('雨');
+    const result = extractPageText({
+      content: {
+        items: [
+          verticalRunItem(base, 300, 100, 12, Array.from(base).length * 12, 12),
+          verticalRunItem('あま', 312, 100 + rainIndex * 12, 6, 12, 6),
+          verticalRunItem('やみ', 300, 100 + Array.from(base).length * 12, 12, 24, 12),
+        ],
+      },
+      flags: BASE_FLAGS,
+      pageHeight: 800,
+      viewMinX: 0,
+      viewMinY: 0,
+    });
+
+    expect(result.text).toContain('雨《あま》やみ');
+    expect(result.text).not.toContain('雨あまやみ');
+  });
+
+  it('attaches a multi-character ruby run after a multi-character base range inside one body span', () => {
+    const result = extractPageText({
+      content: {
+        items: [
+          verticalRunItem('甲朱雀乙丙丁戊己庚辛', 300, 100, 12, 120, 12),
+          verticalRunItem('すざく', 312, 112, 6, 24, 6),
+        ],
+      },
+      flags: BASE_FLAGS,
+      pageHeight: 800,
+      viewMinX: 0,
+      viewMinY: 0,
+    });
+
+    expect(result.text).toBe('甲朱雀《すざく》乙丙丁戊己庚辛');
+  });
+
+  it('attaches ruby across single-glyph bases connected to multi-character vertical body spans', () => {
+    const result = extractPageText({
+      content: {
+        items: [
+          verticalRunItem('羅生門が、朱', 300, 100, 12, 84, 12),
+          verticalRunItem('す', 312, 172, 6, 6, 6),
+          verticalGlyphItem('雀', 300, 184, 12),
+          verticalRunItem('ざく', 312, 184, 6, 12, 6),
+          verticalGlyphItem('大', 300, 196, 12),
+          verticalRunItem('おお', 312, 196, 6, 12, 6),
+          verticalGlyphItem('路', 300, 208, 12),
+          verticalRunItem('じ', 312, 211, 6, 6, 6),
+          verticalRunItem('に降る雨音を聞く', 300, 220, 12, 96, 12),
+        ],
+      },
+      flags: BASE_FLAGS,
+      pageHeight: 800,
+      viewMinX: 0,
+      viewMinY: 0,
+    });
+
+    expect(result.text).toBe('羅生門が、朱雀大路《すざくおおじ》に降る雨音を聞く');
+  });
+
+  it('excludes ruby beside a mixed-ASCII vertical body span without mutating the base text', () => {
+    const base = '甲乙ABC丙丁戊己';
+    const result = extractPageText({
+      content: {
+        items: [
+          verticalRunItem(base, 300, 100, 12, Array.from(base).length * 12, 12),
+          verticalRunItem('よみ', 312, 160, 6, 12, 6),
+        ],
+      },
+      flags: BASE_FLAGS,
+      pageHeight: 800,
+      viewMinX: 0,
+      viewMinY: 0,
+    });
+
+    expect(result.text).toBe(base);
+  });
+
+  it('excludes ambiguous ruby overlap inside a multi-character vertical body span', () => {
+    const base = '甲乙丙丁戊己庚辛壬癸';
+    const result = extractPageText({
+      content: {
+        items: [verticalRunItem(base, 300, 100, 12, 120, 12), verticalRunItem('よみ', 312, 119, 6, 10, 6)],
+      },
+      flags: BASE_FLAGS,
+      pageHeight: 800,
+      viewMinX: 0,
+      viewMinY: 0,
+    });
+
+    expect(result.text).toBe(base);
+  });
+
   it('excludes ambiguous ruby associations instead of guessing a base', () => {
     const result = extractPageText({
       content: {

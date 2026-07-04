@@ -50,6 +50,11 @@ const RUBY_ASSOCIATION_MIN_BODY_OVERLAP_RATIO = 0.6;
 const RUBY_ASSOCIATION_MIN_RUBY_OVERLAP_RATIO = 0.32;
 const RUBY_ASSOCIATION_X_TIE_RATIO = 1;
 const RUBY_ASSOCIATION_MIN_CONFIDENCE = 0.45;
+const RUBY_ASSOCIATION_MIN_MULTI_BASE_HEIGHT_RATIO = 0.5;
+const RUBY_VERTICAL_CJK_MAX_CHARS = 12;
+const RUBY_VERTICAL_CJK_MAX_WIDTH_RATIO = 1.8;
+const RUBY_VERTICAL_CJK_MIN_HEIGHT_RATIO = 0.55;
+const RUBY_VERTICAL_CJK_MAX_HEIGHT_RATIO = 1.6;
 const SHORT_BODY_VERTICAL_CJK_MIN_RUN_SPANS = 3;
 const SHORT_BODY_VERTICAL_CJK_MIN_FONT_RATIO = 0.75;
 const SHORT_BODY_VERTICAL_CJK_MAX_FONT_RATIO = 1.25;
@@ -95,7 +100,16 @@ export interface VerticalRubyAssociation {
   ruby: VerticalCjkRun;
   baseColumn: VerticalCjkRun;
   baseSpans: TextSpan[];
+  baseRanges: VerticalRubyBaseRange[];
   confidence: number;
+}
+
+export interface VerticalRubyBaseRange {
+  span: TextSpan;
+  start: number;
+  end: number;
+  y: number;
+  height: number;
 }
 
 export function hasVerticalTextShape(span: TextSpan): boolean {
@@ -418,6 +432,127 @@ function collectBodyVerticalCjkRuns(spans: readonly TextSpan[], minRunSpans: num
   return runs;
 }
 
+function collectTallBodyVerticalCjkRuns(spans: readonly TextSpan[]): {
+  associationRuns: VerticalCjkRun[];
+  rubyAnchorRuns: VerticalCjkRun[];
+} {
+  const tallSpans = spans.filter(isTallBodyVerticalCjkSpan);
+  const contextualGlyphs = spans.filter(
+    (span) => !tallSpans.includes(span) && isBodyVerticalCjkGlyph(span) && hasTallBodySpanNeighbour(span, tallSpans),
+  );
+  const candidates = [...tallSpans, ...contextualGlyphs].sort((a, b) => centerX(b) - centerX(a) || a.y - b.y);
+  if (candidates.length === 0) return { associationRuns: [], rubyAnchorRuns: [] };
+
+  const columns: TextSpan[][] = [];
+  for (const candidate of candidates) {
+    const x = centerX(candidate);
+    const column = columns.find((item) => {
+      const anchor = item[0];
+      return (
+        Math.abs(x - centerX(anchor)) <=
+        Math.max(bodyVerticalCjkXTolerance(candidate), bodyVerticalCjkXTolerance(anchor))
+      );
+    });
+    if (column) {
+      column.push(candidate);
+    } else {
+      columns.push([candidate]);
+    }
+  }
+
+  const associationRuns: VerticalCjkRun[] = [];
+  const rubyAnchorRuns: VerticalCjkRun[] = [];
+  for (const column of columns) {
+    const sortedColumn = [...column].sort((a, b) => a.y - b.y || a.x - b.x);
+    let run: TextSpan[] = [];
+    const flush = () => {
+      if (run.length === 0) return;
+      const verticalRun = toTallBodyVerticalRun(run);
+      rubyAnchorRuns.push(verticalRun);
+      if (run.every(isAssociableTallBodyRunSpan)) associationRuns.push(verticalRun);
+      run = [];
+    };
+    for (const span of sortedColumn) {
+      const prev = run.at(-1);
+      if (!prev || canContinueTallBodyVerticalRun(prev, span)) {
+        run.push(span);
+      } else {
+        flush();
+        run.push(span);
+      }
+    }
+    flush();
+  }
+  return { associationRuns, rubyAnchorRuns };
+}
+
+function hasTallBodySpanNeighbour(span: TextSpan, tallSpans: readonly TextSpan[]): boolean {
+  for (const tall of tallSpans) {
+    if (
+      Math.abs(centerX(span) - centerX(tall)) >
+      Math.max(bodyVerticalCjkXTolerance(span), bodyVerticalCjkXTolerance(tall))
+    ) {
+      continue;
+    }
+    const fontSize = Math.max(span.fontSize || FONT_SIZE_FALLBACK_PT, tall.fontSize || FONT_SIZE_FALLBACK_PT);
+    const gap = Math.max(span.y - (tall.y + tall.height), tall.y - (span.y + span.height), 0);
+    if (gap <= fontSize * TATECHUYOKO_COLUMN_GAP_RATIO) return true;
+  }
+  return false;
+}
+
+function isTallBodyVerticalCjkSpan(span: TextSpan): boolean {
+  const chars = Array.from(span.text);
+  if (chars.length < BODY_VERTICAL_CJK_MIN_RUN_SPANS) return false;
+  if (!isTallCjkVerticalSpan(span)) return false;
+
+  const fontSize = span.fontSize || FONT_SIZE_FALLBACK_PT;
+  const pitch = span.height / Math.max(chars.length, 1);
+  return pitch >= fontSize * BODY_VERTICAL_CJK_MIN_STEP_RATIO && pitch <= fontSize * BODY_VERTICAL_CJK_MAX_STEP_RATIO;
+}
+
+function isUniformTallVerticalBaseSpan(span: TextSpan): boolean {
+  return Array.from(span.text).every(isUniformVerticalBaseChar);
+}
+
+function isAssociableTallBodyRunSpan(span: TextSpan): boolean {
+  return isBodyVerticalCjkGlyph(span) || isUniformTallVerticalBaseSpan(span);
+}
+
+function isUniformVerticalBaseChar(char: string): boolean {
+  return BODY_VERTICAL_CJK_GLYPH_RE.test(char) || BODY_VERTICAL_LEADER_GLYPH_RE.test(char);
+}
+
+function canContinueTallBodyVerticalRun(prev: TextSpan, cur: TextSpan): boolean {
+  if (
+    Math.abs(centerX(cur) - centerX(prev)) > Math.max(bodyVerticalCjkXTolerance(prev), bodyVerticalCjkXTolerance(cur))
+  ) {
+    return false;
+  }
+  const fontSize = Math.max(prev.fontSize || FONT_SIZE_FALLBACK_PT, cur.fontSize || FONT_SIZE_FALLBACK_PT);
+  const gap = cur.y - (prev.y + prev.height);
+  return gap >= -fontSize * TATECHUYOKO_COLUMN_OVERLAP_RATIO && gap <= fontSize * TATECHUYOKO_COLUMN_GAP_RATIO;
+}
+
+function toTallBodyVerticalRun(spans: readonly TextSpan[]): VerticalCjkRun {
+  const ySorted = [...spans].sort((a, b) => a.y - b.y || a.x - b.x);
+  const fontSize = round2(mode(ySorted.map((span) => span.fontSize || FONT_SIZE_FALLBACK_PT)));
+  const center = ySorted.reduce((sum, span) => sum + centerX(span), 0) / ySorted.length;
+  return {
+    centerX: round2(center),
+    fontSize,
+    spans: ySorted,
+  };
+}
+
+function toSingleSpanVerticalRun(span: TextSpan): VerticalCjkRun {
+  return {
+    centerX: round2(centerX(span)),
+    fontSize: round2(span.fontSize || FONT_SIZE_FALLBACK_PT),
+    spans: [span],
+  };
+}
+
 function collectShortBodyVerticalCjkRuns(
   spans: readonly TextSpan[],
   bodyRuns: readonly VerticalCjkRun[],
@@ -492,6 +627,80 @@ function hasCompatibleBodyFontSize(candidate: VerticalCjkRun, body: VerticalCjkR
   return ratio >= SHORT_BODY_VERTICAL_CJK_MIN_FONT_RATIO && ratio <= SHORT_BODY_VERTICAL_CJK_MAX_FONT_RATIO;
 }
 
+function collectRubyVerticalCjkRuns(
+  spans: readonly TextSpan[],
+  bodyAnchorRuns: readonly VerticalCjkRun[],
+): VerticalCjkRun[] {
+  const candidates = spans.filter(isRubyVerticalCjkSpanCandidate).sort((a, b) => centerX(b) - centerX(a) || a.y - b.y);
+  if (candidates.length === 0) return [];
+
+  const columns: TextSpan[][] = [];
+  for (const candidate of candidates) {
+    const x = centerX(candidate);
+    const column = columns.find((item) => {
+      const anchor = item[0];
+      return (
+        Math.abs(x - centerX(anchor)) <=
+        Math.max(bodyVerticalCjkXTolerance(candidate), bodyVerticalCjkXTolerance(anchor))
+      );
+    });
+    if (column) {
+      column.push(candidate);
+    } else {
+      columns.push([candidate]);
+    }
+  }
+
+  const runs: VerticalCjkRun[] = [];
+  for (const column of columns) {
+    const sortedColumn = [...column].sort((a, b) => a.y - b.y || a.x - b.x);
+    let run: TextSpan[] = [];
+    const flush = () => {
+      const verticalRun = toVerticalGlyphRun(run, 1);
+      if (verticalRun && isRubyVerticalRun(verticalRun, bodyAnchorRuns)) runs.push(verticalRun);
+      run = [];
+    };
+    for (const span of sortedColumn) {
+      const prev = run.at(-1);
+      if (!prev || canContinueRubyVerticalCjkRun(prev, span)) {
+        run.push(span);
+      } else {
+        flush();
+        run.push(span);
+      }
+    }
+    flush();
+  }
+
+  return runs;
+}
+
+function isRubyVerticalCjkSpanCandidate(span: TextSpan): boolean {
+  const text = span.text.trim();
+  const chars = Array.from(text);
+  if (chars.length === 0 || chars.length > RUBY_VERTICAL_CJK_MAX_CHARS) return false;
+  if (!chars.some((char) => CJK_SCRIPT_RE.test(char))) return false;
+  if (!chars.every(isUniformVerticalBaseChar)) return false;
+
+  const fontSize = span.fontSize || span.height || FONT_SIZE_FALLBACK_PT;
+  return (
+    span.width <= fontSize * RUBY_VERTICAL_CJK_MAX_WIDTH_RATIO &&
+    span.height >= fontSize * chars.length * RUBY_VERTICAL_CJK_MIN_HEIGHT_RATIO &&
+    span.height <= fontSize * chars.length * RUBY_VERTICAL_CJK_MAX_HEIGHT_RATIO
+  );
+}
+
+function canContinueRubyVerticalCjkRun(prev: TextSpan, cur: TextSpan): boolean {
+  if (
+    Math.abs(centerX(cur) - centerX(prev)) > Math.max(bodyVerticalCjkXTolerance(prev), bodyVerticalCjkXTolerance(cur))
+  ) {
+    return false;
+  }
+  const fontSize = Math.max(prev.fontSize || prev.height || FONT_SIZE_FALLBACK_PT, cur.fontSize || cur.height || 0);
+  const gap = cur.y - (prev.y + prev.height);
+  return gap >= -fontSize * TATECHUYOKO_COLUMN_OVERLAP_RATIO && gap <= fontSize * TATECHUYOKO_COLUMN_GAP_RATIO;
+}
+
 function groupBodyVerticalRunsIntoBlocks(runs: readonly VerticalCjkRun[]): VerticalCjkRunBlock[] {
   const sortedRuns = [...runs].sort((a, b) => b.centerX - a.centerX || bodyRunTop(a) - bodyRunTop(b));
   const blocks: VerticalCjkRunBlock[] = [];
@@ -531,12 +740,18 @@ function isRubyVerticalRun(candidate: VerticalCjkRun, bodyRuns: readonly Vertica
 
 export function extractBodyVerticalCjkRunAnalysis(spans: readonly TextSpan[]): BodyVerticalCjkRunAnalysis {
   const bodyRuns = collectBodyVerticalCjkRuns(spans, BODY_VERTICAL_CJK_MIN_RUN_SPANS);
-  if (bodyRuns.length === 0) return { blocks: [], rubySpans: [], rubyAssociations: [] };
+  const tallBodyRuns = collectTallBodyVerticalCjkRuns(spans);
+  const bodyAnchorRuns = [...bodyRuns, ...tallBodyRuns.rubyAnchorRuns];
+  if (bodyAnchorRuns.length === 0) return { blocks: [], rubySpans: [], rubyAssociations: [] };
 
-  const rubyRuns = collectBodyVerticalCjkRuns(spans, 1).filter((run) => isRubyVerticalRun(run, bodyRuns));
+  const rubyRuns = [
+    ...collectBodyVerticalCjkRuns(spans, 1).filter((run) => isRubyVerticalRun(run, bodyRuns)),
+    ...collectRubyVerticalCjkRuns(spans, tallBodyRuns.rubyAnchorRuns),
+  ];
   const rubySpanSet = new Set<TextSpan>();
   const rubySpans: TextSpan[] = [];
   for (const run of rubyRuns) {
+    if (run.spans.some((span) => rubySpanSet.has(span))) continue;
     for (const span of run.spans) {
       rubySpanSet.add(span);
       rubySpans.push(span);
@@ -544,8 +759,11 @@ export function extractBodyVerticalCjkRunAnalysis(spans: readonly TextSpan[]): B
   }
 
   const nonRubyBodyRuns = bodyRuns.filter((run) => !run.spans.some((span) => rubySpanSet.has(span)));
+  const tallBodyRunsWithRubyContext = tallBodyRuns.associationRuns.filter((run) =>
+    rubyRuns.some((ruby) => isRubyAdjacentToBodyColumn(ruby, run)),
+  );
   const shortBodyRuns = collectShortBodyVerticalCjkRuns(spans, nonRubyBodyRuns, rubySpanSet);
-  const bodyColumns = [...nonRubyBodyRuns, ...shortBodyRuns];
+  const bodyColumns = [...nonRubyBodyRuns, ...tallBodyRunsWithRubyContext, ...shortBodyRuns];
 
   return {
     blocks: groupBodyVerticalRunsIntoBlocks(bodyColumns),
@@ -627,7 +845,30 @@ export function extractVerticalCjkBlocks(spans: readonly TextSpan[]): {
 } {
   const used = new Set<TextSpan>();
   const blocks: LayoutBlock[] = [];
-  for (const run of extractTallVerticalRuns(spans)) {
+
+  const initialBodyVertical = extractBodyVerticalCjkRunAnalysis(spans);
+  const tallBodyRubyBlocks = initialBodyVertical.blocks.filter((block) =>
+    block.columns.some((column) => column.spans.some(isTallBodyVerticalCjkSpan)),
+  );
+  const tallBodyRubyColumns = new Set(tallBodyRubyBlocks.flatMap((block) => block.columns));
+  for (const block of tallBodyRubyBlocks) {
+    blocks.push(toBodyVerticalBlock(block, initialBodyVertical.rubyAssociations));
+    for (const column of block.columns) {
+      for (const span of column.spans) used.add(span);
+    }
+  }
+  const tallRubyAnchors = collectTallBodyVerticalCjkRuns(spans).rubyAnchorRuns;
+  for (const span of initialBodyVertical.rubySpans) {
+    const ruby = toSingleSpanVerticalRun(span);
+    if (
+      [...tallBodyRubyColumns].some((column) => isRubyAdjacentToBodyColumn(ruby, column)) ||
+      tallRubyAnchors.some((anchor) => isRubyAdjacentToBodyColumn(ruby, anchor))
+    ) {
+      used.add(span);
+    }
+  }
+
+  for (const run of extractTallVerticalRuns(spans.filter((span) => !used.has(span)))) {
     blocks.push(toTallVerticalBlock(run));
     for (const span of run.spans) used.add(span);
   }
@@ -704,23 +945,24 @@ export function verticalRunTextWithRuby(
 
   const byEndSpan = new Map<TextSpan, VerticalRubyAssociation[]>();
   for (const association of attachments) {
-    const endSpan = association.baseSpans.at(-1);
-    if (!endSpan) continue;
-    const existing = byEndSpan.get(endSpan);
+    const endRange = association.baseRanges.at(-1);
+    if (!endRange) continue;
+    const existing = byEndSpan.get(endRange.span);
     if (existing) {
       existing.push(association);
     } else {
-      byEndSpan.set(endSpan, [association]);
+      byEndSpan.set(endRange.span, [association]);
     }
   }
 
   let text = '';
   for (const span of column.spans) {
-    text += span.text;
     const spanAttachments = byEndSpan.get(span);
-    if (!spanAttachments) continue;
-    spanAttachments.sort((a, b) => bodyRunTop(a.ruby) - bodyRunTop(b.ruby));
-    for (const association of spanAttachments) text += `《${rubyAssociationText(association)}》`;
+    if (!spanAttachments) {
+      text += span.text;
+      continue;
+    }
+    text += spanTextWithRuby(span, spanAttachments);
   }
   return text;
 }
@@ -736,9 +978,10 @@ function rubyAssociationsForColumn(
   return rubyAssociations
     .filter((association) => association.baseColumn === column)
     .sort((a, b) => {
-      const aStart = column.spans.indexOf(a.baseSpans[0]);
-      const bStart = column.spans.indexOf(b.baseSpans[0]);
-      return aStart - bStart || bodyRunTop(a.ruby) - bodyRunTop(b.ruby);
+      return (
+        rubyAssociationBaseSortKey(column, a) - rubyAssociationBaseSortKey(column, b) ||
+        bodyRunTop(a.ruby) - bodyRunTop(b.ruby)
+      );
     });
 }
 
@@ -768,16 +1011,18 @@ function rubyAssociationCandidate(
 ): (VerticalRubyAssociation & { xGap: number }) | undefined {
   if (!isRubyAdjacentToBodyColumn(ruby, body)) return undefined;
 
-  const baseSpans = overlappingBaseSpans(ruby, body);
-  if (!baseSpans) return undefined;
+  const baseRanges = overlappingBaseRanges(ruby, body);
+  if (!baseRanges) return undefined;
+  const baseSpans = baseSpansFromRanges(baseRanges);
 
-  const confidence = rubyAssociationConfidence(ruby, body, baseSpans);
+  const confidence = rubyAssociationConfidence(ruby, body, baseRanges);
   if (confidence < RUBY_ASSOCIATION_MIN_CONFIDENCE) return undefined;
 
   return {
     ruby,
     baseColumn: body,
     baseSpans,
+    baseRanges,
     confidence,
     xGap: ruby.centerX - body.centerX,
   };
@@ -793,15 +1038,16 @@ function isRubyAdjacentToBodyColumn(ruby: VerticalCjkRun, body: VerticalCjkRun):
   return overlap > 0;
 }
 
-function overlappingBaseSpans(ruby: VerticalCjkRun, body: VerticalCjkRun): TextSpan[] | undefined {
+function overlappingBaseRanges(ruby: VerticalCjkRun, body: VerticalCjkRun): VerticalRubyBaseRange[] | undefined {
   const rubyTop = bodyRunTop(ruby);
   const rubyBottom = bodyRunBottom(ruby);
   const rubyHeight = Math.max(rubyBottom - rubyTop, 1);
-  const overlaps = body.spans.map((span, index) => {
-    const overlap = Math.min(span.y + span.height, rubyBottom) - Math.max(span.y, rubyTop);
-    const bodyOverlapRatio = overlap / Math.max(span.height, 1);
+  const baseRanges = baseCharacterRanges(body);
+  const overlaps = baseRanges.map((range, index) => {
+    const overlap = Math.min(range.y + range.height, rubyBottom) - Math.max(range.y, rubyTop);
+    const bodyOverlapRatio = overlap / Math.max(range.height, 1);
     const rubyOverlapRatio = overlap / rubyHeight;
-    return { index, span, overlap, bodyOverlapRatio, rubyOverlapRatio };
+    return { index, range, overlap, bodyOverlapRatio, rubyOverlapRatio };
   });
   const positive = overlaps.filter((item) => item.overlap > 0);
   if (positive.length === 0) return undefined;
@@ -818,7 +1064,14 @@ function overlappingBaseSpans(ruby: VerticalCjkRun, body: VerticalCjkRun): TextS
   const baseIndices = base.map((item) => item.index);
   if (countConsecutiveGroups(baseIndices) > 1) return undefined;
 
-  return base.sort((a, b) => a.index - b.index).map((item) => item.span);
+  const selectedRanges = mergeConsecutiveBaseRanges(base.sort((a, b) => a.index - b.index).map((item) => item.range));
+  if (selectedRanges.length === 0) return undefined;
+  const baseTop = Math.min(...selectedRanges.map((range) => range.y));
+  const baseBottom = Math.max(...selectedRanges.map((range) => range.y + range.height));
+  const baseHeight = Math.max(baseBottom - baseTop, 1);
+  if (base.length > 1 && rubyHeight / baseHeight < RUBY_ASSOCIATION_MIN_MULTI_BASE_HEIGHT_RATIO) return undefined;
+
+  return selectedRanges;
 }
 
 function countConsecutiveGroups(indices: readonly number[]): number {
@@ -831,15 +1084,19 @@ function countConsecutiveGroups(indices: readonly number[]): number {
   return groups;
 }
 
-function rubyAssociationConfidence(ruby: VerticalCjkRun, body: VerticalCjkRun, baseSpans: readonly TextSpan[]): number {
+function rubyAssociationConfidence(
+  ruby: VerticalCjkRun,
+  body: VerticalCjkRun,
+  baseRanges: readonly VerticalRubyBaseRange[],
+): number {
   const rubyTop = bodyRunTop(ruby);
   const rubyBottom = bodyRunBottom(ruby);
   const rubyHeight = Math.max(rubyBottom - rubyTop, 1);
-  const baseTop = Math.min(...baseSpans.map((span) => span.y));
-  const baseBottom = Math.max(...baseSpans.map((span) => span.y + span.height));
+  const baseTop = Math.min(...baseRanges.map((range) => range.y));
+  const baseBottom = Math.max(...baseRanges.map((range) => range.y + range.height));
   const baseHeight = Math.max(baseBottom - baseTop, 1);
-  const overlap = baseSpans.reduce(
-    (sum, span) => sum + Math.max(0, Math.min(span.y + span.height, rubyBottom) - Math.max(span.y, rubyTop)),
+  const overlap = baseRanges.reduce(
+    (sum, range) => sum + Math.max(0, Math.min(range.y + range.height, rubyBottom) - Math.max(range.y, rubyTop)),
     0,
   );
   const overlapConfidence = Math.min(1, overlap / Math.max(rubyHeight, baseHeight));
@@ -858,6 +1115,93 @@ function hasAmbiguousAdjacentBodyColumn(
   const [best, next] = candidates;
   const tieTolerance = Math.max(ruby.fontSize * RUBY_ASSOCIATION_X_TIE_RATIO, 0.001);
   return Math.abs(next.xGap - best.xGap) <= tieTolerance;
+}
+
+function baseCharacterRanges(body: VerticalCjkRun): VerticalRubyBaseRange[] {
+  const ranges: VerticalRubyBaseRange[] = [];
+  for (const span of body.spans) {
+    const virtualRanges = uniformTallSpanCharacterRanges(span);
+    if (virtualRanges) {
+      ranges.push(...virtualRanges);
+    } else {
+      ranges.push({ span, start: 0, end: span.text.length, y: span.y, height: span.height });
+    }
+  }
+  return ranges;
+}
+
+function uniformTallSpanCharacterRanges(span: TextSpan): VerticalRubyBaseRange[] | undefined {
+  if (!isTallBodyVerticalCjkSpan(span) || !isUniformTallVerticalBaseSpan(span)) return undefined;
+  const chars = Array.from(span.text);
+  if (chars.length === 0) return undefined;
+
+  const pitch = span.height / chars.length;
+  const ranges: VerticalRubyBaseRange[] = [];
+  let offset = 0;
+  for (let index = 0; index < chars.length; index++) {
+    const char = chars[index];
+    ranges.push({
+      span,
+      start: offset,
+      end: offset + char.length,
+      y: span.y + pitch * index,
+      height: pitch,
+    });
+    offset += char.length;
+  }
+  return ranges;
+}
+
+function mergeConsecutiveBaseRanges(ranges: readonly VerticalRubyBaseRange[]): VerticalRubyBaseRange[] {
+  const merged: VerticalRubyBaseRange[] = [];
+  for (const range of ranges) {
+    const previous = merged.at(-1);
+    if (previous && previous.span === range.span && previous.end === range.start) {
+      previous.end = range.end;
+      previous.height = range.y + range.height - previous.y;
+    } else {
+      merged.push({ ...range });
+    }
+  }
+  return merged;
+}
+
+function baseSpansFromRanges(ranges: readonly VerticalRubyBaseRange[]): TextSpan[] {
+  const spans: TextSpan[] = [];
+  for (const range of ranges) {
+    if (spans.at(-1) !== range.span) spans.push(range.span);
+  }
+  return spans;
+}
+
+function spanTextWithRuby(span: TextSpan, associations: readonly VerticalRubyAssociation[]): string {
+  const sorted = [...associations].sort((a, b) => {
+    const aEnd = a.baseRanges.at(-1);
+    const bEnd = b.baseRanges.at(-1);
+    return (aEnd?.end ?? 0) - (bEnd?.end ?? 0) || bodyRunTop(a.ruby) - bodyRunTop(b.ruby);
+  });
+  let out = '';
+  let cursor = 0;
+  for (const association of sorted) {
+    const endRange = association.baseRanges.at(-1);
+    if (!endRange) continue;
+    const offset = Math.max(cursor, Math.min(span.text.length, endRange.end));
+    out += span.text.slice(cursor, offset);
+    out += `《${rubyAssociationText(association)}》`;
+    cursor = offset;
+  }
+  return out + span.text.slice(cursor);
+}
+
+function rubyAssociationBaseSortKey(column: VerticalCjkRun, association: VerticalRubyAssociation): number {
+  const firstRange = association.baseRanges[0];
+  if (!firstRange) return Number.POSITIVE_INFINITY;
+  let offset = 0;
+  for (const span of column.spans) {
+    if (span === firstRange.span) return offset + firstRange.start;
+    offset += span.text.length;
+  }
+  return Number.POSITIVE_INFINITY;
 }
 
 export function compareLayoutBlocks(a: LayoutBlock, b: LayoutBlock): number {

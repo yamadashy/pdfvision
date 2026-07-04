@@ -19,6 +19,23 @@ function verticalGlyphs(text: string, x: number, y: number, fontSize: number, st
   }));
 }
 
+function verticalSpan(
+  text: string,
+  x: number,
+  y: number,
+  fontSize: number,
+  height = Array.from(text).length * fontSize,
+): TextSpan {
+  return {
+    text,
+    x,
+    y,
+    width: fontSize,
+    height,
+    fontSize,
+  };
+}
+
 describe('processDocument search', () => {
   it('finds literal substring matches and attaches matches[] per page', async () => {
     // SAMPLE_PDF carries "Hello pdfvision" on page 1. A bare-substring
@@ -254,6 +271,25 @@ describe('processDocument search', () => {
       context: '私は卑怯《ひきょう》な事をした',
     });
     expect(matches[2].boxes.length).toBeGreaterThanOrEqual(6);
+  });
+
+  it('matches multi-character vertical body spans with and without inline ruby annotations', () => {
+    const body = verticalSpan('夕方雨やみを待つ人々', 300, 100, 12);
+    const ruby = verticalSpan('あま', 312, 124, 6, 12);
+    const compiled = compileSearch(['雨やみ', '雨《あま》やみ'], {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage([body, ruby], undefined, 1, 595, 842, compiled);
+
+    expect(matches.map((match) => match.query)).toEqual(['雨やみ', '雨《あま》やみ']);
+    expect(matches[0]).toMatchObject({
+      text: '雨やみ',
+      context: '夕方雨やみを待つ人々',
+    });
+    expect(matches[1]).toMatchObject({
+      text: '雨《あま》やみ',
+      context: '夕方雨《あま》やみを待つ人々',
+    });
   });
 
   it('matches context-supported short vertical ellipsis columns', () => {

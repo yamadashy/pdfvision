@@ -114,7 +114,7 @@ export function searchPage(
         if (hitBoxes.length === 0) continue;
         if ((line.syntheticHyphenated || line.syntheticDehyphenated) && hitBoxes.length < 2) continue;
         if (line.syntheticStacked && hitBoxes.length < 2) continue;
-        if (line.syntheticVertical && hitBoxes.length < 2) continue;
+        if (line.syntheticVertical && hitBoxes.length < 2 && !line.syntheticRubyBase) continue;
         const box = unionBoxes(hitBoxes);
         matches.push({
           page: pageNum,

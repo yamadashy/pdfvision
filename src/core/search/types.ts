@@ -7,6 +7,7 @@ export interface SearchLine {
   syntheticStacked?: boolean;
   syntheticVertical?: boolean;
   syntheticRuby?: boolean;
+  syntheticRubyBase?: boolean;
   rubyRanges?: SearchLineRange[];
 }
 

@@ -22,7 +22,16 @@ export function buildSearchLines(spans: readonly TextSpan[] | undefined, pageWid
   if (!spans || spans.length === 0) return [];
   const verticalAnalysis = extractBodyVerticalCjkRunAnalysis(spans);
   const rubySpans = new Set(verticalAnalysis.rubySpans);
-  const horizontalSpans = rubySpans.size > 0 ? spans.filter((span) => !rubySpans.has(span)) : spans;
+  const rubyBodySpans = new Set<TextSpan>();
+  if (rubySpans.size > 0) {
+    for (const block of verticalAnalysis.blocks) {
+      for (const column of block.columns) {
+        for (const span of column.spans) rubyBodySpans.add(span);
+      }
+    }
+  }
+  const horizontalSpans =
+    rubySpans.size > 0 ? spans.filter((span) => !rubySpans.has(span) && !rubyBodySpans.has(span)) : spans;
   const sorted = [...horizontalSpans].sort((a, b) => a.y - b.y || a.x - b.x);
   const groups: TextSpan[][] = [];
   for (const span of sorted) {
