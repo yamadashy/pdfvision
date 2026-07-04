@@ -33,6 +33,24 @@ function textItem(str: string, y: number, width = 80) {
   };
 }
 
+function positionedTextItem(str: string, x: number, y: number, fontSize: number, width = str.length * fontSize) {
+  return {
+    str,
+    width,
+    height: fontSize,
+    transform: [fontSize, 0, 0, fontSize, x, 800 - y - fontSize],
+    hasEOL: false,
+    fontName: 'g_d0_f1',
+  };
+}
+
+function positionedSpaceItem(x: number, y: number, fontSize: number, width: number) {
+  return {
+    ...positionedTextItem(' ', x, y, fontSize, width),
+    height: 0,
+  };
+}
+
 function verticalGlyphItem(str: string, x: number, y: number, fontSize: number) {
   return {
     str,
@@ -296,6 +314,42 @@ describe('extractPageText', () => {
     expect(result.text).not.toContain('注');
     expect(result.text).not.toContain('レ\nク');
     expect(result.text).not.toContain('L\nD');
+  });
+
+  it('keeps ASCII option markers beside false vertical body columns', () => {
+    const optionRows = [
+      { option: 'p', reading: 'primary', label: '主マーク', y: 100, labelX: 262.26 },
+      { option: 's', reading: 'seconday', label: '副マーク', y: 115.94, labelX: 262.26 },
+      { option: 'f', reading: 'full', label: '全配置', y: 131.88, labelX: 262.26 },
+    ];
+    const items: unknown[] = [];
+    for (const row of optionRows) {
+      items.push(
+        { ...positionedTextItem(row.option, 195.98, row.y, 9.96, 5.23), hasEOL: false },
+        positionedSpaceItem(201.21, row.y, 9.96, 3.32),
+        positionedTextItem('(', 204.53, row.y + 2.99, 6.97, 3.11),
+        positionedTextItem('<', 207.64, row.y + 2.99, 6.97, 6.22),
+        positionedSpaceItem(213.86, row.y + 2.99, 6.97, 1.33),
+        positionedTextItem(row.reading, 215.19, row.y + 2.99, 6.97, row.reading.length * 4.08),
+        positionedTextItem(')', 244.41, row.y + 2.99, 6.97, 3.11),
+        { ...positionedTextItem(` ${row.label}`, row.labelX, row.y + 0.75, 9.21, 54), hasEOL: true },
+      );
+    }
+    items.push(
+      { ...positionedTextItem('F', 195.98, 147.82, 9.96, 5.23), hasEOL: true },
+      { ...positionedTextItem('、', 195.23, 162.45, 9.21, 9.21), hasEOL: true },
+    );
+
+    const result = extractPageText({
+      content: { items },
+      flags: BASE_FLAGS,
+      pageHeight: 800,
+      viewMinX: 0,
+      viewMinY: 0,
+    });
+
+    expect(result.text).toContain('p (< primary) 主マーク');
+    expect(result.text).not.toContain('pprimary)');
   });
 
   it('joins context-supported short vertical ellipsis columns in page text', () => {

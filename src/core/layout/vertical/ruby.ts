@@ -408,6 +408,7 @@ function canContinueGutterAnnotationRun(prev: TextSpan, cur: TextSpan): boolean 
 
 function isGutterAnnotationRun(run: VerticalCjkRun, body: VerticalCjkRun): boolean {
   if (run.spans.length === 0 || run.spans.length > GUTTER_ANNOTATION_MAX_SPANS) return false;
+  if (!run.spans.some((span) => CJK_SCRIPT_RE.test(span.text))) return false;
   return run.spans.every((span) => isGutterAnnotationSpanCandidate(span, body));
 }
 
