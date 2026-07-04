@@ -46,6 +46,9 @@ const BODY_VERTICAL_CJK_COLUMN_OVERLAP_RATIO = 0.05;
 const RUBY_VERTICAL_CJK_MAX_FONT_RATIO = 0.6;
 const RUBY_VERTICAL_CJK_MAX_BODY_GAP_RATIO = 1.2;
 const RUBY_VERTICAL_CJK_MIN_Y_OVERLAP_RATIO = 0.5;
+const SHORT_BODY_VERTICAL_CJK_MIN_RUN_SPANS = 3;
+const SHORT_BODY_VERTICAL_CJK_MIN_FONT_RATIO = 0.75;
+const SHORT_BODY_VERTICAL_CJK_MAX_FONT_RATIO = 1.25;
 const TATECHUYOKO_MAX_CHARS = 4;
 const TATECHUYOKO_MAX_WIDTH_RATIO = 2.2;
 const TATECHUYOKO_MAX_HEIGHT_RATIO = 1.5;
@@ -57,6 +60,7 @@ const SHORT_VERTICAL_CJK_MIN_HEIGHT_RATIO = 0.7;
 const SHORT_VERTICAL_CJK_MAX_HEIGHT_RATIO = 1.35;
 const BODY_VERTICAL_CJK_GLYPH_RE =
   /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\u3001-\u303f\u30a0\u30fb\u30fc\uff01-\uff65]$/u;
+const BODY_VERTICAL_LEADER_GLYPH_RE = /^(?:\u2026|\.\.\.)$/u;
 const CJK_SCRIPT_RE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
 const TATECHUYOKO_FRAGMENT_RE = /^[0-9０-９()（）]+$/u;
 
@@ -290,6 +294,17 @@ function isBodyVerticalCjkGlyph(span: TextSpan): boolean {
   if (!BODY_VERTICAL_CJK_GLYPH_RE.test(text)) return false;
   if ([...text].length !== 1) return false;
 
+  return hasBodyVerticalGlyphBox(span);
+}
+
+function isShortBodyVerticalCjkGlyph(span: TextSpan): boolean {
+  if (isBodyVerticalCjkGlyph(span)) return true;
+  const text = span.text.trim();
+  if (!BODY_VERTICAL_LEADER_GLYPH_RE.test(text)) return false;
+  return hasBodyVerticalGlyphBox(span);
+}
+
+function hasBodyVerticalGlyphBox(span: TextSpan): boolean {
   const fontSize = span.fontSize || span.height || FONT_SIZE_FALLBACK_PT;
   return (
     span.width <= fontSize * BODY_VERTICAL_CJK_MAX_GLYPH_SIZE_RATIO &&
@@ -387,6 +402,80 @@ function collectBodyVerticalCjkRuns(spans: readonly TextSpan[], minRunSpans: num
   return runs;
 }
 
+function collectShortBodyVerticalCjkRuns(
+  spans: readonly TextSpan[],
+  bodyRuns: readonly VerticalCjkRun[],
+  excludedSpans: ReadonlySet<TextSpan>,
+): VerticalCjkRun[] {
+  if (bodyRuns.length === 0) return [];
+
+  const bodySpanSet = new Set<TextSpan>();
+  for (const run of bodyRuns) {
+    for (const span of run.spans) bodySpanSet.add(span);
+  }
+
+  const candidates = spans
+    .filter((span) => !bodySpanSet.has(span) && !excludedSpans.has(span))
+    .filter(isShortBodyVerticalCjkGlyph)
+    .sort((a, b) => centerX(b) - centerX(a) || a.y - b.y);
+  if (candidates.length < SHORT_BODY_VERTICAL_CJK_MIN_RUN_SPANS) return [];
+
+  const columns: TextSpan[][] = [];
+  for (const candidate of candidates) {
+    const x = centerX(candidate);
+    const column = columns.find((item) => {
+      const anchor = item[0];
+      return (
+        Math.abs(x - centerX(anchor)) <=
+        Math.max(bodyVerticalCjkXTolerance(candidate), bodyVerticalCjkXTolerance(anchor))
+      );
+    });
+    if (column) {
+      column.push(candidate);
+    } else {
+      columns.push([candidate]);
+    }
+  }
+
+  const runs: VerticalCjkRun[] = [];
+  for (const column of columns) {
+    const sortedColumn = [...column].sort((a, b) => a.y - b.y || a.x - b.x);
+    let run: TextSpan[] = [];
+    const flush = () => {
+      const verticalRun = toVerticalGlyphRun(run, SHORT_BODY_VERTICAL_CJK_MIN_RUN_SPANS);
+      if (verticalRun && isContextualShortBodyVerticalRun(verticalRun, bodyRuns)) runs.push(verticalRun);
+      run = [];
+    };
+    for (const span of sortedColumn) {
+      const prev = run.at(-1);
+      if (!prev || canContinueBodyVerticalCjkRun(prev, span)) {
+        run.push(span);
+      } else {
+        flush();
+        run.push(span);
+      }
+    }
+    flush();
+  }
+
+  return runs;
+}
+
+function isContextualShortBodyVerticalRun(candidate: VerticalCjkRun, bodyRuns: readonly VerticalCjkRun[]): boolean {
+  if (!candidate.spans.some((span) => containsCjkScript(span.text))) return false;
+
+  for (const body of bodyRuns) {
+    if (!hasCompatibleBodyFontSize(candidate, body)) continue;
+    if (canContinueBodyVerticalBlock(body, candidate) || canContinueBodyVerticalBlock(candidate, body)) return true;
+  }
+  return false;
+}
+
+function hasCompatibleBodyFontSize(candidate: VerticalCjkRun, body: VerticalCjkRun): boolean {
+  const ratio = candidate.fontSize / Math.max(body.fontSize, 0.001);
+  return ratio >= SHORT_BODY_VERTICAL_CJK_MIN_FONT_RATIO && ratio <= SHORT_BODY_VERTICAL_CJK_MAX_FONT_RATIO;
+}
+
 function groupBodyVerticalRunsIntoBlocks(runs: readonly VerticalCjkRun[]): VerticalCjkRunBlock[] {
   const sortedRuns = [...runs].sort((a, b) => b.centerX - a.centerX || bodyRunTop(a) - bodyRunTop(b));
   const blocks: VerticalCjkRunBlock[] = [];
@@ -439,9 +528,10 @@ export function extractBodyVerticalCjkRunAnalysis(spans: readonly TextSpan[]): B
   }
 
   const nonRubyBodyRuns = bodyRuns.filter((run) => !run.spans.some((span) => rubySpanSet.has(span)));
+  const shortBodyRuns = collectShortBodyVerticalCjkRuns(spans, nonRubyBodyRuns, rubySpanSet);
 
   return {
-    blocks: groupBodyVerticalRunsIntoBlocks(nonRubyBodyRuns),
+    blocks: groupBodyVerticalRunsIntoBlocks([...nonRubyBodyRuns, ...shortBodyRuns]),
     rubySpans: rubySpans.sort((a, b) => centerX(b) - centerX(a) || a.y - b.y),
   };
 }

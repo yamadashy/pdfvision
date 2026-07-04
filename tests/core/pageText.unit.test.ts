@@ -109,6 +109,25 @@ describe('extractPageText', () => {
     expect(result.searchSpans?.map((span) => span.text).join('')).toBe('東京で相当の地位を得たいから宜しく頼む');
   });
 
+  it('joins context-supported short vertical ellipsis columns in page text', () => {
+    const result = extractPageText({
+      content: {
+        items: [
+          ...verticalGlyphItems('右側本文甲乙丙丁', 300, 100, 12),
+          ...verticalGlyphItems('それとも……', 279, 124, 12),
+          ...verticalGlyphItems('左側本文甲乙丙丁', 258, 100, 12),
+        ],
+      },
+      flags: BASE_FLAGS,
+      pageHeight: 800,
+      viewMinX: 0,
+      viewMinY: 0,
+    });
+
+    expect(result.text.split('\n')).toEqual(['右側本文甲乙丙丁', 'それとも……', '左側本文甲乙丙丁']);
+    expect(result.text).not.toContain('そ\nれ\nと\nも');
+  });
+
   it('stitches tatechuyoko fragments into page text when stream order matches geometry', () => {
     const result = extractPageText({
       content: {

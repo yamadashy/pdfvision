@@ -232,6 +232,34 @@ describe('processDocument search', () => {
     expect(matches[1].bbox).toEqual({ x: 276, y: 100, width: 32, height: 40 });
   });
 
+  it('matches context-supported short vertical ellipsis columns', () => {
+    const verticalGlyphs = (texts: readonly string[], x: number, y: number, fontSize: number): TextSpan[] =>
+      texts.map((text, index) => ({
+        text,
+        x,
+        y: y + index * fontSize,
+        width: fontSize,
+        height: fontSize,
+        fontSize,
+      }));
+    const rightColumn = verticalGlyphs(Array.from('右側本文甲乙丙丁'), 300, 100, 12);
+    const shortColumn = verticalGlyphs(['そ', 'れ', 'と', 'も', '...', '...'], 279, 124, 12);
+    const leftColumn = verticalGlyphs(Array.from('左側本文甲乙丙丁'), 258, 100, 12);
+    const compiled = compileSearch('それとも', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage([...leftColumn, ...shortColumn, ...rightColumn], undefined, 1, 595, 842, compiled);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'それとも',
+      source: 'native',
+      context: '右側本文甲乙丙丁それとも......左側本文甲乙丙丁',
+    });
+    expect(matches[0].boxes).toHaveLength(4);
+    expect(matches[0].bbox).toEqual({ x: 279, y: 124, width: 12, height: 48 });
+  });
+
   it('matches phrases crossing tatechuyoko fragments in a vertical column', () => {
     const spans: TextSpan[] = [
       { text: '昭和', x: 100, y: 100, width: 10, height: 20, fontSize: 10 },

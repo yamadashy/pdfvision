@@ -24,6 +24,16 @@ function verticalGlyphs(text: string, x: number, y: number, fontSize: number, st
   return Array.from(text).map((glyph, index) => span(glyph, x, y + index * step, fontSize, fontSize));
 }
 
+function verticalGlyphTexts(
+  texts: readonly string[],
+  x: number,
+  y: number,
+  fontSize: number,
+  step = fontSize,
+): TextSpan[] {
+  return texts.map((text, index) => span(text, x, y + index * step, fontSize, fontSize));
+}
+
 describe('buildLayout — heading classification', () => {
   it('marks a block as heading when its dominant fontSize is ≥ 1.25× the body median', () => {
     // 24pt heading + 12pt body, body has the longer text so the char-
@@ -1540,6 +1550,41 @@ describe('buildLayout — multi-column reading order', () => {
     expect(verticalBlocks[0].lines.every((line) => line.writingMode === 'vertical')).toBe(true);
   });
 
+  it('accepts short vertical columns with normalized ellipsis leaders when body columns corroborate them', () => {
+    const rightColumn = verticalGlyphs('右側本文甲乙丙丁', 300, 100, 12);
+    const shortColumn = verticalGlyphTexts(['そ', 'れ', 'と', 'も', '...', '...'], 279, 124, 12);
+    const leftColumn = verticalGlyphs('左側本文甲乙丙丁', 258, 100, 12);
+    const spans = [...leftColumn, ...shortColumn, ...rightColumn];
+
+    const analysis = extractBodyVerticalCjkRunAnalysis(spans);
+    expect(analysis.blocks).toHaveLength(1);
+    expect(analysis.blocks[0].columns.map((column) => column.spans.map((item) => item.text).join(''))).toEqual([
+      '右側本文甲乙丙丁',
+      'それとも......',
+      '左側本文甲乙丙丁',
+    ]);
+
+    const layout = buildLayout(spans, 595);
+    const verticalBlocks = layout.blocks.filter((block) => block.writingMode === 'vertical');
+    expect(verticalBlocks).toHaveLength(1);
+    expect(verticalBlocks[0].lines.map((line) => line.text)).toEqual([
+      '右側本文甲乙丙丁',
+      'それとも......',
+      '左側本文甲乙丙丁',
+    ]);
+    expect(verticalBlocks[0].lines.every((line) => line.writingMode === 'vertical')).toBe(true);
+  });
+
+  it('does not accept the same short ellipsis column without vertical body context', () => {
+    const shortColumn = verticalGlyphTexts(['そ', 'れ', 'と', 'も', '...', '...'], 120, 100, 12);
+
+    const analysis = extractBodyVerticalCjkRunAnalysis(shortColumn);
+    expect(analysis.blocks).toEqual([]);
+
+    const layout = buildLayout(shortColumn, 300);
+    expect(layout.blocks.some((block) => block.writingMode === 'vertical')).toBe(false);
+  });
+
   it('classifies adjacent half-size ruby stacks without adding them to body vertical blocks', () => {
     const rightBody = verticalGlyphs('東京で相当の地位を得たい', 300, 100, 12);
     const leftBody = verticalGlyphs('から宜しく頼む', 279, 100, 12);
@@ -1558,6 +1603,19 @@ describe('buildLayout — multi-column reading order', () => {
     const verticalBlocks = layout.blocks.filter((block) => block.writingMode === 'vertical');
     expect(verticalBlocks.map((block) => block.text)).toContain('東京で相当の地位を得たい\nから宜しく頼む');
     expect(layout.blocks.map((block) => block.text).join('\n')).not.toContain('わたくし');
+  });
+
+  it('does not readmit half-size short ruby stacks through contextual short-run detection', () => {
+    const rightBody = verticalGlyphs('東京で相当の地位を得たい', 300, 100, 12);
+    const leftBody = verticalGlyphs('から宜しく頼む', 279, 100, 12);
+    const ruby = verticalGlyphs('ふりがな', 312, 124, 6);
+    const spans = [...rightBody, ...ruby, ...leftBody];
+
+    const analysis = extractBodyVerticalCjkRunAnalysis(spans);
+    expect(analysis.rubySpans.map((item) => item.text).join('')).toBe('ふりがな');
+    expect(analysis.blocks.flatMap((block) => block.columns).flatMap((column) => column.spans)).not.toEqual(
+      expect.arrayContaining(ruby),
+    );
   });
 
   it('keeps uniformly small vertical columns as body when no larger adjacent column exists', () => {
@@ -1614,6 +1672,15 @@ describe('buildLayout — multi-column reading order', () => {
 
   it('does not treat short x-aligned CJK glyph runs as body vertical writing', () => {
     const spans: TextSpan[] = Array.from('質問書').map((text, index) => span(text, 80, 100 + index * 8, 8, 8));
+
+    const layout = buildLayout(spans, 300);
+
+    expect(layout.blocks.some((block) => block.writingMode === 'vertical')).toBe(false);
+  });
+
+  it('does not treat short x-aligned table labels near horizontal spans as body vertical writing', () => {
+    const label = verticalGlyphs('注記表', 80, 100, 8, 8);
+    const spans: TextSpan[] = [span('横書きの表見出し', 48, 92, 8, 80), span('別の表セル', 96, 108, 8, 48), ...label];
 
     const layout = buildLayout(spans, 300);
 
