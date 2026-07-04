@@ -543,7 +543,7 @@ describe('detectPageWarnings', () => {
       },
     });
 
-    expect(out.map((w) => w.code)).toEqual(['large_raster_low_text_overlap', 'raster_image_no_native_text']);
+    expect(out.map((w) => w.code)).toEqual(['raster_image_no_native_text']);
   });
 
   it('flags localized non-printable glyph noise below the mixed-glyph ratio threshold', () => {
@@ -1691,6 +1691,57 @@ describe('detectPageWarnings', () => {
       imageBoxIndex: 0,
     });
     expect(out[0].message).toContain('36.0%');
+  });
+
+  it('emits only raster no-native-text warning for empty full-page raster scans', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '',
+      charCount: 0,
+      imageCount: 1,
+      vectorCount: 0,
+      textCoverage: 0,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 1000,
+      height: 1000,
+      imageBoxes: [{ x: 0, y: 0, width: 1000, height: 1000 }],
+      quality: { nativeTextStatus: 'empty_but_visual_content', visualStatus: 'ok' },
+    });
+
+    expect(out.map((w) => w.code)).toEqual(['raster_image_no_native_text']);
+  });
+
+  it('keeps large-raster warnings for native-text pages with little image overlap', () => {
+    const out = detectPageWarnings({
+      ...page([block(700, 50, 200, 200, { text: 'bullet panel' })], 1000, 1000),
+      text: 'bullet panel',
+      charCount: 12,
+      imageCount: 1,
+      imageBoxes: [{ x: 0, y: 0, width: 600, height: 600 }],
+      quality: { nativeTextStatus: 'ok' },
+    });
+
+    expect(out.map((w) => w.code)).toEqual(['large_raster_low_text_overlap']);
+  });
+
+  it('keeps large-raster warnings on empty pages below the no-native-text raster threshold', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: '',
+      charCount: 0,
+      imageCount: 1,
+      vectorCount: 0,
+      textCoverage: 0,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 1000,
+      height: 1000,
+      imageBoxes: [{ x: 120, y: 140, width: 600, height: 500 }],
+      quality: { nativeTextStatus: 'empty_but_visual_content' },
+    });
+
+    expect(out.map((w) => w.code)).toEqual(['large_raster_low_text_overlap']);
   });
 
   it('flags captioned medium raster figures with little overlapping native text', () => {

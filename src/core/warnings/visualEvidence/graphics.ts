@@ -203,6 +203,8 @@ export function detectLargeRasterLowTextOverlap(
   const imageBoxes = page.imageBoxes ?? context.imageBoxes;
   if (!imageBoxes || imageBoxes.length === 0) return;
   if (isLowContentFullPageRasterScan(page, imageBoxes)) return;
+  // On empty-native-text raster pages, the no-native-text warning subsumes this generic low-overlap signal.
+  if (page.charCount === 0 && out.some((warning) => warning.code === 'raster_image_no_native_text')) return;
   if (!canCompareNativeTextAgainstRaster(page.quality.nativeTextStatus)) return;
   const pageArea = page.width * page.height;
   if (pageArea <= 0) return;
