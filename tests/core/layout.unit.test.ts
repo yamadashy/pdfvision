@@ -1636,6 +1636,57 @@ describe('buildLayout — multi-column reading order', () => {
     expect(layout.blocks.every((block) => block.lines[0]?.writingMode === 'vertical')).toBe(true);
   });
 
+  it('marks tall vertical spans with leading ASCII parens when they contain CJK text', () => {
+    const spans: TextSpan[] = [span('(1935)年5月、新聞にこんな', 467.1, 615.32, 9.5, 9.5)];
+    spans[0].height = 152;
+
+    const layout = buildLayout(spans, 595);
+
+    expect(layout.blocks).toHaveLength(1);
+    expect(layout.blocks[0].text).toBe('(1935)年5月、新聞にこんな');
+    expect(layout.blocks[0].writingMode).toBe('vertical');
+    expect(layout.blocks[0].lines[0]?.writingMode).toBe('vertical');
+  });
+
+  it('stitches tatechuyoko digit fragments into the same vertical layout line', () => {
+    const spans: TextSpan[] = [
+      span('昭和', 100, 100, 10, 10),
+      span('10', 95, 119, 10, 10),
+      span('(1935)年5月、新聞にこんな', 100, 130, 10, 10),
+    ];
+    spans[0].height = 20;
+    spans[2].height = 160;
+
+    const layout = buildLayout(spans, 300);
+    const verticalBlocks = layout.blocks.filter((block) => block.writingMode === 'vertical');
+
+    expect(verticalBlocks).toHaveLength(1);
+    expect(verticalBlocks[0].text).toBe('昭和10(1935)年5月、新聞にこんな');
+    expect(verticalBlocks[0].lines).toHaveLength(1);
+    expect(verticalBlocks[0].lines[0]).toMatchObject({
+      text: '昭和10(1935)年5月、新聞にこんな',
+      writingMode: 'vertical',
+    });
+  });
+
+  it('does not classify horizontal digit rows as vertical writing', () => {
+    const spans: TextSpan[] = [span('10', 50, 100, 10, 10), span('20', 70, 100, 10, 10), span('30', 90, 100, 10, 10)];
+
+    const layout = buildLayout(spans, 300);
+
+    expect(layout.blocks.some((block) => block.writingMode === 'vertical')).toBe(false);
+    expect(layout.blocks[0].lines[0]?.text).toBe('10 20 30');
+  });
+
+  it('does not classify tall ASCII-only spans as vertical CJK writing', () => {
+    const spans: TextSpan[] = [span('https://example.com/path', 100, 100, 10, 10)];
+    spans[0].height = 180;
+
+    const layout = buildLayout(spans, 300);
+
+    expect(layout.blocks.some((block) => block.writingMode === 'vertical')).toBe(false);
+  });
+
   it('marks page-edge vertical navigation tabs as repeated chrome', () => {
     const spans: TextSpan[] = [
       span('本文の見出し', 65, 54, 18, 120),

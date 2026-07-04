@@ -1,5 +1,10 @@
 import type { TextSpan } from '../../types/index.js';
-import { extractBodyVerticalCjkRunAnalysis, type VerticalCjkRunBlock } from '../layout/verticalText.js';
+import {
+  extractBodyVerticalCjkRunAnalysis,
+  extractTallVerticalRuns,
+  type TallVerticalRun,
+  type VerticalCjkRunBlock,
+} from '../layout/verticalText.js';
 import { type JoinItem, joinPageText, type VerticalJoinRun } from '../text/cjkJoin.js';
 import { textMatrixFontSize, textRunGeometryFromTransform } from '../text/geometry.js';
 import { isLikelyPrepressProductionText } from '../text/prepress.js';
@@ -141,15 +146,19 @@ export function extractPageText({
   }
 
   const verticalAnalysis = extractBodyVerticalCjkRunAnalysis(verticalJoinSpans);
+  const tallVerticalRuns = extractTallVerticalRuns(verticalJoinSpans).filter((run) => run.hasTatechuyoko);
   const rubyItemIndices = collectRubyItemIndices(verticalAnalysis.rubySpans, verticalJoinSpanIndices);
   const filteredJoin = filterRubyJoinItems(joinItems, rubyItemIndices);
   const rawText = joinPageText(filteredJoin.items, {
-    verticalRuns: buildVerticalJoinRuns(
-      verticalAnalysis.blocks,
-      verticalJoinSpanIndices,
-      filteredJoin.indexMap,
-      verticalAnalysis.rubySpans.length > 0,
-    ),
+    verticalRuns: [
+      ...buildTallVerticalJoinRuns(tallVerticalRuns, verticalJoinSpanIndices, filteredJoin.indexMap),
+      ...buildVerticalJoinRuns(
+        verticalAnalysis.blocks,
+        verticalJoinSpanIndices,
+        filteredJoin.indexMap,
+        verticalAnalysis.rubySpans.length > 0,
+      ),
+    ],
   }).trimEnd();
   const text = flags.normalize ? normalizeText(rawText) : rawText;
   const preservedRaw = flags.normalize && rawText !== text ? rawText : undefined;
@@ -169,6 +178,31 @@ export function extractPageText({
           : spans,
     }),
   };
+}
+
+function buildTallVerticalJoinRuns(
+  runs: readonly TallVerticalRun[],
+  spanItemIndices: ReadonlyMap<TextSpan, number>,
+  itemIndexMap: ReadonlyMap<number, number>,
+): VerticalJoinRun[] {
+  const joinRuns: VerticalJoinRun[] = [];
+  for (const run of runs) {
+    const itemIndices: number[] = [];
+    for (const span of run.spans) {
+      const index = spanItemIndices.get(span);
+      if (index === undefined) continue;
+      const mappedIndex = itemIndexMap.get(index);
+      if (mappedIndex === undefined) continue;
+      itemIndices.push(mappedIndex);
+    }
+    if (itemIndices.length === run.spans.length) {
+      joinRuns.push({
+        itemIndices,
+        lineBreakAfter: true,
+      });
+    }
+  }
+  return joinRuns;
 }
 
 function buildVerticalJoinRuns(

@@ -45,6 +45,18 @@ function verticalGlyphItem(str: string, x: number, y: number, fontSize: number) 
   };
 }
 
+function verticalRunItem(str: string, x: number, y: number, width: number, height: number, fontSize = 10) {
+  return {
+    str,
+    width,
+    height,
+    transform: [fontSize, 0, 0, fontSize, x, 800 - y],
+    hasEOL: true,
+    fontName: 'g_d0_f1',
+    dir: 'ttb',
+  };
+}
+
 function verticalGlyphItems(text: string, x: number, y: number, fontSize: number, step = fontSize) {
   return Array.from(text).map((glyph, index) => verticalGlyphItem(glyph, x, y + index * step, fontSize));
 }
@@ -95,5 +107,23 @@ describe('extractPageText', () => {
     expect(result.text).toBe('東京で相当の地位を得たいから宜しく頼む');
     expect(result.spans.map((span) => span.text).join('')).toContain('わた');
     expect(result.searchSpans?.map((span) => span.text).join('')).toBe('東京で相当の地位を得たいから宜しく頼む');
+  });
+
+  it('stitches tatechuyoko fragments into page text when stream order matches geometry', () => {
+    const result = extractPageText({
+      content: {
+        items: [
+          verticalRunItem('昭和', 100, 100, 10, 20),
+          verticalRunItem('10', 95, 119, 10, 10),
+          verticalRunItem('(1935)年5月、新聞にこんな', 100, 130, 10, 160),
+        ],
+      },
+      flags: BASE_FLAGS,
+      pageHeight: 800,
+      viewMinX: 0,
+      viewMinY: 0,
+    });
+
+    expect(result.text).toBe('昭和10(1935)年5月、新聞にこんな');
   });
 });

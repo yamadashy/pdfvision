@@ -232,6 +232,37 @@ describe('processDocument search', () => {
     expect(matches[1].bbox).toEqual({ x: 276, y: 100, width: 32, height: 40 });
   });
 
+  it('matches phrases crossing tatechuyoko fragments in a vertical column', () => {
+    const spans: TextSpan[] = [
+      { text: '昭和', x: 100, y: 100, width: 10, height: 20, fontSize: 10 },
+      { text: '10', x: 95, y: 119, width: 10, height: 10, fontSize: 10 },
+      { text: '(1935)年5月、新聞にこんな', x: 100, y: 130, width: 10, height: 160, fontSize: 10 },
+    ];
+    const compiled = compileSearch(['昭和10', '1935'], {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 300, 400, compiled);
+
+    const era = matches.find((match) => match.query === '昭和10');
+    expect(era).toMatchObject({
+      text: '昭和10',
+      source: 'native',
+      context: '昭和10(1935)年5月、新聞にこんな',
+    });
+    expect(era?.boxes).toEqual([
+      { x: 100, y: 100, width: 10, height: 20 },
+      { x: 95, y: 119, width: 10, height: 10 },
+    ]);
+    expect(era?.bbox).toEqual({ x: 95, y: 100, width: 15, height: 29 });
+
+    const year = matches.find((match) => match.query === '1935');
+    expect(year).toMatchObject({
+      text: '1935',
+      source: 'native',
+    });
+    expect(year?.bbox.height).toBeGreaterThan(0);
+  });
+
   it('matches visible text form field values with widget bboxes', () => {
     const fields: FormField[] = [
       {

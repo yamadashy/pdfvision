@@ -1,5 +1,10 @@
 import type { TextSpan } from '../../types/index.js';
-import { extractBodyVerticalCjkRunBlocks, type VerticalCjkRunBlock } from '../layout/verticalText.js';
+import {
+  extractBodyVerticalCjkRunBlocks,
+  extractTallVerticalRuns,
+  type TallVerticalRun,
+  type VerticalCjkRunBlock,
+} from '../layout/verticalText.js';
 import { isVerticalSearchOwner } from './boxes.js';
 import type { SearchLine, SearchOwner } from './types.js';
 
@@ -20,20 +25,29 @@ interface VerticalSearchColumn {
 
 export function buildVerticalSearchLines(spans: readonly TextSpan[]): SearchLine[] {
   const bodyRunBlocks = extractBodyVerticalCjkRunBlocks(spans);
-  const bodyRunSpans = new Set<TextSpan>();
+  const usedVerticalSpans = new Set<TextSpan>();
   const lines: SearchLine[] = [];
   for (const block of bodyRunBlocks) {
     for (const column of block.columns) {
-      for (const span of column.spans) bodyRunSpans.add(span);
+      for (const span of column.spans) usedVerticalSpans.add(span);
     }
     const line = verticalSearchLineFromBodyRunBlock(block);
     if (line) lines.push(line);
   }
 
-  const verticalSpans = spans.filter((span) => !bodyRunSpans.has(span) && isVerticalSearchSpan(span));
-  if (verticalSpans.length < 2) return lines;
+  const tallRuns = extractTallVerticalRuns(spans.filter((span) => !usedVerticalSpans.has(span))).filter(
+    (run) => run.hasTatechuyoko,
+  );
+  const tallColumns = tallRuns.map((run) => {
+    for (const span of run.spans) usedVerticalSpans.add(span);
+    return verticalSearchColumnFromTallRun(run);
+  });
+  const verticalSpans = spans.filter((span) => !usedVerticalSpans.has(span) && isVerticalSearchSpan(span));
+  const verticalColumns = [...tallColumns, ...groupVerticalSearchColumns(verticalSpans)].sort(
+    (a, b) => b.centerX - a.centerX,
+  );
+  if (verticalColumns.length === 0) return lines;
 
-  const columns = groupVerticalSearchColumns(verticalSpans).sort((a, b) => b.centerX - a.centerX);
   let run: VerticalSearchColumn[] = [];
   const flush = () => {
     const line = verticalSearchLineFromColumns(run);
@@ -41,13 +55,21 @@ export function buildVerticalSearchLines(spans: readonly TextSpan[]): SearchLine
     run = [];
   };
 
-  for (const column of columns) {
+  for (const column of verticalColumns) {
     const previous = run.at(-1);
     if (previous && !canContinueVerticalSearchColumn(previous, column)) flush();
     run.push(column);
   }
   flush();
   return lines;
+}
+
+function verticalSearchColumnFromTallRun(run: TallVerticalRun): VerticalSearchColumn {
+  return {
+    centerX: run.columnX,
+    fontSize: run.fontSize,
+    spans: [...run.spans],
+  };
 }
 
 function verticalSearchLineFromBodyRunBlock(block: VerticalCjkRunBlock): SearchLine | undefined {
@@ -110,7 +132,7 @@ function canContinueVerticalSearchColumn(prev: VerticalSearchColumn, cur: Vertic
 }
 
 function verticalSearchLineFromColumns(columns: readonly VerticalSearchColumn[]): SearchLine | undefined {
-  if (columns.length < 2) return undefined;
+  if (columns.length < 2 && (columns.length === 0 || columns[0].spans.length < 2)) return undefined;
   let text = '';
   const owners: (SearchOwner | undefined)[] = [];
   let previousSpan: TextSpan | undefined;

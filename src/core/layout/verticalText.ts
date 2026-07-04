@@ -46,8 +46,19 @@ const BODY_VERTICAL_CJK_COLUMN_OVERLAP_RATIO = 0.05;
 const RUBY_VERTICAL_CJK_MAX_FONT_RATIO = 0.6;
 const RUBY_VERTICAL_CJK_MAX_BODY_GAP_RATIO = 1.2;
 const RUBY_VERTICAL_CJK_MIN_Y_OVERLAP_RATIO = 0.5;
+const TATECHUYOKO_MAX_CHARS = 4;
+const TATECHUYOKO_MAX_WIDTH_RATIO = 2.2;
+const TATECHUYOKO_MAX_HEIGHT_RATIO = 1.5;
+const TATECHUYOKO_COLUMN_GAP_RATIO = 1.5;
+const TATECHUYOKO_COLUMN_OVERLAP_RATIO = 0.5;
+const SHORT_VERTICAL_CJK_MAX_CHARS = 4;
+const SHORT_VERTICAL_CJK_MAX_WIDTH_RATIO = 1.6;
+const SHORT_VERTICAL_CJK_MIN_HEIGHT_RATIO = 0.7;
+const SHORT_VERTICAL_CJK_MAX_HEIGHT_RATIO = 1.35;
 const BODY_VERTICAL_CJK_GLYPH_RE =
   /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\u3001-\u303f\u30a0\u30fb\u30fc\uff01-\uff65]$/u;
+const CJK_SCRIPT_RE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
+const TATECHUYOKO_FRAGMENT_RE = /^[0-9０-９()（）]+$/u;
 
 export interface VerticalCjkRun {
   centerX: number;
@@ -57,6 +68,13 @@ export interface VerticalCjkRun {
 
 export interface VerticalCjkRunBlock {
   columns: VerticalCjkRun[];
+}
+
+export interface TallVerticalRun {
+  columnX: number;
+  fontSize: number;
+  spans: TextSpan[];
+  hasTatechuyoko: boolean;
 }
 
 export interface BodyVerticalCjkRunAnalysis {
@@ -93,7 +111,7 @@ function isCompactCjkGlyph(span: TextSpan): boolean {
 
 function isTallCjkVerticalSpan(span: TextSpan): boolean {
   const text = span.text.trim();
-  if (!isCjkLeading(text)) return false;
+  if (!containsSufficientCjk(text)) return false;
   const charCount = [...text].length;
   if (charCount < TALL_VERTICAL_CJK_MIN_CHARS) return false;
   if (!hasVerticalTextShape(span)) return false;
@@ -101,6 +119,137 @@ function isTallCjkVerticalSpan(span: TextSpan): boolean {
   const fontSize = span.fontSize || FONT_SIZE_FALLBACK_PT;
   if (span.width > fontSize * 1.6) return false;
   return span.height >= fontSize * charCount * TALL_VERTICAL_CJK_MIN_CHAR_HEIGHT_RATIO;
+}
+
+function containsSufficientCjk(text: string): boolean {
+  let count = 0;
+  for (const char of text) {
+    if (!CJK_SCRIPT_RE.test(char)) continue;
+    count++;
+    if (count >= TALL_VERTICAL_CJK_MIN_CHARS) return true;
+  }
+  return false;
+}
+
+function isTatechuyokoFragment(span: TextSpan): boolean {
+  const text = span.text.trim();
+  const charCount = [...text].length;
+  if (charCount === 0 || charCount > TATECHUYOKO_MAX_CHARS) return false;
+  if (!TATECHUYOKO_FRAGMENT_RE.test(text)) return false;
+
+  const fontSize = span.fontSize || span.height || FONT_SIZE_FALLBACK_PT;
+  return span.width <= fontSize * TATECHUYOKO_MAX_WIDTH_RATIO && span.height <= fontSize * TATECHUYOKO_MAX_HEIGHT_RATIO;
+}
+
+function isShortVerticalCjkFragment(span: TextSpan): boolean {
+  const text = span.text.trim();
+  const charCount = [...text].length;
+  if (charCount === 0 || charCount > SHORT_VERTICAL_CJK_MAX_CHARS) return false;
+  if (!containsCjkScript(text)) return false;
+
+  const fontSize = span.fontSize || span.height || FONT_SIZE_FALLBACK_PT;
+  return (
+    span.width <= fontSize * SHORT_VERTICAL_CJK_MAX_WIDTH_RATIO &&
+    span.height >= fontSize * charCount * SHORT_VERTICAL_CJK_MIN_HEIGHT_RATIO &&
+    span.height <= fontSize * charCount * SHORT_VERTICAL_CJK_MAX_HEIGHT_RATIO
+  );
+}
+
+function containsCjkScript(text: string): boolean {
+  for (const char of text) {
+    if (CJK_SCRIPT_RE.test(char)) return true;
+  }
+  return false;
+}
+
+function tallColumnAxis(span: TextSpan): number {
+  return isTatechuyokoFragment(span) ? centerX(span) : span.x;
+}
+
+function sameTallColumn(a: TextSpan, b: TextSpan): boolean {
+  return (
+    Math.abs(tallColumnAxis(a) - tallColumnAxis(b)) <= Math.max(verticalCjkXTolerance(a), verticalCjkXTolerance(b))
+  );
+}
+
+function canContinueTallVerticalRun(prev: TextSpan, cur: TextSpan): boolean {
+  if (!sameTallColumn(prev, cur)) return false;
+  const fontSize = Math.max(prev.fontSize || FONT_SIZE_FALLBACK_PT, cur.fontSize || FONT_SIZE_FALLBACK_PT);
+  const gap = cur.y - (prev.y + prev.height);
+  return gap >= -fontSize * TATECHUYOKO_COLUMN_OVERLAP_RATIO && gap <= fontSize * TATECHUYOKO_COLUMN_GAP_RATIO;
+}
+
+function isTallRunMember(
+  span: TextSpan,
+  tallSpans: ReadonlySet<TextSpan>,
+  tatechuyokoFragments: ReadonlySet<TextSpan>,
+  shortCjkFragments: ReadonlySet<TextSpan>,
+): boolean {
+  return tallSpans.has(span) || tatechuyokoFragments.has(span) || shortCjkFragments.has(span);
+}
+
+function collectTallRunSequence(
+  spans: readonly TextSpan[],
+  anchorIndex: number,
+  tallSpans: ReadonlySet<TextSpan>,
+  tatechuyokoFragments: ReadonlySet<TextSpan>,
+  shortCjkFragments: ReadonlySet<TextSpan>,
+  consumed: ReadonlySet<TextSpan>,
+): TextSpan[] {
+  let start = anchorIndex;
+  let end = anchorIndex;
+
+  while (start > 0) {
+    const prev = spans[start - 1];
+    const cur = spans[start];
+    if (consumed.has(prev) || !isTallRunMember(prev, tallSpans, tatechuyokoFragments, shortCjkFragments)) break;
+    if (!canContinueTallVerticalRun(prev, cur)) break;
+    start--;
+  }
+
+  while (end + 1 < spans.length) {
+    const cur = spans[end];
+    const next = spans[end + 1];
+    if (consumed.has(next) || !isTallRunMember(next, tallSpans, tatechuyokoFragments, shortCjkFragments)) break;
+    if (!canContinueTallVerticalRun(cur, next)) break;
+    end++;
+  }
+
+  return spans.slice(start, end + 1);
+}
+
+function toTallVerticalRun(spans: TextSpan[], hasTatechuyoko: boolean): TallVerticalRun {
+  const ySorted = [...spans].sort((a, b) => a.y - b.y || a.x - b.x);
+  const columnX = ySorted.reduce((sum, span) => sum + tallColumnAxis(span), 0) / ySorted.length;
+  return {
+    columnX: round2(columnX),
+    fontSize: round2(mode(ySorted.map((span) => span.fontSize || FONT_SIZE_FALLBACK_PT))),
+    spans: ySorted,
+    hasTatechuyoko,
+  };
+}
+
+export function extractTallVerticalRuns(spans: readonly TextSpan[]): TallVerticalRun[] {
+  const tallSpans = new Set(spans.filter(isTallCjkVerticalSpan));
+  if (tallSpans.size === 0) return [];
+
+  const tatechuyokoFragments = new Set(spans.filter((span) => !tallSpans.has(span) && isTatechuyokoFragment(span)));
+  const shortCjkFragments = new Set(spans.filter((span) => !tallSpans.has(span) && isShortVerticalCjkFragment(span)));
+  const consumed = new Set<TextSpan>();
+  const runs: TallVerticalRun[] = [];
+
+  for (let index = 0; index < spans.length; index++) {
+    const span = spans[index];
+    if (!tallSpans.has(span) || consumed.has(span)) continue;
+
+    const sequence = collectTallRunSequence(spans, index, tallSpans, tatechuyokoFragments, shortCjkFragments, consumed);
+    const hasTatechuyoko = sequence.some((candidate) => tatechuyokoFragments.has(candidate));
+    const runSpans = sequence.length > 1 && hasTatechuyoko ? sequence : [span];
+    for (const runSpan of runSpans) consumed.add(runSpan);
+    runs.push(toTallVerticalRun(runSpans, hasTatechuyoko));
+  }
+
+  return runs;
 }
 
 function hasCloseHorizontalNeighbour(span: TextSpan, spans: readonly TextSpan[]): boolean {
@@ -344,11 +493,11 @@ function toBodyVerticalBlock(block: VerticalCjkRunBlock): LayoutBlock {
   };
 }
 
-function toTallVerticalBlock(span: TextSpan): LayoutBlock {
-  const box = unionBox([span]);
-  const fontSize = round2(span.fontSize || FONT_SIZE_FALLBACK_PT);
+function toTallVerticalBlock(run: TallVerticalRun): LayoutBlock {
+  const box = unionBox(run.spans);
+  const fontSize = round2(run.fontSize || FONT_SIZE_FALLBACK_PT);
   const line: LayoutLine = {
-    text: span.text.trim(),
+    text: run.spans.map((span) => span.text.trim()).join(''),
     ...box,
     fontSize,
     writingMode: 'vertical',
@@ -367,10 +516,9 @@ export function extractVerticalCjkBlocks(spans: readonly TextSpan[]): {
 } {
   const used = new Set<TextSpan>();
   const blocks: LayoutBlock[] = [];
-  for (const span of spans) {
-    if (!isTallCjkVerticalSpan(span)) continue;
-    blocks.push(toTallVerticalBlock(span));
-    used.add(span);
+  for (const run of extractTallVerticalRuns(spans)) {
+    blocks.push(toTallVerticalBlock(run));
+    for (const span of run.spans) used.add(span);
   }
 
   const candidates = spans
