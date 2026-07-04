@@ -7,6 +7,7 @@ import { isDisplayNumberLabelPair, isIconMarkerPair } from './visualMarkers.js';
 
 export function shouldSuppressTextOverlapPair(a: LayoutBlock, b: LayoutBlock): boolean {
   return (
+    isVerticalTextPair(a, b) ||
     isDottedTextureBlock(a) ||
     isDottedTextureBlock(b) ||
     isLooseLineContinuationPair(a, b) ||
@@ -15,4 +16,10 @@ export function shouldSuppressTextOverlapPair(a: LayoutBlock, b: LayoutBlock): b
     isIconMarkerPair(a, b) ||
     isDuplicateExtractionPair(a, b)
   );
+}
+
+function isVerticalTextPair(a: LayoutBlock, b: LayoutBlock): boolean {
+  // Adjacent vertical-writing columns share broad reading bands; block
+  // bboxes can overlap even when the glyph columns are cleanly separated.
+  return a.writingMode === 'vertical' && b.writingMode === 'vertical';
 }

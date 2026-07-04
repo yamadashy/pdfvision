@@ -1,4 +1,5 @@
 import type { TextSpan } from '../../types/index.js';
+import { extractBodyVerticalCjkRunBlocks, type VerticalCjkRunBlock } from '../layout/verticalText.js';
 import { isVerticalSearchOwner } from './boxes.js';
 import type { SearchLine, SearchOwner } from './types.js';
 
@@ -18,11 +19,21 @@ interface VerticalSearchColumn {
 }
 
 export function buildVerticalSearchLines(spans: readonly TextSpan[]): SearchLine[] {
-  const verticalSpans = spans.filter(isVerticalSearchSpan);
-  if (verticalSpans.length < 2) return [];
+  const bodyRunBlocks = extractBodyVerticalCjkRunBlocks(spans);
+  const bodyRunSpans = new Set<TextSpan>();
+  const lines: SearchLine[] = [];
+  for (const block of bodyRunBlocks) {
+    for (const column of block.columns) {
+      for (const span of column.spans) bodyRunSpans.add(span);
+    }
+    const line = verticalSearchLineFromBodyRunBlock(block);
+    if (line) lines.push(line);
+  }
+
+  const verticalSpans = spans.filter((span) => !bodyRunSpans.has(span) && isVerticalSearchSpan(span));
+  if (verticalSpans.length < 2) return lines;
 
   const columns = groupVerticalSearchColumns(verticalSpans).sort((a, b) => b.centerX - a.centerX);
-  const lines: SearchLine[] = [];
   let run: VerticalSearchColumn[] = [];
   const flush = () => {
     const line = verticalSearchLineFromColumns(run);
@@ -37,6 +48,23 @@ export function buildVerticalSearchLines(spans: readonly TextSpan[]): SearchLine
   }
   flush();
   return lines;
+}
+
+function verticalSearchLineFromBodyRunBlock(block: VerticalCjkRunBlock): SearchLine | undefined {
+  const columns = [...block.columns].sort((a, b) => b.centerX - a.centerX);
+  let text = '';
+  const owners: (SearchOwner | undefined)[] = [];
+
+  for (const column of columns) {
+    for (const span of column.spans) {
+      const spanText = span.text;
+      if (spanText.length === 0) continue;
+      text += spanText;
+      for (let index = 0; index < spanText.length; index++) owners.push(span);
+    }
+  }
+
+  return text.length > 0 ? { text, owners, syntheticVertical: true } : undefined;
 }
 
 function isVerticalSearchSpan(span: TextSpan): boolean {

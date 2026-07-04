@@ -1522,6 +1522,37 @@ describe('buildLayout — multi-column reading order', () => {
     expect(layout.blocks.map((block) => block.text)).not.toContain('縦 書\n書 籍\nき の');
   });
 
+  it('groups body-sized Japanese vertical glyph runs right-to-left', () => {
+    const rightColumn = Array.from('質問主意書').map((text, index) => span(text, 300, 100 + index * 8, 8, 8));
+    const leftColumn = Array.from('国会質疑中').map((text, index) => span(text, 276, 100 + index * 8, 8, 8));
+
+    const layout = buildLayout([...leftColumn, ...rightColumn], 595);
+    const verticalBlocks = layout.blocks.filter((block) => block.writingMode === 'vertical');
+
+    expect(verticalBlocks).toHaveLength(1);
+    expect(verticalBlocks[0].text).toBe('質問主意書\n国会質疑中');
+    expect(verticalBlocks[0].lines.map((line) => line.text)).toEqual(['質問主意書', '国会質疑中']);
+    expect(verticalBlocks[0].lines.every((line) => line.writingMode === 'vertical')).toBe(true);
+  });
+
+  it('does not treat x-aligned multi-character CJK spans as body vertical writing', () => {
+    const spans: TextSpan[] = ['質問', '主意', '書面', '回答', '資料'].map((text, index) =>
+      span(text, 80, 100 + index * 8, 8, 16),
+    );
+
+    const layout = buildLayout(spans, 300);
+
+    expect(layout.blocks.some((block) => block.writingMode === 'vertical')).toBe(false);
+  });
+
+  it('does not treat short x-aligned CJK glyph runs as body vertical writing', () => {
+    const spans: TextSpan[] = Array.from('質問書').map((text, index) => span(text, 80, 100 + index * 8, 8, 8));
+
+    const layout = buildLayout(spans, 300);
+
+    expect(layout.blocks.some((block) => block.writingMode === 'vertical')).toBe(false);
+  });
+
   it('marks tall CJK spans as vertical columns in right-to-left order', () => {
     // PDF.js vertical.pdf-shaped input: each vertical column arrives as
     // one tall span whose text is already top-to-bottom.

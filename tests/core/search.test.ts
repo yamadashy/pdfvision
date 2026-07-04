@@ -189,6 +189,49 @@ describe('processDocument search', () => {
     expect(singleSpanMatches).toHaveLength(1);
   });
 
+  it('matches body-sized Japanese vertical glyph runs in right-to-left column order', () => {
+    const rightColumn: TextSpan[] = Array.from('質問主意書').map((text, index) => ({
+      text,
+      x: 300,
+      y: 100 + index * 8,
+      width: 8,
+      height: 8,
+      fontSize: 8,
+    }));
+    const leftColumn: TextSpan[] = Array.from('国会質疑中').map((text, index) => ({
+      text,
+      x: 276,
+      y: 100 + index * 8,
+      width: 8,
+      height: 8,
+      fontSize: 8,
+    }));
+    const compiled = compileSearch(['質問主意書', '主意書国会'], {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage([...leftColumn, ...rightColumn], undefined, 1, 595, 842, compiled);
+
+    expect(matches).toHaveLength(2);
+    expect(matches[0]).toMatchObject({
+      query: '質問主意書',
+      queryIndex: 0,
+      text: '質問主意書',
+      source: 'native',
+      context: '質問主意書国会質疑中',
+    });
+    expect(matches[0].boxes).toHaveLength(5);
+    expect(matches[0].bbox).toEqual({ x: 300, y: 100, width: 8, height: 40 });
+    expect(matches[1]).toMatchObject({
+      query: '主意書国会',
+      queryIndex: 1,
+      text: '主意書国会',
+      source: 'native',
+      context: '質問主意書国会質疑中',
+    });
+    expect(matches[1].boxes).toHaveLength(5);
+    expect(matches[1].bbox).toEqual({ x: 276, y: 100, width: 32, height: 40 });
+  });
+
   it('matches visible text form field values with widget bboxes', () => {
     const fields: FormField[] = [
       {
