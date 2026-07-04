@@ -4,6 +4,7 @@ import {
   type HorizontalRubyAssociation,
   horizontalRubyReadingText,
 } from '../layout/horizontalRuby.js';
+import { mergeSameOffsetRubyTextAttachments } from '../layout/rubyMerge.js';
 import {
   extractBodyVerticalCjkRunAnalysis,
   extractTallVerticalRuns,
@@ -383,7 +384,7 @@ function attachRubyText(item: JoinItem, attachments: readonly RubyTextAttachment
 }
 
 function itemTextWithRuby(text: string, attachments: readonly RubyTextAttachment[]): string {
-  const sorted = [...attachments].sort((a, b) => a.offset - b.offset);
+  const sorted = mergeSameOffsetRubyTextAttachments(attachments);
   let out = '';
   let cursor = 0;
   for (const attachment of sorted) {

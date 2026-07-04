@@ -1,5 +1,6 @@
 import type { TextSpan } from '../../types/index.js';
 import { type BBox, median, unionBox } from './geometry.js';
+import { mergeConsecutiveRubyAssociations, mergeSameOffsetRubyTextAttachments } from './rubyMerge.js';
 import { hasVerticalTextShape } from './verticalText.js';
 
 const HORIZONTAL_RUBY_MAX_FONT_RATIO = 0.6;
@@ -10,6 +11,7 @@ const HORIZONTAL_RUBY_MIN_RANGE_OVERLAP_RATIO = 0.45;
 const HORIZONTAL_RUBY_MAX_BASE_GAP_RATIO = 0.55;
 const HORIZONTAL_RUBY_BASE_CENTER_SLACK_RATIO = 0.12;
 const HORIZONTAL_RUBY_AMBIGUOUS_SCORE_RATIO = 0.9;
+const HORIZONTAL_RUBY_MERGE_MAX_SPAN_GAP_RATIO = 0.2;
 
 interface HorizontalBaseChar {
   span: TextSpan;
@@ -77,9 +79,31 @@ export function extractHorizontalRubyAnalysis(spans: readonly TextSpan[]): Horiz
     if (candidate.association) rubyAssociations.push(candidate.association);
   }
 
+  const dedupedAssociations = dedupeRubyAssociations(rubyAssociations, spans).sort(associationSortKey);
+  const baseLineBySpan = new Map<TextSpan, HorizontalBaseLine>();
+  for (const line of baseLines) {
+    for (const span of line.spans) baseLineBySpan.set(span, line);
+  }
   return {
     rubySpans: rubySpans.sort((a, b) => a.y - b.y || a.x - b.x),
-    rubyAssociations: dedupeRubyAssociations(rubyAssociations, spans).sort(associationSortKey),
+    rubyAssociations: mergeConsecutiveRubyAssociations(dedupedAssociations, {
+      getBaseRanges: (association) => association.baseRanges,
+      getReading: (association) => association.reading,
+      spanOrder: baseLines.flatMap((line) => line.spans),
+      canMerge: (group, association) => {
+        const previousRange = group.at(-1)?.baseRanges.at(-1);
+        const currentRange = association.baseRanges[0];
+        if (!previousRange || !currentRange) return false;
+        if (baseLineBySpan.get(previousRange.span) !== baseLineBySpan.get(currentRange.span)) return false;
+        if (previousRange.span === currentRange.span) return true;
+        return hasTightHorizontalBaseRangeGap(previousRange, currentRange);
+      },
+      merge: (group, baseRanges, reading) => ({
+        rubySpans: group.flatMap((association) => association.rubySpans),
+        baseRanges,
+        reading,
+      }),
+    }),
   };
 }
 
@@ -106,7 +130,7 @@ export function textWithHorizontalRuby(
   attachments: readonly HorizontalRubyTextAttachment[] | undefined,
 ): string {
   if (!attachments || attachments.length === 0) return text;
-  const sorted = [...attachments].sort((a, b) => a.offset - b.offset);
+  const sorted = mergeSameOffsetRubyTextAttachments(attachments);
   let out = '';
   let cursor = 0;
   for (const attachment of sorted) {
@@ -290,6 +314,25 @@ function horizontalBaseChars(span: TextSpan): HorizontalBaseChar[] {
     });
   }
   return out;
+}
+
+function hasTightHorizontalBaseRangeGap(previous: HorizontalRubyBaseRange, current: HorizontalRubyBaseRange): boolean {
+  const previousBox = horizontalBaseRangeBox(previous);
+  const currentBox = horizontalBaseRangeBox(current);
+  const gap = currentBox.x - (previousBox.x + previousBox.width);
+  const fontSize = Math.max(previous.span.fontSize || 0, current.span.fontSize || 0, 1);
+  return gap >= -fontSize * HORIZONTAL_RUBY_MERGE_MAX_SPAN_GAP_RATIO && gap <= Math.max(fontSize * 0.2, 2);
+}
+
+function horizontalBaseRangeBox(range: HorizontalRubyBaseRange): { x: number; width: number } {
+  const chars = Array.from(range.span.text);
+  const charWidth = range.span.width / Math.max(chars.length, 1);
+  const start = Array.from(range.span.text.slice(0, range.start)).length;
+  const end = Array.from(range.span.text.slice(0, range.end)).length;
+  return {
+    x: range.span.x + charWidth * start,
+    width: charWidth * Math.max(end - start, 0),
+  };
 }
 
 function unionHorizontalChars(chars: readonly HorizontalBaseChar[]): BBox {

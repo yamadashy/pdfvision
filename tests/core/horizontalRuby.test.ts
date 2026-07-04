@@ -60,7 +60,7 @@ function extractText(items: unknown[]): string {
 }
 
 describe('horizontal ruby', () => {
-  it('attaches per-character interleaved ruby after each CJK base glyph', () => {
+  it('merges per-character interleaved ruby across contiguous CJK base glyphs', () => {
     const result = extractText([
       textItem('権', 100, 100, 12, 12),
       textItem('けん', 101, 96, 5, 10),
@@ -72,10 +72,20 @@ describe('horizontal ruby', () => {
       textItem('やく', 137, 96, 5, 10),
     ]);
 
-    expect(result).toBe('権《けん》利《り》条《じょう》約《やく》');
+    expect(result).toBe('権利条約《けんりじょうやく》');
   });
 
-  it('attaches per-word horizontal ruby and collapses reading whitespace', () => {
+  it('merges split horizontal ruby spans that target the same base range', () => {
+    const result = extractText([
+      textItem('京都', 100, 100, 12, 24),
+      textItem('きょ', 100, 96, 5, 24),
+      textItem('う', 100, 96, 5, 24),
+    ]);
+
+    expect(result).toBe('京都《きょう》');
+  });
+
+  it('merges adjacent per-word horizontal ruby and collapses reading whitespace', () => {
     const result = extractText([
       textItem('国民', 100, 100, 12, 24),
       textItem('こくみん', 100, 96, 5, 24),
@@ -83,7 +93,7 @@ describe('horizontal ruby', () => {
       textItem('ほ け ん', 124, 96, 5, 24),
     ]);
 
-    expect(result).toBe('国民《こくみん》保険《ほけん》');
+    expect(result).toBe('国民保険《こくみんほけん》');
   });
 
   it('leaves small non-kana superscript text untouched', () => {
@@ -116,11 +126,11 @@ describe('horizontal ruby', () => {
       span('り', 116, 96, 5, 5),
     ]);
 
-    expect(layout.blocks.map((block) => block.text)).toContain('権《けん》利《り》');
+    expect(layout.blocks.map((block) => block.text)).toContain('権利《けんり》');
   });
 
   it('matches base words through horizontal ruby attachments', () => {
-    const compiled = compileSearch(['権利条約', '権《けん》利'], {});
+    const compiled = compileSearch(['権利条約', '権利条約《けんりじょうやく》'], {});
     if (!compiled) throw new Error('expected compiled search');
 
     const matches = searchPage(
@@ -141,8 +151,11 @@ describe('horizontal ruby', () => {
       compiled,
     );
 
-    expect(matches.map((match) => match.query)).toEqual(['権利条約', '権《けん》利']);
+    expect(matches.map((match) => match.query)).toEqual(['権利条約', '権利条約《けんりじょうやく》']);
     expect(matches[0]).toMatchObject({ text: '権利条約', context: '権利条約' });
-    expect(matches[1]).toMatchObject({ text: '権《けん》利', context: '権《けん》利《り》条《じょう》約《やく》' });
+    expect(matches[1]).toMatchObject({
+      text: '権利条約《けんりじょうやく》',
+      context: '権利条約《けんりじょうやく》',
+    });
   });
 });

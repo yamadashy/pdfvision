@@ -4,6 +4,7 @@ import {
   type HorizontalRubyAssociation,
   horizontalRubyReadingText,
 } from '../layout/horizontalRuby.js';
+import { mergeSameOffsetRubyTextAttachments } from '../layout/rubyMerge.js';
 import { extractBodyVerticalCjkRunAnalysis } from '../layout/verticalText.js';
 import { CJK_TIGHT_GAP_RATIO, isCjkLeading } from '../text/cjkJoin.js';
 import {
@@ -149,7 +150,11 @@ function appendSpanTextWithRuby(
   }
 
   let cursor = 0;
-  for (const attachment of [...attachments].sort((a, b) => a.offset - b.offset)) {
+  for (const attachment of mergeSameOffsetRubyTextAttachments(attachments, (left, right) => ({
+    offset: left.offset,
+    text: left.text + right.text,
+    rubySpans: [...left.rubySpans, ...right.rubySpans],
+  }))) {
     const offset = Math.max(cursor, Math.min(span.text.length, attachment.offset));
     appendTextOwners(state, span.text.slice(cursor, offset), span);
     const rangeStart = state.text.length;

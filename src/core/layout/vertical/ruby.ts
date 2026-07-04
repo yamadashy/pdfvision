@@ -1,5 +1,6 @@
 import type { TextSpan } from '../../../types/index.js';
 import { round2 } from '../geometry.js';
+import { mergeConsecutiveRubyAssociations } from '../rubyMerge.js';
 import {
   BODY_VERTICAL_CJK_MIN_RUN_SPANS,
   collectBodyVerticalCjkRuns,
@@ -244,9 +245,32 @@ function associateRubyRuns(
     const { xGap: _xGap, ...association } = candidates[0];
     associations.push(association);
   }
-  return associations.sort(
+  const sorted = associations.sort(
     (a, b) => b.baseColumn.centerX - a.baseColumn.centerX || bodyRunTop(a.ruby) - bodyRunTop(b.ruby),
   );
+  return mergeConsecutiveRubyAssociations(sorted, {
+    getBaseRanges: (association) => association.baseRanges,
+    getReading: rubyAssociationText,
+    spanOrder: bodyColumns.flatMap((column) => column.spans),
+    canMerge: (group, association) => group.at(-1)?.baseColumn === association.baseColumn,
+    merge: (group, baseRanges) => {
+      const rubySpans = group.flatMap((association) => association.ruby.spans);
+      return {
+        ruby: {
+          centerX: round2(rubySpans.reduce((sum, span) => sum + centerX(span), 0) / Math.max(rubySpans.length, 1)),
+          fontSize: round2(
+            rubySpans.reduce((sum, span) => sum + (span.fontSize || FONT_SIZE_FALLBACK_PT), 0) /
+              Math.max(rubySpans.length, 1),
+          ),
+          spans: rubySpans,
+        },
+        baseColumn: group[0].baseColumn,
+        baseSpans: baseSpansFromRanges(baseRanges),
+        baseRanges: [...baseRanges],
+        confidence: Math.min(...group.map((association) => association.confidence)),
+      };
+    },
+  });
 }
 
 function rubyAssociationCandidate(
