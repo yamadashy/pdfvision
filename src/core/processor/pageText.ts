@@ -46,6 +46,24 @@ interface RubyTextAttachment {
   text: string;
 }
 
+interface PageTextIntakeInput extends ExtractPageTextInput {
+  wantSpans: boolean;
+}
+
+interface PageTextIntakeResult {
+  joinItems: JoinItem[];
+  textArea: number;
+  spans: TextSpan[];
+  verticalJoinSpans: TextSpan[];
+  verticalJoinSpanIndices: ReadonlyMap<TextSpan, number>;
+}
+
+interface RawPageTextInput {
+  joinItems: readonly JoinItem[];
+  verticalJoinSpans: readonly TextSpan[];
+  verticalJoinSpanIndices: ReadonlyMap<TextSpan, number>;
+}
+
 export interface ExtractedPageText {
   text: string;
   rawText?: string;
@@ -72,6 +90,43 @@ export function extractPageText({
     flags.needSpansForWarnings ||
     flags.needFormFieldsForSearch;
 
+  const { joinItems, textArea, spans, verticalJoinSpans, verticalJoinSpanIndices } = collectPageTextItems({
+    content,
+    flags,
+    pageHeight,
+    viewMinX,
+    viewMinY,
+    wantSpans,
+  });
+  const rawText = composeRawPageText({
+    joinItems,
+    verticalJoinSpans,
+    verticalJoinSpanIndices,
+  });
+  const text = flags.normalize ? normalizeText(rawText) : rawText;
+  const nonPrintableSourceText = flags.normalize ? normalizeTextForNonPrintableStats(rawText) : rawText;
+  const preservedRaw = flags.normalize && rawText !== text ? rawText : undefined;
+
+  return {
+    text,
+    rawText: preservedRaw,
+    nonPrintableSourceText,
+    textArea,
+    spans,
+    ...(flags.needSpansForSearch && {
+      searchSpans: spans,
+    }),
+  };
+}
+
+function collectPageTextItems({
+  content,
+  flags,
+  pageHeight,
+  viewMinX,
+  viewMinY,
+  wantSpans,
+}: PageTextIntakeInput): PageTextIntakeResult {
   // Collect typed items for the CJK-aware page-text joiner. We can't
   // build the final string in this loop because the join decision for
   // a whitespace item depends on its neighbours' positions, which we
@@ -158,6 +213,16 @@ export function extractPageText({
     }
   }
 
+  return {
+    joinItems,
+    textArea,
+    spans,
+    verticalJoinSpans,
+    verticalJoinSpanIndices,
+  };
+}
+
+function composeRawPageText({ joinItems, verticalJoinSpans, verticalJoinSpanIndices }: RawPageTextInput): string {
   const verticalAnalysis = extractBodyVerticalCjkRunAnalysis(verticalJoinSpans);
   const tallVerticalRuns = extractTallVerticalRuns(verticalJoinSpans).filter((run) => run.hasTatechuyoko);
   const verticalAnalysisSpans = collectVerticalAnalysisSpans(verticalAnalysis);
@@ -185,7 +250,7 @@ export function extractPageText({
     collectHorizontalRubyTextAttachments(horizontalAnalysis.rubyAssociations, verticalJoinSpanIndices),
   );
   const filteredJoin = filterRubyJoinItems(joinItems, excludedTextItemIndices, rubyAttachments);
-  const rawText = joinPageText(filteredJoin.items, {
+  return joinPageText(filteredJoin.items, {
     verticalRuns: [
       ...buildTallVerticalJoinRuns(tallVerticalRuns, verticalJoinSpanIndices, filteredJoin.indexMap),
       ...buildVerticalJoinRuns(
@@ -196,20 +261,6 @@ export function extractPageText({
       ),
     ],
   }).trimEnd();
-  const text = flags.normalize ? normalizeText(rawText) : rawText;
-  const nonPrintableSourceText = flags.normalize ? normalizeTextForNonPrintableStats(rawText) : rawText;
-  const preservedRaw = flags.normalize && rawText !== text ? rawText : undefined;
-
-  return {
-    text,
-    rawText: preservedRaw,
-    nonPrintableSourceText,
-    textArea,
-    spans,
-    ...(flags.needSpansForSearch && {
-      searchSpans: spans,
-    }),
-  };
 }
 
 function buildTallVerticalJoinRuns(
