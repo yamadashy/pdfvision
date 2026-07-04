@@ -12,6 +12,10 @@ const HORIZONTAL_RUBY_MAX_BASE_GAP_RATIO = 0.55;
 const HORIZONTAL_RUBY_BASE_CENTER_SLACK_RATIO = 0.12;
 const HORIZONTAL_RUBY_AMBIGUOUS_SCORE_RATIO = 0.9;
 const HORIZONTAL_RUBY_MERGE_MAX_SPAN_GAP_RATIO = 0.2;
+const HORIZONTAL_RUBY_CONTINUATION_LINE_TOLERANCE_RATIO = 0.25;
+const HORIZONTAL_RUBY_CONTINUATION_MAX_GAP_RATIO = 0.25;
+const HORIZONTAL_RUBY_CONTINUATION_BASE_SLACK_RATIO = 0.45;
+const PINYIN_RUBY_MAX_LENGTH = 7;
 
 interface HorizontalBaseChar {
   span: TextSpan;
@@ -26,6 +30,13 @@ interface HorizontalBaseLine {
   spans: TextSpan[];
   chars: HorizontalBaseChar[];
   box: BBox;
+  fontSize: number;
+  cjkDominant: boolean;
+}
+
+interface HorizontalSpanGroup {
+  spans: TextSpan[];
+  y: number;
   fontSize: number;
 }
 
@@ -69,14 +80,33 @@ export function extractHorizontalRubyAnalysis(spans: readonly TextSpan[]): Horiz
 
   const baseLines = buildHorizontalBaseLines(spans);
   if (baseLines.length === 0) return { rubySpans: [], rubyAssociations: [] };
+  const maxBaseTopGap = Math.max(
+    ...baseLines.map((line) => Math.max(line.fontSize * HORIZONTAL_RUBY_MAX_TOP_GAP_RATIO, line.fontSize + 2)),
+  );
 
   const rubySpans: TextSpan[] = [];
   const rubyAssociations: HorizontalRubyAssociation[] = [];
+  let previousAssociation: HorizontalRubyAssociation | undefined;
   for (const rubySpan of rubyCandidates) {
-    const candidate = classifyHorizontalRubyCandidate(rubySpan, baseLines);
-    if (!candidate.shouldExclude) continue;
+    const candidate = classifyHorizontalRubyCandidate(rubySpan, baseLines, maxBaseTopGap);
+    if (!candidate.shouldExclude) {
+      if (
+        previousAssociation &&
+        isStandaloneScriptGText(rubySpan.text) &&
+        attachPinyinContinuationRubySpan(rubySpan, previousAssociation, rubySpans)
+      ) {
+        continue;
+      }
+      previousAssociation = undefined;
+      continue;
+    }
     rubySpans.push(rubySpan);
-    if (candidate.association) rubyAssociations.push(candidate.association);
+    if (candidate.association) {
+      rubyAssociations.push(candidate.association);
+      previousAssociation = candidate.association;
+    } else {
+      previousAssociation = undefined;
+    }
   }
 
   const dedupedAssociations = dedupeRubyAssociations(rubyAssociations, spans).sort(associationSortKey);
@@ -149,19 +179,28 @@ export function horizontalRubyReadingText(association: HorizontalRubyAssociation
 function classifyHorizontalRubyCandidate(
   rubySpan: TextSpan,
   baseLines: readonly HorizontalBaseLine[],
+  maxBaseTopGap: number,
 ): HorizontalRubyCandidate {
-  const matches = baseLines
-    .map((line) => matchHorizontalRubyToBaseLine(rubySpan, line))
-    .filter((match): match is HorizontalRubyCandidateMatch => match !== undefined)
-    .sort((a, b) => b.score - a.score);
-
-  const best = matches[0];
+  const requiresCjkDominantBaseLine = isPinyinRubyText(rubySpan.text);
+  let best: HorizontalRubyCandidateMatch | undefined;
+  let second: HorizontalRubyCandidateMatch | undefined;
+  const minBaseY = rubySpan.y - Math.max(rubySpan.height * 0.25, 1);
+  const maxBaseY = rubySpan.y + maxBaseTopGap;
+  for (const line of baseLines) {
+    if (line.box.y < minBaseY) continue;
+    if (line.box.y > maxBaseY) break;
+    const match = matchHorizontalRubyToBaseLine(rubySpan, line, requiresCjkDominantBaseLine);
+    if (!match) continue;
+    if (!best || match.score > best.score) {
+      second = best;
+      best = match;
+    } else if (!second || match.score > second.score) {
+      second = match;
+    }
+  }
   if (!best) return { rubySpan, shouldExclude: false };
 
-  if (
-    best.ambiguous ||
-    (matches[1] !== undefined && matches[1].score >= best.score * HORIZONTAL_RUBY_AMBIGUOUS_SCORE_RATIO)
-  ) {
+  if (best.ambiguous || (second !== undefined && second.score >= best.score * HORIZONTAL_RUBY_AMBIGUOUS_SCORE_RATIO)) {
     return { rubySpan, shouldExclude: true };
   }
 
@@ -179,7 +218,9 @@ function classifyHorizontalRubyCandidate(
 function matchHorizontalRubyToBaseLine(
   rubySpan: TextSpan,
   line: HorizontalBaseLine,
+  requiresCjkDominantBaseLine: boolean,
 ): HorizontalRubyCandidateMatch | undefined {
+  if (requiresCjkDominantBaseLine && !line.cjkDominant) return undefined;
   if (line.fontSize <= 0 || rubySpan.fontSize <= 0) return undefined;
   if (rubySpan.fontSize > line.fontSize * HORIZONTAL_RUBY_MAX_FONT_RATIO) return undefined;
 
@@ -209,39 +250,98 @@ function matchHorizontalRubyToBaseLine(
   };
 }
 
+function attachPinyinContinuationRubySpan(
+  continuation: TextSpan,
+  association: HorizontalRubyAssociation,
+  rubySpans: TextSpan[],
+): boolean {
+  if (pinyinContinuationAttachmentScore(continuation, association) === undefined) return false;
+  association.rubySpans = [...association.rubySpans, continuation];
+  association.reading += normalizeRubyReading(continuation.text);
+  rubySpans.push(continuation);
+  return true;
+}
+
+function pinyinContinuationAttachmentScore(
+  continuation: TextSpan,
+  association: HorizontalRubyAssociation,
+): number | undefined {
+  const previousRuby = association.rubySpans.at(-1);
+  const baseEnd = association.baseRanges.at(-1);
+  if (!previousRuby || !baseEnd) return undefined;
+
+  const rubyFontSize = Math.max(previousRuby.fontSize || 0, continuation.fontSize || 0, 1);
+  const lineTolerance = Math.max(rubyFontSize * HORIZONTAL_RUBY_CONTINUATION_LINE_TOLERANCE_RATIO, 1);
+  if (Math.abs(continuation.y - previousRuby.y) > lineTolerance) return undefined;
+
+  const sizeRatio = continuation.fontSize / Math.max(previousRuby.fontSize, 0.001);
+  if (sizeRatio < 0.8 || sizeRatio > 1.2) return undefined;
+
+  const gap = continuation.x - (previousRuby.x + previousRuby.width);
+  if (gap < -Math.max(rubyFontSize * 0.15, 1)) return undefined;
+  if (gap > Math.max(rubyFontSize * HORIZONTAL_RUBY_CONTINUATION_MAX_GAP_RATIO, 2)) return undefined;
+
+  const baseBox = horizontalBaseRangeBox(baseEnd);
+  const baseSlack = Math.max(
+    (baseEnd.span.fontSize || rubyFontSize) * HORIZONTAL_RUBY_CONTINUATION_BASE_SLACK_RATIO,
+    2,
+  );
+  if (continuation.x + continuation.width < baseBox.x - baseSlack) return undefined;
+  if (continuation.x > baseBox.x + baseBox.width + baseSlack) return undefined;
+
+  return Math.abs(gap) + Math.abs(continuation.y - previousRuby.y);
+}
+
 function buildHorizontalBaseLines(spans: readonly TextSpan[]): HorizontalBaseLine[] {
-  const candidates = spans.filter((span) => !hasVerticalTextShape(span) && spanHasHorizontalRubyBaseText(span));
-  const groups: TextSpan[][] = [];
-  for (const span of [...candidates].sort((a, b) => a.y - b.y || a.x - b.x)) {
-    const group = groups.find((item) => canShareBaseLine(span, item));
-    if (group) {
-      group.push(span);
-    } else {
-      groups.push([span]);
-    }
-  }
+  const horizontalSpans = spans.filter((span) => !hasVerticalTextShape(span));
+  const dominanceGroups = groupHorizontalSpansByBaseline(horizontalSpans);
+  const candidates = horizontalSpans.filter(spanHasHorizontalRubyBaseText);
+  const groups = groupHorizontalSpansByBaseline(candidates);
 
   return groups
     .map((group) => {
-      const spansInLine = [...group].sort((a, b) => a.x - b.x);
+      const spansInLine = [...group.spans].sort((a, b) => a.x - b.x);
+      const dominanceSpans = dominanceGroups.find((sourceGroup) =>
+        canShareBaselineGroup(spansInLine[0], sourceGroup),
+      )?.spans;
       const chars = spansInLine.flatMap(horizontalBaseChars);
       return {
         spans: spansInLine,
         chars,
         box: unionBox(spansInLine),
         fontSize: median(spansInLine.map((span) => span.fontSize || span.height).filter((fontSize) => fontSize > 0)),
+        cjkDominant: isCjkDominantTextLine(dominanceSpans ?? spansInLine),
       };
     })
-    .filter((line) => line.chars.length > 0 && line.fontSize > 0);
+    .filter((line) => line.chars.length > 0 && line.fontSize > 0)
+    .sort((a, b) => a.box.y - b.box.y || a.box.x - b.box.x);
 }
 
-function canShareBaseLine(span: TextSpan, group: readonly TextSpan[]): boolean {
-  const fontSize = span.fontSize || span.height || 12;
-  const groupFontSize =
-    median(group.map((item) => item.fontSize || item.height).filter((item) => item > 0)) || fontSize;
-  const tolerance = Math.max(Math.min(fontSize, groupFontSize) * HORIZONTAL_RUBY_LINE_Y_TOLERANCE_RATIO, 2);
-  const groupY = median(group.map((item) => item.y));
-  return Math.abs(span.y - groupY) <= tolerance;
+function groupHorizontalSpansByBaseline(spans: readonly TextSpan[]): HorizontalSpanGroup[] {
+  const groups: HorizontalSpanGroup[] = [];
+  for (const span of [...spans].sort((a, b) => a.y - b.y || a.x - b.x)) {
+    const group = groups.find((item) => canShareBaselineGroup(span, item));
+    if (group) {
+      const previousCount = group.spans.length;
+      group.spans.push(span);
+      group.y += (span.y - group.y) / (previousCount + 1);
+      group.fontSize += (spanFontSize(span) - group.fontSize) / (previousCount + 1);
+    } else {
+      groups.push({ spans: [span], y: span.y, fontSize: spanFontSize(span) });
+    }
+  }
+  return groups;
+}
+
+function canShareBaselineGroup(span: TextSpan | undefined, group: HorizontalSpanGroup): boolean {
+  if (!span) return false;
+  const fontSize = spanFontSize(span);
+  const tolerance = Math.max(Math.min(fontSize, group.fontSize) * HORIZONTAL_RUBY_LINE_Y_TOLERANCE_RATIO, 2);
+  return Math.abs(span.y - group.y) <= tolerance;
+}
+
+function spanFontSize(span: TextSpan): number {
+  return span.fontSize || span.height || 12;
 }
 
 function selectOverlappingBaseChars(rubySpan: TextSpan, line: HorizontalBaseLine): HorizontalBaseChar[] {
@@ -373,7 +473,7 @@ function isPotentialHorizontalRubySpan(span: TextSpan): boolean {
   if (span.text.trim().length === 0) return false;
   if (hasVerticalTextShape(span)) return false;
   if (span.fontSize <= 0 || span.width <= 0 || span.height <= 0) return false;
-  return isKanaOnlyRubyText(span.text);
+  return isKanaOnlyRubyText(span.text) || isPinyinRubyText(span.text);
 }
 
 function spanHasHorizontalRubyBaseText(span: TextSpan): boolean {
@@ -385,6 +485,18 @@ function isKanaOnlyRubyText(text: string): boolean {
   return compact.length > 0 && Array.from(compact).every(isKanaRubyChar);
 }
 
+function isPinyinRubyText(text: string): boolean {
+  const compact = normalizeRubyReading(text);
+  const chars = Array.from(compact);
+  if (chars.length === 0 || chars.length > PINYIN_RUBY_MAX_LENGTH) return false;
+  if (chars.some(isDigitChar)) return false;
+  return (
+    chars.every(isPinyinRubyChar) &&
+    (chars.some(isPinyinVowelChar) || isStandaloneScriptGReading(chars)) &&
+    hasPinyinReadingSignal(chars)
+  );
+}
+
 function normalizeRubyReading(text: string): string {
   return text.replace(/\s+/gu, '');
 }
@@ -393,8 +505,64 @@ function isKanaRubyChar(char: string): boolean {
   return /^[\u3040-\u309f\u30a0-\u30ff\uff66-\uff9f]$/u.test(char);
 }
 
+function isPinyinRubyChar(char: string): boolean {
+  if (/^[a-z]$/u.test(char)) return true;
+  if (isPinyinScriptGChar(char)) return true;
+  return /^[\u00e0-\u01d4\u01d6\u01d8\u01da\u01dc]$/u.test(char) && isPinyinVowelChar(char);
+}
+
+function isPinyinScriptGChar(char: string): boolean {
+  return char === '\u0261';
+}
+
+function isPinyinVowelChar(char: string): boolean {
+  const base = char.normalize('NFD').replace(/\p{Mark}/gu, '');
+  return /^[aeiou]$/u.test(base);
+}
+
+function hasPinyinReadingSignal(chars: readonly string[]): boolean {
+  return chars.length > 1 || chars.some(isMarkedPinyinVowelChar) || isStandaloneScriptGReading(chars);
+}
+
+function isMarkedPinyinVowelChar(char: string): boolean {
+  return !/^[a-z]$/u.test(char) && isPinyinVowelChar(char);
+}
+
+function isStandaloneScriptGReading(chars: readonly string[]): boolean {
+  return chars.length === 1 && isPinyinScriptGChar(chars[0] ?? '');
+}
+
+function isStandaloneScriptGText(text: string): boolean {
+  return isStandaloneScriptGReading(Array.from(normalizeRubyReading(text)));
+}
+
 function isHorizontalRubyBaseChar(char: string): boolean {
   return /^[\p{Script=Han}\u3005\u3007\u303bヶヵ]$/u.test(char);
+}
+
+function isCjkDominantTextLine(spans: readonly TextSpan[]): boolean {
+  let cjkChars = 0;
+  let textChars = 0;
+  for (const span of spans) {
+    for (const char of Array.from(span.text)) {
+      if (!isTextualChar(char)) continue;
+      textChars++;
+      if (isCjkTextChar(char)) cjkChars++;
+    }
+  }
+  return cjkChars > 0 && cjkChars / Math.max(textChars, 1) >= 0.5;
+}
+
+function isCjkTextChar(char: string): boolean {
+  return /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]$/u.test(char);
+}
+
+function isTextualChar(char: string): boolean {
+  return /^[\p{Letter}\p{Number}]$/u.test(char);
+}
+
+function isDigitChar(char: string): boolean {
+  return /^\p{Number}$/u.test(char);
 }
 
 function horizontalOverlap(a: { x: number; width: number }, b: { x: number; width: number }): number {

@@ -96,10 +96,57 @@ describe('horizontal ruby', () => {
     expect(result).toBe('国民保険《こくみんほけん》');
   });
 
+  it('attaches pinyin-shaped ruby with tone marks above CJK base glyphs', () => {
+    const result = extractText([
+      textItem('云', 100, 100, 12, 12),
+      textItem('yún', 100, 96, 5, 12),
+      textItem('剛', 112, 100, 12, 12),
+      textItem('ɡānɡ', 112, 96, 5, 12),
+      textItem('女', 124, 100, 12, 12),
+      textItem('nǚ', 124, 96, 5, 12),
+    ]);
+
+    expect(result).toBe('云剛女《yúnɡānɡnǚ》');
+  });
+
+  it('merges split pinyin script-g ruby spans with the same CJK base glyph', () => {
+    const result = extractText([
+      textItem('長', 100, 100, 12, 12),
+      textItem('chán', 96, 96, 5, 16),
+      textItem('ɡ', 113, 96, 5, 3),
+    ]);
+
+    expect(result).toBe('長《chánɡ》');
+  });
+
   it('leaves small non-kana superscript text untouched', () => {
     const result = extractText([textItem('法律', 100, 100, 12, 24), textItem('fn', 104, 96, 5, 8)]);
 
     expect(result).toBe('法律\n\nfn');
+  });
+
+  it('leaves small English footnote letters above Latin text untouched', () => {
+    const result = extractText([textItem('Reference', 100, 100, 12, 90), textItem('a', 104, 96, 6, 4)]);
+
+    expect(result).toBe('Reference\n\na');
+  });
+
+  it('leaves one-letter English footnote markers above CJK untouched', () => {
+    const result = extractText([textItem('法律', 100, 100, 12, 24), textItem('a', 104, 96, 5, 4)]);
+
+    expect(result).toBe('法律\n\na');
+  });
+
+  it('leaves normal-size English words above CJK untouched', () => {
+    const result = extractText([textItem('云', 100, 100, 12, 12), textItem('fan', 100, 92, 10, 12)]);
+
+    expect(result).toBe('云\n\nfan');
+  });
+
+  it('leaves digit-containing superscript text above CJK untouched', () => {
+    const result = extractText([textItem('得', 100, 100, 12, 12), textItem('de2', 101, 96, 5, 10)]);
+
+    expect(result).toBe('得\n\nde2');
   });
 
   it('leaves kana text above CJK untouched when the size ratio is too large for ruby', () => {
