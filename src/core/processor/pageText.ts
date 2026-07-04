@@ -48,6 +48,7 @@ export function extractPageText({
     flags.formFields ||
     flags.links ||
     flags.needSpansForSearch ||
+    flags.needSpansForWarnings ||
     flags.needFormFieldsForSearch;
 
   // Collect typed items for the CJK-aware page-text joiner. We can't

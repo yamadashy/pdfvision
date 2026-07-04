@@ -16,6 +16,7 @@ const BASE_FLAGS: PageFlags = {
   structure: false,
   viewer: false,
   needSpansForSearch: false,
+  needSpansForWarnings: false,
   needFormFieldsForSearch: false,
   needAnnotationsForSearch: false,
   needLinksForSearch: false,

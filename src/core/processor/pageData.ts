@@ -30,6 +30,9 @@ export interface PageData {
    *  are present; lives separately so the public PageResult.spans
    *  gating stays the simple "geometry on / off" rule. */
   _internalSpans?: TextSpan[];
+  /** Internal spans used for warnings even when public pages[].spans
+   *  was not requested. */
+  _warningSpans?: TextSpan[];
   layout?: PageLayout;
   imageBoxes?: ImageBox[];
   _warningImageBoxes?: ImageBox[];
@@ -65,6 +68,9 @@ export interface PageFlags {
    *  was requested. Search needs them for per-match bbox; the public
    *  `pages[].spans` payload still requires `geometry`. */
   needSpansForSearch: boolean;
+  /** Build spans internally for always-on warning rules without
+   *  exposing pages[].spans unless geometry was requested. */
+  needSpansForWarnings: boolean;
   /** Build form fields internally so search can find visible widget
    *  values without forcing pages[].formFields into the public payload. */
   needFormFieldsForSearch: boolean;

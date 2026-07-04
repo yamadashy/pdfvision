@@ -242,6 +242,7 @@ export async function extractPageData(
     // PageData would waste memory on the typical extraction.
     ...(flags.geometry && { spans }),
     ...(flags.needSpansForSearch && { _internalSpans: spans }),
+    ...(flags.needSpansForWarnings && { _warningSpans: spans }),
     ...(layout !== undefined && { layout }),
     ...(imageBoxes !== undefined && { imageBoxes }),
     _warningImageBoxes: allBoxes,

@@ -27,6 +27,7 @@ export function buildPageFlags(options: ProcessDocumentOptions, state: BuildPage
     // build spans internally even if the caller didn't ask for the
     // full `pages[].spans` payload via --geometry.
     needSpansForSearch: state.hasSearch,
+    needSpansForWarnings: true,
     needFormFieldsForSearch: state.hasSearch,
     needLinksForSearch: state.hasSearch,
     needAnnotationsForSearch: state.hasSearch,
