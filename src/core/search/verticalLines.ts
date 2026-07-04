@@ -42,6 +42,7 @@ export function buildVerticalSearchLines(spans: readonly TextSpan[]): SearchLine
     if (line) lines.push(line);
   }
   for (const span of bodyRunAnalysis.rubySpans) usedVerticalSpans.add(span);
+  for (const span of bodyRunAnalysis.gutterAnnotationSpans) usedVerticalSpans.add(span);
 
   const tallRuns = extractTallVerticalRuns(spans.filter((span) => !usedVerticalSpans.has(span))).filter(
     (run) => run.hasTatechuyoko,

@@ -155,8 +155,13 @@ export function extractPageText({
   const verticalAnalysis = extractBodyVerticalCjkRunAnalysis(verticalJoinSpans);
   const tallVerticalRuns = extractTallVerticalRuns(verticalJoinSpans).filter((run) => run.hasTatechuyoko);
   const rubyItemIndices = collectRubyItemIndices(verticalAnalysis.rubySpans, verticalJoinSpanIndices);
+  const gutterAnnotationItemIndices = collectRubyItemIndices(
+    verticalAnalysis.gutterAnnotationSpans,
+    verticalJoinSpanIndices,
+  );
+  const excludedVerticalItemIndices = new Set([...rubyItemIndices, ...gutterAnnotationItemIndices]);
   const rubyAttachments = collectRubyTextAttachments(verticalAnalysis.rubyAssociations, verticalJoinSpanIndices);
-  const filteredJoin = filterRubyJoinItems(joinItems, rubyItemIndices, rubyAttachments);
+  const filteredJoin = filterRubyJoinItems(joinItems, excludedVerticalItemIndices, rubyAttachments);
   const rawText = joinPageText(filteredJoin.items, {
     verticalRuns: [
       ...buildTallVerticalJoinRuns(tallVerticalRuns, verticalJoinSpanIndices, filteredJoin.indexMap),

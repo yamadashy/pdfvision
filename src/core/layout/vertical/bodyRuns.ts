@@ -33,10 +33,23 @@ const BODY_VERTICAL_CJK_COLUMN_OVERLAP_RATIO = 0.05;
 const SHORT_BODY_VERTICAL_CJK_MIN_RUN_SPANS = 3;
 const SHORT_BODY_VERTICAL_CJK_MIN_FONT_RATIO = 0.75;
 const SHORT_BODY_VERTICAL_CJK_MAX_FONT_RATIO = 1.25;
+const BODY_VERTICAL_INLINE_GLYPH_RE = /^[A-Za-z()]$/u;
 
 function isBodyVerticalCjkGlyph(span: TextSpan): boolean {
   const text = span.text.trim();
   if (!BODY_VERTICAL_CJK_GLYPH_RE.test(text)) return false;
+  if ([...text].length !== 1) return false;
+
+  return hasBodyVerticalGlyphBox(span);
+}
+
+function isBodyVerticalRunGlyph(span: TextSpan): boolean {
+  return isBodyVerticalCjkGlyph(span) || isBodyVerticalInlineGlyph(span);
+}
+
+function isBodyVerticalInlineGlyph(span: TextSpan): boolean {
+  const text = span.text.trim();
+  if (!BODY_VERTICAL_INLINE_GLYPH_RE.test(text)) return false;
   if ([...text].length !== 1) return false;
 
   return hasBodyVerticalGlyphBox(span);
@@ -83,7 +96,7 @@ function canContinueBodyVerticalBlock(prev: VerticalCjkRun, cur: VerticalCjkRun)
 }
 
 export function collectBodyVerticalCjkRuns(spans: readonly TextSpan[], minRunSpans: number): VerticalCjkRun[] {
-  const candidates = spans.filter(isBodyVerticalCjkGlyph).sort((a, b) => centerX(b) - centerX(a) || a.y - b.y);
+  const candidates = spans.filter(isBodyVerticalRunGlyph).sort((a, b) => centerX(b) - centerX(a) || a.y - b.y);
   if (candidates.length < minRunSpans) return [];
 
   const columns: TextSpan[][] = [];
@@ -108,7 +121,7 @@ export function collectBodyVerticalCjkRuns(spans: readonly TextSpan[], minRunSpa
     const sortedColumn = [...column].sort((a, b) => a.y - b.y || a.x - b.x);
     let run: TextSpan[] = [];
     const flush = () => {
-      const verticalRun = toVerticalGlyphRun(run, minRunSpans);
+      const verticalRun = toBodyVerticalGlyphRun(run, minRunSpans);
       if (verticalRun) runs.push(verticalRun);
       run = [];
     };
@@ -125,6 +138,11 @@ export function collectBodyVerticalCjkRuns(spans: readonly TextSpan[], minRunSpa
   }
 
   return runs;
+}
+
+function toBodyVerticalGlyphRun(run: TextSpan[], minRunSpans: number): VerticalCjkRun | undefined {
+  if (!run.some(isBodyVerticalCjkGlyph)) return undefined;
+  return toVerticalGlyphRun(run, minRunSpans);
 }
 
 export function collectTallBodyVerticalCjkRuns(spans: readonly TextSpan[]): {

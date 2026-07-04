@@ -43,6 +43,47 @@ describe('vertical body runs', () => {
     expect(verticalBlocks[0].lines.every((line) => line.writingMode === 'vertical')).toBe(true);
   });
 
+  it('excludes short larger-than-ruby right-gutter annotations from body columns', () => {
+    const body = verticalGlyphs('本文甲乙丙丁戊己庚辛', 300, 100, 10);
+    const annotation = verticalGlyphTexts(['(', '注', '%', ')'], 310, 124, 8);
+    const spans = [...body.slice(0, 4), ...annotation, ...body.slice(4)];
+
+    const analysis = extractBodyVerticalCjkRunAnalysis(spans);
+    expect(analysis.gutterAnnotationSpans.map((item) => item.text).join('')).toBe('(注%)');
+    expect(analysis.blocks[0].columns.map((column) => column.spans.map((item) => item.text).join(''))).toEqual([
+      '本文甲乙丙丁戊己庚辛',
+    ]);
+
+    const layout = buildLayout(spans, 595);
+    const verticalBlocks = layout.blocks.filter((block) => block.writingMode === 'vertical');
+    expect(verticalBlocks).toHaveLength(1);
+    expect(verticalBlocks[0].text).toBe('本文甲乙丙丁戊己庚辛');
+    expect(layout.blocks.some((block) => block.text.includes('注'))).toBe(false);
+  });
+
+  it('keeps half-size right-gutter ruby classified as ruby, not annotation', () => {
+    const body = verticalGlyphs('本文甲乙丙丁戊己庚辛', 300, 100, 10);
+    const ruby = verticalGlyphs('ふりがな', 310, 114, 6);
+
+    const analysis = extractBodyVerticalCjkRunAnalysis([...body, ...ruby]);
+
+    expect(analysis.rubySpans.map((item) => item.text).join('')).toBe('ふりがな');
+    expect(analysis.gutterAnnotationSpans).toEqual([]);
+  });
+
+  it('keeps a body-sized one-pitch adjacent column as body, not annotation', () => {
+    const rightColumn = verticalGlyphs('右側本文甲乙', 310, 100, 10);
+    const leftColumn = verticalGlyphs('左側本文甲乙', 300, 100, 10);
+
+    const analysis = extractBodyVerticalCjkRunAnalysis([...rightColumn, ...leftColumn]);
+
+    expect(analysis.gutterAnnotationSpans).toEqual([]);
+    expect(analysis.blocks[0].columns.map((column) => column.spans.map((item) => item.text).join(''))).toEqual([
+      '右側本文甲乙',
+      '左側本文甲乙',
+    ]);
+  });
+
   it('does not accept the same short ellipsis column without vertical body context', () => {
     const shortColumn = verticalGlyphTexts(['そ', 'れ', 'と', 'も', '...', '...'], 120, 100, 12);
 

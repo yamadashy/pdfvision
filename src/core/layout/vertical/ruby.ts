@@ -40,6 +40,9 @@ const RUBY_VERTICAL_CJK_MAX_CHARS = 12;
 const RUBY_VERTICAL_CJK_MAX_WIDTH_RATIO = 1.8;
 const RUBY_VERTICAL_CJK_MIN_HEIGHT_RATIO = 0.55;
 const RUBY_VERTICAL_CJK_MAX_HEIGHT_RATIO = 1.6;
+const GUTTER_ANNOTATION_MAX_SPANS = 6;
+const GUTTER_ANNOTATION_MAX_FONT_RATIO = 0.9;
+const GUTTER_ANNOTATION_MAX_GLYPH_SIZE_RATIO = 1.8;
 
 function collectRubyVerticalCjkRuns(
   spans: readonly TextSpan[],
@@ -137,7 +140,8 @@ export function extractBodyVerticalCjkRunAnalysis(spans: readonly TextSpan[]): B
   const bodyRuns = collectBodyVerticalCjkRuns(spans, BODY_VERTICAL_CJK_MIN_RUN_SPANS);
   const tallBodyRuns = collectTallBodyVerticalCjkRuns(spans);
   const bodyAnchorRuns = [...bodyRuns, ...tallBodyRuns.rubyAnchorRuns];
-  if (bodyAnchorRuns.length === 0) return { blocks: [], rubySpans: [], rubyAssociations: [] };
+  if (bodyAnchorRuns.length === 0)
+    return { blocks: [], rubySpans: [], gutterAnnotationSpans: [], rubyAssociations: [] };
 
   const rubyRuns = [
     ...collectBodyVerticalCjkRuns(spans, 1).filter((run) => isRubyVerticalRun(run, bodyRuns)),
@@ -159,10 +163,15 @@ export function extractBodyVerticalCjkRunAnalysis(spans: readonly TextSpan[]): B
   );
   const shortBodyRuns = collectShortBodyVerticalCjkRuns(spans, nonRubyBodyRuns, rubySpanSet);
   const bodyColumns = [...nonRubyBodyRuns, ...tallBodyRunsWithRubyContext, ...shortBodyRuns];
+  const gutterAnnotationRuns = collectGutterAnnotationRuns(spans, bodyColumns, rubySpanSet);
+  const gutterAnnotationSpans = gutterAnnotationRuns
+    .flatMap((run) => run.spans)
+    .sort((a, b) => centerX(b) - centerX(a) || a.y - b.y);
 
   return {
     blocks: groupBodyVerticalRunsIntoBlocks(bodyColumns),
     rubySpans: rubySpans.sort((a, b) => centerX(b) - centerX(a) || a.y - b.y),
+    gutterAnnotationSpans,
     rubyAssociations: associateRubyRuns(rubyRuns, bodyColumns),
   };
 }
@@ -271,6 +280,135 @@ export function isRubyAdjacentToBodyColumn(ruby: VerticalCjkRun, body: VerticalC
 
   const overlap = Math.min(bodyRunBottom(ruby), bodyRunBottom(body)) - Math.max(bodyRunTop(ruby), bodyRunTop(body));
   return overlap > 0;
+}
+
+function collectGutterAnnotationRuns(
+  spans: readonly TextSpan[],
+  bodyColumns: readonly VerticalCjkRun[],
+  excludedSpans: ReadonlySet<TextSpan>,
+): VerticalCjkRun[] {
+  if (bodyColumns.length === 0) return [];
+
+  const bodySpans = new Set<TextSpan>();
+  for (const body of bodyColumns) {
+    for (const span of body.spans) bodySpans.add(span);
+  }
+
+  const candidatesByBody = new Map<VerticalCjkRun, TextSpan[]>();
+  for (const span of spans) {
+    if (bodySpans.has(span) || excludedSpans.has(span)) continue;
+    const body = nearestGutterAnnotationBody(span, bodyColumns);
+    if (!body) continue;
+    const existing = candidatesByBody.get(body);
+    if (existing) {
+      existing.push(span);
+    } else {
+      candidatesByBody.set(body, [span]);
+    }
+  }
+
+  const runs: VerticalCjkRun[] = [];
+  const claimed = new Set<TextSpan>();
+  for (const [body, candidates] of candidatesByBody) {
+    const columns = groupGutterAnnotationColumns(candidates.filter((span) => !claimed.has(span)));
+    for (const column of columns) {
+      const sortedColumn = [...column].sort((a, b) => a.y - b.y || a.x - b.x);
+      let run: TextSpan[] = [];
+      const flush = () => {
+        const verticalRun = toVerticalGlyphRun(run, 1);
+        if (verticalRun && isGutterAnnotationRun(verticalRun, body)) {
+          runs.push(verticalRun);
+          for (const span of verticalRun.spans) claimed.add(span);
+        }
+        run = [];
+      };
+      for (const span of sortedColumn) {
+        const prev = run.at(-1);
+        if (!prev || canContinueGutterAnnotationRun(prev, span)) {
+          run.push(span);
+        } else {
+          flush();
+          run.push(span);
+        }
+      }
+      flush();
+    }
+  }
+
+  return runs;
+}
+
+function nearestGutterAnnotationBody(
+  span: TextSpan,
+  bodyColumns: readonly VerticalCjkRun[],
+): VerticalCjkRun | undefined {
+  const spanCenter = centerX(span);
+  let best: VerticalCjkRun | undefined;
+  let bestGap = Number.POSITIVE_INFINITY;
+  for (const body of bodyColumns) {
+    if (!isGutterAnnotationSpanCandidate(span, body)) continue;
+    const gap = spanCenter - body.centerX;
+    if (gap >= bestGap) continue;
+    best = body;
+    bestGap = gap;
+  }
+  return best;
+}
+
+function isGutterAnnotationSpanCandidate(span: TextSpan, body: VerticalCjkRun): boolean {
+  if (span.text.trim().length === 0) return false;
+
+  const spanFontSize = span.fontSize || span.height || FONT_SIZE_FALLBACK_PT;
+  const bodyFontSize = Math.max(body.fontSize || FONT_SIZE_FALLBACK_PT, 0.001);
+  const fontRatio = spanFontSize / bodyFontSize;
+  if (fontRatio <= RUBY_VERTICAL_CJK_MAX_FONT_RATIO || fontRatio > GUTTER_ANNOTATION_MAX_FONT_RATIO) return false;
+  if (
+    span.width > spanFontSize * GUTTER_ANNOTATION_MAX_GLYPH_SIZE_RATIO ||
+    span.height > spanFontSize * GUTTER_ANNOTATION_MAX_GLYPH_SIZE_RATIO
+  ) {
+    return false;
+  }
+
+  const gap = centerX(span) - body.centerX;
+  if (gap <= 0 || gap > bodyFontSize * RUBY_VERTICAL_CJK_MAX_BODY_GAP_RATIO) return false;
+
+  const overlap = Math.min(span.y + span.height, bodyRunBottom(body)) - Math.max(span.y, bodyRunTop(body));
+  return overlap > 0;
+}
+
+function groupGutterAnnotationColumns(spans: readonly TextSpan[]): TextSpan[][] {
+  const columns: TextSpan[][] = [];
+  for (const span of [...spans].sort((a, b) => centerX(b) - centerX(a) || a.y - b.y)) {
+    const column = columns.find((item) => {
+      const anchor = item[0];
+      return (
+        Math.abs(centerX(span) - centerX(anchor)) <=
+        Math.max(bodyVerticalCjkXTolerance(span), bodyVerticalCjkXTolerance(anchor))
+      );
+    });
+    if (column) {
+      column.push(span);
+    } else {
+      columns.push([span]);
+    }
+  }
+  return columns;
+}
+
+function canContinueGutterAnnotationRun(prev: TextSpan, cur: TextSpan): boolean {
+  if (
+    Math.abs(centerX(cur) - centerX(prev)) > Math.max(bodyVerticalCjkXTolerance(prev), bodyVerticalCjkXTolerance(cur))
+  ) {
+    return false;
+  }
+  const fontSize = Math.max(prev.fontSize || prev.height || FONT_SIZE_FALLBACK_PT, cur.fontSize || cur.height || 0);
+  const gap = cur.y - (prev.y + prev.height);
+  return gap >= -fontSize * TATECHUYOKO_COLUMN_OVERLAP_RATIO && gap <= fontSize * TATECHUYOKO_COLUMN_GAP_RATIO;
+}
+
+function isGutterAnnotationRun(run: VerticalCjkRun, body: VerticalCjkRun): boolean {
+  if (run.spans.length === 0 || run.spans.length > GUTTER_ANNOTATION_MAX_SPANS) return false;
+  return run.spans.every((span) => isGutterAnnotationSpanCandidate(span, body));
 }
 
 function overlappingBaseRanges(ruby: VerticalCjkRun, body: VerticalCjkRun): VerticalRubyBaseRange[] | undefined {

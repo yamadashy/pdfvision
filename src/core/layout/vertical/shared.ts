@@ -41,6 +41,7 @@ export interface TallVerticalRun {
 export interface BodyVerticalCjkRunAnalysis {
   blocks: VerticalCjkRunBlock[];
   rubySpans: TextSpan[];
+  gutterAnnotationSpans: TextSpan[];
   rubyAssociations: VerticalRubyAssociation[];
 }
 

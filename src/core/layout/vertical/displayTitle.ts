@@ -288,6 +288,7 @@ export function extractVerticalCjkBlocks(spans: readonly TextSpan[]): {
       used.add(span);
     }
   }
+  for (const span of initialBodyVertical.gutterAnnotationSpans) used.add(span);
 
   for (const run of extractTallVerticalRuns(spans.filter((span) => !used.has(span)))) {
     blocks.push(toTallVerticalBlock(run));
@@ -350,6 +351,7 @@ export function extractVerticalCjkBlocks(spans: readonly TextSpan[]): {
     }
   }
   for (const span of bodyVertical.rubySpans) used.add(span);
+  for (const span of bodyVertical.gutterAnnotationSpans) used.add(span);
 
   return {
     blocks,

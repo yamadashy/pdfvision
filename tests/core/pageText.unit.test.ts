@@ -275,6 +275,29 @@ describe('extractPageText', () => {
     expect(result.text).toBe('東京で相当の地位を得たい\nから宜しく頼む');
   });
 
+  it('keeps vertical body text continuous when a right-gutter annotation mark interrupts stream order', () => {
+    const before = '本文《';
+    const after = 'レクイエム》直後にLDが発売';
+    const result = extractPageText({
+      content: {
+        items: [
+          ...verticalGlyphItems(before, 300, 100, 10),
+          ...verticalGlyphItems('(注%)', 310, 124, 8),
+          ...verticalGlyphItems(after, 300, 100 + before.length * 10, 10),
+        ],
+      },
+      flags: BASE_FLAGS,
+      pageHeight: 800,
+      viewMinX: 0,
+      viewMinY: 0,
+    });
+
+    expect(result.text).toBe(`${before}${after}`);
+    expect(result.text).not.toContain('注');
+    expect(result.text).not.toContain('レ\nク');
+    expect(result.text).not.toContain('L\nD');
+  });
+
   it('joins context-supported short vertical ellipsis columns in page text', () => {
     const result = extractPageText({
       content: {
