@@ -39,6 +39,9 @@ export interface JoinItem {
   dir?: string;
   /** Internal synthetic break used after a collapsed vertical column. */
   lineBreakAfter?: boolean;
+  /** Internal marker for a collapsed vertical column that should stay
+   *  in the same body flow as the following collapsed column. */
+  continuesVerticalFlow?: boolean;
 }
 
 export interface VerticalJoinRun {
@@ -47,6 +50,10 @@ export interface VerticalJoinRun {
    * ordered top-to-bottom by the detector.
    */
   itemIndices: readonly number[];
+  /** Defaults to true. Ruby-bearing vertical pages can keep adjacent
+   *  body columns in one text flow while non-ruby vertical documents
+   *  preserve the established column-line breaks. */
+  lineBreakAfter?: boolean;
 }
 
 export interface JoinPageTextOptions {
@@ -161,13 +168,23 @@ export function joinPageText(items: readonly JoinItem[], options: JoinPageTextOp
 
 function collapseVerticalRunItems(items: readonly JoinItem[], verticalRuns: readonly VerticalJoinRun[]): JoinItem[] {
   const claimed = new Set<number>();
-  const collapsibleRuns: { first: number; last: number; indices: readonly [number, ...number[]] }[] = [];
+  const collapsibleRuns: {
+    first: number;
+    last: number;
+    indices: readonly [number, ...number[]];
+    lineBreakAfter: boolean;
+  }[] = [];
 
   for (const run of verticalRuns) {
     const indices = run.itemIndices;
     if (!isCollapsibleVerticalRun(items, indices, claimed)) continue;
     for (const index of indices) claimed.add(index);
-    collapsibleRuns.push({ first: indices[0], last: indices[indices.length - 1], indices });
+    collapsibleRuns.push({
+      first: indices[0],
+      last: indices[indices.length - 1],
+      indices,
+      lineBreakAfter: run.lineBreakAfter !== false,
+    });
   }
 
   if (collapsibleRuns.length === 0) return [...items];
@@ -181,7 +198,7 @@ function collapseVerticalRunItems(items: readonly JoinItem[], verticalRuns: read
       continue;
     }
 
-    collapsed.push(toVerticalRunTextItem(items, run.indices));
+    collapsed.push(toVerticalRunTextItem(items, run.indices, run.lineBreakAfter));
 
     i = run.last;
     while (i + 1 < items.length && isVerticalRunSeparatorItem(items[i + 1])) i++;
@@ -212,7 +229,11 @@ function isCollapsibleVerticalRun(
   return true;
 }
 
-function toVerticalRunTextItem(items: readonly JoinItem[], indices: readonly [number, ...number[]]): JoinItem {
+function toVerticalRunTextItem(
+  items: readonly JoinItem[],
+  indices: readonly [number, ...number[]],
+  lineBreakAfter: boolean,
+): JoinItem {
   const first = items[indices[0]];
   const last = items[indices[indices.length - 1]];
   return {
@@ -222,7 +243,8 @@ function toVerticalRunTextItem(items: readonly JoinItem[], indices: readonly [nu
     width: Math.max(0, last.x + last.width - first.x),
     fontSize: Math.max(...indices.map((index) => items[index].fontSize), 1),
     hasEOL: false,
-    lineBreakAfter: true,
+    lineBreakAfter,
+    ...(!lineBreakAfter && { continuesVerticalFlow: true }),
     ...(first.dir !== undefined && { dir: first.dir }),
   };
 }
@@ -235,6 +257,7 @@ function startsSyntheticVisualLine(line: readonly JoinItem[], item: JoinItem): b
   if (isWhitespaceOnly(item.str)) return false;
   const prev = [...line].reverse().find((candidate) => !isWhitespaceOnly(candidate.str));
   if (!prev || prev.y === undefined || item.y === undefined) return false;
+  if (prev.continuesVerticalFlow) return false;
   const fontSize = Math.max(prev.fontSize, item.fontSize, 1);
   return Math.abs(item.y - prev.y) > fontSize * SYNTHETIC_LINE_BREAK_GAP_RATIO;
 }

@@ -54,6 +54,7 @@ export async function extractPageData(
     rawText: preservedRaw,
     textArea,
     spans,
+    searchSpans,
   } = extractPageText({
     content,
     flags,
@@ -241,7 +242,7 @@ export async function extractPageData(
     // span list during `buildLayout` above, so re-emitting them on
     // PageData would waste memory on the typical extraction.
     ...(flags.geometry && { spans }),
-    ...(flags.needSpansForSearch && { _internalSpans: spans }),
+    ...(flags.needSpansForSearch && { _internalSpans: searchSpans ?? spans }),
     ...(flags.needSpansForWarnings && { _warningSpans: spans }),
     ...(layout !== undefined && { layout }),
     ...(imageBoxes !== undefined && { imageBoxes }),

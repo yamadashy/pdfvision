@@ -43,6 +43,9 @@ const BODY_VERTICAL_CJK_MAX_GLYPH_SIZE_RATIO = 1.8;
 const BODY_VERTICAL_CJK_MAX_COLUMN_GAP_RATIO = 3;
 const BODY_VERTICAL_CJK_MAX_COLUMN_GAP_PT = 36;
 const BODY_VERTICAL_CJK_COLUMN_OVERLAP_RATIO = 0.05;
+const RUBY_VERTICAL_CJK_MAX_FONT_RATIO = 0.6;
+const RUBY_VERTICAL_CJK_MAX_BODY_GAP_RATIO = 1.2;
+const RUBY_VERTICAL_CJK_MIN_Y_OVERLAP_RATIO = 0.5;
 const BODY_VERTICAL_CJK_GLYPH_RE =
   /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\u3001-\u303f\u30a0\u30fb\u30fc\uff01-\uff65]$/u;
 
@@ -54,6 +57,11 @@ export interface VerticalCjkRun {
 
 export interface VerticalCjkRunBlock {
   columns: VerticalCjkRun[];
+}
+
+export interface BodyVerticalCjkRunAnalysis {
+  blocks: VerticalCjkRunBlock[];
+  rubySpans: TextSpan[];
 }
 
 export function hasVerticalTextShape(span: TextSpan): boolean {
@@ -151,8 +159,8 @@ function canContinueBodyVerticalCjkRun(prev: TextSpan, cur: TextSpan): boolean {
   return step >= fontSize * BODY_VERTICAL_CJK_MIN_STEP_RATIO && step <= fontSize * BODY_VERTICAL_CJK_MAX_STEP_RATIO;
 }
 
-function toBodyVerticalRun(run: TextSpan[]): VerticalCjkRun | undefined {
-  if (run.length < BODY_VERTICAL_CJK_MIN_RUN_SPANS) return undefined;
+function toVerticalGlyphRun(run: TextSpan[], minRunSpans: number): VerticalCjkRun | undefined {
+  if (run.length < minRunSpans) return undefined;
   const ySorted = [...run].sort((a, b) => a.y - b.y || a.x - b.x);
   const fontSize = round2(mode(ySorted.map((span) => span.fontSize || FONT_SIZE_FALLBACK_PT)));
   const center = ySorted.reduce((sum, span) => sum + centerX(span), 0) / ySorted.length;
@@ -185,9 +193,9 @@ function canContinueBodyVerticalBlock(prev: VerticalCjkRun, cur: VerticalCjkRun)
   return overlap / minHeight >= BODY_VERTICAL_CJK_COLUMN_OVERLAP_RATIO;
 }
 
-export function extractBodyVerticalCjkRunBlocks(spans: readonly TextSpan[]): VerticalCjkRunBlock[] {
+function collectBodyVerticalCjkRuns(spans: readonly TextSpan[], minRunSpans: number): VerticalCjkRun[] {
   const candidates = spans.filter(isBodyVerticalCjkGlyph).sort((a, b) => centerX(b) - centerX(a) || a.y - b.y);
-  if (candidates.length < BODY_VERTICAL_CJK_MIN_RUN_SPANS) return [];
+  if (candidates.length < minRunSpans) return [];
 
   const columns: TextSpan[][] = [];
   for (const candidate of candidates) {
@@ -211,7 +219,7 @@ export function extractBodyVerticalCjkRunBlocks(spans: readonly TextSpan[]): Ver
     const sortedColumn = [...column].sort((a, b) => a.y - b.y || a.x - b.x);
     let run: TextSpan[] = [];
     const flush = () => {
-      const verticalRun = toBodyVerticalRun(run);
+      const verticalRun = toVerticalGlyphRun(run, minRunSpans);
       if (verticalRun) runs.push(verticalRun);
       run = [];
     };
@@ -227,7 +235,11 @@ export function extractBodyVerticalCjkRunBlocks(spans: readonly TextSpan[]): Ver
     flush();
   }
 
-  const sortedRuns = runs.sort((a, b) => b.centerX - a.centerX || bodyRunTop(a) - bodyRunTop(b));
+  return runs;
+}
+
+function groupBodyVerticalRunsIntoBlocks(runs: readonly VerticalCjkRun[]): VerticalCjkRunBlock[] {
+  const sortedRuns = [...runs].sort((a, b) => b.centerX - a.centerX || bodyRunTop(a) - bodyRunTop(b));
   const blocks: VerticalCjkRunBlock[] = [];
   let columnsInBlock: VerticalCjkRun[] = [];
   const flushBlock = () => {
@@ -243,6 +255,50 @@ export function extractBodyVerticalCjkRunBlocks(spans: readonly TextSpan[]): Ver
   flushBlock();
 
   return blocks;
+}
+
+function isRubyVerticalRun(candidate: VerticalCjkRun, bodyRuns: readonly VerticalCjkRun[]): boolean {
+  for (const body of bodyRuns) {
+    if (candidate === body) continue;
+    if (candidate.fontSize > body.fontSize * RUBY_VERTICAL_CJK_MAX_FONT_RATIO) continue;
+
+    const gap = candidate.centerX - body.centerX;
+    if (gap <= 0 || gap > body.fontSize * RUBY_VERTICAL_CJK_MAX_BODY_GAP_RATIO) continue;
+
+    const overlap =
+      Math.min(bodyRunBottom(candidate), bodyRunBottom(body)) - Math.max(bodyRunTop(candidate), bodyRunTop(body));
+    if (overlap <= 0) continue;
+
+    const candidateHeight = Math.max(bodyRunBottom(candidate) - bodyRunTop(candidate), 1);
+    if (overlap / candidateHeight >= RUBY_VERTICAL_CJK_MIN_Y_OVERLAP_RATIO) return true;
+  }
+  return false;
+}
+
+export function extractBodyVerticalCjkRunAnalysis(spans: readonly TextSpan[]): BodyVerticalCjkRunAnalysis {
+  const bodyRuns = collectBodyVerticalCjkRuns(spans, BODY_VERTICAL_CJK_MIN_RUN_SPANS);
+  if (bodyRuns.length === 0) return { blocks: [], rubySpans: [] };
+
+  const rubyRuns = collectBodyVerticalCjkRuns(spans, 1).filter((run) => isRubyVerticalRun(run, bodyRuns));
+  const rubySpanSet = new Set<TextSpan>();
+  const rubySpans: TextSpan[] = [];
+  for (const run of rubyRuns) {
+    for (const span of run.spans) {
+      rubySpanSet.add(span);
+      rubySpans.push(span);
+    }
+  }
+
+  const nonRubyBodyRuns = bodyRuns.filter((run) => !run.spans.some((span) => rubySpanSet.has(span)));
+
+  return {
+    blocks: groupBodyVerticalRunsIntoBlocks(nonRubyBodyRuns),
+    rubySpans: rubySpans.sort((a, b) => centerX(b) - centerX(a) || a.y - b.y),
+  };
+}
+
+export function extractBodyVerticalCjkRunBlocks(spans: readonly TextSpan[]): VerticalCjkRunBlock[] {
+  return extractBodyVerticalCjkRunAnalysis(spans).blocks;
 }
 
 function toVerticalBlock(run: TextSpan[]): LayoutBlock | undefined {
@@ -365,12 +421,14 @@ export function extractVerticalCjkBlocks(spans: readonly TextSpan[]): {
     }
   }
 
-  for (const block of extractBodyVerticalCjkRunBlocks(spans.filter((span) => !used.has(span)))) {
+  const bodyVertical = extractBodyVerticalCjkRunAnalysis(spans.filter((span) => !used.has(span)));
+  for (const block of bodyVertical.blocks) {
     blocks.push(toBodyVerticalBlock(block));
     for (const column of block.columns) {
       for (const span of column.spans) used.add(span);
     }
   }
+  for (const span of bodyVertical.rubySpans) used.add(span);
 
   return {
     blocks,

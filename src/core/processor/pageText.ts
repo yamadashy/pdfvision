@@ -1,5 +1,5 @@
 import type { TextSpan } from '../../types/index.js';
-import { extractBodyVerticalCjkRunBlocks } from '../layout/verticalText.js';
+import { extractBodyVerticalCjkRunAnalysis, type VerticalCjkRunBlock } from '../layout/verticalText.js';
 import { type JoinItem, joinPageText, type VerticalJoinRun } from '../text/cjkJoin.js';
 import { textMatrixFontSize, textRunGeometryFromTransform } from '../text/geometry.js';
 import { isLikelyPrepressProductionText } from '../text/prepress.js';
@@ -33,6 +33,7 @@ export interface ExtractedPageText {
   rawText?: string;
   textArea: number;
   spans: TextSpan[];
+  searchSpans?: TextSpan[];
 }
 
 export function extractPageText({
@@ -59,6 +60,7 @@ export function extractPageText({
   const joinItems: JoinItem[] = [];
   let textArea = 0;
   const spans: TextSpan[] = [];
+  const spanItemIndices = new Map<TextSpan, number>();
   const verticalJoinSpans: TextSpan[] = [];
   const verticalJoinSpanIndices = new Map<TextSpan, number>();
   const seenTextItems = new Map<string, number>();
@@ -120,11 +122,13 @@ export function extractPageText({
     // The aggregate `text` already preserves the spaces, so layout
     // analysis loses nothing; downstream agents get a cleaner signal.
     if (wantSpans && item.str.trim().length > 0 && geometry) {
-      spans.push({
+      const span = {
         text: flags.normalize ? normalizeText(item.str) : item.str,
         ...geometry,
         ...(typeof item.fontName === 'string' && { fontName: stablePageFontName(item.fontName, pageFontAliases) }),
-      });
+      };
+      spans.push(span);
+      spanItemIndices.set(span, joinItemIndex);
     }
     if (item.str.trim().length > 0 && geometry) {
       const span = {
@@ -136,8 +140,16 @@ export function extractPageText({
     }
   }
 
-  const rawText = joinPageText(joinItems, {
-    verticalRuns: buildVerticalJoinRuns(verticalJoinSpans, verticalJoinSpanIndices),
+  const verticalAnalysis = extractBodyVerticalCjkRunAnalysis(verticalJoinSpans);
+  const rubyItemIndices = collectRubyItemIndices(verticalAnalysis.rubySpans, verticalJoinSpanIndices);
+  const filteredJoin = filterRubyJoinItems(joinItems, rubyItemIndices);
+  const rawText = joinPageText(filteredJoin.items, {
+    verticalRuns: buildVerticalJoinRuns(
+      verticalAnalysis.blocks,
+      verticalJoinSpanIndices,
+      filteredJoin.indexMap,
+      verticalAnalysis.rubySpans.length > 0,
+    ),
   }).trimEnd();
   const text = flags.normalize ? normalizeText(rawText) : rawText;
   const preservedRaw = flags.normalize && rawText !== text ? rawText : undefined;
@@ -147,26 +159,100 @@ export function extractPageText({
     rawText: preservedRaw,
     textArea,
     spans,
+    ...(flags.needSpansForSearch && {
+      searchSpans:
+        rubyItemIndices.size > 0
+          ? spans.filter((span) => {
+              const index = spanItemIndices.get(span);
+              return index === undefined || !rubyItemIndices.has(index);
+            })
+          : spans,
+    }),
   };
 }
 
 function buildVerticalJoinRuns(
-  spans: readonly TextSpan[],
+  blocks: readonly VerticalCjkRunBlock[],
   spanItemIndices: ReadonlyMap<TextSpan, number>,
+  itemIndexMap: ReadonlyMap<number, number>,
+  joinColumnsInBlock: boolean,
 ): VerticalJoinRun[] {
   const runs: VerticalJoinRun[] = [];
-  for (const block of extractBodyVerticalCjkRunBlocks(spans)) {
-    for (const column of block.columns) {
+  for (const block of blocks) {
+    const columns = [...block.columns].sort((a, b) => b.centerX - a.centerX);
+    for (let columnIndex = 0; columnIndex < columns.length; columnIndex++) {
+      const column = columns[columnIndex];
       const itemIndices: number[] = [];
       for (const span of column.spans) {
         const index = spanItemIndices.get(span);
         if (index === undefined) continue;
-        itemIndices.push(index);
+        const mappedIndex = itemIndexMap.get(index);
+        if (mappedIndex === undefined) continue;
+        itemIndices.push(mappedIndex);
       }
-      if (itemIndices.length === column.spans.length) runs.push({ itemIndices });
+      if (itemIndices.length === column.spans.length) {
+        runs.push({
+          itemIndices,
+          lineBreakAfter: !(joinColumnsInBlock && columnIndex < columns.length - 1),
+        });
+      }
     }
   }
   return runs;
+}
+
+function collectRubyItemIndices(
+  rubySpans: readonly TextSpan[],
+  spanItemIndices: ReadonlyMap<TextSpan, number>,
+): Set<number> {
+  const indices = new Set<number>();
+  for (const span of rubySpans) {
+    const index = spanItemIndices.get(span);
+    if (index !== undefined) indices.add(index);
+  }
+  return indices;
+}
+
+function filterRubyJoinItems(
+  items: readonly JoinItem[],
+  rubyItemIndices: ReadonlySet<number>,
+): { items: JoinItem[]; indexMap: ReadonlyMap<number, number> } {
+  const filtered: JoinItem[] = [];
+  const indexMap = new Map<number, number>();
+
+  for (let index = 0; index < items.length; index++) {
+    if (rubyItemIndices.has(index) || isRubyAdjacentSeparator(items, index, rubyItemIndices)) continue;
+    indexMap.set(index, filtered.length);
+    filtered.push(items[index]);
+  }
+
+  return { items: filtered, indexMap };
+}
+
+function isRubyAdjacentSeparator(
+  items: readonly JoinItem[],
+  index: number,
+  rubyItemIndices: ReadonlySet<number>,
+): boolean {
+  if (rubyItemIndices.size === 0) return false;
+  if (items[index].str.trim().length > 0) return false;
+
+  const previous = nearestNonWhitespaceItemIndex(items, index, -1);
+  if (previous !== undefined && rubyItemIndices.has(previous)) return true;
+
+  const next = nearestNonWhitespaceItemIndex(items, index, 1);
+  return next !== undefined && rubyItemIndices.has(next);
+}
+
+function nearestNonWhitespaceItemIndex(
+  items: readonly JoinItem[],
+  startIndex: number,
+  direction: -1 | 1,
+): number | undefined {
+  for (let index = startIndex + direction; index >= 0 && index < items.length; index += direction) {
+    if (items[index].str.trim().length > 0) return index;
+  }
+  return undefined;
 }
 
 function isTextItem(item: unknown): item is TextItemLike {

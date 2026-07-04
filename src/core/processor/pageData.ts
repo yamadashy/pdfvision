@@ -26,9 +26,9 @@ export interface PageData {
   height: number;
   spans?: TextSpan[];
   /** Spans built internally (independent of `flags.geometry`) for
-   *  downstream search bbox computation. Mirrors `spans` when both
-   *  are present; lives separately so the public PageResult.spans
-   *  gating stays the simple "geometry on / off" rule. */
+   *  downstream search bbox computation. May filter text that is
+   *  deliberately excluded from searchable body flow, while the public
+   *  PageResult.spans gating stays the simple "geometry on / off" rule. */
   _internalSpans?: TextSpan[];
   /** Internal spans used for warnings even when public pages[].spans
    *  was not requested. */

@@ -33,6 +33,22 @@ function textItem(str: string, y: number, width = 80) {
   };
 }
 
+function verticalGlyphItem(str: string, x: number, y: number, fontSize: number) {
+  return {
+    str,
+    width: fontSize,
+    height: fontSize,
+    transform: [fontSize, 0, 0, fontSize, x, 800 - y],
+    hasEOL: true,
+    fontName: 'g_d0_f1',
+    dir: 'ttb',
+  };
+}
+
+function verticalGlyphItems(text: string, x: number, y: number, fontSize: number, step = fontSize) {
+  return Array.from(text).map((glyph, index) => verticalGlyphItem(glyph, x, y + index * step, fontSize));
+}
+
 describe('extractPageText', () => {
   it('filters prepress production marks from text and spans', () => {
     const result = extractPageText({
@@ -59,5 +75,25 @@ describe('extractPageText', () => {
 
     expect(result.text).toBe('Visible heading\n\nBusiness text');
     expect(result.spans.map((span) => span.text)).toEqual(['Visible heading', 'Business text']);
+  });
+
+  it('keeps classified ruby out of vertical body text and search spans', () => {
+    const result = extractPageText({
+      content: {
+        items: [
+          ...verticalGlyphItems('東京で相当の地位を得たい', 300, 130, 12),
+          ...verticalGlyphItems('わた', 312, 154, 6),
+          ...verticalGlyphItems('から宜しく頼む', 279, 100, 12),
+        ],
+      },
+      flags: { ...BASE_FLAGS, needSpansForSearch: true },
+      pageHeight: 800,
+      viewMinX: 0,
+      viewMinY: 0,
+    });
+
+    expect(result.text).toBe('東京で相当の地位を得たいから宜しく頼む');
+    expect(result.spans.map((span) => span.text).join('')).toContain('わた');
+    expect(result.searchSpans?.map((span) => span.text).join('')).toBe('東京で相当の地位を得たいから宜しく頼む');
   });
 });

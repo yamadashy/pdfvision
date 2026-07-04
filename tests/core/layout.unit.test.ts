@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildLayout, markRepeatedBlocks } from '../../src/core/layout/index.js';
+import { extractBodyVerticalCjkRunAnalysis } from '../../src/core/layout/verticalText.js';
 import { detectPageWarnings } from '../../src/core/warnings/index.js';
 import type { LayoutBlock, PageResult, TextSpan } from '../../src/types/index.js';
 
@@ -17,6 +18,10 @@ function span(text: string, x: number, y: number, fontSize: number, width = text
     height: fontSize,
     fontSize,
   };
+}
+
+function verticalGlyphs(text: string, x: number, y: number, fontSize: number, step = fontSize): TextSpan[] {
+  return Array.from(text).map((glyph, index) => span(glyph, x, y + index * step, fontSize, fontSize));
 }
 
 describe('buildLayout — heading classification', () => {
@@ -1533,6 +1538,68 @@ describe('buildLayout — multi-column reading order', () => {
     expect(verticalBlocks[0].text).toBe('質問主意書\n国会質疑中');
     expect(verticalBlocks[0].lines.map((line) => line.text)).toEqual(['質問主意書', '国会質疑中']);
     expect(verticalBlocks[0].lines.every((line) => line.writingMode === 'vertical')).toBe(true);
+  });
+
+  it('classifies adjacent half-size ruby stacks without adding them to body vertical blocks', () => {
+    const rightBody = verticalGlyphs('東京で相当の地位を得たい', 300, 100, 12);
+    const leftBody = verticalGlyphs('から宜しく頼む', 279, 100, 12);
+    const ruby = verticalGlyphs('わたくし', 312, 124, 6);
+    const spans = [...rightBody, ...ruby, ...leftBody];
+
+    const analysis = extractBodyVerticalCjkRunAnalysis(spans);
+    expect(analysis.rubySpans.map((item) => item.text).join('')).toBe('わたくし');
+    expect(analysis.blocks).toHaveLength(1);
+    expect(analysis.blocks[0].columns.map((column) => column.spans.map((item) => item.text).join(''))).toEqual([
+      '東京で相当の地位を得たい',
+      'から宜しく頼む',
+    ]);
+
+    const layout = buildLayout(spans, 595);
+    const verticalBlocks = layout.blocks.filter((block) => block.writingMode === 'vertical');
+    expect(verticalBlocks.map((block) => block.text)).toContain('東京で相当の地位を得たい\nから宜しく頼む');
+    expect(layout.blocks.map((block) => block.text).join('\n')).not.toContain('わたくし');
+  });
+
+  it('keeps uniformly small vertical columns as body when no larger adjacent column exists', () => {
+    const rightBody = verticalGlyphs('質問主意書', 120, 100, 6);
+    const leftBody = verticalGlyphs('国会質疑中', 108, 100, 6);
+    const spans = [...rightBody, ...leftBody];
+
+    const analysis = extractBodyVerticalCjkRunAnalysis(spans);
+    expect(analysis.rubySpans).toEqual([]);
+    expect(analysis.blocks[0].columns.map((column) => column.spans.map((item) => item.text).join(''))).toEqual([
+      '質問主意書',
+      '国会質疑中',
+    ]);
+
+    const layout = buildLayout(spans, 300);
+    expect(layout.blocks.filter((block) => block.writingMode === 'vertical').map((block) => block.text)).toEqual([
+      '質問主意書\n国会質疑中',
+    ]);
+  });
+
+  it('does not classify a small vertical stack far from a larger body column as ruby', () => {
+    const body = verticalGlyphs('東京で相当の地位を得たい', 300, 100, 12);
+    const farSmall = verticalGlyphs('かな', 330, 124, 6);
+
+    const analysis = extractBodyVerticalCjkRunAnalysis([...body, ...farSmall]);
+
+    expect(analysis.rubySpans).toEqual([]);
+    expect(analysis.blocks[0].columns.map((column) => column.spans.map((item) => item.text).join(''))).toEqual([
+      '東京で相当の地位を得たい',
+    ]);
+  });
+
+  it('classifies a two-glyph ruby stack when it is adjacent to a larger body column', () => {
+    const body = verticalGlyphs('東京で相当の地位を得たい', 300, 100, 12);
+    const ruby = verticalGlyphs('わた', 312, 124, 6);
+
+    const analysis = extractBodyVerticalCjkRunAnalysis([...body, ...ruby]);
+
+    expect(analysis.rubySpans.map((item) => item.text).join('')).toBe('わた');
+    expect(analysis.blocks[0].columns.map((column) => column.spans.map((item) => item.text).join(''))).toEqual([
+      '東京で相当の地位を得たい',
+    ]);
   });
 
   it('does not treat x-aligned multi-character CJK spans as body vertical writing', () => {
