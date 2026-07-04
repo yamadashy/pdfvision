@@ -2,8 +2,10 @@ import type { TextSpan } from '../../types/index.js';
 import {
   extractBodyVerticalCjkRunAnalysis,
   extractTallVerticalRuns,
+  rubyAssociationText,
   type TallVerticalRun,
   type VerticalCjkRunBlock,
+  type VerticalRubyAssociation,
 } from '../layout/verticalText.js';
 import { type JoinItem, joinPageText, type VerticalJoinRun } from '../text/cjkJoin.js';
 import { textMatrixFontSize, textRunGeometryFromTransform } from '../text/geometry.js';
@@ -66,7 +68,6 @@ export function extractPageText({
   const joinItems: JoinItem[] = [];
   let textArea = 0;
   const spans: TextSpan[] = [];
-  const spanItemIndices = new Map<TextSpan, number>();
   const verticalJoinSpans: TextSpan[] = [];
   const verticalJoinSpanIndices = new Map<TextSpan, number>();
   const seenTextItems = new Map<string, number>();
@@ -135,7 +136,6 @@ export function extractPageText({
         ...(typeof item.fontName === 'string' && { fontName: stablePageFontName(item.fontName, pageFontAliases) }),
       };
       spans.push(span);
-      spanItemIndices.set(span, joinItemIndex);
     }
     if (item.str.trim().length > 0 && geometry) {
       const span = {
@@ -150,7 +150,8 @@ export function extractPageText({
   const verticalAnalysis = extractBodyVerticalCjkRunAnalysis(verticalJoinSpans);
   const tallVerticalRuns = extractTallVerticalRuns(verticalJoinSpans).filter((run) => run.hasTatechuyoko);
   const rubyItemIndices = collectRubyItemIndices(verticalAnalysis.rubySpans, verticalJoinSpanIndices);
-  const filteredJoin = filterRubyJoinItems(joinItems, rubyItemIndices);
+  const rubyAttachments = collectRubyTextAttachments(verticalAnalysis.rubyAssociations, verticalJoinSpanIndices);
+  const filteredJoin = filterRubyJoinItems(joinItems, rubyItemIndices, rubyAttachments);
   const rawText = joinPageText(filteredJoin.items, {
     verticalRuns: [
       ...buildTallVerticalJoinRuns(tallVerticalRuns, verticalJoinSpanIndices, filteredJoin.indexMap),
@@ -173,13 +174,7 @@ export function extractPageText({
     textArea,
     spans,
     ...(flags.needSpansForSearch && {
-      searchSpans:
-        rubyItemIndices.size > 0
-          ? spans.filter((span) => {
-              const index = spanItemIndices.get(span);
-              return index === undefined || !rubyItemIndices.has(index);
-            })
-          : spans,
+      searchSpans: spans,
     }),
   };
 }
@@ -251,9 +246,30 @@ function collectRubyItemIndices(
   return indices;
 }
 
+function collectRubyTextAttachments(
+  rubyAssociations: readonly VerticalRubyAssociation[],
+  spanItemIndices: ReadonlyMap<TextSpan, number>,
+): ReadonlyMap<number, readonly string[]> {
+  const attachments = new Map<number, string[]>();
+  for (const association of rubyAssociations) {
+    const baseEnd = association.baseSpans.at(-1);
+    if (!baseEnd) continue;
+    const index = spanItemIndices.get(baseEnd);
+    if (index === undefined) continue;
+    const texts = attachments.get(index);
+    if (texts) {
+      texts.push(rubyAssociationText(association));
+    } else {
+      attachments.set(index, [rubyAssociationText(association)]);
+    }
+  }
+  return attachments;
+}
+
 function filterRubyJoinItems(
   items: readonly JoinItem[],
   rubyItemIndices: ReadonlySet<number>,
+  rubyAttachments: ReadonlyMap<number, readonly string[]> = new Map(),
 ): { items: JoinItem[]; indexMap: ReadonlyMap<number, number> } {
   const filtered: JoinItem[] = [];
   const indexMap = new Map<number, number>();
@@ -261,10 +277,18 @@ function filterRubyJoinItems(
   for (let index = 0; index < items.length; index++) {
     if (rubyItemIndices.has(index) || isRubyAdjacentSeparator(items, index, rubyItemIndices)) continue;
     indexMap.set(index, filtered.length);
-    filtered.push(items[index]);
+    const attachments = rubyAttachments.get(index);
+    filtered.push(attachments && attachments.length > 0 ? attachRubyText(items[index], attachments) : items[index]);
   }
 
   return { items: filtered, indexMap };
+}
+
+function attachRubyText(item: JoinItem, readings: readonly string[]): JoinItem {
+  return {
+    ...item,
+    str: `${item.str}${readings.map((reading) => `《${reading}》`).join('')}`,
+  };
 }
 
 function isRubyAdjacentSeparator(

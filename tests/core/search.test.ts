@@ -8,6 +8,17 @@ import type { FormField, PageAnnotation, PageLink, TextSpan } from '../../src/ty
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
 const SAMPLE_JA_PDF = resolve(__dirname, '../fixtures/sample-ja.pdf');
 
+function verticalGlyphs(text: string, x: number, y: number, fontSize: number, step = fontSize): TextSpan[] {
+  return Array.from(text).map((glyph, index) => ({
+    text: glyph,
+    x,
+    y: y + index * step,
+    width: fontSize,
+    height: fontSize,
+    fontSize,
+  }));
+}
+
 describe('processDocument search', () => {
   it('finds literal substring matches and attaches matches[] per page', async () => {
     // SAMPLE_PDF carries "Hello pdfvision" on page 1. A bare-substring
@@ -190,22 +201,8 @@ describe('processDocument search', () => {
   });
 
   it('matches body-sized Japanese vertical glyph runs in right-to-left column order', () => {
-    const rightColumn: TextSpan[] = Array.from('質問主意書').map((text, index) => ({
-      text,
-      x: 300,
-      y: 100 + index * 8,
-      width: 8,
-      height: 8,
-      fontSize: 8,
-    }));
-    const leftColumn: TextSpan[] = Array.from('国会質疑中').map((text, index) => ({
-      text,
-      x: 276,
-      y: 100 + index * 8,
-      width: 8,
-      height: 8,
-      fontSize: 8,
-    }));
+    const rightColumn = verticalGlyphs('質問主意書', 300, 100, 8);
+    const leftColumn = verticalGlyphs('国会質疑中', 276, 100, 8);
     const compiled = compileSearch(['質問主意書', '主意書国会'], {});
     if (!compiled) throw new Error('expected compiled search');
 
@@ -232,19 +229,44 @@ describe('processDocument search', () => {
     expect(matches[1].bbox).toEqual({ x: 276, y: 100, width: 32, height: 40 });
   });
 
+  it('matches vertical base text with and without inline ruby annotations', () => {
+    const body = verticalGlyphs('私は卑怯な事をした', 300, 100, 12);
+    const ruby = verticalGlyphs('ひきょう', 312, 124, 6);
+    const compiled = compileSearch(['卑怯', '卑怯な', '卑怯《ひきょう》'], {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage([...body, ...ruby], undefined, 1, 595, 842, compiled);
+
+    expect(matches).toHaveLength(3);
+    expect(matches.map((match) => match.query)).toEqual(['卑怯', '卑怯な', '卑怯《ひきょう》']);
+    expect(matches[0]).toMatchObject({
+      text: '卑怯',
+      context: '私は卑怯な事をした',
+    });
+    expect(matches[0].boxes).toHaveLength(2);
+    expect(matches[1]).toMatchObject({
+      text: '卑怯な',
+      context: '私は卑怯な事をした',
+    });
+    expect(matches[1].boxes).toHaveLength(3);
+    expect(matches[2]).toMatchObject({
+      text: '卑怯《ひきょう》',
+      context: '私は卑怯《ひきょう》な事をした',
+    });
+    expect(matches[2].boxes.length).toBeGreaterThanOrEqual(6);
+  });
+
   it('matches context-supported short vertical ellipsis columns', () => {
-    const verticalGlyphs = (texts: readonly string[], x: number, y: number, fontSize: number): TextSpan[] =>
-      texts.map((text, index) => ({
-        text,
-        x,
-        y: y + index * fontSize,
-        width: fontSize,
-        height: fontSize,
-        fontSize,
-      }));
-    const rightColumn = verticalGlyphs(Array.from('右側本文甲乙丙丁'), 300, 100, 12);
-    const shortColumn = verticalGlyphs(['そ', 'れ', 'と', 'も', '...', '...'], 279, 124, 12);
-    const leftColumn = verticalGlyphs(Array.from('左側本文甲乙丙丁'), 258, 100, 12);
+    const rightColumn = verticalGlyphs('右側本文甲乙丙丁', 300, 100, 12);
+    const shortColumn = ['そ', 'れ', 'と', 'も', '...', '...'].map((text, index) => ({
+      text,
+      x: 279,
+      y: 124 + index * 12,
+      width: 12,
+      height: 12,
+      fontSize: 12,
+    }));
+    const leftColumn = verticalGlyphs('左側本文甲乙丙丁', 258, 100, 12);
     const compiled = compileSearch('それとも', {});
     if (!compiled) throw new Error('expected compiled search');
 

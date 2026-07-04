@@ -110,12 +110,12 @@ describe('extractPageText', () => {
     expect(result.spans.map((span) => span.text)).toEqual(['Before', 'After']);
   });
 
-  it('keeps classified ruby out of vertical body text and search spans', () => {
+  it('attaches classified ruby to its aligned vertical body base', () => {
     const result = extractPageText({
       content: {
         items: [
-          ...verticalGlyphItems('東京で相当の地位を得たい', 300, 130, 12),
-          ...verticalGlyphItems('わた', 312, 154, 6),
+          ...verticalGlyphItems('私東京で相当の地位を得たい', 300, 100, 12),
+          ...verticalGlyphItems('わたくし', 312, 94, 6),
           ...verticalGlyphItems('から宜しく頼む', 279, 100, 12),
         ],
       },
@@ -125,9 +125,59 @@ describe('extractPageText', () => {
       viewMinY: 0,
     });
 
-    expect(result.text).toBe('東京で相当の地位を得たいから宜しく頼む');
+    expect(result.text).toBe('私《わたくし》東京で相当の地位を得たいから宜しく頼む');
     expect(result.spans.map((span) => span.text).join('')).toContain('わた');
-    expect(result.searchSpans?.map((span) => span.text).join('')).toBe('東京で相当の地位を得たいから宜しく頼む');
+    expect(result.searchSpans?.map((span) => span.text).join('')).toContain('わたくし');
+  });
+
+  it('attaches a ruby run after a two-glyph vertical body base', () => {
+    const result = extractPageText({
+      content: {
+        items: [...verticalGlyphItems('甲基基乙丙丁戊', 300, 100, 12), ...verticalGlyphItems('よみ', 312, 117, 6, 10)],
+      },
+      flags: BASE_FLAGS,
+      pageHeight: 800,
+      viewMinX: 0,
+      viewMinY: 0,
+    });
+
+    expect(result.text).toBe('甲基基《よみ》乙丙丁戊');
+  });
+
+  it('excludes ambiguous ruby associations instead of guessing a base', () => {
+    const result = extractPageText({
+      content: {
+        items: [
+          ...verticalGlyphItems('右側本文甲乙丙丁', 300, 100, 12),
+          ...verticalGlyphItems('近接本文甲乙丙丁', 296, 100, 12),
+          ...verticalGlyphItems('よみ', 312, 105, 6, 10),
+        ],
+      },
+      flags: BASE_FLAGS,
+      pageHeight: 800,
+      viewMinX: 0,
+      viewMinY: 0,
+    });
+
+    expect(result.text).toBe('右側本文甲乙丙丁近接本文甲乙丙丁');
+    expect(result.text).not.toContain('よみ');
+  });
+
+  it('keeps ruby-free vertical body text unchanged', () => {
+    const result = extractPageText({
+      content: {
+        items: [
+          ...verticalGlyphItems('東京で相当の地位を得たい', 300, 100, 12),
+          ...verticalGlyphItems('から宜しく頼む', 279, 100, 12),
+        ],
+      },
+      flags: BASE_FLAGS,
+      pageHeight: 800,
+      viewMinX: 0,
+      viewMinY: 0,
+    });
+
+    expect(result.text).toBe('東京で相当の地位を得たい\nから宜しく頼む');
   });
 
   it('joins context-supported short vertical ellipsis columns in page text', () => {

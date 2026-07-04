@@ -108,6 +108,7 @@ export function searchPage(
           continue;
         }
         const hitEnd = hit.index + hit[0].length;
+        if (line.syntheticRuby && !hitIntersectsRubyAnnotation(line, hit.index, hitEnd)) continue;
         if (!hitCrossesSyntheticJoin(line, hit.index, hitEnd)) continue;
         const hitBoxes = contributingBoxes(line, hit.index, hitEnd);
         if (hitBoxes.length === 0) continue;
@@ -234,4 +235,8 @@ export function searchPage(
 function hitCrossesSyntheticJoin(line: SearchLine, start: number, end: number): boolean {
   if (line.syntheticJoinIndex === undefined) return true;
   return start < line.syntheticJoinIndex && end > line.syntheticJoinIndex;
+}
+
+function hitIntersectsRubyAnnotation(line: SearchLine, start: number, end: number): boolean {
+  return line.rubyRanges?.some((range) => start < range.end && end > range.start) ?? false;
 }

@@ -46,6 +46,10 @@ const BODY_VERTICAL_CJK_COLUMN_OVERLAP_RATIO = 0.05;
 const RUBY_VERTICAL_CJK_MAX_FONT_RATIO = 0.6;
 const RUBY_VERTICAL_CJK_MAX_BODY_GAP_RATIO = 1.2;
 const RUBY_VERTICAL_CJK_MIN_Y_OVERLAP_RATIO = 0.5;
+const RUBY_ASSOCIATION_MIN_BODY_OVERLAP_RATIO = 0.6;
+const RUBY_ASSOCIATION_MIN_RUBY_OVERLAP_RATIO = 0.32;
+const RUBY_ASSOCIATION_X_TIE_RATIO = 1;
+const RUBY_ASSOCIATION_MIN_CONFIDENCE = 0.45;
 const SHORT_BODY_VERTICAL_CJK_MIN_RUN_SPANS = 3;
 const SHORT_BODY_VERTICAL_CJK_MIN_FONT_RATIO = 0.75;
 const SHORT_BODY_VERTICAL_CJK_MAX_FONT_RATIO = 1.25;
@@ -84,6 +88,14 @@ export interface TallVerticalRun {
 export interface BodyVerticalCjkRunAnalysis {
   blocks: VerticalCjkRunBlock[];
   rubySpans: TextSpan[];
+  rubyAssociations: VerticalRubyAssociation[];
+}
+
+export interface VerticalRubyAssociation {
+  ruby: VerticalCjkRun;
+  baseColumn: VerticalCjkRun;
+  baseSpans: TextSpan[];
+  confidence: number;
 }
 
 export function hasVerticalTextShape(span: TextSpan): boolean {
@@ -343,6 +355,10 @@ function bodyRunBottom(run: VerticalCjkRun): number {
   return Math.max(...run.spans.map((span) => span.y + span.height));
 }
 
+function runCenterY(run: VerticalCjkRun): number {
+  return (bodyRunTop(run) + bodyRunBottom(run)) / 2;
+}
+
 function canContinueBodyVerticalBlock(prev: VerticalCjkRun, cur: VerticalCjkRun): boolean {
   const gap = prev.centerX - cur.centerX;
   if (gap < 0) return false;
@@ -515,7 +531,7 @@ function isRubyVerticalRun(candidate: VerticalCjkRun, bodyRuns: readonly Vertica
 
 export function extractBodyVerticalCjkRunAnalysis(spans: readonly TextSpan[]): BodyVerticalCjkRunAnalysis {
   const bodyRuns = collectBodyVerticalCjkRuns(spans, BODY_VERTICAL_CJK_MIN_RUN_SPANS);
-  if (bodyRuns.length === 0) return { blocks: [], rubySpans: [] };
+  if (bodyRuns.length === 0) return { blocks: [], rubySpans: [], rubyAssociations: [] };
 
   const rubyRuns = collectBodyVerticalCjkRuns(spans, 1).filter((run) => isRubyVerticalRun(run, bodyRuns));
   const rubySpanSet = new Set<TextSpan>();
@@ -529,10 +545,12 @@ export function extractBodyVerticalCjkRunAnalysis(spans: readonly TextSpan[]): B
 
   const nonRubyBodyRuns = bodyRuns.filter((run) => !run.spans.some((span) => rubySpanSet.has(span)));
   const shortBodyRuns = collectShortBodyVerticalCjkRuns(spans, nonRubyBodyRuns, rubySpanSet);
+  const bodyColumns = [...nonRubyBodyRuns, ...shortBodyRuns];
 
   return {
-    blocks: groupBodyVerticalRunsIntoBlocks([...nonRubyBodyRuns, ...shortBodyRuns]),
+    blocks: groupBodyVerticalRunsIntoBlocks(bodyColumns),
     rubySpans: rubySpans.sort((a, b) => centerX(b) - centerX(a) || a.y - b.y),
+    rubyAssociations: associateRubyRuns(rubyRuns, bodyColumns),
   };
 }
 
@@ -563,12 +581,15 @@ function toVerticalBlock(run: TextSpan[]): LayoutBlock | undefined {
   };
 }
 
-function toBodyVerticalBlock(block: VerticalCjkRunBlock): LayoutBlock {
+function toBodyVerticalBlock(
+  block: VerticalCjkRunBlock,
+  rubyAssociations: readonly VerticalRubyAssociation[] = [],
+): LayoutBlock {
   const columns = [...block.columns].sort((a, b) => b.centerX - a.centerX || bodyRunTop(a) - bodyRunTop(b));
   const lines: LayoutLine[] = columns.map((column) => {
     const box = unionBox(column.spans);
     return {
-      text: column.spans.map((span) => span.text).join(''),
+      text: verticalRunTextWithRuby(column, rubyAssociations),
       ...box,
       fontSize: column.fontSize,
       writingMode: 'vertical',
@@ -661,7 +682,7 @@ export function extractVerticalCjkBlocks(spans: readonly TextSpan[]): {
 
   const bodyVertical = extractBodyVerticalCjkRunAnalysis(spans.filter((span) => !used.has(span)));
   for (const block of bodyVertical.blocks) {
-    blocks.push(toBodyVerticalBlock(block));
+    blocks.push(toBodyVerticalBlock(block, bodyVertical.rubyAssociations));
     for (const column of block.columns) {
       for (const span of column.spans) used.add(span);
     }
@@ -672,6 +693,171 @@ export function extractVerticalCjkBlocks(spans: readonly TextSpan[]): {
     blocks,
     remainingSpans: spans.filter((span) => !used.has(span)),
   };
+}
+
+export function verticalRunTextWithRuby(
+  column: VerticalCjkRun,
+  rubyAssociations: readonly VerticalRubyAssociation[],
+): string {
+  const attachments = rubyAssociationsForColumn(column, rubyAssociations);
+  if (attachments.length === 0) return column.spans.map((span) => span.text).join('');
+
+  const byEndSpan = new Map<TextSpan, VerticalRubyAssociation[]>();
+  for (const association of attachments) {
+    const endSpan = association.baseSpans.at(-1);
+    if (!endSpan) continue;
+    const existing = byEndSpan.get(endSpan);
+    if (existing) {
+      existing.push(association);
+    } else {
+      byEndSpan.set(endSpan, [association]);
+    }
+  }
+
+  let text = '';
+  for (const span of column.spans) {
+    text += span.text;
+    const spanAttachments = byEndSpan.get(span);
+    if (!spanAttachments) continue;
+    spanAttachments.sort((a, b) => bodyRunTop(a.ruby) - bodyRunTop(b.ruby));
+    for (const association of spanAttachments) text += `《${rubyAssociationText(association)}》`;
+  }
+  return text;
+}
+
+export function rubyAssociationText(association: VerticalRubyAssociation): string {
+  return association.ruby.spans.map((span) => span.text).join('');
+}
+
+function rubyAssociationsForColumn(
+  column: VerticalCjkRun,
+  rubyAssociations: readonly VerticalRubyAssociation[],
+): VerticalRubyAssociation[] {
+  return rubyAssociations
+    .filter((association) => association.baseColumn === column)
+    .sort((a, b) => {
+      const aStart = column.spans.indexOf(a.baseSpans[0]);
+      const bStart = column.spans.indexOf(b.baseSpans[0]);
+      return aStart - bStart || bodyRunTop(a.ruby) - bodyRunTop(b.ruby);
+    });
+}
+
+function associateRubyRuns(
+  rubyRuns: readonly VerticalCjkRun[],
+  bodyColumns: readonly VerticalCjkRun[],
+): VerticalRubyAssociation[] {
+  const associations: VerticalRubyAssociation[] = [];
+  for (const ruby of rubyRuns) {
+    const candidates = bodyColumns
+      .map((body) => rubyAssociationCandidate(ruby, body))
+      .filter((candidate): candidate is VerticalRubyAssociation & { xGap: number } => candidate !== undefined)
+      .sort((a, b) => a.xGap - b.xGap || b.confidence - a.confidence);
+    if (candidates.length === 0) continue;
+    if (hasAmbiguousAdjacentBodyColumn(ruby, candidates)) continue;
+    const { xGap: _xGap, ...association } = candidates[0];
+    associations.push(association);
+  }
+  return associations.sort(
+    (a, b) => b.baseColumn.centerX - a.baseColumn.centerX || bodyRunTop(a.ruby) - bodyRunTop(b.ruby),
+  );
+}
+
+function rubyAssociationCandidate(
+  ruby: VerticalCjkRun,
+  body: VerticalCjkRun,
+): (VerticalRubyAssociation & { xGap: number }) | undefined {
+  if (!isRubyAdjacentToBodyColumn(ruby, body)) return undefined;
+
+  const baseSpans = overlappingBaseSpans(ruby, body);
+  if (!baseSpans) return undefined;
+
+  const confidence = rubyAssociationConfidence(ruby, body, baseSpans);
+  if (confidence < RUBY_ASSOCIATION_MIN_CONFIDENCE) return undefined;
+
+  return {
+    ruby,
+    baseColumn: body,
+    baseSpans,
+    confidence,
+    xGap: ruby.centerX - body.centerX,
+  };
+}
+
+function isRubyAdjacentToBodyColumn(ruby: VerticalCjkRun, body: VerticalCjkRun): boolean {
+  if (ruby.fontSize > body.fontSize * RUBY_VERTICAL_CJK_MAX_FONT_RATIO) return false;
+
+  const gap = ruby.centerX - body.centerX;
+  if (gap <= 0 || gap > body.fontSize * RUBY_VERTICAL_CJK_MAX_BODY_GAP_RATIO) return false;
+
+  const overlap = Math.min(bodyRunBottom(ruby), bodyRunBottom(body)) - Math.max(bodyRunTop(ruby), bodyRunTop(body));
+  return overlap > 0;
+}
+
+function overlappingBaseSpans(ruby: VerticalCjkRun, body: VerticalCjkRun): TextSpan[] | undefined {
+  const rubyTop = bodyRunTop(ruby);
+  const rubyBottom = bodyRunBottom(ruby);
+  const rubyHeight = Math.max(rubyBottom - rubyTop, 1);
+  const overlaps = body.spans.map((span, index) => {
+    const overlap = Math.min(span.y + span.height, rubyBottom) - Math.max(span.y, rubyTop);
+    const bodyOverlapRatio = overlap / Math.max(span.height, 1);
+    const rubyOverlapRatio = overlap / rubyHeight;
+    return { index, span, overlap, bodyOverlapRatio, rubyOverlapRatio };
+  });
+  const positive = overlaps.filter((item) => item.overlap > 0);
+  if (positive.length === 0) return undefined;
+
+  if (countConsecutiveGroups(positive.map((item) => item.index)) > 1) return undefined;
+
+  const base = positive.filter(
+    (item) =>
+      item.bodyOverlapRatio >= RUBY_ASSOCIATION_MIN_BODY_OVERLAP_RATIO ||
+      item.rubyOverlapRatio >= RUBY_ASSOCIATION_MIN_RUBY_OVERLAP_RATIO,
+  );
+  if (base.length === 0) return undefined;
+
+  const baseIndices = base.map((item) => item.index);
+  if (countConsecutiveGroups(baseIndices) > 1) return undefined;
+
+  return base.sort((a, b) => a.index - b.index).map((item) => item.span);
+}
+
+function countConsecutiveGroups(indices: readonly number[]): number {
+  if (indices.length === 0) return 0;
+  const sorted = [...indices].sort((a, b) => a - b);
+  let groups = 1;
+  for (let index = 1; index < sorted.length; index++) {
+    if (sorted[index] !== sorted[index - 1] + 1) groups++;
+  }
+  return groups;
+}
+
+function rubyAssociationConfidence(ruby: VerticalCjkRun, body: VerticalCjkRun, baseSpans: readonly TextSpan[]): number {
+  const rubyTop = bodyRunTop(ruby);
+  const rubyBottom = bodyRunBottom(ruby);
+  const rubyHeight = Math.max(rubyBottom - rubyTop, 1);
+  const baseTop = Math.min(...baseSpans.map((span) => span.y));
+  const baseBottom = Math.max(...baseSpans.map((span) => span.y + span.height));
+  const baseHeight = Math.max(baseBottom - baseTop, 1);
+  const overlap = baseSpans.reduce(
+    (sum, span) => sum + Math.max(0, Math.min(span.y + span.height, rubyBottom) - Math.max(span.y, rubyTop)),
+    0,
+  );
+  const overlapConfidence = Math.min(1, overlap / Math.max(rubyHeight, baseHeight));
+  const centerDistance = Math.abs((baseTop + baseBottom) / 2 - runCenterY(ruby));
+  const centerConfidence = Math.max(0, 1 - centerDistance / Math.max(rubyHeight, baseHeight));
+  const maxGap = Math.max(body.fontSize * RUBY_VERTICAL_CJK_MAX_BODY_GAP_RATIO, 0.001);
+  const xConfidence = Math.max(0, 1 - (ruby.centerX - body.centerX) / maxGap);
+  return round2(overlapConfidence * 0.5 + centerConfidence * 0.3 + xConfidence * 0.2);
+}
+
+function hasAmbiguousAdjacentBodyColumn(
+  ruby: VerticalCjkRun,
+  candidates: readonly (VerticalRubyAssociation & { xGap: number })[],
+): boolean {
+  if (candidates.length < 2) return false;
+  const [best, next] = candidates;
+  const tieTolerance = Math.max(ruby.fontSize * RUBY_ASSOCIATION_X_TIE_RATIO, 0.001);
+  return Math.abs(next.xGap - best.xGap) <= tieTolerance;
 }
 
 export function compareLayoutBlocks(a: LayoutBlock, b: LayoutBlock): number {

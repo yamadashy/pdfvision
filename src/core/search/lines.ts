@@ -1,4 +1,5 @@
 import type { OcrWord, TextSpan } from '../../types/index.js';
+import { extractBodyVerticalCjkRunAnalysis } from '../layout/verticalText.js';
 import { CJK_TIGHT_GAP_RATIO, isCjkLeading } from '../text/cjkJoin.js';
 import {
   isLikelyCjkDisplaySpacingRow,
@@ -19,7 +20,10 @@ const SEARCH_SEGMENT_MIN_GAP_PT = 14;
 
 export function buildSearchLines(spans: readonly TextSpan[] | undefined, pageWidth: number): SearchLine[] {
   if (!spans || spans.length === 0) return [];
-  const sorted = [...spans].sort((a, b) => a.y - b.y || a.x - b.x);
+  const verticalAnalysis = extractBodyVerticalCjkRunAnalysis(spans);
+  const rubySpans = new Set(verticalAnalysis.rubySpans);
+  const horizontalSpans = rubySpans.size > 0 ? spans.filter((span) => !rubySpans.has(span)) : spans;
+  const sorted = [...horizontalSpans].sort((a, b) => a.y - b.y || a.x - b.x);
   const groups: TextSpan[][] = [];
   for (const span of sorted) {
     const last = groups[groups.length - 1];

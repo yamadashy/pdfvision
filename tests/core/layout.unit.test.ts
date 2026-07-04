@@ -1586,23 +1586,26 @@ describe('buildLayout — multi-column reading order', () => {
   });
 
   it('classifies adjacent half-size ruby stacks without adding them to body vertical blocks', () => {
-    const rightBody = verticalGlyphs('東京で相当の地位を得たい', 300, 100, 12);
+    const rightBody = verticalGlyphs('私東京で相当の地位を得たい', 300, 100, 12);
     const leftBody = verticalGlyphs('から宜しく頼む', 279, 100, 12);
-    const ruby = verticalGlyphs('わたくし', 312, 124, 6);
+    const ruby = verticalGlyphs('わたくし', 312, 94, 6);
     const spans = [...rightBody, ...ruby, ...leftBody];
 
     const analysis = extractBodyVerticalCjkRunAnalysis(spans);
     expect(analysis.rubySpans.map((item) => item.text).join('')).toBe('わたくし');
+    expect(analysis.rubyAssociations).toHaveLength(1);
+    expect(analysis.rubyAssociations[0].baseSpans.map((item) => item.text).join('')).toBe('私');
     expect(analysis.blocks).toHaveLength(1);
     expect(analysis.blocks[0].columns.map((column) => column.spans.map((item) => item.text).join(''))).toEqual([
-      '東京で相当の地位を得たい',
+      '私東京で相当の地位を得たい',
       'から宜しく頼む',
     ]);
 
     const layout = buildLayout(spans, 595);
     const verticalBlocks = layout.blocks.filter((block) => block.writingMode === 'vertical');
-    expect(verticalBlocks.map((block) => block.text)).toContain('東京で相当の地位を得たい\nから宜しく頼む');
-    expect(layout.blocks.map((block) => block.text).join('\n')).not.toContain('わたくし');
+    expect(verticalBlocks.map((block) => block.text)).toContain(
+      '私《わたくし》東京で相当の地位を得たい\nから宜しく頼む',
+    );
   });
 
   it('does not readmit half-size short ruby stacks through contextual short-run detection', () => {
