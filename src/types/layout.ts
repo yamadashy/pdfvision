@@ -5,7 +5,7 @@
  * can overlay spans on `image` directly without flipping.
  */
 export interface TextSpan {
-  /** Glyph run text. Already NFKC-normalized when `normalize` is on. */
+  /** Glyph run text. Already NFKC-normalized and C0-cleaned when `normalize` is on. */
   text: string;
   /** Top-left x in PDF points (origin: page top-left). */
   x: number;

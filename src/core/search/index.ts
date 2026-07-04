@@ -82,11 +82,11 @@ export function searchPage(
   const ocrMatches: SearchMatch[] = [];
 
   // Native pass — line-level literal/regex match. Span text is already
-  // NFKC-normalised when `--normalize` is on (matches what we put in
-  // pages[].spans). Literal-mode queries were NFKC'd at compile time
-  // too, so they're in the same form as the haystack. Regex-mode
-  // queries are intentionally NOT normalised — the user opts into
-  // literal-codepoint semantics against the normalised document text.
+  // normalized and C0-cleaned when `--normalize` is on (matches what we
+  // put in pages[].spans). Literal-mode queries are normalized at
+  // compile time too, so they're in the same form as the haystack.
+  // Regex-mode queries are intentionally NOT normalized — the user opts
+  // into literal-codepoint semantics against the normalized document text.
   lineLoop: for (const line of buildSearchLines(spans, pageWidth)) {
     const haystack = line.text;
     for (let mi = 0; mi < compiled.matchers.length; mi++) {
@@ -121,9 +121,9 @@ export function searchPage(
           ...(m.queryIndex !== undefined && { queryIndex: m.queryIndex }),
           bbox: box,
           boxes: hitBoxes,
-          // `hit[0]` is in the same form as the span text (NFKC when
-          // normalize is on, raw under --no-normalize), matching the
-          // documented `text` contract.
+          // `hit[0]` is in the same form as the span text (normalized
+          // when normalize is on, raw under --no-normalize), matching
+          // the documented `text` contract.
           text: hit[0],
           source: 'native',
           context: haystack,

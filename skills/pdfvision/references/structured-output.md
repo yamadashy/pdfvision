@@ -35,7 +35,7 @@ interface PageOverview {
   imageCount: number;             // raster image draws (XObject + inline + mask + image-bearing patterns), per drawn instance
   vectorCount: number;            // vector drawing ops (paths / shadings), e.g. form boxes, chart rules, slide shapes
   textCoverage: number;           // 0..1, fraction of page area covered by text glyph bboxes
-  nonPrintableRatio: number;      // 0..1, fraction of `text` that is NUL / control / noncharacter
+  nonPrintableRatio: number;      // 0..1, pre-C0-strip NUL / control / noncharacter fraction
   nonPrintableCount: number;      // raw count — stays discriminable when the 3dp ratio rounds to 0
   renderContentRatio?: number;    // 0..1, fraction of pixels differing from the page's dominant background (present iff --render or --ocr)
   rotation?: number;               // clockwise page rotation in degrees; present only for rotated pages
@@ -61,6 +61,7 @@ interface PageOverview {
 - `vectorCount > 0 && textCoverage is low` → visible non-raster structure exists even when `imageCount` is zero; forms, charts, diagrams, and slide shapes may require `--render`.
 - `0.05 <= nonPrintableRatio < 0.3` → one or more fonts lack a usable ToUnicode CMap; native text contains readable fragments mixed with raw glyph indices. Native text is incomplete even if some words look usable. Maps to `quality.nativeTextStatus === 'mixed_glyph_indices'`.
 - `nonPrintableRatio >= 0.3` → ToUnicode CMap missing for most of the page; the text stream is mostly raw glyph indices (NUL + control chars) even though `textCoverage` looks fine. Native text is unusable; fall back to `--render` or `--ocr`. Maps to `quality.nativeTextStatus === 'unusable_glyph_indices'`.
+- Normalized `pages[].text` strips non-visible C0 controls except tab / newline / carriage return, but `nonPrintableRatio` and `nonPrintableCount` still use the pre-strip text signal so sparse control-byte evidence remains visible.
 - Private Use Area glyph-code strings are intentionally excluded from `nonPrintableRatio`; icon fonts can use PUA legitimately. When the page text is PUA-dominant, `pages[].warnings[].code === 'glyph_garbage_text'` fires even if `quality.nativeTextStatus === 'ok'` and `nonPrintableRatio === 0`. When repeated PUA glyphs appear inside otherwise readable text, `localized_glyph_noise` fires so formulas or custom-symbol runs can be checked against the render.
 - `quality.visualStatus === 'sparse'` → rasterised page is not blank, but visible marks are sparse. This covers `0.001 < renderContentRatio <= 0.005`, tiny corroborated image/vector/annotation traces below the blank threshold, and text-only or annotation-only pages with nonzero visible ink below the blank threshold; inspect geometry or render a crop before calling it a render failure.
 - `quality.visualStatus === 'blank'` → rasterised page is effectively blank against its own dominant background (only meaningful when `--render` or `--ocr` was on). Background-aware so dark covers and beige scans don't false-trip it. Catches render-pipeline failures pdfvision can't otherwise surface: pdf.js + @napi-rs/canvas can't decode JPEG2000 image streams (common in Internet Archive scans), and PDFs whose fonts have no resolvable glyphs draw nothing. When OCR runs against this, `confidence: 0` is *not* an OCR miss — the input was a near-uniform image.
@@ -71,14 +72,14 @@ interface PageOverview {
 interface PageResult {
   page: number;
   pageLabel?: string;           // viewer-visible label such as i, ii, A-1, 1; present iff --page-labels and labels exist
-  text: string;                  // NFKC-normalized unless --no-normalize
-  rawText?: string;              // pre-normalization text — only present when normalization changed it
+  text: string;                  // NFKC-normalized and C0-cleaned unless --no-normalize
+  rawText?: string;              // pre-normalization text — present when normalization changed it
   charCount: number;
   imageCount: number;
   vectorCount: number;
   textCoverage: number;
-  nonPrintableRatio: number;     // NUL / control / noncharacter ratio in `text`
-  nonPrintableCount: number;     // raw count alongside the ratio
+  nonPrintableRatio: number;     // pre-C0-strip NUL / control / noncharacter ratio
+  nonPrintableCount: number;     // pre-C0-strip raw count alongside the ratio
   renderContentRatio?: number;   // pixel fraction differing from the page's dominant background (present iff --render or --ocr)
   quality: PageQuality;          // derived per-page classification — agent-side dispatch lives on this field
   rotation?: number;              // clockwise page rotation in degrees; present only for rotated pages
@@ -466,7 +467,7 @@ On vector-only empty-text pages, a single page-sized vector box is emitted when 
 
 ```ts
 interface TextSpan {
-  text: string;              // normalized by default (disable with --no-normalize)
+  text: string;              // NFKC-normalized and C0-cleaned by default (disable with --no-normalize)
   x: number; y: number;      // top-left in PDF points
   width: number; height: number;
   fontSize: number;          // max of horizontal / vertical text-matrix scales
@@ -597,7 +598,7 @@ interface SearchMatch {
   queryIndex?: number;         // 0-based into the search array; omitted for single-query calls
   bbox: { x, y, width, height }; // union bbox of contributing spans/words/widgets/links/annotations
   boxes: { x, y, width, height }[]; // per-span/word/widget/link/annotation bboxes
-  text: string;                // matched substring in the same form as pages[].text (NFKC when normalize is on)
+  text: string;                // matched substring in the same form as pages[].text
   source: 'native' | 'formField' | 'link' | 'annotation' | 'ocr'; // native/span, formField/widget, link target, annotation, or OCR
   context?: string;            // surrounding line text for human / LLM readability
 }
@@ -617,7 +618,7 @@ pdfvision doc.pdf -p <m.page> --render --render-region <m.bbox.x>,<m.bbox.y>,<m.
 
 - **literal substring** by default (regex chars in the query are escaped). Pass `--search-regex` to opt into JavaScript regular expressions.
 - **case-insensitive** by default (recall-oriented). Pass `--search-case-sensitive` for exact-case matching.
-- **NFKC-aware in literal mode** when `--normalize` is on (default) — `"fi"` finds `"ﬁ"` (U+FB01 ligature) PDFs that external grep would miss, same fold for fullwidth Latin / CJK compatibility forms.
+- **NFKC-aware and C0-cleaned in literal mode** when `--normalize` is on (default) — `"fi"` finds `"ﬁ"` (U+FB01 ligature) PDFs that external grep would miss, with the same fold for fullwidth Latin / CJK compatibility forms and the same non-visible C0-control cleanup as `pages[].text`.
 - **CJK display-spacing aware in literal mode** — adjacent CJK characters in the query can match visual title spacing in the PDF text stream, so `科学` can find `科 学` while still keeping wide column gutters as search-line breaks.
 - **Compact table-header rows can be searched as phrases** — adjacent short column labels such as `"Advance Estimate Second Estimate Third Estimate"` stay searchable as one row, while broad prose columns remain separated.
 - **Regex queries are NOT normalized** — NFKC can turn compatibility punctuation into regex metacharacters (silent overmatch or syntax break). Regex users get the literal codepoints they typed against the normalized document text and own the asymmetry.

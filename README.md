@@ -47,7 +47,7 @@ Each page can carry `pages[].warnings` — overlapping text, body running off th
 
 ### Keep raw evidence available
 
-Normalization is on by default but the pre-normalized text stays in `rawText`, and the `xml` format mirrors `json` as tags some LLMs locate more reliably — the original signal is never thrown away.
+Normalization is on by default: text is NFKC-normalized and non-visible C0 controls are stripped, while the pre-normalized text stays in `rawText`. The `xml` format mirrors `json` as tags some LLMs locate more reliably — the original signal is never thrown away.
 
 ### Make repeated agent reads cheap
 
@@ -136,9 +136,10 @@ Options:
       --ocr-lang <lang>   Tesseract lang(s), plus-separated (e.g. eng+jpn). Default: eng
       --remote <url>      Download an http(s) PDF into the cache, validate the PDF header, then extract
       --no-cache          Skip the on-disk cache
-      --no-normalize      Disable Unicode NFKC normalization (default: on; pre-normalization text
-                          is preserved in JSON/XML \`rawText\` only when normalization changed
-                          the string — pass this if you need raw codepoints in markdown too)
+      --no-normalize      Disable Unicode NFKC normalization and C0-control cleanup (default: on;
+                          pre-normalization text is preserved in JSON/XML \`rawText\` only when
+                          normalization changed the string — pass this if you need raw codepoints
+                          in markdown too)
       --clear-cache       Wipe every cached extraction, render, and remote download, then exit
   -v, --version           Show version
   -h, --help              Show this help

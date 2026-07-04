@@ -181,10 +181,10 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
       searchRegex,
       searchCaseSensitive,
       noCache,
-      // NFKC normalization is on by default — agents almost always want
-      // canonical Unicode. --no-normalize lets callers opt out for cases
-      // where the raw pdf.js code points matter (forensics, glyph-level
-      // diffing, ...).
+      // NFKC normalization and C0-control cleanup are on by default —
+      // agents almost always want canonical, human-visible Unicode.
+      // --no-normalize lets callers opt out for cases where the raw
+      // pdf.js code points matter (forensics, glyph-level diffing, ...).
       normalize: !((values['no-normalize'] as boolean | undefined) ?? false),
       geometry: (values.geometry as boolean | undefined) ?? false,
       layout,

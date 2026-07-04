@@ -9,7 +9,7 @@ import { type JoinItem, joinPageText, type VerticalJoinRun } from '../text/cjkJo
 import { textMatrixFontSize, textRunGeometryFromTransform } from '../text/geometry.js';
 import { isLikelyPrepressProductionText } from '../text/prepress.js';
 import type { PageFlags } from './pageData.js';
-import { normalizeText, textItemDedupeKey } from './textUtils.js';
+import { normalizeText, normalizeTextForNonPrintableStats, textItemDedupeKey } from './textUtils.js';
 
 interface TextContentLike {
   items: unknown[];
@@ -36,6 +36,7 @@ interface ExtractPageTextInput {
 export interface ExtractedPageText {
   text: string;
   rawText?: string;
+  nonPrintableSourceText: string;
   textArea: number;
   spans: TextSpan[];
   searchSpans?: TextSpan[];
@@ -126,9 +127,10 @@ export function extractPageText({
     // sometimes carries a synthetic width that exceeds the page width.
     // The aggregate `text` already preserves the spaces, so layout
     // analysis loses nothing; downstream agents get a cleaner signal.
-    if (wantSpans && item.str.trim().length > 0 && geometry) {
+    const spanText = flags.normalize ? normalizeText(item.str) : item.str;
+    if (wantSpans && spanText.trim().length > 0 && geometry) {
       const span = {
-        text: flags.normalize ? normalizeText(item.str) : item.str,
+        text: spanText,
         ...geometry,
         ...(typeof item.fontName === 'string' && { fontName: stablePageFontName(item.fontName, pageFontAliases) }),
       };
@@ -161,11 +163,13 @@ export function extractPageText({
     ],
   }).trimEnd();
   const text = flags.normalize ? normalizeText(rawText) : rawText;
+  const nonPrintableSourceText = flags.normalize ? normalizeTextForNonPrintableStats(rawText) : rawText;
   const preservedRaw = flags.normalize && rawText !== text ? rawText : undefined;
 
   return {
     text,
     rawText: preservedRaw,
+    nonPrintableSourceText,
     textArea,
     spans,
     ...(flags.needSpansForSearch && {

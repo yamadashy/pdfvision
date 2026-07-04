@@ -89,6 +89,27 @@ describe('extractPageText', () => {
     expect(result.spans.map((span) => span.text)).toEqual(['Visible heading', 'Business text']);
   });
 
+  it('strips normalized C0 control-only lines without leaving an empty line', () => {
+    const result = extractPageText({
+      content: {
+        items: [
+          { ...textItem('Before', 80), hasEOL: false },
+          { ...textItem('\b', 100), hasEOL: false },
+          { ...textItem('After', 120), hasEOL: false },
+        ],
+      },
+      flags: { ...BASE_FLAGS, normalize: true },
+      pageHeight: 800,
+      viewMinX: 0,
+      viewMinY: 0,
+    });
+
+    expect(result.text).toBe('Before\nAfter');
+    expect(result.rawText).toBe('Before\n\b\nAfter');
+    expect(result.nonPrintableSourceText).toBe('Before\n\b\nAfter');
+    expect(result.spans.map((span) => span.text)).toEqual(['Before', 'After']);
+  });
+
   it('keeps classified ruby out of vertical body text and search spans', () => {
     const result = extractPageText({
       content: {

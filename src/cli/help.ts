@@ -40,11 +40,12 @@ Options
                           page (errors otherwise). Region must fit within the page bounds.
                           Typical use: --layout to find a suspect block, then re-run with that
                           block's bbox here to zoom in.
-      --no-normalize      Disable Unicode NFKC normalization. Default ON; pre-normalization text is
-                          surfaced in \`rawText\` (json/xml) when normalization changed the string.
-                          Markdown output shows only the normalized form — pass --no-normalize if
-                          original codepoint fidelity (e.g. fullwidth punctuation \`（\`, ligatures
-                          \`ﬁ\`) matters for downstream diff / forensics.
+      --no-normalize      Disable Unicode NFKC normalization and C0-control cleanup. Default ON;
+                          pre-normalization text is surfaced in \`rawText\` (json/xml) when
+                          normalization changed the string. Markdown output shows only the
+                          normalized form — pass --no-normalize if original codepoint fidelity
+                          (e.g. fullwidth punctuation \`（\`, ligatures \`ﬁ\`, control bytes)
+                          matters for downstream diff / forensics.
       --password <value>  Password for encrypted PDFs. The password is used only for pdf.js
                           decryption and is never emitted in output.
       --password-stdin    Read the encrypted PDF password from piped stdin, stripping one

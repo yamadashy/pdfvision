@@ -24,10 +24,10 @@ export interface PageOverview {
   vectorCount: number;
   textCoverage: number;
   /**
-   * Same field as on {@link PageResult.nonPrintableRatio}. Mirrored on
-   * the overview so agents can spot CMap-garbage pages (text looks
-   * full but is binary) from the top-level summary without scanning
-   * `pages[]`.
+   * Same pre-C0-strip quality signal as on {@link PageResult.nonPrintableRatio}.
+   * Mirrored on the overview so agents can spot CMap-garbage pages
+   * (text looks full but is binary) from the top-level summary without
+   * scanning `pages[]`.
    */
   nonPrintableRatio: number;
   /** Raw count companion to {@link nonPrintableRatio}; see PageResult. */
