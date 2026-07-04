@@ -145,6 +145,68 @@ describe('joinPageText (CJK-aware whitespace handling)', () => {
     expect(joinPageText(items)).toBe('人人');
   });
 
+  it('merges detected vertical-run items into column lines in stream order', () => {
+    const rightColumn = Array.from('質問主意書').map((str, index) => ({
+      str,
+      x: 100,
+      y: 100 + index * 10,
+      width: 10,
+      fontSize: 10,
+      hasEOL: index < 4,
+    }));
+    const leftColumn = Array.from('国会質疑中').map((str, index) => ({
+      str,
+      x: 80,
+      y: 100 + index * 10,
+      width: 10,
+      fontSize: 10,
+      hasEOL: index < 4,
+    }));
+    const items: JoinItem[] = [
+      ...rightColumn,
+      { str: '', x: 80, y: 100, width: 0, fontSize: 10, hasEOL: true },
+      ...leftColumn,
+    ];
+
+    expect(
+      joinPageText(items, {
+        verticalRuns: [{ itemIndices: [0, 1, 2, 3, 4] }, { itemIndices: [6, 7, 8, 9, 10] }],
+      }),
+    ).toBe('質問主意書\n国会質疑中\n');
+  });
+
+  it('keeps mixed horizontal items around detected vertical runs in stream order', () => {
+    const items: JoinItem[] = [
+      { str: 'Before ', x: 10, y: 40, width: 42, fontSize: 10, hasEOL: false },
+      { str: '質', x: 100, y: 50, width: 10, fontSize: 10, hasEOL: true },
+      { str: '問', x: 100, y: 60, width: 10, fontSize: 10, hasEOL: true },
+      { str: '主', x: 100, y: 70, width: 10, fontSize: 10, hasEOL: true },
+      { str: '意', x: 100, y: 80, width: 10, fontSize: 10, hasEOL: true },
+      { str: '書', x: 100, y: 90, width: 10, fontSize: 10, hasEOL: false },
+      { str: 'After', x: 10, y: 120, width: 30, fontSize: 10, hasEOL: false },
+    ];
+
+    expect(joinPageText(items, { verticalRuns: [{ itemIndices: [1, 2, 3, 4, 5] }] })).toBe('Before 質問主意書\nAfter');
+  });
+
+  it('falls back to the old per-run behavior when stream order does not match top-to-bottom order', () => {
+    const items: JoinItem[] = [
+      { str: '問', x: 100, y: 60, width: 10, fontSize: 10, hasEOL: true },
+      { str: '質', x: 100, y: 50, width: 10, fontSize: 10, hasEOL: true },
+      { str: '国', x: 80, y: 50, width: 10, fontSize: 10, hasEOL: true },
+      { str: '会', x: 80, y: 60, width: 10, fontSize: 10, hasEOL: true },
+      { str: '質', x: 80, y: 70, width: 10, fontSize: 10, hasEOL: true },
+      { str: '疑', x: 80, y: 80, width: 10, fontSize: 10, hasEOL: true },
+      { str: '中', x: 80, y: 90, width: 10, fontSize: 10, hasEOL: false },
+    ];
+
+    expect(
+      joinPageText(items, {
+        verticalRuns: [{ itemIndices: [1, 0] }, { itemIndices: [2, 3, 4, 5, 6] }],
+      }),
+    ).toBe('問\n\n質\n\n国会質疑中\n');
+  });
+
   it('returns the empty string for empty input', () => {
     expect(joinPageText([])).toBe('');
   });

@@ -1,5 +1,6 @@
 import type { TextSpan } from '../../types/index.js';
-import { type JoinItem, joinPageText } from '../text/cjkJoin.js';
+import { extractBodyVerticalCjkRunBlocks } from '../layout/verticalText.js';
+import { type JoinItem, joinPageText, type VerticalJoinRun } from '../text/cjkJoin.js';
 import { textMatrixFontSize, textRunGeometryFromTransform } from '../text/geometry.js';
 import { isLikelyPrepressProductionText } from '../text/prepress.js';
 import type { PageFlags } from './pageData.js';
@@ -58,6 +59,8 @@ export function extractPageText({
   const joinItems: JoinItem[] = [];
   let textArea = 0;
   const spans: TextSpan[] = [];
+  const verticalJoinSpans: TextSpan[] = [];
+  const verticalJoinSpanIndices = new Map<TextSpan, number>();
   const seenTextItems = new Map<string, number>();
   const pageFontAliases = new Map<string, string>();
   for (const item of content.items) {
@@ -100,6 +103,7 @@ export function extractPageText({
     const itemX = transform ? transform[4] : 0;
     const itemFontSize = transform ? textMatrixFontSize(transform, h) : h;
     seenTextItems.set(itemKey, joinItems.length);
+    const joinItemIndex = joinItems.length;
     joinItems.push({
       str: item.str,
       x: itemX,
@@ -122,9 +126,19 @@ export function extractPageText({
         ...(typeof item.fontName === 'string' && { fontName: stablePageFontName(item.fontName, pageFontAliases) }),
       });
     }
+    if (item.str.trim().length > 0 && geometry) {
+      const span = {
+        text: item.str,
+        ...geometry,
+      };
+      verticalJoinSpans.push(span);
+      verticalJoinSpanIndices.set(span, joinItemIndex);
+    }
   }
 
-  const rawText = joinPageText(joinItems).trimEnd();
+  const rawText = joinPageText(joinItems, {
+    verticalRuns: buildVerticalJoinRuns(verticalJoinSpans, verticalJoinSpanIndices),
+  }).trimEnd();
   const text = flags.normalize ? normalizeText(rawText) : rawText;
   const preservedRaw = flags.normalize && rawText !== text ? rawText : undefined;
 
@@ -134,6 +148,25 @@ export function extractPageText({
     textArea,
     spans,
   };
+}
+
+function buildVerticalJoinRuns(
+  spans: readonly TextSpan[],
+  spanItemIndices: ReadonlyMap<TextSpan, number>,
+): VerticalJoinRun[] {
+  const runs: VerticalJoinRun[] = [];
+  for (const block of extractBodyVerticalCjkRunBlocks(spans)) {
+    for (const column of block.columns) {
+      const itemIndices: number[] = [];
+      for (const span of column.spans) {
+        const index = spanItemIndices.get(span);
+        if (index === undefined) continue;
+        itemIndices.push(index);
+      }
+      if (itemIndices.length === column.spans.length) runs.push({ itemIndices });
+    }
+  }
+  return runs;
 }
 
 function isTextItem(item: unknown): item is TextItemLike {

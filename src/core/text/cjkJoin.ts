@@ -37,6 +37,20 @@ export interface JoinItem {
   hasEOL: boolean;
   /** pdf.js text direction hint (`rtl` for Arabic/Hebrew-shaped runs). */
   dir?: string;
+  /** Internal synthetic break used after a collapsed vertical column. */
+  lineBreakAfter?: boolean;
+}
+
+export interface VerticalJoinRun {
+  /**
+   * JoinItem indices that belong to one detected vertical column,
+   * ordered top-to-bottom by the detector.
+   */
+  itemIndices: readonly number[];
+}
+
+export interface JoinPageTextOptions {
+  verticalRuns?: readonly VerticalJoinRun[];
 }
 
 /**
@@ -102,7 +116,11 @@ function isWhitespaceOnly(s: string): boolean {
  *   positioning artifact. Wide CJK column gaps, real Latin word spaces,
  *   and mixed-script boundaries keep their whitespace.
  */
-export function joinPageText(items: readonly JoinItem[]): string {
+export function joinPageText(items: readonly JoinItem[], options: JoinPageTextOptions = {}): string {
+  const joinedItems =
+    options.verticalRuns && options.verticalRuns.length > 0
+      ? collapseVerticalRunItems(items, options.verticalRuns)
+      : items;
   const parts: string[] = [];
   let line: JoinItem[] = [];
   const flushLine = () => {
@@ -118,14 +136,18 @@ export function joinPageText(items: readonly JoinItem[]): string {
     if (parts.at(-1) !== '\n') parts.push('\n');
   };
 
-  for (const item of items) {
+  for (const item of joinedItems) {
     if (startsSyntheticVisualLine(line, item)) {
       trimTrailingWhitespace();
       flushLine();
       pushNewline();
     }
 
-    if (item.hasEOL) {
+    if (item.lineBreakAfter) {
+      if (item.str.length > 0) line.push(item);
+      flushLine();
+      pushNewline();
+    } else if (item.hasEOL) {
       if (item.str.length > 0) line.push(item);
       flushLine();
       parts.push('\n');
@@ -135,6 +157,78 @@ export function joinPageText(items: readonly JoinItem[]): string {
   }
   flushLine();
   return parts.join('');
+}
+
+function collapseVerticalRunItems(items: readonly JoinItem[], verticalRuns: readonly VerticalJoinRun[]): JoinItem[] {
+  const claimed = new Set<number>();
+  const collapsibleRuns: { first: number; last: number; indices: readonly [number, ...number[]] }[] = [];
+
+  for (const run of verticalRuns) {
+    const indices = run.itemIndices;
+    if (!isCollapsibleVerticalRun(items, indices, claimed)) continue;
+    for (const index of indices) claimed.add(index);
+    collapsibleRuns.push({ first: indices[0], last: indices[indices.length - 1], indices });
+  }
+
+  if (collapsibleRuns.length === 0) return [...items];
+
+  const runByFirstIndex = new Map(collapsibleRuns.map((run) => [run.first, run]));
+  const collapsed: JoinItem[] = [];
+  for (let i = 0; i < items.length; i++) {
+    const run = runByFirstIndex.get(i);
+    if (!run) {
+      collapsed.push(items[i]);
+      continue;
+    }
+
+    collapsed.push(toVerticalRunTextItem(items, run.indices));
+
+    i = run.last;
+    while (i + 1 < items.length && isVerticalRunSeparatorItem(items[i + 1])) i++;
+  }
+
+  return collapsed;
+}
+
+function isCollapsibleVerticalRun(
+  items: readonly JoinItem[],
+  indices: readonly number[],
+  claimed: ReadonlySet<number>,
+): indices is readonly [number, ...number[]] {
+  if (indices.length === 0) return false;
+
+  for (let i = 0; i < indices.length; i++) {
+    const index = indices[i];
+    if (!Number.isInteger(index) || index < 0 || index >= items.length || claimed.has(index)) return false;
+    if (i > 0 && index <= indices[i - 1]) return false;
+  }
+
+  const runIndices = new Set(indices);
+  for (let index = indices[0]; index <= indices[indices.length - 1]; index++) {
+    if (runIndices.has(index)) continue;
+    if (!isVerticalRunSeparatorItem(items[index])) return false;
+  }
+
+  return true;
+}
+
+function toVerticalRunTextItem(items: readonly JoinItem[], indices: readonly [number, ...number[]]): JoinItem {
+  const first = items[indices[0]];
+  const last = items[indices[indices.length - 1]];
+  return {
+    str: indices.map((index) => items[index].str).join(''),
+    x: first.x,
+    ...(first.y !== undefined && { y: first.y }),
+    width: Math.max(0, last.x + last.width - first.x),
+    fontSize: Math.max(...indices.map((index) => items[index].fontSize), 1),
+    hasEOL: false,
+    lineBreakAfter: true,
+    ...(first.dir !== undefined && { dir: first.dir }),
+  };
+}
+
+function isVerticalRunSeparatorItem(item: JoinItem): boolean {
+  return item.hasEOL && item.str.trim().length === 0;
 }
 
 function startsSyntheticVisualLine(line: readonly JoinItem[], item: JoinItem): boolean {
