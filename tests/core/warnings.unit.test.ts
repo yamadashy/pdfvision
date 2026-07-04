@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { detectPageWarnings } from '../../src/core/warnings/index.js';
-import type { LayoutBlock, LayoutLine, PageResult } from '../../src/types/index.js';
+import type { LayoutBlock, LayoutLine, PageResult, VectorBox } from '../../src/types/index.js';
 
 /** Build a layout block with sensible defaults the rules don't read.
  *  All four numeric coordinates are required because the rules
@@ -39,6 +39,24 @@ function page(blocks: LayoutBlock[], width = 612, height = 792): PageResult {
     layout: { blocks },
     quality: { nativeTextStatus: 'ok' },
   };
+}
+
+function scatteredSmallVectorBoxes(count = 260): VectorBox[] {
+  return Array.from({ length: count }, (_, index) => ({
+    x: 40 + (index % 26) * 20,
+    y: 90 + Math.floor(index / 26) * 55,
+    width: 7.68,
+    height: 7.68,
+  }));
+}
+
+function clusteredChartVectorBoxes(count = 260): VectorBox[] {
+  return Array.from({ length: count }, (_, index) => ({
+    x: 120 + (index % 20) * 14,
+    y: 150 + Math.floor(index / 20) * 14,
+    width: 6,
+    height: 6,
+  }));
 }
 
 describe('detectPageWarnings', () => {
@@ -1165,6 +1183,87 @@ describe('detectPageWarnings', () => {
     expect(out).toHaveLength(1);
     expect(out[0]).toMatchObject({ code: 'dense_vector_graphics', severity: 'warning' });
     expect(out[0].message).toContain('502 vector drawing operations');
+  });
+
+  it('does not flag text-dominant pages with only scattered small vector decorations', () => {
+    const out = detectPageWarnings(
+      {
+        page: 1,
+        text: 'Title and abstract text with decorative identity badges',
+        charCount: 4165,
+        imageCount: 0,
+        vectorCount: 317,
+        textCoverage: 0.305,
+        nonPrintableRatio: 0,
+        nonPrintableCount: 0,
+        width: 612,
+        height: 792,
+        quality: { nativeTextStatus: 'ok' },
+      },
+      { vectorBoxes: scatteredSmallVectorBoxes(317) },
+    );
+
+    expect(out.filter((w) => w.code === 'dense_vector_graphics')).toEqual([]);
+  });
+
+  it('still flags dense vector graphics concentrated into a chart-like region', () => {
+    const out = detectPageWarnings(
+      {
+        page: 1,
+        text: 'Text around a vector chart',
+        charCount: 2600,
+        imageCount: 0,
+        vectorCount: 260,
+        textCoverage: 0.22,
+        nonPrintableRatio: 0,
+        nonPrintableCount: 0,
+        width: 612,
+        height: 792,
+        quality: { nativeTextStatus: 'ok' },
+      },
+      { vectorBoxes: clusteredChartVectorBoxes(260) },
+    );
+
+    expect(out.filter((w) => w.code === 'dense_vector_graphics')).toHaveLength(1);
+  });
+
+  it('falls back to count-only dense vector detection when vector boxes are unavailable', () => {
+    const out = detectPageWarnings({
+      page: 1,
+      text: 'Dense vector page without vector-box extraction',
+      charCount: 2400,
+      imageCount: 0,
+      vectorCount: 260,
+      textCoverage: 0.24,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      width: 612,
+      height: 792,
+      quality: { nativeTextStatus: 'ok' },
+    });
+
+    expect(out.filter((w) => w.code === 'dense_vector_graphics')).toHaveLength(1);
+  });
+
+  it('still flags scattered small vector decorations when native text is sparse', () => {
+    const out = detectPageWarnings(
+      {
+        page: 1,
+        text: 'Sparse labels',
+        charCount: 300,
+        imageCount: 0,
+        vectorCount: 260,
+        textCoverage: 0.05,
+        nonPrintableRatio: 0,
+        nonPrintableCount: 0,
+        width: 612,
+        height: 792,
+        quality: { nativeTextStatus: 'ok' },
+      },
+      { vectorBoxes: scatteredSmallVectorBoxes(260) },
+    );
+
+    expect(out.filter((w) => w.code === 'dense_vector_graphics')).toHaveLength(1);
   });
 
   it('does not flag ordinary low-count vector decorations as dense vector graphics', () => {

@@ -3,6 +3,14 @@ import { isLowContentFullPageRasterScan } from './lowContentRaster.js';
 import { type BoxLike, clippedArea, overlapRatio, type VisualWarningContext } from './types.js';
 
 const DENSE_VECTOR_GRAPHICS_COUNT_THRESHOLD = 250;
+const DENSE_VECTOR_TEXT_DOMINANT_MIN_CHARS = 1000;
+const DENSE_VECTOR_TEXT_DOMINANT_MIN_COVERAGE = 0.15;
+// PLOS title-page decoration peaks at 1.8%; the measured APD map/chart control has a 3.75% bubble.
+const DENSE_VECTOR_SIGNIFICANT_BOX_AREA_RATIO = 0.03;
+const DENSE_VECTOR_CLUSTER_GAP_PT = 24;
+const DENSE_VECTOR_CLUSTER_MIN_BOXES = 40;
+const DENSE_VECTOR_CLUSTER_MIN_BOUNDS_AREA_RATIO = 0.08;
+const DENSE_VECTOR_CLUSTER_MIN_AGGREGATE_AREA_RATIO = 0.12;
 const EDGE_HAIRLINE_MAX_THICKNESS = 1.5;
 const EDGE_HAIRLINE_MARGIN_RATIO = 0.01;
 const EDGE_HAIRLINE_MIN_MARGIN = 2;
@@ -17,13 +25,121 @@ const AGGREGATE_RASTER_AREA_RATIO_THRESHOLD = 0.2;
 const AGGREGATE_RASTER_TILE_MIN_AREA_RATIO = 0.02;
 const LARGE_RASTER_TEXT_OVERLAP_RATIO_THRESHOLD = 0.01;
 
-export function detectDenseVectorGraphics(page: PageResult, out: PageWarning[]): void {
+export function detectDenseVectorGraphics(page: PageResult, context: VisualWarningContext, out: PageWarning[]): void {
   if (page.vectorCount < DENSE_VECTOR_GRAPHICS_COUNT_THRESHOLD) return;
+  const vectorBoxes = page.vectorBoxes ?? context.vectorBoxes;
+  if (vectorBoxes && vectorBoxes.length > 0 && isDenseVectorTextDecorationPage(page, vectorBoxes)) return;
   out.push({
     code: 'dense_vector_graphics',
     severity: 'warning',
     message: `page contains ${page.vectorCount} vector drawing operations — form fields, table rules, chart paths, or diagrams may not be represented in native text; inspect the render if visual structure matters`,
   });
+}
+
+function isDenseVectorTextDecorationPage(page: PageResult, vectorBoxes: readonly VectorBox[]): boolean {
+  if (page.charCount < DENSE_VECTOR_TEXT_DOMINANT_MIN_CHARS) return false;
+  if (page.textCoverage < DENSE_VECTOR_TEXT_DOMINANT_MIN_COVERAGE) return false;
+  const pageArea = page.width * page.height;
+  if (pageArea <= 0) return false;
+
+  if (
+    vectorBoxes.some(
+      (box) =>
+        clippedArea(box, { x: 0, y: 0, width: page.width, height: page.height }) / pageArea >=
+        DENSE_VECTOR_SIGNIFICANT_BOX_AREA_RATIO,
+    )
+  ) {
+    return false;
+  }
+
+  return !hasMeaningfulDenseVectorConcentration(page, vectorBoxes, pageArea);
+}
+
+function hasMeaningfulDenseVectorConcentration(
+  page: Pick<PageResult, 'width' | 'height'>,
+  vectorBoxes: readonly VectorBox[],
+  pageArea: number,
+): boolean {
+  for (const cluster of buildDenseVectorClusters(page, vectorBoxes)) {
+    if (cluster.count < DENSE_VECTOR_CLUSTER_MIN_BOXES) continue;
+    const boundsRatio = boxArea(cluster.box) / pageArea;
+    const aggregateRatio = cluster.aggregateArea / pageArea;
+    if (
+      boundsRatio >= DENSE_VECTOR_CLUSTER_MIN_BOUNDS_AREA_RATIO ||
+      aggregateRatio >= DENSE_VECTOR_CLUSTER_MIN_AGGREGATE_AREA_RATIO
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function buildDenseVectorClusters(
+  page: Pick<PageResult, 'width' | 'height'>,
+  vectorBoxes: readonly VectorBox[],
+): { box: BoxLike; count: number; aggregateArea: number }[] {
+  const clusters: { box: BoxLike; count: number; aggregateArea: number }[] = [];
+  for (const vectorBox of vectorBoxes) {
+    const box = visibleVectorBox(vectorBox, page);
+    if (!box) continue;
+    const area = boxArea(box);
+    const matches: number[] = [];
+    for (let i = 0; i < clusters.length; i++) {
+      if (boxesTouch(clusters[i].box, box, DENSE_VECTOR_CLUSTER_GAP_PT)) matches.push(i);
+    }
+    if (matches.length === 0) {
+      clusters.push({ box, count: 1, aggregateArea: area });
+      continue;
+    }
+
+    const first = matches[0];
+    clusters[first] = {
+      box: unionBox(clusters[first].box, box),
+      count: clusters[first].count + 1,
+      aggregateArea: clusters[first].aggregateArea + area,
+    };
+    for (let i = matches.length - 1; i >= 1; i--) {
+      clusters[first] = {
+        box: unionBox(clusters[first].box, clusters[matches[i]].box),
+        count: clusters[first].count + clusters[matches[i]].count,
+        aggregateArea: clusters[first].aggregateArea + clusters[matches[i]].aggregateArea,
+      };
+      clusters.splice(matches[i], 1);
+    }
+  }
+  return clusters;
+}
+
+function visibleVectorBox(box: VectorBox, page: Pick<PageResult, 'width' | 'height'>): BoxLike | undefined {
+  const x = Math.max(0, box.x);
+  const y = Math.max(0, box.y);
+  const right = Math.min(page.width, box.x + box.width);
+  const bottom = Math.min(page.height, box.y + box.height);
+  const width = right - x;
+  const height = bottom - y;
+  if (width <= 0 || height <= 0) return undefined;
+  return { x, y, width, height };
+}
+
+function boxesTouch(a: BoxLike, b: BoxLike, gap: number): boolean {
+  return (
+    a.x <= b.x + b.width + gap &&
+    b.x <= a.x + a.width + gap &&
+    a.y <= b.y + b.height + gap &&
+    b.y <= a.y + a.height + gap
+  );
+}
+
+function unionBox(a: BoxLike, b: BoxLike): BoxLike {
+  const x = Math.min(a.x, b.x);
+  const y = Math.min(a.y, b.y);
+  const right = Math.max(a.x + a.width, b.x + b.width);
+  const bottom = Math.max(a.y + a.height, b.y + b.height);
+  return { x, y, width: right - x, height: bottom - y };
+}
+
+function boxArea(box: BoxLike): number {
+  return Math.max(0, box.width) * Math.max(0, box.height);
 }
 
 export function detectVectorGraphicsWithoutNativeText(

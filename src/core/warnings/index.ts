@@ -89,7 +89,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
   detectLowConfidenceOcr(page, context, warnings);
   detectHighConfidenceOcrNativeMismatch(page, context, warnings);
   detectHighConfidenceOcrNativeSpacingLoss(page, context, warnings);
-  detectDenseVectorGraphics(page, warnings);
+  detectDenseVectorGraphics(page, context, warnings);
   detectVectorGraphicsWithoutNativeText(page, context, warnings);
   detectRasterImageWithoutNativeText(page, context, warnings);
   detectLargeRasterLowTextOverlap(page, context, warnings);
