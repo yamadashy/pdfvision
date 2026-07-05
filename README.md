@@ -21,39 +21,24 @@
 
 ## 💡 Why pdfvision
 
-Hand an agent a PDF and it usually either can't read it at all, or swallows the whole file and blows past its context window. Neither is how anyone actually reads a PDF. A person goes page by page, looks at the figures and images, and zooms in when a detail won't resolve.
+Hand an agent a PDF and it usually either can't read it at all, or swallows the whole file and blows past its context window. Worse, extraction failures are *silent*: a scanned page comes back empty, a table comes back flattened, glyph garbage comes back looking like words — and the agent trusts all of it.
 
-**pdfvision gives agents those same eyes.** A lightweight CLI, packed with recognition aids, built specifically so an agent can experiment with *how* it looks at a PDF — one page at a time, as text, as a rendered image, zoomed into a region — instead of being handed a single pre-baked answer it can't second-guess.
+A person doesn't read a PDF that way. They go page by page, glance at the figures, and zoom in when a detail won't resolve. pdfvision gives agents that same reading loop:
 
-### See whether text extraction actually worked
+- **Know when the text can't be trusted.** Every page reports coverage stats and `warnings` — glyph garbage, text layers over full-page scans, flattened numeric tables — so the agent catches silent extraction failures instead of shipping them.
+- **Look at the page, not just the text.** `--render` hands page PNGs to a vision model, and `--ocr` adds recognized text with word boxes when the text layer falls short.
+- **Find, then zoom.** `--search` returns a bounding box for every match; feed it into `--render-region` for a full-resolution crop of exactly the right spot.
+- **Keep the structure a text stream drops.** Layout blocks, tables, form fields, links, annotations, and crop-ready figure regions stay addressable (`--layout`, `--visual-regions`, `--form-fields`, …) instead of being flattened into one string.
+- **Iterate cheaply.** A cache-first design (~30 ms on the second read) and first-class `--remote` URLs keep this trial-and-error practical across a whole session.
 
-Every page reports `charCount`, `imageCount`, `vectorCount`, `textCoverage`, and `quality.nativeTextStatus`, so an agent can tell at a glance that "this slide is visual, not just text", "this dense form only extracted a watermark", "this annotation-only page is not blank", "this sparse OCR residue is not visible on the rendered page", or "this native text mixes readable words with glyph garbage" — and decide to re-run with `--render` or `--ocr` instead of trusting an empty string or a lone page number.
+Find-then-zoom in two commands:
 
-### Look at the page, not just the text
+```bash
+pdfvision paper.pdf --search "BLEU" --json                 # → every match, with its bbox
+pdfvision paper.pdf -p 8 -r --render-region 260,55,320,120 # → PNG crop of that exact table
+```
 
-`--render` hands PNG paths straight to a vision model and `--ocr` attaches per-page OCR text plus word boxes alongside the native text, so an agent can read and locate scanned-page content when the text layer falls short.
-
-### Preserve layout and visual structure
-
-PDF meaning often lives in placement, not only words: headings, columns, tables, form labels, links, annotations, figures, and page labels all tell a reader how to interpret the page. pdfvision keeps those signals available instead of flattening the document into one text stream.
-
-It also makes visual evidence addressable. Images, vector drawings, forms, tables, and annotation markup can be returned as page boxes or crop-ready visual regions, then rendered only when an agent needs a closer look.
-
-The point is simple: an agent can keep row/column/form relationships, choose the next visual zoom, and verify layout-sensitive content against the rendered page. Detailed flag behavior is documented in the Usage section and the structured output reference.
-
-### Spot anomalies a human would notice
-
-Each page can carry `pages[].warnings` — overlapping text, body running off the page, collisions with running headers/footers, glyph-garbage native text (including PUA-dominant glyph-code strings), localized glyph noise (including printable CJK/Latin-1 mojibake), dense vector graphics such as form boxes or chart paths, numeric tables whose row/column relationships may be flattened, OCR/text layers over full-page scans, symbol-heavy OCR text layers, low-confidence OCR on scan-like pages, or large raster regions whose internal labels will not appear in native text — the "this looks off" cues a text-only extractor silently drops.
-
-### Keep raw evidence available
-
-Normalization is on by default: text is NFKC-normalized and non-visible C0 controls are stripped, while the pre-normalized text stays in `rawText`. The `xml` format mirrors `json` as tags some LLMs locate more reliably — the original signal is never thrown away.
-
-### Make repeated agent reads cheap
-
-A cache-first design (~30 ms on the second read) and first-class `--remote` URLs keep the trial-and-error above practical across a whole session.
-
-The design principle is **agent decides; pdfvision delivers raw signals.** No auto-detect heuristics that decide for the agent and hide what the PDF actually contained.
+One principle holds it together: **the agent decides; pdfvision delivers raw signals.** No auto-detect heuristics that pick an answer for the agent and hide what the PDF actually contained.
 
 ## 🚀 Quick Start
 
@@ -65,7 +50,7 @@ npx pdfvision document.pdf
 npx pdfvision document.pdf --render
 
 # Pull from a URL
-npx pdfvision --remote https://raw.githubusercontent.com/mozilla/pdf.js-sample-files/master/tracemonkey.pdf -f json
+npx pdfvision --remote https://raw.githubusercontent.com/mozilla/pdf.js-sample-files/master/tracemonkey.pdf --json
 
 # Or install globally
 npm install -g pdfvision
@@ -98,6 +83,8 @@ pdfvision --clear-cache
 Options:
   -p, --pages <range>     Page range (e.g. "1-5", "3", "1,3,5")
   -f, --format <type>     Output format: markdown (default), json, xml, toon
+      --markdown / --json / --xml / --toon
+                          Shortcuts for --format <type>
   -r, --render            Render pages as PNG images
       --render-output <dir>
                           Directory for rendered page or visual-region PNGs
@@ -105,6 +92,11 @@ Options:
       --render-scale <n>  Rasterisation multiplier (default 2; bounds (0, 4]);
                           OCR keeps at least scale 2 for recognition quality.
                           Requires --render, --render-visual-regions, or --ocr.
+      --render-region <x,y,width,height>
+                          Render only the given sub-rectangle of a single page
+                          (PDF points, top-left origin — same coordinates as
+                          search matches, imageBoxes, and layout blocks);
+                          composes with --render-scale for a high-res zoom
       --geometry          Emit per-text-item bbox + font size in pages[].spans (json/xml/toon)
       --layout            Reconstruct lines + blocks + numeric-table hints in pages[].layout;
                           detects CJK vertical text stacks as writingMode='vertical'
@@ -112,6 +104,8 @@ Options:
                           also enables layout warnings (text_overlap / near_bottom_edge /
                           body_near_repeated_chrome / off_page / tabular_numeric_layout /
                           reading_order_divergence)
+      --strip-repeated    Drop running headers / footers / page numbers from the
+                          Markdown body (markdown only; requires --layout)
       --image-boxes       Emit per-image bbox in pages[].imageBoxes;
                           enables imageBoxIndex details on large-raster warnings
       --vector-boxes      Emit vector drawing bboxes in pages[].vectorBoxes
@@ -134,6 +128,14 @@ Options:
       --layers            Emit PDF optional content groups in layers
       --ocr               Run tesseract.js OCR; attach pages[].ocr (text/confidence/lang)
       --ocr-lang <lang>   Tesseract lang(s), plus-separated (e.g. eng+jpn). Default: eng
+      --search <query>    Find every occurrence and emit pages[].matches with the bbox
+                          of each hit — feed it into --render-region for a visual zoom.
+                          Repeatable (--search A --search B); literal, case-insensitive,
+                          NFKC-aware by default. Also matches form field values, link
+                          targets, visible annotations, and OCR text when --ocr is on
+      --search-regex      Treat each --search query as a JavaScript regular expression
+      --search-case-sensitive
+                          Match case exactly (default: insensitive)
       --remote <url>      Download an http(s) PDF into the cache, validate the PDF header, then extract
       --no-cache          Skip the on-disk cache
       --no-normalize      Disable Unicode NFKC normalization and C0-control cleanup (default: on;
@@ -150,41 +152,44 @@ Options:
 - **`markdown` (default)** — per-page sections, density Overview table, image links inline. For LLM context windows.
 - **`json`** — full `DocumentResult` schema. For programmatic consumers.
 - **`xml`** — same data as JSON but tag-shaped. For LLMs that locate `<page>` / `<text>` tags more reliably than nested object keys.
-- **`toon`** — [Token-Oriented Object Notation](https://toonformat.dev): a lossless, schema-aware encoding of the same `DocumentResult` schema, tuned for LLM token budgets. Uniform object arrays (`overview`, `spans`, `imageBoxes`, `layout` lines) collapse into a CSV-like tabular form that declares field names once instead of repeating them per row, cutting ~40% of tokens versus the pretty-printed JSON on geometry / layout-heavy output (where spans can outnumber the body text 5–10×). On plain text-body extraction the win is smaller since free text doesn't compress. Round-trips back to JSON, so programmatic consumers lose nothing.
+- **`toon`** — [Token-Oriented Object Notation](https://toonformat.dev): a lossless, tabular encoding of the same `DocumentResult` schema. Uniform arrays (`spans`, `imageBoxes`, `layout` lines) declare field names once instead of per row, cutting ~40% of tokens versus pretty-printed JSON on geometry / layout-heavy output. Round-trips back to JSON.
 
 ### Examples
 
 ```bash
 # Specific pages as JSON
-pdfvision document.pdf -p 1-3 -f json
+pdfvision document.pdf -p 1-3 --json
 
 # Render PNGs into ./images for a multimodal LLM
 pdfvision document.pdf -r --render-output ./images
 
-# Layout + image bboxes — agent reconstructs reading order itself.
-# pages[].warnings flags overlapping text, body running into the
-# bottom edge, body colliding with running headers/footers, localized
-# glyph noise / CJK mojibake, dense vector forms/charts,
-# OCR/text layers over full-page scans, and large raster
-# images whose labels may need vision.
-# Pages also expose vectorCount for form boxes, chart paths, and shapes.
-pdfvision document.pdf --layout --image-boxes -f json
+# Find every "revenue" with a bbox, then zoom into one hit
+pdfvision report.pdf --search "revenue" --json
+pdfvision report.pdf -p 3 -r --render-region 100,200,300,150
+
+# Layout + image bboxes — pages[].warnings flags overlapping text,
+# glyph garbage, text layers over full-page scans, flattened numeric
+# tables, and large raster images whose labels may need vision
+pdfvision document.pdf --layout --image-boxes --json
+
+# Markdown without repeated headers / footers / page numbers
+pdfvision document.pdf --layout --strip-repeated
 
 # Suggested visual crops as PNGs, without rendering every full page
-pdfvision document.pdf --render-visual-regions --render-output ./regions -f json
+pdfvision document.pdf --render-visual-regions --render-output ./regions --json
 
 # Per-text-item geometry (bbox + fontSize per glyph run)
-pdfvision document.pdf -f json --geometry
+pdfvision document.pdf --json --geometry
 
 # Same geometry as token-efficient TOON (spans become tabular rows)
-pdfvision document.pdf -f toon --geometry
+pdfvision document.pdf --toon --geometry
 
 # Open an encrypted PDF when you know the document password
-pdfvision encrypted.pdf --password "secret" -f json
-printf "secret\n" | pdfvision encrypted.pdf --password-stdin -f json
+pdfvision encrypted.pdf --password "secret" --json
+printf "secret\n" | pdfvision encrypted.pdf --password-stdin --json
 
 # OCR a scanned PDF (multi-language)
-pdfvision scan.pdf --ocr --ocr-lang eng+jpn -f json
+pdfvision scan.pdf --ocr --ocr-lang eng+jpn --json
 ```
 
 Coordinates use a **top-down origin** (0,0 at the top-left, y grows downward) in PDF user-space points. On unrotated pages, multiply by `image.width / page.width` to map spans / image bboxes onto rendered pixels. On rotated pages, `pages[].rotation` gives the clockwise page rotation; bboxes still feed directly into `--render-region`, while full-page PNG overlays should use the rotated PDF viewport transform because the rendered PNG follows the human-visible orientation.
