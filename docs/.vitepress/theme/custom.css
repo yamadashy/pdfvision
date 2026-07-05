@@ -13,6 +13,12 @@
   border-radius: 8px;
 }
 
+/* Home-layout markdown content (below hero/features) defaults to the full
+   1280px container; cap it at a readable text width like doc pages. */
+.VPHome .vp-doc.container {
+  max-width: 800px;
+}
+
 @media (min-width: 768px) {
   .vp-doc table {
     display: table;
