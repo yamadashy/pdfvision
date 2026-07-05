@@ -14,9 +14,23 @@
 }
 
 /* Home-layout markdown content (below hero/features) defaults to the full
-   1280px container; cap it at a readable text width like doc pages. */
+   1280px container; cap it at an 800px text column. The container is
+   border-box and carries side padding (24/48/64px per breakpoint), so add
+   that padding on top to keep the actual text width at 800px. */
 .VPHome .vp-doc.container {
-  max-width: 800px;
+  max-width: calc(800px + 2 * 24px);
+}
+
+@media (min-width: 640px) {
+  .VPHome .vp-doc.container {
+    max-width: calc(800px + 2 * 48px);
+  }
+}
+
+@media (min-width: 960px) {
+  .VPHome .vp-doc.container {
+    max-width: calc(800px + 2 * 64px);
+  }
 }
 
 @media (min-width: 768px) {
