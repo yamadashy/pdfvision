@@ -1,6 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke="#AB4472" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-label="pdfvision">
-  <path d="M14 8 L40 8 L50 18 L50 50 L14 50 Z" />
-  <path d="M40 8 L40 18 L50 18" />
-  <circle cx="36" cy="36" r="10" />
-  <line x1="43" y1="43" x2="54" y2="54" />
+  <path d="M50 32.5 L50 18 L40 8 L14 8 L14 50 L33.5 50"/>
+  <path d="M40 8 L40 18 L50 18"/>
+  <path d="M20 17 L32 17 M20 23 L36 23 M20 29 L36 29 M20 35 L28 35" stroke-width="2.5"/>
+  <path d="M47.5 36 Q49.3 44.7 58 46.5 Q49.3 48.3 47.5 57 Q45.7 48.3 37 46.5 Q45.7 44.7 47.5 36 Z" fill="#AB4472" stroke="none"/>
+  <path d="M56.5 28.5 L57.5 31.5 L60.5 32.5 L57.5 33.5 L56.5 36.5 L55.5 33.5 L52.5 32.5 L55.5 31.5 Z" fill="#AB4472" stroke="none"/>
 </svg>
