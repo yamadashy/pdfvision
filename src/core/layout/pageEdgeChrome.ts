@@ -103,7 +103,8 @@ function isPageEdgeVerticalMarkerBlock(
   verticalEdgeAnchors: readonly LayoutBlock[],
 ): boolean {
   const text = normalizedPageEdgeChromeText(block.text);
-  if (text.length === 0 || text.length > PAGE_EDGE_VERTICAL_MARKER_MAX_CHARS) return false;
+  const textLength = Array.from(text).length;
+  if (textLength === 0 || textLength > PAGE_EDGE_VERTICAL_MARKER_MAX_CHARS) return false;
   if (!PAGE_EDGE_VERTICAL_CHROME_MARKER_RE.test(text)) return false;
   if (!isSideEdgeBox(block, pageWidth)) return false;
   if (block.height > pageHeight * 0.05 || block.width > pageWidth * 0.05) return false;

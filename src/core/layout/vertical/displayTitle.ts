@@ -201,7 +201,7 @@ function toVerticalBlock(run: TextSpan[]): LayoutBlock | undefined {
   if (run.length < VERTICAL_CJK_MIN_RUN_SPANS) return undefined;
   const ySorted = [...run].sort((a, b) => a.y - b.y || a.x - b.x);
   const box = unionBox(ySorted);
-  const fontSize = round2(mode(ySorted.map((s) => s.fontSize)));
+  const fontSize = round2(mode(ySorted.map((s) => s.fontSize || s.height || FONT_SIZE_FALLBACK_PT)));
   if (box.height < Math.max(box.width * VERTICAL_CJK_MIN_HEIGHT_RATIO, fontSize * VERTICAL_CJK_MIN_RUN_SPANS)) {
     return undefined;
   }

@@ -9,6 +9,9 @@ const MIN_PAGE_TEXT_VOLUME_RATIO = 0.1;
 const MIN_AFFINE_SCALE = 0.5;
 const MAX_AFFINE_SCALE = 1.5;
 const MAX_AFFINE_RESIDUAL_PT = 4;
+// Bound worst-case duplicate-layer detection cost on pathological same-text pages.
+const MAX_SPANS_PER_NORMALIZED_TEXT = 8;
+const MAX_CANDIDATE_PAIRS = 400;
 
 interface SpanCandidate {
   span: TextSpan;
@@ -84,8 +87,11 @@ function buildCandidatePairs(spans: readonly TextSpan[]): DuplicatePair[] {
     if (text.length < MIN_NORMALIZED_TEXT_LENGTH) continue;
     const existing = groups.get(text);
     const candidate = { span, index, text };
-    if (existing) existing.push(candidate);
-    else groups.set(text, [candidate]);
+    if (existing) {
+      if (existing.length < MAX_SPANS_PER_NORMALIZED_TEXT) existing.push(candidate);
+    } else {
+      groups.set(text, [candidate]);
+    }
   }
 
   const pairs: DuplicatePair[] = [];
@@ -100,6 +106,7 @@ function buildCandidatePairs(spans: readonly TextSpan[]): DuplicatePair[] {
         if (lower.span.y - upper.span.y < MIN_VERTICAL_SEPARATION_PT) continue;
         if (!hasDifferentFontOrSize(upper.span, lower.span)) continue;
         pairs.push({ text, upper, lower, y1: upper.span.y, y2: lower.span.y });
+        if (pairs.length >= MAX_CANDIDATE_PAIRS) return pairs;
       }
     }
   }

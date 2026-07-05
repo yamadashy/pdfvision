@@ -30,12 +30,11 @@ function stripC0ControlsAndCollapseEmptyLines(text: string): string {
 
   for (const line of splitLines(text)) {
     const strippedContent = stripStrippableC0Controls(line.content);
-    const lineBecameEmpty = strippedContent.length === 0 && strippedContent.length !== line.content.length;
+    const lineBecameEmpty = line.content.length > 0 && strippedContent.length === 0;
     if (lineBecameEmpty) {
       removedControlOnlyLine = true;
       continue;
     }
-    if (removedControlOnlyLine && strippedContent.length === 0) continue;
 
     output.push({ content: strippedContent, ending: line.ending });
     removedControlOnlyLine = false;

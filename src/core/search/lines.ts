@@ -159,13 +159,58 @@ function appendSpanTextWithRuby(
     appendTextOwners(state, span.text.slice(cursor, offset), span);
     const rangeStart = state.text.length;
     appendTextOwners(state, '《', undefined);
-    const rubyOwner = attachment.rubySpans[0];
-    appendTextOwners(state, attachment.text, rubyOwner);
+    appendRubyReadingOwners(state, attachment.text, attachment.rubySpans);
     appendTextOwners(state, '》', undefined);
     if (attachment.text.length > 0) state.rubyRanges.push({ start: rangeStart, end: state.text.length });
     cursor = offset;
   }
   appendTextOwners(state, span.text.slice(cursor), span);
+}
+
+function appendRubyReadingOwners(
+  state: { text: string; owners: (SearchOwner | undefined)[] },
+  text: string,
+  rubySpans: readonly TextSpan[],
+): void {
+  if (text.length === 0) return;
+  if (rubySpans.length === 0) {
+    appendTextOwners(state, text, undefined);
+    return;
+  }
+
+  const lengths = rubyOwnerLengths(text.length, rubySpans);
+  let cursor = 0;
+  for (let index = 0; index < rubySpans.length && cursor < text.length; index++) {
+    const length = Math.min(lengths[index] ?? 0, text.length - cursor);
+    if (length <= 0) continue;
+    appendTextOwners(state, text.slice(cursor, cursor + length), rubySpans[index]);
+    cursor += length;
+  }
+  if (cursor < text.length) appendTextOwners(state, text.slice(cursor), rubySpans[rubySpans.length - 1]);
+}
+
+function rubyOwnerLengths(textLength: number, rubySpans: readonly TextSpan[]): number[] {
+  const exactLengths = rubySpans.map(rubySpanReadingLength);
+  if (
+    exactLengths.every((length) => length > 0) &&
+    exactLengths.reduce((sum, length) => sum + length, 0) === textLength
+  ) {
+    return exactLengths;
+  }
+
+  const ownerCount = rubySpans.length;
+  const base = Math.floor(textLength / ownerCount);
+  let remainder = textLength % ownerCount;
+  return rubySpans.map(() => {
+    if (base === 0 && remainder <= 0) return 0;
+    const length = base + (remainder > 0 ? 1 : 0);
+    if (remainder > 0) remainder--;
+    return length;
+  });
+}
+
+function rubySpanReadingLength(span: TextSpan): number {
+  return span.text.replace(/\s+/gu, '').length;
 }
 
 function appendTextOwners(

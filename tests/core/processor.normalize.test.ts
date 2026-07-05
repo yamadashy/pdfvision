@@ -88,6 +88,14 @@ describe('processDocument NFKC normalization', () => {
     expect(normalizeText('A\tB\nC\rD\bE')).toBe('A\tB\nC\rDE');
   });
 
+  it('drops control-only lines without swallowing genuine adjacent blank lines', () => {
+    expect(normalizeText('A\n\x01\n\nB')).toBe('A\n\nB');
+    expect(normalizeText('A\n\x01\nB')).toBe('A\nB');
+    expect(normalizeText('A\n\n\x01\nB')).toBe('A\n\nB');
+    expect(normalizeText('A\n\x01\n\n\nB')).toBe('A\n\n\nB');
+    expect(normalizeText('A\n\x01\n\nB\n\x01\n\nC')).toBe('A\n\nB\n\nC');
+  });
+
   it('preserves rawText and non-printable counters when normalized text strips C0 controls', async () => {
     const result = await processDocument('memory://embedded-backspace.pdf', {
       sourceData: buildPdfWithEmbeddedBackspace(),

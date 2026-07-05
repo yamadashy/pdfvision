@@ -205,4 +205,32 @@ describe('horizontal ruby', () => {
       context: '権利条約《けんりじょうやく》',
     });
   });
+
+  it('uses all merged horizontal ruby span boxes for reading-only matches', () => {
+    const compiled = compileSearch('きょうとふ', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(
+      [
+        span('京都府', 100, 100, 12, 36),
+        span('きょう', 100, 96, 5, 12),
+        span('と', 112, 96, 5, 12),
+        span('ふ', 124, 96, 5, 12),
+      ],
+      undefined,
+      1,
+      300,
+      400,
+      compiled,
+    );
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0].text).toBe('きょうとふ');
+    expect(matches[0].boxes).toEqual([
+      { x: 100, y: 96, width: 12, height: 5 },
+      { x: 112, y: 96, width: 12, height: 5 },
+      { x: 124, y: 96, width: 12, height: 5 },
+    ]);
+    expect(matches[0].bbox).toEqual({ x: 100, y: 96, width: 36, height: 5 });
+  });
 });
