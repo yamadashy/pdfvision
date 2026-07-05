@@ -86,11 +86,12 @@ export interface ProcessDocumentOptions {
    *     as a JavaScript regular expression
    *   - **case-insensitive** (Unicode-aware via String.toLowerCase);
    *     set {@link searchCaseSensitive} for exact-case matching
-   *   - **NFKC-aware in literal mode** when {@link normalize} is on
-   *     (the default) — the literal query and the page text are both
-   *     normalised before matching, so `"fi"` finds `"ﬁ"` (U+FB01
-   *     ligature) PDFs that external grep would miss; same fold
-   *     applies to fullwidth Latin / CJK compatibility forms.
+   *   - **NFKC-aware and C0-cleaned in literal mode** when
+   *     {@link normalize} is on (the default) — the literal query and
+   *     the page text are both normalised before matching, so `"fi"`
+   *     finds `"ﬁ"` (U+FB01 ligature) PDFs that external grep would
+   *     miss; same fold applies to fullwidth Latin / CJK compatibility
+   *     forms, and the same non-visible C0 controls are stripped.
    *     {@link searchRegex} queries are NOT normalised (NFKC can turn
    *     compatibility punctuation into regex metacharacters, silently
    *     overmatching or breaking the pattern); regex users get the
@@ -138,12 +139,14 @@ export interface ProcessDocumentOptions {
    *  regardless of the source PDF's casing. */
   searchCaseSensitive?: boolean;
   /**
-   * Apply Unicode NFKC normalization to extracted text and metadata strings.
-   * Defaults to `true`. PDFs (especially Japanese ones produced by Office /
-   * iWork) frequently embed compatibility codepoints like `⽬` (U+2F6C) in
-   * place of `目` (U+76EE), which silently break grep / diff / structured
-   * extraction downstream. NFKC also folds fullwidth punctuation (`（` → `(`),
-   * ligatures (`ﬁ` → `fi`), and halfwidth/fullwidth digit variants.
+   * Apply Unicode NFKC normalization and C0-control cleanup to extracted text
+   * and metadata strings. Defaults to `true`. PDFs (especially Japanese ones
+   * produced by Office / iWork) frequently embed compatibility codepoints like
+   * `⽬` (U+2F6C) in place of `目` (U+76EE), which silently break grep / diff /
+   * structured extraction downstream. NFKC also folds fullwidth punctuation
+   * (`（` → `(`), ligatures (`ﬁ` → `fi`), and halfwidth/fullwidth digit
+   * variants. Non-visible C0 controls other than tab / newline / carriage
+   * return are stripped from normalized text.
    *
    * When the normalization actually changes the page text, the
    * pre-normalization form is preserved on `pages[].rawText` (json / xml

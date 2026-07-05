@@ -49,7 +49,7 @@ export function buildCacheKey(input: CacheKeyInput): string {
     pages: input.pages ?? 'all',
     // Bump when DocumentResult shape or extraction semantics change so older
     // entries are not handed out as fresh results.
-    format: 'structured-v131',
+    format: 'structured-v132',
     passwordHash:
       input.password !== undefined ? createHash('sha256').update(input.password).digest('hex').slice(0, 16) : null,
     render: !!input.render,

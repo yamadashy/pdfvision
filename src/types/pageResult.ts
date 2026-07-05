@@ -31,10 +31,11 @@ export interface PageResult {
   renderRegion?: RenderRegion;
   text: string;
   /**
-   * Pre-normalization form of `text`. Only present when NFKC normalization
+   * Pre-normalization form of `text`. Only present when normalization
    * was applied (the default) AND it actually changed the string — i.e.
-   * the source PDF embedded compatibility codepoints. Lets agents diff
-   * the two forms without re-running with `--no-normalize`.
+   * the source PDF embedded compatibility codepoints or stripped C0
+   * controls. Lets agents diff the two forms without re-running with
+   * `--no-normalize`.
    */
   rawText?: string;
   image?: string;
@@ -61,26 +62,26 @@ export interface PageResult {
    */
   textCoverage: number;
   /**
-   * Ratio of non-printable code points to total code points in `text`
-   * (0–1, rounded to 3dp). pdf.js falls back to raw glyph indices
-   * (U+0000, U+0001, ...) when a font has no ToUnicode CMap, which makes
-   * the page look fully covered by `textCoverage` while the actual text
-   * is partly or mostly binary garbage. `>= 0.05` means native text is
-   * incomplete or risky; `>= 0.3` means it is mostly unusable. Fall back
-   * to `--render` or `--ocr` when this appears. Counts NUL, C0 (except
-   * `\t\n\r`), DEL, C1, unpaired surrogates, and Unicode noncharacters.
-   * Private Use Area, format controls, and combining marks are
-   * intentionally excluded. PUA-dominant pages can still surface through
-   * `warnings[].code === 'glyph_garbage_text'` because icon fonts may use
-   * sparse PUA glyphs legitimately.
+   * Ratio of non-printable code points to total code points in the
+   * pre-C0-strip text signal (0–1, rounded to 3dp). pdf.js falls back to
+   * raw glyph indices (U+0000, U+0001, ...) when a font has no ToUnicode
+   * CMap, which makes the page look fully covered by `textCoverage` while
+   * the actual text is partly or mostly binary garbage. `>= 0.05` means
+   * native text is incomplete or risky; `>= 0.3` means it is mostly
+   * unusable. Fall back to `--render` or `--ocr` when this appears. Counts
+   * NUL, C0 (except `\t\n\r`), DEL, C1, unpaired surrogates, and Unicode
+   * noncharacters. Private Use Area, format controls, and combining marks
+   * are intentionally excluded. PUA-dominant pages can still surface
+   * through `warnings[].code === 'glyph_garbage_text'` because icon fonts
+   * may use sparse PUA glyphs legitimately.
    */
   nonPrintableRatio: number;
   /**
-   * Raw count of non-printable code points in `text`. Surfaced alongside
-   * the ratio so sparse occurrences (e.g. two stray control bytes inside
-   * an arxiv body page) stay discriminable from "zero" — the 3dp
-   * `nonPrintableRatio` rounds them down to 0 even though the agent
-   * may still want to know "is there ANY garbage?".
+   * Raw count of non-printable code points in the pre-C0-strip text signal.
+   * Surfaced alongside the ratio so sparse occurrences (e.g. two stray
+   * control bytes inside an arxiv body page) stay discriminable from
+   * "zero" — the 3dp `nonPrintableRatio` rounds them down to 0 even
+   * though the agent may still want to know "is there ANY garbage?".
    */
   nonPrintableCount: number;
   /**

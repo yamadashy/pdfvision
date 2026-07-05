@@ -6,6 +6,14 @@ export interface SearchLine {
   syntheticJoinIndex?: number;
   syntheticStacked?: boolean;
   syntheticVertical?: boolean;
+  syntheticRuby?: boolean;
+  syntheticRubyBase?: boolean;
+  rubyRanges?: SearchLineRange[];
+}
+
+export interface SearchLineRange {
+  start: number;
+  end: number;
 }
 
 export interface Box {

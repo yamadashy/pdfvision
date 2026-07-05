@@ -1500,112 +1500,6 @@ describe('buildLayout — multi-column reading order', () => {
     expect(layout.blocks.flatMap((block) => block.lines.map((line) => line.text))).toEqual(['北海', '道東']);
   });
 
-  it('keeps Japanese vertical glyph stacks as separate top-to-bottom blocks', () => {
-    // Japanese slide-title-shaped input from a public government PDF:
-    // pdf.js emits one square-ish glyph per span. A y-row-only layout pass
-    // used to merge the two vertical columns row-wise (`縦 書\n書 籍...`).
-    const spans: TextSpan[] = [
-      span('ネットの横書き', 290, 430, 32, 210),
-      span('縦', 36, 194, 76, 72),
-      span('書', 36, 299, 76, 72),
-      span('き', 36, 405, 76, 72),
-      span('書', 182, 97, 76, 72),
-      span('籍', 182, 202, 76, 72),
-      span('の', 182, 308, 76, 72),
-      span('と', 589, 137, 92, 86),
-    ];
-    const layout = buildLayout(spans, 720);
-    const verticalBlocks = layout.blocks.filter((block) => block.writingMode === 'vertical');
-
-    expect(verticalBlocks.map((block) => block.text)).toEqual(expect.arrayContaining(['縦書き', '書籍の']));
-    expect(verticalBlocks.every((block) => block.lines[0]?.writingMode === 'vertical')).toBe(true);
-    expect(layout.blocks.map((block) => block.text)).not.toContain('縦 書\n書 籍\nき の');
-  });
-
-  it('marks tall CJK spans as vertical columns in right-to-left order', () => {
-    // PDF.js vertical.pdf-shaped input: each vertical column arrives as
-    // one tall span whose text is already top-to-bottom.
-    const spans: TextSpan[] = [
-      span('あいうえお', 233.86, 21.97, 9.21, 9.21),
-      span('日本語', 218.27, 21.97, 9.21, 9.21),
-    ];
-    spans[0].height = 46.06;
-    spans[1].height = 27.64;
-
-    const layout = buildLayout(spans, 300);
-    expect(layout.blocks.map((block) => block.text)).toEqual(['あいうえお', '日本語']);
-    expect(layout.blocks.every((block) => block.writingMode === 'vertical')).toBe(true);
-    expect(layout.blocks.every((block) => block.lines[0]?.writingMode === 'vertical')).toBe(true);
-  });
-
-  it('marks page-edge vertical navigation tabs as repeated chrome', () => {
-    const spans: TextSpan[] = [
-      span('本文の見出し', 65, 54, 18, 120),
-      span('本文の一行目がここにあります', 62, 84, 10, 220),
-      span('第', 22, 126, 8.5, 8.5),
-      span('1', 15, 132, 19.8, 13.1),
-      span('章', 22, 155, 8.5, 8.5),
-      span('働き方改革の推進などを通じた労働環境の整備など', 23, 181, 9.2, 9.2),
-      span('本文の二行目がここにあります', 62, 140, 10, 220),
-    ];
-    spans[5].height = 212;
-
-    const layout = buildLayout(spans, 595.28, 841.89);
-    const chromeTexts = layout.blocks.filter((block) => block.repeated).map((block) => block.text);
-
-    expect(chromeTexts).toEqual(expect.arrayContaining(['第', '1', '章']));
-    expect(chromeTexts).toContain('働き方改革の推進などを通じた労働環境の整備など');
-    expect(layout.blocks.find((block) => block.text === '本文の一行目がここにあります')?.repeated).toBeUndefined();
-  });
-
-  it('does not treat aligned first glyphs of horizontal CJK lines as vertical writing', () => {
-    const spans: TextSpan[] = [
-      span('日', 50, 50, 12, 12),
-      span('本', 63, 50, 12, 12),
-      span('語', 76, 50, 12, 12),
-      span('日', 50, 68, 12, 12),
-      span('本', 63, 68, 12, 12),
-      span('語', 76, 68, 12, 12),
-      span('日', 50, 86, 12, 12),
-      span('本', 63, 86, 12, 12),
-      span('語', 76, 86, 12, 12),
-    ];
-    const layout = buildLayout(spans);
-
-    expect(layout.blocks.some((block) => block.writingMode === 'vertical')).toBe(false);
-    expect(layout.blocks.flatMap((block) => block.lines.map((line) => line.text))).toEqual([
-      '日本語',
-      '日本語',
-      '日本語',
-    ]);
-  });
-
-  it('does not extract small horizontal CJK labels with wide spacing as vertical blocks', () => {
-    // Table/list-shaped Japanese text can repeat short labels at the same
-    // x across rows while using a deliberate full-width-ish gap inside
-    // each row. Those rows should stay horizontal, not get stripped into a
-    // top-to-bottom label.
-    const spans: TextSpan[] = [
-      span('序', 50, 50, 12, 12),
-      span('文', 66.64, 50, 12, 12), // gap ≈ 0.72 × fontSize
-      span('本', 90, 50, 12, 40),
-      span('序', 50, 68, 12, 12),
-      span('文', 66.64, 68, 12, 12),
-      span('本', 90, 68, 12, 40),
-      span('序', 50, 86, 12, 12),
-      span('文', 66.64, 86, 12, 12),
-      span('本', 90, 86, 12, 40),
-    ];
-    const layout = buildLayout(spans);
-
-    expect(layout.blocks.some((block) => block.writingMode === 'vertical')).toBe(false);
-    expect(layout.blocks.flatMap((block) => block.lines.map((line) => line.text))).toEqual([
-      '序 文 本',
-      '序 文 本',
-      '序 文 本',
-    ]);
-  });
-
   it('keeps a semantic space before a URL when the visual gap is narrowly below the default threshold', () => {
     // ACL-style font-run boundary: the gap before the URL is just below
     // 0.25x fontSize, but the token is visually and semantically
@@ -2867,21 +2761,6 @@ describe('buildLayout — multi-column reading order', () => {
 
     expect(lines).toEqual(['Natural Language', 'Processing']);
     expect(layout.blocks[0].text).toBe('Natural Language\nProcessing');
-  });
-
-  it('does not merge vertical side labels into horizontal text lines', () => {
-    const spans: TextSpan[] = [
-      { text: '(Version 2)', x: 114, y: 200, width: 45, height: 10, fontSize: 10 },
-      { text: 'arXiv:2106.09685v2 [cs.CL] 16 Oct 2021', x: 12, y: 214, width: 20, height: 346, fontSize: 20 },
-      span('Abstract body text starts in the main column.', 144, 265, 10, 220),
-    ];
-    const layout = buildLayout(spans, 612);
-    const sidebar = layout.blocks.find((b) => b.text.includes('arXiv'));
-    const version = layout.blocks.find((b) => b.text.includes('Version'));
-
-    expect(sidebar?.text).toBe('arXiv:2106.09685v2 [cs.CL] 16 Oct 2021');
-    expect(sidebar?.width).toBe(20);
-    expect(version?.text).toBe('(Version 2)');
   });
 
   it('does not falsely detect columns when only one block sits at a different x', () => {

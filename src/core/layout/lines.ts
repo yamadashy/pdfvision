@@ -14,6 +14,11 @@ import {
   isTableGutterNumericSpan,
   isTrailingCurrencyTableGutterCandidate,
 } from './gutters.js';
+import {
+  extractHorizontalRubyAnalysis,
+  horizontalRubyTextAttachments,
+  textWithHorizontalRuby,
+} from './horizontalRuby.js';
 import { joinLineSpans } from './lineText.js';
 import { hasVerticalTextShape } from './verticalText.js';
 
@@ -168,8 +173,11 @@ function isMisalignedLeftSidePanelBoundaryCandidate(
 }
 
 export function buildLayoutLines(spans: TextSpan[], pageWidth = 0): LayoutLine[] {
+  const horizontalRuby = extractHorizontalRubyAnalysis(spans);
+  const horizontalRubySpans = new Set(horizontalRuby.rubySpans);
+  const rubyAttachments = horizontalRubyTextAttachments(horizontalRuby.rubyAssociations);
   // Stable sort: primarily by y (top to bottom), then by x within a row.
-  const sorted = [...spans].sort((a, b) => a.y - b.y || a.x - b.x);
+  const sorted = spans.filter((span) => !horizontalRubySpans.has(span)).sort((a, b) => a.y - b.y || a.x - b.x);
 
   // Cluster spans into lines. The y comparison anchors on the first span
   // of the current group rather than the most recent one — chaining off
@@ -256,10 +264,22 @@ export function buildLayoutLines(spans: TextSpan[], pageWidth = 0): LayoutLine[]
       }
     }
     return subLines.map((sub) => ({
-      text: joinLineSpans(sub),
+      text: joinLineSpans(spansWithHorizontalRuby(sub, rubyAttachments)),
       ...unionBox(sub),
       fontSize: round2(mode(sub.map((s) => s.fontSize))),
     }));
   });
   return lines;
+}
+
+function spansWithHorizontalRuby(
+  spans: readonly TextSpan[],
+  attachments: ReadonlyMap<TextSpan, readonly { offset: number; text: string }[]>,
+): TextSpan[] {
+  return spans.map((span) => {
+    const spanAttachments = attachments.get(span);
+    return spanAttachments && spanAttachments.length > 0
+      ? { ...span, text: textWithHorizontalRuby(span.text, spanAttachments) }
+      : span;
+  });
 }

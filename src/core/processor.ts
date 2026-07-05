@@ -8,6 +8,7 @@ import type {
   ProcessDocumentOptions,
   ProcessOptions,
   RenderedContentBox,
+  TextSpan,
   VectorBox,
 } from '../types/index.js';
 import { getCacheDir, pdfFingerprint } from './io/cache.js';
@@ -171,6 +172,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     const warningImageBoxesByPage = new Map<number, ImageBox[]>();
     const warningVectorBoxesByPage = new Map<number, VectorBox[]>();
     const warningAnnotationsByPage = new Map<number, PageAnnotation[]>();
+    const warningSpansByPage = new Map<number, TextSpan[]>();
     const visualRegionInputsByPage = new Map<number, BuildVisualRegionsInput>();
     const annotationAppearanceByPage = new Map<number, boolean>();
     const imageOps = buildImageOps(OPS);
@@ -192,6 +194,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       warningImageBoxesByPage.set(pageNum, data._warningImageBoxes ?? []);
       warningVectorBoxesByPage.set(pageNum, data._warningVectorBoxes ?? []);
       warningAnnotationsByPage.set(pageNum, data._warningAnnotations ?? []);
+      warningSpansByPage.set(pageNum, data._warningSpans ?? []);
       if (data._visualRegionInput) visualRegionInputsByPage.set(pageNum, data._visualRegionInput);
       if (data.hasVisibleAnnotationAppearance) annotationAppearanceByPage.set(pageNum, true);
       return buildPageResult({
@@ -252,11 +255,10 @@ export async function processDocument(filePath: string, options: ProcessDocument
     // empty field in JSON.
     //
     // `chromeDetectionReliable` tells the detector whether the upstream
-    // cross-page pass had enough material to produce meaningful `repeated`
-    // flags. On a single-page extraction (or one where every page came
-    // back with empty layout) every block stays unflagged-as-chrome, so
-    // rules that distinguish body from chrome on the `repeated` axis
-    // (`near_bottom_edge`) would mis-fire on what's really a running footer.
+    // cross-page pass had enough material to produce meaningful repeated
+    // header/footer flags. Single-page extraction can still mark
+    // conservative vertical edge markers, but it cannot distinguish an
+    // ordinary footer from real running chrome.
     const pagesWithLayout = pages.filter((p) => p.layout && p.layout.blocks.length > 0).length;
     const chromeDetectionReliable = pagesWithLayout >= 2;
     for (const p of pages) {
@@ -268,6 +270,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
         imageBoxes: warningImageBoxesByPage.get(p.page),
         vectorBoxes: warningVectorBoxesByPage.get(p.page),
         annotations: warningAnnotationsByPage.get(p.page),
+        spans: warningSpansByPage.get(p.page),
         pdfJsWarnings,
       });
       if (warnings.length > 0) p.warnings = warnings;

@@ -53,8 +53,8 @@ export interface ProcessOptions {
   ocr?: boolean;
   ocrLang?: string;
   /**
-   * Drop repeated-chrome blocks (running headers, footers, page numbers
-   * detected by the cross-page layout pass) from the rendered Markdown
+   * Drop repeated-chrome blocks (running headers, footers, page numbers,
+   * and conservative vertical edge markers) from the rendered Markdown
    * body so an LLM doesn't have to read the same footer N times.
    *
    * Only applies when `format` is `'markdown'`. Passing it with `'json'`
@@ -63,7 +63,7 @@ export interface ProcessOptions {
    * and a silent no-op there would be a footgun.
    *
    * Requires `layout: true` (the `repeated` flag is only set during the
-   * cross-page layout pass); throws otherwise.
+   * layout post-processing pass); throws otherwise.
    */
   stripRepeated?: boolean;
   /** See {@link ProcessDocumentOptions.onWarning}. */

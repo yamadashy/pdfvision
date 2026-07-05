@@ -1,5 +1,6 @@
-import type { ImageBox, PageAnnotation, PageResult, PageWarning, VectorBox } from '../../types/index.js';
+import type { ImageBox, PageAnnotation, PageResult, PageWarning, TextSpan, VectorBox } from '../../types/index.js';
 import { detectTextOverlap } from '../warningTextOverlap/index.js';
+import { detectDuplicateTextLayer } from './duplicateLayer.js';
 import { detectBodyNearRepeatedChrome, detectNearBottomEdge, detectOffPage } from './edge.js';
 import {
   detectFontMappingWarning,
@@ -54,6 +55,9 @@ export interface PageWarningContext {
   /** Internal annotations used for warnings even when public
    *  `pages[].annotations` was not requested. */
   annotations?: PageAnnotation[];
+  /** Internal spans used for warnings even when public
+   *  `pages[].spans` was not requested. */
+  spans?: TextSpan[];
   /** Non-fatal pdf.js warnings captured during parsing/rendering. */
   pdfJsWarnings?: readonly string[];
 }
@@ -89,12 +93,13 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
   detectLowConfidenceOcr(page, context, warnings);
   detectHighConfidenceOcrNativeMismatch(page, context, warnings);
   detectHighConfidenceOcrNativeSpacingLoss(page, context, warnings);
-  detectDenseVectorGraphics(page, warnings);
+  detectDenseVectorGraphics(page, context, warnings);
   detectVectorGraphicsWithoutNativeText(page, context, warnings);
   detectRasterImageWithoutNativeText(page, context, warnings);
   detectLargeRasterLowTextOverlap(page, context, warnings);
   detectVisibleAnnotationTextMissingFromNative(page, context, warnings);
   detectOptionalContentTextHiddenLayerRisk(context, warnings);
+  detectDuplicateTextLayer(page, context, warnings);
   detectDotLeaderNoise(page, warnings);
   detectTinyNativeTextNoise(page, warnings);
 

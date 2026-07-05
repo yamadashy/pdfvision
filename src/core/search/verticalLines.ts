@@ -1,6 +1,14 @@
 import type { TextSpan } from '../../types/index.js';
+import {
+  extractBodyVerticalCjkRunAnalysis,
+  extractTallVerticalRuns,
+  rubyAssociationText,
+  type TallVerticalRun,
+  type VerticalCjkRunBlock,
+  type VerticalRubyAssociation,
+} from '../layout/verticalText.js';
 import { isVerticalSearchOwner } from './boxes.js';
-import type { SearchLine, SearchOwner } from './types.js';
+import type { SearchLine, SearchLineRange, SearchOwner } from './types.js';
 
 const FONT_SIZE_FALLBACK_PT = 12;
 const VERTICAL_SEARCH_COLUMN_X_TOLERANCE_PT = 4;
@@ -18,11 +26,37 @@ interface VerticalSearchColumn {
 }
 
 export function buildVerticalSearchLines(spans: readonly TextSpan[]): SearchLine[] {
-  const verticalSpans = spans.filter(isVerticalSearchSpan);
-  if (verticalSpans.length < 2) return [];
-
-  const columns = groupVerticalSearchColumns(verticalSpans).sort((a, b) => b.centerX - a.centerX);
+  const bodyRunAnalysis = extractBodyVerticalCjkRunAnalysis(spans);
+  const bodyRunBlocks = bodyRunAnalysis.blocks;
+  const usedVerticalSpans = new Set<TextSpan>();
   const lines: SearchLine[] = [];
+  for (const block of bodyRunBlocks) {
+    for (const column of block.columns) {
+      for (const span of column.spans) usedVerticalSpans.add(span);
+    }
+    const line = verticalSearchLineFromBodyRunBlock(block, bodyRunAnalysis.rubyAssociations);
+    if (line?.rubyRanges && line.rubyRanges.length > 0) {
+      const strippedLine = verticalSearchLineFromBodyRunBlock(block, []);
+      if (strippedLine) lines.push({ ...strippedLine, syntheticRubyBase: true });
+    }
+    if (line) lines.push(line);
+  }
+  for (const span of bodyRunAnalysis.rubySpans) usedVerticalSpans.add(span);
+  for (const span of bodyRunAnalysis.gutterAnnotationSpans) usedVerticalSpans.add(span);
+
+  const tallRuns = extractTallVerticalRuns(spans.filter((span) => !usedVerticalSpans.has(span))).filter(
+    (run) => run.hasTatechuyoko,
+  );
+  const tallColumns = tallRuns.map((run) => {
+    for (const span of run.spans) usedVerticalSpans.add(span);
+    return verticalSearchColumnFromTallRun(run);
+  });
+  const verticalSpans = spans.filter((span) => !usedVerticalSpans.has(span) && isVerticalSearchSpan(span));
+  const verticalColumns = [...tallColumns, ...groupVerticalSearchColumns(verticalSpans)].sort(
+    (a, b) => b.centerX - a.centerX,
+  );
+  if (verticalColumns.length === 0) return lines;
+
   let run: VerticalSearchColumn[] = [];
   const flush = () => {
     const line = verticalSearchLineFromColumns(run);
@@ -30,13 +64,113 @@ export function buildVerticalSearchLines(spans: readonly TextSpan[]): SearchLine
     run = [];
   };
 
-  for (const column of columns) {
+  for (const column of verticalColumns) {
     const previous = run.at(-1);
     if (previous && !canContinueVerticalSearchColumn(previous, column)) flush();
     run.push(column);
   }
   flush();
   return lines;
+}
+
+function verticalSearchColumnFromTallRun(run: TallVerticalRun): VerticalSearchColumn {
+  return {
+    centerX: run.columnX,
+    fontSize: run.fontSize,
+    spans: [...run.spans],
+  };
+}
+
+function verticalSearchLineFromBodyRunBlock(
+  block: VerticalCjkRunBlock,
+  rubyAssociations: readonly VerticalRubyAssociation[],
+): SearchLine | undefined {
+  const columns = [...block.columns].sort((a, b) => b.centerX - a.centerX);
+  let text = '';
+  const owners: (SearchOwner | undefined)[] = [];
+  const rubyRanges: SearchLineRange[] = [];
+
+  for (const column of columns) {
+    const associations = rubyAssociations
+      .filter((association) => association.baseColumn === column)
+      .sort((a, b) => associationSortKey(column, a) - associationSortKey(column, b));
+    const associationsByEndSpan = new Map<TextSpan, VerticalRubyAssociation[]>();
+    for (const association of associations) {
+      const endRange = association.baseRanges.at(-1);
+      if (!endRange) continue;
+      const existing = associationsByEndSpan.get(endRange.span);
+      if (existing) {
+        existing.push(association);
+      } else {
+        associationsByEndSpan.set(endRange.span, [association]);
+      }
+    }
+    for (const span of column.spans) {
+      if (span.text.length === 0) continue;
+      const spanAssociations = associationsByEndSpan.get(span);
+      if (!spanAssociations) {
+        text += span.text;
+        appendSpanOwners(span, 0, span.text.length, owners);
+        continue;
+      }
+      spanAssociations.sort((a, b) => {
+        const aEnd = a.baseRanges.at(-1);
+        const bEnd = b.baseRanges.at(-1);
+        return (aEnd?.end ?? 0) - (bEnd?.end ?? 0);
+      });
+      let cursor = 0;
+      for (const association of spanAssociations) {
+        const endRange = association.baseRanges.at(-1);
+        if (!endRange) continue;
+        const offset = Math.max(cursor, Math.min(span.text.length, endRange.end));
+        const before = span.text.slice(cursor, offset);
+        text += before;
+        appendSpanOwners(span, cursor, offset, owners);
+        const rubyText = rubyAssociationText(association);
+        const rangeStart = text.length;
+        text += '《';
+        owners.push(undefined);
+        for (const rubySpan of association.ruby.spans) {
+          text += rubySpan.text;
+          for (let index = 0; index < rubySpan.text.length; index++) owners.push(rubySpan);
+        }
+        text += '》';
+        owners.push(undefined);
+        if (rubyText.length > 0) rubyRanges.push({ start: rangeStart, end: text.length });
+        cursor = offset;
+      }
+      const after = span.text.slice(cursor);
+      text += after;
+      appendSpanOwners(span, cursor, span.text.length, owners);
+    }
+  }
+
+  return text.length > 0
+    ? {
+        text,
+        owners,
+        syntheticVertical: true,
+        ...(rubyRanges.length > 0 && { syntheticRuby: true, rubyRanges }),
+      }
+    : undefined;
+}
+
+function appendSpanOwners(span: TextSpan, start: number, end: number, owners: (SearchOwner | undefined)[]): void {
+  for (let index = start; index < end; index++) owners.push(span);
+}
+
+function associationSortKey(
+  column: VerticalCjkRunBlock['columns'][number],
+  association: VerticalRubyAssociation,
+): number {
+  const firstRange = association.baseRanges[0];
+  if (!firstRange) return Number.POSITIVE_INFINITY;
+  let offset = 0;
+  for (const span of column.spans) {
+    if (span === firstRange.span) return offset + firstRange.start;
+    offset += span.text.length;
+  }
+  return Number.POSITIVE_INFINITY;
 }
 
 function isVerticalSearchSpan(span: TextSpan): boolean {
@@ -82,7 +216,7 @@ function canContinueVerticalSearchColumn(prev: VerticalSearchColumn, cur: Vertic
 }
 
 function verticalSearchLineFromColumns(columns: readonly VerticalSearchColumn[]): SearchLine | undefined {
-  if (columns.length < 2) return undefined;
+  if (columns.length < 2 && (columns.length === 0 || columns[0].spans.length < 2)) return undefined;
   let text = '';
   const owners: (SearchOwner | undefined)[] = [];
   let previousSpan: TextSpan | undefined;

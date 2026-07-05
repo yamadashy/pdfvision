@@ -82,11 +82,11 @@ export function searchPage(
   const ocrMatches: SearchMatch[] = [];
 
   // Native pass — line-level literal/regex match. Span text is already
-  // NFKC-normalised when `--normalize` is on (matches what we put in
-  // pages[].spans). Literal-mode queries were NFKC'd at compile time
-  // too, so they're in the same form as the haystack. Regex-mode
-  // queries are intentionally NOT normalised — the user opts into
-  // literal-codepoint semantics against the normalised document text.
+  // normalized and C0-cleaned when `--normalize` is on (matches what we
+  // put in pages[].spans). Literal-mode queries are normalized at
+  // compile time too, so they're in the same form as the haystack.
+  // Regex-mode queries are intentionally NOT normalized — the user opts
+  // into literal-codepoint semantics against the normalized document text.
   lineLoop: for (const line of buildSearchLines(spans, pageWidth)) {
     const haystack = line.text;
     for (let mi = 0; mi < compiled.matchers.length; mi++) {
@@ -108,12 +108,13 @@ export function searchPage(
           continue;
         }
         const hitEnd = hit.index + hit[0].length;
+        if (line.syntheticRuby && !hitIntersectsRubyAnnotation(line, hit.index, hitEnd)) continue;
         if (!hitCrossesSyntheticJoin(line, hit.index, hitEnd)) continue;
         const hitBoxes = contributingBoxes(line, hit.index, hitEnd);
         if (hitBoxes.length === 0) continue;
         if ((line.syntheticHyphenated || line.syntheticDehyphenated) && hitBoxes.length < 2) continue;
         if (line.syntheticStacked && hitBoxes.length < 2) continue;
-        if (line.syntheticVertical && hitBoxes.length < 2) continue;
+        if (line.syntheticVertical && hitBoxes.length < 2 && !line.syntheticRubyBase) continue;
         const box = unionBoxes(hitBoxes);
         matches.push({
           page: pageNum,
@@ -121,9 +122,9 @@ export function searchPage(
           ...(m.queryIndex !== undefined && { queryIndex: m.queryIndex }),
           bbox: box,
           boxes: hitBoxes,
-          // `hit[0]` is in the same form as the span text (NFKC when
-          // normalize is on, raw under --no-normalize), matching the
-          // documented `text` contract.
+          // `hit[0]` is in the same form as the span text (normalized
+          // when normalize is on, raw under --no-normalize), matching
+          // the documented `text` contract.
           text: hit[0],
           source: 'native',
           context: haystack,
@@ -234,4 +235,8 @@ export function searchPage(
 function hitCrossesSyntheticJoin(line: SearchLine, start: number, end: number): boolean {
   if (line.syntheticJoinIndex === undefined) return true;
   return start < line.syntheticJoinIndex && end > line.syntheticJoinIndex;
+}
+
+function hitIntersectsRubyAnnotation(line: SearchLine, start: number, end: number): boolean {
+  return line.rubyRanges?.some((range) => start < range.end && end > range.start) ?? false;
 }

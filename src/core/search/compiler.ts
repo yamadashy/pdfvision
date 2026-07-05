@@ -1,3 +1,4 @@
+import { normalizeText } from '../processor/textUtils.js';
 import { isCjkLeading } from '../text/cjkJoin.js';
 
 /**
@@ -10,13 +11,13 @@ export interface CompiledSearch {
    *  code below — literal queries get the substring escaped and the
    *  `g` flag added, regex queries get the user pattern verbatim. */
   matchers: { query: string; regex: RegExp; queryIndex?: number }[];
-  /** Whether NFKC normalization applies on the *document* side
-   *  (spans / OCR haystack). Literal-mode queries are also NFKC-
-   *  normalised in this case so `"fi"` finds compatibility ligature
-   *  `"ﬁ"` (U+FB01) PDFs. Regex queries are NEVER normalised, even when this flag
-   *  is true — NFKC can turn compatibility punctuation into regex
+  /** Whether default text normalization applies on the *document* side
+   *  (spans / OCR haystack). Literal-mode queries are also normalized in
+   *  this case so `"fi"` finds compatibility ligature `"ﬁ"` (U+FB01)
+   *  PDFs. Regex queries are NEVER normalized, even when this flag is
+   *  true — NFKC can turn compatibility punctuation into regex
    *  metacharacters; users opting into regex get literal codepoints
-   *  against the normalised document text and own the asymmetry.
+   *  against the normalized document text and own the asymmetry.
    *  When `--no-normalize` is on, this is false and the document
    *  side stays raw too. */
   normalize: boolean;
@@ -44,9 +45,9 @@ function literalSearchPattern(s: string): string {
   return pattern;
 }
 
-/** Apply NFKC the same way `processor.normalizeText` does. */
+/** Apply the same normalization as `processor.normalizeText`. */
 export function nfkc(s: string): string {
-  return s.normalize('NFKC');
+  return normalizeText(s);
 }
 
 /**
@@ -93,6 +94,9 @@ export function compileSearch(
       // document text. Escape *after* normalization so a fullwidth
       // dot that normalises to `.` is still treated literally.
       const query = normalize ? nfkc(rawQuery) : rawQuery;
+      if (query.length === 0) {
+        throw new Error(`Invalid search query ${JSON.stringify(rawQuery)}: empty after normalization`);
+      }
       pattern = literalSearchPattern(query);
     }
     let regex: RegExp;

@@ -52,8 +52,10 @@ export async function extractPageData(
   const {
     text,
     rawText: preservedRaw,
+    nonPrintableSourceText,
     textArea,
     spans,
+    searchSpans,
   } = extractPageText({
     content,
     flags,
@@ -208,15 +210,15 @@ export async function extractPageData(
       }
     : undefined;
 
-  // Measured on the text we actually return (post-normalize) so the
-  // count + ratio match what an agent sees in `text`. Cheap (one
-  // string walk), so always on — this is the primary signal for
-  // catching ToUnicode-CMap-less PDFs that look 100% covered but emit
-  // raw glyph indices. Surfacing the raw count alongside the ratio
-  // keeps sparse occurrences (a handful of control chars in a long
-  // body page) discriminable from "zero" when the 3dp ratio rounds
+  // Measured on the pre-strip normalization source so C0 controls still
+  // contribute to the quality signal even though they are removed from
+  // returned `text`. Cheap (one string walk), so always on — this is the
+  // primary signal for catching ToUnicode-CMap-less PDFs that look 100%
+  // covered but emit raw glyph indices. Surfacing the raw count alongside
+  // the ratio keeps sparse occurrences (a handful of control chars in a
+  // long body page) discriminable from "zero" when the 3dp ratio rounds
   // them down.
-  const npStats = nonPrintableStats(text);
+  const npStats = nonPrintableStats(nonPrintableSourceText);
 
   return {
     text,
@@ -241,7 +243,8 @@ export async function extractPageData(
     // span list during `buildLayout` above, so re-emitting them on
     // PageData would waste memory on the typical extraction.
     ...(flags.geometry && { spans }),
-    ...(flags.needSpansForSearch && { _internalSpans: spans }),
+    ...(flags.needSpansForSearch && { _internalSpans: searchSpans ?? spans }),
+    ...(flags.needSpansForWarnings && { _warningSpans: spans }),
     ...(layout !== undefined && { layout }),
     ...(imageBoxes !== undefined && { imageBoxes }),
     _warningImageBoxes: allBoxes,

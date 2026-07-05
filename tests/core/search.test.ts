@@ -8,6 +8,34 @@ import type { FormField, PageAnnotation, PageLink, TextSpan } from '../../src/ty
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
 const SAMPLE_JA_PDF = resolve(__dirname, '../fixtures/sample-ja.pdf');
 
+function verticalGlyphs(text: string, x: number, y: number, fontSize: number, step = fontSize): TextSpan[] {
+  return Array.from(text).map((glyph, index) => ({
+    text: glyph,
+    x,
+    y: y + index * step,
+    width: fontSize,
+    height: fontSize,
+    fontSize,
+  }));
+}
+
+function verticalSpan(
+  text: string,
+  x: number,
+  y: number,
+  fontSize: number,
+  height = Array.from(text).length * fontSize,
+): TextSpan {
+  return {
+    text,
+    x,
+    y,
+    width: fontSize,
+    height,
+    fontSize,
+  };
+}
+
 describe('processDocument search', () => {
   it('finds literal substring matches and attaches matches[] per page', async () => {
     // SAMPLE_PDF carries "Hello pdfvision" on page 1. A bare-substring
@@ -187,6 +215,138 @@ describe('processDocument search', () => {
     if (!singleSpanCompiled) throw new Error('expected compiled search');
     const singleSpanMatches = searchPage(spans, undefined, 1, 595, 842, singleSpanCompiled);
     expect(singleSpanMatches).toHaveLength(1);
+  });
+
+  it('matches body-sized Japanese vertical glyph runs in right-to-left column order', () => {
+    const rightColumn = verticalGlyphs('質問主意書', 300, 100, 8);
+    const leftColumn = verticalGlyphs('国会質疑中', 276, 100, 8);
+    const compiled = compileSearch(['質問主意書', '主意書国会'], {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage([...leftColumn, ...rightColumn], undefined, 1, 595, 842, compiled);
+
+    expect(matches).toHaveLength(2);
+    expect(matches[0]).toMatchObject({
+      query: '質問主意書',
+      queryIndex: 0,
+      text: '質問主意書',
+      source: 'native',
+      context: '質問主意書国会質疑中',
+    });
+    expect(matches[0].boxes).toHaveLength(5);
+    expect(matches[0].bbox).toEqual({ x: 300, y: 100, width: 8, height: 40 });
+    expect(matches[1]).toMatchObject({
+      query: '主意書国会',
+      queryIndex: 1,
+      text: '主意書国会',
+      source: 'native',
+      context: '質問主意書国会質疑中',
+    });
+    expect(matches[1].boxes).toHaveLength(5);
+    expect(matches[1].bbox).toEqual({ x: 276, y: 100, width: 32, height: 40 });
+  });
+
+  it('matches vertical base text with and without inline ruby annotations', () => {
+    const body = verticalGlyphs('私は卑怯な事をした', 300, 100, 12);
+    const ruby = verticalGlyphs('ひきょう', 312, 124, 6);
+    const compiled = compileSearch(['卑怯', '卑怯な', '卑怯《ひきょう》'], {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage([...body, ...ruby], undefined, 1, 595, 842, compiled);
+
+    expect(matches).toHaveLength(3);
+    expect(matches.map((match) => match.query)).toEqual(['卑怯', '卑怯な', '卑怯《ひきょう》']);
+    expect(matches[0]).toMatchObject({
+      text: '卑怯',
+      context: '私は卑怯な事をした',
+    });
+    expect(matches[0].boxes).toHaveLength(2);
+    expect(matches[1]).toMatchObject({
+      text: '卑怯な',
+      context: '私は卑怯な事をした',
+    });
+    expect(matches[1].boxes).toHaveLength(3);
+    expect(matches[2]).toMatchObject({
+      text: '卑怯《ひきょう》',
+      context: '私は卑怯《ひきょう》な事をした',
+    });
+    expect(matches[2].boxes.length).toBeGreaterThanOrEqual(6);
+  });
+
+  it('matches multi-character vertical body spans with and without inline ruby annotations', () => {
+    const body = verticalSpan('夕方雨やみを待つ人々', 300, 100, 12);
+    const ruby = verticalSpan('あま', 312, 124, 6, 12);
+    const compiled = compileSearch(['雨やみ', '雨《あま》やみ'], {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage([body, ruby], undefined, 1, 595, 842, compiled);
+
+    expect(matches.map((match) => match.query)).toEqual(['雨やみ', '雨《あま》やみ']);
+    expect(matches[0]).toMatchObject({
+      text: '雨やみ',
+      context: '夕方雨やみを待つ人々',
+    });
+    expect(matches[1]).toMatchObject({
+      text: '雨《あま》やみ',
+      context: '夕方雨《あま》やみを待つ人々',
+    });
+  });
+
+  it('matches context-supported short vertical ellipsis columns', () => {
+    const rightColumn = verticalGlyphs('右側本文甲乙丙丁', 300, 100, 12);
+    const shortColumn = ['そ', 'れ', 'と', 'も', '...', '...'].map((text, index) => ({
+      text,
+      x: 279,
+      y: 124 + index * 12,
+      width: 12,
+      height: 12,
+      fontSize: 12,
+    }));
+    const leftColumn = verticalGlyphs('左側本文甲乙丙丁', 258, 100, 12);
+    const compiled = compileSearch('それとも', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage([...leftColumn, ...shortColumn, ...rightColumn], undefined, 1, 595, 842, compiled);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      text: 'それとも',
+      source: 'native',
+      context: '右側本文甲乙丙丁それとも......左側本文甲乙丙丁',
+    });
+    expect(matches[0].boxes).toHaveLength(4);
+    expect(matches[0].bbox).toEqual({ x: 279, y: 124, width: 12, height: 48 });
+  });
+
+  it('matches phrases crossing tatechuyoko fragments in a vertical column', () => {
+    const spans: TextSpan[] = [
+      { text: '昭和', x: 100, y: 100, width: 10, height: 20, fontSize: 10 },
+      { text: '10', x: 95, y: 119, width: 10, height: 10, fontSize: 10 },
+      { text: '(1935)年5月、新聞にこんな', x: 100, y: 130, width: 10, height: 160, fontSize: 10 },
+    ];
+    const compiled = compileSearch(['昭和10', '1935'], {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 300, 400, compiled);
+
+    const era = matches.find((match) => match.query === '昭和10');
+    expect(era).toMatchObject({
+      text: '昭和10',
+      source: 'native',
+      context: '昭和10(1935)年5月、新聞にこんな',
+    });
+    expect(era?.boxes).toEqual([
+      { x: 100, y: 100, width: 10, height: 20 },
+      { x: 95, y: 119, width: 10, height: 10 },
+    ]);
+    expect(era?.bbox).toEqual({ x: 95, y: 100, width: 15, height: 29 });
+
+    const year = matches.find((match) => match.query === '1935');
+    expect(year).toMatchObject({
+      text: '1935',
+      source: 'native',
+    });
+    expect(year?.bbox.height).toBeGreaterThan(0);
   });
 
   it('matches visible text form field values with widget bboxes', () => {
