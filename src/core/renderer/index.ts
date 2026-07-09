@@ -8,9 +8,11 @@ import { runParallel } from '../runtime/parallel.js';
 import { contentBoxFromViewportPixels } from './contentBox.js';
 import { computeContentStats, type RenderStats } from './contentStats.js';
 import { type ViewportCrop, viewportCropForRegion } from './crop.js';
+import { pngFilename } from './pngFilename.js';
 
 export { computeContentRatio } from './contentStats.js';
 export { viewportCropForRegion } from './crop.js';
+export { pngFilename } from './pngFilename.js';
 // Re-export so render-domain callers can import the render types from the
 // same entrypoint. The canonical declaration lives in `src/types/index.ts`.
 export type { RenderRegion, ViewportCrop };
@@ -117,17 +119,17 @@ async function computeContentStatsFromPng(path: string): Promise<RenderStats> {
   return computeContentStats(rgba, img.width, img.height);
 }
 
-/**
- * Build the on-disk filename for a rendered page. Region-bearing renders
- * encode the bbox in the filename so multiple regions per page can
- * coexist on disk: `page-3_x50_y100_w400_h300.png`. Without a region the
- * legacy `page-N.png` shape is preserved so existing consumers don't
- * have to learn a new pattern. Numbers are normalised through `String`
- * which drops trailing zeros (`50.5` stays `50.5`, `50.0` becomes `50`).
- */
-function pngFilename(pageNum: number, region: RenderRegion | undefined): string {
-  if (!region) return `page-${pageNum}.png`;
-  return `page-${pageNum}_x${region.x}_y${region.y}_w${region.width}_h${region.height}.png`;
+/** Per-page render tuning for the disk writers. */
+export interface RenderPageOptions {
+  /** Absolute output path override. When set, bypasses the default
+   *  `<dir>/page-N.png` naming — used for flat `--render-output` where
+   *  collisions are disambiguated up front by the caller. */
+  outputPath?: string;
+  /** When false, always re-raster instead of reusing an existing PNG on
+   *  disk. Set for flat `--render-output`: a pre-existing same-named file
+   *  may belong to a different PDF, so it must not be handed back as a
+   *  cache hit. Default true (cache-dir path relies on reuse). */
+  reuse?: boolean;
 }
 
 /**
@@ -146,9 +148,10 @@ export async function renderPageWithStats(
   outputDir: string,
   scale = DEFAULT_SCALE,
   region?: RenderRegion,
+  pageOptions?: RenderPageOptions,
 ): Promise<{ path: string; contentRatio: number; renderedContentBox?: RenderedContentBox }> {
-  const outputPath = join(outputDir, pngFilename(pageNum, region));
-  if (isReusableImage(outputPath)) {
+  const outputPath = pageOptions?.outputPath ?? join(outputDir, pngFilename(pageNum, region));
+  if ((pageOptions?.reuse ?? true) && isReusableImage(outputPath)) {
     try {
       const stats = await computeContentStatsFromPng(outputPath);
       if (!stats.contentBoxPx) return { path: outputPath, contentRatio: stats.contentRatio };
@@ -186,14 +189,29 @@ export async function renderPage(
   return path;
 }
 
+/** Batch render tuning. `outputPaths` (when set) supplies a pre-resolved
+ *  absolute path per page, aligned to `pageNumbers` by index — used for
+ *  flat `--render-output` where the caller has already disambiguated any
+ *  filename collisions. `reuse` applies to every page. */
+export interface RenderPagesOptions {
+  outputPaths?: string[];
+  reuse?: boolean;
+}
+
 export async function renderPagesWithStats(
   doc: PDFDocumentProxy,
   pageNumbers: number[],
   outputDir: string,
   scale?: number,
   region?: RenderRegion,
+  pagesOptions?: RenderPagesOptions,
 ): Promise<{ path: string; contentRatio: number; renderedContentBox?: RenderedContentBox }[]> {
-  return runParallel(pageNumbers, (pageNum) => renderPageWithStats(doc, pageNum, outputDir, scale, region));
+  return runParallel(pageNumbers, (pageNum, i) =>
+    renderPageWithStats(doc, pageNum, outputDir, scale, region, {
+      outputPath: pagesOptions?.outputPaths?.[i],
+      reuse: pagesOptions?.reuse,
+    }),
+  );
 }
 
 export async function renderPages(

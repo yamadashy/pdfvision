@@ -49,7 +49,6 @@ function scaleDirSuffix(scale: number): string {
 interface RenderImagesDirInput {
   renderOutput?: string;
   cacheDir: string | null;
-  fingerprint: string | null;
   renderScale?: number;
 }
 
@@ -105,32 +104,18 @@ function ensureSafeRenderRoot(dir: string): void {
   }
 }
 
-function ensureSafeRenderChildDir(dir: string): void {
-  try {
-    assertSafeRenderDir(dir);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-    mkdirSync(dir);
-    assertSafeRenderDir(dir);
-  }
-}
-
 export function prepareRenderImagesDir(input: RenderImagesDirInput): string {
   const effectiveScale = input.renderScale ?? DEFAULT_RENDER_SCALE;
   const scaleSubdir = effectiveScale === DEFAULT_RENDER_SCALE ? null : scaleDirSuffix(effectiveScale);
   if (input.renderOutput) {
-    if (!input.fingerprint) {
-      throw new Error('renderOutput requires a PDF fingerprint');
-    }
+    // Explicit --render-output writes PNGs *flat* into the caller's dir
+    // (`<dir>/page-N.png`) — no per-PDF hash or scale subdirectories, so
+    // the paths are predictable and paste-able. Isolation between two
+    // PDFs (or two scales) sharing one dir is handled by the caller's
+    // filename-collision disambiguation instead of directory nesting.
     const outputRoot = resolve(input.renderOutput);
     ensureSafeRenderRoot(outputRoot);
-    const fingerprintDir = join(outputRoot, input.fingerprint);
-    ensureSafeRenderChildDir(fingerprintDir);
-    if (!scaleSubdir) return fingerprintDir;
-
-    const scaledDir = join(fingerprintDir, scaleSubdir);
-    ensureSafeRenderChildDir(scaledDir);
-    return scaledDir;
+    return outputRoot;
   }
 
   if (input.cacheDir) {

@@ -14,6 +14,7 @@ import type {
 import { getCacheDir, pdfFingerprint } from './io/cache.js';
 import { buildCacheKey } from './processor/cacheKey.js';
 import { extractDocumentFeatures } from './processor/documentFeatures.js';
+import { resolveFlatRenderPaths } from './processor/flatRenderPaths.js';
 import { buildOverview } from './processor/overview.js';
 import { extractPageData } from './processor/pageExtraction.js';
 import { buildPageFlags } from './processor/pageFlags.js';
@@ -83,11 +84,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
   // the most expensive sync step in this function, so do it once and
   // share — the cache layer accepts a precomputed fingerprint to avoid
   // re-reading the same file.
-  const needFingerprint =
-    !options.noCache ||
-    !!(options.render && options.renderOutput) ||
-    !!(renderVisualRegions && options.renderOutput) ||
-    !!(options.attachments && options.attachmentOutput);
+  const needFingerprint = !options.noCache || !!(options.attachments && options.attachmentOutput);
   const fingerprint = needFingerprint ? (pdfData ? fingerprintData(pdfData) : pdfFingerprint(filePath)) : null;
   const cacheDir = options.noCache ? null : getCacheDir(filePath, fingerprint ?? undefined);
   const attachmentOutputDir =
@@ -147,7 +144,6 @@ export async function processDocument(filePath: string, options: ProcessDocument
         ? prepareRenderImagesDir({
             renderOutput: options.renderOutput,
             cacheDir,
-            fingerprint,
             renderScale,
           })
         : null;
@@ -155,7 +151,23 @@ export async function processDocument(filePath: string, options: ProcessDocument
       // renderer pulls in @napi-rs/canvas (native binding); only load it
       // when --render is requested.
       const { renderPagesWithStats } = await import('./renderer/index.js');
-      const rendered = await renderPagesWithStats(doc, pageNumbers, imagesDir as string, renderScale, renderRegion);
+      // Explicit --render-output writes flat into the caller's dir, so
+      // pre-resolve collision-safe paths (and disable disk reuse: a
+      // same-named PNG there may belong to a different PDF).
+      const pagesOptions = options.renderOutput
+        ? {
+            outputPaths: resolveFlatRenderPaths(imagesDir as string, pageNumbers, renderRegion, options.onWarning),
+            reuse: false,
+          }
+        : undefined;
+      const rendered = await renderPagesWithStats(
+        doc,
+        pageNumbers,
+        imagesDir as string,
+        renderScale,
+        renderRegion,
+        pagesOptions,
+      );
       imagePaths = rendered.map((r) => r.path);
       renderRatios = rendered.map((r) => r.contentRatio);
       renderContentBoxes = rendered.map((r) => r.renderedContentBox);
