@@ -1,190 +1,100 @@
 ---
 name: pdfvision
-description: "Extract text, metadata, per-page density signals, structural layout, image bounding boxes, optional OCR, and rendered page PNGs from a PDF using the pdfvision CLI. Use when the input is a `.pdf` URL, a local PDF path, or another agent skill produced a PDF that still needs structured extraction. Triggers on: 'read this pdf', 'extract from <file>.pdf', '.pdf', 'scan / slide / paper / form contents'."
+description: "Extract text, metadata, per-page density signals, layout, image boxes, OCR, and page PNGs from a PDF via the pdfvision CLI. Use when the input is a `.pdf` URL, a local PDF path, or a PDF another agent skill produced. Triggers on: 'read this pdf', 'extract from <file>.pdf', '.pdf', 'scan / slide / paper / form contents'."
 ---
 
 # pdfvision
 
-[pdfvision](https://github.com/yamadashy/pdfvision) extracts text + metadata + per-page density signals from any PDF, with opt-in OCR (`--ocr`, including OCR word boxes when tesseract returns layout), layout reconstruction (`--layout`), page anomaly warnings (`pages[].warnings[]` from layout geometry, glyph-noise, numeric-table, scan/OCR-layer, and image-box signals), raster image bounding boxes (`--image-boxes`, including image-bearing pattern fills), vector drawing counts (`vectorCount`), per-text-item geometry (`--geometry`), PNG rendering (`--render`, optionally sized with `--render-scale` and cropped with `--render-region`), and per-page text/form-field/link/annotation/OCR search with bbox (`--search`, hits ride into `--render-region` for one-pipeline find-then-zoom). Cached by content hash, so the second read of the same PDF returns in ~30 ms.
+[pdfvision](https://github.com/yamadashy/pdfvision) reads any PDF into text, metadata, and per-page density signals, cached by content hash so the second read is ~30 ms.
 
 ## Prerequisite
 
 ```bash
-npx pdfvision --version
+npx pdfvision --version   # Node.js >= 22.13; `npm i -g pdfvision` if used a lot
 ```
 
-Requires Node.js >= 22.13. Install globally with `npm install -g pdfvision` if used repeatedly.
-
-**Always run help once before reaching for non-obvious flags** — the flag set evolves (OCR, remote URLs, layout, geometry, image-boxes, render output) and the help text is the source of truth for what the installed version supports.
-
-- Outside the pdfvision repository, use `npx pdfvision --help`.
-- Inside the pdfvision repository during development, use `node --run pdfvision -- --help` or `node dist/bin/pdfvision.mjs --help` after `npm run build`. Avoid `npx pdfvision` / `npm exec pdfvision` there; npm can try to resolve the package against itself and exhaust the Node heap before the CLI starts.
+Consult `--help` only right before using a non-obvious flag — the flag set evolves; help is the source of truth. Outside the repo: `npx pdfvision --help`; in-repo dev: `node --run pdfvision -- --help` (not `npx pdfvision` — it can exhaust the Node heap resolving the package against itself).
 
 ## Quick reference
 
 ```bash
-# Local PDF, markdown to stdout (per-page sections + density Overview table)
-npx pdfvision /path/to/doc.pdf
-
-# Fetch a PDF over http(s) — downloads to cache, validates the PDF header, then extracts
-npx pdfvision --remote https://example.org/paper.pdf
-
-# Page subset
-npx pdfvision doc.pdf -p 1-5
-npx pdfvision doc.pdf -p 1,3,5
-
-# Programmatic / structured consumers
-npx pdfvision doc.pdf -f json
-npx pdfvision doc.pdf -f xml          # tag-shaped, some LLMs locate <page> faster than JSON keys
-npx pdfvision doc.pdf -f toon --geometry  # same schema, ~40% fewer tokens on span/array-heavy output
-
-# Image-flattened / scanned page — two options:
-npx pdfvision scan.pdf --ocr -f json                     # tesseract.js OCR
-npx pdfvision scan.pdf --render --render-output ./images # PNG for vision LLM
-
-# Smaller / larger raster for vision-model payload
-npx pdfvision slides.pdf --render --render-scale 1       # half-size PNG (default scale is 2)
-npx pdfvision tiny.pdf --render --render-scale 3         # higher-detail PNG
-
-# Zoom into a specific region on one page (PDF points, top-left origin)
-npx pdfvision doc.pdf -p 3 --render --render-region 100,200,300,150
-
-# Find a string with bbox of every hit — pipe match.bbox into --render-region for visual zoom
-npx pdfvision report.pdf --search "revenue" --json
-npx pdfvision paper.pdf --search "GPT" --search "transformer" --json  # multi-query (each match carries queryIndex)
-
-# Wipe the on-disk cache
-npx pdfvision --clear-cache
+npx pdfvision /path/to/doc.pdf                 # markdown + density Overview to stdout
+npx pdfvision --remote https://ex.org/p.pdf    # fetch over http(s); validates header, caches
+npx pdfvision doc.pdf -p 1-5                    # page subset (also -p 1,3,5)
+npx pdfvision doc.pdf -f json                  # structured; also -f xml, -f toon
+npx pdfvision scan.pdf --ocr -f json           # OCR an image/scanned page
+npx pdfvision scan.pdf --render --render-output ./img               # PNG for a vision LLM
+npx pdfvision doc.pdf -p 3 --render --render-region 100,200,300,150 # zoom a region (PDF points)
+npx pdfvision report.pdf --search "revenue" --matches-only          # v0.13.0+: matching pages + bboxes
 ```
 
-Format choice (`markdown` / `json` / `xml` / `toon`) does **not** change the cache slot — the structured payload is shared and only re-formatted on output.
-
-`toon` ([Token-Oriented Object Notation](https://toonformat.dev)) is a lossless, schema-aware re-encoding of the same `DocumentResult` as `-f json`, tuned for tight LLM token budgets. Its win is concentrated in **uniform-array-heavy output**: `--geometry` (spans) drops ~40–48% of tokens versus the pretty-printed JSON because spans collapse into a CSV-like tabular form that names fields once. `layout.tables[].rows[].cells[]` also tabularizes well; plain text bodies and non-uniform `layout.blocks[]` compress less, so `-f xml` can still be more compact for block-heavy layout output. Reach for `toon` specifically when handing span/geometry-dense output to an LLM; otherwise `json` / `xml` remain the defaults. Decode back to the JSON data model with the `@toon-format/toon` package, so programmatic consumers lose nothing.
+Format does **not** change the cache slot — the payload is shared and re-formatted on output. `toon` ([Token-Oriented Object Notation](https://toonformat.dev)) is a lossless, token-lean re-encoding of `-f json`, best for array-heavy output (`--geometry`, `layout.tables`); `-f xml` suits block-heavy layouts.
 
 ## Picking the right flags
 
-The default extraction is enough for most native-text PDFs (papers, exports from Word / Pages / Markdown tooling). Reach for opt-ins only when the default isn't enough.
+Default extraction is enough for most native-text PDFs; reach for opt-ins only when it isn't. Full caveats: `references/flags.md`.
 
-| Goal | Flag | When to reach for it |
-|---|---|---|
-| Reconstruct reading order, find headings, preserve table rows | `--layout` | Multi-column papers, including dense journal layouts with narrow repeated gutters or drop caps; Japanese vertical-writing slides/docs where display and body-sized CJK stacks surface as `writingMode: "vertical"` and tatechuyoko ASCII digit groups stay inline in their vertical column, plus display-spaced CJK title rows such as `科 学`; short corroborated page-edge vertical chrome is marked `repeated` without dropping sentence-like margin text; slides where the agent must process blocks in order; table-heavy financial/government PDFs where `layout.tables[]` row-major hints preserve numeric row/cell relationships better than raw blocks, including compact two-column year/value tables, dense recurring numeric gutters or narrow same-row numeric gutters that would otherwise merge several values into one line, trailing currency markers in financial statement rows, long financial row labels before recurring year columns, and leading header/sparse rows above wide recurring numeric tables with score/percentile cells |
-| Know where images sit on the page | `--image-boxes` | Bbox overlay on rendered PNG, figure detection, masked/pattern image fills |
-| Know where vector marks sit on the page | `--vector-boxes` | Maps, symbol tables, diagrams, chart paths, clipped shading/gradient panels, form boxes, table rules, slide shapes, and PDFs where visible structure is vector-drawn rather than raster images |
-| Get crop-ready visual regions | `--visual-regions` | Figure/chart/diagram/table/form/annotation pages where an agent should use suggested `--render-region` bboxes, including nearby captions/form labels when found (`Figure`, `Table`, `Plate`, `図`, `表`, `図表`), nearby panel titles such as `(a) ...`, short directly-below image labels, short in-region chart titles, nearby or in-region headings for large unlabeled regions, and short table lead-ins such as "The following table..." or "... as follows:", instead of manually clustering raw image/vector/layout/form/annotation coordinates. Page-level `Plate` captions can attach as metadata to distant panel crops without expanding every crop to include the caption block, while multi-panel figure captions with `A,B:` / `C,D:` cues can group disconnected vector chart fragments into one crop with the full caption block. Bare or tiny in-region references like `Fig.4` are not attached as captions unless they have descriptive caption text at readable size. Page-sized background boxes are suppressed when more specific foreground geometry or dense vector-grid structure exists, broad vector backplanes that span multiple substantial raster panels are suppressed so individual panels remain crop targets, and corroborated narrow page-edge chrome is suppressed so marginal ribbons, side URLs, small raster logo/text strips inside header/footer rule bands, and header/footer bands do not become vision targets; full-page covers/scans still emit renderable regions when only small logos or edge chrome compete with them. If full-page render evidence, including a rendered full-page visual-region crop, says the page is blank, visual regions are suppressed. Dense vector grids can produce fallback regions for table-like structures, dense small vector marker fields are clustered into separate dense visual-region crops when disconnected, dense forms produce section/row-sized crops instead of one page-sized crop, hidden/invisible/noView form fields and annotations are not used as visual crop seeds, FreeText annotations without appearance streams stay available through annotations/search but are not used as crop seeds, unpositioned widget-appearance vector boxes are skipped when form-field bboxes provide the real page positions, and repeated header/footer text is not attached as a caption when multi-page evidence is available. |
-| Render suggested visual crops | `--render-visual-regions` | Same cases as `--visual-regions`, when the next step is a vision-model pass and the agent wants `visualRegions[].image` crops with associated captions/form labels, nearby panel titles, short table lead-ins, short image labels, short in-region chart titles, nearby headings, and `renderedContentBox` hints for sparse/transparent crops without rendering every full page |
-| Read form controls and blank fields | `--form-fields` | Government forms, applications, tax forms, questionnaires, and any PDF where checkboxes, radio buttons, signatures, text boxes, choice widgets, buttons, or their nearby visible labels are part of the meaning. Widget annotation flags such as `hidden`, `print`, or `noView` are exposed so agents can detect print-only or screen-hidden fields. Checkbox/radio export values, widget JavaScript actions, and non-JavaScript ResetForm button behavior are exposed when present, so agents can see submitted values, button click scripts, reset-all buttons, and selective reset buttons. Choice widgets keep submitted/exported selections in `value`, include selected viewer labels in `displayValue` when those differ, and include exported/display option values when the PDF exposes them, plus combo/list and multi-select flags. Push buttons include viewer-visible `caption` text when pdfvision can recover it from widget appearance characteristics, and `--search` can return those captions as form-field matches. Stacked above/below label lines are merged when they form one visible prompt; checkbox/radio labels stay on their own option row when adjacent options are stacked, and right-edge checkbox/radio prompts can keep wrapped instruction text that finishes on the widget row while dropping dotted leader filler, line-number gutters, and following caution/instruction paragraphs with their own row prefix; left-side checkbox/radio prompts can merge directly preceding continuation lines, so labels like "check this box..." keep their setup text; narrow inline text fields can keep left-side instruction labels such as tax-classification prompts with dotted leader filler trimmed, and tall multiline text fields can keep short left-side labels across wider form gutters; right-edge amount boxes with dotted leaders can expand compact markers like "1 $" or "4(a) $" back to the visible multi-line prompt; fine-grained spans are also considered so adjacent same-row prompts such as "Middle Initial" and "Other Last Names Used" do not collapse onto both fields, and semantically named fields avoid unrelated nearby text when no credible label is found. |
-| Capture clickable navigation | `--links` | Papers and manuals with citation links, table-of-contents jumps, cross-references, and external URLs whose clickable regions matter to a human PDF reader; internal links include the resolved physical target page and visible link text when available, including narrow inline links over tokens inside a wider text line |
-| Capture comments and markup | `--annotations` | Reviewed PDFs, annotated drafts, PDFs with sticky notes, highlights, underlines, strikeouts, stamps, file-attachment icons, shape markup, ink, or other non-link annotation markup. Annotation flags such as `hidden`, `print`, or `noView` are exposed so agents can tell when markup may be print-only or not visible in a normal screen render. File-attachment annotations expose filename, description, and byte size metadata without embedding bytes in context. Shape annotations expose icon/name, border, line endpoint, polygon/polyline vertex, and ink path metadata when pdf.js provides it. |
-| Capture tagged-PDF accessibility structure | `--structure` | Accessible PDFs, government forms/reports, manuals, and any PDF where figure alt text, role hierarchy, language hints, or structure bboxes may explain content that native text and rendered pixels alone do not label. Structure bboxes use the same top-left PDF-point coordinates as spans/layout/image boxes. Stray control bytes in structure strings are removed. |
-| Capture viewer page labels | `--page-labels` | Long reports, specs, books, and papers where the PDF viewer shows roman front matter, section prefixes, or restarted page numbering that differs from physical page numbers |
-| Capture embedded file attachments | `--attachments` (+ `--attachment-output <dir>` to save files) | PDFs whose viewer attachment pane or page file-attachment icons expose supplemental files; emits names, descriptions, byte sizes, and optional saved paths without dumping attachment bytes into context |
-| Capture document sidebar navigation | `--outline` | Long reports, manuals, specifications, and papers where a human PDF reader would use bookmarks / outline entries to jump between sections, external URLs, or named viewer actions such as NextPage |
-| Capture initial viewer state | `--viewer` | PDFs whose opening mode, page layout, viewer preferences, OpenAction, document/page JavaScript actions, permissions, or tagged-PDF MarkInfo affects how a human reader sees or navigates the document |
-| Capture viewer layer panels | `--layers` | Maps, CAD/design PDFs, multilingual/variant documents, or any file where a human PDF reader can toggle optional content groups that may hide visible labels, overlays, or design alternatives |
-| Open encrypted PDFs | `--password <value>` / `--password-stdin` | Password-protected PDFs when the user explicitly provides the document password. The password is only used for pdf.js decryption and is never emitted in output. Prefer `--password-stdin` when shell history or process argv exposure matters; `--password` can be supplied as an explicit fallback when stdin is empty. Do not guess or store passwords. |
-| Per-glyph bbox + fontSize | `--geometry` | Heading detection by font-size, custom layout heuristics |
-| Page is an image or native text is glyph-corrupted — get text from pixels | `--ocr` + `--ocr-lang` | `coverage: 0%` in the Overview, or `nonPrintableRatio >= 0.05` (native text includes glyph-index garbage; see below). **For non-English text, language order matters** — primary language goes first (`jpn+eng` for Japanese-dominant, `eng+jpn` for English-dominant). Full lang combinations and confidence semantics in `references/ocr.md`. |
-| Hand the page to a vision model | `--render` + `--render-output <dir>` | Multimodal flows. Density Overview already flagged the page as low-text |
-| Shrink / enlarge the rendered PNG | `--render-scale <n>` (default 2, bounds `(0, 4]`) | 1×: half-size render payload, fine for most agentic-vision dispatch; OCR still rasterises at least scale 2 for recognition quality. 3×+: capture chart / fine-print detail |
-| Zoom into a sub-rectangle of one page | `--render-region <x,y,w,h>` | Agent already saw a suspect block via `--layout` / `warnings[]` and only wants the visual confirmation of that bbox, not the whole page. PDF points, top-left origin, single-page only (errors if `--pages` resolves to multiple). Composes with `--render-scale`; on rotated pages, `pages[].rotation` explains why the cropped PNG's visible width/height may be swapped even though the input bbox stays in page coordinates |
-| Find every occurrence of a string with bbox | `--search <query>` (repeatable; `--search-regex` / `--search-case-sensitive` modifiers) | The agent's "where does this term appear?" question. Returns `pages[N].matches[*]` with span/word/widget/link/annotation-level bbox so the bbox feeds straight into `--render-region` for a follow-up visual zoom — one-pipeline find-then-zoom, no second pass. Markdown also renders a per-page `Search matches` table when search ran; use JSON/XML/TOON when a downstream tool needs to consume coordinates directly. Literal substring by default, case-insensitive, NFKC-aware and C0-cleaned (so `"fi"` matches the U+FB01 ligature, and literal search matches `pages[].text` cleanup), and CJK-aware enough that `科学` can match display-spaced `科 学`. Detected Japanese vertical body columns are searched top-to-bottom and right-to-left, including phrases that cross inline tatechuyoko digit fragments; `pages[].text` also joins those columns when the source stream already matches the detected top-to-bottom order, falling back per run when it does not. Compact table-header rows can match phrase queries across adjacent column labels while keeping broad prose columns separated. Also searches visible text/choice form field values (match carries `source: 'formField'`; comb text widgets narrow to matching cells when available), clickable link targets (`source: 'link'`), visible FreeText annotation contents (`source: 'annotation'`), and OCR text when `--ocr` is on (match carries `source: 'ocr'`, using OCR word boxes when present and supplementing from full `ocr.text` when word reconstruction misses one or more occurrences); duplicate OCR hits already covered by non-OCR matches are suppressed. |
-| Skip the on-disk cache | `--no-cache` | Forced re-extraction. Default behaviour is cache-on |
+| Flag | Reach for it when |
+|---|---|
+| `--layout` | Multi-column papers, CJK vertical writing, slide block order, financial/gov `layout.tables[]` |
+| `--image-boxes` / `--vector-boxes` | Where raster / vector marks sit (figures, maps, diagrams, chart paths, form rules) |
+| `--visual-regions` (+ `--render-visual-regions`) | Crop-ready `--render-region` bboxes + captions for figure/chart/table/form pages |
+| `--form-fields` | Checkboxes, radios, text/choice widgets, buttons, and their labels |
+| `--links` / `--annotations` | Clickable links & targets; notes, highlights, stamps, ink, shape markup |
+| Document metadata | `--structure`, `--page-labels`, `--attachments` (+`--attachment-output`), `--outline`, `--viewer`, `--layers` |
+| `--password` / `--password-stdin` | Encrypted PDFs; password never guessed or emitted |
+| `--geometry` | Per-glyph bbox + fontSize (heading detection); JSON/XML/TOON only |
+| `--ocr` + `--ocr-lang` | `coverage: 0%` / `nonPrintableRatio >= 0.05`; primary lang first (`jpn+eng`) — see `references/ocr.md` |
+| `--render` (+ `--render-output` / `--render-scale` / `--render-region`) | Rasterise for vision; scale 1 = half-size, 3×+ = detail (default 2); `--render-region <x,y,w,h>` zooms one block (single-page) |
+| `--search <query>` | "Where does X appear?" `pages[N].matches[*]` with bbox; `--matches-only`, `--search-regex`, `--search-case-sensitive` |
+| `--no-cache` | Force re-extraction |
 
-On Japanese and Chinese annotated-reading pages, furigana/ruby is attached inline as `base《ruby》` when pdfvision can associate the smaller kana or pinyin-shaped run with an unambiguous CJK base range. This covers adjacent half-size ruby columns in vertical body text, smaller kana above horizontal CJK base text, and pinyin-shaped Latin readings above horizontal CJK base text. Ambiguous or unassociated ruby stays excluded so the body flow remains readable rather than guessed, and search uses both ruby-inclusive and ruby-stripped text so base-word queries still match through `《...》` annotations. Short medium-size note-reference marks in the right gutter of a vertical body column are also excluded from reconstructed body text/layout so they do not split the column. Context-supported short body-sized vertical runs with ellipsis leaders are joined with the surrounding vertical body flow. Inline tatechuyoko digit groups such as `10` are kept inside the surrounding vertical column when the source stream order agrees with the top-to-bottom geometry. `--geometry` still exposes the raw glyph spans for inspection.
+Japanese/Chinese furigana/ruby is attached inline as `base《ruby》` automatically (searchable both ways; see `references/flags.md`).
 
-## Detecting silent failures with the density Overview
+## Density Overview and one-shot dispatch
 
-When `result.pages.length > 1`, the markdown output starts with an Overview table that reports `Chars / Images / Coverage / Size` per page (plus `Rotation` when any page is rotated, `Vectors` when any page has vector drawing operations, `NonPrint` when any page has non-zero non-printable ratio, `Tables` when `--layout` finds row-major table hints, and `Blocks` when `--layout` was on). With `--layout`, markdown also renders detected `layout.tables[]` as per-page `Layout tables` sections so financial statements and other numeric tables keep row/value relationships in chat-readable output. The JSON / XML output carries the same data in `overview[]` with field names `charCount` / `imageCount` / `vectorCount` / `textCoverage` / `nonPrintableRatio` / `nonPrintableCount` / `rotation` / `width` / `height` / `quality` — use the field names directly when grepping or filtering in code. Use the Overview before scrolling the body.
+Multi-page docs open with a density Overview table — `Chars / Images / Coverage / Size` per page (plus `Rotation` / `Vectors` / `NonPrint` / `Tables` / `Blocks` when relevant; `overview[]` in JSON/XML). Read it before the body — silent failures (empty `text` that looks fine, or NUL-byte `text`) show up front. Columns, thresholds, and warning catalog: `references/warnings.md`.
 
-### One-shot dispatch: `pages[].quality`
+Each page/overview row carries a derived `quality` field (observation only; the agent acts). `quality.nativeTextStatus`:
 
-Each page (and each overview row) carries a derived `quality` field that classifies the page from the raw signals so agents don't have to reimplement the threshold logic:
+| Status | Meaning → action |
+|---|---|
+| `ok` | Usable native text, not sparse vs visual content. |
+| `mixed_glyph_indices` | `nonPrintableRatio` `0.05–0.3`; readable fragments + glyph garbage, not the full page. |
+| `unusable_glyph_indices` | `>= 0.3`; mostly garbage despite `charCount` → `--render` / `--ocr`. |
+| `sparse_text_with_visual_content` | Text too sparse for a populated page (page-number over a slide, watermark) → `--render`. |
+| `sparse_text_on_blank_visual` | Text present but render blank; hidden OCR residue / invisible font until confirmed. |
+| `empty_but_visual_content` | No text, but images / vectors / annotations / pixels → `--ocr` or `--render`. |
+| `empty` | No text, no visual content — likely blank (or a render failure; check `visualStatus`). |
 
-- `quality.nativeTextStatus`:
-  - `ok` — usable native text that is not sparse relative to non-text visual content.
-  - `mixed_glyph_indices` — `0.05 <= nonPrintableRatio < 0.3`. Native text contains readable fragments mixed with glyph-index garbage. Do not trust it as the full human-visible page.
-  - `unusable_glyph_indices` — `nonPrintableRatio >= 0.3`. Text is mostly binary garbage even though `charCount` looks healthy. Fall back to `--render` or `--ocr`.
-  - `sparse_text_with_visual_content` — native text exists, but it is too sparse to explain a visually populated page (for example, only a page number over an image-heavy slide, or a large `SAMPLE` watermark over a dense static form). Inspect with `--render`.
-  - `sparse_text_on_blank_visual` — native text exists, but the rendered page is effectively blank. Treat the text as hidden OCR residue, invisible/broken-font text, or a render/text-layer mismatch until visually confirmed.
-  - `empty_but_visual_content` — no native text, but the page carries images, vector drawings, visible annotation appearances that are not contradicted by a blank render, or non-blank pixels. Re-run with `--ocr` (or read the rendered PNG via `--render`).
-  - `empty` — no text, no detected visual content. Likely a genuinely blank page (or a render failure — combine with `visualStatus` below).
-- `quality.visualStatus` (present only when `--render` or `--ocr` ran):
-  - `ok` — renderer drew clearly populated content.
-  - `sparse` — renderer drew only sparse visible marks, including text-only or annotation-only pages whose ink sits just below the blank threshold. This is not a blank render; inspect with `--render-region` / `--visual-regions` when the small mark matters.
-  - `blank` — page came out effectively blank against its own dominant background. Render-pipeline failure or genuinely blank page.
+`quality.visualStatus` (only with `--render` / `--ocr`): `ok` = clearly populated; `sparse` = faint marks only (text/annotation-only included), not blank — inspect `--render-region` / `--visual-regions`; `blank` = blank against its own dominant background (render failure or genuinely blank).
 
-pdfvision deliberately stops at observation: it does **not** recommend an action. The action is the agent's call based on the two statuses + the raw signals below.
-
-### Raw signals (the inputs to `quality`)
-
-- `textCoverage: 0` (rendered as `coverage: 0%` in markdown) + `imageCount > 0` → the page body is a rasterised image. The text stream is empty. Re-run with `--ocr` or `--render`.
-- Very low `textCoverage` plus `imageCount > 0` / `vectorCount > 0` and only a few characters → the visible page is mostly outside native text (`quality.nativeTextStatus === 'sparse_text_with_visual_content'`). Render before trusting the sparse text.
-- Very low `charCount` plus dense vector structure can also map to `sparse_text_with_visual_content` even when `textCoverage` is not low, because one large watermark glyph run can cover much of the page while the visible form/table/chart content lives in vectors.
-- Any native text plus `quality.visualStatus === 'blank'` → the native text is not visible in the rendered page (`quality.nativeTextStatus === 'sparse_text_on_blank_visual'`). Common in scanned-book front matter, invisible/broken-font text, and failed renders; do not treat the text as the human-visible page content.
-- `vectorCount > 0` with low text coverage → visible non-raster structure exists (forms, chart paths, slide shapes, diagrams) even when `imageCount` is zero. Inspect with `--render` when the visual layout matters.
-- `nonPrintableRatio >= 0.05` → pdf.js fell back to raw glyph indices for at least part of the page because some fonts lack a ToUnicode CMap (common with Hebrew, older CJK, custom symbol fonts, and branded annual reports). `0.05–0.3` maps to `quality.nativeTextStatus === 'mixed_glyph_indices'`: some text may be readable, but native extraction is incomplete. `>= 0.3` maps to `unusable_glyph_indices`: treat the native text as mostly garbage. The raw count is in `nonPrintableCount` — when the 3dp ratio rounds to 0 the count still tells you whether any non-printable code points slipped through (useful for "is there ANY garbage in this page?" filters). Normalized `pages[].text` strips non-visible C0 controls other than tab / newline / carriage return, but these counters still use the pre-strip text signal so sparse control-byte evidence remains visible.
-- `charCount: 0` but `imageCount: 0` → genuinely blank page (separator, end matter).
-- Sudden drop in `textCoverage` on a single page in an otherwise text-dense doc → that page is likely a figure / scan / chart. Inspect with `--render`.
-- `quality.visualStatus === 'sparse'` → the rasterised page is not blank, but the visible marks are too small/sparse to call the page visually populated. This can be a one-line text-only page as well as a tiny image/vector/annotation mark. Use object geometry (`spans`, `vectorBoxes`, `imageBoxes`, `annotations`, `visualRegions`) or `--render-region` to inspect the mark instead of treating this as a render failure.
-- `quality.visualStatus === 'blank'` → the rasterised page came out blank **against its own dominant background**. Likely a render-pipeline failure (pdf.js + @napi-rs/canvas can't decode JPEG2000 image streams, or the font has no resolvable glyphs) or a genuinely blank page. The ratio is background-aware — dark book covers and beige scan paper don't false-trip it. OCR on this page returns `confidence: 0` not because OCR failed but because the input was a near-uniform image.
-
-### Warnings
-
-`pages[].warnings[]` carries page anomalies that deserve visual attention.
-
-- Geometry warnings (`text_overlap`, `near_bottom_edge`, `body_near_repeated_chrome`, `off_page`) require `--layout`.
-- `glyph_garbage_text` uses always-on text-quality signals and fires when `quality.nativeTextStatus` is `mixed_glyph_indices` or `unusable_glyph_indices`, or when native text is dominated by Private Use Area glyph-code strings even though `nonPrintableRatio` is 0. Treat native `text`, `spans`, search hits, and layout text as incomplete or unreliable; inspect `--render` and consider `--ocr`.
-- `localized_glyph_noise` uses always-on text-quality signals and fires when multiple non-printable code points appear below the mixed-glyph ratio threshold, when native text contains Unicode replacement characters (`U+FFFD`), when private-use glyph codes dominate a short run, when a CJK page contains isolated Latin-extended mojibake characters, when text is dominated by Latin-1 supplement printable mojibake, when many adjacent CJK glyphs are separated by likely artificial spaces or duplicated as adjacent pairs, or when printable font-map noise puts uppercase `LJ` inside an otherwise lowercase word such as `veriLJcation`. Common cases: formulas, comparison symbols, unit marks, bullet symbols, dotted leaders, non-Latin custom fonts, icon fonts, CJK text-positioning artifacts, text-layer duplication, or ligature/font-map substitutions that render fine but extract as control characters, replacement glyphs, artificial spaces, duplicated CJK glyphs, or stray printable glyphs.
-- `font_mapping_warning` uses captured pdf.js font/CMap warnings and fires when native text otherwise looks `ok` but pdf.js reported missing character-map data. Common case: a custom embedded font renders visibly but extracts as printable glyph substitutions; inspect `--render` when exact text matters.
-- `raw_embedded_source_text` uses always-on text-quality signals and fires when long embedded producer/source payloads such as `<latexit...>` LaTeX image source leak into native text. Treat matching `pages[].text`, layout text, and search hits as machine residue until checked against `--render` or `--ocr`.
-- `dense_vector_graphics` uses the always-on `vectorCount` signal and fires on pages dominated by meaningful vector drawing operations. Text-dominant pages whose many vectors are only small scattered decorations are suppressed. Common firing cases: forms, checkboxes, table rules, chart paths, and diagrams whose visible structure is not represented by native text.
-- `vector_graphics_no_native_text` uses the always-on `vectorCount` signal and fires when a nonblank vector-only page has no native text. Common cases: symbols, diagrams, or path-drawn labels that render visibly but do not appear in `pages[].text`; inspect `--render`, `--vector-boxes`, or `--visual-regions`.
-- `tabular_numeric_layout` requires `--layout` and fires when many short numeric lines form multiple aligned columns with shared row positions. Common cases: financial statements and dense numeric tables whose row/column relationships are visually obvious but can be flattened in plain native text. Irregular financial tables can still surface when labelled rows have recurring numeric columns; chart-axis tick labels and irregular chart data-label rows are suppressed.
-- `dot_leader_noise` uses native text/layout signals and fires when many standalone dotted leader/noise lines are extracted as separate text. Common cases: table-of-contents leaders, table leaders, map stipple, and decorative dot patterns that visually connect labels or represent texture but can appear as noisy dot paragraphs in plain native text.
-- `tiny_native_text_noise` requires `--layout` or `--geometry` and fires when long native text runs are set at extremely small sizes, such as hidden producer links. Treat matching `pages[].text`, links, and search hits as possibly not human-visible until checked against `--render`.
-- `duplicate_text_layer` can appear without `--layout` or `--geometry` when native text contains a hidden near-duplicate layer of visible text at a consistent scaled/shifted position. It can co-occur with `off_page` or `text_overlap` because those are separate geometry symptoms; prefer the render or OCR when exact visible text matters.
-- `raster_backed_text_layer` can appear without `--layout` or `--image-boxes`. It means native text appears to be an OCR/text layer over a full-page raster scan, including sparse OCR layers on scanned covers with minor decorative vector marks. Treat the text as potentially useful but error-prone: recognition can be wrong, exact native `--search` can miss visible words, and `spans` / `layout.blocks` may not line up exactly with the pixels a human sees. Re-run with `--ocr` when wording or search recall matters.
-- `raster_text_layer_symbol_noise` can appear on raster-backed text layers when the native text is dominated by printable punctuation/symbol noise (for example old scan OCR title pages full of `^`, `_`, and stray marks). Treat native text as especially suspect even if `quality.nativeTextStatus` is still `ok`.
-- `raster_text_layer_word_fragmentation` can appear on raster-backed text layers when many Latin words have split into isolated letter fragments (for example `r e p o r t`). Treat exact wording and native search misses as suspect; compare a render or rerun with `--ocr`.
-- `raster_image_no_native_text` can appear when a raster image dominates the page but native text is empty. Human-visible text inside the image will not appear in `pages[].text`; compare the render or OCR when exact text matters. On empty-native-text pages this warning subsumes `large_raster_low_text_overlap`.
-- `ocr_low_confidence` appears when `--ocr` ran, OCR confidence is below 0.5, and native extraction is empty, sparse, glyph-corrupted, or riding on a raster-backed text layer. Treat OCR text as tentative; compare with `--render`, adjust `--ocr-lang`, or crop/retry before trusting form labels or small print.
-- `ocr_native_text_mismatch` appears when `--ocr` ran, OCR confidence is high, native extraction is otherwise `ok`, and OCR strongly disagrees with native text. Common cases: a custom font renders a word correctly while native text extracts as printable glyph substitutions, or a raster-backed scan has high-confidence OCR words whose nearest native tokens are wrong. Compare against `--render`; for raster-backed pages, prefer OCR-backed search hits over native search misses.
-- `ocr_native_spacing_loss` appears when `--ocr` ran on a raster-backed text layer, OCR confidence is high, OCR and native text contain comparable characters, but native text has lost many word boundaries. Common case: scan OCR layers that extract as `Ourwebsite` / `valuableresourcefor` while OCR restores normal spacing; compare `ocr.text` with the render when exact wording matters.
-- `large_raster_low_text_overlap` can appear without `--image-boxes` on empty/sparse-text visual pages when pdfvision's internal image pass sees a large raster. With `--image-boxes` plus `--layout` or `--geometry`, it can also compare native text bboxes against raster regions and include `imageBoxIndex` for pinpoint follow-up. It is not emitted on empty-native-text pages where `raster_image_no_native_text` already fired. Treat it as "labels, chart text, map text, or screenshot text inside this image may need `--render` / `--render-region` / OCR."
-- `annotation_text_missing_from_native` appears when visible FreeText annotation contents are not represented in `pages[].text`, even when `--annotations` was not requested for output. Treat native text as incomplete; read `pages[].annotations`, use `--search`, or render the annotation bbox when exact visible text matters.
-- `optional_content_text_may_include_hidden_layers` appears when the page text stream contains optional-content marked text and the PDF has at least one layer hidden in the default viewer state. pdf.js text extraction can include text from layers a human does not initially see; inspect `--layers` and compare against `--render` before trusting `pages[].text` as the visible text.
-- `reading_order_divergence` requires `--layout` and fires when a heading that leads the visual reading order only appears in the back half of the native text stream (magazine-style frame layouts emitted out of order — the page title buried mid-`text`), when a slide-style visually-first title/header is drawn last and appears at the end of native text, when a late bottom note or right sidebar appears at the start of native text, when reconstructed layout lines inside one block are emitted out of order, when compact math text extracts out of visual order, or when `--form-fields` exposes form labels whose native text order differs from the visible row order. Prefer `layout.blocks` order over `pages[].text` when sequence matters; Markdown output already switches to the layout-rebuilt body on these pages.
-
-The density signal is the reason to prefer pdfvision over reading a PDF directly — silent failures (empty `text` that looks fine to a downstream consumer, or full `text` that is actually NUL bytes) become visible up front.
+`pages[].warnings[]` flags page anomalies with a self-explanatory `message` (geometry ones need `--layout`). Read `references/warnings.md` only when a code needs more than its message.
 
 ## Caching
 
-- Cache root: `<os-tmp>/pdfvision/<content-sha>/` — macOS `/var/folders/.../T/pdfvision/`, Linux `/tmp/pdfvision/`. Override with `PDFVISION_CACHE_DIR=/path`.
-- Keyed by **PDF content hash + flag combination**. Same PDF + same flags → ~30 ms on the second call. Different flags (e.g. add `--layout` later) → different slot, fresh extraction.
-- `--remote` validates that the downloaded body contains a PDF header before caching. If a `.pdf` URL returns HTML (login/challenge/landing page), treat the failure as a source/download problem and choose another direct PDF URL.
-- Wipe everything (cached extractions, rendered PNGs, downloaded remote PDFs, OCR traineddata) with `npx pdfvision --clear-cache`.
+- Cache root `<os-tmp>/pdfvision/<content-sha>/` (override: `PDFVISION_CACHE_DIR=/path`).
+- Keyed by **content hash + flag combination**: same PDF + same flags → ~30 ms; new flags (e.g. adding `--layout`) → a fresh slot.
+- `--remote` validates a PDF header before caching; a `.pdf` URL that returns HTML (login/landing) is a source problem — pick another direct URL.
+- `npx pdfvision --clear-cache` wipes extractions, rendered PNGs, remote downloads, and OCR traineddata.
 
 ## Typical agent flow
 
-**Inherit the user's scope first.** If the user already named a specific page or range ("page 2", "chapter 3", "the last few pages"), pass `-p` from step 1 — the density Overview works per page, so there's no need to scan a 100-page doc when the user pointed at page 2. Only run unscoped when the user genuinely asked about the whole document. Sections with conventional locations also help: "abstract" → `-p 1`, "conclusion" → `-p <last-few>`, "TOC" → `-p 1-3`.
+**Inherit the user's scope first.** If the user named a page/range, pass `-p` from step 1 (abstract → `-p 1`, conclusion → `-p <last-few>`, TOC → `-p 1-3`) instead of scanning the whole doc. The markdown default needs no flag; switch format only per Quick reference.
 
-**Pick a format that matches the consumer.** If the consumer is the LLM itself reading text inline (the typical "user asks me to read this PDF" case), the markdown default is already optimal — no flag needed. Switch to `-f json` only when a downstream programmatic step needs structured field access (`overview[]`, `pages[].layout`, `pages[].ocr`, etc.). XML when the LLM downstream parses tags more reliably than nested JSON. `-f toon` when the consumer is an LLM and the output is span/geometry-dense (`--geometry`) and token budget is tight — same schema, ~40% fewer tokens there (see the format note under Quick reference for where it does and doesn't help).
-
-1. Run `npx pdfvision doc.pdf` (add `-p <range>` per the scope note, and `-f json` only when you'll consume structured fields) — gets text + density Overview for the selected pages.
-2. Read the density signals (the markdown Overview table, or `overview[]` / `pages[].textCoverage` / `imageCount` / `vectorCount` / `charCount` in JSON) to find low-coverage or visually dense pages.
-3. For low-coverage pages: re-run with `--ocr` if text is needed, or `--render` if a vision model will look at the rasterised page.
-4. For structured / multi-column docs: re-run with `--layout` (and `--image-boxes` when figure positions matter).
-5. **Zoom into a specific block when `--layout` flags one.** If `pages[].warnings[]` fires on a `blockIndex`, or `layout.blocks[i]` looks suspicious (overlapping bboxes, a chart you want a vision model to read), re-run with `--pages <N> --render --render-region <x,y,w,h>` using that block's bbox. The PNG comes back cropped to just the region (xywh × `--render-scale` = pixel dims), avoiding a full-page raster the model has to ignore most of.
-6. **Locate a keyword and pipe straight into zoom.** When the user's question is "find where X is mentioned" (a model name, a number, a heading), run `--search "X"` to get a Markdown `Search matches` table, or add `--json` when code will consume `pages[N].matches[*]` directly. Each match knows its page and bbox, so the same loop closes: `--pages <m.page> --render --render-region <m.bbox.x>,<m.bbox.y>,<m.bbox.width>,<m.bbox.height>` zooms onto the match. Repeat `--search` for multi-term searches (each match carries `queryIndex`). `--search-regex` for patterns, `--search-case-sensitive` when default insensitive-recall is too lossy.
-7. Cache means steps 3–6 only re-pay the cost of the new flag combination on the affected page subset, not the whole extract.
+1. Run `npx pdfvision doc.pdf` (`-p <range>`; `-f json` only for structured fields) — text + Overview.
+2. Read the Overview / `quality`, then act on low-coverage/dense pages: `--ocr` for text, `--render` for a vision model, `--layout` for structured/multi-column docs (`--image-boxes` for figure positions).
+3. **Zoom a flagged block.** If `warnings[]` fires on a `blockIndex` or a `layout.blocks[i]` looks suspicious, re-run `--pages <N> --render --render-region <x,y,w,h>` — PNG comes back cropped to that region.
+4. **Locate a keyword, then zoom.** Run `--search "X" --matches-only` (v0.13.0+) for only the matching pages + each hit's bbox (older versions: omit `--matches-only`, read the `Search matches` table; `-f json` for `pages[N].matches[*]`). Feed a bbox into `--pages <m.page> --render --render-region <x>,<y>,<w>,<h>`. Repeat `--search` for multiple terms.
+5. Cache means re-runs only re-pay the new flag combination on affected pages.
 
 ## When to read `references/`
 
-The base of this file already covers daily extraction. Open a reference file **only** in one of these specific cases — they are not always-on context, do not load speculatively.
+Open a reference **only** in these cases — not always-on context, do not load speculatively.
 
-Each entry is tagged as **mandatory** (read before producing the deliverable; this file doesn't carry enough on its own for the case) or **escalation** (read only if the basic guidance above isn't enough for the situation).
-
-| Read this file | Gate | When |
-|---|---|---|
-| `references/structured-output.md` | **mandatory** when you're consuming `--layout`, `--image-boxes`, `--visual-regions`, `--geometry`, `--structure`, `--layers`, `--ocr`, or any other structured JSON / XML field whose schema isn't fully described in this file. SKILL.md only names the flags — the field-by-field shape lives in the reference. | Programmatic consumers of `-f json` / `-f xml`. Covers `DocumentResult` / `PageResult` / `LayoutBlock` / `ImageBox` / `TextSpan` / `PageOcr` schemas and coordinate-system semantics. |
-| `references/ocr.md` | **escalation** for the easy cases (English-only, expected confidence). **Mandatory** when the user's text is non-English (lang ordering affects results), confidence is unexpectedly low, or the `tesseract.js` install / stderr is misbehaving. | Lang code combinations, primary-language ordering, traineddata cache, install diagnostics, troubleshooting (low confidence, blank PNG, stderr noise). |
+| File | Gate |
+|---|---|
+| `references/structured-output.md` | **Mandatory** for any structured JSON/XML field whose schema isn't here — `DocumentResult` / `PageResult` / `LayoutBlock` / `PageOcr` / `SearchMatch` / `PageWarning` shapes + coordinate semantics. |
+| `references/ocr.md` | **Escalation** for English-only; **mandatory** for non-English text (lang ordering matters), unexpectedly low confidence, or `tesseract.js` install / stderr issues. |
+| `references/warnings.md` | **Escalation** when a `warnings[]` code needs more than its inline message; also the raw density thresholds behind `quality`. |
+| `references/flags.md` | **Escalation** when choosing between overlapping structural flags for an unusual document; hard-won per-flag caveats. |
