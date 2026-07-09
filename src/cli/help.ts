@@ -26,6 +26,9 @@ Options
       --render-output <dir>
                           Directory to write rendered page PNGs or visual-region PNGs into, created
                           if missing. Requires --render or --render-visual-regions.
+                          PNGs land flat as \`<dir>/page-N.png\` (\`--render-region\` keeps its
+                          coordinate-suffixed name); a filename already taken by another PDF in the
+                          same dir is written with a \`-2\` suffix and a note on stderr.
                           Without this, PNGs land under the cache (or OS tmp with --no-cache).
       --render-scale <n>  Rasterisation multiplier for --render / --render-visual-regions / --ocr.
                           Default 2 (≈144 DPI on a letter page). Smaller values shrink the PNG
@@ -141,6 +144,12 @@ Options
                           (default: literal substring).
       --search-case-sensitive
                           Match case exactly (default: insensitive).
+      --matches-only      Emit only the search hits — a flat list of every match with its
+                          page, source, text, context, and bbox — instead of the full
+                          per-page document. Requires --search. Pages with no match are
+                          omitted; zero matches overall still exits 0 with a minimal report.
+                          Works in every format; keeps search output well under 1 KB so an
+                          agent can find-then-zoom without spending its context on body text.
       --remote <url>      Download an http(s) PDF, validate the PDF header, and run extraction
                           on it. Same URL → same cache slot unless --no-cache streams the
                           bytes directly without writing the remote-PDF cache.
@@ -166,6 +175,7 @@ Examples
   pdfvision report.pdf -p 3 -r --render-region 100,200,300,150                 # zoom into a 300×150pt box on page 3
   pdfvision report.pdf --search "revenue" --json                               # find every "revenue" with bbox; pipe to --render-region
   pdfvision paper.pdf --search "GPT" --search "transformer" --json             # multi-query (each match keeps its source query)
+  pdfvision paper.pdf --search "BLEU" --matches-only                           # just the hits + bboxes (compact, <1KB)
   pdfvision report.pdf -p 3-5 -r --render-output ./images --geometry --json    # PNGs + spans for 3-5
   pdfvision slides.pdf --xml --geometry                                        # layout / geometry as XML
   pdfvision report.pdf --toon --geometry                                       # token-efficient spans (TOON)

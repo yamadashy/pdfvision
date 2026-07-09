@@ -82,15 +82,20 @@ describe('cli', () => {
     vi.restoreAllMocks();
   });
 
-  it('prints help when no args are given', async () => {
+  it('prints usage to stderr and exits 2 when no args are given', async () => {
+    // No input source is a usage error, not a help request: usage goes to
+    // stderr with exit 2 so callers can tell it apart from an explicit
+    // --help (stdout, exit 0).
     const r = await captureRun([]);
-    expect(r.stdout.join('\n')).toContain('Usage:');
-    expect(r.exitCode).toBeNull();
+    expect(r.stderr.join('\n')).toContain('Usage:');
+    expect(r.stdout.join('\n')).not.toContain('Usage:');
+    expect(r.exitCode).toBe(2);
   });
 
-  it('prints help with --help', async () => {
+  it('prints help to stdout with exit 0 for explicit --help', async () => {
     const r = await captureRun(['--help']);
     expect(r.stdout.join('\n')).toContain('Usage:');
+    expect(r.exitCode).toBeNull();
   });
 
   it('prints version with --version', async () => {
@@ -437,6 +442,57 @@ describe('cli', () => {
     const r = await captureRun([SAMPLE_PDF, '--search-case-sensitive', '--no-cache']);
     expect(r.exitCode).toBe(1);
     expect(r.stderr.join('\n')).toMatch(/require at least one --search query/);
+  });
+
+  it('rejects --matches-only without --search', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--matches-only', '--no-cache']);
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr.join('\n')).toMatch(/--matches-only requires --search/);
+  });
+
+  it('emits a compact flat match list with --matches-only (markdown)', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--search', 'pdfvision', '--matches-only', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    const out = r.stdout.join('\n');
+    expect(out).toContain('- **Matches:**');
+    expect(out).toContain('| Page | Query | Source | Text | Context | BBox |');
+    // No full-document scaffolding.
+    expect(out).not.toContain('## Page');
+  });
+
+  it('--matches-only json is flat (no pages[])', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--search', 'pdfvision', '--matches-only', '--json', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    const parsed = JSON.parse(r.stdout.join('\n'));
+    expect(parsed.pages).toBeUndefined();
+    expect(parsed.queries).toEqual(['pdfvision']);
+    expect(Array.isArray(parsed.matches)).toBe(true);
+  });
+
+  it('--matches-only with zero hits still exits 0 (a zero count is a valid observation)', async () => {
+    const r = await captureRun([
+      SAMPLE_PDF,
+      '--search',
+      'definitely-absent-xyzzy-9999',
+      '--matches-only',
+      '--no-cache',
+    ]);
+    expect(r.exitCode).toBeNull();
+    expect(r.stdout.join('\n')).toContain('- **Matches:** 0');
+  });
+
+  it('notes that --geometry has no effect with markdown output (but still succeeds)', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--geometry', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    expect(r.stderr.join('\n')).toContain('note: --geometry has no effect with markdown output; use -f json/xml/toon');
+    // Markdown still produced on stdout.
+    expect(r.stdout.join('\n')).toMatch(/## Page 1/);
+  });
+
+  it('does not print the geometry note when --geometry is paired with a structured format', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--geometry', '--json', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    expect(r.stderr.join('\n')).not.toContain('--geometry has no effect');
   });
 
   it('accepts repeated --search flags as multi-query', async () => {

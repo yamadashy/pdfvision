@@ -66,6 +66,7 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
         search: { type: 'string', multiple: true },
         'search-regex': { type: 'boolean' },
         'search-case-sensitive': { type: 'boolean' },
+        'matches-only': { type: 'boolean' },
       },
     });
     values = parsed.values as ParsedCliValues;
@@ -95,11 +96,19 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
   }
 
   const remoteUrl = values.remote as string | undefined;
-  // --help is requested explicitly OR there's no input source at all
-  // (no positional and no --remote URL). Print help and bail.
-  if (values.help || (positionals.length === 0 && !remoteUrl)) {
+  // Explicit --help prints to stdout and exits 0 — the user asked for it.
+  if (values.help) {
     console.log(HELP_TEXT);
     return;
+  }
+  // No input source at all (no positional and no --remote URL) is a
+  // usage error, not a help request: print to stderr and exit 2 so a
+  // caller can tell "showed help on request" (stdout / 0) apart from
+  // "invoked with nothing to do" (stderr / 2), matching common CLI
+  // conventions (git, curl, ...).
+  if (positionals.length === 0 && !remoteUrl) {
+    console.error(HELP_TEXT);
+    process.exit(2);
   }
 
   if (positionals.length > 1) {
@@ -112,6 +121,13 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
   }
 
   const format = resolveOutputFormat(values);
+  if ((values.geometry as boolean | undefined) && format === 'markdown') {
+    // --geometry only populates pages[].spans in json / xml / toon;
+    // markdown has no place to surface per-item geometry. Note rather
+    // than error so a composed flag set (geometry + default markdown)
+    // still produces its markdown output (exit 0).
+    console.error('note: --geometry has no effect with markdown output; use -f json/xml/toon');
+  }
   const { render, renderOutput, renderScale, renderRegion, renderVisualRegions } = resolveRenderOptions(values);
 
   const layout = (values.layout as boolean | undefined) ?? false;
@@ -148,6 +164,13 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
   if (searchQueries?.some((q) => q === '')) {
     exitWithError('--search: query must be a non-empty string');
   }
+  // --matches-only reshapes the output into a flat match list; it only
+  // makes sense alongside a query. Fail loud rather than emit an empty
+  // "0 matches" shell for a run that never searched anything.
+  const matchesOnly = (values['matches-only'] as boolean | undefined) ?? false;
+  if (matchesOnly && !searchQueries) {
+    exitWithError('--matches-only requires --search');
+  }
 
   const noCache = (values['no-cache'] as boolean | undefined) ?? false;
   const passwordFromArg = values.password as string | undefined;
@@ -180,6 +203,7 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
       search: searchQueries,
       searchRegex,
       searchCaseSensitive,
+      matchesOnly,
       noCache,
       // NFKC normalization and C0-control cleanup are on by default —
       // agents almost always want canonical, human-visible Unicode.
