@@ -95,6 +95,14 @@ pdfvision/
   npm run build
   ```
 
+## Skill documentation write policy
+
+The bundled agent skill lives under `skills/pdfvision/`: `SKILL.md` is the always-loaded decision surface, and `references/*.md` (`structured-output.md`, `ocr.md`, `warnings.md`, `flags.md`) are the on-demand detail files.
+
+- **New training-loop knowledge goes into `references/*`**, not `SKILL.md`. Warning-code interpretation and raw density-signal thresholds → `references/warnings.md`; per-flag caveats → `references/flags.md`; JSON/XML schema → `references/structured-output.md`; OCR specifics → `references/ocr.md`.
+- **`SKILL.md` changes only when the decision flow itself changes** — a new/removed flag in the compact table, a new `quality` status, or an update to the typical agent flow. Prose caveats and edge cases do not belong here.
+- **`SKILL.md` has an 8 KB (8192-byte) budget enforced by review.** If an edit pushes it over, move detail into `references/*` and link instead. Verify with `wc -c skills/pdfvision/SKILL.md`.
+
 ## Error Handling
 
 - Print clear messages to stderr for user-facing errors (file not found, invalid arguments).
