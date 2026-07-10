@@ -8,16 +8,23 @@ export function formatSize(page: PageResult): string {
   return `${trim(page.width)}×${trim(page.height)}`;
 }
 
-export function appendOverview(lines: string[], result: DocumentResult): void {
+interface AppendOverviewOptions {
+  /** The user's explicit --layout choice. Markdown always computes
+   *  layout internally, so the Blocks / Tables columns (structural
+   *  output) are only shown when the user actually asked for --layout. */
+  layout: boolean;
+}
+
+export function appendOverview(lines: string[], result: DocumentResult, options: AppendOverviewOptions): void {
   if (result.pages.length <= 1) return;
 
-  const showBlocks = result.pages.some((p) => p.layout !== undefined);
+  const showBlocks = options.layout && result.pages.some((p) => p.layout !== undefined);
   const showNonPrint = result.pages.some((p) => p.nonPrintableCount > 0);
   const showRender = result.pages.some((p) => p.renderContentRatio !== undefined);
   const showRotation = result.pages.some((p) => p.rotation !== undefined);
   const showVectors = result.pages.some((p) => p.vectorCount > 0);
   const showVectorBoxes = result.pages.some((p) => p.vectorBoxes !== undefined);
-  const showLayoutTables = result.pages.some((p) => (p.layout?.tables?.length ?? 0) > 0);
+  const showLayoutTables = options.layout && result.pages.some((p) => (p.layout?.tables?.length ?? 0) > 0);
   const showFormFields = result.pages.some((p) => p.formFields !== undefined);
   const showLinks = result.pages.some((p) => p.links !== undefined);
   const showAnnotations = result.pages.some((p) => p.annotations !== undefined);

@@ -28,6 +28,10 @@ export function renderResult(result: DocumentResult, options: ProcessOptions): s
     case 'toon':
       return formatToon(result);
     default:
-      return formatMarkdown(result, { stripRepeated: options.stripRepeated });
+      // `layout` here is the user's explicit --layout choice, NOT the
+      // internal force-on used for the body/warnings. It gates the
+      // structural Markdown sections (Layout tables, Overview
+      // Blocks/Tables columns) so the default stays body + warnings only.
+      return formatMarkdown(result, { stripRepeated: options.stripRepeated, layout: options.layout });
   }
 }
