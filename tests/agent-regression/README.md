@@ -30,7 +30,7 @@ The samples with stable public URLs can be acquired or reproduced with:
 
 ```bash
 curl -L https://www.soumu.go.jp/main_content/001019264.pdf -o soumu-r7-summary.pdf
-curl -r 0-131071 https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-63-3.pdf -o truncated.pdf
+curl -L -r 0-131071 https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-63-3.pdf -o truncated.pdf
 ```
 
 ## Scoring and failures
