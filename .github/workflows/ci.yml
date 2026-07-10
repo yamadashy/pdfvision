@@ -77,6 +77,25 @@ jobs:
       - run: npm ci
       - run: npm run lint-secretlint
 
+  readme-usage-sync:
+    name: README usage in sync with --help
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .tool-versions
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      # Regenerate the README Usage block from `pdfvision --help`; a diff
+      # means help.ts changed without re-running the sync script.
+      - run: node scripts/sync-readme-usage.mjs
+      - run: git diff --exit-code README.md
+
   test:
     name: Test (${{ matrix.os }}, Node ${{ matrix.node-version }})
     strategy:

@@ -75,77 +75,197 @@ The skill covers the daily extraction flow, the density-Overview-based silent-fa
 
 ## 📖 Usage
 
-```
-pdfvision <file.pdf> [options]
-pdfvision --remote <url> [options]
-pdfvision --clear-cache
+<!-- usage:start -->
+<!-- Generated from `pdfvision --help` by scripts/sync-readme-usage.mjs. Do not edit by hand; run `node scripts/sync-readme-usage.mjs`. -->
 
-Options:
-  -p, --pages <range>     Page range (e.g. "1-5", "3", "1,3,5")
-  -f, --format <type>     Output format: markdown (default), json, xml, toon
-      --markdown / --json / --xml / --toon
-                          Shortcuts for --format <type>
-  -r, --render            Render pages as PNG images
+```text
+pdfvision - Extract text, images, metadata, and layout from PDF files for AI agents
+
+Usage:
+  pdfvision <file.pdf> [options]
+  pdfvision --remote <url> [options]
+  pdfvision --clear-cache
+
+Options
+  -p, --pages <range>     Pages to extract: "1", "1-5", "1,3,5", "2-4,7". Default: all pages.
+  -f, --format <type>     Output format: markdown (default), json, xml, toon.
+      --markdown          Shortcut for --format markdown.
+      --json              Shortcut for --format json.
+      --xml               Shortcut for --format xml.
+      --toon              Shortcut for --format toon.
+                          (Specifying more than one format, or mixing a shortcut with a different
+                          --format, is an error — pdfvision does not last-wins-resolve them.)
+  -r, --render            Render each selected page to a PNG and include the path on every page result.
       --render-output <dir>
-                          Directory for rendered page or visual-region PNGs
-                          (requires --render or --render-visual-regions)
-      --render-scale <n>  Rasterisation multiplier (default 2; bounds (0, 4]);
-                          OCR keeps at least scale 2 for recognition quality.
-                          Requires --render, --render-visual-regions, or --ocr.
+                          Directory to write rendered page PNGs or visual-region PNGs into, created
+                          if missing. Requires --render or --render-visual-regions.
+                          PNGs land flat as `<dir>/page-N.png` (`--render-region` keeps its
+                          coordinate-suffixed name); a filename already taken by another PDF in the
+                          same dir is written with a `-2` suffix and a note on stderr.
+                          Without this, PNGs land under the cache (or OS tmp with --no-cache).
+      --render-scale <n>  Rasterisation multiplier for --render / --render-visual-regions / --ocr.
+                          Default 2 (≈144 DPI on a letter page). Smaller values shrink the PNG
+                          (and vision-model payload); OCR keeps at least scale 2 for recognition
+                          quality; larger values capture more detail.
+                          Accepts decimals; bounds (0, 4].
       --render-region <x,y,width,height>
-                          Render only the given sub-rectangle of a single page
-                          (PDF points, top-left origin — same coordinates as
-                          search matches, imageBoxes, and layout blocks);
-                          composes with --render-scale for a high-res zoom
-      --geometry          Emit per-text-item bbox + font size in pages[].spans (json/xml/toon)
-      --layout            Reconstruct lines + blocks + numeric-table hints in pages[].layout;
-                          detects CJK vertical text stacks as writingMode='vertical'
-                          and uses recovered blocks/tables in Markdown text;
-                          also enables layout warnings (text_overlap / near_bottom_edge /
-                          body_near_repeated_chrome / off_page / tabular_numeric_layout /
-                          reading_order_divergence)
-      --strip-repeated    Drop running headers / footers / page numbers from the
-                          Markdown body (markdown only; requires --layout)
-      --image-boxes       Emit per-image bbox in pages[].imageBoxes;
-                          enables imageBoxIndex details on large-raster warnings
-      --vector-boxes      Emit vector drawing bboxes in pages[].vectorBoxes
-      --visual-regions    Emit crop-ready figure/chart/table/form regions in pages[].visualRegions
+                          Render only the given sub-rectangle (PDF points, top-left origin, y
+                          grows downward — same coordinate system as imageBoxes / layout.blocks).
+                          Composes with --render-scale: a 400×300pt region at scale 3 yields a
+                          1200×900px PNG. Single-page only: --pages must resolve to exactly one
+                          page (errors otherwise). Region must fit within the page bounds.
+                          Typical use: --layout to find a suspect block, then re-run with that
+                          block's bbox here to zoom in.
+      --no-normalize      Disable Unicode NFKC normalization and C0-control cleanup. Default ON;
+                          pre-normalization text is surfaced in `rawText` (json/xml) when
+                          normalization changed the string. Markdown output shows only the
+                          normalized form — pass --no-normalize if original codepoint fidelity
+                          (e.g. fullwidth punctuation `（`, ligatures `ﬁ`, control bytes)
+                          matters for downstream diff / forensics.
+      --password <value>  Password for encrypted PDFs. The password is used only for pdf.js
+                          decryption and is never emitted in output.
+      --password-stdin    Read the encrypted PDF password from piped stdin, stripping one
+                          trailing newline. If stdin is empty, --password is used as fallback.
+      --geometry          Emit per-text-item bbox + font size in `pages[].spans`.
+                          Only takes effect with -f json / -f xml / -f toon.
+      --layout            Reconstruct `pages[].layout` (lines, blocks, vertical CJK stacks,
+                          and numeric-table hints
+                          in approximate reading order) from the same span data. Structured layout fields
+                          appear in -f json / -f xml / -f toon; Markdown uses recovered vertical text
+                          blocks, and rebuilds the page body in layout order when the native text
+                          stream diverges from the visual reading order.
+                          Also enables layout warnings: overlapping text, off-page bboxes,
+                          body crowded against repeated chrome, flattened numeric tables,
+                          or native-vs-visual reading-order divergence in `pages[].warnings`.
+      --image-boxes       Emit `pages[].imageBoxes` — bounding box of every raster image
+                          draw on the page. Enables large-raster warnings with --layout or
+                          --geometry. Only -f json / -f xml / -f toon.
+                          Full-page scan/OCR-layer and dense-vector warnings can appear
+                          even without this flag.
+      --vector-boxes      Emit `pages[].vectorBoxes` — bounding boxes of vector drawings
+                          such as map symbols, chart paths, clipped shading fills, table
+                          rules, form boxes, and slide shapes. Only -f json / -f xml / -f toon.
+      --visual-regions    Emit `pages[].visualRegions` — padded, crop-ready bboxes
+                          for important figures, charts, diagrams, tables, forms, and
+                          raster/vector clusters. Feed x,y,width,height directly into
+                          --render-region for a visual zoom.
       --render-visual-regions
-                          Render visual region crops to PNG and attach paths,
-                          renderContentRatio, and renderedContentBox hints
-      --password <value>  Password for encrypted PDFs; never emitted in output
-      --password-stdin    Read the encrypted PDF password from piped stdin; falls back to --password if empty
-      --form-fields       Emit interactive PDF widget fields, flags, actions, export values, choice options, and labels in pages[].formFields
-      --links             Emit clickable link annotations in pages[].links with bboxes and resolved destination pages
-      --annotations       Emit non-link PDF annotations, flags, attachments, and shape geometry in pages[].annotations
-      --structure         Emit tagged-PDF structure trees in pages[].structure
-      --page-labels       Emit viewer page labels in pageLabels and pages[].pageLabel
-      --attachments       Emit embedded file attachment metadata in attachments
+                          Render each visual region crop to PNG and attach
+                          `visualRegions[].image`, `renderContentRatio`,
+                          and `renderedContentBox` when visible pixels are tighter.
+                          Implies --visual-regions and does not require --render.
+      --form-fields       Emit `pages[].formFields` — interactive PDF widget fields
+                          such as text boxes, checkboxes, radio buttons, choices,
+                          buttons, and signatures with values, export values,
+                          flags, actions, choice options, bboxes, and nearby visible labels.
+                          Useful for government forms.
+                          Markdown also renders a form-field table.
+      --links             Emit `pages[].links` — clickable PDF link annotations such as
+                          external URLs, citation jumps, and table-of-contents destinations
+                          with bboxes and resolved destination pages when available.
+                          Markdown also renders a links table.
+      --annotations       Emit `pages[].annotations` — non-link PDF annotations such as
+                          comments, sticky notes, highlights, underlines, strikeouts, stamps,
+                          file-attachment icons, shape markup, and ink with bboxes, comment
+                          text, icon names, PDF flags such as hidden/print, attachment
+                          metadata, and shape geometry when available.
+      --structure         Emit tagged-PDF structure trees in `pages[].structure`,
+                          including role hierarchy, figure alt text, language hints,
+                          bboxes, and marked-content ids when the PDF provides them.
+      --page-labels       Emit viewer page labels in `pageLabels` and `pages[].pageLabel`;
+                          useful when front matter uses roman numerals or page numbering
+                          restarts apart from the physical page number.
+      --attachments       Emit document-level embedded file attachment metadata in
+                          `attachments` without embedding attachment bytes in output.
       --attachment-output <dir>
-                          Write embedded attachment files and include attachments[].path
-      --outline           Emit document outline/bookmarks, URLs, and actions in outline
-      --viewer            Emit viewer settings and JavaScript actions in viewer
-      --layers            Emit PDF optional content groups in layers
-      --ocr               Run tesseract.js OCR; attach pages[].ocr (text/confidence/lang)
-      --ocr-lang <lang>   Tesseract lang(s), plus-separated (e.g. eng+jpn). Default: eng
-      --search <query>    Find every occurrence and emit pages[].matches with the bbox
-                          of each hit — feed it into --render-region for a visual zoom.
-                          Repeatable (--search A --search B); literal, case-insensitive,
-                          NFKC-aware by default. Also matches form field values, link
-                          targets, visible annotations, and OCR text when --ocr is on
+                          Directory to write embedded attachment files into. Requires
+                          --attachments; files land under a per-PDF fingerprint subdir.
+      --outline           Emit top-level `outline` document bookmarks, preserving hierarchy,
+                          URLs, named actions, and resolved destination pages when possible.
+                          Markdown also renders an outline section.
+      --viewer            Emit top-level `viewer` settings: initial page mode/layout,
+                          viewer preferences, open action, document/page JavaScript
+                          actions, permissions, and MarkInfo.
+      --layers            Emit top-level `layers` from PDF optional content groups:
+                          layer names, visibility, usage states, radio groups, and
+                          viewer panel order for maps, CAD/design PDFs, and variants.
+      --strip-repeated    Drop running headers / footers / page numbers (blocks the layout
+                          pass tagged as `repeated`) from the rendered Markdown body so
+                          LLM readers don't have to wade through the same footer N times.
+                          Markdown only; JSON / XML already expose `repeated: true` per
+                          block. Requires --layout.
+      --ocr               Run OCR on each selected page and attach `pages[].ocr`
+                          (text + confidence + lang). Slow; opt-in. Requires the
+                          optional `tesseract.js` dependency. `pages[].text` is
+                          preserved alongside so callers can compare native vs OCR.
+      --ocr-lang <lang>   Tesseract language code(s), plus-separated for multi-lang
+                          (e.g. `eng+jpn`). Default: eng. Only used with --ocr.
+      --search <query>    Find every occurrence of <query> on each page and emit
+                          `pages[].matches[]` with the bbox of each hit. Pipe a
+                          match's bbox into a follow-up --render-region for visual
+                          zoom. Repeatable: `--search A --search B` searches both
+                          (each match carries the source query). Literal substring
+                          by default; case-insensitive; NFKC-aware (matches
+                          compatibility codepoints like `ﬁ` (U+FB01 ligature) for
+                          `fi`). Also searches text/choice form field values
+                          (marked source:'formField'), clickable link targets
+                          (source:'link'), visible FreeText annotations
+                          (source:'annotation'), and OCR text when --ocr is on
+                          (source:'ocr'); duplicate OCR hits already covered by
+                          non-OCR matches are suppressed.
       --search-regex      Treat each --search query as a JavaScript regular expression
+                          (default: literal substring).
       --search-case-sensitive
-                          Match case exactly (default: insensitive)
-      --remote <url>      Download an http(s) PDF into the cache, validate the PDF header, then extract
-      --no-cache          Skip the on-disk cache
-      --no-normalize      Disable Unicode NFKC normalization and C0-control cleanup (default: on;
-                          pre-normalization text is preserved in JSON/XML \`rawText\` only when
-                          normalization changed the string — pass this if you need raw codepoints
-                          in markdown too)
-      --clear-cache       Wipe every cached extraction, render, and remote download, then exit
+                          Match case exactly (default: insensitive).
+      --matches-only      Emit only the search hits — a flat list of every match with its
+                          page, source, text, context, and bbox — instead of the full
+                          per-page document. Requires --search. Pages with no match are
+                          omitted; zero matches overall still exits 0 with a minimal report.
+                          Works in every format; keeps search output well under 1 KB so an
+                          agent can find-then-zoom without spending its context on body text.
+      --remote <url>      Download an http(s) PDF, validate the PDF header, and run extraction
+                          on it. Same URL → same cache slot unless --no-cache streams the
+                          bytes directly without writing the remote-PDF cache.
+      --no-cache          Skip the on-disk cache (re-download / re-extract every run).
+      --clear-cache       Remove every cached extraction, rendered PNG, and downloaded
+                          remote PDF, then exit. No file argument required.
   -v, --version           Show version
   -h, --help              Show this help
+
+Output formats
+  markdown (default)  Per-page sections, density Overview table, image links inline. For LLM context.
+  json                Full DocumentResult schema. For programmatic parsing.
+  xml                 Tag-shaped variant of json. For LLMs that parse tags more reliably than JSON.
+  toon                Token-Oriented Object Notation: lossless, tabular encoding of the json schema
+                      that cuts tokens (~40% on geometry/layout-heavy output). For tight LLM budgets.
+
+Examples
+  pdfvision document.pdf                                                       # markdown to stdout
+  pdfvision document.pdf --json                                                # JSON shortcut
+  pdfvision document.pdf -p 1-3 --json                                         # specific pages, JSON
+  pdfvision document.pdf -r --render-output ./images                           # render PNGs to ./images
+  pdfvision slides.pdf -r --render-scale 1                                     # 1× raster (smaller PNGs)
+  pdfvision report.pdf -p 3 -r --render-region 100,200,300,150                 # zoom into a 300×150pt box on page 3
+  pdfvision report.pdf --search "revenue" --json                               # find every "revenue" with bbox; pipe to --render-region
+  pdfvision paper.pdf --search "GPT" --search "transformer" --json             # multi-query (each match keeps its source query)
+  pdfvision paper.pdf --search "BLEU" --matches-only                           # just the hits + bboxes (compact, <1KB)
+  pdfvision report.pdf -p 3-5 -r --render-output ./images --geometry --json    # PNGs + spans for 3-5
+  pdfvision slides.pdf --xml --geometry                                        # layout / geometry as XML
+  pdfvision report.pdf --toon --geometry                                       # token-efficient spans (TOON)
+  pdfvision report.pdf --layout --strip-repeated                               # markdown w/o repeated chrome
+  pdfvision encrypted.pdf --password "secret" --json                           # encrypted PDF
+  printf "secret\n" | pdfvision encrypted.pdf --password-stdin --json          # avoid password in argv
+  pdfvision scan.pdf --ocr --json                                              # OCR a scanned PDF
+  pdfvision scan-ja.pdf --ocr --ocr-lang eng+jpn --json                        # multi-lang OCR
+  pdfvision --remote https://example.com/paper.pdf --json                      # fetch + extract JSON
+  pdfvision --clear-cache                                                      # wipe the on-disk cache
+
+Exit codes
+  0  Success
+  1  Argument error, file not found, network error, or extraction failure (error message on stderr)
 ```
+
+<!-- usage:end -->
 
 ### Output formats
 

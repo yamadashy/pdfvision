@@ -195,7 +195,12 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     if (page.layout?.tables && page.layout.tables.length > 0) {
       appendLayoutTables(lines, page.layout.tables);
     }
-    if (page.matches) {
+    // Only render the match table for pages that actually matched. A
+    // zero-match page under --search used to emit a noisy
+    // `### Search matches / _No search matches found._` block on every
+    // clean page; the per-page density line already carries `matches: 0`
+    // for the "search ran, nothing here" signal.
+    if (page.matches && page.matches.length > 0) {
       appendSearchMatches(lines, page.matches);
     }
     if (page.structure !== undefined) {

@@ -20,6 +20,18 @@ export interface ProcessOptions {
   searchRegex?: boolean;
   /** See {@link ProcessDocumentOptions.searchCaseSensitive}. */
   searchCaseSensitive?: boolean;
+  /**
+   * Collapse the output to just the search matches — a flat list of
+   * every hit with its page, source, text, context, and bbox — instead
+   * of the full per-page document. Requires `search`; throws otherwise.
+   *
+   * Purely a rendering concern (like {@link stripRepeated}): the
+   * extraction is unchanged, only the formatter output differs. Applies
+   * to all four formats. A run that finds nothing still succeeds and
+   * emits a minimal "0 matches" payload — a zero count is a valid
+   * observation, not an error.
+   */
+  matchesOnly?: boolean;
   normalize?: boolean;
   geometry?: boolean;
   layout?: boolean;

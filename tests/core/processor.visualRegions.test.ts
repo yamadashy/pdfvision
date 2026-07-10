@@ -248,4 +248,74 @@ describe('processDocument visualRegions: true', () => {
       expect(region?.associatedText).toBeUndefined();
     }
   });
+
+  it("does not reuse another PDF's same-named region crop in a shared flat renderOutput dir", async () => {
+    // Regression: renderVisualRegions crops used to go through
+    // renderPageWithStats with default reuse — in a flat --render-output
+    // dir a pre-existing `page-1_x..._y..._w..._h....png` written by a
+    // DIFFERENT PDF (same page number, identical region coordinates)
+    // was handed back as this document's crop: a stale image. The crops
+    // must route through the same collision-safe resolver as full-page
+    // renders, with disk reuse off.
+    //
+    // Two PDFs with pixel-different images at identical coordinates
+    // produce identical region bboxes → identical crop filenames.
+    const { mkdtempSync, rmSync, readFileSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { basename, join } = await import('node:path');
+    const { createHash } = await import('node:crypto');
+
+    async function buildImageOnlyPdf(color: string): Promise<Uint8Array> {
+      const chunks: Buffer[] = [];
+      const doc = new PDFDocument({ size: [612, 792], margin: 0 });
+      doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+      const done = new Promise<void>((resolveDone) => doc.on('end', resolveDone));
+      const canvas = createCanvas(100, 100);
+      const context = canvas.getContext('2d');
+      context.fillStyle = color;
+      context.fillRect(0, 0, 100, 100);
+      doc.image(canvas.toBuffer('image/png'), 72, 120, { width: 240, height: 180 });
+      doc.end();
+      await done;
+      return new Uint8Array(Buffer.concat(chunks));
+    }
+
+    const sharedOut = mkdtempSync(join(tmpdir(), 'pdfvision-region-collision-'));
+    try {
+      const a = await processDocument('memory://region-collision-a.pdf', {
+        sourceData: await buildImageOnlyPdf('black'),
+        renderVisualRegions: true,
+        renderOutput: sharedOut,
+        noCache: true,
+      });
+      const aImagePath = a.pages[0].visualRegions?.[0]?.image as string;
+      expect(aImagePath).toBeTypeOf('string');
+      const aBytes = createHash('sha256').update(readFileSync(aImagePath)).digest('hex');
+
+      const notes: string[] = [];
+      const b = await processDocument('memory://region-collision-b.pdf', {
+        sourceData: await buildImageOnlyPdf('navy'),
+        renderVisualRegions: true,
+        renderOutput: sharedOut,
+        noCache: true,
+        onWarning: (m) => notes.push(m),
+      });
+      const bImagePath = b.pages[0].visualRegions?.[0]?.image as string;
+      expect(bImagePath).toBeTypeOf('string');
+
+      // Identical region coordinates → identical base filename, so B must
+      // have been disambiguated onto a distinct -2 path with its own
+      // bytes, not handed A's PNG back as a cache hit.
+      expect(bImagePath).not.toBe(aImagePath);
+      expect(basename(bImagePath)).toBe(basename(aImagePath).replace(/\.png$/, '-2.png'));
+      expect(notes.some((n) => n.includes(basename(bImagePath)))).toBe(true);
+      const bBytes = createHash('sha256').update(readFileSync(bImagePath)).digest('hex');
+      expect(bBytes).not.toBe(aBytes);
+      // A's PNG bytes survive B's run untouched.
+      const aBytesAfter = createHash('sha256').update(readFileSync(aImagePath)).digest('hex');
+      expect(aBytesAfter).toBe(aBytes);
+    } finally {
+      rmSync(sharedOut, { recursive: true, force: true });
+    }
+  });
 });

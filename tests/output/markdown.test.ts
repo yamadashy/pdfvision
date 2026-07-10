@@ -596,7 +596,11 @@ describe('formatMarkdown', () => {
     expect(out).toContain('### Search matches');
     expect(out).toContain('| Query | Query# | Source | Text | Context | BBox |');
     expect(out).toContain('| text\\|term | 1 | native | text\\|term | near text\\|term | 100,72,60,12 |');
-    expect(out).toContain('_No search matches found._');
+    // Page 2 matched nothing: its density line still carries `matches: 0`
+    // (search-ran-clean signal), but the noisy per-page
+    // `### Search matches / _No search matches found._` block is gone.
+    expect(out).toContain('matches: 0');
+    expect(out).not.toContain('_No search matches found._');
   });
 
   it('adds annotation counts and an annotations table when comments or markup are present', () => {

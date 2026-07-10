@@ -1028,10 +1028,10 @@ describe('processDocument', () => {
     expect(Math.abs(smallImg.height - defImg.height / 2)).toBeLessThanOrEqual(1);
   });
 
-  it('isolates non-default renderScale output from the default-scale dir under renderOutput', async () => {
-    // Two scales must not stomp each other's PNGs. The non-default scale
-    // gets a `s<scale>` subdir so the default-scale path stays stable for
-    // existing user workflows.
+  it('does not stomp two scales sharing a flat renderOutput dir (collision suffix)', async () => {
+    // Flat renderOutput drops the per-scale subdir, so two scales of the
+    // same page collide on `page-1.png`. The second render must not
+    // overwrite the first — it lands on the `-2` disambiguated name.
     const { mkdtempSync, rmSync } = await import('node:fs');
     const { tmpdir } = await import('node:os');
     const { basename, dirname, join } = await import('node:path');
@@ -1049,10 +1049,11 @@ describe('processDocument', () => {
         noCache: true,
       });
       expect(def.pages[0].image).not.toBe(small.pages[0].image);
-      // Non-default scale lives under an extra subdir. Use path utilities
-      // rather than a hardcoded `/` split so the assertion stays valid on
-      // Windows runners (where the separator is `\`).
-      expect(basename(dirname(small.pages[0].image as string))).toBe('s1');
+      // Both land flat in the requested dir (no scale subdir).
+      expect(dirname(def.pages[0].image as string)).toBe(baseTmp);
+      expect(dirname(small.pages[0].image as string)).toBe(baseTmp);
+      expect(basename(def.pages[0].image as string)).toBe('page-1.png');
+      expect(basename(small.pages[0].image as string)).toBe('page-1-2.png');
     } finally {
       rmSync(baseTmp, { recursive: true, force: true });
     }
@@ -1294,15 +1295,14 @@ describe('processDocument', () => {
     expect(a.pages[0].image).not.toBe(b.pages[0].image);
   });
 
-  it('writes rendered PNGs into a per-PDF subdirectory of the caller-supplied renderOutput', async () => {
-    // Agent ergonomics: with renderOutput the PNGs land under the caller's
-    // chosen directory (created if missing) rather than tmp. They sit in a
-    // per-PDF subdirectory (keyed by content fingerprint) so two different
-    // PDFs sharing the same `--render-output ./images` never overwrite each
-    // other — see the "keeps per-PDF rendered PNGs isolated" test below.
+  it('writes rendered PNGs flat as page-N.png directly under the caller-supplied renderOutput', async () => {
+    // Agent ergonomics: with an explicit renderOutput the PNGs land flat
+    // in the caller's chosen directory (created if missing) as
+    // `<dir>/page-N.png` — no per-PDF hash or scale subdir — so the path
+    // is predictable and paste-able.
     const { mkdtempSync, rmSync } = await import('node:fs');
     const { tmpdir } = await import('node:os');
-    const { join, dirname, relative } = await import('node:path');
+    const { join, basename, dirname } = await import('node:path');
     const baseTmp = mkdtempSync(join(tmpdir(), 'pdfvision-render-output-test-'));
     const outDir = join(baseTmp, 'nested', 'images'); // not yet created
     try {
@@ -1314,12 +1314,10 @@ describe('processDocument', () => {
       const imagePath = result.pages[0].image as string;
       expect(imagePath).toBeTypeOf('string');
       expect(existsSync(imagePath)).toBe(true);
-      // The PNG sits one level below the requested dir (in a fingerprint
-      // subdir), not anywhere outside it.
-      const rel = relative(outDir, imagePath);
-      expect(rel.startsWith('..')).toBe(false);
-      expect(dirname(imagePath).startsWith(outDir)).toBe(true);
-      expect(dirname(imagePath)).not.toBe(outDir);
+      // Flat: the PNG sits directly in the requested dir with the
+      // legacy `page-N.png` name, no intermediate subdir.
+      expect(dirname(imagePath)).toBe(outDir);
+      expect(basename(imagePath)).toBe('page-1.png');
     } finally {
       rmSync(baseTmp, { recursive: true, force: true });
     }
@@ -1373,19 +1371,14 @@ describe('processDocument', () => {
     }
   });
 
-  it('keeps per-PDF rendered PNGs isolated when two PDFs share the same renderOutput directory', async () => {
-    // Regression: previously `renderer` always wrote `page-${n}.png` into the
-    // caller-supplied renderOutput dir verbatim. Running two different PDFs
-    // against the same `--render-output ./img` overwrote A's page-1.png with
-    // B's bytes — and worse, `isReusableImage` then handed B's PNG back as
-    // A's image on subsequent runs because the filename matched.
-    //
-    // Contract: distinct PDFs sharing a renderOutput directory MUST end up
-    // with distinct on-disk PNG paths, and the first PDF's image bytes
-    // MUST survive a subsequent render of the second PDF.
+  it('disambiguates a filename collision (and notes it) when two PDFs share a flat renderOutput dir', async () => {
+    // Flat renderOutput writes `page-N.png` directly into the caller's
+    // dir. Running a second, different PDF into the same dir would collide
+    // on `page-1.png`; pdfvision must not overwrite the first PDF's PNG —
+    // it disambiguates to `page-1-2.png` and emits a one-line note.
     const { mkdtempSync, rmSync, readFileSync } = await import('node:fs');
     const { tmpdir } = await import('node:os');
-    const { join } = await import('node:path');
+    const { basename, join } = await import('node:path');
     const { createHash } = await import('node:crypto');
     const baseTmp = mkdtempSync(join(tmpdir(), 'pdfvision-render-collision-test-'));
     const sharedOut = join(baseTmp, 'images');
@@ -1397,17 +1390,21 @@ describe('processDocument', () => {
       });
       const aImagePath = a.pages[0].image as string;
       const aBytesBefore = createHash('sha256').update(readFileSync(aImagePath)).digest('hex');
+      expect(basename(aImagePath)).toBe('page-1.png');
 
+      const notes: string[] = [];
       const b = await processDocument(SAMPLE_WITH_IMAGE_PDF, {
         render: true,
         renderOutput: sharedOut,
         noCache: true,
+        onWarning: (m) => notes.push(m),
       });
       const bImagePath = b.pages[0].image as string;
 
-      // Different PDFs must resolve to different on-disk paths under the
-      // shared directory.
+      // Second PDF lands on the disambiguated name, not A's page-1.png.
+      expect(basename(bImagePath)).toBe('page-1-2.png');
       expect(aImagePath).not.toBe(bImagePath);
+      expect(notes.some((n) => n.includes('page-1-2.png') && n.includes('page-1.png'))).toBe(true);
       // A's PNG bytes must still match the original A render — they must
       // not have been silently replaced by B's render.
       const aBytesAfter = createHash('sha256').update(readFileSync(aImagePath)).digest('hex');
@@ -1466,65 +1463,26 @@ describe('processDocument', () => {
     }
   });
 
-  it('refuses to render when the per-PDF subdir under renderOutput is a pre-planted symlink', async () => {
-    // Hardening: the fingerprint subdir name is deterministic, so on a
-    // shared writable host another process could plant
-    // `<renderOutput>/<fingerprint>` as a symlink to elsewhere and
-    // redirect our `page-N.png` writes. Catch that before any render
-    // happens — silently following the symlink would be a security
-    // regression vs the cache hierarchy's posture.
-    //
-    // POSIX-only: Windows `symlinkSync` needs elevated privileges or
-    // a special `type: 'dir'` mode and is awkward to test there. The
-    // matching cache-side symlink tests in `tests/core/cache.test.ts`
-    // also skip Windows for the same reason.
-    if (process.platform === 'win32') return;
-    const { mkdtempSync, mkdirSync, rmSync, symlinkSync } = await import('node:fs');
+  it('does not overwrite a pre-existing page-N.png in a flat renderOutput dir', async () => {
+    // Flat renderOutput writes `page-N.png` directly into the caller's
+    // dir. A same-named file already there (e.g. planted by another
+    // process, or left by a different PDF) must be left untouched: we
+    // disambiguate onto `page-1-2.png` rather than following/clobbering
+    // whatever `page-1.png` points at.
+    const { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync } = await import('node:fs');
     const { tmpdir } = await import('node:os');
-    const { join } = await import('node:path');
-    const { pdfFingerprint } = await import('../../src/core/io/cache.js');
-    const baseTmp = mkdtempSync(join(tmpdir(), 'pdfvision-render-symlink-test-'));
+    const { basename, join } = await import('node:path');
+    const baseTmp = mkdtempSync(join(tmpdir(), 'pdfvision-render-preexisting-'));
     const outDir = join(baseTmp, 'images');
-    const decoy = join(baseTmp, 'decoy');
     mkdirSync(outDir, { recursive: true });
-    mkdirSync(decoy, { recursive: true });
-    const fp = pdfFingerprint(SAMPLE_PDF);
-    symlinkSync(decoy, join(outDir, fp));
+    const planted = join(outDir, 'page-1.png');
+    writeFileSync(planted, 'not-a-real-png');
     try {
-      await expect(processDocument(SAMPLE_PDF, { render: true, renderOutput: outDir, noCache: true })).rejects.toThrow(
-        /symlink/,
-      );
-    } finally {
-      rmSync(baseTmp, { recursive: true, force: true });
-    }
-  });
-
-  it('also refuses a pre-planted symlink at the intermediate fingerprint dir when renderScale forces a nested subdir', async () => {
-    // Regression: with `--render-scale` the imagesDir becomes
-    // `<renderOutput>/<fingerprint>/s<scale>`. `mkdirSync(...,
-    // { recursive: true })` follows a symlink at the intermediate
-    // `<fingerprint>` segment to plant the scale subdir at the
-    // attacker's target — and a final lstat on the deeper path then
-    // sees a regular dir at the target and lets the render proceed.
-    // The check must also assert the fingerprint dir before going
-    // deeper, otherwise non-default scales silently bypass the
-    // hardening that already guards the default-scale path above.
-    if (process.platform === 'win32') return;
-    const { mkdtempSync, mkdirSync, rmSync, symlinkSync } = await import('node:fs');
-    const { tmpdir } = await import('node:os');
-    const { join } = await import('node:path');
-    const { pdfFingerprint } = await import('../../src/core/io/cache.js');
-    const baseTmp = mkdtempSync(join(tmpdir(), 'pdfvision-render-scale-symlink-'));
-    const outDir = join(baseTmp, 'images');
-    const decoy = join(baseTmp, 'decoy');
-    mkdirSync(outDir, { recursive: true });
-    mkdirSync(decoy, { recursive: true });
-    const fp = pdfFingerprint(SAMPLE_PDF);
-    symlinkSync(decoy, join(outDir, fp));
-    try {
-      await expect(
-        processDocument(SAMPLE_PDF, { render: true, renderOutput: outDir, renderScale: 1, noCache: true }),
-      ).rejects.toThrow(/symlink/);
+      const result = await processDocument(SAMPLE_PDF, { render: true, renderOutput: outDir, noCache: true });
+      const imagePath = result.pages[0].image as string;
+      expect(basename(imagePath)).toBe('page-1-2.png');
+      // The planted file's bytes must be intact.
+      expect(readFileSync(planted, 'utf8')).toBe('not-a-real-png');
     } finally {
       rmSync(baseTmp, { recursive: true, force: true });
     }

@@ -17,6 +17,13 @@ export function validateProcessFileOptions(options: ProcessOptions): void {
     // the flag had no effect.
     throw new Error(`stripRepeated only applies to markdown output (got format: ${options.format})`);
   }
+  // matchesOnly reshapes output into a flat match list — meaningless
+  // without a query. Mirror the CLI's `--matches-only requires --search`
+  // guard so library callers fail fast too.
+  const hasSearch = options.search !== undefined && (!Array.isArray(options.search) || options.search.length > 0);
+  if (options.matchesOnly && !hasSearch) {
+    throw new Error('matchesOnly requires search');
+  }
 }
 
 export function buildProcessDocumentOptions(options: ProcessOptions): ProcessDocumentOptions {
