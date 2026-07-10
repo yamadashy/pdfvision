@@ -48,7 +48,8 @@ if (startIdx === -1 || endIdx === -1) {
 }
 if (endIdx < startIdx) fail(`${END} appears before ${START} in README.md`);
 
-const block = `${START}\n${NOTE}\n\n\`\`\`\n${helpText}\n\`\`\`\n\n${END}`;
+// `text` info string keeps markdownlint MD040 (fenced-code-language) happy.
+const block = `${START}\n${NOTE}\n\n\`\`\`text\n${helpText}\n\`\`\`\n\n${END}`;
 const next = readme.slice(0, startIdx) + block + readme.slice(endIdx + END.length);
 
 if (next === readme) {

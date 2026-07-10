@@ -78,7 +78,7 @@ The skill covers the daily extraction flow, the density-Overview-based silent-fa
 <!-- usage:start -->
 <!-- Generated from `pdfvision --help` by scripts/sync-readme-usage.mjs. Do not edit by hand; run `node scripts/sync-readme-usage.mjs`. -->
 
-```
+```text
 pdfvision - Extract text, images, metadata, and layout from PDF files for AI agents
 
 Usage:
