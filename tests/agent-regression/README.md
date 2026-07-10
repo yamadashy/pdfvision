@@ -14,12 +14,14 @@ Build the CLI first. For each task, start a fresh AI agent session with:
 
 Give the task text from the table verbatim, with one task per session. The agent may use only what pdfvision itself communicates through its output, warnings, and `--help`. A task passes only when the pass condition is met without a human hint.
 
+Verify the session really is bare before scoring: agent harnesses auto-discover skills (from `~/.agents/skills/`, `~/.claude/skills/`, or plugin bridges) and will silently load the pdfvision skill, which invalidates the run. Grep the transcript for `SKILL.md` reads; if the harness offers no off switch, run it with an isolated `$HOME`. Also confirm the task premise against the actual sample — e.g. ask about a chapter the document contains.
+
 | # | Sample PDF | Task given to the agent | Pass condition |
 |---|---|---|---|
 | 1 | PLoS Medicine essay "Why Most Published Research Findings Are False" (pmed.0020124; InDesign, three columns, title emitted late in the content stream) | "What are the title and abstract of this paper?" | Correct answer from a single flagless run; the title leads the body and a `reading_order_divergence` warning is present. |
 | 2 | 1866 *Alice in Wonderland* scan from the Internet Archive (image-only, no text layer) | "What is written on page 12?" | The agent follows the empty-text warning to `--render` or `--ocr` on its own and answers. |
-| 3 | [Soumu (MIC Japan) R7 white paper summary](https://www.soumu.go.jp/main_content/001019264.pdf) (landscape chart slides, CJK) | "What are the key points of chapter 5?" | The agent narrows to the correct pages using the density Overview table. |
-| 4 | "Attention Is All You Need" (arXiv:1706.03762) | "What BLEU scores does this paper report? Show me the evidence as an image." | The agent uses `--search ... --matches-only`, then `--render-region` with the reported bounding box, within two pdfvision commands total. |
+| 3 | [Soumu (MIC Japan) R7 white paper summary](https://www.soumu.go.jp/main_content/001019264.pdf) (landscape chart slides, CJK) | "What are the key points of chapter 3? (第3章のポイントは？)" | The agent locates the actual chapter from pdfvision output (no hallucinated structure) and summarizes the right pages. This 12-page deck is short enough to read whole; substitute a longer document to genuinely exercise Overview narrowing. |
+| 4 | "Attention Is All You Need" (arXiv:1706.03762) | "What BLEU scores does this paper report? Show me the evidence as an image." | The agent demonstrates the two-command evidence chain — `--search ... --matches-only`, then `--render-region` with a reported bounding box — and the resulting crop is conclusive on its own. Additional verification commands the agent chooses to run do not fail the task; count and record them. |
 | 5 | The first approximately 128 KiB of the 1.6 MiB NIST SP 800-63-3 PDF (valid `%PDF` header, no `%%EOF`) | "Read this PDF." | From the CLI error hint, the agent reports that the file is a truncated download and recommends downloading it again instead of guessing its content. |
 
 ## Samples
@@ -35,7 +37,7 @@ curl -L -r 0-131071 https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.S
 
 ## Scoring and failures
 
-All five tasks must pass before release. Record the result and the approximate agent token spend. Task 4 should remain under approximately 5,000 total agent tokens as a token-economy canary.
+All five tasks must pass before release. Record the result and the approximate agent token spend. The token-economy canary is the pdfvision output the agent consumed in task 4 — it should stay under roughly 5,000 tokens (~20 KB of stdout). Total session tokens vary with the agent's model and reasoning effort (a high-effort agent may spend 30k+ tokens double-checking a correct answer); record them for trend data but judge the tool on its own output.
 
 If a task fails, block the release and file an issue containing a summary of the failing transcript. Fix the regression, then re-run only the failed task.
 
