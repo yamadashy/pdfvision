@@ -95,6 +95,12 @@ pdfvision/
   npm run build
   ```
 
+## Release checklist
+
+- Run the manual [bare-agent regression protocol](tests/agent-regression/README.md) before every release.
+- A release, including v1.0, is blocked unless all five agent tasks pass.
+- Keep this protocol manual; do not add it to CI.
+
 ## Skill documentation write policy
 
 The bundled agent skill lives under `skills/pdfvision/`: `SKILL.md` is the always-loaded decision surface, and `references/*.md` (`structured-output.md`, `ocr.md`, `warnings.md`, `flags.md`) are the on-demand detail files.
