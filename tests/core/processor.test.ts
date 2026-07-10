@@ -30,6 +30,25 @@ describe('processFile', () => {
     expect(result).toContain('Hello pdfvision');
   });
 
+  it('keeps layout out of the structured JSON when --layout is not requested', async () => {
+    // Markdown computes layout internally (for the reading-order body and
+    // layout warnings), but that must NOT leak into json/xml/toon: the
+    // structured schema stays layout-opt-in and unchanged.
+    const result = await processFile(SAMPLE_PDF, { format: 'json', noCache: true });
+    const parsed = JSON.parse(result);
+    expect(parsed.pages[0].layout).toBeUndefined();
+  });
+
+  it('gates the structural layout sections in default markdown (no --layout)', async () => {
+    // Even though markdown always runs the layout pass, the structural
+    // `### Layout tables` section and the Overview Tables/Blocks columns
+    // only appear when the user explicitly passes --layout.
+    const md = await processFile(SAMPLE_PDF, { format: 'markdown', noCache: true });
+    expect(md).not.toContain('### Layout tables');
+    expect(md).not.toMatch(/ Blocks \|/);
+    expect(md).not.toMatch(/ Tables \|/);
+  });
+
   it('extracts text as TOON', async () => {
     // Guard the format='toon' wiring through processFile so a typo in the
     // dispatch switch can't silently fall through to markdown.

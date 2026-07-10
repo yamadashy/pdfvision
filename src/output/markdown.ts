@@ -22,6 +22,12 @@ export interface MarkdownOptions {
    *  to have been extracted with `layout: true`; throws otherwise so
    *  silent no-ops don't mask a misconfigured call. */
   stripRepeated?: boolean;
+  /** The user's explicit `--layout` choice. Markdown always computes
+   *  layout internally (so the default body is reading-order text and
+   *  layout warnings surface), but the *structural* sections — the
+   *  per-page `### Layout tables` blocks and the Overview `Blocks` /
+   *  `Tables` columns — stay gated behind this flag. Defaults to false. */
+  layout?: boolean;
 }
 
 function layoutBody(page: PageResult, filterRepeated: boolean): string {
@@ -31,35 +37,32 @@ function layoutBody(page: PageResult, filterRepeated: boolean): string {
     .join('\n\n');
 }
 
-/** Body text for a page: either the pdf.js-derived `page.text` (default),
- *  or a layout-driven rebuild when repeated chrome must be stripped or
- *  when vertical CJK stacks are present. The latter avoids Markdown
- *  showing `縦\n書\nき` even though the layout pass has already recovered
- *  the human-readable `縦書き` block. */
+/** Body text for a page. Markdown always runs the layout pass, so the
+ *  default body is the layout-rebuilt reading-order text: blocks in
+ *  visual reading order, lines within a block joined into paragraphs
+ *  instead of the old blank-line-per-physical-line rendering. This also
+ *  fixes native stream order that diverges from the visual order
+ *  (magazine frames, out-of-stream titles) and vertical CJK stacks —
+ *  `page.text` would show `縦\n書\nき` while the block already recovered
+ *  the human-readable `縦書き`.
+ *
+ *  Falls back to `page.text` only when there is no usable layout (e.g. a
+ *  scanned page with no native text layer), so nothing is ever lost. */
 function pageBody(page: PageResult, options: MarkdownOptions): string {
-  if (!options.stripRepeated) {
-    if (page.layout?.blocks.some((b) => b.writingMode === 'vertical')) return layoutBody(page, false);
-    // When the warning pass established that the native stream order
-    // diverges from the visual reading order (magazine-style frames
-    // emitted out of order), the layout rebuild is the human-faithful
-    // body — raw page.text would bury the page title mid-stream.
-    if (page.layout && page.warnings?.some((w) => w.code === 'reading_order_divergence')) {
-      return layoutBody(page, false);
+  if (options.stripRepeated) {
+    if (!page.layout) {
+      // Caller asked to strip repeated chrome but the document carries no
+      // layout — `repeated: true` is only set during the cross-page
+      // layout pass, so there is no way to filter without it. Fail loud
+      // rather than silently emitting the unfiltered text.
+      throw new Error('stripRepeated requires layout extraction (pass layout: true to processDocument)');
     }
-    return page.text;
+    // Rebuild from non-repeated blocks. Double-newline separators keep
+    // consecutive paragraphs / heading + body from running together.
+    return layoutBody(page, true);
   }
-  if (!page.layout) {
-    // Caller asked to strip repeated chrome but the document carries no
-    // layout — `repeated: true` is only set during the cross-page
-    // layout pass, so there is no way to filter without it. Fail loud
-    // rather than silently emitting the unfiltered text.
-    throw new Error('stripRepeated requires layout extraction (pass layout: true to processDocument)');
-  }
-  // Rebuild the body from non-repeated blocks. Use double-newline
-  // separators so consecutive paragraphs / heading + body don't run
-  // together when their original spacing came from layout gaps rather
-  // than literal newlines.
-  return layoutBody(page, true);
+  if (page.layout && page.layout.blocks.length > 0) return layoutBody(page, false);
+  return page.text;
 }
 
 /**
@@ -125,7 +128,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     }
   }
 
-  appendOverview(lines, result);
+  appendOverview(lines, result, { layout: options.layout ?? false });
 
   for (const page of result.pages) {
     const coveragePct = Math.round(page.textCoverage * 100);
@@ -152,8 +155,11 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     const rotationFragment = page.rotation !== undefined ? ` · rotation: ${page.rotation}°` : '';
     const vectorsFragment = page.vectorCount > 0 ? ` · vectors: ${page.vectorCount}` : '';
     const vectorBoxesFragment = page.vectorBoxes !== undefined ? ` · vectorBoxes: ${page.vectorBoxes.length}` : '';
+    // Layout tables are structural output: only surfaced when the user
+    // explicitly asked for --layout, even though layout is always
+    // computed for the default body / warnings.
     const layoutTablesFragment =
-      (page.layout?.tables?.length ?? 0) > 0 ? ` · tables: ${page.layout?.tables?.length}` : '';
+      options.layout && (page.layout?.tables?.length ?? 0) > 0 ? ` · tables: ${page.layout?.tables?.length}` : '';
     const visualRegionsFragment =
       page.visualRegions !== undefined ? ` · visualRegions: ${page.visualRegions.length}` : '';
     const formFieldsFragment = page.formFields !== undefined ? ` · formFields: ${page.formFields.length}` : '';
@@ -192,7 +198,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
       lines.push('');
       lines.push(body);
     }
-    if (page.layout?.tables && page.layout.tables.length > 0) {
+    if (options.layout && page.layout?.tables && page.layout.tables.length > 0) {
       appendLayoutTables(lines, page.layout.tables);
     }
     // Only render the match table for pages that actually matched. A

@@ -41,7 +41,13 @@ export function buildProcessDocumentOptions(options: ProcessOptions): ProcessDoc
     searchCaseSensitive: options.searchCaseSensitive,
     normalize: options.normalize,
     geometry: options.geometry,
-    layout: options.layout,
+    // Markdown output always computes layout internally: the default body
+    // is the layout-rebuilt reading-order text and the per-page / overview
+    // warnings include the layout-derived ones (reading_order_divergence,
+    // text_overlap, ...). The structured `pages[].layout` sections stay
+    // gated behind the user's explicit --layout (see formatMarkdown), and
+    // json/xml/toon keep the original opt-in so their schema is unchanged.
+    layout: options.layout || options.format === 'markdown',
     imageBoxes: options.imageBoxes,
     vectorBoxes: options.vectorBoxes,
     visualRegions: options.visualRegions,

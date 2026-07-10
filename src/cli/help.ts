@@ -56,14 +56,12 @@ Options
       --geometry          Emit per-text-item bbox + font size in \`pages[].spans\`.
                           Only takes effect with -f json / -f xml / -f toon.
       --layout            Reconstruct \`pages[].layout\` (lines, blocks, vertical CJK stacks,
-                          and numeric-table hints
-                          in approximate reading order) from the same span data. Structured layout fields
-                          appear in -f json / -f xml / -f toon; Markdown uses recovered vertical text
-                          blocks, and rebuilds the page body in layout order when the native text
-                          stream diverges from the visual reading order.
-                          Also enables layout warnings: overlapping text, off-page bboxes,
-                          body crowded against repeated chrome, flattened numeric tables,
-                          or native-vs-visual reading-order divergence in \`pages[].warnings\`.
+                          and numeric-table hints in approximate reading order) from the
+                          same span data, and add the structured layout fields to
+                          -f json / -f xml / -f toon. In Markdown it also adds the per-page
+                          \`Layout tables\` sections and the Overview \`Blocks\` / \`Tables\` columns.
+                          Markdown does NOT need this flag for the reading-order body or the
+                          layout warnings — those are on by default (see below).
       --image-boxes       Emit \`pages[].imageBoxes\` — bounding box of every raster image
                           draw on the page. Enables large-raster warnings with --layout or
                           --geometry. Only -f json / -f xml / -f toon.
@@ -161,6 +159,9 @@ Options
 
 Output formats
   markdown (default)  Per-page sections, density Overview table, image links inline. For LLM context.
+                      The body is rebuilt in visual reading order (lines joined into paragraphs)
+                      and layout warnings surface automatically — no --layout needed. --layout adds
+                      the structural Layout tables / Blocks / Tables columns on top.
   json                Full DocumentResult schema. For programmatic parsing.
   xml                 Tag-shaped variant of json. For LLMs that parse tags more reliably than JSON.
   toon                Token-Oriented Object Notation: lossless, tabular encoding of the json schema

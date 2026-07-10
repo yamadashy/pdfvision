@@ -272,6 +272,10 @@ describe('formatMarkdown', () => {
           makePage({ page: 2, text: 'plain', charCount: 5 }),
         ],
       }),
+      // Layout tables + the Overview Tables/Blocks columns are structural
+      // output, gated behind the user's explicit --layout even though
+      // markdown always computes layout for the body / warnings.
+      { layout: true },
     );
 
     expect(out).toMatch(/\| Page \| Chars \| Images \| Coverage \| Size \(pt\) \| Tables \| Blocks \|/);
@@ -1000,6 +1004,9 @@ describe('formatMarkdown', () => {
           }),
         ],
       }),
+      // The Blocks column is structural output, only shown when the user
+      // asked for --layout (markdown computes layout unconditionally).
+      { layout: true },
     );
     expect(out).toMatch(/Blocks \|/);
     expect(out).toMatch(/\| 1 \| 1 \| 0 \| 0% \| 612×792 \| 1 \|/);
@@ -1299,9 +1306,10 @@ describe('formatMarkdown', () => {
     expect(out).not.toContain('© COLOPL, Inc.');
   });
 
-  it('leaves the body untouched when stripRepeated is off (default)', async () => {
-    // Sanity: opting out of strip means the existing `page.text` flow
-    // is preserved verbatim, including the repeated chrome.
+  it('keeps repeated chrome in the body when stripRepeated is off (default)', async () => {
+    // The default markdown body is the layout rebuild (reading order,
+    // joined paragraphs), but WITHOUT stripRepeated it keeps the repeated
+    // chrome — only --strip-repeated drops it. Distinguishes the two modes.
     const out = formatMarkdown(
       makeResult({
         pages: [
@@ -1365,6 +1373,103 @@ describe('formatMarkdown', () => {
 
     expect(out).toMatch(/\n縦書き$/);
     expect(out).not.toContain('縦\n書\nき');
+  });
+
+  it('rebuilds the default body from layout blocks: reading order + joined paragraphs', () => {
+    // The v0.14.0 default: markdown always uses the layout rebuild for the
+    // body. Lines within a block join into a paragraph (single newlines),
+    // blocks are separated by blank lines, and blocks emit in visual
+    // reading order — even when `page.text` (native stream order) diverges.
+    const out = formatMarkdown(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            // Native stream order buries the title after the body — the
+            // out-of-order case the layout rebuild fixes.
+            text: 'Body first line\nbody second line\nDocument Title',
+            charCount: 45,
+            layout: {
+              blocks: [
+                {
+                  text: 'Document Title',
+                  x: 0,
+                  y: 0,
+                  width: 200,
+                  height: 20,
+                  lines: [{ text: 'Document Title', x: 0, y: 0, width: 200, height: 20, fontSize: 18 }],
+                },
+                {
+                  text: 'Body first line\nbody second line',
+                  x: 0,
+                  y: 40,
+                  width: 200,
+                  height: 24,
+                  lines: [
+                    { text: 'Body first line', x: 0, y: 40, width: 200, height: 12, fontSize: 10 },
+                    { text: 'body second line', x: 0, y: 54, width: 200, height: 12, fontSize: 10 },
+                  ],
+                },
+              ],
+            },
+          }),
+        ],
+      }),
+    );
+    // Title comes first (reading order), then the two body lines joined
+    // into one paragraph with a single newline (no blank line between).
+    expect(out).toContain('Document Title\n\nBody first line\nbody second line');
+    // No blank-line-per-physical-line: the two body lines are not split by
+    // a blank line the way the old `page.text` default rendered them.
+    expect(out).not.toContain('Body first line\n\nbody second line');
+  });
+
+  it('surfaces layout warnings in the default body without --layout, but gates the tables section', () => {
+    // Layout warnings (reading_order_divergence, etc.) reach the default
+    // markdown even though `--layout` was not requested; the structural
+    // `### Layout tables` section stays gated behind the explicit flag.
+    const result = makeResult({
+      pages: [
+        makePage({
+          page: 1,
+          text: 'title mid-stream',
+          charCount: 16,
+          layout: {
+            blocks: [{ text: 'title', x: 0, y: 0, width: 100, height: 12, lines: [] }],
+            tables: [
+              {
+                x: 0,
+                y: 20,
+                width: 100,
+                height: 24,
+                rowCount: 1,
+                columnCount: 1,
+                rows: [{ y: 20, height: 12, cells: [{ text: 'cell', x: 0, y: 20, width: 100, height: 12 }] }],
+              },
+            ],
+          },
+          warnings: [
+            {
+              code: 'reading_order_divergence',
+              severity: 'warning',
+              message: 'native text order diverges from what a human reads',
+              blockIndex: 0,
+            },
+          ],
+        }),
+      ],
+    });
+    // Default (no --layout): warning present, tables section absent.
+    const dflt = formatMarkdown(result);
+    expect(dflt).toContain('### Warnings');
+    expect(dflt).toContain('(reading_order_divergence)');
+    expect(dflt).not.toContain('### Layout tables');
+    expect(dflt).not.toContain('· tables:');
+    // With --layout: the structural tables section appears too.
+    const withLayout = formatMarkdown(result, { layout: true });
+    expect(withLayout).toContain('### Warnings');
+    expect(withLayout).toContain('### Layout tables');
+    expect(withLayout).toContain('· tables: 1');
   });
 
   it('throws when stripRepeated is requested but the page carries no layout', async () => {
