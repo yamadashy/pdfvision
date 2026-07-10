@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { resolveFlatRenderPaths } from '../../src/core/processor/flatRenderPaths.js';
+import { nextAvailableName, resolveFlatRenderPaths } from '../../src/core/processor/flatRenderPaths.js';
 
 describe('resolveFlatRenderPaths', () => {
   let dir: string;
@@ -48,5 +48,22 @@ describe('resolveFlatRenderPaths', () => {
   it('preserves the coordinate-suffixed name for region renders', () => {
     const paths = resolveFlatRenderPaths(dir, [3], { x: 50, y: 100, width: 400, height: 300 });
     expect(basename(paths[0])).toBe('page-3_x50_y100_w400_h300.png');
+  });
+});
+
+describe('nextAvailableName', () => {
+  it('appends the suffix at the end when the name has no extension', () => {
+    // Every current caller passes `.png` names, but the helper must not
+    // mangle an extension-less base (lastIndexOf('.') === -1 would
+    // otherwise slice at -1 and corrupt the stem).
+    expect(nextAvailableName('page-1', (name) => name === 'page-1')).toBe('page-1-2');
+  });
+
+  it('keeps the extension in place for dotted names', () => {
+    expect(nextAvailableName('page-1.png', (name) => name === 'page-1.png')).toBe('page-1-2.png');
+  });
+
+  it('returns the base name untouched when it is free', () => {
+    expect(nextAvailableName('page-1.png', () => false)).toBe('page-1.png');
   });
 });

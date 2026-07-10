@@ -237,7 +237,9 @@ export async function processDocument(filePath: string, options: ProcessDocument
       renderContentBoxesByPage,
       doc,
       imagesDir,
+      flatImagesDir: options.renderOutput !== undefined,
       renderScale,
+      onWarning: options.onWarning,
     });
     // OCR runs after the main pass so it can attach to already-built
     // PageResults. The pdfjs-derived `text` stays untouched — agents that
