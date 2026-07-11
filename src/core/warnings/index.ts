@@ -1,7 +1,13 @@
 import type { ImageBox, PageAnnotation, PageResult, PageWarning, TextSpan, VectorBox } from '../../types/index.js';
 import { detectTextOverlap } from '../warningTextOverlap/index.js';
 import { detectDuplicateTextLayer } from './duplicateLayer.js';
-import { detectBodyNearRepeatedChrome, detectNearBottomEdge, detectOffPage } from './edge.js';
+import {
+  detectBodyNearRepeatedChrome,
+  detectNearBottomEdge,
+  detectOffPage,
+  detectPageEdgeTextTruncated,
+  suppressOffPageForTruncatedBlocks,
+} from './edge.js';
 import {
   detectFontMappingWarning,
   detectGlyphGarbageText,
@@ -105,12 +111,18 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
   detectDotLeaderNoise(page, warnings);
   detectTinyNativeTextNoise(page, warnings);
 
-  if (
-    !page.layout ||
-    page.layout.blocks.length === 0 ||
-    context.rasterBackedTextLayer ||
-    hasUnreliableGlyphGeometry(page)
-  ) {
+  const unreliableGlyphGeometry = hasUnreliableGlyphGeometry(page);
+  if (!context.rasterBackedTextLayer && !unreliableGlyphGeometry) {
+    detectPageEdgeTextTruncated(
+      context.spans ?? page.spans ?? [],
+      page.width,
+      page.height,
+      page.layout?.blocks,
+      warnings,
+    );
+  }
+
+  if (!page.layout || page.layout.blocks.length === 0 || context.rasterBackedTextLayer || unreliableGlyphGeometry) {
     sortWarnings(warnings);
     return warnings;
   }
@@ -121,6 +133,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
   const chromeDetectionReliable = context.chromeDetectionReliable !== false;
 
   detectOffPage(blocks, page.width, page.height, warnings);
+  suppressOffPageForTruncatedBlocks(warnings);
   detectTextOverlap(blocks, warnings, page.imageBoxes ?? context.imageBoxes, page);
   detectTabularNumericLayout(blocks, warnings);
   detectReadingOrderDivergence(page, blocks, warnings);
