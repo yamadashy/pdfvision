@@ -1,6 +1,7 @@
 import { join, dirname as pathDirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ImageOps } from '../graphics/imageBoxes.js';
+import type { TextRenderingOps } from '../graphics/invisibleText.js';
 
 interface BuildPdfJsDocumentOptionsInput {
   pdfData?: Uint8Array;
@@ -94,5 +95,21 @@ export function buildImageOps(ops: Record<string, number>): ImageOps {
     paintImageMaskXObjectRepeat: ops.paintImageMaskXObjectRepeat,
     paintImageMaskXObjectGroup: ops.paintImageMaskXObjectGroup,
     paintInlineImageXObjectGroup: ops.paintInlineImageXObjectGroup,
+  };
+}
+
+export function buildTextRenderingOps(ops: Record<string, number>): TextRenderingOps {
+  return {
+    save: ops.save,
+    restore: ops.restore,
+    formBegin: ops.paintFormXObjectBegin,
+    formEnd: ops.paintFormXObjectEnd,
+    setTextRenderingMode: ops.setTextRenderingMode,
+    textShowOps: new Set<number>([
+      ops.showText,
+      ops.showSpacedText,
+      ops.nextLineShowText,
+      ops.nextLineSetSpacingShowText,
+    ]),
   };
 }

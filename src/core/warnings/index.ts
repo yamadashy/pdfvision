@@ -1,4 +1,5 @@
 import type { ImageBox, PageAnnotation, PageResult, PageWarning, TextSpan, VectorBox } from '../../types/index.js';
+import type { InvisibleTextEvidence } from '../graphics/invisibleText.js';
 import { detectTextOverlap } from '../warningTextOverlap/index.js';
 import { detectDuplicateTextLayer } from './duplicateLayer.js';
 import {
@@ -16,6 +17,7 @@ import {
   detectTinyNativeTextNoise,
   hasUnreliableGlyphGeometry,
 } from './glyphText.js';
+import { detectInvisibleText } from './invisibleText.js';
 import { detectFormLabelReadingOrderDivergence, detectReadingOrderDivergence } from './readingOrder.js';
 import { detectRtlScriptText } from './rtlScript.js';
 import { detectDotLeaderNoise, detectTabularNumericLayout } from './tabular.js';
@@ -65,6 +67,8 @@ export interface PageWarningContext {
   /** Internal spans used for warnings even when public
    *  `pages[].spans` was not requested. */
   spans?: TextSpan[];
+  /** Invisible text-show operations found in the page operator list. */
+  invisibleText?: InvisibleTextEvidence;
   /** Non-fatal pdf.js warnings captured during parsing/rendering. */
   pdfJsWarnings?: readonly string[];
 }
@@ -95,6 +99,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
   detectLocalizedGlyphNoise(page, warnings);
   detectFontMappingWarning(page, context, warnings);
   detectRawEmbeddedSourceText(page, warnings);
+  detectInvisibleText(page, context, warnings);
   detectRasterBackedTextLayer(page, context, warnings);
   detectRasterTextLayerSymbolNoise(page, context, warnings);
   detectRasterTextLayerWordFragmentation(page, context, warnings);

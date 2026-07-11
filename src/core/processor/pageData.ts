@@ -9,6 +9,7 @@ import type {
   TextSpan,
   VectorBox,
 } from '../../types/index.js';
+import type { InvisibleTextEvidence } from '../graphics/invisibleText.js';
 import type { BuildVisualRegionsInput } from '../visualRegions/index.js';
 
 export interface PageData {
@@ -34,6 +35,7 @@ export interface PageData {
   /** Internal spans used for warnings even when public pages[].spans
    *  was not requested. */
   _warningSpans?: TextSpan[];
+  _invisibleText?: InvisibleTextEvidence;
   layout?: PageLayout;
   imageBoxes?: ImageBox[];
   _warningImageBoxes?: ImageBox[];

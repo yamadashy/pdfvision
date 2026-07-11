@@ -7,6 +7,7 @@ import { buildStructureTables } from '../document/structureTables.js';
 import { normalizeJavaScriptActions } from '../document/viewer.js';
 import { buildFormFields, isFormFieldAnnotation } from '../formFields/index.js';
 import { buildImageBoxes, type ImageOps } from '../graphics/imageBoxes.js';
+import { collectInvisibleTextEvidence, type TextRenderingOps } from '../graphics/invisibleText.js';
 import { buildVectorBoxes } from '../graphics/vectorBoxes.js';
 import { countVectorPaintOps } from '../graphics/vectorOps.js';
 import { buildLayout } from '../layout/index.js';
@@ -34,6 +35,7 @@ export async function extractPageData(
   doc: PDFDocumentProxy,
   pageNum: number,
   ops: ImageOps,
+  textRenderingOps: TextRenderingOps,
   flags: PageFlags,
   getWidgetAppearanceCaptions?: () => ReadonlyMap<string, string>,
 ): Promise<PageData> {
@@ -72,6 +74,7 @@ export async function extractPageData(
   // both the public `imageBoxes` payload (when requested) and the source
   // of `imageCount`, which keeps the two trivially consistent.
   const opList = await page.getOperatorList();
+  const invisibleText = collectInvisibleTextEvidence(opList.fnArray, opList.argsArray as unknown[][], textRenderingOps);
   const allBoxes = buildImageBoxes(opList.fnArray, opList.argsArray as unknown[][], ops, height, view[0], yMin);
   const imageCount = allBoxes.length;
   const imageBoxes = flags.imageBoxes ? allBoxes : undefined;
@@ -249,6 +252,7 @@ export async function extractPageData(
     ...(flags.geometry && { spans }),
     ...(flags.needSpansForSearch && { _internalSpans: searchSpans ?? spans }),
     ...(flags.needSpansForWarnings && { _warningSpans: spans }),
+    ...(invisibleText !== undefined && { _invisibleText: invisibleText }),
     ...(layout !== undefined && { layout }),
     ...(imageBoxes !== undefined && { imageBoxes }),
     _warningImageBoxes: allBoxes,

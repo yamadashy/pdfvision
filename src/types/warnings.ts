@@ -6,6 +6,7 @@
  * right-to-left script text whose spacing or paired brackets may degrade,
  * page-wide glyph-index garbage, tiny native text that may not be human-visible,
  * raw embedded producer/source payloads that leak into native text,
+ * text drawn with invisible rendering mode but included in extraction,
  * dense vector graphics whose form fields or chart paths are not text,
  * vector-only visual pages with no native text,
  * hidden duplicate native text layers that inflate page text,
@@ -30,6 +31,7 @@ export interface PageWarning {
     | 'localized_glyph_noise'
     | 'font_mapping_warning'
     | 'raw_embedded_source_text'
+    | 'invisible_text'
     | 'dense_vector_graphics'
     | 'vector_graphics_no_native_text'
     | 'duplicate_text_layer'
