@@ -39,7 +39,7 @@ export function truncatedPageEdge(
 ): PageEdge | undefined {
   const text = span.text.trim();
   const fontSize = span.fontSize > 0 ? span.fontSize : Math.min(span.width, span.height);
-  if (fontSize <= 0 || Array.from(text).length < MIN_RUN_CODE_POINTS || TRAILING_NATURAL_TERMINATOR.test(text)) {
+  if (fontSize <= 0 || !hasMinCodePoints(text, MIN_RUN_CODE_POINTS) || TRAILING_NATURAL_TERMINATOR.test(text)) {
     return undefined;
   }
 
@@ -73,6 +73,15 @@ function isBoundaryStraddle(overflow: number, fontSize: number): boolean {
   return overflow > 0 && overflow <= fontSize * MAX_BOUNDARY_OVERFLOW_EM;
 }
 
+/** Counts lazily so an 80k-char truncated run never allocates a code-point array. */
+function hasMinCodePoints(text: string, min: number): boolean {
+  let count = 0;
+  for (const _ of text) {
+    if (++count >= min) return true;
+  }
+  return false;
+}
+
 function findContainingBlockIndex(span: TextSpan, blocks: readonly LayoutBlock[] | undefined): number | undefined {
   if (!blocks) return undefined;
   const spanArea = span.width * span.height;
@@ -97,6 +106,7 @@ function findContainingBlockIndex(span: TextSpan, blocks: readonly LayoutBlock[]
 
 function sampleText(text: string): string {
   const normalized = text.replace(/\s+/gu, ' ').trim();
-  const sample = normalized.length > 40 ? `${normalized.slice(0, 37)}...` : normalized;
+  // Strip a trailing lone high surrogate so the slice never splits a pair.
+  const sample = normalized.length > 40 ? `${normalized.slice(0, 37).replace(/[\uD800-\uDBFF]$/u, '')}...` : normalized;
   return JSON.stringify(sample);
 }
