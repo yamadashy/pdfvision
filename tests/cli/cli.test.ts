@@ -71,7 +71,7 @@ async function captureRun(argv: string[], options?: Parameters<typeof run>[1]): 
     stderr.push(args.map((a) => String(a)).join(' '));
   });
   const stderrWriteSpy = vi.spyOn(process.stderr, 'write').mockImplementation(((chunk: string | Uint8Array) => {
-    stderr.push(String(chunk).replace(/\n$/, ''));
+    stderr.push((typeof chunk === 'string' ? chunk : new TextDecoder().decode(chunk)).replace(/\n$/, ''));
     return true;
   }) as typeof process.stderr.write);
   const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {

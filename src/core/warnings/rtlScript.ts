@@ -5,14 +5,15 @@ const MINIMUM_LETTERS = 50;
 const RTL_LETTER_RATIO_THRESHOLD = 0.25;
 
 function isStrongRtlCodePoint(codePoint: number): boolean {
+  // U+0590–08FF is the contiguous run of RTL script blocks: Hebrew,
+  // Arabic, Syriac, Arabic Supplement, Thaana, NKo, Samaritan, Mandaic,
+  // Syriac Supplement, Arabic Extended-B/A. The presentation-forms
+  // blocks and Adlam sit apart.
   return (
-    (codePoint >= 0x0590 && codePoint <= 0x05ff) ||
-    (codePoint >= 0x0600 && codePoint <= 0x06ff) ||
-    (codePoint >= 0x0750 && codePoint <= 0x077f) ||
-    (codePoint >= 0x08a0 && codePoint <= 0x08ff) ||
-    (codePoint >= 0xfb1d && codePoint <= 0xfb4f) ||
-    (codePoint >= 0xfb50 && codePoint <= 0xfdff) ||
-    (codePoint >= 0xfe70 && codePoint <= 0xfeff)
+    (codePoint >= 0x0590 && codePoint <= 0x08ff) ||
+    (codePoint >= 0xfb1d && codePoint <= 0xfdff) ||
+    (codePoint >= 0xfe70 && codePoint <= 0xfeff) ||
+    (codePoint >= 0x1e900 && codePoint <= 0x1e95f)
   );
 }
 
