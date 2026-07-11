@@ -24,7 +24,8 @@ import { appendPage } from './xml/page.js';
  */
 export function formatXml(result: DocumentResult): string {
   const out: string[] = [];
-  out.push(`<document file="${escapeAttr(result.file)}" totalPages="${result.totalPages}">`);
+  const outlineCount = result.outlineCount !== undefined ? ` outlineCount="${result.outlineCount}"` : '';
+  out.push(`<document file="${escapeAttr(result.file)}" totalPages="${result.totalPages}"${outlineCount}>`);
   appendDocumentSections(out, result);
   out.push('<pages>');
   for (const page of result.pages) appendPage(out, page);

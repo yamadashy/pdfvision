@@ -129,7 +129,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     const totalPages = doc.numPages;
     const pageNumbers = await resolvePageNumbers({ doc, options, renderRegion });
 
-    const { metadata, pageLabels, attachments, outline, viewer, layers, hasHiddenOptionalContent } =
+    const { metadata, pageLabels, attachments, outlineCount, outline, viewer, layers, hasHiddenOptionalContent } =
       await extractDocumentFeatures(doc, options, attachmentOutputDir);
 
     let imagePaths: string[] | null = null;
@@ -312,6 +312,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       metadata,
       ...(pageLabels !== undefined && { pageLabels }),
       ...(attachments !== undefined && { attachments }),
+      ...(outlineCount !== undefined && { outlineCount }),
       ...(outline !== undefined && { outline }),
       ...(viewer !== undefined && { viewer }),
       ...(layers !== undefined && { layers }),

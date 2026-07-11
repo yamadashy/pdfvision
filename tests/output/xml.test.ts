@@ -35,6 +35,18 @@ describe('formatXml', () => {
     expect(out.trimEnd().endsWith('</document>')).toBe(true);
   });
 
+  it('emits optional document and page furniture presence counts as attributes', () => {
+    const out = formatXml(
+      makeResult({
+        outlineCount: 2,
+        pages: [makePage({ page: 1, formFieldCount: 1, linkCount: 2, annotationCount: 3 })],
+      }),
+    );
+
+    expect(out).toMatch(/^<document file="\/tmp\/x\.pdf" totalPages="1" outlineCount="2">/);
+    expect(out).toMatch(/<page no="1"[^>]*formFieldCount="1" linkCount="2" annotationCount="3"/);
+  });
+
   it('omits the metadata block when every field is null', () => {
     const out = formatXml(makeResult());
     expect(out).not.toMatch(/<metadata/);

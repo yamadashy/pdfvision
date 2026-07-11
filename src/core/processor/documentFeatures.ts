@@ -18,6 +18,7 @@ export interface DocumentFeatures {
   metadata: DocumentMetadata;
   pageLabels?: string[];
   attachments?: DocumentAttachment[];
+  outlineCount?: number;
   outline?: DocumentOutlineItem[];
   viewer?: DocumentViewerState;
   layers?: DocumentLayers;
@@ -46,11 +47,13 @@ export async function extractDocumentFeatures(
         outputDir: attachmentOutputDir,
       })
     : undefined;
+  const rawOutline = await doc.getOutline();
   const outline: DocumentOutlineItem[] | undefined = options.outline
-    ? await buildOutline(await doc.getOutline(), doc, {
+    ? await buildOutline(rawOutline, doc, {
         normalizeText: normalize,
       })
     : undefined;
+  const outlineCount = outline?.length ?? rawOutline?.length ?? 0;
   const viewer: DocumentViewerState | undefined = options.viewer
     ? await buildViewerState(doc, {
         normalizeText: normalize,
@@ -68,6 +71,7 @@ export async function extractDocumentFeatures(
     metadata: buildDocumentMetadata(info, normalize),
     ...(pageLabels !== undefined && { pageLabels }),
     ...(attachments !== undefined && { attachments }),
+    ...(outlineCount > 0 && { outlineCount }),
     ...(outline !== undefined && { outline }),
     ...(viewer !== undefined && { viewer }),
     ...(layers !== undefined && { layers }),

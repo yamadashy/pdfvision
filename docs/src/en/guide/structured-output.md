@@ -16,6 +16,7 @@ interface DocumentResult {
   file: string;
   totalPages: number;
   metadata: DocumentMetadata;
+  outlineCount?: number;
   overview?: PageOverview[];
   pages: PageResult[];
 }
@@ -28,6 +29,8 @@ Optional top-level fields appear when requested:
 - `outline` with `--outline`.
 - `viewer` with `--viewer`.
 - `layers` with `--layers`.
+
+Default output automatically includes non-zero `outlineCount`, `formFieldCount`, `linkCount`, and `annotationCount` presence signals without exposing full furniture contents; the corresponding flags expand them into full arrays.
 
 ## Page Overview
 
@@ -59,12 +62,13 @@ Each `pages[]` entry includes:
 - page dimensions in PDF points.
 - optional page rotation in degrees when the PDF page is rotated.
 - density fields mirrored from the overview.
+- optional `formFieldCount`, `linkCount`, and `annotationCount` presence signals, omitted when zero.
 - optional `image` path when `--render` is used.
 - optional `spans`, `layout`, `imageBoxes`, `vectorBoxes`, `visualRegions`, `formFields`, `links`, `annotations`, `structure`, `ocr`, `warnings`, and `matches`.
 
 OCR never overwrites native text. Consumers should compare `page.text` and `page.ocr?.text` and decide which signal is appropriate.
 
-Optional fields are intentionally opt-in. A JSON result from `--layout --form-fields` is different from a result where those flags were not requested. When a feature was requested and no items were found, pdfvision uses empty arrays or null-like shapes where useful so consumers can distinguish "not requested" from "requested and absent".
+Full feature payloads are intentionally opt-in; only the compact furniture presence counts above are automatic. A JSON result from `--layout --form-fields` is different from a result where those flags were not requested. When a feature was requested and no items were found, pdfvision uses empty arrays or null-like shapes where useful so consumers can distinguish "not requested" from "requested and absent".
 
 ## Quality Fields
 
@@ -120,7 +124,7 @@ For agent workflows, the most important pattern is to preserve the field that le
 
 ## Optional PDF Feature Fields
 
-Many PDFs contain information outside the plain text stream. pdfvision keeps these features opt-in so lightweight extraction stays small, but they are important for documents where the viewer experience carries meaning.
+Many PDFs contain information outside the plain text stream. pdfvision keeps full feature contents opt-in so lightweight extraction stays small, while automatic presence counts reveal when the corresponding flag may matter.
 
 Use `--form-fields` for applications, questionnaires, and government forms. It exposes widget type, value, checked state, choices, flags, export values, actions, bbox, and nearby labels. This is often the only reliable way to distinguish a blank box from a selected checkbox or a visible choice field.
 

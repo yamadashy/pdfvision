@@ -50,13 +50,10 @@ export async function buildLinks(
   const links: PageLink[] = [];
   const resolvedPageCache = new Map<string, number | undefined>();
   for (const annotation of annotations) {
+    if (!isLinkAnnotation(annotation)) continue;
     const ann = annotation as PdfLinkAnnotation;
-    if (ann.subtype !== 'Link') continue;
-    const rect = linkRect(ann.rect);
-    if (!rect) continue;
-
-    const target = linkTarget(ann);
-    if (!target) continue;
+    const rect = linkRect(ann.rect) as Rect;
+    const target = linkTarget(ann) as NonNullable<ReturnType<typeof linkTarget>>;
 
     const [x1, y1, x2, y2] = rect;
     const minX = Math.min(x1, x2);
@@ -90,6 +87,11 @@ export async function buildLinks(
   return links.sort(
     (a, b) => a.y - b.y || a.x - b.x || linkTargetText(a.target).localeCompare(linkTargetText(b.target)),
   );
+}
+
+export function isLinkAnnotation(annotation: unknown): boolean {
+  const ann = annotation as PdfLinkAnnotation;
+  return ann.subtype === 'Link' && linkRect(ann.rect) !== undefined && linkTarget(ann) !== undefined;
 }
 
 function linkRect(value: unknown): Rect | undefined {

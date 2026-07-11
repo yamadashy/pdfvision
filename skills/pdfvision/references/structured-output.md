@@ -15,6 +15,7 @@ interface DocumentResult {
   metadata: DocumentMetadata;  // title / author / subject / creator (all string | null)
   pageLabels?: string[];       // full 0-indexed viewer page-label array; present iff --page-labels
   attachments?: DocumentAttachment[]; // embedded file metadata; present iff --attachments
+  outlineCount?: number;       // top-level outline entries; always computed, omitted when zero
   outline?: DocumentOutlineItem[]; // document bookmarks; present iff --outline
   viewer?: DocumentViewerState; // viewer settings; present iff --viewer
   layers?: DocumentLayers;       // optional content groups; present iff --layers
@@ -44,9 +45,9 @@ interface PageOverview {
   matchCount?: number;            // mirror of pages[N].matches.length; present-with-0 means "search ran, no hit"
   vectorBoxCount?: number;        // mirror of pages[N].vectorBoxes.length; present iff --vector-boxes
   visualRegionCount?: number;     // mirror of pages[N].visualRegions.length; present iff --visual-regions
-  formFieldCount?: number;        // mirror of pages[N].formFields.length; present iff --form-fields
-  linkCount?: number;             // mirror of pages[N].links.length; present iff --links
-  annotationCount?: number;       // mirror of pages[N].annotations.length; present iff --annotations
+  formFieldCount?: number;        // furniture presence count; automatic when non-zero
+  linkCount?: number;             // furniture presence count; automatic when non-zero
+  annotationCount?: number;       // furniture presence count; automatic when non-zero
   structureNodeCount?: number;    // count of tagged-PDF structure nodes; present iff --structure
   width: number;                  // PDF user-space points
   height: number;
@@ -92,8 +93,11 @@ interface PageResult {
   imageBoxes?: ImageBox[];       // present iff --image-boxes
   vectorBoxes?: VectorBox[];     // present iff --vector-boxes
   visualRegions?: VisualRegion[]; // present iff --visual-regions
+  formFieldCount?: number;       // always computed; omitted when zero
   formFields?: FormField[];      // present iff --form-fields
+  linkCount?: number;            // always computed; omitted when zero
   links?: PageLink[];            // present iff --links
+  annotationCount?: number;      // always computed; omitted when zero
   annotations?: PageAnnotation[]; // present iff --annotations
   structure?: PageStructureNode | null; // present iff --structure; null means no page structure tree
   jsActions?: Record<string, string[]>; // page-level JavaScript actions, present iff --viewer and the page defines them
@@ -637,7 +641,7 @@ pdfvision doc.pdf -p <m.page> --render --render-region <m.bbox.x>,<m.bbox.y>,<m.
 `-f xml` mirrors the JSON shape one-for-one:
 
 ```xml
-<document file="..." totalPages="14">
+<document file="..." totalPages="14" outlineCount="...">
   <metadata>
     <title>...</title>
     <author>...</author>
@@ -647,7 +651,7 @@ pdfvision doc.pdf -p <m.page> --render --render-region <m.bbox.x>,<m.bbox.y>,<m.
     ...
   </overview>
   <pages>
-    <page no="1" charCount="..." imageCount="..." vectorCount="..." textCoverage="..." nonPrintableRatio="..." nonPrintableCount="..." nativeTextStatus="..." visualStatus="..." width="..." height="..." image="...">
+    <page no="1" charCount="..." imageCount="..." vectorCount="..." textCoverage="..." nonPrintableRatio="..." nonPrintableCount="..." formFieldCount="..." linkCount="..." annotationCount="..." nativeTextStatus="..." visualStatus="..." width="..." height="..." image="...">
       <spans>
         <span text="..." x="..." y="..." width="..." height="..." fontSize="..." fontName="..."/>
         ...

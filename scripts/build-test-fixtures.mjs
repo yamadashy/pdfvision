@@ -33,6 +33,7 @@ const FIXTURE_COMPAT_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-compat.p
 const FIXTURE_HEADERS_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-headers.pdf');
 const FIXTURE_TILED_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-tiled.pdf');
 const FIXTURE_COLUMNS_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-columns.pdf');
+const FIXTURE_FURNITURE_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-furniture.pdf');
 
 // Smallest standard valid PNG (1×1 red pixel). Embedded into the fixture
 // so pdfjs emits a paintImageXObject opcode and density tests can verify
@@ -301,9 +302,56 @@ async function buildColumnsPdf() {
   console.log(`Wrote ${FIXTURE_COLUMNS_OUT} (${out.byteLength} bytes)`);
 }
 
+// Builds a two-page document whose first page carries each furniture kind
+// counted by the default extraction, while page 2 stays clean. The outline
+// also has a nested child so tests can distinguish top-level entry counts.
+async function buildFurniturePdf() {
+  const doc = new PDFDocument({
+    info: {
+      Title: 'pdfvision furniture fixture',
+      Author: 'pdfvision build-fixtures',
+      Subject: 'Presence-count fixture',
+      Creator: 'pdfvision',
+      CreationDate: FIXED_DATE,
+      ModDate: FIXED_DATE,
+    },
+    autoFirstPage: false,
+  });
+  doc._id = FIXED_FILE_ID;
+
+  const chunks = [];
+  doc.on('data', (c) => chunks.push(c));
+  const done = new Promise((resolveDone, rejectDone) => {
+    doc.on('end', resolveDone);
+    doc.on('error', rejectDone);
+  });
+
+  doc.addPage().font('Helvetica');
+  doc.initForm();
+  doc.fontSize(12).text('Reviewer name', 50, 70);
+  doc.formText('ReviewerName', 150, 68, 160, 20, { value: 'Ada' });
+  doc.text('Project website', 50, 120);
+  doc.link(50, 120, 100, 16, 'https://example.com/review');
+  doc.note(50, 170, 20, 20, 'Reviewer: verify this result', { color: [255, 255, 0] });
+  doc.highlight(50, 220, 120, 14, { color: [255, 230, 0] });
+  const first = doc.outline.addItem('Review form');
+  first.addItem('Reviewer details');
+
+  doc.addPage().fontSize(12).text('Clean second page', 50, 70);
+  doc.outline.addItem('Clean page');
+
+  doc.end();
+  await done;
+
+  const out = Buffer.concat(chunks);
+  writeFileSync(FIXTURE_FURNITURE_OUT, out);
+  console.log(`Wrote ${FIXTURE_FURNITURE_OUT} (${out.byteLength} bytes)`);
+}
+
 await buildJapanesePdf();
 await buildImagePdf();
 await buildCompatPdf();
 await buildHeadersPdf();
 await buildTiledPdf();
 await buildColumnsPdf();
+await buildFurniturePdf();

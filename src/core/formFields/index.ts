@@ -59,11 +59,9 @@ export function buildFormFields(
 
   const fields: FormField[] = [];
   for (const annotation of annotations) {
-    const ann = annotation as PdfAnnotation;
-    if (ann.subtype !== 'Widget') continue;
-    if (typeof ann.fieldName !== 'string' || ann.fieldName.length === 0) continue;
-    const rect = fieldRect(ann.rect);
-    if (!rect) continue;
+    if (!isFormFieldAnnotation(annotation)) continue;
+    const ann = annotation;
+    const rect = fieldRect(ann.rect) as Rect;
 
     const [x1, y1, x2, y2] = rect;
     const minX = Math.min(x1, x2);
@@ -115,6 +113,16 @@ export function buildFormFields(
     if (label) field.label = label;
   }
   return fields.sort((a, b) => a.y - b.y || a.x - b.x || a.name.localeCompare(b.name));
+}
+
+export function isFormFieldAnnotation(annotation: unknown): annotation is PdfAnnotation & { fieldName: string } {
+  const ann = annotation as PdfAnnotation;
+  return (
+    ann.subtype === 'Widget' &&
+    typeof ann.fieldName === 'string' &&
+    ann.fieldName.length > 0 &&
+    fieldRect(ann.rect) !== undefined
+  );
 }
 
 function fieldCaption(

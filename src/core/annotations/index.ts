@@ -82,9 +82,8 @@ export function buildAnnotations(
 ): PageAnnotation[] {
   const out: PageAnnotation[] = [];
   for (const annotation of annotations) {
-    const ann = annotation as PdfAnnotation;
-    if (typeof ann.subtype !== 'string' || EXCLUDED_SUBTYPES.has(ann.subtype)) continue;
-    if (!Array.isArray(ann.rect) || ann.rect.length < 4 || !ann.rect.every((v) => typeof v === 'number')) continue;
+    if (!isPageAnnotation(annotation)) continue;
+    const ann = annotation;
 
     const baseBox = rectToBox(ann.rect as [number, number, number, number], pageHeight, viewMinX, viewMinY);
     const name = textValue(ann.name, options.normalizeText);
@@ -118,6 +117,19 @@ export function buildAnnotations(
     });
   }
   return out.sort((a, b) => a.y - b.y || a.x - b.x || a.subtype.localeCompare(b.subtype));
+}
+
+export function isPageAnnotation(
+  annotation: unknown,
+): annotation is PdfAnnotation & { subtype: string; rect: [number, number, number, number, ...number[]] } {
+  const ann = annotation as PdfAnnotation;
+  return (
+    typeof ann.subtype === 'string' &&
+    !EXCLUDED_SUBTYPES.has(ann.subtype) &&
+    Array.isArray(ann.rect) &&
+    ann.rect.length >= 4 &&
+    ann.rect.every((value) => typeof value === 'number')
+  );
 }
 
 function textValue(value: unknown, normalizeText: ((value: string) => string) | undefined): string | undefined {

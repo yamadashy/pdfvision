@@ -41,10 +41,13 @@ export interface PageData {
   _warningAnnotations?: PageAnnotation[];
   _visualRegionInput?: BuildVisualRegionsInput;
   hasVisibleAnnotationAppearance?: boolean;
+  formFieldCount?: number;
   formFields?: FormField[];
   _internalFormFields?: FormField[];
+  linkCount?: number;
   links?: PageLink[];
   _internalLinks?: PageLink[];
+  annotationCount?: number;
   annotations?: PageAnnotation[];
   _internalAnnotations?: PageAnnotation[];
   structure?: PageStructureNode | null;

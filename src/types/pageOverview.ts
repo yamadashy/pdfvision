@@ -82,23 +82,18 @@ export interface PageOverview {
    */
   visualRegionCount?: number;
   /**
-   * Count of interactive form fields on the page (mirror of
-   * `pages[].formFields.length`). Omitted when `formFields` was not
-   * requested; present-with-`0` when extraction ran but the page has no
-   * widget fields.
+   * Count of interactive form fields on the page. Present automatically
+   * when non-zero; also present-with-`0` when full field extraction ran.
    */
   formFieldCount?: number;
   /**
-   * Count of clickable PDF links on the page (mirror of
-   * `pages[].links.length`). Omitted when `links` was not requested;
-   * present-with-`0` when extraction ran but no link annotations exist.
+   * Count of clickable PDF links on the page. Present automatically when
+   * non-zero; also present-with-`0` when full link extraction ran.
    */
   linkCount?: number;
   /**
-   * Count of non-link PDF annotations on the page (mirror of
-   * `pages[].annotations.length`). Omitted when `annotations` was not
-   * requested; present-with-`0` when extraction ran but no comments /
-   * markup annotations exist.
+   * Count of non-link PDF annotations on the page. Present automatically
+   * when non-zero; also present-with-`0` when full annotation extraction ran.
    */
   annotationCount?: number;
   /**
