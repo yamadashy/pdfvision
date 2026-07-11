@@ -15,6 +15,24 @@ interface BuildAttachmentsOptions {
   outputDir?: string;
 }
 
+export async function catalogAttachmentsToRecord(
+  attachments: ReadonlyMap<string, unknown> | null | undefined,
+  getContent: (id: string) => Promise<unknown>,
+): Promise<Record<string, unknown> | null> {
+  if (!attachments || attachments.size === 0) return null;
+
+  const record: Record<string, unknown> = {};
+  for (const [id, value] of attachments) {
+    const attachment = value as PdfAttachment;
+    const content = attachment.content === undefined ? await getContent(id) : attachment.content;
+    record[id] = {
+      ...attachment,
+      ...(content !== undefined && { content }),
+    };
+  }
+  return record;
+}
+
 export function buildAttachments(
   attachments: Record<string, unknown> | null | undefined,
   options: BuildAttachmentsOptions = {},

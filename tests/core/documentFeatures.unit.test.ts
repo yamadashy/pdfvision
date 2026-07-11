@@ -4,7 +4,7 @@ import { extractDocumentFeatures } from '../../src/core/processor/documentFeatur
 
 interface StubDocOverrides {
   info?: Record<string, unknown>;
-  attachments?: Record<string, unknown> | null;
+  attachments?: Map<string, Record<string, unknown>> | null;
 }
 
 // Minimal PDFDocumentProxy stub for the default (flagless) feature pass:
@@ -34,7 +34,15 @@ describe('extractDocumentFeatures presence signals', () => {
   });
 
   it('counts document-level embedded files without the attachment pass', async () => {
-    const features = await extractDocumentFeatures(stubDoc({ attachments: { 'data.csv': {}, 'notes.txt': {} } }), {});
+    const features = await extractDocumentFeatures(
+      stubDoc({
+        attachments: new Map([
+          ['data.csv', {}],
+          ['notes.txt', {}],
+        ]),
+      }),
+      {},
+    );
     expect(features.attachmentCount).toBe(2);
     expect(features.attachments).toBeUndefined();
   });
