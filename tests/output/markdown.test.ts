@@ -5,7 +5,7 @@ import type { DocumentResult, PageResult } from '../../src/types/index.js';
 // US Letter dimensions in PDF points; the formatter doesn't read width/height
 // but the type now requires them, so the helper supplies a realistic default.
 function makePage(overrides: Partial<PageResult> & Pick<PageResult, 'page'>): PageResult {
-  return {
+  const page: PageResult = {
     text: '',
     charCount: 0,
     imageCount: 0,
@@ -18,6 +18,14 @@ function makePage(overrides: Partial<PageResult> & Pick<PageResult, 'page'>): Pa
     height: 792,
     ...overrides,
   };
+  if (page.formFieldCount === undefined && page.formFields && page.formFields.length > 0) {
+    page.formFieldCount = page.formFields.length;
+  }
+  if (page.linkCount === undefined && page.links && page.links.length > 0) page.linkCount = page.links.length;
+  if (page.annotationCount === undefined && page.annotations && page.annotations.length > 0) {
+    page.annotationCount = page.annotations.length;
+  }
+  return page;
 }
 
 function makeResult(overrides: Partial<DocumentResult> = {}): DocumentResult {
@@ -137,6 +145,25 @@ describe('formatMarkdown', () => {
     expect(out).toMatch(/\| 2 \| 0 \| 5 \| 2% \|/);
     // Overview comes before the per-page sections.
     expect(out.indexOf('## Overview')).toBeLessThan(out.indexOf('## Page 1'));
+  });
+
+  it('surfaces furniture counts in density lines and conditional Overview columns without full arrays', () => {
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 2,
+        pages: [
+          makePage({ page: 1, text: 'furniture', charCount: 9, formFieldCount: 2, linkCount: 3, annotationCount: 4 }),
+          makePage({ page: 2, text: 'clean', charCount: 5 }),
+        ],
+      }),
+    );
+
+    expect(out).toMatch(/\| Page \| Chars \| Images \| Coverage \| Size \(pt\) \| Fields \| Links \| Annots \|/);
+    expect(out).toMatch(/\| 1 \| 9 \| 0 \| 0% \| 612×792 \| 2 \| 3 \| 4 \|/);
+    expect(out).toContain('formFields: 2 · links: 3 · annotations: 4');
+    expect(out).not.toContain('### Form fields');
+    expect(out).not.toContain('### Links');
+    expect(out).not.toContain('### Annotations');
   });
 
   it('omits the Overview table when only one page was selected', () => {
@@ -397,7 +424,7 @@ describe('formatMarkdown', () => {
       }),
     );
 
-    expect(out).toMatch(/\| Page \| Chars \| Images \| Coverage \| Size \(pt\) \| FormFields \|/);
+    expect(out).toMatch(/\| Page \| Chars \| Images \| Coverage \| Size \(pt\) \| Fields \|/);
     expect(out).toMatch(/\| 1 \| 9 \| 0 \| 0% \| 612×792 \| 2 \|/);
     expect(out).toMatch(/formFields: 2/);
     expect(out).toContain('### Form fields');
@@ -650,7 +677,7 @@ describe('formatMarkdown', () => {
       }),
     );
 
-    expect(out).toMatch(/\| Page \| Chars \| Images \| Coverage \| Size \(pt\) \| Annotations \|/);
+    expect(out).toMatch(/\| Page \| Chars \| Images \| Coverage \| Size \(pt\) \| Annots \|/);
     expect(out).toMatch(/\| 1 \| 9 \| 0 \| 0% \| 612×792 \| 2 \|/);
     expect(out).toMatch(/annotations: 2/);
     expect(out).toContain('### Annotations');
@@ -685,6 +712,15 @@ describe('formatMarkdown', () => {
     expect(out).toContain('- Intro \\[draft\\] (p. 1 · destination · section.1)');
     expect(out).toContain('  - Website (url · https://example.com)');
     expect(out).toContain('  - Next page (action · NextPage)');
+  });
+
+  it('surfaces an outline presence count in the header when full outline extraction was not requested', () => {
+    const countOnly = formatMarkdown(makeResult({ outlineCount: 2 }));
+    expect(countOnly).toContain('- **Outline:** 2 top-level entries');
+
+    const fullOutline = formatMarkdown(makeResult({ outlineCount: 1, outline: [{ title: 'Intro' }] }));
+    expect(fullOutline).not.toContain('- **Outline:** 1 top-level entry');
+    expect(fullOutline).toContain('## Outline');
   });
 
   it('renders an explicit empty outline message when the outline pass found no bookmarks', () => {

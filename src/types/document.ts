@@ -140,6 +140,11 @@ export interface DocumentResult {
    */
   attachments?: DocumentAttachment[];
   /**
+   * Number of top-level document outline entries. Always computed, but
+   * omitted when the PDF has no outline so clean documents pay no token cost.
+   */
+  outlineCount?: number;
+  /**
    * Document outline / bookmarks, present iff outline extraction was
    * requested. Empty array means the pass ran and the PDF has no outline.
    */

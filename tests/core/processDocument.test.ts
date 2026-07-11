@@ -10,6 +10,7 @@ const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
 const SAMPLE_JA_PDF = resolve(__dirname, '../fixtures/sample-ja.pdf');
 const SAMPLE_WITH_IMAGE_PDF = resolve(__dirname, '../fixtures/sample-with-image.pdf');
 const SAMPLE_TILED_PDF = resolve(__dirname, '../fixtures/sample-tiled.pdf');
+const SAMPLE_FURNITURE_PDF = resolve(__dirname, '../fixtures/sample-furniture.pdf');
 
 async function buildPdfWithLink(): Promise<Uint8Array> {
   const chunks: Buffer[] = [];
@@ -377,6 +378,47 @@ describe('processDocument', () => {
     expect(page.imageCount).toBeGreaterThanOrEqual(0);
     expect(page.textCoverage).toBeGreaterThanOrEqual(0);
     expect(page.textCoverage).toBeLessThanOrEqual(1);
+  });
+
+  it('omits furniture presence counts when a page and document are clean', async () => {
+    const result = await processDocument(SAMPLE_PDF, { noCache: true });
+
+    expect(result.outlineCount).toBeUndefined();
+    expect(result.pages[0].formFieldCount).toBeUndefined();
+    expect(result.pages[0].linkCount).toBeUndefined();
+    expect(result.pages[0].annotationCount).toBeUndefined();
+  });
+
+  it('surfaces furniture presence counts without exposing full feature arrays', async () => {
+    const result = await processDocument(SAMPLE_FURNITURE_PDF, { noCache: true });
+
+    expect(result.outlineCount).toBe(2);
+    expect(result.outline).toBeUndefined();
+    expect(result.pages[0]).toMatchObject({ formFieldCount: 1, linkCount: 1, annotationCount: 2 });
+    expect(result.pages[0].formFields).toBeUndefined();
+    expect(result.pages[0].links).toBeUndefined();
+    expect(result.pages[0].annotations).toBeUndefined();
+    expect(result.pages[1].formFieldCount).toBeUndefined();
+    expect(result.pages[1].linkCount).toBeUndefined();
+    expect(result.pages[1].annotationCount).toBeUndefined();
+    expect(result.overview?.[0]).toMatchObject({ formFieldCount: 1, linkCount: 1, annotationCount: 2 });
+  });
+
+  it('keeps furniture presence counts equal to full extraction lengths', async () => {
+    const result = await processDocument(SAMPLE_FURNITURE_PDF, {
+      noCache: true,
+      formFields: true,
+      links: true,
+      annotations: true,
+      outline: true,
+    });
+
+    expect(result.outlineCount).toBe(result.outline?.length);
+    for (const page of result.pages) {
+      expect(page.formFieldCount ?? 0).toBe(page.formFields?.length);
+      expect(page.linkCount ?? 0).toBe(page.links?.length);
+      expect(page.annotationCount ?? 0).toBe(page.annotations?.length);
+    }
   });
 
   it('reports page dimensions in points so agents can reason about layout', async () => {

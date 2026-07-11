@@ -81,6 +81,9 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
   if (result.metadata.author) lines.push(`- **Author:** ${result.metadata.author}`);
   if (result.metadata.subject) lines.push(`- **Subject:** ${result.metadata.subject}`);
   if (result.metadata.creator) lines.push(`- **Creator:** ${result.metadata.creator}`);
+  if (result.outlineCount !== undefined && result.outline === undefined) {
+    lines.push(`- **Outline:** ${result.outlineCount} top-level ${result.outlineCount === 1 ? 'entry' : 'entries'}`);
+  }
 
   if (result.pageLabels && result.pageLabels.length === 0) {
     lines.push('');
@@ -162,9 +165,16 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
       options.layout && (page.layout?.tables?.length ?? 0) > 0 ? ` · tables: ${page.layout?.tables?.length}` : '';
     const visualRegionsFragment =
       page.visualRegions !== undefined ? ` · visualRegions: ${page.visualRegions.length}` : '';
-    const formFieldsFragment = page.formFields !== undefined ? ` · formFields: ${page.formFields.length}` : '';
-    const linksFragment = page.links !== undefined ? ` · links: ${page.links.length}` : '';
-    const annotationsFragment = page.annotations !== undefined ? ` · annotations: ${page.annotations.length}` : '';
+    // Fall back to the detailed-array lengths so library callers that
+    // hand-build a DocumentResult (arrays without the scalar counts)
+    // still get the fragments, and a flagged run with zero hits keeps
+    // its explicit "formFields: 0".
+    const formFieldTotal = page.formFieldCount ?? page.formFields?.length;
+    const linkTotal = page.linkCount ?? page.links?.length;
+    const annotationTotal = page.annotationCount ?? page.annotations?.length;
+    const formFieldsFragment = formFieldTotal !== undefined ? ` · formFields: ${formFieldTotal}` : '';
+    const linksFragment = linkTotal !== undefined ? ` · links: ${linkTotal}` : '';
+    const annotationsFragment = annotationTotal !== undefined ? ` · annotations: ${annotationTotal}` : '';
     const structureFragment = page.structure !== undefined ? ` · structure: ${structureNodeCount(page.structure)}` : '';
     const jsActionsFragment = page.jsActions !== undefined ? ` · jsActions: ${jsActionCount(page.jsActions)}` : '';
     // Surface the derived quality classification when it's abnormal so

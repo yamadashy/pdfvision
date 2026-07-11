@@ -25,9 +25,11 @@ export function appendOverview(lines: string[], result: DocumentResult, options:
   const showVectors = result.pages.some((p) => p.vectorCount > 0);
   const showVectorBoxes = result.pages.some((p) => p.vectorBoxes !== undefined);
   const showLayoutTables = options.layout && result.pages.some((p) => (p.layout?.tables?.length ?? 0) > 0);
-  const showFormFields = result.pages.some((p) => p.formFields !== undefined);
-  const showLinks = result.pages.some((p) => p.links !== undefined);
-  const showAnnotations = result.pages.some((p) => p.annotations !== undefined);
+  // Array fallbacks keep hand-built DocumentResults (arrays without the
+  // scalar counts) rendering their columns.
+  const showFormFields = result.pages.some((p) => p.formFieldCount !== undefined || p.formFields !== undefined);
+  const showLinks = result.pages.some((p) => p.linkCount !== undefined || p.links !== undefined);
+  const showAnnotations = result.pages.some((p) => p.annotationCount !== undefined || p.annotations !== undefined);
   const showStructure = result.pages.some((p) => p.structure !== undefined);
   const showPageJsActions = result.pages.some((p) => p.jsActions !== undefined);
   const showVisualRegions = result.pages.some((p) => p.visualRegions !== undefined);
@@ -39,7 +41,7 @@ export function appendOverview(lines: string[], result: DocumentResult, options:
   lines.push('## Overview');
   lines.push('');
   lines.push(
-    `| Page |${showPageLabels ? ' Label |' : ''} Chars | Images | Coverage |${showNonPrint ? ' NonPrint |' : ''}${showRender ? ' Render |' : ''} Size (pt) |${showRotation ? ' Rotation |' : ''}${showVectors ? ' Vectors |' : ''}${showVectorBoxes ? ' VectorBoxes |' : ''}${showLayoutTables ? ' Tables |' : ''}${showVisualRegions ? ' VisualRegions |' : ''}${showBlocks ? ' Blocks |' : ''}${showWarnings ? ' Warnings |' : ''}${showMatches ? ' Matches |' : ''}${showFormFields ? ' FormFields |' : ''}${showLinks ? ' Links |' : ''}${showAnnotations ? ' Annotations |' : ''}${showStructure ? ' Structure |' : ''}${showPageJsActions ? ' JS Actions |' : ''}`,
+    `| Page |${showPageLabels ? ' Label |' : ''} Chars | Images | Coverage |${showNonPrint ? ' NonPrint |' : ''}${showRender ? ' Render |' : ''} Size (pt) |${showRotation ? ' Rotation |' : ''}${showVectors ? ' Vectors |' : ''}${showVectorBoxes ? ' VectorBoxes |' : ''}${showLayoutTables ? ' Tables |' : ''}${showVisualRegions ? ' VisualRegions |' : ''}${showBlocks ? ' Blocks |' : ''}${showWarnings ? ' Warnings |' : ''}${showMatches ? ' Matches |' : ''}${showFormFields ? ' Fields |' : ''}${showLinks ? ' Links |' : ''}${showAnnotations ? ' Annots |' : ''}${showStructure ? ' Structure |' : ''}${showPageJsActions ? ' JS Actions |' : ''}`,
   );
   lines.push(
     `| ---: |${showPageLabels ? ' --- |' : ''} ---: | ---: | ---: |${showNonPrint ? ' ---: |' : ''}${showRender ? ' ---: |' : ''} ---: |${showRotation ? ' ---: |' : ''}${showVectors ? ' ---: |' : ''}${showVectorBoxes ? ' ---: |' : ''}${showLayoutTables ? ' ---: |' : ''}${showVisualRegions ? ' ---: |' : ''}${showBlocks ? ' ---: |' : ''}${showWarnings ? ' ---: |' : ''}${showMatches ? ' ---: |' : ''}${showFormFields ? ' ---: |' : ''}${showLinks ? ' ---: |' : ''}${showAnnotations ? ' ---: |' : ''}${showStructure ? ' ---: |' : ''}${showPageJsActions ? ' ---: |' : ''}`,
@@ -103,9 +105,9 @@ function appendOverviewRow(lines: string[], page: PageResult, columns: OverviewC
   const blocksCell = columns.showBlocks ? ` ${page.layout?.blocks.length ?? 0} |` : '';
   const warningsCell = columns.showWarnings ? ` ${page.warnings?.length ?? 0} |` : '';
   const matchesCell = columns.showMatches ? ` ${page.matches?.length ?? 0} |` : '';
-  const formFieldsCell = columns.showFormFields ? ` ${page.formFields?.length ?? 0} |` : '';
-  const linksCell = columns.showLinks ? ` ${page.links?.length ?? 0} |` : '';
-  const annotationsCell = columns.showAnnotations ? ` ${page.annotations?.length ?? 0} |` : '';
+  const formFieldsCell = columns.showFormFields ? ` ${page.formFieldCount ?? page.formFields?.length ?? 0} |` : '';
+  const linksCell = columns.showLinks ? ` ${page.linkCount ?? page.links?.length ?? 0} |` : '';
+  const annotationsCell = columns.showAnnotations ? ` ${page.annotationCount ?? page.annotations?.length ?? 0} |` : '';
   const structureCell = columns.showStructure ? ` ${structureNodeCount(page.structure)} |` : '';
   const jsActionsCell = columns.showPageJsActions ? ` ${jsActionCount(page.jsActions)} |` : '';
   lines.push(

@@ -1,14 +1,14 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
-import { buildAnnotations, hasVisibleAnnotationAppearance } from '../annotations/index.js';
+import { buildAnnotations, hasVisibleAnnotationAppearance, isPageAnnotation } from '../annotations/index.js';
 import { resolveDestinationPage } from '../document/destinations.js';
 import { buildPageStructure } from '../document/structure.js';
 import { normalizeJavaScriptActions } from '../document/viewer.js';
-import { buildFormFields } from '../formFields/index.js';
+import { buildFormFields, isFormFieldAnnotation } from '../formFields/index.js';
 import { buildImageBoxes, type ImageOps } from '../graphics/imageBoxes.js';
 import { buildVectorBoxes } from '../graphics/vectorBoxes.js';
 import { countVectorPaintOps } from '../graphics/vectorOps.js';
 import { buildLayout } from '../layout/index.js';
-import { buildLinks } from '../links/index.js';
+import { buildLinks, isLinkAnnotation } from '../links/index.js';
 import { nonPrintableStats } from '../quality/nonPrintable.js';
 import { isRasterBackedTextLayer } from '../quality/rasterBackedTextLayer.js';
 import type { PageData, PageFlags } from './pageData.js';
@@ -99,22 +99,16 @@ export async function extractPageData(
       ? buildLayout(spans, round2(width), round2(height))
       : undefined;
   const layout = flags.layout ? internalLayout : undefined;
-  const needsAnnotations =
-    flags.formFields ||
-    flags.links ||
-    flags.annotations ||
-    flags.visualRegions ||
-    flags.annotationAppearanceHints ||
-    flags.needAnnotationsForSearch ||
-    flags.needLinksForSearch ||
-    flags.needFormFieldsForSearch;
-  const annotations = needsAnnotations ? await page.getAnnotations({ intent: 'display' }) : undefined;
-  const visibleAnnotationAppearance = annotations ? hasVisibleAnnotationAppearance(annotations) : false;
-  const widgetAppearanceCaptions = annotations?.some(hasPushButtonWidget) ? getWidgetAppearanceCaptions?.() : undefined;
+  const annotations = await page.getAnnotations({ intent: 'display' });
+  const formFieldCount = annotations.filter(isFormFieldAnnotation).length;
+  const linkCount = annotations.filter(isLinkAnnotation).length;
+  const annotationCount = annotations.filter(isPageAnnotation).length;
+  const visibleAnnotationAppearance = hasVisibleAnnotationAppearance(annotations);
+  const widgetAppearanceCaptions = annotations.some(hasPushButtonWidget) ? getWidgetAppearanceCaptions?.() : undefined;
   const allFormFields =
     flags.formFields || flags.visualRegions || flags.needFormFieldsForSearch
       ? buildFormFields(
-          annotations ?? [],
+          annotations,
           height,
           xMin,
           yMin,
@@ -147,7 +141,7 @@ export async function extractPageData(
   const internalFormFields = flags.needFormFieldsForSearch ? allFormFields : undefined;
   const allLinks =
     flags.links || flags.needLinksForSearch
-      ? await buildLinks(annotations ?? [], height, xMin, yMin, {
+      ? await buildLinks(annotations, height, xMin, yMin, {
           resolveDestinationPage: (target) => resolveDestinationPage(doc, target),
           labelLines:
             internalLayout?.blocks.flatMap((block) =>
@@ -165,7 +159,7 @@ export async function extractPageData(
   const internalLinks = flags.needLinksForSearch ? allLinks : undefined;
   const allPageAnnotations =
     flags.annotations || flags.visualRegions || flags.annotationAppearanceHints || flags.needAnnotationsForSearch
-      ? buildAnnotations(annotations ?? [], height, xMin, yMin, {
+      ? buildAnnotations(annotations, height, xMin, yMin, {
           normalizeText: flags.normalize ? normalizeText : undefined,
         })
       : undefined;
@@ -253,10 +247,13 @@ export async function extractPageData(
     ...(allPageAnnotations !== undefined && { _warningAnnotations: allPageAnnotations }),
     ...(visualRegionInput !== undefined && { _visualRegionInput: visualRegionInput }),
     ...(visibleAnnotationAppearance && { hasVisibleAnnotationAppearance: true }),
+    ...(formFieldCount > 0 && { formFieldCount }),
     ...(formFields !== undefined && { formFields }),
     ...(internalFormFields !== undefined && { _internalFormFields: internalFormFields }),
+    ...(linkCount > 0 && { linkCount }),
     ...(links !== undefined && { links }),
     ...(internalLinks !== undefined && { _internalLinks: internalLinks }),
+    ...(annotationCount > 0 && { annotationCount }),
     ...(pageAnnotations !== undefined && { annotations: pageAnnotations }),
     ...(internalAnnotations !== undefined && { _internalAnnotations: internalAnnotations }),
     ...(structure !== undefined && { structure }),

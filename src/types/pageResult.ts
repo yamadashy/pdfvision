@@ -162,17 +162,32 @@ export interface PageResult {
    */
   visualRegions?: VisualRegion[];
   /**
+   * Number of interactive form fields present on the page. Always computed,
+   * but omitted when zero so pages without PDF furniture pay no token cost.
+   */
+  formFieldCount?: number;
+  /**
    * Interactive PDF form/widget fields, only present when
    * `formFields: true` was passed. Coordinates use the same top-left
    * PDF-point system as `spans`, `layout.blocks`, and `imageBoxes`.
    */
   formFields?: FormField[];
   /**
+   * Number of clickable PDF links present on the page. Always computed,
+   * but omitted when zero so pages without PDF furniture pay no token cost.
+   */
+  linkCount?: number;
+  /**
    * Clickable PDF link annotations, only present when `links: true` was
    * passed. Coordinates use the same top-left PDF-point system as
    * `spans`, `layout.blocks`, and `imageBoxes`.
    */
   links?: PageLink[];
+  /**
+   * Number of non-link, non-widget PDF annotations present on the page.
+   * Always computed, but omitted when zero so clean pages pay no token cost.
+   */
+  annotationCount?: number;
   /**
    * Non-link, non-widget PDF annotations, only present when
    * `annotations: true` was passed. Coordinates use the same top-left

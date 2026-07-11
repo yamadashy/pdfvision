@@ -35,9 +35,21 @@ export function buildOverview(
     ...(options.includeSearchMatches && { matchCount: page.matches?.length ?? 0 }),
     ...(page.vectorBoxes !== undefined && { vectorBoxCount: page.vectorBoxes.length }),
     ...(page.visualRegions !== undefined && { visualRegionCount: page.visualRegions.length }),
-    ...(page.formFields !== undefined && { formFieldCount: page.formFields.length }),
-    ...(page.links !== undefined && { linkCount: page.links.length }),
-    ...(page.annotations !== undefined && { annotationCount: page.annotations.length }),
+    ...(page.formFieldCount !== undefined
+      ? { formFieldCount: page.formFieldCount }
+      : page.formFields !== undefined
+        ? { formFieldCount: page.formFields.length }
+        : {}),
+    ...(page.linkCount !== undefined
+      ? { linkCount: page.linkCount }
+      : page.links !== undefined
+        ? { linkCount: page.links.length }
+        : {}),
+    ...(page.annotationCount !== undefined
+      ? { annotationCount: page.annotationCount }
+      : page.annotations !== undefined
+        ? { annotationCount: page.annotations.length }
+        : {}),
     ...(page.structure !== undefined && { structureNodeCount: countStructureNodes(page.structure) }),
     width: page.width,
     height: page.height,

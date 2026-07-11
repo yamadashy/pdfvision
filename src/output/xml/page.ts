@@ -27,6 +27,9 @@ function pageAttributes(page: PageResult): string[] {
     `nonPrintableCount="${page.nonPrintableCount}"`,
   ];
   if (page.pageLabel !== undefined) attrs.push(`label="${escapeAttr(page.pageLabel)}"`);
+  if (page.formFieldCount !== undefined) attrs.push(`formFieldCount="${page.formFieldCount}"`);
+  if (page.linkCount !== undefined) attrs.push(`linkCount="${page.linkCount}"`);
+  if (page.annotationCount !== undefined) attrs.push(`annotationCount="${page.annotationCount}"`);
   if (page.renderContentRatio !== undefined) attrs.push(`renderContentRatio="${page.renderContentRatio}"`);
   if (page.rotation !== undefined) attrs.push(`rotation="${page.rotation}"`);
   attrs.push(`nativeTextStatus="${page.quality.nativeTextStatus}"`);

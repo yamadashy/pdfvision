@@ -2,7 +2,7 @@
 
 SKILL.md carries the one-line-per-flag table for picking a flag fast. This file holds the hard-won per-flag caveats — the edge cases that decide whether a flag is the right one for an unusual document. Read it only when choosing between overlapping structural flags (`--layout` vs `--visual-regions` vs `--image-boxes` vs `--form-fields`, etc.) for a document that does not behave like the common case.
 
-The default extraction is enough for most native-text PDFs (papers, exports from Word / Pages / Markdown tooling). Reach for opt-ins only when the default isn't enough. Output field shapes for each flag live in `references/structured-output.md`; OCR specifics in `references/ocr.md`; warning-code interpretation in `references/warnings.md`.
+The default extraction is enough for most native-text PDFs (papers, exports from Word / Pages / Markdown tooling). It automatically surfaces non-zero form-field, link, annotation, and top-level outline presence counts; use the corresponding opt-in flag when a count shows furniture that the task needs. Output field shapes for each flag live in `references/structured-output.md`; OCR specifics in `references/ocr.md`; warning-code interpretation in `references/warnings.md`.
 
 ## `--layout` — reconstruct reading order, headings, table rows
 

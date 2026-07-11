@@ -30,6 +30,15 @@ function makeResult(overrides: Partial<DocumentResult> = {}): DocumentResult {
 }
 
 describe('formatToon', () => {
+  it('round-trips optional furniture presence counts', () => {
+    const result = makeResult({
+      outlineCount: 2,
+      pages: [makePage({ page: 1, formFieldCount: 1, linkCount: 2, annotationCount: 3 })],
+    });
+
+    expect(decode(formatToon(result))).toEqual(result);
+  });
+
   it('round-trips losslessly back to the DocumentResult via decode', () => {
     // TOON is only useful here if it stays a drop-in for `-f json`: decoding
     // the encoded string must reproduce the structured result exactly.
