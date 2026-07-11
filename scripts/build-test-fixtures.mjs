@@ -35,6 +35,7 @@ const FIXTURE_TILED_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-tiled.pdf
 const FIXTURE_COLUMNS_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-columns.pdf');
 const FIXTURE_FURNITURE_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-furniture.pdf');
 const FIXTURE_TRUNCATED_LINE_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-truncated-line.pdf');
+const FIXTURE_TAGGED_TABLE_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-tagged-table.pdf');
 
 // Smallest standard valid PNG (1×1 red pixel). Embedded into the fixture
 // so pdfjs emits a paintImageXObject opcode and density tests can verify
@@ -382,6 +383,62 @@ async function buildTruncatedLinePdf() {
   console.log(`Wrote ${FIXTURE_TRUNCATED_LINE_OUT} (${out.byteLength} bytes)`);
 }
 
+async function buildTaggedTablePdf() {
+  const doc = new PDFDocument({
+    info: {
+      Title: 'pdfvision tagged table fixture',
+      Author: 'pdfvision build-fixtures',
+      Subject: 'Tagged THead and TBody table fixture',
+      Creator: 'pdfvision',
+      CreationDate: FIXED_DATE,
+      ModDate: FIXED_DATE,
+    },
+    autoFirstPage: false,
+    tagged: true,
+  });
+  doc._id = FIXED_FILE_ID;
+
+  const chunks = [];
+  doc.on('data', (c) => chunks.push(c));
+  const done = new Promise((resolveDone, rejectDone) => {
+    doc.on('end', resolveDone);
+    doc.on('error', rejectDone);
+  });
+
+  doc.addPage().font('Helvetica').fontSize(12);
+  const textCell = (role, text, x, y) =>
+    doc.struct(role, [
+      doc.struct('P', () => {
+        doc.text(text, x, y, { lineBreak: false });
+      }),
+    ]);
+  const table = doc.struct('Table', [
+    doc.struct('THead', [
+      doc.struct('TR', [
+        textCell('TH', 'Region', 50, 80),
+        textCell('TH', 'Q1', 180, 80),
+        textCell('TH', 'Q2', 260, 80),
+      ]),
+    ]),
+    doc.struct('TBody', [
+      doc.struct('TR', [textCell('TH', 'North', 50, 110), textCell('TD', '10', 180, 110), doc.struct('TD')]),
+      doc.struct('TR', [
+        textCell('TH', 'South', 50, 140),
+        textCell('TD', '20', 180, 140),
+        textCell('TD', '30', 260, 140),
+      ]),
+    ]),
+  ]);
+  doc.addStructure(table);
+
+  doc.end();
+  await done;
+
+  const out = Buffer.concat(chunks);
+  writeFileSync(FIXTURE_TAGGED_TABLE_OUT, out);
+  console.log(`Wrote ${FIXTURE_TAGGED_TABLE_OUT} (${out.byteLength} bytes)`);
+}
+
 await buildJapanesePdf();
 await buildImagePdf();
 await buildCompatPdf();
@@ -390,3 +447,4 @@ await buildTiledPdf();
 await buildColumnsPdf();
 await buildFurniturePdf();
 await buildTruncatedLinePdf();
+await buildTaggedTablePdf();

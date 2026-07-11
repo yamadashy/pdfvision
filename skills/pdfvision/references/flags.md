@@ -77,7 +77,7 @@ Reviewed PDFs, annotated drafts, PDFs with sticky notes, highlights, underlines,
 
 ## `--structure` — tagged-PDF accessibility structure
 
-Accessible PDFs, government forms/reports, manuals, and any PDF where figure alt text, role hierarchy, language hints, or structure bboxes may explain content that native text and rendered pixels alone do not label. Structure bboxes use the same top-left PDF-point coordinates as spans/layout/image boxes. Stray control bytes in structure strings are removed.
+Accessible PDFs, government forms/reports, manuals, and any PDF where figure alt text, role hierarchy, language hints, structure bboxes, or tagged tables may explain content that native text and rendered pixels alone do not label. Tagged `Table` structures are also reconstructed as row-major `structureTables[]` grids and GFM tables. Structure bboxes use the same top-left PDF-point coordinates as spans/layout/image boxes. Stray control bytes in structure strings are removed.
 
 ## `--page-labels` — viewer page labels
 

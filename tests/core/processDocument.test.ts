@@ -11,6 +11,7 @@ const SAMPLE_JA_PDF = resolve(__dirname, '../fixtures/sample-ja.pdf');
 const SAMPLE_WITH_IMAGE_PDF = resolve(__dirname, '../fixtures/sample-with-image.pdf');
 const SAMPLE_TILED_PDF = resolve(__dirname, '../fixtures/sample-tiled.pdf');
 const SAMPLE_FURNITURE_PDF = resolve(__dirname, '../fixtures/sample-furniture.pdf');
+const SAMPLE_TAGGED_TABLE_PDF = resolve(__dirname, '../fixtures/sample-tagged-table.pdf');
 
 async function buildPdfWithLink(): Promise<Uint8Array> {
   const chunks: Buffer[] = [];
@@ -650,6 +651,26 @@ describe('processDocument', () => {
         },
       ],
     });
+  });
+
+  it('reconstructs tagged table grids from marked-content text', async () => {
+    const result = await processDocument(SAMPLE_TAGGED_TABLE_PDF, { noCache: true, structure: true });
+
+    expect(result.pages[0].structureTables).toEqual([
+      {
+        rows: [
+          {
+            cells: [
+              { text: 'Region', header: 'column' },
+              { text: 'Q1', header: 'column' },
+              { text: 'Q2', header: 'column' },
+            ],
+          },
+          { cells: [{ text: 'North', header: 'row' }, { text: '10' }, { text: '' }] },
+          { cells: [{ text: 'South', header: 'row' }, { text: '20' }, { text: '30' }] },
+        ],
+      },
+    ]);
   });
 
   it('preserves Formula MathML while normalizing tagged structure trees', () => {

@@ -102,6 +102,7 @@ interface PageResult {
   annotationCount?: number;      // always computed; omitted when zero
   annotations?: PageAnnotation[]; // present iff --annotations
   structure?: PageStructureNode | null; // present iff --structure; null means no page structure tree
+  structureTables?: PageStructureTable[]; // tagged tables; present iff --structure found Table nodes
   jsActions?: Record<string, string[]>; // page-level JavaScript actions, present iff --viewer and the page defines them
   ocr?: PageOcr;                 // present iff --ocr
   warnings?: PageWarning[];      // omitted when no rule fired on the page
@@ -308,9 +309,20 @@ interface PageStructureContent {
   type: string;                 // usually "content", "object", or "annotation"
   id: string;                   // pdf.js id that maps to marked content, an object, or an annotation
 }
+
+interface PageStructureTable {
+  rows: { cells: PageStructureTableCell[] }[];
+}
+
+interface PageStructureTableCell {
+  text: string;
+  header?: 'column' | 'row';
+}
 ```
 
 `pages[].structure` surfaces the tagged-PDF structure tree a human reader may reach through a PDF viewer's accessibility layer. This is especially useful for accessible government PDFs, manuals, reports, and forms where figure `alt` text describes a visual region better than native text extraction. IRS instructions, for example, can expose a cover figure's full human-written description through `alt` even though the native text stream only lists fragments. Structure `bbox` values use `[x, y, width, height]` in the same top-left PDF-point coordinate system as `spans`, `layout.blocks`, and `imageBoxes`. Stray control bytes in structure strings are removed before output so malformed `alt` / `lang` values do not leak NUL bytes into JSON, XML, Markdown, or TOON. `structure: null` means the pass ran and pdf.js found no page structure tree; absent `structure` means `--structure` was not requested. `overview[].structureNodeCount` mirrors the number of structure nodes so multi-page consumers can find tagged pages before walking every tree.
+
+`pages[].structureTables` reconstructs `Table` roles by correlating structure content ids with marked-content ids from the already-loaded text stream. It supports `THead` / `TBody` / `TFoot` wrappers and direct `TR` children. A `TH` in `TBody` is a row header; other wrapped `TH` cells are column headers. For bare rows, `TH` cells are row headers unless the first row is entirely `TH`, in which case that row is classified as column headers. Empty tagged cells remain empty strings. Paragraphs inside a cell join with `<br>`, while nested tables are flattened into the parent cell text. pdf.js does not expose table spans or explicit `/Scope`, so `RowSpan` / `ColSpan` cannot be represented and header direction is heuristic. Tables split across pages are not merged. The field is absent when no tagged `Table` exists; it is independent of geometry-derived `layout.tables[]`, so requesting both `--layout` and `--structure` can show the same visible table twice.
 
 ## Page labels (`--page-labels`)
 

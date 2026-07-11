@@ -47,7 +47,14 @@ export type { ProcessDocumentOptions, ProcessOptions } from './options.js';
 export type { PageOverview, PageResult } from './page.js';
 export type { PageQuality } from './quality.js';
 export type { SearchMatch } from './search.js';
-export type { PageStructureContent, PageStructureItem, PageStructureNode } from './structure.js';
+export type {
+  PageStructureContent,
+  PageStructureItem,
+  PageStructureNode,
+  PageStructureTable,
+  PageStructureTableCell,
+  PageStructureTableRow,
+} from './structure.js';
 export type {
   ImageBox,
   RenderedContentBox,

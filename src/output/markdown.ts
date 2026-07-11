@@ -8,7 +8,7 @@ import { appendLinks } from './markdown/links.js';
 import { appendOverview, formatSize } from './markdown/overview.js';
 import { appendJavaScriptActions, appendOcr, appendPageImage, appendWarnings } from './markdown/pageArtifacts.js';
 import { appendSearchMatches } from './markdown/pageSections.js';
-import { appendStructureItem, structureNodeCount } from './markdown/structure.js';
+import { appendStructureItem, appendStructureTables, structureNodeCount } from './markdown/structure.js';
 import { appendVisualRegions } from './markdown/visualRegions.js';
 
 /** Options that influence the Markdown rendering without changing the
@@ -232,6 +232,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
         lines.push('_No tagged PDF structure tree found._');
       } else {
         appendStructureItem(lines, page.structure);
+        if (page.structureTables) appendStructureTables(lines, page.structureTables);
       }
     }
     appendVisualRegions(lines, page);

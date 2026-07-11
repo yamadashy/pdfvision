@@ -54,6 +54,7 @@ export function buildPageResult({
     ...(data.annotationCount !== undefined && { annotationCount: data.annotationCount }),
     ...(data.annotations !== undefined && { annotations: data.annotations }),
     ...(data.structure !== undefined && { structure: data.structure }),
+    ...(data.structureTables !== undefined && { structureTables: data.structureTables }),
     ...(data.jsActions !== undefined && { jsActions: data.jsActions }),
     // Initial classification using whatever signals we have so far.
     // OCR may attach a renderContentRatio later; the post-OCR pass

@@ -21,3 +21,19 @@ export interface PageStructureNode {
   /** Nested structure nodes or marked-content/object references. */
   children: PageStructureItem[];
 }
+
+export interface PageStructureTableCell {
+  /** Text reconstructed from marked-content references in tree order. */
+  text: string;
+  /** Header direction inferred from tagged-table ancestry. */
+  header?: 'column' | 'row';
+}
+
+export interface PageStructureTableRow {
+  cells: PageStructureTableCell[];
+}
+
+export interface PageStructureTable {
+  /** Row-major tagged table grid. PDF row/column spans are not exposed by pdf.js. */
+  rows: PageStructureTableRow[];
+}
