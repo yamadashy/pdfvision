@@ -28,7 +28,7 @@ function emitOutputSizeNote(result: string): void {
   if (bytes <= OUTPUT_SIZE_NOTE_THRESHOLD_BYTES) return;
 
   process.stderr.write(
-    `pdfvision: note: output is ${formatOutputSize(bytes)} (~${formatEstimatedTokens(bytes)} tokens); consider -p <range> to page through, --search <query> --matches-only to locate content, or --outline for navigation\n`,
+    `pdfvision: note: output is ${formatOutputSize(bytes)} (~${formatEstimatedTokens(bytes)} tokens); consider -p <range> to page through, --search <query> --matches-only to locate content, or --outline -p 1 for navigation (--outline alone still emits every page)\n`,
   );
 }
 
