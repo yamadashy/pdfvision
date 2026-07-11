@@ -742,6 +742,23 @@ describe('formatMarkdown', () => {
     expect(fullOutline).toContain('## Outline');
   });
 
+  it('surfaces a document JavaScript presence count until viewer details are requested', () => {
+    const countOnly = formatMarkdown(makeResult({ javascriptActionCount: 1 }));
+    expect(countOnly).toContain('- **JavaScript:** 1 document-level action (use --viewer)');
+
+    const plural = formatMarkdown(makeResult({ javascriptActionCount: 2 }));
+    expect(plural).toContain('- **JavaScript:** 2 document-level actions (use --viewer)');
+
+    const withViewer = formatMarkdown(
+      makeResult({
+        javascriptActionCount: 1,
+        viewer: { jsActions: { OpenAction: ['app.alert("open");'] } },
+      }),
+    );
+    expect(withViewer).not.toContain('- **JavaScript:**');
+    expect(withViewer).toContain('- **JavaScript actions:** OpenAction=app.alert("open");');
+  });
+
   it('renders an explicit empty outline message when the outline pass found no bookmarks', () => {
     const out = formatMarkdown(makeResult({ outline: [] }));
     expect(out).toContain('## Outline');

@@ -25,10 +25,12 @@ import { appendPage } from './xml/page.js';
 export function formatXml(result: DocumentResult): string {
   const out: string[] = [];
   const attachmentCount = result.attachmentCount !== undefined ? ` attachmentCount="${result.attachmentCount}"` : '';
+  const javascriptActionCount =
+    result.javascriptActionCount !== undefined ? ` javascriptActionCount="${result.javascriptActionCount}"` : '';
   const outlineCount = result.outlineCount !== undefined ? ` outlineCount="${result.outlineCount}"` : '';
   const xfa = result.xfa ? ' xfa="true"' : '';
   out.push(
-    `<document file="${escapeAttr(result.file)}" totalPages="${result.totalPages}"${attachmentCount}${outlineCount}${xfa}>`,
+    `<document file="${escapeAttr(result.file)}" totalPages="${result.totalPages}"${attachmentCount}${javascriptActionCount}${outlineCount}${xfa}>`,
   );
   appendDocumentSections(out, result);
   out.push('<pages>');

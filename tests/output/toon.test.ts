@@ -39,6 +39,12 @@ describe('formatToon', () => {
     expect(decode(formatToon(result))).toEqual(result);
   });
 
+  it('round-trips the document JavaScript presence count', () => {
+    const result = makeResult({ javascriptActionCount: 2 });
+
+    expect(decode(formatToon(result))).toEqual(result);
+  });
+
   it('round-trips losslessly back to the DocumentResult via decode', () => {
     // TOON is only useful here if it stays a drop-in for `-f json`: decoding
     // the encoded string must reproduce the structured result exactly.

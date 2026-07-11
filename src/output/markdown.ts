@@ -86,6 +86,11 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
       `- **Attachments:** ${result.attachmentCount} embedded ${result.attachmentCount === 1 ? 'file' : 'files'} (use --attachments)`,
     );
   }
+  if (result.javascriptActionCount !== undefined && result.viewer?.jsActions === undefined) {
+    lines.push(
+      `- **JavaScript:** ${result.javascriptActionCount} document-level ${result.javascriptActionCount === 1 ? 'action' : 'actions'} (use --viewer)`,
+    );
+  }
   if (result.outlineCount !== undefined && result.outline === undefined) {
     lines.push(`- **Outline:** ${result.outlineCount} top-level ${result.outlineCount === 1 ? 'entry' : 'entries'}`);
   }

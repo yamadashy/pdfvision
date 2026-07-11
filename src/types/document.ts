@@ -148,6 +148,12 @@ export interface DocumentResult {
    */
   attachmentCount?: number;
   /**
+   * Number of document-level JavaScript action scripts. Always computed,
+   * but omitted when the PDF has none so clean documents pay no token cost.
+   * Pass `viewer: true` to expose action names and script source.
+   */
+  javascriptActionCount?: number;
+  /**
    * Number of top-level document outline entries. Always computed, but
    * omitted when the PDF has no outline so clean documents pay no token cost.
    */

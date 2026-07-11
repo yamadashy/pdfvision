@@ -11,7 +11,7 @@ import { collectFileAttachmentAnnotations } from '../document/attachmentAnnotati
 import { buildAttachments, catalogAttachmentsToRecord, mergeAttachmentRecords } from '../document/attachments.js';
 import { buildLayers } from '../document/layers.js';
 import { buildOutline } from '../document/outline.js';
-import { buildViewerState } from '../document/viewer.js';
+import { buildViewerState, javaScriptActionCount, normalizeJavaScriptActions } from '../document/viewer.js';
 import { normalizeText } from './textUtils.js';
 
 export interface DocumentFeatures {
@@ -19,6 +19,7 @@ export interface DocumentFeatures {
   pageLabels?: string[];
   attachments?: DocumentAttachment[];
   attachmentCount?: number;
+  javascriptActionCount?: number;
   outlineCount?: number;
   outline?: DocumentOutlineItem[];
   viewer?: DocumentViewerState;
@@ -58,6 +59,11 @@ export async function extractDocumentFeatures(
   // PDF carries attachments. When the full pass ran, its merged view (which
   // also covers per-page file-attachment annotations) is the truth.
   const attachmentCount = attachments?.length ?? catalogAttachments?.size ?? 0;
+  const rawJavaScriptActions = await doc.getJSActions();
+  const javascriptActions = normalizeJavaScriptActions(rawJavaScriptActions, {
+    normalizeText: normalize,
+  });
+  const javascriptActionCount = javaScriptActionCount(javascriptActions);
   const rawOutline = await doc.getOutline();
   const outline: DocumentOutlineItem[] | undefined = options.outline
     ? await buildOutline(rawOutline, doc, {
@@ -68,6 +74,7 @@ export async function extractDocumentFeatures(
   const viewer: DocumentViewerState | undefined = options.viewer
     ? await buildViewerState(doc, {
         normalizeText: normalize,
+        preloadedJavaScriptActions: rawJavaScriptActions,
       })
     : undefined;
   const layerStateOptions = {
@@ -83,6 +90,7 @@ export async function extractDocumentFeatures(
     ...(pageLabels !== undefined && { pageLabels }),
     ...(attachments !== undefined && { attachments }),
     ...(attachmentCount > 0 && { attachmentCount }),
+    ...(javascriptActionCount > 0 && { javascriptActionCount }),
     ...(outlineCount > 0 && { outlineCount }),
     ...(outline !== undefined && { outline }),
     ...(viewer !== undefined && { viewer }),

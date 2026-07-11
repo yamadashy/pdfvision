@@ -86,4 +86,24 @@ describe('buildViewerState', () => {
 
     expect(viewer).toEqual({ permissions: { flags: [], allowed: [] } });
   });
+
+  it('uses preloaded document JavaScript actions without fetching them again', async () => {
+    const doc = {
+      getPageLayout: async () => '',
+      getPageMode: async () => 'UseNone',
+      getViewerPreferences: async () => null,
+      getOpenAction: async () => null,
+      getJSActions: async () => {
+        throw new Error('unexpected duplicate getJSActions call');
+      },
+      getPermissions: async () => null,
+      getMarkInfo: async () => null,
+    } as unknown as PDFDocumentProxy;
+
+    const viewer = await buildViewerState(doc, {
+      preloadedJavaScriptActions: { OpenAction: ['app.alert("open");'] },
+    });
+
+    expect(viewer.jsActions).toEqual({ OpenAction: ['app.alert("open");'] });
+  });
 });

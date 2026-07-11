@@ -5,6 +5,7 @@ import { extractDocumentFeatures } from '../../src/core/processor/documentFeatur
 interface StubDocOverrides {
   info?: Record<string, unknown>;
   attachments?: Map<string, Record<string, unknown>> | null;
+  javaScriptActions?: Record<string, string[]> | null;
 }
 
 // Minimal PDFDocumentProxy stub for the default (flagless) feature pass:
@@ -15,6 +16,7 @@ function stubDoc(overrides: StubDocOverrides = {}): PDFDocumentProxy {
     getMetadata: async () => ({ info: overrides.info ?? {} }),
     getOutline: async () => null,
     getAttachments: async () => overrides.attachments ?? null,
+    getJSActions: async () => overrides.javaScriptActions ?? null,
     getOptionalContentConfig: async () => {
       throw new Error('not available in stub');
     },
@@ -31,6 +33,7 @@ describe('extractDocumentFeatures presence signals', () => {
     const features = await extractDocumentFeatures(stubDoc(), {});
     expect(features.isXfaPresent).toBe(false);
     expect(features.attachmentCount).toBeUndefined();
+    expect(features.javascriptActionCount).toBeUndefined();
   });
 
   it('counts document-level embedded files without the attachment pass', async () => {
@@ -45,5 +48,20 @@ describe('extractDocumentFeatures presence signals', () => {
     );
     expect(features.attachmentCount).toBe(2);
     expect(features.attachments).toBeUndefined();
+  });
+
+  it('counts document-level JavaScript scripts without the viewer pass', async () => {
+    const features = await extractDocumentFeatures(
+      stubDoc({
+        javaScriptActions: {
+          NamedScript: ['app.alert("named");'],
+          OpenAction: ['app.alert("open");'],
+        },
+      }),
+      {},
+    );
+
+    expect(features.javascriptActionCount).toBe(2);
+    expect(features.viewer).toBeUndefined();
   });
 });

@@ -33,18 +33,22 @@ const PERMISSION_FLAGS: ReadonlyArray<{ value: number; name: DocumentPermission 
 
 interface BuildViewerStateOptions {
   normalizeText?: (value: string) => string;
+  preloadedJavaScriptActions?: unknown;
 }
 
 export async function buildViewerState(
   doc: PDFDocumentProxy,
   options: BuildViewerStateOptions = {},
 ): Promise<DocumentViewerState> {
+  const jsActionsPromise = Object.hasOwn(options, 'preloadedJavaScriptActions')
+    ? Promise.resolve(options.preloadedJavaScriptActions)
+    : doc.getJSActions();
   const [pageLayout, pageMode, viewerPreferences, openAction, jsActions, permissions, markInfo] = await Promise.all([
     doc.getPageLayout(),
     doc.getPageMode(),
     doc.getViewerPreferences(),
     doc.getOpenAction(),
-    doc.getJSActions(),
+    jsActionsPromise,
     doc.getPermissions(),
     doc.getMarkInfo(),
   ]);
@@ -130,6 +134,10 @@ export function normalizeJavaScriptActions(
     if (scripts.length > 0) actions[name] = [...(actions[name] ?? []), ...scripts];
   }
   return Object.keys(actions).length > 0 ? actions : undefined;
+}
+
+export function javaScriptActionCount(actions: Record<string, string[]> | undefined): number {
+  return Object.values(actions ?? {}).reduce((count, scripts) => count + scripts.length, 0);
 }
 
 function jsActionsValue(value: unknown, options: BuildViewerStateOptions): Pick<DocumentViewerState, 'jsActions'> {

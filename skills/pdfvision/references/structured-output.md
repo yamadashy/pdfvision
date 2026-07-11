@@ -16,6 +16,7 @@ interface DocumentResult {
   pageLabels?: string[];       // full 0-indexed viewer page-label array; present iff --page-labels
   attachments?: DocumentAttachment[]; // embedded file metadata; present iff --attachments
   attachmentCount?: number;    // document-level embedded files; always computed, omitted when zero
+  javascriptActionCount?: number; // document-level JavaScript scripts; always computed, omitted when zero
   outlineCount?: number;       // top-level outline entries; always computed, omitted when zero
   xfa?: boolean;               // true iff the PDF declares an XFA (LiveCycle) form; see xfa_form warning
   outline?: DocumentOutlineItem[]; // document bookmarks; present iff --outline
@@ -27,6 +28,8 @@ interface DocumentResult {
 ```
 
 `file` is patched on cache hit to the current invocation's path or `--remote` URL, so a downstream consumer sees a meaningful input label even when the cached entry came from a different invocation that touched the same content hash.
+
+`javascriptActionCount` is an always-on presence signal. It counts the script entries returned by pdf.js at document level, including JavaScript catalog `OpenAction` entries and named JavaScript entries. Pass `--viewer` to expose their names and script source in `viewer.jsActions`; pdfvision reports the scripts as data and does not execute them.
 
 ## PageOverview (density summary)
 
@@ -382,7 +385,7 @@ interface DocumentViewerState {
 }
 ```
 
-`viewer` surfaces document-level state a human PDF viewer uses before reading page text: sidebar/page mode, page layout, preferences such as `DisplayDocTitle`, catalog `OpenAction`, document JavaScript actions such as auto-print scripts, permission flags, and tagged-PDF `MarkInfo`. The same `--viewer` pass also emits page-level JavaScript actions such as `PageOpen` / `PageClose` on `pages[].jsActions` when a page defines them. Markdown shortens very long JavaScript action summaries for readability; JSON, XML, and TOON keep the full structured values. Use it on specs, manuals, papers, forms, and long reports where opening position, bookmark/sidebar mode, JavaScript-triggered viewer behavior, copy/print permissions, or tagged-PDF structure affects navigation or accessibility. Empty `viewer: {}` means the pass ran and no viewer-level settings were present; absent `viewer` means `--viewer` was not requested.
+`viewer` surfaces document-level state a human PDF viewer uses before reading page text: sidebar/page mode, page layout, preferences such as `DisplayDocTitle`, catalog `OpenAction`, document JavaScript actions such as auto-print scripts, permission flags, and tagged-PDF `MarkInfo`. Document JavaScript presence is always available through `javascriptActionCount`; `--viewer` expands it into action names and script source under `viewer.jsActions`. The same `--viewer` pass also emits page-level JavaScript actions such as `PageOpen` / `PageClose` on `pages[].jsActions` when a page defines them. Markdown shortens very long JavaScript action summaries for readability; JSON, XML, and TOON keep the full structured values. Use it on specs, manuals, papers, forms, and long reports where opening position, bookmark/sidebar mode, JavaScript-triggered viewer behavior, copy/print permissions, or tagged-PDF structure affects navigation or accessibility. Empty `viewer: {}` means the pass ran and no viewer-level settings were present; absent `viewer` means `--viewer` was not requested.
 
 ## Layers (`--layers`)
 
@@ -660,7 +663,7 @@ pdfvision doc.pdf -p <m.page> --render --render-region <m.bbox.x>,<m.bbox.y>,<m.
 `-f xml` mirrors the JSON shape one-for-one:
 
 ```xml
-<document file="..." totalPages="14" outlineCount="...">
+<document file="..." totalPages="14" javascriptActionCount="..." outlineCount="...">
   <metadata>
     <title>...</title>
     <author>...</author>

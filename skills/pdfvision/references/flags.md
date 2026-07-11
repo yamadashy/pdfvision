@@ -2,7 +2,7 @@
 
 SKILL.md carries the one-line-per-flag table for picking a flag fast. This file holds the hard-won per-flag caveats — the edge cases that decide whether a flag is the right one for an unusual document. Read it only when choosing between overlapping structural flags (`--layout` vs `--visual-regions` vs `--image-boxes` vs `--form-fields`, etc.) for a document that does not behave like the common case.
 
-The default extraction is enough for most native-text PDFs (papers, exports from Word / Pages / Markdown tooling). It automatically surfaces non-zero form-field, link, annotation, and top-level outline presence counts; use the corresponding opt-in flag when a count shows furniture that the task needs. Output field shapes for each flag live in `references/structured-output.md`; OCR specifics in `references/ocr.md`; warning-code interpretation in `references/warnings.md`.
+The default extraction is enough for most native-text PDFs (papers, exports from Word / Pages / Markdown tooling). It automatically surfaces non-zero form-field, link, annotation, top-level outline, attachment, and document JavaScript presence counts; use the corresponding opt-in flag when a count shows furniture that the task needs. Output field shapes for each flag live in `references/structured-output.md`; OCR specifics in `references/ocr.md`; warning-code interpretation in `references/warnings.md`.
 
 ## `--layout` — reconstruct reading order, headings, table rows
 
@@ -93,7 +93,7 @@ Long reports, manuals, specifications, and papers where a human PDF reader would
 
 ## `--viewer` — initial viewer state
 
-PDFs whose opening mode, page layout, viewer preferences, OpenAction, document/page JavaScript actions, permissions, or tagged-PDF MarkInfo affects how a human reader sees or navigates the document.
+PDFs whose opening mode, page layout, viewer preferences, OpenAction, document/page JavaScript actions, permissions, or tagged-PDF MarkInfo affects how a human reader sees or navigates the document. A flagless run already reports non-zero document JavaScript presence through `javascriptActionCount`; use `--viewer` to expose document action names and script source, plus page-level actions.
 
 ## `--layers` — viewer layer panels
 
