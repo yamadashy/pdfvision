@@ -35,6 +35,7 @@ const FIXTURE_TILED_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-tiled.pdf
 const FIXTURE_COLUMNS_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-columns.pdf');
 const FIXTURE_FURNITURE_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-furniture.pdf');
 const FIXTURE_TRUNCATED_LINE_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-truncated-line.pdf');
+const FIXTURE_INVISIBLE_TEXT_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-invisible-text.pdf');
 const FIXTURE_TAGGED_TABLE_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-tagged-table.pdf');
 const FIXTURE_JAVASCRIPT_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-javascript.pdf');
 
@@ -384,6 +385,43 @@ async function buildTruncatedLinePdf() {
   console.log(`Wrote ${FIXTURE_TRUNCATED_LINE_OUT} (${out.byteLength} bytes)`);
 }
 
+async function buildInvisibleTextPdf() {
+  const doc = new PDFDocument({
+    size: [612, 792],
+    margins: { top: 0, left: 0, bottom: 0, right: 0 },
+    info: {
+      Title: 'pdfvision invisible text fixture',
+      Author: 'pdfvision build-fixtures',
+      Subject: 'Invisible text rendering mode warning fixture',
+      Creator: 'pdfvision',
+      CreationDate: FIXED_DATE,
+      ModDate: FIXED_DATE,
+    },
+    autoFirstPage: false,
+  });
+  doc._id = FIXED_FILE_ID;
+
+  const chunks = [];
+  doc.on('data', (c) => chunks.push(c));
+  const done = new Promise((resolveDone, rejectDone) => {
+    doc.on('end', resolveDone);
+    doc.on('error', rejectDone);
+  });
+
+  doc.addPage().font('Helvetica').fontSize(14).text('Visible page text', 50, 70);
+  doc.addContent('3 Tr');
+  doc.text('HIDDEN INSTRUCTION MARKER', 50, 120);
+  doc.addContent('0 Tr');
+  doc.text('Visible closing text', 50, 170);
+
+  doc.end();
+  await done;
+
+  const out = Buffer.concat(chunks);
+  writeFileSync(FIXTURE_INVISIBLE_TEXT_OUT, out);
+  console.log(`Wrote ${FIXTURE_INVISIBLE_TEXT_OUT} (${out.byteLength} bytes)`);
+}
+
 async function buildTaggedTablePdf() {
   const doc = new PDFDocument({
     info: {
@@ -486,5 +524,6 @@ await buildTiledPdf();
 await buildColumnsPdf();
 await buildFurniturePdf();
 await buildTruncatedLinePdf();
+await buildInvisibleTextPdf();
 await buildTaggedTablePdf();
 await buildJavaScriptPdf();
