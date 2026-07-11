@@ -225,4 +225,72 @@ describe('joinPageText (CJK-aware whitespace handling)', () => {
 
     expect(joinPageText(items).normalize('NFKC')).toBe('انواع اخلطوط العربية\nانواع العربية');
   });
+
+  it('preserves explicit spaces in glyph-per-item visual-order RTL text', () => {
+    const visualGlyphs = [' ', 'ل', 'ي', 'م', 'ج', ' ', '\t', 'ر', 'ص', 'م', '  '];
+    const visualX = [-10, 0, 10, 20, 30, 39.8, 39.85, 39.9, 49.9, 59.9, 70];
+    const items: JoinItem[] = visualGlyphs.map((str, index) => ({
+      str,
+      x: visualX[index],
+      width: str.trim().length === 0 ? 1.6 : 10,
+      fontSize: 10,
+      hasEOL: false,
+      dir: str.trim().length === 0 ? 'ltr' : 'rtl',
+    }));
+
+    expect(joinPageText(items)).toBe('مصر جميل');
+  });
+
+  it('keeps the geometric-gap fallback for RTL producers without space items', () => {
+    const visualGlyphs = Array.from('ليمجرصم');
+    const items: JoinItem[] = visualGlyphs.map((str, index) => ({
+      str,
+      x: index < 4 ? index * 10 : 44 + (index - 4) * 10,
+      width: 10,
+      fontSize: 10,
+      hasEOL: false,
+      dir: 'rtl',
+    }));
+
+    expect(joinPageText(items)).toBe('مصر جميل');
+  });
+
+  it('mirrors single-character paired punctuation after reversing RTL visual order', () => {
+    const logicalText = '(توضيح) [1] {س} <ص> «ع»';
+    const mirroredCharacters: Record<string, string> = {
+      '(': ')',
+      ')': '(',
+      '[': ']',
+      ']': '[',
+      '{': '}',
+      '}': '{',
+      '<': '>',
+      '>': '<',
+      '«': '»',
+      '»': '«',
+    };
+    const visualGlyphs = Array.from(logicalText)
+      .reverse()
+      .map((str) => mirroredCharacters[str] ?? str);
+    const items: JoinItem[] = visualGlyphs.map((str, index) => ({
+      str,
+      x: index * 10,
+      width: str === ' ' ? 2 : 10,
+      fontSize: 10,
+      hasEOL: false,
+      dir: str === ' ' ? 'ltr' : 'rtl',
+    }));
+
+    expect(joinPageText(items)).toBe(logicalText);
+  });
+
+  it('leaves LTR lines and paired punctuation inside logical-order RTL items unchanged', () => {
+    const ltrItems: JoinItem[] = [{ str: '(hello) [1]', x: 0, width: 70, fontSize: 10, hasEOL: false, dir: 'ltr' }];
+    const logicalRtlItems: JoinItem[] = [
+      { str: 'مرحبا (توضيح) [1] {س} <ص> «ع»', x: 0, width: 180, fontSize: 10, hasEOL: false, dir: 'rtl' },
+    ];
+
+    expect(joinPageText(ltrItems)).toBe('(hello) [1]');
+    expect(joinPageText(logicalRtlItems)).toBe('مرحبا (توضيح) [1] {س} <ص> «ع»');
+  });
 });

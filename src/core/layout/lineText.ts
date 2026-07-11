@@ -1,7 +1,8 @@
 import type { TextSpan } from '../../types/index.js';
-import { CJK_TIGHT_GAP_RATIO, isCjkLeading } from '../text/cjkJoin.js';
+import { CJK_TIGHT_GAP_RATIO, isCjkLeading, mirrorReversedRtlCharacter } from '../text/cjkJoin.js';
 import { shouldInsertSemanticSpace } from '../text/spacing.js';
 import { isRtlDominantPositionedText, textOrder } from '../text/textDirection.js';
+import { hasExplicitSpaceBefore } from './spanMetadata.js';
 
 /** Gap fraction for non-CJK pairs — pdf.js typically packs inter-word
  *  spaces around 0.22 × fontSize. Preserves the pre-fix behavior for
@@ -33,7 +34,7 @@ export function joinLineSpans(spans: TextSpan[]): string {
   if (spans.length === 0) return '';
   const rtl = isRtlDominantPositionedText(spans);
   const ordered = textOrder(spans);
-  let out = ordered[0].text;
+  let out = rtl ? mirrorReversedRtlCharacter(ordered[0].text) : ordered[0].text;
   for (let i = 1; i < ordered.length; i++) {
     const prev = ordered[i - 1];
     const cur = ordered[i];
@@ -45,7 +46,12 @@ export function joinLineSpans(spans: TextSpan[]): string {
     // into a synthesized space.
     const fontSize = cur.fontSize || prev.fontSize || FONT_SIZE_FALLBACK_PT;
     const threshold = fontSize * (bothCjk ? CJK_TIGHT_GAP_RATIO : DEFAULT_SPACE_GAP_RATIO);
-    out += gap > threshold || shouldInsertSemanticSpace(prev.text, cur.text, gap, fontSize) ? ` ${cur.text}` : cur.text;
+    const insertSpace =
+      (rtl && hasExplicitSpaceBefore(prev)) ||
+      gap > threshold ||
+      shouldInsertSemanticSpace(prev.text, cur.text, gap, fontSize);
+    const text = rtl ? mirrorReversedRtlCharacter(cur.text) : cur.text;
+    out += insertSpace ? ` ${text}` : text;
   }
   return out;
 }

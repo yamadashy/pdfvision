@@ -20,6 +20,7 @@ import {
   textWithHorizontalRuby,
 } from './horizontalRuby.js';
 import { joinLineSpans } from './lineText.js';
+import { copySpanMetadata } from './spanMetadata.js';
 import { hasVerticalTextShape } from './verticalText.js';
 
 /** Fallback fontSize when both prev and cur report 0 (rare — usually
@@ -279,7 +280,7 @@ function spansWithHorizontalRuby(
   return spans.map((span) => {
     const spanAttachments = attachments.get(span);
     return spanAttachments && spanAttachments.length > 0
-      ? { ...span, text: textWithHorizontalRuby(span.text, spanAttachments) }
+      ? copySpanMetadata(span, { ...span, text: textWithHorizontalRuby(span.text, spanAttachments) })
       : span;
   });
 }
