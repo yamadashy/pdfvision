@@ -34,27 +34,25 @@ function walkNodes(node: PageStructureNode, visit: (node: PageStructureNode) => 
 
 function buildTable(table: PageStructureNode, markedContentText: ReadonlyMap<string, string>): PageStructureTable {
   const sourceRows = tableRows(table);
+  // Judge only the actual cells: real-world TRs may carry stray non-cell children.
+  const firstRowCells = sourceRows[0] ? rowCells(sourceRows[0].node) : [];
   const firstBareRowIsColumnHeader =
-    sourceRows[0]?.section === 'bare' &&
-    sourceRows[0].node.children.length > 0 &&
-    sourceRows[0].node.children.every((child) => 'role' in child && child.role === 'TH');
+    sourceRows[0]?.section === 'bare' && firstRowCells.length > 0 && firstRowCells.every((cell) => cell.role === 'TH');
   const rows = sourceRows.map(({ node, section }, rowIndex): PageStructureTableRow => {
-    const cells = node.children
-      .filter((child): child is PageStructureNode => 'role' in child && (child.role === 'TH' || child.role === 'TD'))
-      .map((cell): PageStructureTableCell => {
-        const header =
-          cell.role === 'TH'
-            ? section === 'head' ||
-              section === 'foot' ||
-              (section === 'bare' && rowIndex === 0 && firstBareRowIsColumnHeader)
-              ? 'column'
-              : 'row'
-            : undefined;
-        return {
-          text: structureCellText(cell, markedContentText),
-          ...(header !== undefined && { header }),
-        };
-      });
+    const cells = rowCells(node).map((cell): PageStructureTableCell => {
+      const header =
+        cell.role === 'TH'
+          ? section === 'head' ||
+            section === 'foot' ||
+            (section === 'bare' && rowIndex === 0 && firstBareRowIsColumnHeader)
+            ? 'column'
+            : 'row'
+          : undefined;
+      return {
+        text: structureCellText(cell, markedContentText),
+        ...(header !== undefined && { header }),
+      };
+    });
     return { cells };
   });
   return { rows };
@@ -75,6 +73,12 @@ function tableRows(table: PageStructureNode): StructureRow[] {
     }
   }
   return rows;
+}
+
+function rowCells(row: PageStructureNode): PageStructureNode[] {
+  return row.children.filter(
+    (child): child is PageStructureNode => 'role' in child && (child.role === 'TH' || child.role === 'TD'),
+  );
 }
 
 function tableSection(role: string): Exclude<TableSection, 'bare'> | undefined {
