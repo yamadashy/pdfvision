@@ -31,6 +31,11 @@ const BODY_VERTICAL_CJK_MAX_COLUMN_GAP_RATIO = 3;
 const BODY_VERTICAL_CJK_MAX_COLUMN_GAP_PT = 36;
 const BODY_VERTICAL_CJK_COLUMN_OVERLAP_RATIO = 0.05;
 const SHORT_BODY_VERTICAL_CJK_MIN_RUN_SPANS = 3;
+/** A lone long vertical label can be a chart axis on an otherwise horizontal
+ *  page. Multiple body columns are the page-level tategaki signal; short
+ *  columns beyond their right edge are title/author-shaped front matter. */
+const PAGE_CONTEXT_SHORT_VERTICAL_CJK_MIN_RUN_SPANS = 2;
+const PAGE_CONTEXT_VERTICAL_CJK_MIN_BODY_RUNS = 2;
 const SHORT_BODY_VERTICAL_CJK_MIN_FONT_RATIO = 0.75;
 const SHORT_BODY_VERTICAL_CJK_MAX_FONT_RATIO = 1.25;
 const BODY_VERTICAL_INLINE_GLYPH_RE = /^[A-Za-z()]$/u;
@@ -259,6 +264,35 @@ export function collectShortBodyVerticalCjkRuns(
   bodyRuns: readonly VerticalCjkRun[],
   excludedSpans: ReadonlySet<TextSpan>,
 ): VerticalCjkRun[] {
+  return collectShortVerticalCjkRuns(spans, bodyRuns, excludedSpans, SHORT_BODY_VERTICAL_CJK_MIN_RUN_SPANS, (run) =>
+    isContextualShortBodyVerticalRun(run, bodyRuns),
+  );
+}
+
+export function collectPageContextShortVerticalCjkRuns(
+  spans: readonly TextSpan[],
+  bodyRuns: readonly VerticalCjkRun[],
+  excludedSpans: ReadonlySet<TextSpan>,
+): VerticalCjkRun[] {
+  if (bodyRuns.length < PAGE_CONTEXT_VERTICAL_CJK_MIN_BODY_RUNS) return [];
+
+  const rightmostBodyX = Math.max(...bodyRuns.map((run) => run.centerX));
+  return collectShortVerticalCjkRuns(
+    spans,
+    bodyRuns,
+    excludedSpans,
+    PAGE_CONTEXT_SHORT_VERTICAL_CJK_MIN_RUN_SPANS,
+    (run) => run.centerX > rightmostBodyX && run.spans.some((span) => containsCjkScript(span.text)),
+  );
+}
+
+function collectShortVerticalCjkRuns(
+  spans: readonly TextSpan[],
+  bodyRuns: readonly VerticalCjkRun[],
+  excludedSpans: ReadonlySet<TextSpan>,
+  minRunSpans: number,
+  acceptRun: (run: VerticalCjkRun) => boolean,
+): VerticalCjkRun[] {
   if (bodyRuns.length === 0) return [];
 
   const bodySpanSet = new Set<TextSpan>();
@@ -270,7 +304,7 @@ export function collectShortBodyVerticalCjkRuns(
     .filter((span) => !bodySpanSet.has(span) && !excludedSpans.has(span))
     .filter(isShortBodyVerticalCjkGlyph)
     .sort((a, b) => centerX(b) - centerX(a) || a.y - b.y);
-  if (candidates.length < SHORT_BODY_VERTICAL_CJK_MIN_RUN_SPANS) return [];
+  if (candidates.length < minRunSpans) return [];
 
   const columns: TextSpan[][] = [];
   for (const candidate of candidates) {
@@ -294,8 +328,8 @@ export function collectShortBodyVerticalCjkRuns(
     const sortedColumn = [...column].sort((a, b) => a.y - b.y || a.x - b.x);
     let run: TextSpan[] = [];
     const flush = () => {
-      const verticalRun = toVerticalGlyphRun(run, SHORT_BODY_VERTICAL_CJK_MIN_RUN_SPANS);
-      if (verticalRun && isContextualShortBodyVerticalRun(verticalRun, bodyRuns)) runs.push(verticalRun);
+      const verticalRun = toVerticalGlyphRun(run, minRunSpans);
+      if (verticalRun && acceptRun(verticalRun)) runs.push(verticalRun);
       run = [];
     };
     for (const span of sortedColumn) {
