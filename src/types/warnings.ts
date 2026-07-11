@@ -3,6 +3,7 @@
  * that raw text alone hides: overlapping layout blocks, bodies crowded
  * against chrome, off-page bboxes, localized glyph noise / replacement
  * characters / CJK mojibake,
+ * right-to-left script text whose spacing or paired brackets may degrade,
  * page-wide glyph-index garbage, tiny native text that may not be human-visible,
  * raw embedded producer/source payloads that leak into native text,
  * dense vector graphics whose form fields or chart paths are not text,
@@ -23,6 +24,7 @@ export interface PageWarning {
     | 'body_near_repeated_chrome'
     | 'off_page'
     | 'glyph_garbage_text'
+    | 'rtl_script_text'
     | 'localized_glyph_noise'
     | 'font_mapping_warning'
     | 'raw_embedded_source_text'

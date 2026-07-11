@@ -38,6 +38,22 @@ async function buildEncryptedPdf(): Promise<Uint8Array> {
   return new Uint8Array(Buffer.concat(chunks));
 }
 
+async function buildLargeTextPdf(): Promise<Uint8Array> {
+  const chunks: Buffer[] = [];
+  const doc = new PDFDocument({ size: [612, 792], margin: 0 });
+  doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+  const done = new Promise<void>((resolveDone) => doc.on('end', resolveDone));
+
+  for (let page = 0; page < 400; page++) {
+    if (page > 0) doc.addPage({ size: [612, 792], margin: 0 });
+    doc.text('output '.repeat(400), 20, 72, { lineBreak: false });
+  }
+  doc.end();
+
+  await done;
+  return new Uint8Array(Buffer.concat(chunks));
+}
+
 /**
  * Drive the CLI with a fixed argv and capture every console / process.exit
  * call so we can assert on user-visible output without actually killing the
@@ -54,6 +70,10 @@ async function captureRun(argv: string[], options?: Parameters<typeof run>[1]): 
   const errSpy = vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
     stderr.push(args.map((a) => String(a)).join(' '));
   });
+  const stderrWriteSpy = vi.spyOn(process.stderr, 'write').mockImplementation(((chunk: string | Uint8Array) => {
+    stderr.push((typeof chunk === 'string' ? chunk : new TextDecoder().decode(chunk)).replace(/\n$/, ''));
+    return true;
+  }) as typeof process.stderr.write);
   const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
     exitCode = code ?? 0;
     // Halt the rest of the run() like real process.exit would, so callers
@@ -68,6 +88,7 @@ async function captureRun(argv: string[], options?: Parameters<typeof run>[1]): 
   } finally {
     logSpy.mockRestore();
     errSpy.mockRestore();
+    stderrWriteSpy.mockRestore();
     exitSpy.mockRestore();
   }
 
@@ -134,6 +155,30 @@ describe('cli', () => {
     expect(out).toMatch(/^# .*sample\.pdf/);
     expect(out).toMatch(/## Page 1/);
     expect(out).toContain('Hello pdfvision');
+    expect(r.stderr.join('\n')).not.toContain('pdfvision: note: output is');
+  });
+
+  it('notes oversized output on stderr without contaminating stdout', async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), 'pdfvision-cli-large-output-'));
+    const largePdfPath = join(tempDir, 'large.pdf');
+    writeFileSync(largePdfPath, await buildLargeTextPdf());
+
+    try {
+      const r = await captureRun([largePdfPath, '--json', '--no-cache']);
+      const stdout = r.stdout.join('\n');
+
+      expect(r.exitCode).toBeNull();
+      expect(Buffer.byteLength(stdout, 'utf8')).toBeGreaterThan(262_144);
+      expect(r.stderr.join('\n')).toMatch(
+        /pdfvision: note: output is \d+ KB \(~\d+k tokens\); consider -p <range> to page through/,
+      );
+      expect(stdout).not.toContain('pdfvision: note:');
+      const parsed = JSON.parse(stdout);
+      expect(stdout).toBe(JSON.stringify(parsed, null, 2));
+      expect(parsed.pages).toHaveLength(400);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
   });
 
   it('emits JSON when --format json is requested', async () => {
