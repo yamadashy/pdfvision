@@ -56,6 +56,14 @@ describe('formatXml', () => {
     expect(clean).not.toContain('xfa=');
   });
 
+  it('emits javascriptActionCount only when present', () => {
+    const out = formatXml(makeResult({ javascriptActionCount: 2 }));
+    expect(out).toMatch(/^<document file="\/tmp\/x\.pdf" totalPages="1" javascriptActionCount="2">/);
+
+    const clean = formatXml(makeResult());
+    expect(clean).not.toContain('javascriptActionCount=');
+  });
+
   it('omits the metadata block when every field is null', () => {
     const out = formatXml(makeResult());
     expect(out).not.toMatch(/<metadata/);

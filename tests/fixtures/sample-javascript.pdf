@@ -1,0 +1,143 @@
+%PDF-1.3
+%ÿÿÿÿ
+9 0 obj
+<<
+/S /JavaScript
+/JS (app.alert\("open fixture"\);)
+>>
+endobj
+7 0 obj
+<<
+/Type /Page
+/Parent 1 0 R
+/MediaBox [0 0 612 792]
+/Contents 5 0 R
+/Resources 6 0 R
+/UserUnit 1
+>>
+endobj
+6 0 obj
+<<
+/ProcSet [/PDF /Text /ImageB /ImageC /ImageI]
+/Font <<
+/F1 8 0 R
+>>
+/ColorSpace <<
+>>
+>>
+endobj
+5 0 obj
+<<
+/Length 125
+/Filter /FlateDecode
+>>
+stream
+xœeŠ;
+Aó>Å»ÀjwOv`™@ÐÀL˜LDÝlïŸÈ ™QQE	ŒIÀÈªxlô&ùk‡þ‹g¤”]™}£ýI Š¾Òu1‹5Jz<Ãã•¦l÷e,!_f4¨÷%µa’¡5yìQsNKOoàú™Ž.ôå!Ï
+endstream
+endobj
+11 0 obj
+(PDFKit)
+endobj
+12 0 obj
+(pdfvision)
+endobj
+13 0 obj
+(D:20260101000000Z)
+endobj
+14 0 obj
+(pdfvision JavaScript fixture)
+endobj
+15 0 obj
+(pdfvision build-fixtures)
+endobj
+16 0 obj
+(Document-level JavaScript action fixture)
+endobj
+17 0 obj
+(D:20260101000000Z)
+endobj
+10 0 obj
+<<
+/Producer 11 0 R
+/Creator 12 0 R
+/CreationDate 13 0 R
+/Title 14 0 R
+/Author 15 0 R
+/Subject 16 0 R
+/ModDate 17 0 R
+>>
+endobj
+8 0 obj
+<<
+/Type /Font
+/BaseFont /Helvetica
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+>>
+endobj
+4 0 obj
+<<
+>>
+endobj
+3 0 obj
+<<
+/Type /Catalog
+/Pages 1 0 R
+/Names 2 0 R
+/OpenAction 9 0 R
+>>
+endobj
+1 0 obj
+<<
+/Type /Pages
+/Count 1
+/Kids [7 0 R]
+>>
+endobj
+2 0 obj
+<<
+/Dests <<
+  /Names [
+]
+>>
+/JavaScript <<
+  /Names [
+    (NamedFixture) <<
+/JS (app.alert\("named fixture"\);)
+/S /JavaScript
+>>
+]
+>>
+>>
+endobj
+xref
+0 18
+0000000000 65535 f 
+0000001115 00000 n 
+0000001172 00000 n 
+0000001035 00000 n 
+0000001014 00000 n 
+0000000309 00000 n 
+0000000202 00000 n 
+0000000086 00000 n 
+0000000917 00000 n 
+0000000015 00000 n 
+0000000780 00000 n 
+0000000506 00000 n 
+0000000531 00000 n 
+0000000559 00000 n 
+0000000595 00000 n 
+0000000642 00000 n 
+0000000685 00000 n 
+0000000744 00000 n 
+trailer
+<<
+/Size 18
+/Root 3 0 R
+/Info 10 0 R
+/ID [<706466766973696f6e2d746573742d666978747572652d69642d323032362121> <706466766973696f6e2d746573742d666978747572652d69642d323032362121>]
+>>
+startxref
+1326
+%%EOF

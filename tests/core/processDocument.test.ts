@@ -12,6 +12,7 @@ const SAMPLE_WITH_IMAGE_PDF = resolve(__dirname, '../fixtures/sample-with-image.
 const SAMPLE_TILED_PDF = resolve(__dirname, '../fixtures/sample-tiled.pdf');
 const SAMPLE_FURNITURE_PDF = resolve(__dirname, '../fixtures/sample-furniture.pdf');
 const SAMPLE_TAGGED_TABLE_PDF = resolve(__dirname, '../fixtures/sample-tagged-table.pdf');
+const SAMPLE_JAVASCRIPT_PDF = resolve(__dirname, '../fixtures/sample-javascript.pdf');
 
 async function buildPdfWithLink(): Promise<Uint8Array> {
   const chunks: Buffer[] = [];
@@ -385,9 +386,21 @@ describe('processDocument', () => {
     const result = await processDocument(SAMPLE_PDF, { noCache: true });
 
     expect(result.outlineCount).toBeUndefined();
+    expect(result.javascriptActionCount).toBeUndefined();
     expect(result.pages[0].formFieldCount).toBeUndefined();
     expect(result.pages[0].linkCount).toBeUndefined();
     expect(result.pages[0].annotationCount).toBeUndefined();
+  });
+
+  it('surfaces document JavaScript presence without exposing scripts by default', async () => {
+    const result = await processDocument(SAMPLE_JAVASCRIPT_PDF, { noCache: true });
+
+    expect(result.javascriptActionCount).toBe(2);
+    expect(result.viewer).toBeUndefined();
+
+    const markdown = await processFile(SAMPLE_JAVASCRIPT_PDF, { format: 'markdown', noCache: true });
+    expect(markdown).toContain('- **JavaScript:** 2 document-level actions (use --viewer)');
+    expect(markdown).not.toContain('app.alert');
   });
 
   it('surfaces furniture presence counts without exposing full feature arrays', async () => {
@@ -526,6 +539,25 @@ describe('processDocument', () => {
       },
     });
     expect(result.viewer?.openAction?.target).toContain('FitH');
+  });
+
+  it('extracts document JavaScript action names and scripts with viewer details', async () => {
+    const result = await processDocument(SAMPLE_JAVASCRIPT_PDF, { noCache: true, viewer: true });
+
+    expect(result.javascriptActionCount).toBe(2);
+    expect(result.viewer?.jsActions).toEqual({
+      NamedFixture: ['app.alert("named fixture");'],
+      OpenAction: ['app.alert("open fixture");'],
+    });
+
+    const markdown = await processFile(SAMPLE_JAVASCRIPT_PDF, {
+      format: 'markdown',
+      noCache: true,
+      viewer: true,
+    });
+    expect(markdown).toContain(
+      '- **JavaScript actions:** NamedFixture=app.alert("named fixture"); \\| OpenAction=app.alert("open fixture");',
+    );
   });
 
   it('extracts page-level JavaScript actions when viewer extraction runs', async () => {

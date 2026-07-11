@@ -36,6 +36,7 @@ const FIXTURE_COLUMNS_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-columns
 const FIXTURE_FURNITURE_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-furniture.pdf');
 const FIXTURE_TRUNCATED_LINE_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-truncated-line.pdf');
 const FIXTURE_TAGGED_TABLE_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-tagged-table.pdf');
+const FIXTURE_JAVASCRIPT_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-javascript.pdf');
 
 // Smallest standard valid PNG (1×1 red pixel). Embedded into the fixture
 // so pdfjs emits a paintImageXObject opcode and density tests can verify
@@ -439,6 +440,44 @@ async function buildTaggedTablePdf() {
   console.log(`Wrote ${FIXTURE_TAGGED_TABLE_OUT} (${out.byteLength} bytes)`);
 }
 
+async function buildJavaScriptPdf() {
+  const doc = new PDFDocument({
+    info: {
+      Title: 'pdfvision JavaScript fixture',
+      Author: 'pdfvision build-fixtures',
+      Subject: 'Document-level JavaScript action fixture',
+      Creator: 'pdfvision',
+      CreationDate: FIXED_DATE,
+      ModDate: FIXED_DATE,
+    },
+    autoFirstPage: false,
+  });
+  doc._id = FIXED_FILE_ID;
+
+  const chunks = [];
+  doc.on('data', (c) => chunks.push(c));
+  const done = new Promise((resolveDone, rejectDone) => {
+    doc.on('end', resolveDone);
+    doc.on('error', rejectDone);
+  });
+
+  doc.addPage().font('Helvetica').fontSize(12).text('Document JavaScript fixture', 50, 70);
+  doc.addNamedJavaScript('NamedFixture', 'app.alert("named fixture");');
+  const openAction = doc.ref({
+    S: 'JavaScript',
+    JS: new String('app.alert("open fixture");'),
+  });
+  doc._root.data.OpenAction = openAction;
+  openAction.end();
+
+  doc.end();
+  await done;
+
+  const out = Buffer.concat(chunks);
+  writeFileSync(FIXTURE_JAVASCRIPT_OUT, out);
+  console.log(`Wrote ${FIXTURE_JAVASCRIPT_OUT} (${out.byteLength} bytes)`);
+}
+
 await buildJapanesePdf();
 await buildImagePdf();
 await buildCompatPdf();
@@ -448,3 +487,4 @@ await buildColumnsPdf();
 await buildFurniturePdf();
 await buildTruncatedLinePdf();
 await buildTaggedTablePdf();
+await buildJavaScriptPdf();
