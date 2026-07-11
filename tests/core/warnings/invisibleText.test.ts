@@ -51,6 +51,28 @@ describe('collectInvisibleTextEvidence', () => {
       collectInvisibleTextEvidence([OP.setTextRenderingMode, OP.showText], [[0], [glyphs('VISIBLE MARKER')]], ops),
     ).toBeUndefined();
   });
+
+  // Form XObjects inherit the graphics state in effect at Do (PDF 32000-1
+  // 8.10.2); pdf.js's canvas renderer likewise save()s on
+  // paintFormXObjectBegin. Invisible mode must carry into the form and be
+  // restored after it.
+  it('inherits the rendering mode into form XObjects and restores it after', () => {
+    const evidence = collectInvisibleTextEvidence(
+      [
+        OP.setTextRenderingMode,
+        OP.formBegin,
+        OP.showText,
+        OP.setTextRenderingMode,
+        OP.showText,
+        OP.formEnd,
+        OP.showText,
+      ],
+      [[3], [], [glyphs('HIDDEN IN FORM')], [0], [glyphs('visible in form')], [], [glyphs('HIDDEN AFTER FORM')]],
+      ops,
+    );
+
+    expect(evidence).toEqual({ runCount: 2, sampleText: 'HIDDEN IN FORM HIDDEN AFTER FORM' });
+  });
 });
 
 describe('detectPageWarnings invisible_text', () => {

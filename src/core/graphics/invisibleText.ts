@@ -44,7 +44,8 @@ export function collectInvisibleTextEvidence(
       runCount++;
       if (sampleLength < MAX_SAMPLE_LENGTH) {
         const remaining = MAX_SAMPLE_LENGTH - sampleLength;
-        samples.push(text.slice(0, remaining));
+        // Strip a trailing lone high surrogate so the cut never splits a pair.
+        samples.push(text.slice(0, remaining).replace(/[\uD800-\uDBFF]$/u, ''));
         sampleLength += Math.min(text.length, remaining);
       }
     }
