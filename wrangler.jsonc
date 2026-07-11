@@ -4,6 +4,7 @@
   "compatibility_date": "2026-07-11",
   "workers_dev": true,
   "preview_urls": true,
+  "routes": [{ "pattern": "pdfvision.dev", "custom_domain": true }],
   "assets": {
     "directory": "./docs/.vitepress/dist",
     "not_found_handling": "404-page",
