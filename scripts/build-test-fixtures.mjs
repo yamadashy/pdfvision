@@ -34,6 +34,7 @@ const FIXTURE_HEADERS_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-headers
 const FIXTURE_TILED_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-tiled.pdf');
 const FIXTURE_COLUMNS_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-columns.pdf');
 const FIXTURE_FURNITURE_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-furniture.pdf');
+const FIXTURE_TRUNCATED_LINE_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-truncated-line.pdf');
 
 // Smallest standard valid PNG (1×1 red pixel). Embedded into the fixture
 // so pdfjs emits a paintImageXObject opcode and density tests can verify
@@ -348,6 +349,39 @@ async function buildFurniturePdf() {
   console.log(`Wrote ${FIXTURE_FURNITURE_OUT} (${out.byteLength} bytes)`);
 }
 
+async function buildTruncatedLinePdf() {
+  const doc = new PDFDocument({
+    size: [612, 792],
+    margins: { top: 0, left: 0, bottom: 0, right: 0 },
+    info: {
+      Title: 'pdfvision truncated line fixture',
+      Author: 'pdfvision build-fixtures',
+      Subject: 'Page-edge text truncation warning fixture',
+      Creator: 'pdfvision',
+      CreationDate: FIXED_DATE,
+      ModDate: FIXED_DATE,
+    },
+    autoFirstPage: false,
+  });
+  doc._id = FIXED_FILE_ID;
+
+  const chunks = [];
+  doc.on('data', (c) => chunks.push(c));
+  const done = new Promise((resolveDone, rejectDone) => {
+    doc.on('end', resolveDone);
+    doc.on('error', rejectDone);
+  });
+
+  doc.addPage().font('Helvetica').fontSize(10).text('A'.repeat(1000), 2, 392, { lineBreak: false });
+
+  doc.end();
+  await done;
+
+  const out = Buffer.concat(chunks);
+  writeFileSync(FIXTURE_TRUNCATED_LINE_OUT, out);
+  console.log(`Wrote ${FIXTURE_TRUNCATED_LINE_OUT} (${out.byteLength} bytes)`);
+}
+
 await buildJapanesePdf();
 await buildImagePdf();
 await buildCompatPdf();
@@ -355,3 +389,4 @@ await buildHeadersPdf();
 await buildTiledPdf();
 await buildColumnsPdf();
 await buildFurniturePdf();
+await buildTruncatedLinePdf();
