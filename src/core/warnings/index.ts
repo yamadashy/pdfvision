@@ -11,6 +11,7 @@ import {
   hasUnreliableGlyphGeometry,
 } from './glyphText.js';
 import { detectFormLabelReadingOrderDivergence, detectReadingOrderDivergence } from './readingOrder.js';
+import { detectRtlScriptText } from './rtlScript.js';
 import { detectDotLeaderNoise, detectTabularNumericLayout } from './tabular.js';
 import {
   detectDenseVectorGraphics,
@@ -84,6 +85,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
   const warnings: PageWarning[] = [];
 
   detectGlyphGarbageText(page, warnings);
+  detectRtlScriptText(page, warnings);
   detectLocalizedGlyphNoise(page, warnings);
   detectFontMappingWarning(page, context, warnings);
   detectRawEmbeddedSourceText(page, warnings);

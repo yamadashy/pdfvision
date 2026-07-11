@@ -77,6 +77,7 @@ Common warning families include:
 - flattened numeric tables.
 - native-vs-visual reading order divergence.
 - glyph-garbage native text, private-use glyph strings, or localized mojibake.
+- right-to-left script text whose inter-word spaces or paired brackets may degrade.
 - OCR text layers over full-page scans, including symbol noise or word fragmentation.
 - raster-dominated pages with no native text.
 - low-confidence OCR on scan-like pages.
@@ -90,6 +91,7 @@ Warnings are not final judgments. They are inspection cues that tell the agent w
 Treat warnings as routing signals:
 
 - If native text is glyph-corrupted, compare a render or OCR before summarizing.
+- If `rtl_script_text` appears, verify exact wording and paired brackets against a render.
 - If reading order diverges, prefer layout blocks over raw page text for narrative order.
 - If a table warning appears, preserve row and column evidence and crop the table when values matter.
 - If large raster or dense vector warnings appear, assume labels may be visual-only until verified.

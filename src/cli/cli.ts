@@ -7,6 +7,31 @@ import { resolveRenderOptions } from './renderOptions.js';
 import type { ParsedCliValues, RunOptions } from './types.js';
 import { getVersion } from './version.js';
 
+// A full LLM context class starts around 256 KiB; the audit's worst
+// offender emitted 2.27 MB from one flagless extraction.
+const OUTPUT_SIZE_NOTE_THRESHOLD_BYTES = 262_144;
+
+function formatOutputSize(bytes: number): string {
+  if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
+  return `${Math.round(bytes / 1_000)} KB`;
+}
+
+function formatEstimatedTokens(bytes: number): string {
+  const tokens = bytes / 4;
+  const roundingUnit = 10 ** Math.max(0, Math.floor(Math.log10(tokens)) - 1);
+  const rounded = Math.round(tokens / roundingUnit) * roundingUnit;
+  return rounded >= 1_000 ? `${Math.round(rounded / 1_000)}k` : String(rounded);
+}
+
+function emitOutputSizeNote(result: string): void {
+  const bytes = Buffer.byteLength(result, 'utf8');
+  if (bytes <= OUTPUT_SIZE_NOTE_THRESHOLD_BYTES) return;
+
+  process.stderr.write(
+    `pdfvision: note: output is ${formatOutputSize(bytes)} (~${formatEstimatedTokens(bytes)} tokens); consider -p <range> to page through, --search <query> --matches-only to locate content, or --outline for navigation\n`,
+  );
+}
+
 export async function run(argv: string[] = process.argv.slice(2), options: RunOptions = {}): Promise<void> {
   let values: ParsedCliValues;
   let positionals: string[];
@@ -237,6 +262,7 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
         process.stderr.write(`pdfvision: warning: ${msg}\n`);
       },
     });
+    emitOutputSizeNote(result);
     console.log(result);
   } catch (error) {
     exitWithError(formatCliErrorMessage(error));
