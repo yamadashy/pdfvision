@@ -43,6 +43,45 @@ describe('vertical body runs', () => {
     expect(verticalBlocks[0].lines.every((line) => line.writingMode === 'vertical')).toBe(true);
   });
 
+  it('clusters short vertical CJK columns in right-to-left order when body runs establish vertical context', () => {
+    const title = verticalGlyphs('こころ', 506, 47, 15.5);
+    const author = verticalGlyphs('夏目漱石', 450, 59, 11.6);
+    const rightBody = verticalGlyphs('本文甲乙丙丁戊己庚辛', 392, 47, 11.6);
+    const leftBody = verticalGlyphs('続篇甲乙丙丁戊己庚辛', 369, 47, 11.6);
+    const spans = [...leftBody, ...rightBody, ...author, ...title];
+
+    const analysis = extractBodyVerticalCjkRunAnalysis(spans);
+    expect(
+      analysis.blocks.map((block) => block.columns.map((column) => column.spans.map((item) => item.text).join(''))),
+    ).toEqual([['こころ'], ['夏目漱石'], ['本文甲乙丙丁戊己庚辛', '続篇甲乙丙丁戊己庚辛']]);
+
+    const layout = buildLayout(spans, 595);
+    expect(layout.blocks.map((block) => block.text)).toEqual([
+      'こころ',
+      '夏目漱石',
+      '本文甲乙丙丁戊己庚辛\n続篇甲乙丙丁戊己庚辛',
+    ]);
+    expect(layout.blocks.every((block) => block.writingMode === 'vertical')).toBe(true);
+  });
+
+  it('keeps identical short CJK spans horizontal without vertical body context', () => {
+    const title = verticalGlyphs('こころ', 506, 47, 15.5);
+    const author = verticalGlyphs('夏目漱石', 450, 59, 11.6);
+
+    const analysis = extractBodyVerticalCjkRunAnalysis([...author, ...title]);
+    expect(analysis.blocks).toEqual([]);
+
+    const layout = buildLayout([...author, ...title], 595);
+    expect(layout.blocks.some((block) => block.writingMode === 'vertical')).toBe(false);
+    expect(layout.blocks.flatMap((block) => block.lines.map((line) => line.text))).toEqual([
+      'こ',
+      '夏 こ',
+      '目',
+      '漱 ろ',
+      '石',
+    ]);
+  });
+
   it('excludes short larger-than-ruby right-gutter annotations from body columns', () => {
     const body = verticalGlyphs('本文甲乙丙丁戊己庚辛', 300, 100, 10);
     const annotation = verticalGlyphTexts(['(', '注', '%', ')'], 310, 124, 8);

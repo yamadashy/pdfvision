@@ -4,6 +4,7 @@ import { mergeConsecutiveRubyAssociations } from '../rubyMerge.js';
 import {
   BODY_VERTICAL_CJK_MIN_RUN_SPANS,
   collectBodyVerticalCjkRuns,
+  collectPageContextShortVerticalCjkRuns,
   collectShortBodyVerticalCjkRuns,
   collectTallBodyVerticalCjkRuns,
   groupBodyVerticalRunsIntoBlocks,
@@ -163,7 +164,12 @@ export function extractBodyVerticalCjkRunAnalysis(spans: readonly TextSpan[]): B
     rubyRuns.some((ruby) => isRubyAdjacentToBodyColumn(ruby, run)),
   );
   const shortBodyRuns = collectShortBodyVerticalCjkRuns(spans, nonRubyBodyRuns, rubySpanSet);
-  const bodyColumns = [...nonRubyBodyRuns, ...tallBodyRunsWithRubyContext, ...shortBodyRuns];
+  const pageContextExcludedSpans = new Set<TextSpan>(rubySpanSet);
+  for (const run of shortBodyRuns) {
+    for (const span of run.spans) pageContextExcludedSpans.add(span);
+  }
+  const pageContextShortRuns = collectPageContextShortVerticalCjkRuns(spans, nonRubyBodyRuns, pageContextExcludedSpans);
+  const bodyColumns = [...nonRubyBodyRuns, ...tallBodyRunsWithRubyContext, ...shortBodyRuns, ...pageContextShortRuns];
   const gutterAnnotationRuns = collectGutterAnnotationRuns(spans, bodyColumns, rubySpanSet);
   const gutterAnnotationSpans = gutterAnnotationRuns
     .flatMap((run) => run.spans)
