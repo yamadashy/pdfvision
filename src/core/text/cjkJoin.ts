@@ -77,6 +77,18 @@ export interface JoinPageTextOptions {
 export const CJK_TIGHT_GAP_RATIO = 0.3;
 const SYNTHETIC_LINE_BREAK_GAP_RATIO = 1.5;
 const RTL_WORD_SPACE_MIN_GAP_RATIO = 0.12;
+export const RTL_MIRRORED_CHARACTERS: ReadonlyMap<string, string> = new Map([
+  ['(', ')'],
+  [')', '('],
+  ['[', ']'],
+  [']', '['],
+  ['{', '}'],
+  ['}', '{'],
+  ['<', '>'],
+  ['>', '<'],
+  ['«', '»'],
+  ['»', '«'],
+]);
 const LATIN_TIGHT_ARTIFACT_SPACE_RATIO = 0.12;
 const LATIN_WORD_FRAGMENT_END_RE = /[\p{Script=Latin}\p{M}\p{N}]$/u;
 const LATIN_WORD_FRAGMENT_START_RE = /^[\p{Script=Latin}\p{M}\p{N}]/u;
@@ -275,29 +287,47 @@ function isRtlLine(items: readonly JoinItem[]): boolean {
 }
 
 function joinRtlLineItems(items: readonly JoinItem[]): string {
-  const words = textOrder(
-    items.filter((item) => item.str.trim().length > 0).map((item) => ({ ...item, text: item.str })),
-  );
+  const visualItems = [...items].sort((a, b) => a.x - b.x);
+  const textItems: (JoinItem & { text: string; explicitSpaceAfter: boolean })[] = [];
+  let pendingExplicitSpace = false;
+  for (const item of visualItems) {
+    if (isWhitespaceOnly(item.str)) {
+      if (textItems.length > 0) pendingExplicitSpace = true;
+      continue;
+    }
+    if (item.str.length === 0) continue;
+
+    textItems.push({
+      ...item,
+      text: item.str,
+      // Reversal turns the space before this visual item into a space after it.
+      explicitSpaceAfter: pendingExplicitSpace && textItems.length > 0,
+    });
+    pendingExplicitSpace = false;
+  }
+
+  const words = textOrder(textItems);
   if (words.length === 0) return '';
 
-  let out = words[0].str;
+  let out = mirrorReversedRtlCharacter(words[0].str);
   for (let i = 1; i < words.length; i++) {
     const prev = words[i - 1];
     const cur = words[i];
     const gap = prev.x - (cur.x + cur.width);
     const fontSize = cur.fontSize || prev.fontSize || 12;
-    if (
-      gap > fontSize * RTL_WORD_SPACE_MIN_GAP_RATIO &&
-      isRtlDominantText(prev.str) &&
-      isRtlDominantText(cur.str) &&
-      !/\s$/.test(out) &&
-      !/^\s/.test(cur.str)
-    ) {
+    const hasFallbackSpace =
+      gap > fontSize * RTL_WORD_SPACE_MIN_GAP_RATIO && isRtlDominantText(prev.str) && isRtlDominantText(cur.str);
+    if ((prev.explicitSpaceAfter || hasFallbackSpace) && !/\s$/.test(out) && !/^\s/.test(cur.str)) {
       out += ' ';
     }
-    out += cur.str;
+    out += mirrorReversedRtlCharacter(cur.str);
   }
   return out;
+}
+
+export function mirrorReversedRtlCharacter(text: string): string {
+  if (Array.from(text).length !== 1) return text;
+  return RTL_MIRRORED_CHARACTERS.get(text) ?? text;
 }
 
 function joinLtrLineItems(items: readonly JoinItem[]): string {

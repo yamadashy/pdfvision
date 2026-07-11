@@ -5,6 +5,7 @@ import {
   horizontalRubyReadingText,
 } from '../layout/horizontalRuby.js';
 import { mergeSameOffsetRubyTextAttachments } from '../layout/rubyMerge.js';
+import { markExplicitSpaceBefore } from '../layout/spanMetadata.js';
 import {
   extractBodyVerticalCjkRunAnalysis,
   extractTallVerticalRuns,
@@ -138,6 +139,8 @@ function collectPageTextItems({
   const verticalJoinSpanIndices = new Map<TextSpan, number>();
   const seenTextItems = new Map<string, number>();
   const pageFontAliases = new Map<string, string>();
+  let previousSpanOnLine: TextSpan | undefined;
+  let pendingExplicitSpace = false;
   for (const item of content.items) {
     if (!isTextItem(item)) continue;
     if (isLikelyPrepressProductionText(item.str)) continue;
@@ -155,6 +158,10 @@ function collectPageTextItems({
       // sometimes differing only in pdf.js' hard-EOL flag. Keep one text
       // run, but preserve the line-break signal if any duplicate carries it.
       if (item.hasEOL) joinItems[seenIndex].hasEOL = true;
+      if (item.hasEOL) {
+        previousSpanOnLine = undefined;
+        pendingExplicitSpace = false;
+      }
       continue;
     }
     textArea += Math.abs(w * h);
@@ -192,16 +199,30 @@ function collectPageTextItems({
     // Skip whitespace-only items in spans output — pdf.js emits a span
     // for every positioned space, which can double the array length and
     // sometimes carries a synthetic width that exceeds the page width.
-    // The aggregate `text` already preserves the spaces, so layout
-    // analysis loses nothing; downstream agents get a cleaner signal.
+    // Preserve real word boundaries as private adjacency metadata so the
+    // layout text joiner can still reconstruct RTL lines without changing
+    // the public TextSpan schema.
     const spanText = flags.normalize ? normalizeText(item.str) : item.str;
+    const explicitWhitespace = item.str.length > 0 && item.str.trim().length === 0;
     if (wantSpans && spanText.trim().length > 0 && geometry) {
-      const span = {
+      const span: TextSpan = {
         text: spanText,
         ...geometry,
         ...(typeof item.fontName === 'string' && { fontName: stablePageFontName(item.fontName, pageFontAliases) }),
       };
+      if (pendingExplicitSpace && previousSpanOnLine) markExplicitSpaceBefore(span);
       spans.push(span);
+      previousSpanOnLine = span;
+      pendingExplicitSpace = false;
+    } else if (wantSpans && explicitWhitespace) {
+      if (previousSpanOnLine && !item.hasEOL) pendingExplicitSpace = true;
+    } else if (wantSpans && item.str.length > 0) {
+      previousSpanOnLine = undefined;
+      pendingExplicitSpace = false;
+    }
+    if (item.hasEOL) {
+      previousSpanOnLine = undefined;
+      pendingExplicitSpace = false;
     }
     if (item.str.trim().length > 0 && geometry) {
       const span = {

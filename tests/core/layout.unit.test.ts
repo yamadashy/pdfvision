@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildLayout, markRepeatedBlocks } from '../../src/core/layout/index.js';
+import { markExplicitSpaceBefore } from '../../src/core/layout/spanMetadata.js';
 import { detectPageWarnings } from '../../src/core/warnings/index.js';
 import type { LayoutBlock, PageResult, TextSpan } from '../../src/types/index.js';
 
@@ -1607,6 +1608,49 @@ describe('buildLayout — multi-column reading order', () => {
     const layout = buildLayout(spans);
 
     expect(layout.blocks[0].lines[0].text).toBe('انواع اخلطوط العربية');
+  });
+
+  it('uses explicit-space metadata when RTL glyph geometry cannot recover the word boundary', () => {
+    const visualGlyphs = Array.from('ليمجرصم');
+    const spans = visualGlyphs.map((glyph, index) =>
+      span(glyph, index < 4 ? index * 10 : 39.9 + (index - 4) * 10, 184, 10, 10),
+    );
+    // The source whitespace appeared immediately before ر in visual order.
+    markExplicitSpaceBefore(spans[4]);
+
+    const layout = buildLayout(spans);
+
+    expect(layout.blocks[0].lines[0].text).toBe('مصر جميل');
+  });
+
+  it('mirrors paired punctuation after reversing RTL layout glyphs', () => {
+    const logicalText = '(توضيح) [1]';
+    const visualGlyphs = Array.from('[1] (حيضوت)');
+    const spans: TextSpan[] = [];
+    let pendingSpace = false;
+    for (const glyph of visualGlyphs) {
+      if (glyph === ' ') {
+        pendingSpace = spans.length > 0;
+        continue;
+      }
+      const current = span(glyph, spans.length * 10, 184, 10, 10);
+      if (pendingSpace) markExplicitSpaceBefore(current);
+      pendingSpace = false;
+      spans.push(current);
+    }
+
+    const layout = buildLayout(spans);
+
+    expect(layout.blocks[0].lines[0].text).toBe(logicalText);
+  });
+
+  it('ignores RTL explicit-space metadata on LTR layout lines', () => {
+    const spans = [span('hello', 0, 184, 10, 25), span('world', 25, 184, 10, 25)];
+    markExplicitSpaceBefore(spans[1]);
+
+    const layout = buildLayout(spans);
+
+    expect(layout.blocks[0].lines[0].text).toBe('helloworld');
   });
 
   it('does not split Type3-style wide word spacing rows into columns', () => {

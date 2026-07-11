@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { buildLayout } from '../../src/core/layout/index.js';
 import type { PageFlags } from '../../src/core/processor/pageData.js';
 import { extractPageText } from '../../src/core/processor/pageText.js';
 
@@ -80,6 +81,28 @@ function verticalGlyphItems(text: string, x: number, y: number, fontSize: number
 }
 
 describe('extractPageText', () => {
+  it('threads dropped RTL spaces into layout without changing serialized spans', () => {
+    const visualGlyphs = ['ل', 'ي', 'م', 'ج', ' ', 'ر', 'ص', 'م'];
+    const items = visualGlyphs.map((glyph, index) => ({
+      ...positionedTextItem(glyph, index < 4 ? index * 10 : 39.9 + (index - 4) * 10, 100, 10, glyph === ' ' ? 1.6 : 10),
+      dir: glyph === ' ' ? 'ltr' : 'rtl',
+      hasEOL: index === visualGlyphs.length - 1,
+    }));
+
+    const result = extractPageText({
+      content: { items },
+      flags: BASE_FLAGS,
+      pageHeight: 800,
+      viewMinX: 0,
+      viewMinY: 0,
+    });
+    const layout = buildLayout(result.spans);
+
+    expect(result.text).toBe('مصر جميل');
+    expect(layout.blocks[0].lines[0].text).toBe('مصر جميل');
+    expect(JSON.parse(JSON.stringify(result.spans))).toEqual(result.spans);
+  });
+
   it('filters prepress production marks from text and spans', () => {
     const result = extractPageText({
       content: {
