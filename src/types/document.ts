@@ -140,10 +140,25 @@ export interface DocumentResult {
    */
   attachments?: DocumentAttachment[];
   /**
+   * Number of document-level embedded file attachments. Always computed,
+   * but omitted when the PDF has none so clean documents pay no token cost.
+   * Unlike `attachments`, this presence signal does not require the
+   * attachment pass — it exists so a default run never hides that a PDF
+   * carries embedded files.
+   */
+  attachmentCount?: number;
+  /**
    * Number of top-level document outline entries. Always computed, but
    * omitted when the PDF has no outline so clean documents pay no token cost.
    */
   outlineCount?: number;
+  /**
+   * True when the PDF declares an XFA (LiveCycle) form. The standard text
+   * layer of such documents is often only a viewer placeholder ("Please
+   * wait..."), so extraction may not reflect the real form content. Omitted
+   * otherwise.
+   */
+  xfa?: boolean;
   /**
    * Document outline / bookmarks, present iff outline extraction was
    * requested. Empty array means the pass ran and the PDF has no outline.

@@ -47,6 +47,15 @@ describe('formatXml', () => {
     expect(out).toMatch(/<page no="1"[^>]*formFieldCount="1" linkCount="2" annotationCount="3"/);
   });
 
+  it('emits attachmentCount and xfa document attributes when present', () => {
+    const out = formatXml(makeResult({ attachmentCount: 2, xfa: true }));
+    expect(out).toMatch(/^<document file="\/tmp\/x\.pdf" totalPages="1" attachmentCount="2" xfa="true">/);
+
+    const clean = formatXml(makeResult());
+    expect(clean).not.toContain('attachmentCount=');
+    expect(clean).not.toContain('xfa=');
+  });
+
   it('omits the metadata block when every field is null', () => {
     const out = formatXml(makeResult());
     expect(out).not.toMatch(/<metadata/);

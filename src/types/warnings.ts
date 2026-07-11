@@ -14,7 +14,8 @@
  * local math/text-order divergences whose visual order differs from native text,
  * large image regions whose internal labels will not appear in native text,
  * optional-content layer text that may include default-hidden content,
- * OCR-backed scan layers whose bboxes or word boundaries may drift from pixels, etc.
+ * OCR-backed scan layers whose bboxes or word boundaries may drift from pixels,
+ * XFA (LiveCycle) forms whose real content lives outside the standard text layer, etc.
  */
 export interface PageWarning {
   /** Machine-readable rule identifier. */
@@ -44,7 +45,8 @@ export interface PageWarning {
     | 'large_raster_low_text_overlap'
     | 'annotation_text_missing_from_native'
     | 'optional_content_text_may_include_hidden_layers'
-    | 'reading_order_divergence';
+    | 'reading_order_divergence'
+    | 'xfa_form';
   /**
    * `'error'` means likely data-integrity issue (off-page bbox usually
    * indicates a broken render or pathological PDF), `'warning'` means

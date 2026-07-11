@@ -98,7 +98,7 @@ pdfvision/
 ## Release checklist
 
 - Run the manual [bare-agent regression protocol](tests/agent-regression/README.md) before every release.
-- A release, including v1.0, is blocked unless all five agent tasks pass.
+- A release, including v1.0, is blocked unless every task in the protocol passes (do not hardcode the count here; the protocol table is the source of truth).
 - Keep this protocol manual; do not add it to CI.
 
 ## Skill documentation write policy

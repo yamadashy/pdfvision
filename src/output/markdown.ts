@@ -81,6 +81,11 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
   if (result.metadata.author) lines.push(`- **Author:** ${result.metadata.author}`);
   if (result.metadata.subject) lines.push(`- **Subject:** ${result.metadata.subject}`);
   if (result.metadata.creator) lines.push(`- **Creator:** ${result.metadata.creator}`);
+  if (result.attachmentCount !== undefined && result.attachments === undefined) {
+    lines.push(
+      `- **Attachments:** ${result.attachmentCount} embedded ${result.attachmentCount === 1 ? 'file' : 'files'} (use --attachments)`,
+    );
+  }
   if (result.outlineCount !== undefined && result.outline === undefined) {
     lines.push(`- **Outline:** ${result.outlineCount} top-level ${result.outlineCount === 1 ? 'entry' : 'entries'}`);
   }
