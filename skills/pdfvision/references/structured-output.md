@@ -45,9 +45,9 @@ interface PageOverview {
   matchCount?: number;            // mirror of pages[N].matches.length; present-with-0 means "search ran, no hit"
   vectorBoxCount?: number;        // mirror of pages[N].vectorBoxes.length; present iff --vector-boxes
   visualRegionCount?: number;     // mirror of pages[N].visualRegions.length; present iff --visual-regions
-  formFieldCount?: number;        // furniture presence count; automatic when non-zero
-  linkCount?: number;             // furniture presence count; automatic when non-zero
-  annotationCount?: number;       // furniture presence count; automatic when non-zero
+  formFieldCount?: number;        // furniture presence count; automatic when non-zero, present-with-0 when the matching flag ran
+  linkCount?: number;             // furniture presence count; automatic when non-zero, present-with-0 when the matching flag ran
+  annotationCount?: number;       // furniture presence count; automatic when non-zero, present-with-0 when the matching flag ran
   structureNodeCount?: number;    // count of tagged-PDF structure nodes; present iff --structure
   width: number;                  // PDF user-space points
   height: number;

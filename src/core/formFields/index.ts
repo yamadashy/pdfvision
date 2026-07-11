@@ -116,6 +116,7 @@ export function buildFormFields(
 }
 
 export function isFormFieldAnnotation(annotation: unknown): annotation is PdfAnnotation & { fieldName: string } {
+  if (annotation === null || typeof annotation !== 'object') return false;
   const ann = annotation as PdfAnnotation;
   return (
     ann.subtype === 'Widget' &&

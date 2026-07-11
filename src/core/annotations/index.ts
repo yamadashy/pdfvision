@@ -122,6 +122,7 @@ export function buildAnnotations(
 export function isPageAnnotation(
   annotation: unknown,
 ): annotation is PdfAnnotation & { subtype: string; rect: [number, number, number, number, ...number[]] } {
+  if (annotation === null || typeof annotation !== 'object') return false;
   const ann = annotation as PdfAnnotation;
   return (
     typeof ann.subtype === 'string' &&

@@ -165,9 +165,16 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
       options.layout && (page.layout?.tables?.length ?? 0) > 0 ? ` · tables: ${page.layout?.tables?.length}` : '';
     const visualRegionsFragment =
       page.visualRegions !== undefined ? ` · visualRegions: ${page.visualRegions.length}` : '';
-    const formFieldsFragment = page.formFieldCount !== undefined ? ` · formFields: ${page.formFieldCount}` : '';
-    const linksFragment = page.linkCount !== undefined ? ` · links: ${page.linkCount}` : '';
-    const annotationsFragment = page.annotationCount !== undefined ? ` · annotations: ${page.annotationCount}` : '';
+    // Fall back to the detailed-array lengths so library callers that
+    // hand-build a DocumentResult (arrays without the scalar counts)
+    // still get the fragments, and a flagged run with zero hits keeps
+    // its explicit "formFields: 0".
+    const formFieldTotal = page.formFieldCount ?? page.formFields?.length;
+    const linkTotal = page.linkCount ?? page.links?.length;
+    const annotationTotal = page.annotationCount ?? page.annotations?.length;
+    const formFieldsFragment = formFieldTotal !== undefined ? ` · formFields: ${formFieldTotal}` : '';
+    const linksFragment = linkTotal !== undefined ? ` · links: ${linkTotal}` : '';
+    const annotationsFragment = annotationTotal !== undefined ? ` · annotations: ${annotationTotal}` : '';
     const structureFragment = page.structure !== undefined ? ` · structure: ${structureNodeCount(page.structure)}` : '';
     const jsActionsFragment = page.jsActions !== undefined ? ` · jsActions: ${jsActionCount(page.jsActions)}` : '';
     // Surface the derived quality classification when it's abnormal so

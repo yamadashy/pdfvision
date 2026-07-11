@@ -25,9 +25,11 @@ export function appendOverview(lines: string[], result: DocumentResult, options:
   const showVectors = result.pages.some((p) => p.vectorCount > 0);
   const showVectorBoxes = result.pages.some((p) => p.vectorBoxes !== undefined);
   const showLayoutTables = options.layout && result.pages.some((p) => (p.layout?.tables?.length ?? 0) > 0);
-  const showFormFields = result.pages.some((p) => p.formFieldCount !== undefined);
-  const showLinks = result.pages.some((p) => p.linkCount !== undefined);
-  const showAnnotations = result.pages.some((p) => p.annotationCount !== undefined);
+  // Array fallbacks keep hand-built DocumentResults (arrays without the
+  // scalar counts) rendering their columns.
+  const showFormFields = result.pages.some((p) => p.formFieldCount !== undefined || p.formFields !== undefined);
+  const showLinks = result.pages.some((p) => p.linkCount !== undefined || p.links !== undefined);
+  const showAnnotations = result.pages.some((p) => p.annotationCount !== undefined || p.annotations !== undefined);
   const showStructure = result.pages.some((p) => p.structure !== undefined);
   const showPageJsActions = result.pages.some((p) => p.jsActions !== undefined);
   const showVisualRegions = result.pages.some((p) => p.visualRegions !== undefined);
@@ -103,9 +105,9 @@ function appendOverviewRow(lines: string[], page: PageResult, columns: OverviewC
   const blocksCell = columns.showBlocks ? ` ${page.layout?.blocks.length ?? 0} |` : '';
   const warningsCell = columns.showWarnings ? ` ${page.warnings?.length ?? 0} |` : '';
   const matchesCell = columns.showMatches ? ` ${page.matches?.length ?? 0} |` : '';
-  const formFieldsCell = columns.showFormFields ? ` ${page.formFieldCount ?? 0} |` : '';
-  const linksCell = columns.showLinks ? ` ${page.linkCount ?? 0} |` : '';
-  const annotationsCell = columns.showAnnotations ? ` ${page.annotationCount ?? 0} |` : '';
+  const formFieldsCell = columns.showFormFields ? ` ${page.formFieldCount ?? page.formFields?.length ?? 0} |` : '';
+  const linksCell = columns.showLinks ? ` ${page.linkCount ?? page.links?.length ?? 0} |` : '';
+  const annotationsCell = columns.showAnnotations ? ` ${page.annotationCount ?? page.annotations?.length ?? 0} |` : '';
   const structureCell = columns.showStructure ? ` ${structureNodeCount(page.structure)} |` : '';
   const jsActionsCell = columns.showPageJsActions ? ` ${jsActionCount(page.jsActions)} |` : '';
   lines.push(

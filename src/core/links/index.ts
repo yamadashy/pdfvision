@@ -90,6 +90,7 @@ export async function buildLinks(
 }
 
 export function isLinkAnnotation(annotation: unknown): boolean {
+  if (annotation === null || typeof annotation !== 'object') return false;
   const ann = annotation as PdfLinkAnnotation;
   return ann.subtype === 'Link' && linkRect(ann.rect) !== undefined && linkTarget(ann) !== undefined;
 }
