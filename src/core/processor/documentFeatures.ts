@@ -18,11 +18,13 @@ export interface DocumentFeatures {
   metadata: DocumentMetadata;
   pageLabels?: string[];
   attachments?: DocumentAttachment[];
+  attachmentCount?: number;
   outlineCount?: number;
   outline?: DocumentOutlineItem[];
   viewer?: DocumentViewerState;
   layers?: DocumentLayers;
   hasHiddenOptionalContent: boolean;
+  isXfaPresent: boolean;
 }
 
 export async function extractDocumentFeatures(
@@ -47,6 +49,11 @@ export async function extractDocumentFeatures(
         outputDir: attachmentOutputDir,
       })
     : undefined;
+  // Presence signal: document-level EmbeddedFiles are counted on every run
+  // (one cheap worker call) so a default extraction never hides that the
+  // PDF carries attachments. When the full pass ran, its merged view (which
+  // also covers per-page file-attachment annotations) is the truth.
+  const attachmentCount = attachments?.length ?? Object.keys((await doc.getAttachments()) ?? {}).length;
   const rawOutline = await doc.getOutline();
   const outline: DocumentOutlineItem[] | undefined = options.outline
     ? await buildOutline(rawOutline, doc, {
@@ -71,11 +78,13 @@ export async function extractDocumentFeatures(
     metadata: buildDocumentMetadata(info, normalize),
     ...(pageLabels !== undefined && { pageLabels }),
     ...(attachments !== undefined && { attachments }),
+    ...(attachmentCount > 0 && { attachmentCount }),
     ...(outlineCount > 0 && { outlineCount }),
     ...(outline !== undefined && { outline }),
     ...(viewer !== undefined && { viewer }),
     ...(layers !== undefined && { layers }),
     hasHiddenOptionalContent: layerState.groups.some((group) => !group.visible),
+    isXfaPresent: info?.IsXFAPresent === true,
   };
 }
 

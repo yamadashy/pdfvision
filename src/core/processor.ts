@@ -34,6 +34,7 @@ import { runParallel } from './runtime/parallel.js';
 import { type CompiledSearch, compileSearch, searchPage, suppressDuplicateOcrMatches } from './search/index.js';
 import type { BuildVisualRegionsInput } from './visualRegions/index.js';
 import { detectPageWarnings } from './warnings/index.js';
+import { buildXfaFormWarning } from './warnings/xfaForm.js';
 
 /**
  * Extract a structured representation of a PDF.
@@ -129,8 +130,18 @@ export async function processDocument(filePath: string, options: ProcessDocument
     const totalPages = doc.numPages;
     const pageNumbers = await resolvePageNumbers({ doc, options, renderRegion });
 
-    const { metadata, pageLabels, attachments, outlineCount, outline, viewer, layers, hasHiddenOptionalContent } =
-      await extractDocumentFeatures(doc, options, attachmentOutputDir);
+    const {
+      metadata,
+      pageLabels,
+      attachments,
+      attachmentCount,
+      outlineCount,
+      outline,
+      viewer,
+      layers,
+      hasHiddenOptionalContent,
+      isXfaPresent,
+    } = await extractDocumentFeatures(doc, options, attachmentOutputDir);
 
     let imagePaths: string[] | null = null;
     // Parallel array to imagePaths: renderContentRatio for each rendered
@@ -291,6 +302,13 @@ export async function processDocument(filePath: string, options: ProcessDocument
       else delete p.warnings;
     }
 
+    // XFA is a document-level fact, but agents scan per-page warnings, so
+    // attach it once to the first extracted page. Placed after the per-page
+    // detector loop so that loop's "no warnings → delete" reset cannot drop it.
+    if (isXfaPresent && pages.length > 0) {
+      pages[0].warnings = [buildXfaFormWarning(), ...(pages[0].warnings ?? [])];
+    }
+
     // OCR search pass. The native pass ran in the per-page loop above
     // (spans were in scope); OCR results only exist after attachOcr,
     // so this second pass adds OCR-source matches at the end of each
@@ -312,7 +330,9 @@ export async function processDocument(filePath: string, options: ProcessDocument
       metadata,
       ...(pageLabels !== undefined && { pageLabels }),
       ...(attachments !== undefined && { attachments }),
+      ...(attachmentCount !== undefined && { attachmentCount }),
       ...(outlineCount !== undefined && { outlineCount }),
+      ...(isXfaPresent && { xfa: true }),
       ...(outline !== undefined && { outline }),
       ...(viewer !== undefined && { viewer }),
       ...(layers !== undefined && { layers }),

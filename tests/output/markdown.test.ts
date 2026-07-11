@@ -721,6 +721,18 @@ describe('formatMarkdown', () => {
     expect(out).not.toContain('G6.2293078');
   });
 
+  it('surfaces an attachment presence count in the header when the attachment pass was not requested', () => {
+    const countOnly = formatMarkdown(makeResult({ attachmentCount: 1 }));
+    expect(countOnly).toContain('- **Attachments:** 1 embedded file (use --attachments)');
+
+    const plural = formatMarkdown(makeResult({ attachmentCount: 3 }));
+    expect(plural).toContain('- **Attachments:** 3 embedded files (use --attachments)');
+
+    // With the full pass the ## Attachments section is the truth — no header dupe.
+    const fullPass = formatMarkdown(makeResult({ attachmentCount: 1, attachments: [] }));
+    expect(fullPass).not.toContain('- **Attachments:**');
+  });
+
   it('surfaces an outline presence count in the header when full outline extraction was not requested', () => {
     const countOnly = formatMarkdown(makeResult({ outlineCount: 2 }));
     expect(countOnly).toContain('- **Outline:** 2 top-level entries');
