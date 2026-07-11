@@ -702,6 +702,7 @@ describe('formatMarkdown', () => {
             items: [
               { title: 'Website', type: 'url', target: 'https://example.com' },
               { title: 'Next page', type: 'action', target: 'NextPage' },
+              { title: 'Unresolved', type: 'destination', target: 'G6.2293078' },
             ],
           },
         ],
@@ -709,9 +710,15 @@ describe('formatMarkdown', () => {
     );
 
     expect(out).toContain('## Outline');
-    expect(out).toContain('- Intro \\[draft\\] (p. 1 · destination · section.1)');
-    expect(out).toContain('  - Website (url · https://example.com)');
+    // Internal destination identifiers are dropped in Markdown once the page
+    // is resolved — they feed no follow-up command and dominate outline size
+    // on bookmark-heavy documents. JSON/XML keep the full target.
+    expect(out).toContain('- Intro \\[draft\\] (p. 1)');
+    expect(out).not.toContain('section.1');
+    expect(out).toContain('  - Website (https://example.com)');
     expect(out).toContain('  - Next page (action · NextPage)');
+    expect(out).toContain('  - Unresolved (destination)');
+    expect(out).not.toContain('G6.2293078');
   });
 
   it('surfaces an outline presence count in the header when full outline extraction was not requested', () => {

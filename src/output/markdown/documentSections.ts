@@ -2,10 +2,15 @@ import type { DocumentResult } from '../../types/index.js';
 import { escapeInline, escapeTableCell, formatJavaScriptActions, formatViewerValue } from './helpers.js';
 
 function outlineLabel(item: NonNullable<DocumentResult['outline']>[number]): string {
+  // Markdown keeps only what an agent can act on: the resolved page number,
+  // external URLs, and viewer action names. Internal destination identifiers
+  // (e.g. `G6.2293078`) cost ~30% of the outline tokens on bookmark-heavy
+  // documents and feed no follow-up command; JSON/XML still carry them.
   const parts: string[] = [];
   if (item.page !== undefined) parts.push(`p. ${item.page}`);
-  if (item.type) parts.push(item.type);
-  if (item.target) parts.push(item.target);
+  if (item.type === 'url' && item.target) parts.push(item.target);
+  else if (item.type === 'action' && item.target) parts.push(`action · ${item.target}`);
+  else if (item.type === 'destination' && item.page === undefined) parts.push('destination');
   return parts.length > 0
     ? `${escapeInline(item.title)} (${escapeInline(parts.join(' · '))})`
     : escapeInline(item.title);
