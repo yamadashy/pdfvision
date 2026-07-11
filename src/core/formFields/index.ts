@@ -70,11 +70,11 @@ export function buildFormFields(
     const maxY = Math.max(y1, y2);
     const type = formFieldType(ann);
     const value = fieldValue(ann.fieldValue);
-    const checked = type === 'checkbox' || type === 'radio' ? value !== undefined && value !== 'Off' : undefined;
+    const exportValue = fieldExportValue(ann, type);
+    const checked = fieldChecked(type, value, exportValue);
     const flags = annotationFlagNames(ann.annotationFlags);
     const actions = normalizeJavaScriptActions(ann.actions);
     const resetForm = formResetAction(ann.resetForm);
-    const exportValue = fieldExportValue(ann, type);
     const caption = fieldCaption(ann, type, options);
     const choiceMetadata = choiceFieldMetadata(ann);
     const displayValue =
@@ -195,6 +195,17 @@ function fieldExportValue(annotation: PdfAnnotation, type: FormFieldType): strin
   if (type === 'checkbox') return fieldValue(annotation.exportValue);
   if (type === 'radio') return fieldValue(annotation.buttonValue ?? annotation.exportValue);
   return undefined;
+}
+
+function fieldChecked(
+  type: FormFieldType,
+  value: string | undefined,
+  exportValue: string | undefined,
+): boolean | undefined {
+  if (type !== 'checkbox' && type !== 'radio') return undefined;
+  const selected = value !== undefined && value !== 'Off';
+  if (type === 'checkbox' || !selected) return selected;
+  return exportValue === undefined ? selected : value === exportValue;
 }
 
 function fieldArrayValue(value: unknown): string {
