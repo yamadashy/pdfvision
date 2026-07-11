@@ -74,14 +74,14 @@
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.1",
+    "@biomejs/biome": "^2.5.2",
     "@expo-google-fonts/noto-sans-jp": "^0.4.3",
     "@secretlint/secretlint-rule-preset-recommend": "^13.0.2",
     "@types/node": "^25.9.4",
     "@types/pdfkit": "^0.17.6",
-    "@typescript/native-preview": "^7.0.0-dev.20260627.2",
+    "@typescript/native-preview": "^7.0.0-dev.20260704.1",
     "@vitest/coverage-v8": "^4.1.9",
-    "oxlint": "^1.71.0",
+    "oxlint": "^1.72.0",
     "pdfkit": "^0.19.1",
     "secretlint": "^13.0.2",
     "tsdown": "^0.22.3",
