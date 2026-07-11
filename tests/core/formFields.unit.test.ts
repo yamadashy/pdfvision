@@ -184,6 +184,112 @@ describe('buildFormFields', () => {
     });
   });
 
+  it('checks only the radio widget whose button value matches the group value', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'fruit',
+          fieldType: 'Btn',
+          radioButton: true,
+          rect: [10, 10, 20, 20],
+          fieldValue: '1',
+          buttonValue: '0',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'fruit',
+          fieldType: 'Btn',
+          radioButton: true,
+          rect: [30, 10, 40, 20],
+          fieldValue: '1',
+          buttonValue: '1',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'fruit',
+          fieldType: 'Btn',
+          radioButton: true,
+          rect: [50, 10, 60, 20],
+          fieldValue: '1',
+          buttonValue: '2',
+        },
+      ],
+      100,
+    );
+
+    expect(fields.map((field) => ({ exportValue: field.exportValue, checked: field.checked }))).toEqual([
+      { exportValue: '0', checked: false },
+      { exportValue: '1', checked: true },
+      { exportValue: '2', checked: false },
+    ]);
+  });
+
+  it('leaves every radio widget unchecked when the group value is Off', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'shared',
+          fieldType: 'Btn',
+          radioButton: true,
+          rect: [10, 10, 20, 20],
+          fieldValue: 'Off',
+          buttonValue: '0',
+        },
+        {
+          subtype: 'Widget',
+          fieldName: 'shared',
+          fieldType: 'Btn',
+          radioButton: true,
+          rect: [30, 10, 40, 20],
+          fieldValue: 'Off',
+          buttonValue: '1',
+        },
+      ],
+      100,
+    );
+
+    expect(fields.map((field) => field.checked)).toEqual([false, false]);
+  });
+
+  it('keeps checkbox checked state based on non-Off field values', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'agree',
+          fieldType: 'Btn',
+          checkBox: true,
+          rect: [10, 10, 20, 20],
+          fieldValue: 'Yes',
+          exportValue: 'Yes',
+        },
+      ],
+      100,
+    );
+
+    expect(fields[0]).toMatchObject({ type: 'checkbox', value: 'Yes', exportValue: 'Yes', checked: true });
+  });
+
+  it('falls back to the selected group value when a radio widget has no on-state', () => {
+    const fields = buildFormFields(
+      [
+        {
+          subtype: 'Widget',
+          fieldName: 'legacy',
+          fieldType: 'Btn',
+          radioButton: true,
+          rect: [10, 10, 20, 20],
+          fieldValue: 'Selected',
+        },
+      ],
+      100,
+    );
+
+    expect(fields[0]).toMatchObject({ type: 'radio', value: 'Selected', checked: true });
+  });
+
   it('extracts non-JavaScript reset form actions from button widgets', () => {
     const fields = buildFormFields(
       [
