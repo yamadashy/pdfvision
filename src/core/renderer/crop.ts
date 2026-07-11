@@ -9,7 +9,7 @@ export interface ViewportCrop {
 }
 
 export interface PageViewportLike {
-  convertToViewportRectangle(rect: [number, number, number, number]): number[];
+  convertToViewportPoint(x: number, y: number): number[];
   convertToPdfPoint(x: number, y: number): number[];
 }
 
@@ -25,7 +25,9 @@ export function viewportCropForRegion(
   const rightPdf = leftPdf + region.width;
   const topPdf = viewMaxY - region.y;
   const bottomPdf = topPdf - region.height;
-  const rect = viewport.convertToViewportRectangle([leftPdf, topPdf, rightPdf, bottomPdf]);
+  const topLeft = viewport.convertToViewportPoint(leftPdf, topPdf);
+  const bottomRight = viewport.convertToViewportPoint(rightPdf, bottomPdf);
+  const rect = [topLeft[0], topLeft[1], bottomRight[0], bottomRight[1]];
   const left = Math.min(rect[0], rect[2]);
   const top = Math.min(rect[1], rect[3]);
   const right = Math.max(rect[0], rect[2]);

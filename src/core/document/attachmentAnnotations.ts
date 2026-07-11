@@ -3,6 +3,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 interface PdfAnnotation {
   subtype?: unknown;
   file?: unknown;
+  fileId?: unknown;
 }
 
 interface PdfFileAttachment {
@@ -21,7 +22,12 @@ export async function collectFileAttachmentAnnotations(doc: PDFDocumentProxy): P
       const annotation = rawAnnotation as PdfAnnotation;
       if (annotation.subtype !== 'FileAttachment' || !annotation.file) continue;
       const key = fileAttachmentKey(annotation.file, pageNumber, index);
-      attachments[key] = annotation.file;
+      const content =
+        typeof annotation.fileId === 'string' ? await doc.getAttachmentContent(annotation.fileId) : undefined;
+      attachments[key] =
+        content === undefined || typeof annotation.file !== 'object'
+          ? annotation.file
+          : { ...annotation.file, content };
       index++;
     }
   }

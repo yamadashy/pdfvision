@@ -1,8 +1,12 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
-import { describe, expect, it } from 'vitest';
-import { buildAttachments, mergeAttachmentRecords } from '../../src/core/document/attachments.js';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  buildAttachments,
+  catalogAttachmentsToRecord,
+  mergeAttachmentRecords,
+} from '../../src/core/document/attachments.js';
 
 describe('buildAttachments', () => {
   it('extracts attachment metadata without carrying content bytes', () => {
@@ -31,6 +35,17 @@ describe('buildAttachments', () => {
 
   it('returns an empty array when the PDF has no embedded file attachments', () => {
     expect(buildAttachments(null)).toEqual([]);
+  });
+
+  it('converts catalog attachment maps and loads their content lazily', async () => {
+    const getContent = vi.fn(async () => new Uint8Array([1, 2, 3]));
+    const record = await catalogAttachmentsToRecord(
+      new Map([['attachment-id', { filename: 'report.txt', description: 'Report' }]]),
+      getContent,
+    );
+
+    expect(buildAttachments(record)).toEqual([{ name: 'report.txt', description: 'Report', size: 3 }]);
+    expect(getContent).toHaveBeenCalledWith('attachment-id');
   });
 
   it('deduplicates equivalent attachment records from multiple PDF sources', () => {

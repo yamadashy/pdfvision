@@ -8,7 +8,7 @@ import type {
   ProcessDocumentOptions,
 } from '../../types/index.js';
 import { collectFileAttachmentAnnotations } from '../document/attachmentAnnotations.js';
-import { buildAttachments, mergeAttachmentRecords } from '../document/attachments.js';
+import { buildAttachments, catalogAttachmentsToRecord, mergeAttachmentRecords } from '../document/attachments.js';
 import { buildLayers } from '../document/layers.js';
 import { buildOutline } from '../document/outline.js';
 import { buildViewerState } from '../document/viewer.js';
@@ -40,8 +40,12 @@ export async function extractDocumentFeatures(
     rawPageLabels === undefined
       ? undefined
       : (rawPageLabels ?? []).map((label) => (normalize ? normalize(label) : label));
+  const catalogAttachments = await doc.getAttachments();
+  const catalogAttachmentRecords = options.attachments
+    ? await catalogAttachmentsToRecord(catalogAttachments, (id) => doc.getAttachmentContent(id))
+    : undefined;
   const attachmentRecords = options.attachments
-    ? mergeAttachmentRecords(await doc.getAttachments(), await collectFileAttachmentAnnotations(doc))
+    ? mergeAttachmentRecords(catalogAttachmentRecords, await collectFileAttachmentAnnotations(doc))
     : undefined;
   const attachments: DocumentAttachment[] | undefined = options.attachments
     ? buildAttachments(attachmentRecords, {
@@ -53,7 +57,7 @@ export async function extractDocumentFeatures(
   // (one cheap worker call) so a default extraction never hides that the
   // PDF carries attachments. When the full pass ran, its merged view (which
   // also covers per-page file-attachment annotations) is the truth.
-  const attachmentCount = attachments?.length ?? Object.keys((await doc.getAttachments()) ?? {}).length;
+  const attachmentCount = attachments?.length ?? catalogAttachments?.size ?? 0;
   const rawOutline = await doc.getOutline();
   const outline: DocumentOutlineItem[] | undefined = options.outline
     ? await buildOutline(rawOutline, doc, {
