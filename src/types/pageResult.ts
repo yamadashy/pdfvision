@@ -7,7 +7,7 @@ import type { PageLink } from './links.js';
 import type { PageOcr } from './ocr.js';
 import type { PageQuality } from './quality.js';
 import type { SearchMatch } from './search.js';
-import type { PageStructureNode } from './structure.js';
+import type { PageStructureNode, PageStructureTable } from './structure.js';
 import type { ImageBox, VectorBox, VisualRegion } from './visual.js';
 
 import type { PageWarning } from './warnings.js';
@@ -200,6 +200,11 @@ export interface PageResult {
    * structure tree; absent means structure extraction was not requested.
    */
   structure?: PageStructureNode | null;
+  /**
+   * Tagged table grids reconstructed from `structure`, present only when
+   * `structure: true` found at least one Table node on the page.
+   */
+  structureTables?: PageStructureTable[];
   /**
    * Page-level JavaScript actions such as PageOpen/PageClose scripts, present
    * when `viewer: true` was passed and the page defines them.

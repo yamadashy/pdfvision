@@ -823,6 +823,53 @@ describe('formatMarkdown', () => {
     expect(out).toContain('    - content p1\\_mc0');
   });
 
+  it('renders reconstructed tagged tables in the Structure section', () => {
+    const out = formatMarkdown(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            structure: { role: 'Root', children: [{ role: 'Table', children: [] }] },
+            structureTables: [
+              {
+                rows: [
+                  {
+                    cells: [
+                      { text: '', header: 'column' },
+                      { text: 'Sydney | NSW', header: 'column' },
+                    ],
+                  },
+                  { cells: [{ text: 'Monday', header: 'row' }, { text: '23<br>sunny' }] },
+                ],
+              },
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toContain('### Structure');
+    expect(out).toContain('- Root\n  - Table');
+    expect(out).toContain('#### Tagged table 1');
+    expect(out).toContain('|  | Sydney \\| NSW |\n| --- | --- |\n| Monday | 23<br>sunny |');
+  });
+
+  it('synthesizes tagged table headings when no column headers exist', () => {
+    const out = formatMarkdown(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            structure: { role: 'Root', children: [{ role: 'Table', children: [] }] },
+            structureTables: [{ rows: [{ cells: [{ text: 'A' }, { text: 'B' }] }] }],
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toContain('| C1 | C2 |\n| --- | --- |\n| A | B |');
+  });
+
   it('escapes tagged PDF structure labels and emits MathML', () => {
     const out = formatMarkdown(
       makeResult({

@@ -249,6 +249,32 @@ describe('formatToon', () => {
     expect(decoded).toEqual(result);
   });
 
+  it('round-trips reconstructed tagged tables through the TOON data model', () => {
+    const result = makeResult({
+      pages: [
+        makePage({
+          page: 1,
+          structure: { role: 'Root', children: [{ role: 'Table', children: [] }] },
+          structureTables: [
+            {
+              rows: [
+                {
+                  cells: [
+                    { text: 'Region', header: 'column' },
+                    { text: 'Value', header: 'column' },
+                  ],
+                },
+                { cells: [{ text: 'North', header: 'row' }, { text: '' }] },
+              ],
+            },
+          ],
+        }),
+      ],
+    });
+
+    expect(decode(formatToon(result))).toEqual(result);
+  });
+
   it('round-trips visual regions through the TOON data model', () => {
     const result = makeResult({
       pages: [

@@ -4,9 +4,28 @@ import { appendStructureItem, escapeAttr, escapeText } from './helpers.js';
 export function appendPageTextSections(out: string[], page: PageResult): void {
   appendMatches(out, page);
   appendStructure(out, page);
+  appendStructureTables(out, page);
   appendWarnings(out, page);
   appendText(out, page);
   appendOcr(out, page);
+}
+
+function appendStructureTables(out: string[], page: PageResult): void {
+  if (!page.structureTables) return;
+  out.push('<structureTables>');
+  for (const table of page.structureTables) {
+    out.push('<table>');
+    for (const row of table.rows) {
+      out.push('<row>');
+      for (const cell of row.cells) {
+        const header = cell.header ? ` header="${cell.header}"` : '';
+        out.push(`<cell${header}>${escapeText(cell.text)}</cell>`);
+      }
+      out.push('</row>');
+    }
+    out.push('</table>');
+  }
+  out.push('</structureTables>');
 }
 
 function appendMatches(out: string[], page: PageResult): void {

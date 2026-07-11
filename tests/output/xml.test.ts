@@ -1155,6 +1155,37 @@ describe('formatXml', () => {
     expect(out).toContain('<structure/>');
   });
 
+  it('emits reconstructed tagged tables alongside the structure tree', () => {
+    const out = formatXml(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            structure: { role: 'Root', children: [{ role: 'Table', children: [] }] },
+            structureTables: [
+              {
+                rows: [
+                  {
+                    cells: [
+                      { text: 'City & state', header: 'column' },
+                      { text: 'Value', header: 'column' },
+                    ],
+                  },
+                  { cells: [{ text: 'Sydney', header: 'row' }, { text: '<23>' }] },
+                ],
+              },
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toContain('<structureTables>\n<table>\n<row>');
+    expect(out).toContain('<cell header="column">City &amp; state</cell>');
+    expect(out).toContain('<cell header="row">Sydney</cell>\n<cell>&lt;23&gt;</cell>');
+    expect(out).toContain('</row>\n</table>\n</structureTables>');
+  });
+
   it('emits an <ocr> element with lang + confidence attributes when ocr is present', () => {
     const out = formatXml(
       makeResult({

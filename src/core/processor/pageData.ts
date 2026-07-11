@@ -5,6 +5,7 @@ import type {
   PageLayout,
   PageLink,
   PageStructureNode,
+  PageStructureTable,
   TextSpan,
   VectorBox,
 } from '../../types/index.js';
@@ -51,6 +52,7 @@ export interface PageData {
   annotations?: PageAnnotation[];
   _internalAnnotations?: PageAnnotation[];
   structure?: PageStructureNode | null;
+  structureTables?: PageStructureTable[];
   jsActions?: Record<string, string[]>;
 }
 

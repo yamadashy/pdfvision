@@ -1,7 +1,9 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { buildAnnotations, hasVisibleAnnotationAppearance, isPageAnnotation } from '../annotations/index.js';
 import { resolveDestinationPage } from '../document/destinations.js';
+import { buildMarkedContentTextMap } from '../document/markedContentText.js';
 import { buildPageStructure } from '../document/structure.js';
+import { buildStructureTables } from '../document/structureTables.js';
 import { normalizeJavaScriptActions } from '../document/viewer.js';
 import { buildFormFields, isFormFieldAnnotation } from '../formFields/index.js';
 import { buildImageBoxes, type ImageOps } from '../graphics/imageBoxes.js';
@@ -173,6 +175,14 @@ export async function extractPageData(
         viewMinY: yMin,
       })
     : undefined;
+  const structureTables = flags.structure
+    ? buildStructureTables(
+        structure ?? null,
+        buildMarkedContentTextMap(content, {
+          normalizeText: flags.normalize ? normalizeText : undefined,
+        }),
+      )
+    : undefined;
   const jsActions = flags.viewer
     ? normalizeJavaScriptActions(await page.getJSActions(), {
         normalizeText: flags.normalize ? normalizeText : undefined,
@@ -257,6 +267,7 @@ export async function extractPageData(
     ...(pageAnnotations !== undefined && { annotations: pageAnnotations }),
     ...(internalAnnotations !== undefined && { _internalAnnotations: internalAnnotations }),
     ...(structure !== undefined && { structure }),
+    ...(structureTables && structureTables.length > 0 && { structureTables }),
     ...(jsActions !== undefined && { jsActions }),
   };
 }
