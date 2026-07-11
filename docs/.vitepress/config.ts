@@ -14,8 +14,11 @@ const ogImageUrl = `${siteUrl}/og.png`;
 const githubUrl = 'https://github.com/yamadashy/pdfvision';
 const npmUrl = 'https://www.npmjs.com/package/pdfvision';
 const websiteId = `${siteUrl}#website`;
-const isCfPagesProductionDeploy = process.env.CF_PAGES === '1' && process.env.CF_PAGES_BRANCH === 'main';
-const isGoogleAnalyticsEnabled = process.env.PDFVISION_ENABLE_GOOGLE_ANALYTICS === '1' || isCfPagesProductionDeploy;
+const isCloudflareProductionDeploy =
+  (process.env.CF_PAGES === '1' && process.env.CF_PAGES_BRANCH === 'main') ||
+  (process.env.WORKERS_CI === '1' && process.env.WORKERS_CI_BRANCH === 'main');
+const isGoogleAnalyticsEnabled =
+  process.env.PDFVISION_ENABLE_GOOGLE_ANALYTICS === '1' || isCloudflareProductionDeploy;
 const siteAuthor = {
   '@type': 'Person' as const,
   name: 'Kazuki Yamada',
