@@ -48,6 +48,10 @@ interface GraphicsState {
 
 const MIN_FILL_ALPHA = 0.9;
 const MAX_DARK_LUMINANCE = 0.2;
+const MAX_RECTANGLE_PATH_NUMBERS = 16;
+const MAX_EVIDENCE_TEXT_RUNS = 4_096;
+const MAX_EVIDENCE_TEXT_CODE_UNITS = 65_536;
+const MAX_EVIDENCE_FILLS = 4_096;
 
 export function collectOpaqueFillTextEvidence(
   fnArray: readonly number[],
@@ -68,6 +72,8 @@ export function collectOpaqueFillTextEvidence(
   let clipActive = false;
   let annotationDepth = 0;
   let groupDepth = 0;
+  let optionalContentDepth = 0;
+  let textCodeUnits = 0;
   const stack: GraphicsState[] = [];
   const groupSoftMaskStack: boolean[] = [];
   const markedContentStack: boolean[] = [];
@@ -100,11 +106,13 @@ export function collectOpaqueFillTextEvidence(
     const args = argsArray[i];
 
     if (fn === ops.beginMarkedContent || fn === ops.beginMarkedContentProps) {
-      markedContentStack.push(args?.[0] === 'OC');
+      const optionalContent = args?.[0] === 'OC';
+      markedContentStack.push(optionalContent);
+      if (optionalContent) optionalContentDepth++;
       continue;
     }
     if (fn === ops.endMarkedContent) {
-      markedContentStack.pop();
+      if (markedContentStack.pop()) optionalContentDepth = Math.max(0, optionalContentDepth - 1);
       continue;
     }
 
@@ -154,7 +162,13 @@ export function collectOpaqueFillTextEvidence(
       fillColor = fillColorValue(args);
     } else if (ops.textShowOps.has(fn)) {
       const text = operatorText(args);
-      if (normalizeComparableText(text).length > 0) textRuns.push(text);
+      if (normalizeComparableText(text).length > 0) {
+        textCodeUnits += text.length;
+        if (textRuns.length >= MAX_EVIDENCE_TEXT_RUNS || textCodeUnits > MAX_EVIDENCE_TEXT_CODE_UNITS) {
+          return undefined;
+        }
+        textRuns.push(text);
+      }
     } else if (ops.clipOps.has(fn)) {
       clipActive = true;
     } else if (fn === ops.constructPath) {
@@ -163,11 +177,9 @@ export function collectOpaqueFillTextEvidence(
         clipActive = true;
         continue;
       }
-      const rectangle = rectanglePathBox(args?.[1]);
       if (
         typeof pathOp !== 'number' ||
         !ops.pathFillOps.has(pathOp) ||
-        !rectangle ||
         !isAxisAlignedTransform(ctm) ||
         fillAlpha < MIN_FILL_ALPHA ||
         fillAlpha > 1 ||
@@ -176,13 +188,16 @@ export function collectOpaqueFillTextEvidence(
         softMaskActive ||
         clipActive ||
         groupDepth > 0 ||
-        markedContentStack.includes(true) ||
+        optionalContentDepth > 0 ||
         !isDarkColor(fillColor)
       ) {
         continue;
       }
+      const rectangle = rectanglePathBox(args?.[1]);
+      if (!rectangle) continue;
       const box = bboxToTopLeftBox(rectangle, ctm, pageHeight, viewMinX, viewMinY);
       if (!isPositiveFiniteBox(box)) continue;
+      if (fills.length >= MAX_EVIDENCE_FILLS) return undefined;
       fills.push({ ...box, precedingTextRunCount: textRuns.length });
     }
   }
@@ -282,7 +297,8 @@ function numericQuad(value: unknown): Quad | undefined {
  * Only a single axis-aligned rectangle proves that its whole bbox is painted
  * (fill operations implicitly close an open subpath). Complex paths can
  * contain holes or disconnected subpaths, so their aggregate bbox is not
- * positive coverage evidence.
+ * positive coverage evidence. The longest accepted encoding is 16 numbers:
+ * moveTo, four lineTo commands (the last repeats the start), and closePath.
  */
 function rectanglePathBox(value: unknown): Quad | undefined {
   if (!Array.isArray(value) || value.length !== 1) return undefined;
@@ -331,7 +347,10 @@ function rectanglePathBox(value: unknown): Quad | undefined {
 function arrayLikeNumbers(value: unknown): number[] | undefined {
   if (!value || typeof value !== 'object') return undefined;
   const candidate = value as ArrayLike<unknown>;
-  if (!Number.isInteger(candidate.length) || candidate.length <= 0) return undefined;
+  const { length } = candidate;
+  if (!Number.isInteger(length) || length <= 0 || length > MAX_RECTANGLE_PATH_NUMBERS) {
+    return undefined;
+  }
   const data = Array.from(candidate);
   return data.every((item): item is number => typeof item === 'number') ? data : undefined;
 }

@@ -105,6 +105,69 @@ describe('collectOpaqueFillTextEvidence', () => {
     });
   });
 
+  it('rejects a large stroke path without inspecting its geometry', () => {
+    const geometry = new Proxy({ length: 1_000_000 } as ArrayLike<number>, {
+      get(target, property, receiver) {
+        if (property !== 'length') throw new Error('stroke geometry was expanded');
+        return Reflect.get(target, property, receiver);
+      },
+    });
+
+    expect(() =>
+      collectOpaqueFillTextEvidence(
+        [OP.showText, OP.constructPath],
+        [[glyphs('Visible text')], [OP.stroke, [geometry], [10, 170, 110, 180]]],
+        ops,
+        200,
+        0,
+        0,
+      ),
+    ).not.toThrow();
+  });
+
+  it('rejects rectangle path data longer than 16 numbers without expanding it', () => {
+    const geometry = new Proxy({ length: 17 } as ArrayLike<number>, {
+      get(target, property, receiver) {
+        if (property !== 'length') throw new Error('oversized geometry was expanded');
+        return Reflect.get(target, property, receiver);
+      },
+    });
+
+    const result = collectOpaqueFillTextEvidence(
+      [OP.showText, OP.constructPath],
+      [[glyphs('Visible text')], [OP.fill, [geometry], [10, 170, 110, 180]]],
+      ops,
+      200,
+      0,
+      0,
+    );
+
+    expect(result).toBeUndefined();
+  });
+
+  it('accepts the maximum 16-number closed rectangle encoding', () => {
+    const closedRectangle = [0, 10, 170, 1, 110, 170, 1, 110, 180, 1, 10, 180, 1, 10, 170, 4];
+    const result = collectOpaqueFillTextEvidence(
+      [OP.showText, OP.constructPath],
+      [[glyphs('Covered text')], [OP.fill, [closedRectangle], [10, 170, 110, 180]]],
+      ops,
+      200,
+      0,
+      0,
+    );
+
+    expect(result?.fills).toEqual([{ x: 10, y: 20, width: 100, height: 10, precedingTextRunCount: 1 }]);
+  });
+
+  it('fails closed when retained text evidence exceeds 4,096 runs', () => {
+    const fnArray: number[] = Array.from({ length: 4_097 }, () => OP.showText);
+    fnArray.push(OP.constructPath);
+    const argsArray: unknown[][] = Array.from({ length: 4_097 }, () => [glyphs('run')]);
+    argsArray.push(path(OP.fill, [10, 170, 110, 180]));
+
+    expect(collectOpaqueFillTextEvidence(fnArray, argsArray, ops, 200, 0, 0)).toBeUndefined();
+  });
+
   it('accepts three-digit dark colors and alpha exactly at the threshold', () => {
     const result = collectOpaqueFillTextEvidence(
       [OP.showText, OP.setFillRGBColor, OP.setGState, OP.constructPath],
@@ -752,6 +815,129 @@ describe('detectPageWarnings text_under_opaque_fill', () => {
     });
 
     expect(out.map((warning) => warning.code)).toContain('text_under_opaque_fill');
+  });
+
+  it('matches a TextSpan formed by raw concatenation of split showText runs', () => {
+    const out = detectPageWarnings(page([]), {
+      spans: [span('Employee SSN')],
+      opaqueFillText: evidence(
+        ['Emplo', 'yee SSN'],
+        [{ x: 10, y: 20, width: 100, height: 10, precedingTextRunCount: 2 }],
+      ),
+    });
+
+    expect(out.map((warning) => warning.code)).toContain('text_under_opaque_fill');
+  });
+
+  it('preserves direct and inferred-space matching across sequential spans', () => {
+    const out = detectPageWarnings(page([]), {
+      spans: [span('Alpha Beta', 10, 20), span('Gamma Delta', 10, 50)],
+      opaqueFillText: evidence(
+        ['Alpha', 'Beta', 'Gamma ', 'Delta'],
+        [
+          { x: 10, y: 20, width: 100, height: 10, precedingTextRunCount: 4 },
+          { x: 10, y: 50, width: 100, height: 10, precedingTextRunCount: 4 },
+        ],
+      ),
+    });
+
+    expect(out).toContainEqual(
+      expect.objectContaining({
+        code: 'text_under_opaque_fill',
+        message: expect.stringContaining('2 extracted native text runs are at least 90% covered'),
+      }),
+    );
+  });
+
+  it('preserves direct NFKC normalization across a run boundary', () => {
+    const out = detectPageWarnings(page([]), {
+      spans: [span('\u00e9clair')],
+      opaqueFillText: evidence(
+        ['e', '\u0301clair'],
+        [{ x: 10, y: 20, width: 100, height: 10, precedingTextRunCount: 2 }],
+      ),
+    });
+
+    expect(out.map((warning) => warning.code)).toContain('text_under_opaque_fill');
+  });
+
+  it('matches two thousand one-character runs without growing-string normalization', () => {
+    const textRuns = Array.from({ length: 2_000 }, () => 'x');
+    const out = detectPageWarnings(page([]), {
+      spans: [span('x'.repeat(textRuns.length))],
+      opaqueFillText: evidence(textRuns, [
+        { x: 10, y: 20, width: 100, height: 10, precedingTextRunCount: textRuns.length },
+      ]),
+    });
+
+    expect(out.map((warning) => warning.code)).toContain('text_under_opaque_fill');
+  });
+
+  it('rejects a mismatched two-thousand-run candidate without quadratic concatenation', () => {
+    const textRuns = Array.from({ length: 2_000 }, () => 'x');
+    const out = detectPageWarnings(page([]), {
+      spans: [span(`${'x'.repeat(textRuns.length - 1)}y`)],
+      opaqueFillText: evidence(textRuns, [
+        { x: 10, y: 20, width: 100, height: 10, precedingTextRunCount: textRuns.length },
+      ]),
+    });
+
+    expect(out.map((warning) => warning.code)).not.toContain('text_under_opaque_fill');
+  });
+
+  it('fails closed when adjacent evidence exceeds the 4,096-run bound', () => {
+    const textRuns = Array.from({ length: 4_097 }, () => 'x');
+    const out = detectPageWarnings(page([]), {
+      spans: [span('x'.repeat(textRuns.length))],
+      opaqueFillText: evidence(textRuns, [
+        { x: 10, y: 20, width: 100, height: 10, precedingTextRunCount: textRuns.length },
+      ]),
+    });
+
+    expect(out.map((warning) => warning.code)).not.toContain('text_under_opaque_fill');
+  });
+
+  it('fails closed when candidate span evidence exceeds the 4,096-span bound', () => {
+    const spans = Array.from({ length: 4_097 }, () => span('same'));
+    const textRuns = Array.from({ length: 4_096 }, () => 'same');
+    const out = detectPageWarnings(page([]), {
+      spans,
+      opaqueFillText: evidence(textRuns, [
+        { x: 10, y: 20, width: 100, height: 10, precedingTextRunCount: textRuns.length },
+      ]),
+    });
+
+    expect(out.map((warning) => warning.code)).not.toContain('text_under_opaque_fill');
+  });
+
+  it('discards earlier matches when the shared adjacent-match budget is exhausted', () => {
+    const textRuns = [...Array.from({ length: 2_000 }, () => ' '), 'abc', 'VISIBLE'];
+    const out = detectPageWarnings(page([]), {
+      spans: [span('abd', 200, 20), span('VISIBLE', 10, 20)],
+      opaqueFillText: evidence(textRuns, [
+        { x: 10, y: 20, width: 100, height: 10, precedingTextRunCount: textRuns.length },
+      ]),
+    });
+
+    expect(out.map((warning) => warning.code)).not.toContain('text_under_opaque_fill');
+  });
+
+  it('discards earlier findings when the shared coverage-check budget is exhausted', () => {
+    const spans = [span('same', 10, 20), ...Array.from({ length: 500 }, () => span('same', 200, 20))];
+    const textRuns = Array.from({ length: spans.length }, () => 'same');
+    const fills = [
+      { x: 10, y: 20, width: 100, height: 10, precedingTextRunCount: textRuns.length },
+      ...Array.from({ length: 499 }, () => ({
+        x: 500,
+        y: 20,
+        width: 100,
+        height: 10,
+        precedingTextRunCount: textRuns.length,
+      })),
+    ];
+    const out = detectPageWarnings(page([]), { spans, opaqueFillText: evidence(textRuns, fills) });
+
+    expect(out.map((warning) => warning.code)).not.toContain('text_under_opaque_fill');
   });
 
   it('does not reorder adjacent text runs to manufacture a match', () => {
