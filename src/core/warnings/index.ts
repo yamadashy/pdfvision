@@ -1,5 +1,6 @@
 import type { ImageBox, PageAnnotation, PageResult, PageWarning, TextSpan, VectorBox } from '../../types/index.js';
 import type { InvisibleTextEvidence } from '../graphics/invisibleText.js';
+import type { OpaqueFillTextEvidence } from '../graphics/opaqueFillText.js';
 import { detectTextOverlap } from '../warningTextOverlap/index.js';
 import { detectDuplicateTextLayer } from './duplicateLayer.js';
 import {
@@ -19,6 +20,7 @@ import {
 } from './glyphText.js';
 import { detectInvisibleText } from './invisibleText.js';
 import { detectFormLabelReadingOrderDivergence, detectReadingOrderDivergence } from './readingOrder.js';
+import { detectTextUnderOpaqueFill } from './redactionBypass.js';
 import { detectRtlScriptText } from './rtlScript.js';
 import { detectDotLeaderNoise, detectTabularNumericLayout } from './tabular.js';
 import {
@@ -69,6 +71,8 @@ export interface PageWarningContext {
   spans?: TextSpan[];
   /** Invisible text-show operations found in the page operator list. */
   invisibleText?: InvisibleTextEvidence;
+  /** Ordered text-show and later opaque dark-fill evidence from the page operator list. */
+  opaqueFillText?: OpaqueFillTextEvidence;
   /** Non-fatal pdf.js warnings captured during parsing/rendering. */
   pdfJsWarnings?: readonly string[];
 }
@@ -100,6 +104,7 @@ export function detectPageWarnings(page: PageResult, context: PageWarningContext
   detectFontMappingWarning(page, context, warnings);
   detectRawEmbeddedSourceText(page, warnings);
   detectInvisibleText(page, context, warnings);
+  detectTextUnderOpaqueFill(page, context, warnings);
   detectRasterBackedTextLayer(page, context, warnings);
   detectRasterTextLayerSymbolNoise(page, context, warnings);
   detectRasterTextLayerWordFragmentation(page, context, warnings);

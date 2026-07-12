@@ -10,6 +10,7 @@ import type {
   VectorBox,
 } from '../../types/index.js';
 import type { InvisibleTextEvidence } from '../graphics/invisibleText.js';
+import type { OpaqueFillTextEvidence } from '../graphics/opaqueFillText.js';
 import type { BuildVisualRegionsInput } from '../visualRegions/index.js';
 
 export interface PageData {
@@ -36,6 +37,7 @@ export interface PageData {
    *  was not requested. */
   _warningSpans?: TextSpan[];
   _invisibleText?: InvisibleTextEvidence;
+  _opaqueFillText?: OpaqueFillTextEvidence;
   layout?: PageLayout;
   imageBoxes?: ImageBox[];
   _warningImageBoxes?: ImageBox[];
