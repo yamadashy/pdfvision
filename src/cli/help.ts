@@ -125,7 +125,7 @@ Options
                           preserved alongside so callers can compare native vs OCR.
       --ocr-lang <lang>   Tesseract language code(s), plus-separated for multi-lang
                           (e.g. \`eng+jpn\`). Default: eng. Only used with --ocr.
-      --search <query>    Find every occurrence of <query> on each page and emit
+      --search <query>    Find occurrences of <query> on each page and emit
                           \`pages[].matches[]\` with the bbox of each hit. Pipe a
                           match's bbox into a follow-up --render-region for visual
                           zoom. Repeatable: \`--search A --search B\` searches both
@@ -137,17 +137,18 @@ Options
                           (source:'link'), visible FreeText annotations
                           (source:'annotation'), and OCR text when --ocr is on
                           (source:'ocr'); duplicate OCR hits already covered by
-                          non-OCR matches are suppressed.
+                          non-OCR matches are suppressed. At most 10,000 matches are
+                          emitted per page, query, and source. Reaching the cap warns on
+                          stderr; any further matches for that combination are dropped.
       --search-regex      Treat each --search query as a JavaScript regular expression
                           (default: literal substring).
       --search-case-sensitive
                           Match case exactly (default: insensitive).
-      --matches-only      Emit only the search hits — a flat list of every match with its
-                          page, source, text, context, and bbox — instead of the full
-                          per-page document. Requires --search. Pages with no match are
-                          omitted; zero matches overall still exits 0 with a minimal report.
-                          Works in every format; keeps search output well under 1 KB so an
-                          agent can find-then-zoom without spending its context on body text.
+      --matches-only      Emit a focused search report: the file, total page/match counts, and
+                          a flat list of emitted matches with page, query reference, source,
+                          text, optional context, and bbox. Requires --search. The full pages/body
+                          payload is omitted; zero matches still exits 0 with a zero-match report.
+                          Works in every format. Size grows with emitted matches and context.
       --remote <url>      Download an http(s) PDF, validate the PDF header, and run extraction
                           on it. Same URL → same cache slot unless --no-cache streams the
                           bytes directly without writing the remote-PDF cache.
@@ -163,9 +164,10 @@ Output formats
                       and layout warnings surface automatically — no --layout needed. --layout adds
                       the structural Layout tables / Blocks / Tables columns on top.
   json                Full DocumentResult schema. For programmatic parsing.
-  xml                 Tag-shaped variant of json. For LLMs that parse tags more reliably than JSON.
-  toon                Token-Oriented Object Notation: lossless, tabular encoding of the json schema
-                      that cuts tokens (~40% on geometry/layout-heavy output). For tight LLM budgets.
+  xml                 Tag-shaped variant of json. For consumers or prompts that benefit from explicit tags.
+  toon                Token-Oriented Object Notation: lossless encoding of the json schema.
+                      Arrays whose entries have the same scalar fields can use a tabular form;
+                      normal overview and mixed-field spans/lines stay in list form.
 
 Examples
   pdfvision document.pdf                                                       # markdown to stdout
@@ -174,12 +176,12 @@ Examples
   pdfvision document.pdf -r --render-output ./images                           # render PNGs to ./images
   pdfvision slides.pdf -r --render-scale 1                                     # 1× raster (smaller PNGs)
   pdfvision report.pdf -p 3 -r --render-region 100,200,300,150                 # zoom into a 300×150pt box on page 3
-  pdfvision report.pdf --search "revenue" --json                               # find every "revenue" with bbox; pipe to --render-region
+  pdfvision report.pdf --search "revenue" --json                               # find emitted "revenue" matches with bboxes; pipe to --render-region
   pdfvision paper.pdf --search "GPT" --search "transformer" --json             # multi-query (each match keeps its source query)
-  pdfvision paper.pdf --search "BLEU" --matches-only                           # just the hits + bboxes (compact, <1KB)
+  pdfvision paper.pdf --search "BLEU" --matches-only                           # report metadata + flat match list, without page bodies
   pdfvision report.pdf -p 3-5 -r --render-output ./images --geometry --json    # PNGs + spans for 3-5
   pdfvision slides.pdf --xml --geometry                                        # layout / geometry as XML
-  pdfvision report.pdf --toon --geometry                                       # token-efficient spans (TOON)
+  pdfvision report.pdf --toon --geometry                                       # geometry spans in TOON format
   pdfvision report.pdf --layout --strip-repeated                               # markdown w/o repeated chrome
   pdfvision encrypted.pdf --password "secret" --json                           # encrypted PDF
   printf "secret\\n" | pdfvision encrypted.pdf --password-stdin --json          # avoid password in argv

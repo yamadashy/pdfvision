@@ -46,9 +46,9 @@ JSON 暴露完整的 `DocumentResult` schema，適合工具、代理、測試與
 pdfvision document.pdf --format xml
 ```
 
-XML 將與 JSON 相同的資料表示為標籤結構。某些 LLM 更容易定位 `<page>`、`<text>` 和 `<warning>` 這類標籤。
+XML 將同一份 `DocumentResult` 資料重新編碼為標籤結構。
 
-當消費者是 LLM，且明確的 page、text、warning、matches、layout blocks 邊界有幫助時使用 XML。
+當使用方或提示詞按照明確的 `<page>`、`<text>`、`<warning>`、match 和 layout block 邊界建立時使用 XML。
 
 ## TOON
 
@@ -56,15 +56,17 @@ XML 將與 JSON 相同的資料表示為標籤結構。某些 LLM 更容易定�
 pdfvision document.pdf --format toon
 ```
 
-TOON 是同一結構化結果的 token 友好表示。對 spans、image boxes、layout lines 等重複物件陣列，通常比格式化 JSON 更緊湊。
+TOON 是同一結構化結果的無損重新編碼。具有相同純量欄位的物件陣列可以使用只宣告一次欄位名稱的表格形式，從而減少重複鍵開銷。
 
-TOON 適合 geometry-heavy 輸出，其中 JSON key repetition 會佔據大部分 prompt。代理仍然收到同樣的證據，但重複列更緊湊。
+包含巢狀值的陣列，以及項目之間欄位不同的陣列，仍使用列表形式。
+
+當符合條件的均一陣列在結果中佔多數時，可以考慮 TOON。在注重 token 的工作流程中採用之前，請使用自己的文件和目標模型上下文比較各種格式。
 
 ## 實用預設值
 
 - 快速的人類可讀擷取使用 Markdown。
 - 工具和代理控制器使用 JSON。
 - 受益於明確標籤的 prompt workflow 使用 XML。
-- 緊張 context window 中的大型結構化輸出使用 TOON。
+- 當具有相同純量欄位的物件陣列佔多數時考慮 TOON，並使用自己的文件與 JSON 比較。
 
-為了 debugging 和可重現性，優先使用 JSON。直接給模型閱讀時，選擇目標模型最可靠遵循的表示。
+為了 debugging 和可重現性，優先使用 JSON。直接給模型閱讀時，請使用自己的文件和目標模型上下文比較各種格式。

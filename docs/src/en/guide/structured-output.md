@@ -5,7 +5,7 @@ description: Understand pdfvision DocumentResult, PageResult, overview, quality,
 
 # Structured Output
 
-`--format json`, `--format xml`, and `--format toon` expose the same underlying `DocumentResult` data. JSON is easiest for programs, XML is useful for tag-oriented prompts, and TOON is compact for array-heavy output.
+`--format json`, `--format xml`, and `--format toon` re-encode the same underlying `DocumentResult` data. JSON is easiest for programs, and XML is tag-shaped for consumers or prompts built around explicit tags. TOON is lossless; arrays of objects with identical scalar fields can use a tabular form that reduces repeated-key overhead, while arrays with nested values or entries with differing fields remain in list form. Compare formats on your own documents and in the target model context.
 
 The schema is designed as an evidence model for agents. It does not only say "here is the text"; it also says how much text was found, what visual material exists, whether the native text looks trustworthy, where evidence appears on the page, and what optional PDF features were present.
 

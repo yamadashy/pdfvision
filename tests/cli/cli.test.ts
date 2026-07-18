@@ -495,13 +495,13 @@ describe('cli', () => {
     expect(r.stderr.join('\n')).toMatch(/--matches-only requires --search/);
   });
 
-  it('emits a compact flat match list with --matches-only (markdown)', async () => {
+  it('emits a focused search report with --matches-only (markdown)', async () => {
     const r = await captureRun([SAMPLE_PDF, '--search', 'pdfvision', '--matches-only', '--no-cache']);
     expect(r.exitCode).toBeNull();
     const out = r.stdout.join('\n');
     expect(out).toContain('- **Matches:**');
     expect(out).toContain('| Page | Query | Source | Text | Context | BBox |');
-    // No full-document scaffolding.
+    // Report metadata and matches remain, without full-page scaffolding.
     expect(out).not.toContain('## Page');
   });
 

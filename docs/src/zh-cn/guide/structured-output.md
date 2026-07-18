@@ -5,7 +5,7 @@ description: 理解 pdfvision 的 DocumentResult、PageResult、overview、quali
 
 # 结构化输出
 
-`--format json`、`--format xml` 和 `--format toon` 暴露同一份 `DocumentResult` 数据。JSON 适合程序，XML 适合标签导向提示词，TOON 适合数组很多且需要节省 token 的输出。
+`--format json`、`--format xml` 和 `--format toon` 对同一份 `DocumentResult` 数据进行不同的重新编码。JSON 适合程序，XML 适合按照显式标签构建的使用方或提示词。TOON 是无损编码；具有相同标量字段的对象数组可以使用减少重复键开销的表格形式，而包含嵌套值的数组以及元素之间字段不同的数组仍使用列表形式。请使用自己的文档和目标模型上下文比较各种格式。
 
 该 schema 被设计成智能体的 evidence model。它不只说“这里是文本”，还会说明找到了多少文本、页面上有哪些视觉材料、原生文本是否可信、证据出现在页面的哪里，以及请求到的 PDF 功能字段是否存在。
 

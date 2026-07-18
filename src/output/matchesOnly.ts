@@ -4,18 +4,18 @@ import { escapeTableCell, formatBox } from './markdown/helpers.js';
 import { escapeAttr, escapeText } from './xml/helpers.js';
 
 /**
- * Compact search-only output. Instead of the full per-page document, emit
- * a flat list of every search hit with its page, source, text, context,
- * and bbox — so an agent that only wants "where does BLEU appear" gets a
- * sub-kilobyte answer it can pipe straight into `--render-region`, rather
- * than a 40 KB document dump.
+ * Focused search report. Retain the file, total page/match counts, and query
+ * list, then emit flat matches with page, source, text, optional context, and
+ * bbox. The full pages/body payload is omitted so an agent asking "where does
+ * BLEU appear" can feed a reported bbox into `--render-region`. Output size
+ * still grows with the emitted matches and context.
  *
- * Pages that matched nothing do not appear at all. A run that matched
- * nothing anywhere still succeeds (exit 0) and emits a minimal 0-match
- * payload — a zero count is a valid observation for an agent, distinct
- * from grep's exit-1 "not found" convention.
+ * A run that matched nothing anywhere still succeeds (exit 0) and emits a
+ * zero-match report — a zero count is a valid observation for an agent,
+ * distinct from grep's exit-1 "not found" convention.
  *
- * The four formatters share one flat shape:
+ * The JSON/TOON model has this flat shape; Markdown and XML expose the same
+ * report metadata and match fields in their native representations:
  *   { file, totalPages, queries, totalMatches, matches: [{ page,
  *     queryIndex, source, text, context?, bbox: {x,y,width,height} }] }
  */
@@ -153,7 +153,7 @@ function formatXml(model: MatchesOnlyModel): string {
 }
 
 /**
- * Render a {@link DocumentResult} as a compact matches-only payload in the
+ * Render a {@link DocumentResult} as a focused matches-only report in the
  * requested format. `queries` is the verbatim search query list (used for
  * the markdown query column and the top-level `queries` array).
  */

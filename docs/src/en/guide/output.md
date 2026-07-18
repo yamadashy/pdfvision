@@ -48,9 +48,9 @@ Use JSON when you need to branch programmatically: choose pages to OCR, turn sea
 pdfvision document.pdf --format xml
 ```
 
-XML mirrors the JSON data in tag-shaped form. Some LLM prompts locate `<page>`, `<text>`, and `<warning>` tags more reliably than nested JSON keys.
+XML re-encodes the same `DocumentResult` data in tag-shaped form.
 
-XML is useful when the consumer is an LLM that benefits from explicit boundaries around pages, text, warnings, matches, and layout blocks.
+Use XML when a consumer or prompt is built around explicit `<page>`, `<text>`, `<warning>`, match, and layout-block boundaries.
 
 ## TOON
 
@@ -58,17 +58,17 @@ XML is useful when the consumer is an LLM that benefits from explicit boundaries
 pdfvision document.pdf --format toon
 ```
 
-TOON is a token-oriented representation of the same structured result. Repeated object arrays such as spans, image boxes, and layout lines are encoded more compactly than pretty JSON.
+TOON is a lossless re-encoding of the same structured result. Arrays of objects with identical scalar fields can use a tabular form that declares field names once and reduces repeated-key overhead.
 
-Use TOON when the PDF has many structured rows and the target model context is tight.
+Arrays with nested values or entries with differing fields remain in list form.
 
-TOON is a good fit for geometry-heavy outputs where JSON key repetition would dominate the prompt. The agent still receives the same evidence, but repeated rows are more compact.
+Consider TOON when eligible uniform arrays dominate the result. Compare the formats on your own documents and in the target model context before choosing one for token-sensitive workflows.
 
 ## Practical Defaults
 
 - Use Markdown for a quick human-readable extraction.
 - Use JSON for tools and agent controllers.
 - Use XML for prompt workflows that benefit from explicit tags.
-- Use TOON for large structured outputs in tight context windows.
+- Consider TOON when uniform scalar-object arrays dominate, then compare it with JSON on your own documents.
 
-For debugging and reproducibility, prefer JSON. For direct model reading, choose the representation that your target model follows most reliably.
+For debugging and reproducibility, prefer JSON. For direct model reading, compare representations with your own documents and target model context.

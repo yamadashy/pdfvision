@@ -57,4 +57,4 @@ printf "your-password\n" | pdfvision encrypted.pdf --password-stdin --format jso
 
 ## Which output format should I use?
 
-Use Markdown for a quick human-readable pass, JSON for tools and agent controllers, XML for tag-oriented prompts, and TOON when structured output is large and token budget is tight.
+Use Markdown for a quick human-readable pass, JSON for tools and agent controllers, and XML for consumers or prompts built around explicit tags. Consider TOON when arrays of objects with identical scalar fields dominate, then compare the formats on your own documents and in the target model context.

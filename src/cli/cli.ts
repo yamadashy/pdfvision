@@ -189,9 +189,10 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
   if (searchQueries?.some((q) => q === '')) {
     exitWithError('--search: query must be a non-empty string');
   }
-  // --matches-only reshapes the output into a flat match list; it only
-  // makes sense alongside a query. Fail loud rather than emit an empty
-  // "0 matches" shell for a run that never searched anything.
+  // --matches-only formats search results as report metadata plus a flat
+  // match list, without the full pages/body payload. It only makes sense
+  // alongside a query; fail rather than emit an empty report for a run
+  // that never searched anything.
   const matchesOnly = (values['matches-only'] as boolean | undefined) ?? false;
   if (matchesOnly && !searchQueries) {
     exitWithError('--matches-only requires --search');

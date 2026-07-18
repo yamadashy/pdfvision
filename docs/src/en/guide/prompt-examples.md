@@ -125,7 +125,7 @@ For each relevant match:
 ## Model-Specific Notes
 
 - Use JSON for tools and agents that need exact fields.
-- Use XML when the target model follows explicit tags well.
-- Use TOON when structured arrays are large and token budget matters.
+- Use XML when the consumer or prompt is built around explicit tags.
+- Consider TOON when arrays of objects with identical scalar fields dominate; arrays with nested values or entries with differing fields stay in list form, so compare formats in the target model context.
 - Use Markdown for a human-readable first pass.
 - Use rendered crops when a claim depends on the visual page, not only the text layer.

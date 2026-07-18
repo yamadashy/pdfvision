@@ -57,4 +57,4 @@ printf "your-password\n" | pdfvision encrypted.pdf --password-stdin --format jso
 
 ## 应该使用哪种输出格式？
 
-快速人工阅读使用 Markdown，工具和智能体控制使用 JSON，面向标签的提示词使用 XML，结构化输出很大且 token 预算紧张时使用 TOON。
+快速人工阅读使用 Markdown，工具和智能体控制使用 JSON，按照显式标签构建的使用方或提示词使用 XML。当具有相同标量字段的对象数组占多数时，可以考虑 TOON，并使用自己的文档和目标模型上下文比较各种格式。

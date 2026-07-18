@@ -2,7 +2,7 @@
 
 Reference for `-f json`, `-f xml`, and `-f toon` consumers. Read this when an agent or tooling consumes the structured payload programmatically and needs to know every field, its shape, and its coordinate convention.
 
-The shape of `-f json` is the `DocumentResult` interface exported by the `pdfvision` package. `-f xml` carries the same data as `<document>` / `<page>` / nested tags, and `-f toon` carries it as [Token-Oriented Object Notation](https://toonformat.dev). All three are isomorphic to the same `DocumentResult` — pick whichever is easier for the consumer to parse (`toon` is the most token-frugal on span/array-heavy output; see "TOON output shape" below).
+The shape of `-f json` is the `DocumentResult` interface exported by the `pdfvision` package. `-f xml` carries the same data as `<document>` / `<page>` / nested tags, and `-f toon` carries it as [Token-Oriented Object Notation](https://toonformat.dev). All three are isomorphic to the same `DocumentResult` — pick whichever is easier for the consumer to parse (`toon` can reduce repeated-key overhead when an array's entries are uniform scalar objects; see "TOON output shape" below).
 
 Encrypted PDFs require `--password <value>`, `--password-stdin`, or `processDocument(..., { password })` when pdf.js asks for a document password. The password is used only for decryption and is never emitted in JSON/XML/TOON/Markdown. Prefer `--password-stdin` for CLI workflows where argv or shell history exposure matters; `--password` can be supplied as an explicit fallback when stdin is empty.
 
@@ -634,7 +634,7 @@ interface SearchMatch {
 }
 ```
 
-Emitted only when `--search` is passed. Each query occurrence becomes one match — three hits of `"foo"` on page 5 yield three entries with `page: 5`.
+Emitted only when `--search` is passed. Each emitted query occurrence becomes one match — three emitted hits of `"foo"` on page 5 yield three entries with `page: 5`. At most 10,000 matches are emitted per page, query, and source. Reaching the cap produces a warning (stderr in the CLI, `onWarning` in the library API); any further matches for that combination are dropped.
 
 **One-pipeline find-then-zoom**: a match's `bbox` is in the same coord system as `--render-region`, so the agent loop is:
 
@@ -722,7 +722,7 @@ Empty `<pageLabels/>`, `<attachments/>`, `<outline/>`, `<viewer/>`, `<layers/>`,
 
 ## TOON output shape
 
-`-f toon` is the same `DocumentResult` re-encoded as [Token-Oriented Object Notation](https://toonformat.dev): YAML-style indentation for nested objects, plus a CSV-like tabular form for **uniform object arrays** that declares the field names once in a `[N]{fields}:` header and then streams one comma-delimited row per element. Optional fields that are unset are omitted (not emitted as `null`), so the field set matches `-f json` exactly.
+`-f toon` is the same `DocumentResult` re-encoded as [Token-Oriented Object Notation](https://toonformat.dev): YAML-style indentation for nested objects and lists, plus a CSV-like tabular form for arrays whose entries are objects with the same scalar fields. Eligible arrays declare the fields once in a `[N]{fields}:` header and then stream one comma-delimited row per element. Arrays containing nested values, or entries whose fields differ because optional values are present on only some entries, stay in list form. Optional fields that are unset are omitted (not emitted as `null`), so the field set matches `-f json` exactly.
 
 ```
 file: /path/doc.pdf
@@ -752,7 +752,7 @@ pages[2]:
             ...
 ```
 
-Decode back to the `DocumentResult` data model with the `@toon-format/toon` package (`decode(toonString)`). Where the win lands: `spans[]` (`--geometry`), `overview[]`, `imageBoxes[]`, `vectorBoxes[]`, per-block `lines[]`, and `layout.tables[].rows[].cells[]` all tabularize, so geometry/span-dense output is ~40–48% fewer tokens than the pretty-printed JSON. Free text bodies and the non-uniform `layout.blocks[]` (optional `role` / `level` / `repeated` per block) do **not** tabularize — for layout-dominant output `-f xml` is usually more compact than `toon`.
+Decode back to the `DocumentResult` data model with the `@toon-format/toon` package (`decode(toonString)`). Normal `overview[]` stays in list form because each entry contains nested `quality`. Arrays such as `spans[]` or per-block `lines[]` can tabularize only when every entry has the same scalar fields; differing optional fields keep the array in list form. Free text bodies do not compress through tabularization. The benefit depends on each document's structure and selected options, so compare JSON, XML, and TOON on your own documents.
 
 ## Library API (Node.js consumers)
 
