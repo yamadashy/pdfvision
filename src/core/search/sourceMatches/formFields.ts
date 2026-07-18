@@ -35,6 +35,14 @@ export function appendFormFieldMatches(
         const hitKey = duplicateKey(m.queryIndex, m.query, hit[0], m.regex.ignoreCase);
         const box = formFieldMatchBox(field, haystack, hit.index, hit[0].length);
         if (hasPreciseDuplicateAtBox(matches, compiled, hitKey, box)) continue;
+        const count = formFieldCount.get(mi) ?? 0;
+        if (count >= matchCap) {
+          formFieldCapped.add(mi);
+          onWarning?.(
+            `search query ${JSON.stringify(m.query)} exceeded the per-page form-field match cap of ${matchCap} on page ${pageNum}; later form-field matches for this query on this page were dropped.`,
+          );
+          break;
+        }
         matches.push({
           page: pageNum,
           query: m.query,
@@ -45,15 +53,7 @@ export function appendFormFieldMatches(
           source: 'formField',
           context: formFieldMatchContext(field, haystack),
         });
-        const next = (formFieldCount.get(mi) ?? 0) + 1;
-        formFieldCount.set(mi, next);
-        if (next >= matchCap) {
-          formFieldCapped.add(mi);
-          onWarning?.(
-            `search query ${JSON.stringify(m.query)} hit the per-page form-field match cap of ${matchCap} on page ${pageNum}; subsequent form-field matches for this query on this page were dropped.`,
-          );
-          break;
-        }
+        formFieldCount.set(mi, count + 1);
       }
     }
     if (formFieldCapped.size === compiled.matchers.length) break;

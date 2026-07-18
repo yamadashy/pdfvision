@@ -32,6 +32,14 @@ export function appendAnnotationMatches(
         const hitKey = duplicateKey(m.queryIndex, m.query, hit[0], m.regex.ignoreCase);
         const box = roundedBox(annotation);
         if (hasPreciseDuplicateAtBox(matches, compiled, hitKey, box)) continue;
+        const count = annotationCount.get(mi) ?? 0;
+        if (count >= matchCap) {
+          annotationCapped.add(mi);
+          onWarning?.(
+            `search query ${JSON.stringify(m.query)} exceeded the per-page annotation match cap of ${matchCap} on page ${pageNum}; later annotation matches for this query on this page were dropped.`,
+          );
+          break;
+        }
         matches.push({
           page: pageNum,
           query: m.query,
@@ -42,15 +50,7 @@ export function appendAnnotationMatches(
           source: 'annotation',
           context: annotationMatchContext(annotation, haystack),
         });
-        const next = (annotationCount.get(mi) ?? 0) + 1;
-        annotationCount.set(mi, next);
-        if (next >= matchCap) {
-          annotationCapped.add(mi);
-          onWarning?.(
-            `search query ${JSON.stringify(m.query)} hit the per-page annotation match cap of ${matchCap} on page ${pageNum}; subsequent annotation matches for this query on this page were dropped.`,
-          );
-          break;
-        }
+        annotationCount.set(mi, count + 1);
       }
     }
     if (annotationCapped.size === compiled.matchers.length) break;

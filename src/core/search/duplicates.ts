@@ -28,7 +28,7 @@ function duplicateKeyForMatch(compiled: CompiledSearch, match: SearchMatch): str
   return duplicateKey(match.queryIndex, match.query, match.text, matcher?.regex.ignoreCase ?? false);
 }
 
-function preciseDuplicateBudget(
+export function buildPreciseDuplicateBudget(
   preciseMatches: readonly SearchMatch[] | undefined,
   compiled: CompiledSearch,
 ): Map<string, number> {
@@ -73,7 +73,7 @@ export function suppressDuplicateOcrMatches(
   ocrMatches: readonly SearchMatch[],
   compiled: CompiledSearch,
 ): SearchMatch[] {
-  const budget = preciseDuplicateBudget(nativeMatches, compiled);
+  const budget = buildPreciseDuplicateBudget(nativeMatches, compiled);
   const out: SearchMatch[] = [];
   for (const match of ocrMatches) {
     if (match.source !== 'ocr') {

@@ -38,7 +38,7 @@ import { applyVisualRegionPostProcessing } from './processor/visualRegionPostPro
 import { createWidgetAppearanceCaptionLoader } from './processor/widgetAppearanceCaptions.js';
 import { derivePageQuality } from './quality/pageQuality.js';
 import { runParallel } from './runtime/parallel.js';
-import { type CompiledSearch, compileSearch, searchPage, suppressDuplicateOcrMatches } from './search/index.js';
+import { type CompiledSearch, compileSearch, searchOcrPage } from './search/index.js';
 import type { BuildVisualRegionsInput } from './visualRegions/index.js';
 import { detectPageWarnings } from './warnings/index.js';
 import { buildXfaFormWarning } from './warnings/xfaForm.js';
@@ -341,8 +341,16 @@ export async function processDocument(filePath: string, options: ProcessDocument
     if (compiledSearch && ocrEnabled) {
       for (const p of pages) {
         if (!p.ocr) continue;
-        const ocrMatches = searchPage(undefined, p.ocr, p.page, p.width, p.height, compiledSearch, options.onWarning);
-        p.matches = (p.matches ?? []).concat(suppressDuplicateOcrMatches(p.matches, ocrMatches, compiledSearch));
+        const ocrMatches = searchOcrPage(
+          p.ocr,
+          p.page,
+          p.width,
+          p.height,
+          compiledSearch,
+          p.matches,
+          options.onWarning,
+        );
+        p.matches = (p.matches ?? []).concat(ocrMatches);
       }
     }
 
