@@ -126,7 +126,7 @@ describe('formatToon', () => {
     expect(out).toContain('there,40,20,50,12,12,g_d0_f1');
   });
 
-  it('encodes the overview as a tabular block', () => {
+  it('keeps overview list-form when entries contain nested quality', () => {
     const out = formatToon(
       makeResult({
         totalPages: 2,
@@ -159,7 +159,8 @@ describe('formatToon', () => {
         pages: [makePage({ page: 1, charCount: 10 }), makePage({ page: 2, imageCount: 5 })],
       }),
     );
-    expect(out).toMatch(/overview\[2\]/);
+    expect(out).toContain('overview[2]:');
+    expect(out).not.toMatch(/overview\[2\]\{/);
   });
 
   it('round-trips document and page labels through the TOON data model', () => {

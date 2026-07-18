@@ -22,7 +22,7 @@ export interface ProcessOptions {
   searchCaseSensitive?: boolean;
   /**
    * Collapse the output to just the search matches — a flat list of
-   * every hit with its page, source, text, context, and bbox — instead
+   * emitted hits with their page, source, text, context, and bbox — instead
    * of the full per-page document. Requires `search`; throws otherwise.
    *
    * Purely a rendering concern (like {@link stripRepeated}): the
