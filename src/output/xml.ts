@@ -4,12 +4,18 @@ import { escapeAttr } from './xml/helpers.js';
 import { appendPage } from './xml/page.js';
 
 /**
- * XML-flavoured output. Not strictly conformant XML — there's no `<?xml`
- * declaration and no namespace — but a tag-shaped, near-JSON-parity form
+ * XML-flavoured output. It omits the optional `<?xml` declaration and a
+ * namespace, and is a tag-shaped, near-JSON-parity projection
  * that LLMs parse very reliably (tags act as obvious section markers, so
  * "find the page-3 text" is easier than counting commas in a JSON dump).
  *
- * The shape mirrors the `DocumentResult` schema:
+ * It is not a reversible `DocumentResult` serialization. In particular,
+ * `page` becomes `no`, `pageLabel` becomes `label`, `quality` fields are
+ * flattened into page attributes, overview rotation is currently omitted,
+ * and empty-field presence differs from JSON. Page-result rotation remains
+ * a `<page rotation="...">` attribute.
+ *
+ * Representative shape:
  *   <document file=".." totalPages="N">
  *     <metadata><title/><author/>...</metadata>
  *     <overview><page no=".." charCount=".." .../></overview>   (multi-page)

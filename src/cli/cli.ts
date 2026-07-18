@@ -170,8 +170,8 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
     exitWithError('--strip-repeated requires --layout');
   }
   if (stripRepeated && format !== 'markdown') {
-    // The JSON / XML outputs already carry `repeated: true` on each
-    // layout block, so consumers there can filter themselves. Strip
+    // Structured outputs already carry `repeated: true` on each layout
+    // block, so consumers there can filter themselves. Strip
     // is only a Markdown-output concern — fail rather than silently
     // ignore so the user notices the flag had no effect.
     exitWithError(`--strip-repeated only applies to markdown output (got --format ${format})`);

@@ -81,20 +81,22 @@ describe('formatXml', () => {
     expect(out).toContain('<creator>LaTeX</creator>');
   });
 
-  it('emits an <overview> element listing density signals when overview is present', () => {
+  it('projects overview field names and quality into XML attributes without rotation', () => {
     const out = formatXml(
       makeResult({
         totalPages: 2,
         overview: [
           {
             page: 1,
+            pageLabel: 'i',
             charCount: 10,
             imageCount: 0,
             vectorCount: 2,
             textCoverage: 0.1,
             nonPrintableRatio: 0,
             nonPrintableCount: 0,
-            quality: { nativeTextStatus: 'ok' },
+            rotation: 90,
+            quality: { nativeTextStatus: 'ok', visualStatus: 'sparse' },
             width: 612,
             height: 792,
           },
@@ -112,18 +114,24 @@ describe('formatXml', () => {
           },
         ],
         pages: [
-          makePage({ page: 1, text: 'aa', charCount: 10, textCoverage: 0.1 }),
+          makePage({ page: 1, pageLabel: 'i', text: 'aa', charCount: 10, textCoverage: 0.1, rotation: 90 }),
           makePage({ page: 2, text: '', charCount: 0, imageCount: 5, textCoverage: 0.02 }),
         ],
       }),
     );
     expect(out).toMatch(/<overview>/);
     expect(out).toMatch(
-      /<page no="1" charCount="10" imageCount="0" vectorCount="2" textCoverage="0\.1" nonPrintableRatio="0" nonPrintableCount="0" nativeTextStatus="ok" width="612" height="792"\/>/,
+      /<page no="1" charCount="10" imageCount="0" vectorCount="2" textCoverage="0\.1" nonPrintableRatio="0" nonPrintableCount="0" label="i" nativeTextStatus="ok" visualStatus="sparse" width="612" height="792"\/>/,
     );
     expect(out).toMatch(
       /<page no="2" charCount="0" imageCount="5" vectorCount="0" textCoverage="0\.02" nonPrintableRatio="0" nonPrintableCount="0" nativeTextStatus="empty_but_visual_content" width="612" height="792"\/>/,
     );
+    const overview = out.slice(out.indexOf('<overview>'), out.indexOf('</overview>'));
+    expect(overview).not.toContain('page="');
+    expect(overview).not.toContain('pageLabel=');
+    expect(overview).not.toContain('<quality');
+    expect(overview).not.toContain('rotation=');
+    expect(out).toMatch(/<pages>\n<page no="1"[^>]* label="i"[^>]* rotation="90"/);
   });
 
   it('puts the page text inside a <text> element with newline padding for LLM readability', () => {
@@ -174,6 +182,33 @@ describe('formatXml', () => {
       }),
     );
     expect(out).toMatch(/<page [^>]* rotation="90"/);
+  });
+
+  it('emits repeated layout markers as block attributes', () => {
+    const out = formatXml(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            layout: {
+              blocks: [
+                {
+                  text: 'Footer',
+                  x: 10,
+                  y: 760,
+                  width: 100,
+                  height: 12,
+                  lines: [],
+                  repeated: true,
+                },
+              ],
+            },
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toContain('<block x="10" y="760" width="100" height="12" repeated="true">');
   });
 
   it('echoes renderRegion as four sibling attributes on the page when present', () => {

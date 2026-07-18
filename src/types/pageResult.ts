@@ -35,7 +35,8 @@ export interface PageResult {
    * was applied (the default) AND it actually changed the string — i.e.
    * the source PDF embedded compatibility codepoints or stripped C0
    * controls. Lets agents diff the two forms without re-running with
-   * `--no-normalize`.
+   * `--no-normalize`. JSON and decoded TOON preserve this exact field;
+   * XML emits a sibling `<rawText>` element and Markdown omits it.
    */
   rawText?: string;
   image?: string;
@@ -116,7 +117,7 @@ export interface PageResult {
    * `layout.blocks`, `imageBoxes`, `renderRegion`, etc.) remain in the
    * unrotated MediaBox coordinate system; renderers map those boxes through
    * the rotated viewport so full-page and cropped PNGs follow the
-   * human-visible orientation.
+   * human-visible orientation. XML projects this as a page attribute.
    */
   rotation?: number;
   /**

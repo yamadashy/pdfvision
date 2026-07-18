@@ -12,7 +12,7 @@ import { appendStructureItem, appendStructureTables, structureNodeCount } from '
 import { appendVisualRegions } from './markdown/visualRegions.js';
 
 /** Options that influence the Markdown rendering without changing the
- *  underlying `DocumentResult`. JSON / XML formatters don't need them
+ *  underlying `DocumentResult`. Structured formatters don't need them
  *  because they already expose the same metadata (e.g. `repeated: true`)
  *  for downstream consumers to filter themselves; Markdown is read by
  *  humans / LLMs that benefit from the filtering being pre-applied. */
@@ -189,7 +189,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     const jsActionsFragment = page.jsActions !== undefined ? ` · jsActions: ${jsActionCount(page.jsActions)}` : '';
     // Surface the derived quality classification when it's abnormal so
     // the LLM-facing markdown carries the same dispatch signal that
-    // JSON / XML expose. `nativeTextStatus === 'ok'` and an `'empty'`
+    // structured output exposes. `nativeTextStatus === 'ok'` and an `'empty'`
     // page with no visual content are normal flows; the other states
     // are the ones an agent reader needs to react to.
     const showNative = page.quality.nativeTextStatus !== 'ok' && page.quality.nativeTextStatus !== 'empty';

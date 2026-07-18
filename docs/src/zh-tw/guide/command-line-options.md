@@ -26,9 +26,11 @@ description: pdfvision CLI 選項參考，涵蓋 PDF 輸入、輸出格式、渲
 | `--json` | `--format json` 的捷徑。 |
 | `--xml` | `--format xml` 的捷徑。 |
 | `--toon` | `--format toon` 的捷徑。 |
-| `--no-normalize` | 停用 Unicode NFKC 正規化。啟用正規化時，JSON/XML 會在 `rawText` 保留變更前的文字。 |
+| `--no-normalize` | 停用 Unicode NFKC 正規化。啟用時，JSON/TOON 在 `pages[].rawText` 保留變更前文字，XML 使用同層 `<rawText>`，Markdown 省略它。 |
 
 格式捷徑是嚴格的：傳入兩個不同捷徑，或捷徑與 `--format` 衝突，都會報錯。
+
+以下 JSON 風格路徑僅對 JSON、解碼後的 TOON 和 `processDocument()` 精確有效。XML 對應 `page` → `no`、`pageLabel` → `label`、巢狀 `quality` → 展平屬性。頁面結果保留 rotation 屬性，overview rotation 目前省略，空欄位的存在方式也可能不同。
 
 ## 渲染
 
@@ -51,7 +53,7 @@ description: pdfvision CLI 選項參考，涵蓋 PDF 輸入、輸出格式、渲
 | `--vector-boxes` | 在 `pages[].vectorBoxes` 中輸出向量繪製 bbox。 |
 | `--visual-regions` | 輸出圖、圖表、表格、表單、註解以及 raster/vector 群集的可裁切區域。 |
 | `--render-visual-regions` | 渲染視覺區域裁切圖，並附加路徑、content ratio 和更緊的 rendered content box。隱含 `--visual-regions`。 |
-| `--strip-repeated` | 從 Markdown 輸出中移除重複頁首、頁尾和頁碼區塊。需要 `--layout`，僅適用於 Markdown。 |
+| `--strip-repeated` | 從 Markdown 移除重複區塊。需要 `--layout`；JSON/TOON 保留 `repeated: true`，XML 保留 `repeated="true"` 區塊屬性。 |
 
 ## 搜尋
 
@@ -71,7 +73,7 @@ description: pdfvision CLI 選項參考，涵蓋 PDF 輸入、輸出格式、渲
 | `--links` | 輸出連結註解、bbox、URL、命名目標，以及可解析的目標頁。 |
 | `--annotations` | 輸出評論、highlight、stamp、檔案附件、形狀和 ink 等非連結註解。 |
 | `--structure` | 當 PDF 提供 tagged-PDF 結構樹時輸出它。 |
-| `--page-labels` | 在 `pageLabels` 和 `pages[].pageLabel` 中輸出檢視器頁碼標籤。 |
+| `--page-labels` | JSON/TOON 使用 `pageLabels` / `pages[].pageLabel`；XML 使用 `page` / `label` 屬性輸出檢視器頁碼標籤。 |
 | `--attachments` | 輸出嵌入附件 metadata，不把檔案 bytes 嵌入結構化輸出。 |
 | `--attachment-output <dir>` | 將嵌入附件寫入磁碟。需要 `--attachments`。 |
 | `--outline` | 輸出文件大綱/書籤、層級、URL、動作和可解析的目標。 |

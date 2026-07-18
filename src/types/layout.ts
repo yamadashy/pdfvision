@@ -112,6 +112,9 @@ export interface LayoutBlock {
    * If only one line in a multi-line edge block is repeated chrome, pdfvision
    * can split that line into its own repeated block so adjacent body text
    * remains usable.
+   * JSON and decoded TOON preserve this exact field. XML projects it as
+   * `repeated="true"` on `<block>`; Markdown omits the block only when
+   * `stripRepeated` is requested.
    *
    * When a block is flagged `repeated`, any heading classification is
    * dropped — a 2-character language marker that happens to sit at the

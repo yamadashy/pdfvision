@@ -26,9 +26,11 @@ description: pdfvision CLI 选项参考，涵盖 PDF 输入、输出格式、渲
 | `--json` | `--format json` 的快捷方式。 |
 | `--xml` | `--format xml` 的快捷方式。 |
 | `--toon` | `--format toon` 的快捷方式。 |
-| `--no-normalize` | 禁用 Unicode NFKC 规范化。启用规范化时，JSON/XML 会在 `rawText` 保留发生变化前的文本。 |
+| `--no-normalize` | 禁用 Unicode NFKC 规范化。启用时，JSON/TOON 在 `pages[].rawText` 保留变更前文本，XML 使用同级 `<rawText>`，Markdown 省略它。 |
 
 格式快捷方式是严格的：传入两个不同快捷方式，或快捷方式与 `--format` 冲突，都会报错。
+
+以下 JSON 风格路径仅对 JSON、解码后的 TOON 和 `processDocument()` 精确有效。XML 映射 `page` → `no`、`pageLabel` → `label`、嵌套 `quality` → 展平属性。页面结果保留 rotation 属性，overview rotation 当前省略，空字段的存在方式也可能不同。
 
 ## 渲染
 
@@ -51,7 +53,7 @@ description: pdfvision CLI 选项参考，涵盖 PDF 输入、输出格式、渲
 | `--vector-boxes` | 在 `pages[].vectorBoxes` 中输出矢量绘制 bbox。 |
 | `--visual-regions` | 输出图、图表、表格、表单、注释以及栅格/矢量集群的可裁剪区域。 |
 | `--render-visual-regions` | 渲染视觉区域裁剪图，并附加路径、content ratio 和更紧的 rendered content box。隐含 `--visual-regions`。 |
-| `--strip-repeated` | 从 Markdown 输出中移除重复页眉、页脚和页码块。需要 `--layout`，仅适用于 Markdown。 |
+| `--strip-repeated` | 从 Markdown 移除重复块。需要 `--layout`；JSON/TOON 保留 `repeated: true`，XML 保留 `repeated="true"` 块属性。 |
 
 ## 搜索
 
@@ -71,7 +73,7 @@ description: pdfvision CLI 选项参考，涵盖 PDF 输入、输出格式、渲
 | `--links` | 输出链接注释、bbox、URL、命名目标，以及可解析的目标页。 |
 | `--annotations` | 输出评论、高亮、图章、文件附件、形状和 ink 等非链接注释。 |
 | `--structure` | 当 PDF 提供 tagged-PDF 结构树时输出它。 |
-| `--page-labels` | 在 `pageLabels` 和 `pages[].pageLabel` 中输出查看器页码标签。 |
+| `--page-labels` | JSON/TOON 使用 `pageLabels` / `pages[].pageLabel`；XML 使用 `page` / `label` 属性输出查看器页码标签。 |
 | `--attachments` | 输出嵌入附件元数据，不把文件字节嵌入结构化输出。 |
 | `--attachment-output <dir>` | 将嵌入附件写入磁盘。需要 `--attachments`。 |
 | `--outline` | 输出文档大纲/书签、层级、URL、动作和可解析的目标。 |

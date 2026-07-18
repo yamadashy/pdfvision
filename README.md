@@ -97,6 +97,8 @@ Options
       --toon              Shortcut for --format toon.
                           (Specifying more than one format, or mixing a shortcut with a different
                           --format, is an error — pdfvision does not last-wins-resolve them.)
+                          JSON-style field paths below are exact for JSON/TOON and processDocument();
+                          XML maps them to tags/attributes (for example page→no, pageLabel→label).
   -r, --render            Render each selected page to a PNG and include the path on every page result.
       --render-output <dir>
                           Directory to write rendered page PNGs or visual-region PNGs into, created
@@ -119,8 +121,9 @@ Options
                           Typical use: --layout to find a suspect block, then re-run with that
                           block's bbox here to zoom in.
       --no-normalize      Disable Unicode NFKC normalization and C0-control cleanup. Default ON;
-                          pre-normalization text is surfaced in `rawText` (json/xml) when
-                          normalization changed the string. Markdown output shows only the
+                          pre-normalization text is `pages[].rawText` in JSON/TOON and a sibling
+                          `<rawText>` element in XML when normalization changed the string.
+                          Markdown output shows only the
                           normalized form — pass --no-normalize if original codepoint fidelity
                           (e.g. fullwidth punctuation `（`, ligatures `ﬁ`, control bytes)
                           matters for downstream diff / forensics.
@@ -192,8 +195,8 @@ Options
       --strip-repeated    Drop running headers / footers / page numbers (blocks the layout
                           pass tagged as `repeated`) from the rendered Markdown body so
                           LLM readers don't have to wade through the same footer N times.
-                          Markdown only; JSON / XML already expose `repeated: true` per
-                          block. Requires --layout.
+                          Markdown only; JSON/TOON preserve block `repeated: true`, while XML
+                          uses `<block repeated="true">`. Requires --layout.
       --ocr               Run OCR on each selected page and attach `pages[].ocr`
                           (text + confidence + lang). Slow; opt-in. Requires the
                           optional `tesseract.js` dependency. `pages[].text` is
@@ -240,8 +243,9 @@ Output formats
                       and layout warnings surface automatically — no --layout needed. --layout adds
                       the structural Layout tables / Blocks / Tables columns on top.
   json                Full DocumentResult schema. For programmatic parsing.
-  xml                 Tag-shaped variant of json. For consumers or prompts that benefit from explicit tags.
-  toon                Token-Oriented Object Notation: lossless encoding of the json schema.
+  xml                 Tag-shaped near-parity projection. Page rotation stays; overview rotation is omitted;
+                      names, nesting, and empty-field presence can differ.
+  toon                Token-Oriented Object Notation: decodes to exactly the json data model.
                       Arrays whose entries have the same scalar fields can use a tabular form;
                       normal overview and mixed-field spans/lines stay in list form.
 
@@ -277,8 +281,10 @@ Exit codes
 
 - **`markdown` (default)** — per-page sections, density Overview table, image links inline. For LLM context windows.
 - **`json`** — full `DocumentResult` schema. For programmatic consumers.
-- **`xml`** — same data as JSON but tag-shaped. For consumers or prompts that benefit from explicit `<page>` / `<text>` tags.
-- **`toon`** — [Token-Oriented Object Notation](https://toonformat.dev): a lossless encoding of the same `DocumentResult` schema. Arrays whose entries all have the same scalar fields can declare those fields once and use tabular rows, which can reduce repeated-key overhead. Normal `overview[]` stays in list form because `quality` is nested, and mixed optional fields can keep `spans[]` or layout lines in list form too. Round-trips back to JSON; compare formats on your own documents.
+- **`xml`** — tag-shaped near-parity projection for explicit `<page>` / `<text>` prompts. It is not a reversible `DocumentResult` serialization: `page` maps to `no`, `pageLabel` to `label`, `quality` is flattened, overview rotation is currently omitted, and empty-field presence can differ. Page-result rotation remains an attribute.
+- **`toon`** — [Token-Oriented Object Notation](https://toonformat.dev): decoding exactly matches the JSON data model, with unset `undefined` fields absent. Uniform scalar-object arrays can declare fields once and use tabular rows, reducing repeated-key overhead. Nested or mixed-field arrays stay in list form; compare formats on your own documents.
+
+JSON-style field paths are exact for JSON, decoded TOON, and the library API. XML uses mapped tags/attributes: `rawText` is a sibling `<rawText>`, repeated blocks use `repeated="true"`, and top-level `xfa: true` becomes `<document xfa="true">`. Markdown omits `rawText` and can omit repeated blocks with `--strip-repeated`.
 
 ### Examples
 

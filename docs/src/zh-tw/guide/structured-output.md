@@ -5,9 +5,15 @@ description: 理解 pdfvision 的 DocumentResult、PageResult、overview、quali
 
 # 結構化輸出
 
-`--format json`、`--format xml` 和 `--format toon` 對同一份 `DocumentResult` 資料進行不同的重新編碼。JSON 適合程式，XML 適合按照顯式標籤建立的使用方或提示詞。TOON 是無損編碼；具有相同純量欄位的物件陣列可以使用減少重複鍵開銷的表格形式，而包含巢狀值的陣列以及項目之間欄位不同的陣列仍使用列表形式。請使用自己的文件和目標模型上下文比較各種格式。
+`--format json` 序列化 `DocumentResult`。`--format toon` 的解碼結果與 JSON 的 parse 結果完全一致，未設定的 `undefined` 保持不存在。XML 是用於呈現的標籤形 near-parity projection，不是可逆的 `DocumentResult` 序列化。Markdown 會刻意轉換或省略欄位。
 
 該 schema 被設計成代理的 evidence model。它不只說「這裡是文字」，還會說明找到了多少文字、頁面上有哪些視覺材料、原生文字是否可信、證據出現在頁面的哪裡，以及請求到的 PDF 功能欄位是否存在。
+
+## 格式契約
+
+本頁的 JSON 風格路徑僅對 JSON、解碼後的 TOON 和 `processDocument()` 精確有效。XML 將 `page` 對應為 `no`、`pageLabel` 對應為 `label`，並將巢狀 `quality` 展平為屬性。頁面結果保留 rotation 屬性，overview rotation 目前省略，空欄位的存在方式也可能不同。
+
+JSON/TOON 精確使用 `pages[].rawText` 和 `layout.blocks[].repeated`；XML 使用同層 `<rawText>` 和 `<block repeated="true">`；Markdown 省略 `rawText`，僅在指定 `--strip-repeated` 時移除重複區塊。JSON/TOON 使用頂層 `xfa`，XML 使用 `<document xfa="true">`。
 
 ## 頂層結構
 

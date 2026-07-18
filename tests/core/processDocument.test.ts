@@ -1606,14 +1606,17 @@ describe('processDocument', () => {
     ).rejects.toThrow(/stripRepeated requires layout/);
   });
 
-  it('rejects processFile({ stripRepeated, format: "json" }) — strip is markdown-only', async () => {
-    // JSON / XML already expose `repeated: true` on each layout block,
-    // so the formatter never consults `stripRepeated` there. Without
-    // this guard the library would silently no-op while the CLI errors
-    // — keep the two surfaces symmetric.
-    await expect(
-      processFile(SAMPLE_PDF, { format: 'json', stripRepeated: true, layout: true, noCache: true }),
-    ).rejects.toThrow(/stripRepeated only applies to markdown/);
+  it.each([
+    'json',
+    'xml',
+    'toon',
+  ] as const)('rejects processFile({ stripRepeated, format: "%s" }) — strip is markdown-only', async (format) => {
+    // Structured formats preserve the repeated marker (as a field in
+    // JSON/TOON and an XML block attribute), so stripping would be either
+    // destructive or a silent no-op.
+    await expect(processFile(SAMPLE_PDF, { format, stripRepeated: true, layout: true, noCache: true })).rejects.toThrow(
+      /stripRepeated only applies to markdown/,
+    );
   });
 
   it('is reachable through the package public entrypoint', async () => {

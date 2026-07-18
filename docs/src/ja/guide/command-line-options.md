@@ -26,9 +26,11 @@ description: PDF 入力、出力形式、レンダリング、OCR、検索、レ
 | `--json` | `--format json` のショートカットです。 |
 | `--xml` | `--format xml` のショートカットです。 |
 | `--toon` | `--format toon` のショートカットです。 |
-| `--no-normalize` | Unicode NFKC 正規化を無効にします。正規化が有効な場合、JSON/XML では変更前の文字列が `rawText` に残ります。 |
+| `--no-normalize` | Unicode NFKC 正規化を無効にします。有効時、JSON/TOON は `pages[].rawText`、XML は兄弟の `<rawText>` に変更前テキストを保持し、Markdown は省略します。 |
 
 複数の出力ショートカットや、ショートカットと矛盾する `--format` の組み合わせはエラーになります。
+
+以下の JSON 形式パスは JSON、デコード後の TOON、`processDocument()` でのみ正確です。XML は `page` → `no`、`pageLabel` → `label`、ネストされた `quality` → 平坦な属性に対応付けます。ページ結果の rotation は属性に残りますが、overview の rotation は現在省略され、空フィールドの存在方も異なる場合があります。
 
 ## レンダリング
 
@@ -51,7 +53,7 @@ description: PDF 入力、出力形式、レンダリング、OCR、検索、レ
 | `--vector-boxes` | ベクター描画の bbox を `pages[].vectorBoxes` に出します。 |
 | `--visual-regions` | 図、チャート、表、フォーム、注釈、ラスター/ベクタークラスターのクロップ可能な領域を出します。 |
 | `--render-visual-regions` | 視覚領域クロップを PNG としてレンダリングし、パス、content ratio、より狭い content box を付けます。`--visual-regions` を含みます。 |
-| `--strip-repeated` | Markdown 出力から繰り返しヘッダー、フッター、ページ番号ブロックを除きます。`--layout` が必要で、Markdown のみです。 |
+| `--strip-repeated` | Markdown から繰り返しブロックを除きます。`--layout` が必要です。JSON/TOON は `repeated: true`、XML は `repeated="true"` 属性を保持します。 |
 
 ## 検索
 
@@ -71,7 +73,7 @@ description: PDF 入力、出力形式、レンダリング、OCR、検索、レ
 | `--links` | リンク注釈、bbox、URL、名前付き destination、解決できた遷移先ページを出します。 |
 | `--annotations` | コメント、ハイライト、スタンプ、ファイル添付、図形、ink などの非リンク注釈を出します。 |
 | `--structure` | PDF が持つ tagged-PDF 構造ツリーを出します。 |
-| `--page-labels` | `pageLabels` と `pages[].pageLabel` にビューア上のページラベルを出します。 |
+| `--page-labels` | JSON/TOON では `pageLabels` / `pages[].pageLabel`、XML では `page` / `label` 属性にビューア上のページラベルを出します。 |
 | `--attachments` | 埋め込み添付ファイルのメタデータを出します。ファイル本体は構造化出力に埋め込みません。 |
 | `--attachment-output <dir>` | 埋め込み添付ファイルをディスクへ書き出します。`--attachments` が必要です。 |
 | `--outline` | 文書アウトライン/ブックマーク、階層、URL、アクション、解決できた destination を出します。 |

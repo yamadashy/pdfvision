@@ -2,8 +2,8 @@ import { encode } from '@toon-format/toon';
 import type { DocumentResult } from '../types/index.js';
 
 /**
- * TOON (Token-Oriented Object Notation) output. A lossless, schema-aware
- * encoding of the same `DocumentResult` the JSON formatter emits, but
+ * TOON (Token-Oriented Object Notation) output. Decoding exactly matches
+ * the parsed JSON formatter output, but the wire representation is
  * tuned for LLM token budgets: arrays whose entries all have the same scalar
  * fields can collapse into a CSV-like tabular form that declares field names
  * once instead of repeating every key on every row. Arrays with nested values
@@ -12,8 +12,8 @@ import type { DocumentResult } from '../types/index.js';
  * This can reduce repeated-key overhead when eligible arrays dominate the
  * output; consumers should compare formats on their own documents.
  *
- * The encoding round-trips back to the JSON data model via `decode`, so
- * programmatic consumers lose nothing relative to `-f json`.
+ * The encoding round-trips back to the JSON data model via `decode`, with
+ * unset `undefined` fields absent just as they are after `JSON.parse`.
  *
  * We encode the JSON-normalized form (`JSON.parse(JSON.stringify(...))`)
  * rather than the raw result: the TOON encoder renders an object property

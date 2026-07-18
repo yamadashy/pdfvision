@@ -5,7 +5,7 @@ description: Choose between pdfvision Markdown, JSON, XML, and TOON output.
 
 # Output Formats
 
-pdfvision can emit the same extraction result in several formats.
+pdfvision can present the same extraction evidence in several formats, but the serialization contracts differ.
 
 Choose the format based on who will read the output: a person, an LLM prompt, a tool, or a token-constrained agent loop. The extraction fields are the same underlying evidence; the format changes how that evidence is presented.
 
@@ -16,7 +16,7 @@ pdfvision document.pdf
 pdfvision document.pdf --format markdown
 ```
 
-Markdown is the default. It is optimized for conversational AI context: an overview table, per-page sections, extracted text, layout table sections when `--layout` finds row-major table hints, search match tables, warnings, and image links when rendering is enabled.
+Markdown is the default. It is optimized for conversational AI context: an overview table, per-page sections, extracted text, layout table sections when `--layout` finds row-major table hints, search match tables, warnings, and image links when rendering is enabled. It deliberately transforms or omits structured fields: `rawText` is omitted, and `--strip-repeated` removes repeated layout blocks from the body.
 
 Use it when a human or chat model will read the output directly.
 
@@ -48,7 +48,9 @@ Use JSON when you need to branch programmatically: choose pages to OCR, turn sea
 pdfvision document.pdf --format xml
 ```
 
-XML re-encodes the same `DocumentResult` data in tag-shaped form.
+XML is a tag-shaped near-parity presentation projection, not a reversible `DocumentResult` serialization. `page` maps to `no`, `pageLabel` to `label`, and nested `quality` fields are flattened into page attributes. Page-result rotation is an attribute, while overview rotation is currently omitted; empty-field presence can also differ.
+
+`rawText` becomes a sibling `<rawText>` element, `repeated: true` becomes `<block repeated="true">`, and top-level `xfa: true` becomes `<document xfa="true">`.
 
 Use XML when a consumer or prompt is built around explicit `<page>`, `<text>`, `<warning>`, match, and layout-block boundaries.
 
@@ -58,7 +60,7 @@ Use XML when a consumer or prompt is built around explicit `<page>`, `<text>`, `
 pdfvision document.pdf --format toon
 ```
 
-TOON is a lossless re-encoding of the same structured result. Arrays of objects with identical scalar fields can use a tabular form that declares field names once and reduces repeated-key overhead.
+Decoding TOON exactly matches the JSON data model (`JSON.parse(formatJson(result))`), including omission of unset `undefined` fields. Arrays of objects with identical scalar fields can use a tabular form that declares field names once and reduces repeated-key overhead.
 
 Arrays with nested values or entries with differing fields remain in list form.
 

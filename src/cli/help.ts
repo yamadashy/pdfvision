@@ -3,7 +3,7 @@
 // So the help below leans on "just try it" rather than spelling out every
 // schema. The bar to clear is: an agent can pick the right flags from this
 // list, and recover from non-obvious flag interactions (e.g. --render-output
-// requires --render, --geometry has no effect without -f json/xml). Detailed
+// requires --render, --geometry has no effect with Markdown). Detailed
 // shape / schema info lives in the README and source — running with -f json
 // once is the fastest way for an agent to see what comes back.
 export const HELP_TEXT = `pdfvision - Extract text, images, metadata, and layout from PDF files for AI agents
@@ -22,6 +22,8 @@ Options
       --toon              Shortcut for --format toon.
                           (Specifying more than one format, or mixing a shortcut with a different
                           --format, is an error — pdfvision does not last-wins-resolve them.)
+                          JSON-style field paths below are exact for JSON/TOON and processDocument();
+                          XML maps them to tags/attributes (for example page→no, pageLabel→label).
   -r, --render            Render each selected page to a PNG and include the path on every page result.
       --render-output <dir>
                           Directory to write rendered page PNGs or visual-region PNGs into, created
@@ -44,8 +46,9 @@ Options
                           Typical use: --layout to find a suspect block, then re-run with that
                           block's bbox here to zoom in.
       --no-normalize      Disable Unicode NFKC normalization and C0-control cleanup. Default ON;
-                          pre-normalization text is surfaced in \`rawText\` (json/xml) when
-                          normalization changed the string. Markdown output shows only the
+                          pre-normalization text is \`pages[].rawText\` in JSON/TOON and a sibling
+                          \`<rawText>\` element in XML when normalization changed the string.
+                          Markdown output shows only the
                           normalized form — pass --no-normalize if original codepoint fidelity
                           (e.g. fullwidth punctuation \`（\`, ligatures \`ﬁ\`, control bytes)
                           matters for downstream diff / forensics.
@@ -117,8 +120,8 @@ Options
       --strip-repeated    Drop running headers / footers / page numbers (blocks the layout
                           pass tagged as \`repeated\`) from the rendered Markdown body so
                           LLM readers don't have to wade through the same footer N times.
-                          Markdown only; JSON / XML already expose \`repeated: true\` per
-                          block. Requires --layout.
+                          Markdown only; JSON/TOON preserve block \`repeated: true\`, while XML
+                          uses \`<block repeated="true">\`. Requires --layout.
       --ocr               Run OCR on each selected page and attach \`pages[].ocr\`
                           (text + confidence + lang). Slow; opt-in. Requires the
                           optional \`tesseract.js\` dependency. \`pages[].text\` is
@@ -165,8 +168,9 @@ Output formats
                       and layout warnings surface automatically — no --layout needed. --layout adds
                       the structural Layout tables / Blocks / Tables columns on top.
   json                Full DocumentResult schema. For programmatic parsing.
-  xml                 Tag-shaped variant of json. For consumers or prompts that benefit from explicit tags.
-  toon                Token-Oriented Object Notation: lossless encoding of the json schema.
+  xml                 Tag-shaped near-parity projection. Page rotation stays; overview rotation is omitted;
+                      names, nesting, and empty-field presence can differ.
+  toon                Token-Oriented Object Notation: decodes to exactly the json data model.
                       Arrays whose entries have the same scalar fields can use a tabular form;
                       normal overview and mixed-field spans/lines stay in list form.
 

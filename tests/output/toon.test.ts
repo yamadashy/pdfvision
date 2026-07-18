@@ -1,5 +1,6 @@
 import { decode } from '@toon-format/toon';
 import { describe, expect, it } from 'vitest';
+import { formatJson } from '../../src/output/json.js';
 import { formatToon } from '../../src/output/toon.js';
 import type { DocumentResult, PageResult } from '../../src/types/index.js';
 
@@ -45,7 +46,7 @@ describe('formatToon', () => {
     expect(decode(formatToon(result))).toEqual(result);
   });
 
-  it('round-trips losslessly back to the DocumentResult via decode', () => {
+  it('decodes to exactly the same data model as JSON serialization', () => {
     // TOON is only useful here if it stays a drop-in for `-f json`: decoding
     // the encoded string must reproduce the structured result exactly.
     const result = makeResult({
@@ -82,10 +83,24 @@ describe('formatToon', () => {
         makePage({
           page: 1,
           text: 'hello world',
+          rawText: 'ｈｅｌｌｏ world',
           charCount: 11,
           textCoverage: 0.01,
           rotation: 90,
           spans: [{ text: 'hello world', x: 10, y: 20, width: 30, height: 12, fontSize: 12, fontName: 'g_d0_f1' }],
+          layout: {
+            blocks: [
+              {
+                text: 'Running footer',
+                x: 20,
+                y: 760,
+                width: 100,
+                height: 12,
+                lines: [],
+                repeated: true,
+              },
+            ],
+          },
         }),
         makePage({ page: 2, imageCount: 3, quality: { nativeTextStatus: 'empty_but_visual_content' } }),
       ],
@@ -100,7 +115,7 @@ describe('formatToon', () => {
       ],
     });
     const decoded = decode(formatToon(result));
-    expect(decoded).toEqual(result);
+    expect(decoded).toEqual(JSON.parse(formatJson(result)));
   });
 
   it('collapses a uniform spans array into a tabular header declared once', () => {

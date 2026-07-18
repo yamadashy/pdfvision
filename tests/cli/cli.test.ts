@@ -360,6 +360,15 @@ describe('cli', () => {
     expect(r.stdout.join('\n')).toMatch(/^<document /);
   });
 
+  it('accepts the --toon shortcut as an alias for --format toon', async () => {
+    const r = await captureRun([SAMPLE_PDF, '--toon', '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    const { decode } = await import('@toon-format/toon');
+    const decoded = decode(r.stdout.join('\n')) as { totalPages: number; pages: { text: string }[] };
+    expect(decoded.totalPages).toBe(1);
+    expect(decoded.pages[0].text).toContain('Hello pdfvision');
+  });
+
   it('accepts the --markdown shortcut explicitly (matches the default)', async () => {
     const r = await captureRun([SAMPLE_PDF, '--markdown', '--no-cache']);
     expect(r.exitCode).toBeNull();
@@ -401,7 +410,7 @@ describe('cli', () => {
   });
 
   it('rejects --strip-repeated on non-markdown output', async () => {
-    // JSON / XML already expose `repeated: true` on each layout block;
+    // Structured output already exposes `repeated: true` on each layout block;
     // forcing the CLI to strip would be either no-op or destructive.
     const r = await captureRun([SAMPLE_PDF, '--layout', '--strip-repeated', '--json', '--no-cache']);
     expect(r.exitCode).toBe(1);

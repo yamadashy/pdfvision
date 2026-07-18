@@ -1,7 +1,8 @@
 import { resolve } from 'node:path';
+import { decode } from '@toon-format/toon';
 import { describe, expect, it } from 'vitest';
 import { normalizeText } from '../../src/core/processor/textUtils.js';
-import { processDocument } from '../../src/core/processor.js';
+import { processDocument, processFile } from '../../src/core/processor.js';
 
 // sample-compat.pdf embeds fullwidth Latin / fullwidth digits / halfwidth
 // katakana in both metadata and the page body — the codepoints AI agents
@@ -55,10 +56,24 @@ describe('processDocument NFKC normalization', () => {
     // Agents that need to diff (or audit) what the normalizer touched
     // shouldn't have to re-run with --no-normalize. rawText is only
     // surfaced when it actually differs from text, so already-canonical
-    // PDFs don't pay the JSON-size cost.
+    // PDFs don't pay the structured-output size cost.
     const result = await processDocument(SAMPLE_COMPAT_PDF, { noCache: true });
     expect(result.pages[0].rawText).toBe('ＡＢＣ１２３ ｶﾅ');
     expect(result.pages[0].text).toBe('ABC123 カナ');
+  });
+
+  it('preserves normalized text and rawText through TOON format dispatch', async () => {
+    const options = { noCache: true } as const;
+    const [toon, json] = await Promise.all([
+      processFile(SAMPLE_COMPAT_PDF, { ...options, format: 'toon' }),
+      processFile(SAMPLE_COMPAT_PDF, { ...options, format: 'json' }),
+    ]);
+    const decoded = decode(toon) as { pages: { text: string; rawText?: string }[] };
+    const parsedJson = JSON.parse(json);
+
+    expect(decoded).toEqual(parsedJson);
+    expect(decoded.pages[0].text).toBe('ABC123 カナ');
+    expect(decoded.pages[0].rawText).toBe('ＡＢＣ１２３ ｶﾅ');
   });
 
   it('omits rawText when text is already in canonical form', async () => {

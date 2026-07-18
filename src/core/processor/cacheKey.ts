@@ -40,8 +40,8 @@ export interface CacheKeyInput {
  *
  * The hash hides the raw `pages` string so user-controlled input cannot
  * traverse outside the cache directory when the key is used as a file
- * name. Format is intentionally a constant ("structured") so text-only
- * vs json-only callers reuse the same cached payload.
+ * name. Format is intentionally a constant ("structured") so Markdown
+ * and structured-format callers reuse the same cached payload.
  */
 export function buildCacheKey(input: CacheKeyInput): string {
   const rasterizes = !!input.render || !!input.ocr || !!input.renderVisualRegions;

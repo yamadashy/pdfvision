@@ -5,9 +5,15 @@ description: pdfvision の DocumentResult、PageResult、overview、quality、la
 
 # 構造化出力
 
-`--format json`, `--format xml`, `--format toon` は同じ `DocumentResult` データを別形式で再エンコードします。JSON はプログラム向けで、XML は明示的なタグを前提にした利用側やプロンプト向けです。TOON はロスレスで、同じスカラーフィールドを持つオブジェクト配列はキーの反復を減らす表形式にできます。ネストされた値を含む配列や、要素間でフィールドが異なる配列はリスト形式のままです。実際の文書と対象モデルのコンテキストで各形式を比較してください。
+`--format json` は `DocumentResult` をシリアライズします。`--format toon` のデコード結果は JSON の parse 結果と完全に一致し、未設定の `undefined` は存在しません。XML は可逆な `DocumentResult` シリアライズではなく、タグ形式の near-parity 表示用 projection です。Markdown はフィールドを意図的に変換・省略します。
 
 この schema はエージェント向けの evidence model として設計されています。「テキストはこれです」だけでなく、どれだけテキストが見つかったか、どの視覚要素があるか、ネイティブテキストは信頼できそうか、根拠がページ上のどこにあるか、どの PDF 機能が存在したかを同時に伝えます。
+
+## 形式ごとの契約
+
+このページの JSON 形式パスは、JSON、デコード後の TOON、`processDocument()` でのみ正確です。XML では `page` → `no`、`pageLabel` → `label` となり、ネストされた `quality` は属性へ平坦化されます。ページ結果の rotation は属性に残りますが、overview の rotation は現在省略され、空フィールドの存在方も異なります。
+
+JSON/TOON は `pages[].rawText` と `layout.blocks[].repeated` を正確なフィールドとして保持します。XML は兄弟の `<rawText>` と `<block repeated="true">` を使います。Markdown は `rawText` を省略し、`--strip-repeated` 指定時だけ繰り返しブロックを除きます。JSON/TOON のトップレベル `xfa` は、XML では `<document xfa="true">` です。
 
 ## トップレベル
 
