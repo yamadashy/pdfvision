@@ -36,6 +36,7 @@ const FIXTURE_COLUMNS_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-columns
 const FIXTURE_FURNITURE_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-furniture.pdf');
 const FIXTURE_TRUNCATED_LINE_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-truncated-line.pdf');
 const FIXTURE_INVISIBLE_TEXT_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-invisible-text.pdf');
+const FIXTURE_REDACTION_BYPASS_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-redaction-bypass.pdf');
 const FIXTURE_TAGGED_TABLE_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-tagged-table.pdf');
 const FIXTURE_JAVASCRIPT_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-javascript.pdf');
 
@@ -422,6 +423,54 @@ async function buildInvisibleTextPdf() {
   console.log(`Wrote ${FIXTURE_INVISIBLE_TEXT_OUT} (${out.byteLength} bytes)`);
 }
 
+async function buildRedactionBypassPdf() {
+  const doc = new PDFDocument({
+    size: [612, 792],
+    margins: { top: 0, left: 0, bottom: 0, right: 0 },
+    info: {
+      Title: 'pdfvision redaction bypass fixture',
+      Author: 'pdfvision build-fixtures',
+      Subject: 'Opaque fill over native text warning fixture',
+      Creator: 'pdfvision',
+      CreationDate: FIXED_DATE,
+      ModDate: FIXED_DATE,
+    },
+    autoFirstPage: false,
+  });
+  doc._id = FIXED_FILE_ID;
+
+  const chunks = [];
+  doc.on('data', (c) => chunks.push(c));
+  const done = new Promise((resolveDone, rejectDone) => {
+    doc.on('end', resolveDone);
+    doc.on('error', rejectDone);
+  });
+
+  doc.addPage().font('Helvetica').fontSize(12).text('Visible employee record', 72, 80);
+  doc.addContent(
+    [
+      'q',
+      '1 0 0 -1 0 792 cm',
+      'BT',
+      '/F1 12 Tf',
+      '1 0 0 1 72 653.384 Tm',
+      '(Employee ) Tj',
+      '(SSN: 123-45-6789) Tj',
+      'ET',
+      'Q',
+    ].join('\n'),
+  );
+  doc.rect(70, 125, 300, 20).fill('#000000');
+  doc.fillColor('#000000').text('Visible closing text', 72, 180);
+
+  doc.end();
+  await done;
+
+  const out = Buffer.concat(chunks);
+  writeFileSync(FIXTURE_REDACTION_BYPASS_OUT, out);
+  console.log(`Wrote ${FIXTURE_REDACTION_BYPASS_OUT} (${out.byteLength} bytes)`);
+}
+
 async function buildTaggedTablePdf() {
   const doc = new PDFDocument({
     info: {
@@ -525,5 +574,6 @@ await buildColumnsPdf();
 await buildFurniturePdf();
 await buildTruncatedLinePdf();
 await buildInvisibleTextPdf();
+await buildRedactionBypassPdf();
 await buildTaggedTablePdf();
 await buildJavaScriptPdf();

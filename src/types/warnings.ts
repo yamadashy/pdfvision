@@ -7,6 +7,7 @@
  * page-wide glyph-index garbage, tiny native text that may not be human-visible,
  * raw embedded producer/source payloads that leak into native text,
  * text drawn with invisible rendering mode but included in extraction,
+ * native text hidden beneath later opaque fills,
  * dense vector graphics whose form fields or chart paths are not text,
  * vector-only visual pages with no native text,
  * hidden duplicate native text layers that inflate page text,
@@ -32,6 +33,7 @@ export interface PageWarning {
     | 'font_mapping_warning'
     | 'raw_embedded_source_text'
     | 'invisible_text'
+    | 'text_under_opaque_fill'
     | 'dense_vector_graphics'
     | 'vector_graphics_no_native_text'
     | 'duplicate_text_layer'

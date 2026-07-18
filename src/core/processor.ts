@@ -12,6 +12,7 @@ import type {
   VectorBox,
 } from '../types/index.js';
 import type { InvisibleTextEvidence } from './graphics/invisibleText.js';
+import type { OpaqueFillTextEvidence } from './graphics/opaqueFillText.js';
 import { getCacheDir, pdfFingerprint } from './io/cache.js';
 import { buildCacheKey } from './processor/cacheKey.js';
 import { extractDocumentFeatures } from './processor/documentFeatures.js';
@@ -22,7 +23,12 @@ import { buildPageFlags } from './processor/pageFlags.js';
 import { buildPageResult } from './processor/pageResult.js';
 import { resolvePageNumbers } from './processor/pageSelection.js';
 import { fingerprintData, withTruncationHint } from './processor/pdfBytes.js';
-import { buildImageOps, buildPdfJsDocumentOptions, buildTextRenderingOps } from './processor/pdfJsSetup.js';
+import {
+  buildImageOps,
+  buildOpaqueFillTextOps,
+  buildPdfJsDocumentOptions,
+  buildTextRenderingOps,
+} from './processor/pdfJsSetup.js';
 import { capturePdfJsWarnings } from './processor/pdfJsWarnings.js';
 import { buildProcessDocumentOptions, validateProcessFileOptions } from './processor/processFileOptions.js';
 import { prepareRenderImagesDir, validateRenderRegion, validateRenderScale } from './processor/renderOptions.js';
@@ -199,10 +205,12 @@ export async function processDocument(filePath: string, options: ProcessDocument
     const warningAnnotationsByPage = new Map<number, PageAnnotation[]>();
     const warningSpansByPage = new Map<number, TextSpan[]>();
     const invisibleTextByPage = new Map<number, InvisibleTextEvidence>();
+    const opaqueFillTextByPage = new Map<number, OpaqueFillTextEvidence>();
     const visualRegionInputsByPage = new Map<number, BuildVisualRegionsInput>();
     const annotationAppearanceByPage = new Map<number, boolean>();
     const imageOps = buildImageOps(OPS);
     const textRenderingOps = buildTextRenderingOps(OPS);
+    const opaqueFillTextOps = buildOpaqueFillTextOps(OPS);
     const getWidgetAppearanceCaptions = createWidgetAppearanceCaptionLoader({
       pdfData,
       filePath,
@@ -215,7 +223,15 @@ export async function processDocument(filePath: string, options: ProcessDocument
     // (defaultConcurrency) keeps memory bounded on large multi-page
     // docs where every concurrent page builds its own canvas / op list.
     const pages: PageResult[] = await runParallel(pageNumbers, async (pageNum, i) => {
-      const data = await extractPageData(doc, pageNum, imageOps, textRenderingOps, flags, getWidgetAppearanceCaptions);
+      const data = await extractPageData(
+        doc,
+        pageNum,
+        imageOps,
+        textRenderingOps,
+        opaqueFillTextOps,
+        flags,
+        getWidgetAppearanceCaptions,
+      );
       rasterBackedTextLayerByPage.set(pageNum, data.rasterBackedTextLayer);
       optionalContentTextByPage.set(pageNum, data.optionalContentText);
       warningImageBoxesByPage.set(pageNum, data._warningImageBoxes ?? []);
@@ -223,6 +239,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       warningAnnotationsByPage.set(pageNum, data._warningAnnotations ?? []);
       warningSpansByPage.set(pageNum, data._warningSpans ?? []);
       if (data._invisibleText) invisibleTextByPage.set(pageNum, data._invisibleText);
+      if (data._opaqueFillText) opaqueFillTextByPage.set(pageNum, data._opaqueFillText);
       if (data._visualRegionInput) visualRegionInputsByPage.set(pageNum, data._visualRegionInput);
       if (data.hasVisibleAnnotationAppearance) annotationAppearanceByPage.set(pageNum, true);
       return buildPageResult({
@@ -302,6 +319,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
         annotations: warningAnnotationsByPage.get(p.page),
         spans: warningSpansByPage.get(p.page),
         invisibleText: invisibleTextByPage.get(p.page),
+        opaqueFillText: opaqueFillTextByPage.get(p.page),
         pdfJsWarnings,
       });
       if (warnings.length > 0) p.warnings = warnings;

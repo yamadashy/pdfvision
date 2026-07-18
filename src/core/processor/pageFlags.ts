@@ -18,8 +18,8 @@ export function buildPageFlags(options: ProcessDocumentOptions, state: BuildPage
     links: !!options.links,
     annotations: !!options.annotations,
     // Inspect annotation metadata even for baseline text extraction so
-    // visible FreeText appearances that are not in the native text stream
-    // can produce completeness warnings without exposing annotations[].
+    // visible FreeText appearances can produce warnings without exposing
+    // annotations[].
     annotationAppearanceHints: true,
     structure: !!options.structure,
     viewer: !!options.viewer,

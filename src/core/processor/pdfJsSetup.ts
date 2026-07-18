@@ -2,6 +2,7 @@ import { join, dirname as pathDirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ImageOps } from '../graphics/imageBoxes.js';
 import type { TextRenderingOps } from '../graphics/invisibleText.js';
+import type { OpaqueFillTextOps } from '../graphics/opaqueFillText.js';
 
 interface BuildPdfJsDocumentOptionsInput {
   pdfData?: Uint8Array;
@@ -111,5 +112,31 @@ export function buildTextRenderingOps(ops: Record<string, number>): TextRenderin
       ops.nextLineShowText,
       ops.nextLineSetSpacingShowText,
     ]),
+  };
+}
+
+export function buildOpaqueFillTextOps(ops: Record<string, number>): OpaqueFillTextOps {
+  const imageOps = buildImageOps(ops);
+  const textOps = buildTextRenderingOps(ops);
+  return {
+    save: imageOps.save,
+    restore: imageOps.restore,
+    transform: imageOps.transform,
+    formBegin: imageOps.formBegin,
+    formEnd: imageOps.formEnd,
+    beginGroup: ops.beginGroup,
+    endGroup: ops.endGroup,
+    beginAnnotation: ops.beginAnnotation,
+    endAnnotation: ops.endAnnotation,
+    beginMarkedContent: ops.beginMarkedContent,
+    beginMarkedContentProps: ops.beginMarkedContentProps,
+    endMarkedContent: ops.endMarkedContent,
+    setGState: ops.setGState,
+    setFillTransparent: ops.setFillTransparent,
+    constructPath: imageOps.constructPath,
+    clipOps: new Set<number>([ops.clip, ops.eoClip]),
+    fillColorOps: imageOps.fillColorOps,
+    pathFillOps: imageOps.pathFillOps,
+    textShowOps: textOps.textShowOps,
   };
 }
