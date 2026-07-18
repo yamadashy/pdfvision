@@ -187,7 +187,7 @@ Examples
   pdfvision encrypted.pdf --password "secret" --json                           # encrypted PDF
   printf "secret\\n" | pdfvision encrypted.pdf --password-stdin --json          # avoid password in argv
   pdfvision scan.pdf --ocr --json                                              # OCR a scanned PDF
-  pdfvision scan-ja.pdf --ocr --ocr-lang eng+jpn --json                        # multi-lang OCR
+  pdfvision scan-ja.pdf --ocr --ocr-lang jpn+eng --json                        # multi-lang OCR
   pdfvision --remote https://example.com/paper.pdf --json                      # fetch + extract JSON
   pdfvision --clear-cache                                                      # wipe the on-disk cache
 

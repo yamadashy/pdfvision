@@ -107,7 +107,7 @@ pdfvision report.pdf --pages 3 --render --render-region 120,180,360,140 --render
 
 ```bash
 pdfvision scan.pdf --ocr --ocr-lang eng --format json
-pdfvision japanese-scan.pdf --ocr --ocr-lang eng+jpn --format json
+pdfvision japanese-scan.pdf --ocr --ocr-lang jpn+eng --format json
 ```
 
 OCR 結果包含文字、信心分數、語言與單字框。

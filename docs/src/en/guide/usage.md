@@ -107,7 +107,7 @@ This pattern is useful when an answer must be tied to auditable PDF evidence: se
 
 ```bash
 pdfvision scan.pdf --ocr --ocr-lang eng --format json
-pdfvision japanese-scan.pdf --ocr --ocr-lang eng+jpn --format json
+pdfvision japanese-scan.pdf --ocr --ocr-lang jpn+eng --format json
 ```
 
 OCR results include page text, confidence, language, and word boxes.
