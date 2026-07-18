@@ -1,5 +1,5 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { createServer, type Server } from 'node:http';
+import { createServer, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -197,11 +197,61 @@ describe('downloadRemote', () => {
     );
   });
 
+  it('preserves the size-limit error when cancelling an oversized body outlasts the timeout', async () => {
+    let cancelCalled = false;
+    const fetchState: { signal: AbortSignal | null } = { signal: null };
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(2));
+      },
+      cancel() {
+        cancelCalled = true;
+        return new Promise<void>((_resolve, reject) => {
+          const rejectOnAbort = () => reject(new DOMException('cancelled by timeout', 'AbortError'));
+          if (fetchState.signal?.aborted) {
+            rejectOnAbort();
+            return;
+          }
+          fetchState.signal?.addEventListener('abort', rejectOnAbort, { once: true });
+        });
+      },
+    });
+    const fetchImpl: typeof fetch = async (_input, init): Promise<Response> => {
+      fetchState.signal = init?.signal ?? null;
+      return new Response(body, { status: 200 });
+    };
+
+    await expect(
+      downloadRemoteData('https://example.com/oversized.pdf', { fetchImpl, maxBytes: 1, timeoutMs: 5 }),
+    ).rejects.toThrow('Remote PDF exceeds 1 bytes');
+    expect(cancelCalled).toBe(true);
+    expect(fetchState.signal?.aborted).toBe(true);
+  });
+
   it('honours the timeout when the server hangs', async () => {
     setHandler((_req, _res) => {
       // Never respond — the test expects a timeout error.
     });
     await expect(downloadRemote(`http://127.0.0.1:${port}/hang.pdf`, { timeoutMs: 100 })).rejects.toThrow(/Timed out/);
+  });
+
+  it('honours the timeout while reading a body that stalls after the headers', async () => {
+    let stalledResponse: ServerResponse | undefined;
+    setHandler((_req, res) => {
+      stalledResponse = res;
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/pdf');
+      res.flushHeaders();
+      res.write('%PDF-');
+    });
+
+    const url = `http://127.0.0.1:${port}/stalled-body.pdf`;
+    try {
+      await expect(downloadRemote(url, { timeoutMs: 100 })).rejects.toThrow(`Timed out after 100ms downloading ${url}`);
+      expect(stalledResponse?.headersSent).toBe(true);
+    } finally {
+      stalledResponse?.destroy();
+    }
   });
 
   it('falls back to a generic basename when the URL has no path segment', async () => {

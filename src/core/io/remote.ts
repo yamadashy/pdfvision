@@ -34,7 +34,7 @@ export interface DownloadRemoteOptions {
   noCache?: boolean;
   /** Max bytes to accept. Defaults to 100 MB. */
   maxBytes?: number;
-  /** Network timeout in milliseconds. Defaults to 60_000. */
+  /** Download deadline covering response headers and body transfer. Defaults to 60_000 ms. */
   timeoutMs?: number;
   /**
    * Override the global `fetch` for tests. Production callers leave this
@@ -107,55 +107,74 @@ async function fetchRemotePdfBytes(rawUrl: string, options: DownloadRemoteOption
   try {
     response = await fetchImpl(rawUrl, { signal: controller.signal, redirect: 'follow' });
   } catch (error) {
+    clearTimeout(timeoutHandle);
     if ((error as Error).name === 'AbortError') {
       throw new Error(`Timed out after ${timeoutMs}ms downloading ${rawUrl}`);
     }
     throw new Error(`Network error downloading ${rawUrl}: ${(error as Error).message}`);
+  }
+
+  try {
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status} ${response.statusText} for ${rawUrl}`);
+    }
+
+    // Some servers send Content-Length up front; a 200 with a too-large
+    // declared length is rejected before we read a single byte. Servers
+    // that omit Content-Length still get capped during the streaming read
+    // below, so this is a fast-path optimisation rather than the only check.
+    const declaredLength = Number(response.headers.get('content-length') ?? '');
+    if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
+      throw new Error(`Remote PDF declares ${declaredLength} bytes, exceeds limit of ${maxBytes}`);
+    }
+
+    if (response.body === null) {
+      throw new Error(`Remote response has no body: ${rawUrl}`);
+    }
+
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    try {
+      while (true) {
+        let result: ReadableStreamReadResult<Uint8Array>;
+        try {
+          result = await reader.read();
+        } catch (error) {
+          if (controller.signal.aborted) {
+            throw new Error(`Timed out after ${timeoutMs}ms downloading ${rawUrl}`);
+          }
+          throw error;
+        }
+
+        if (result.done) break;
+        total += result.value.length;
+        if (total > maxBytes) {
+          try {
+            await reader.cancel();
+          } catch {
+            // Cancellation is cleanup. Its failure must not replace the
+            // deterministic size-limit error that triggered it.
+          }
+          throw new Error(`Remote PDF exceeds ${maxBytes} bytes`);
+        }
+        chunks.push(result.value);
+      }
+    } finally {
+      reader.releaseLock();
+    }
+
+    const data = Buffer.concat(chunks);
+    if (!hasPdfHeader(data)) {
+      const contentType = response.headers.get('content-type')?.trim() || 'unknown';
+      throw new Error(
+        `Remote URL did not return a PDF (content-type: ${contentType}, bytes: ${data.length}): ${rawUrl}`,
+      );
+    }
+    return data;
   } finally {
     clearTimeout(timeoutHandle);
   }
-
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status} ${response.statusText} for ${rawUrl}`);
-  }
-
-  // Some servers send Content-Length up front; a 200 with a too-large
-  // declared length is rejected before we read a single byte. Servers
-  // that omit Content-Length still get capped during the streaming read
-  // below, so this is a fast-path optimisation rather than the only check.
-  const declaredLength = Number(response.headers.get('content-length') ?? '');
-  if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
-    throw new Error(`Remote PDF declares ${declaredLength} bytes, exceeds limit of ${maxBytes}`);
-  }
-
-  if (response.body === null) {
-    throw new Error(`Remote response has no body: ${rawUrl}`);
-  }
-
-  const reader = response.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  try {
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      total += value.length;
-      if (total > maxBytes) {
-        await reader.cancel();
-        throw new Error(`Remote PDF exceeds ${maxBytes} bytes`);
-      }
-      chunks.push(value);
-    }
-  } finally {
-    reader.releaseLock();
-  }
-
-  const data = Buffer.concat(chunks);
-  if (!hasPdfHeader(data)) {
-    const contentType = response.headers.get('content-type')?.trim() || 'unknown';
-    throw new Error(`Remote URL did not return a PDF (content-type: ${contentType}, bytes: ${data.length}): ${rawUrl}`);
-  }
-  return data;
 }
 
 export async function downloadRemoteData(rawUrl: string, options: DownloadRemoteOptions = {}): Promise<Uint8Array> {
