@@ -15,30 +15,26 @@
 [![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/yamadashy/pdfvision?utm_source=oss&utm_medium=github&utm_campaign=yamadashy%2Fpdfvision&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)](https://coderabbit.ai)
 [![License](https://img.shields.io/npm/l/pdfvision)](LICENSE)
 
-🔍 **pdfvision** gives AI agents human-like PDF vision — text, layout, and rendered page images in one pass, delivered as a CLI / library built for agents.
+🔍 **pdfvision** is a CLI and TypeScript library for evidence-first PDF reading by AI agents. It starts with native text and per-page quality signals, then lets the agent spend context on layout, search, rendering, or OCR only where the evidence needs it.
 
 > **Mission: make every PDF reliably readable by AI agents.** Surface text, layout, and page images together, and expose extraction gaps instead of hiding them.
 
 ## 💡 Why pdfvision
 
-Hand an agent a PDF and it usually either can't read it at all, or swallows the whole file and blows past its context window. Worse, extraction failures are *silent*: a scanned page comes back empty, a table comes back flattened, glyph garbage comes back looking like words — and the agent trusts all of it.
+PDF text can look plausible and still be wrong: scans return empty, columns read out of order, tables flatten, and broken font maps produce readable-looking garbage. pdfvision treats extraction as evidence to inspect, not an answer to trust.
 
-A person doesn't read a PDF that way. They go page by page, glance at the figures, and zoom in when a detail won't resolve. pdfvision gives agents that same reading loop:
+- **Check before trusting.** Every page includes text coverage and quality signals. `warnings` appear when pdfvision detects risks such as glyph corruption, raster-backed text, flattened tables, or reading-order divergence.
+- **Spend context progressively.** Start with native text, narrow long documents with `-p`, emit compact search results with `--matches-only`, and use TOON when repeated structured rows would make JSON noisy.
+- **Search → zoom → render.** `--search` returns each match with its page and bbox; pass that bbox to `--render-region` to inspect only the evidence that matters.
 
-- **Know when the text can't be trusted.** Every page reports coverage stats and `warnings` — glyph garbage, text layers over full-page scans, flattened numeric tables — so the agent catches silent extraction failures instead of shipping them.
-- **Look at the page, not just the text.** `--render` hands page PNGs to a vision model, and `--ocr` adds recognized text with word boxes when the text layer falls short.
-- **Find, then zoom.** `--search` returns a bounding box for every match; feed it into `--render-region` for a full-resolution crop of exactly the right spot.
-- **Keep the structure a text stream drops.** Layout blocks, tables, form fields, links, annotations, and crop-ready figure regions stay addressable (`--layout`, `--visual-regions`, `--form-fields`, …) instead of being flattened into one string.
-- **Iterate cheaply.** A cache-first design (~30 ms on the second read) and first-class `--remote` URLs keep this trial-and-error practical across a whole session.
-
-Find-then-zoom in two commands:
+When the task depends on visual structure, opt into layout blocks, table hints, form fields, visual regions, or OCR without replacing the original native text.
 
 ```bash
-pdfvision paper.pdf --search "BLEU" --json                 # → every match, with its bbox
-pdfvision paper.pdf -p 8 -r --render-region 260,55,320,120 # → PNG crop of that exact table
+pdfvision paper.pdf --search "BLEU" --matches-only --json
+pdfvision paper.pdf -p 8 --render --render-region 260,55,320,120
 ```
 
-One principle holds it together: **the agent decides; pdfvision delivers raw signals.** No auto-detect heuristics that pick an answer for the agent and hide what the PDF actually contained.
+**The agent decides; pdfvision delivers evidence.** Quality and warning fields describe what pdfvision observed; they do not silently choose native text, OCR, or rendered pixels as truth.
 
 ## 🚀 Quick Start
 
