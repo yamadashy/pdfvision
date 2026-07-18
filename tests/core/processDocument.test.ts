@@ -154,6 +154,18 @@ function buildPdfWithVisibleFreeTextAnnotation(): Uint8Array {
   ]);
 }
 
+function buildPdfWithCroppedView(): Uint8Array {
+  const stream = 'BT /F1 10 Tf 25 210 Td (Cropped text) Tj ET';
+  const length = Buffer.byteLength(stream, 'binary');
+  return buildRawPdf([
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 300] /CropBox [20 30 220 230] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>',
+    `<< /Length ${length} >>\nstream\n${stream}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ]);
+}
+
 function pdfUtf16HexString(value: string): string {
   const bytes = Buffer.alloc(2 + value.length * 2);
   bytes[0] = 0xfe;
@@ -291,6 +303,23 @@ describe('processDocument', () => {
 
     expect(result.file).toBe('memory://sample.pdf');
     expect(result.pages[0].text).toContain('Hello pdfvision');
+  });
+
+  it('makes geometry zero-based relative to a cropped pdf.js page.view box', async () => {
+    const result = await processDocument('memory://cropped-view.pdf', {
+      sourceData: buildPdfWithCroppedView(),
+      geometry: true,
+      noCache: true,
+    });
+
+    expect(result.pages[0]).toMatchObject({ width: 200, height: 200 });
+    expect(result.pages[0].spans?.[0]).toMatchObject({
+      text: 'Cropped text',
+      x: 5,
+      y: 10,
+      height: 10,
+      fontSize: 10,
+    });
   });
 
   it('opens encrypted PDFs when the document password is provided', async () => {
@@ -1194,7 +1223,7 @@ describe('processDocument', () => {
   it('actually crops to the requested (x, y) — not just (0, 0) with the right dimensions', async () => {
     // Regression guard against a misreading of pdf.js's `transform` option.
     // The transform is applied in viewport pixel space, so pdfvision first
-    // maps the requested top-down MediaBox region through the page viewport,
+    // maps the requested top-down page-view region through the page viewport,
     // then shifts that viewport crop to canvas (0, 0).
     //
     // Two same-sized regions at different (x, y) on the same page must

@@ -21,7 +21,7 @@ You do not have to render everything. Start with the overview, then render the p
 pdfvision document.pdf --render --render-output ./images --format json
 ```
 
-Each selected page receives an image path. The rendered image uses the same top-left coordinate system as layout boxes, so callers can map PDF points onto pixels.
+Each selected page receives an image path. Layout boxes use unrotated pdf.js page-view coordinates, not PNG pixels. Scale by image/page dimensions for unrotated full-page PNGs; use the rotated pdf.js viewport transform for rotated pages.
 
 Use `--render-scale` to control detail:
 
@@ -46,7 +46,7 @@ The rendered image path is returned in `pages[].image`, so an agent can pass it 
 pdfvision document.pdf --pages 2 --render --render-region 120,180,360,240 --render-output ./regions
 ```
 
-`--render-region` uses PDF points with a top-left origin. It is useful after a layout block, image box, or visual region identifies the area that needs zooming.
+`--render-region` uses unrotated page-view user-space units (typically points with default `/UserUnit`) with a top-left origin. A layout, image, or visual-region bbox passes unchanged.
 
 The same crop flow works after `--search`, because search matches can carry bounding boxes. See [Search and Region Zoom](./search-and-region-zoom.md).
 

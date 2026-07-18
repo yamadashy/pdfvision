@@ -41,7 +41,7 @@ layout が必要な場面:
 pdfvision document.pdf --geometry --format json
 ```
 
-`--geometry` は `pages[].spans` に低レベルのテキスト項目、bbox、フォントサイズを出します。検索ハイライト、オーバーレイ、根拠マッピングに使えます。
+`--geometry` は保持された位置付き pdf.js テキスト項目ごとに 1 つの span を `pages[].spans` に出します。項目は 1 文字、単語、より長い文字列の場合があり、隣接項目は別々のままです。bbox はグリフ輪郭ではなく、項目全体を囲む丸め済みの軸平行矩形です。
 
 ## 視覚ボックスと領域
 

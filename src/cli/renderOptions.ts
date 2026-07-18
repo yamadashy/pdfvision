@@ -54,9 +54,9 @@ function resolveRenderScale(
 }
 
 function resolveRenderRegion(values: ParsedCliValues, render: boolean): RenderRegion | undefined {
-  // --render-region parses "x,y,width,height" as PDF points (top-left
-  // origin, y grows downward — same coord system as imageBoxes /
-  // layout.blocks). CLI surfaces shape errors (wrong field count,
+  // --render-region parses "x,y,width,height" in the unrotated page view box
+  // user-space units (top-left origin, y grows downward — same system as
+  // imageBoxes / layout.blocks). CLI surfaces shape errors (wrong field count,
   // non-numeric); positive-width/height and single-page constraints
   // get enforced in the processor against the resolved page list, so
   // we don't need to know totalPages here.

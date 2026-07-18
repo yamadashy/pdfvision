@@ -21,7 +21,7 @@ pdfvision 把渲染當作證據，而不是最後手段。代理可以先讀取�
 pdfvision document.pdf --render --render-output ./images --format json
 ```
 
-每個選中頁面都會得到一個影像路徑。渲染影像使用與版面框一致的左上角座標系，便於把 PDF points 映射到像素。
+每個選中頁面都會得到一個影像路徑。版面 bbox 使用未旋轉的 pdf.js page view box 頁面座標，而不是 PNG 像素。未旋轉整頁按影像/頁面尺寸縮放；旋轉頁使用 pdf.js 的旋轉 viewport transform。
 
 ```bash
 pdfvision document.pdf --render --render-scale 3
@@ -44,7 +44,7 @@ pdfvision document.pdf --render --render-scale 3
 pdfvision document.pdf --pages 2 --render --render-region 120,180,360,240 --render-output ./regions
 ```
 
-`--render-region` 使用 PDF points 和左上角原點。它適合放大由版面區塊、影像框或視覺區域定位到的位置。
+`--render-region` 使用未旋轉的 page view box user-space units（預設 `/UserUnit` 下通常是點）和左上角原點。版面、影像或視覺區域 bbox 可原樣傳入。
 
 搜尋結果的 bbox 也可以使用同一裁切流程。參見 [搜尋與區域放大](./search-and-region-zoom.md)。
 

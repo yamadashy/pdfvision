@@ -105,6 +105,11 @@ export function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+/**
+ * Key a raw pdf.js text item before public-text normalization. Geometry
+ * fields use three-decimal precision so duplicate paints with insignificant
+ * numeric drift collapse while the same text at another transform survives.
+ */
 export function textItemDedupeKey(
   text: string,
   width: number,

@@ -3,10 +3,9 @@
  * page. Emitted per match, not per page — so the same query found
  * three times on page 5 yields three SearchMatch entries with `page: 5`.
  *
- * The bbox is in PDF points (top-left origin, y grows downward —
- * matching {@link TextSpan} / {@link LayoutBlock} / {@link ImageBox}),
- * so an agent can pipe it directly into a follow-up `renderRegion`
- * call to get a PNG zoomed onto the match.
+ * The bbox uses unrotated page-view user-space units (top-left origin, y grows
+ * downward), matching {@link TextSpan} / {@link LayoutBlock} / {@link ImageBox}.
+ * It passes unchanged to a follow-up `renderRegion` call.
  */
 export interface SearchMatch {
   /** 1-based page number the match was found on. Mirrored on the

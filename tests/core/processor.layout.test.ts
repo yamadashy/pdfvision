@@ -57,13 +57,10 @@ describe('processDocument layout: true', () => {
     }
   });
 
-  it('joins adjacent CJK glyph spans without inserting spurious spaces', async () => {
-    // pdfjs splits a CJK run into per-character spans with no whitespace
-    // span between them. A naive ' ' join produces e.g. `背景・ 目 的`
-    // instead of `背景・目的`, which then breaks downstream search /
-    // diff. The line-text join uses the visual gap between consecutive
-    // spans to decide; this test guards that decision against the real
-    // sample-ja fixture.
+  it('keeps CJK text within multi-character items contiguous', async () => {
+    // This fixture exposes each printed line as a multi-character text item.
+    // The integration path must not introduce spaces inside those items;
+    // synthetic layout tests separately cover joins across adjacent items.
     const result = await processDocument(SAMPLE_JA_PDF, { noCache: true, layout: true, pages: '1' });
     const blocks = result.pages[0].layout?.blocks ?? [];
     const allLineText = blocks.flatMap((b) => b.lines.map((l) => l.text)).join('\n');

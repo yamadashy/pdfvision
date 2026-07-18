@@ -65,7 +65,7 @@ The overview is especially useful for long documents because it lets the agent c
 Each `pages[]` entry includes:
 
 - `text` and optional `rawText`.
-- page dimensions in PDF points.
+- page dimensions in unrotated page-view user-space units.
 - optional page rotation in degrees when the PDF page is rotated.
 - density fields mirrored from the overview.
 - optional `formFieldCount`, `linkCount`, and `annotationCount` presence signals, omitted when zero.
@@ -107,9 +107,9 @@ Practical interpretation:
 
 ## Coordinates
 
-All boxes use PDF user-space points with a top-left origin. `x` grows right and `y` grows downward. `width` / `height` and geometry stay in the page MediaBox coordinate system.
+All boxes use the unrotated pdf.js `page.view` visible box in PDF user-space units, with a top-left origin. The box is CropBox ∩ MediaBox when a distinct valid CropBox applies, otherwise MediaBox. `pages[].width` / `height`, zero-based coordinates, and `renderRegion` bounds are relative to it. With default `/UserUnit`, units are typically points, not PNG pixels.
 
-On unrotated pages, this matches the rendered PNG orientation. On rotated pages, `pages[].rotation` carries the clockwise page rotation and rendered PNGs follow the human-visible rotated viewport. Pass bboxes directly to `--render-region`; for full-page PNG overlays, map through the rotated PDF viewport instead of only scaling by `image.width / page.width`.
+Pass bboxes unchanged to `--render-region`. For full-page PNG overlays, scale unrotated pages by image/page dimensions; on rotated pages, use `pages[].rotation` and the rotated pdf.js viewport transform because the PNG follows the human-visible orientation.
 
 Coordinate-bearing fields include spans, layout blocks and lines, image boxes, vector boxes, visual regions, form fields, links, annotations, structure references, OCR words, and search matches. This means an agent can move from structured extraction to a visual crop without inventing a new coordinate system.
 

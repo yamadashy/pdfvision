@@ -39,7 +39,7 @@ JSON-style paths below are exact for JSON, decoded TOON, and `processDocument()`
 | `-r, --render` | Render each selected page as a PNG and attach the image path to the page result. |
 | `--render-output <dir>` | Write rendered page PNGs or visual-region PNGs into a directory. Requires `--render` or `--render-visual-regions`. |
 | `--render-scale <n>` | Set rasterization scale for `--render`, `--render-visual-regions`, or `--ocr`. Default: `2`; accepts decimals in `(0, 4]`. OCR uses at least scale 2 for recognition quality. |
-| `--render-region <x,y,width,height>` | Render one page sub-rectangle in PDF points. Requires `--render` or `--ocr`, and `--pages` must resolve to exactly one page. |
+| `--render-region <x,y,width,height>` | Render one page sub-rectangle in unrotated page-view user-space units. Requires `--render` or `--ocr`, and exactly one selected page. |
 
 Coordinates use a top-left origin: `x` grows right, `y` grows downward. The same coordinate system is used by layout blocks, image boxes, vector boxes, search matches, and visual regions.
 

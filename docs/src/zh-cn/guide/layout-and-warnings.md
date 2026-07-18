@@ -41,7 +41,7 @@ pdfvision document.pdf --layout --format json
 pdfvision document.pdf --geometry --format json
 ```
 
-`--geometry` 在 `pages[].spans` 中输出更底层的文本项、bbox 和字号。可用于搜索高亮、覆盖层和证据映射。
+`--geometry` 为每个保留的定位 pdf.js 文本项在 `pages[].spans` 中输出一个 span。文本项可能是一个字符、单词或更长字符串；相邻项保持分离。bbox 是整个文本项的舍入轴对齐包围框，而不是字形轮廓。
 
 ## 视觉框和区域
 

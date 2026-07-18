@@ -81,6 +81,83 @@ function verticalGlyphItems(text: string, x: number, y: number, fontSize: number
 }
 
 describe('extractPageText', () => {
+  it('emits one public span per retained item without merging or splitting adjacent items', () => {
+    const result = extractPageText({
+      content: {
+        items: [
+          positionedTextItem('Whole phrase', 50, 100, 10, 60),
+          positionedTextItem('left', 110, 100, 10, 20),
+          positionedTextItem('right', 130, 100, 10, 25),
+        ],
+      },
+      flags: BASE_FLAGS,
+      pageHeight: 800,
+      viewMinX: 0,
+      viewMinY: 0,
+    });
+
+    expect(result.spans).toHaveLength(3);
+    expect(result.spans.map((span) => span.text)).toEqual(['Whole phrase', 'left', 'right']);
+  });
+
+  it('keeps identical raw text at distinct transforms as distinct public spans', () => {
+    const result = extractPageText({
+      content: {
+        items: [positionedTextItem('repeat', 50, 100, 10, 30), positionedTextItem('repeat', 100, 100, 10, 30)],
+      },
+      flags: BASE_FLAGS,
+      pageHeight: 800,
+      viewMinX: 0,
+      viewMinY: 0,
+    });
+
+    expect(result.spans.map(({ text, x }) => ({ text, x }))).toEqual([
+      { text: 'repeat', x: 50 },
+      { text: 'repeat', x: 100 },
+    ]);
+  });
+
+  it('deduplicates matching raw item keys and preserves hasEOL from later draws', () => {
+    const first = { ...positionedTextItem('same', 50, 100, 10, 20), hasEOL: false };
+    const result = extractPageText({
+      content: {
+        items: [first, { ...first, hasEOL: true }, positionedTextItem('next', 50, 120, 10, 20)],
+      },
+      flags: BASE_FLAGS,
+      pageHeight: 800,
+      viewMinX: 0,
+      viewMinY: 0,
+    });
+
+    expect(result.text).toBe('same\n\nnext');
+    expect(result.spans.map((span) => span.text)).toEqual(['same', 'next']);
+  });
+
+  it('deduplicates before normalization so raw items may normalize to the same public text', () => {
+    const first = positionedTextItem('ﬁ', 50, 100, 10, 10);
+    const result = extractPageText({
+      content: { items: [first, { ...first, str: 'fi' }] },
+      flags: { ...BASE_FLAGS, normalize: true },
+      pageHeight: 800,
+      viewMinX: 0,
+      viewMinY: 0,
+    });
+
+    expect(result.spans.map((span) => span.text)).toEqual(['fi', 'fi']);
+  });
+
+  it('omits a standalone positioned whitespace item from public spans', () => {
+    const result = extractPageText({
+      content: { items: [positionedTextItem('   ', 50, 100, 10, 18)] },
+      flags: BASE_FLAGS,
+      pageHeight: 800,
+      viewMinX: 0,
+      viewMinY: 0,
+    });
+
+    expect(result.spans).toEqual([]);
+  });
+
   it('threads dropped RTL spaces into layout without changing serialized spans', () => {
     const visualGlyphs = ['ل', 'ي', 'م', 'ج', ' ', 'ر', 'ص', 'م'];
     const items = visualGlyphs.map((glyph, index) => ({

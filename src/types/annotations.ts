@@ -20,7 +20,7 @@ export interface PageAnnotationPoint {
 }
 
 export interface PageAnnotationBorder {
-  /** Border width in PDF points. */
+  /** Border width in page user-space units. */
   width?: number;
   /** PDF border style such as solid, dashed, beveled, inset, or underline. */
   style?: string;
@@ -74,10 +74,10 @@ export interface PageAnnotation {
   height: number;
   /** Precise markup quadrilateral boxes, present when the PDF provides QuadPoints. */
   quadBoxes?: PageAnnotationBox[];
-  /** Line start/end coordinates for Line annotations, in top-left PDF points. */
+  /** Line start/end coordinates in unrotated page-view top-left user space. */
   line?: PageAnnotationLine;
-  /** Vertices for Polygon and PolyLine annotations, in top-left PDF points. */
+  /** Polygon and PolyLine vertices in unrotated page-view top-left user space. */
   vertices?: PageAnnotationPoint[];
-  /** Freehand paths for Ink annotations, in top-left PDF points. */
+  /** Freehand paths in unrotated page-view top-left user space. */
   inkPaths?: PageAnnotationPoint[][];
 }

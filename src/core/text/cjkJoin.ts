@@ -4,18 +4,17 @@ import { isRtlDominantPositionedText, isRtlDominantText, textOrder } from './tex
  * Stitch the per-item text stream returned by pdf.js `getTextContent`
  * into a single page-level string, with CJK-aware whitespace handling.
  *
- * Why this exists: pdf.js emits one text item per glyph for CJK PDFs
- * (positioned per-character so that 行 spacing is preserved), and
- * inserts a synthetic " " item between any two glyphs that are not
- * touching in the PDF's text matrix. For latin scripts that lines up
- * with real word boundaries; for CJK the same machinery produces
- * `人 人 生 而 自 由` even though the source reads `人人生而自由`.
+ * Why this exists: pdf.js often emits separate, sometimes per-character,
+ * text items for CJK PDFs and inserts a synthetic " " item between nearby
+ * items that are not touching in the PDF's text matrix. For Latin scripts
+ * that often lines up with real word boundaries; for CJK the same machinery
+ * can produce `人 人 生 而 自 由` even though the source reads `人人生而自由`.
  *
  * Heuristic: drop a whitespace-only item if it sits between two CJK
- * glyphs whose visual horizontal gap is below ~30 % of the surrounding
+ * text items whose visual horizontal gap is below ~30 % of the surrounding
  * font size — that's tight enough to be a positioning artifact, not a
  * deliberate space. Latin-CJK boundaries (e.g. `2025 年`) and wide-gap
- * CJK pairs (column breaks) keep their space.
+ * CJK item pairs (column breaks) keep their space.
  */
 
 /**
@@ -25,13 +24,13 @@ import { isRtlDominantPositionedText, isRtlDominantText, textOrder } from './tex
  */
 export interface JoinItem {
   str: string;
-  /** Top-left x of the glyph in PDF user-space points (from `transform[4]`). */
+  /** Raw text-item origin x in PDF user space (from `transform[4]`). */
   x: number;
-  /** Top-left y of the glyph in top-down page coordinates, when geometry is available. */
+  /** Top of the aggregate item bbox in top-down page coordinates, when geometry is available. */
   y?: number;
-  /** Glyph run width in points (from item.width, may be 0 on broken PDFs). */
+  /** Text-item advance width in PDF user-space units (may be 0 on broken PDFs). */
   width: number;
-  /** Glyph height in points — used as a fontSize proxy when fontSize is unknown. */
+  /** Text-matrix scale, with the item's reported or derived height as a fallback. */
   fontSize: number;
   /** pdf.js's hard line-break marker between two items. */
   hasEOL: boolean;
@@ -61,11 +60,11 @@ export interface JoinPageTextOptions {
 }
 
 /**
- * Max gap (as a fraction of fontSize) between two CJK glyphs that we
+ * Max gap (as a fraction of fontSize) between two CJK text items that we
  * still consider "touching". Used by both this module (to drop a pdf.js
  * synthetic whitespace item when its neighbours sit closer than this)
  * and by the layout assembler (to decide whether to *synthesize* a
- * space between two consecutive CJK glyph spans). Both surfaces ask
+ * space between two consecutive CJK text-item spans). Both surfaces ask
  * the same question — "is the visual gap a positioning artifact or a
  * real word boundary?" — so they must agree on a single threshold,
  * otherwise `pages[].text` and `pages[].layout.blocks[].text` would
@@ -97,9 +96,8 @@ const LATIN_WORD_FRAGMENT_START_RE = /^[\p{Script=Latin}\p{M}\p{N}]/u;
  * Returns `true` if `s`'s first code point is in a CJK script we want
  * to apply the tight-join rule to. Covers Han (incl. extensions A and
  * Supplementary Plane B), Hiragana, Katakana, Hangul Syllables, and
- * Hangul Jamo. The check is on the first character — pdf.js typically
- * emits one CJK glyph per item, and even when it emits multiple the
- * leading character is enough to dispatch.
+ * Hangul Jamo. The check is on the first character; when an item contains
+ * multiple code points, the leading character is enough to dispatch.
  */
 export function isCjkLeading(s: string): boolean {
   const cp = s.codePointAt(0);

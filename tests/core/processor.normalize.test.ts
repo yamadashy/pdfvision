@@ -92,7 +92,7 @@ describe('processDocument NFKC normalization', () => {
   });
 
   it('preserves raw codepoints when normalize: false is passed', async () => {
-    // Forensic / glyph-level callers can opt out and get exactly what
+    // Forensic / code-point-level callers can opt out and get exactly what
     // pdf.js emitted, including the compatibility codepoints.
     const result = await processDocument(SAMPLE_COMPAT_PDF, { noCache: true, normalize: false });
     expect(result.metadata.title).toBe('Ｃｏｍｐａｔ ２０２６');

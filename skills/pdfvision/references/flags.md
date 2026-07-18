@@ -77,7 +77,7 @@ Reviewed PDFs, annotated drafts, PDFs with sticky notes, highlights, underlines,
 
 ## `--structure` — tagged-PDF accessibility structure
 
-Accessible PDFs, government forms/reports, manuals, and any PDF where figure alt text, role hierarchy, language hints, structure bboxes, or tagged tables may explain content that native text and rendered pixels alone do not label. Tagged `Table` structures are also reconstructed as row-major `structureTables[]` grids and GFM tables. Structure bboxes use the same top-left PDF-point coordinates as spans/layout/image boxes. Stray control bytes in structure strings are removed.
+Accessible PDFs, government forms/reports, manuals, and any PDF where figure alt text, role hierarchy, language hints, structure bboxes, or tagged tables may explain content that native text and rendered pixels alone do not label. Tagged `Table` structures are also reconstructed as row-major `structureTables[]` grids and GFM tables. Structure bboxes use the same unrotated page-view top-left coordinates as spans/layout/image boxes. Stray control bytes in structure strings are removed.
 
 ## Document-level feature probes
 
@@ -107,9 +107,9 @@ Maps, CAD/design PDFs, multilingual/variant documents, or any file where a human
 
 Password-protected PDFs when the user explicitly provides the document password. The password is only used for pdf.js decryption and is never emitted in output. Prefer `--password-stdin` when shell history or process argv exposure matters; `--password` can be supplied as an explicit fallback when stdin is empty. Do not guess or store passwords.
 
-## `--geometry` — per-glyph bbox + fontSize
+## `--geometry` — per-text-item bbox + fontSize
 
-Heading detection by font-size, custom layout heuristics. Note: `--geometry` has no effect with markdown output; use `-f json` / `-f xml` / `-f toon` to see the spans.
+Heading detection by font-size, custom layout heuristics. Each span represents one retained positioned pdf.js text item, which may contain one character, a word, or a longer string; its bbox is the rounded aggregate axis-aligned envelope, not individual glyph outlines. Note: `--geometry` has no effect with markdown output; use `-f json` / `-f xml` / `-f toon` to see the spans. See `references/structured-output.md` for filtering details.
 
 ## `--ocr` + `--ocr-lang` — text from pixels
 
@@ -125,7 +125,7 @@ Multimodal flows, typically after the density Overview already flagged the page 
 
 ## `--render-region <x,y,w,h>` — zoom into a sub-rectangle of one page
 
-Use when the agent already saw a suspect block via `--layout` / `warnings[]` and only wants visual confirmation of that bbox, not the whole page. PDF points, top-left origin, single-page only (errors if `--pages` resolves to multiple). Composes with `--render-scale`; on rotated pages, `pages[].rotation` explains why the cropped PNG's visible width/height may be swapped even though the input bbox stays in page coordinates.
+Use when the agent already saw a suspect block via `--layout` / `warnings[]` and only wants visual confirmation of that bbox, not the whole page. Coordinates use unrotated page-view user-space units (typically points with default `/UserUnit`), top-left origin; single-page only. The bbox passes unchanged. On rotated pages, pdfvision maps it through the rotated viewport, so the cropped PNG's visible width/height may be swapped.
 
 ## `--search <query>` — find occurrences with bbox
 
@@ -146,4 +146,4 @@ Forced re-extraction. Default behaviour is cache-on.
 
 ## Furigana / ruby handling (automatic, no flag)
 
-On Japanese and Chinese annotated-reading pages, furigana/ruby is attached inline as `base《ruby》` when pdfvision can associate the smaller kana or pinyin-shaped run with an unambiguous CJK base range. This covers adjacent half-size ruby columns in vertical body text, smaller kana above horizontal CJK base text, and pinyin-shaped Latin readings above horizontal CJK base text. Ambiguous or unassociated ruby stays excluded so the body flow remains readable rather than guessed, and search uses both ruby-inclusive and ruby-stripped text so base-word queries still match through `《...》` annotations. Short medium-size note-reference marks in the right gutter of a vertical body column are also excluded from reconstructed body text/layout so they do not split the column. Context-supported short body-sized vertical runs with ellipsis leaders are joined with the surrounding vertical body flow. Inline tatechuyoko digit groups such as `10` are kept inside the surrounding vertical column when the source stream order agrees with the top-to-bottom geometry. `--geometry` still exposes the raw glyph spans for inspection.
+On Japanese and Chinese annotated-reading pages, furigana/ruby is attached inline as `base《ruby》` when pdfvision can associate the smaller kana or pinyin-shaped run with an unambiguous CJK base range. This covers adjacent half-size ruby columns in vertical body text, smaller kana above horizontal CJK base text, and pinyin-shaped Latin readings above horizontal CJK base text. Ambiguous or unassociated ruby stays excluded so the body flow remains readable rather than guessed, and search uses both ruby-inclusive and ruby-stripped text so base-word queries still match through `《...》` annotations. Short medium-size note-reference marks in the right gutter of a vertical body column are also excluded from reconstructed body text/layout so they do not split the column. Context-supported short body-sized vertical runs with ellipsis leaders are joined with the surrounding vertical body flow. Inline tatechuyoko digit groups such as `10` are kept inside the surrounding vertical column when the source stream order agrees with the top-to-bottom geometry. `--geometry` still exposes the retained source text-item spans for inspection.

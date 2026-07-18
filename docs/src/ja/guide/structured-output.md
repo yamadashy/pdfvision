@@ -96,7 +96,7 @@ OCR はネイティブテキストを上書きしません。利用側が `page.
 
 ## 座標系
 
-すべての bbox は PDF user-space points で左上原点です。`x` は右、`y` は下に増え、`--render-region` にそのまま使いやすい形式です。
+すべての bbox は回転前の pdf.js `page.view` 表示ボックスの PDF user-space units で、左上原点です。このボックスは、有効な CropBox が適用される場合は CropBox ∩ MediaBox、それ以外は MediaBox です。`pages[].width` / `height`、ゼロ基準座標、`renderRegion` の境界はこのボックス基準です。既定の `/UserUnit` では通常ポイントですが、PNG のピクセル座標ではありません。bbox は変更せず `--render-region` に渡せます。ページ全体の PNG に重ねる場合、回転なしでは画像とページの寸法比で拡大し、回転ありでは pdf.js の回転 viewport transform を使います。
 
 座標を持つフィールドには、spans、layout blocks/lines、image boxes、vector boxes、visual regions、form fields、links、annotations、structure references、OCR words、search matches が含まれます。これにより、エージェントは新しい座標系を発明せずに、構造化抽出から視覚クロップへ移れます。
 

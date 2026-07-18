@@ -25,8 +25,8 @@ export interface PageResult {
    * Rendered region echoed back when `renderRegion` was passed to the
    * extraction call. Lets consumers tell whether `pages[].image` is the
    * full page or a sub-rectangle without having to track the original
-   * request. Coordinates are in PDF points (top-left origin), matching
-   * the input. Omitted for full-page renders.
+   * request. Coordinates use the unrotated page-view user-space system
+   * (top-left origin), matching the input. Omitted for full-page renders.
    */
   renderRegion?: RenderRegion;
   text: string;
@@ -119,22 +119,32 @@ export interface PageResult {
    * Clockwise page rotation in degrees from the PDF page dictionary,
    * present only for rotated pages. Geometry fields (`spans`,
    * `layout.blocks`, `imageBoxes`, `renderRegion`, etc.) remain in the
-   * unrotated MediaBox coordinate system; renderers map those boxes through
+   * unrotated page-view coordinate system; renderers map those boxes through
    * the rotated viewport so full-page and cropped PNGs follow the
    * human-visible orientation. XML projects this as a page attribute.
    */
   rotation?: number;
   /**
-   * Page width in PDF user-space units (typically PostScript points = 1/72 in).
-   * Derived from the page MediaBox via pdf.js `page.view`.
+   * Page width in the unrotated pdf.js `page.view` visible box. This is the
+   * CropBox/MediaBox intersection when a distinct valid CropBox applies,
+   * otherwise the MediaBox. With default `/UserUnit`, units are typically
+   * PostScript points (1/72 in).
    */
   width: number;
-  /** Page height in PDF user-space units. See {@link width}. */
+  /** Page-view height in PDF user-space units. See {@link width}. */
   height: number;
   /**
    * Per-text-item geometry, only present when `geometry: true` was passed.
-   * Each entry is a single pdf.js text run with its bbox + font size, in
-   * top-down coordinates so callers can overlay them on the rendered PNG.
+   * Each entry represents one retained positioned pdf.js text item, which
+   * may contain a character, word, or longer string; adjacent items are not
+   * merged or split. Deduplication runs before normalization: its key is raw
+   * text, raw font name (or empty), and width, effective height, and every
+   * transform component rounded to three decimals. Effective height is a
+   * positive reported height, else the maximum matrix scale, else zero. The
+   * first matching item is retained and its `hasEOL` is ORed with later matches. Whitespace/prepress
+   * items, items without a transform, and items empty after normalization are
+   * omitted. Bboxes are rounded aggregate axis-aligned envelopes in the
+   * unrotated page-view top-down coordinate system.
    */
   spans?: TextSpan[];
   /**
@@ -155,14 +165,14 @@ export interface PageResult {
    * `vectorBoxes: true` was passed. One entry per path paint operation
    * where pdf.js reports a path bbox, plus shading fills when pdf.js
    * exposes the active clipping bbox, excluding page-sized white
-   * background fills. Coordinates use the same top-left PDF-point system
-   * as `spans`, `layout.blocks`, and `imageBoxes`.
+   * background fills. Coordinates use the same unrotated page-view top-left
+   * user-space system as `spans`, `layout.blocks`, and `imageBoxes`.
    */
   vectorBoxes?: VectorBox[];
   /**
    * Crop-ready visual regions, only present when `visualRegions: true`
-   * was passed. These are padded/clamped PDF-point bboxes intended for
-   * direct use with `renderRegion` when an agent needs to inspect the
+   * was passed. These are padded/clamped page-coordinate bboxes intended
+   * for unchanged use with `renderRegion` when an agent needs to inspect the
    * figure, chart, diagram, table, or form area visually.
    */
   visualRegions?: VisualRegion[];
@@ -173,8 +183,8 @@ export interface PageResult {
   formFieldCount?: number;
   /**
    * Interactive PDF form/widget fields, only present when
-   * `formFields: true` was passed. Coordinates use the same top-left
-   * PDF-point system as `spans`, `layout.blocks`, and `imageBoxes`.
+   * `formFields: true` was passed. Coordinates use the same unrotated
+   * page-view top-left system as `spans`, `layout.blocks`, and `imageBoxes`.
    */
   formFields?: FormField[];
   /**
@@ -184,7 +194,7 @@ export interface PageResult {
   linkCount?: number;
   /**
    * Clickable PDF link annotations, only present when `links: true` was
-   * passed. Coordinates use the same top-left PDF-point system as
+   * passed. Coordinates use the same unrotated page-view top-left system as
    * `spans`, `layout.blocks`, and `imageBoxes`.
    */
   links?: PageLink[];
@@ -195,8 +205,8 @@ export interface PageResult {
   annotationCount?: number;
   /**
    * Non-link, non-widget PDF annotations, only present when
-   * `annotations: true` was passed. Coordinates use the same top-left
-   * PDF-point system as `spans`, `layout.blocks`, and `imageBoxes`.
+   * `annotations: true` was passed. Coordinates use the same unrotated
+   * page-view top-left system as `spans`, `layout.blocks`, and `imageBoxes`.
    */
   annotations?: PageAnnotation[];
   /**

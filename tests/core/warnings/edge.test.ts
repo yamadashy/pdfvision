@@ -21,7 +21,7 @@ describe('detectPageWarnings', () => {
     it('does not flag sub-point fractional bleed within OFF_PAGE_TOLERANCE_PT', () => {
       // Block right edge sits at 50 + 562.5 = 612.5, half a point past
       // the 612pt page width — well within the 1pt tolerance that
-      // absorbs MediaBox rounding fringes.
+      // absorbs page-view rounding fringes.
       const out = detectPageWarnings(page([block(50, 50, 562.5, 100)]));
       expect(out.filter((w) => w.code === 'off_page')).toEqual([]);
     });

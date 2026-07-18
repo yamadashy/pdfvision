@@ -96,7 +96,7 @@ OCR 不会覆盖原生文本。使用方应比较 `page.text` 与 `page.ocr?.tex
 
 ## 坐标
 
-所有 bbox 使用 PDF user-space points，左上角为原点。`x` 向右增加，`y` 向下增加，便于直接用于 `--render-region`。
+所有 bbox 使用未旋转的 pdf.js `page.view` 可见框 PDF user-space units，并以左上角为原点。存在有效 CropBox 时，该框是 CropBox ∩ MediaBox，否则是 MediaBox。`pages[].width` / `height`、零基准坐标和 `renderRegion` 边界均相对于此框。默认 `/UserUnit` 下通常是点，而不是 PNG 像素。bbox 可原样传给 `--render-region`；整页 PNG 叠加在未旋转页按图像/页面尺寸缩放，在旋转页使用 pdf.js 的旋转 viewport transform。
 
 带坐标的字段包括 spans、layout blocks/lines、image boxes、vector boxes、visual regions、form fields、links、annotations、structure references、OCR words 和 search matches。智能体可以从结构化提取直接跳到视觉裁剪，而不需要发明新的坐标系。
 

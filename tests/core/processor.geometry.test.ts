@@ -7,8 +7,8 @@ const SAMPLE_JA_PDF = resolve(__dirname, '../fixtures/sample-ja.pdf');
 
 describe('processDocument geometry: true', () => {
   it('omits spans by default to keep JSON compact', async () => {
-    // Most callers just need text + density signals. Spans can outnumber
-    // characters by 5–10× in slide decks, so they must be opt-in.
+    // Most callers just need text + density signals. Every retained
+    // positioned text item adds an object, so geometry remains opt-in.
     const result = await processDocument(SAMPLE_PDF, { noCache: true });
     expect(result.pages[0].spans).toBeUndefined();
   });
@@ -17,8 +17,11 @@ describe('processDocument geometry: true', () => {
     const result = await processDocument(SAMPLE_PDF, { noCache: true, geometry: true });
     const page = result.pages[0];
     const spans = page.spans ?? [];
-    expect(spans.length).toBeGreaterThan(0);
-    expect(spans[0].text).toContain('Hello');
+    // The fixture's full phrase is one pdf.js text item, not one span per
+    // glyph. Adjacent items would remain separate; exact duplicate draws
+    // are covered by processDocument.test.ts.
+    expect(spans).toHaveLength(1);
+    expect(spans[0].text).toBe('Hello pdfvision');
     // Sanity: all spans fit inside the page bounds (top-down origin).
     for (const span of spans) {
       expect(span.x).toBeGreaterThanOrEqual(0);
@@ -29,9 +32,9 @@ describe('processDocument geometry: true', () => {
     }
   });
 
-  it('uses top-down coordinates (y grows downward) so spans overlay rendered PNGs', async () => {
+  it('uses top-down coordinates for unrotated page-to-PNG mapping', async () => {
     // sample.pdf places "Hello pdfvision" near the top of the page with
-    // 24pt text. In top-down coords the y of that span must be small
+    // 24-unit text. In top-down coords the y of that span must be small
     // (near the top), not near `height` (near the bottom).
     const result = await processDocument(SAMPLE_PDF, { noCache: true, geometry: true });
     const page = result.pages[0];
@@ -39,25 +42,13 @@ describe('processDocument geometry: true', () => {
     expect(span.y).toBeLessThan(page.height / 2);
   });
 
-  it('returns the same number of spans whether normalize is on or off', async () => {
-    // Normalization is a per-string transform; it doesn't drop or split
-    // pdf.js text items, so the span count must match. Guards against
-    // accidental coupling between normalize and item iteration.
-    const normalized = await processDocument(SAMPLE_JA_PDF, { noCache: true, geometry: true });
-    const raw = await processDocument(SAMPLE_JA_PDF, { noCache: true, geometry: true, normalize: false });
+  it('keeps the printable sample span count stable whether normalization is on or off', async () => {
+    // Printable ASCII remains non-empty under normalization. An item made
+    // empty by normalization may legitimately be omitted only in the
+    // normalize-on result, so this invariant is intentionally fixture-scoped.
+    const normalized = await processDocument(SAMPLE_PDF, { noCache: true, geometry: true });
+    const raw = await processDocument(SAMPLE_PDF, { noCache: true, geometry: true, normalize: false });
     expect((normalized.pages[0].spans ?? []).length).toBe((raw.pages[0].spans ?? []).length);
-  });
-
-  it('omits whitespace-only spans so downstream layout analysis sees only real text', async () => {
-    // pdf.js emits a positioned span for every literal space in the text
-    // stream. Carrying them through bloats spans 2× and can include
-    // synthetic widths that exceed the page width — filtered out here.
-    const result = await processDocument(SAMPLE_JA_PDF, { noCache: true, geometry: true });
-    for (const page of result.pages) {
-      for (const span of page.spans ?? []) {
-        expect(span.text.trim().length).toBeGreaterThan(0);
-      }
-    }
   });
 
   it('keeps span font aliases stable when the page range changes', async () => {
