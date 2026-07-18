@@ -46,9 +46,9 @@ JSON は完全な `DocumentResult` スキーマを出力します。ツール、
 pdfvision document.pdf --format xml
 ```
 
-XML は JSON と同じデータをタグ形式で表します。モデルによっては `<page>` や `<warning>` のようなタグを見つけやすい場合があります。
+XML は同じ `DocumentResult` データをタグ形式で再エンコードします。
 
-ページ、テキスト、warning、match、layout block の境界を明示したい LLM prompt に向いています。
+`<page>`、`<text>`、`<warning>`、match、layout block の明示的な境界を前提とする利用側やプロンプトで使います。
 
 ## TOON
 
@@ -56,15 +56,17 @@ XML は JSON と同じデータをタグ形式で表します。モデルによ�
 pdfvision document.pdf --format toon
 ```
 
-TOON は同じ構造化結果をトークン効率よく表現する形式です。spans、image boxes、layout lines のような反復行が多い場合に JSON より短くなります。
+TOON は同じ構造化結果をロスなく再エンコードします。同じスカラーフィールドを持つオブジェクト配列は、フィールド名を一度だけ宣言する表形式になり、キーの反復を減らせます。
 
-geometry-heavy な出力で JSON の key repetition が prompt の大半を占める場合に向いています。エージェントは同じ根拠を受け取りつつ、反復行がよりコンパクトになります。
+ネストされた値を含む配列や、要素間でフィールドが異なる配列はリスト形式のままです。
+
+この条件を満たす均一な配列が結果の多くを占める場合に TOON を検討してください。トークンを重視するワークフローで採用する前に、実際の文書と対象モデルのコンテキストで各形式を比較します。
 
 ## 実用的な既定値
 
 - 人間が読む簡単な抽出には Markdown。
 - tools や agent controllers には JSON。
-- explicit tags が効く prompt workflow には XML。
-- tight context window で大きな構造化出力を扱う場合は TOON。
+- 明示的なタグを前提とするプロンプトワークフローには XML。
+- 同じスカラーフィールドを持つオブジェクト配列が多い場合は TOON を検討し、実際の文書で JSON と比較する。
 
-debugging と再現性には JSON を優先します。モデルに直接読ませる場合は、そのモデルが最も安定して従える表現を選びます。
+debugging と再現性には JSON を優先します。モデルに直接読ませる場合は、実際の文書と対象モデルのコンテキストで各形式を比較します。

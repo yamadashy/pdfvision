@@ -125,7 +125,7 @@ description: 使用 pdfvision 輸出讓 AI 代理檢查 PDF、驗證版面、擷
 ## 模型特定說明
 
 - 需要精確欄位的工具和代理使用 JSON。
-- 目標模型適合明確標籤時使用 XML。
-- structured arrays 很大且 token budget 重要時使用 TOON。
+- 按照顯式標籤建立的使用方或提示詞使用 XML。
+- 當具有相同純量欄位的物件陣列佔多數時考慮 TOON。包含巢狀值的陣列以及項目之間欄位不同的陣列仍使用列表形式，因此請在目標模型上下文中比較各種格式。
 - 人類可讀的第一遍使用 Markdown。
 - 當結論依賴視覺頁面而不只是 text layer 時，使用 rendered crops。

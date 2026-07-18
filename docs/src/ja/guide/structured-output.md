@@ -5,7 +5,7 @@ description: pdfvision の DocumentResult、PageResult、overview、quality、la
 
 # 構造化出力
 
-`--format json`, `--format xml`, `--format toon` は同じ `DocumentResult` データを別形式で表します。JSON はプログラム向け、XML はタグ指向のプロンプト向け、TOON は配列が多い出力のトークン節約向けです。
+`--format json`, `--format xml`, `--format toon` は同じ `DocumentResult` データを別形式で再エンコードします。JSON はプログラム向けで、XML は明示的なタグを前提にした利用側やプロンプト向けです。TOON はロスレスで、同じスカラーフィールドを持つオブジェクト配列はキーの反復を減らす表形式にできます。ネストされた値を含む配列や、要素間でフィールドが異なる配列はリスト形式のままです。実際の文書と対象モデルのコンテキストで各形式を比較してください。
 
 この schema はエージェント向けの evidence model として設計されています。「テキストはこれです」だけでなく、どれだけテキストが見つかったか、どの視覚要素があるか、ネイティブテキストは信頼できそうか、根拠がページ上のどこにあるか、どの PDF 機能が存在したかを同時に伝えます。
 

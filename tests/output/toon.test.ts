@@ -120,7 +120,7 @@ describe('formatToon', () => {
       }),
     );
     // The field names appear once in the `[N]{fields}:` header, not on
-    // every row — that is where the token savings come from.
+    // every row — that is where repeated-key overhead is reduced.
     expect(out).toMatch(/spans\[2\]\{text,x,y,width,height,fontSize,fontName\}:/);
     expect(out).toContain('Hi,10,20,30,12,12,g_d0_f1');
     expect(out).toContain('there,40,20,50,12,12,g_d0_f1');

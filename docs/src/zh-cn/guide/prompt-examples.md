@@ -125,7 +125,7 @@ description: 使用 pdfvision 输出让 AI 智能体检查 PDF、验证布局、
 ## 模型特定说明
 
 - 需要精确字段的工具和智能体使用 JSON。
-- 目标模型适合显式标签时使用 XML。
-- structured arrays 很大且 token budget 重要时使用 TOON。
+- 按照显式标签构建的使用方或提示词使用 XML。
+- 当具有相同标量字段的对象数组占多数时考虑 TOON。包含嵌套值的数组以及元素之间字段不同的数组仍使用列表形式，因此请在目标模型上下文中比较各种格式。
 - 人类可读的第一遍使用 Markdown。
 - 当结论依赖视觉页面而不只是 text layer 时，使用 rendered crops。

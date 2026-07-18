@@ -5,7 +5,7 @@ description: 理解 pdfvision 的 DocumentResult、PageResult、overview、quali
 
 # 結構化輸出
 
-`--format json`、`--format xml` 和 `--format toon` 暴露同一份 `DocumentResult` 資料。JSON 適合程式，XML 適合標籤導向提示詞，TOON 適合陣列很多且需要節省 token 的輸出。
+`--format json`、`--format xml` 和 `--format toon` 對同一份 `DocumentResult` 資料進行不同的重新編碼。JSON 適合程式，XML 適合按照顯式標籤建立的使用方或提示詞。TOON 是無損編碼；具有相同純量欄位的物件陣列可以使用減少重複鍵開銷的表格形式，而包含巢狀值的陣列以及項目之間欄位不同的陣列仍使用列表形式。請使用自己的文件和目標模型上下文比較各種格式。
 
 該 schema 被設計成代理的 evidence model。它不只說「這裡是文字」，還會說明找到了多少文字、頁面上有哪些視覺材料、原生文字是否可信、證據出現在頁面的哪裡，以及請求到的 PDF 功能欄位是否存在。
 

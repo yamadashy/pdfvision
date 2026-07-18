@@ -46,9 +46,9 @@ JSON 暴露完整的 `DocumentResult` 架构，适合工具、智能体、测试
 pdfvision document.pdf --format xml
 ```
 
-XML 将与 JSON 相同的数据表示为标签结构。某些 LLM 更容易定位 `<page>`、`<text>` 和 `<warning>` 这样的标签。
+XML 将同一份 `DocumentResult` 数据重新编码为标签结构。
 
-当消费者是 LLM，且明确的 page、text、warning、matches、layout blocks 边界有帮助时使用 XML。
+当使用方或提示词按照明确的 `<page>`、`<text>`、`<warning>`、match 和 layout block 边界构建时使用 XML。
 
 ## TOON
 
@@ -56,15 +56,17 @@ XML 将与 JSON 相同的数据表示为标签结构。某些 LLM 更容易定�
 pdfvision document.pdf --format toon
 ```
 
-TOON 是同一结构化结果的 token 友好表示。对于 spans、image boxes、layout lines 等重复对象数组，通常比格式化 JSON 更紧凑。
+TOON 是同一结构化结果的无损重新编码。具有相同标量字段的对象数组可以使用只声明一次字段名的表格形式，从而减少重复键开销。
 
-TOON 适合 geometry-heavy 输出，其中 JSON key repetition 会占据大部分 prompt。智能体仍然收到同样的证据，但重复行更紧凑。
+包含嵌套值的数组，以及元素之间字段不同的数组，仍使用列表形式。
+
+当符合条件的均一数组在结果中占多数时，可以考虑 TOON。在注重 token 的工作流中采用之前，请使用自己的文档和目标模型上下文比较各种格式。
 
 ## 实用默认值
 
 - 快速的人类可读提取使用 Markdown。
 - 工具和智能体控制器使用 JSON。
 - 受益于显式标签的 prompt workflow 使用 XML。
-- 紧张 context window 中的大型结构化输出使用 TOON。
+- 当具有相同标量字段的对象数组占多数时考虑 TOON，并使用自己的文档与 JSON 比较。
 
-为了 debugging 和可复现性，优先使用 JSON。直接给模型阅读时，选择目标模型最可靠遵循的表示。
+为了 debugging 和可复现性，优先使用 JSON。直接给模型阅读时，请使用自己的文档和目标模型上下文比较各种格式。
