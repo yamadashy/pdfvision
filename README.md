@@ -254,7 +254,7 @@ Examples
   pdfvision paper.pdf --search "BLEU" --matches-only                           # just the hits + bboxes, without body text
   pdfvision report.pdf -p 3-5 -r --render-output ./images --geometry --json    # PNGs + spans for 3-5
   pdfvision slides.pdf --xml --geometry                                        # layout / geometry as XML
-  pdfvision report.pdf --toon --geometry                                       # token-efficient spans (TOON)
+  pdfvision report.pdf --toon --geometry                                       # geometry spans in TOON format
   pdfvision report.pdf --layout --strip-repeated                               # markdown w/o repeated chrome
   pdfvision encrypted.pdf --password "secret" --json                           # encrypted PDF
   printf "secret\n" | pdfvision encrypted.pdf --password-stdin --json          # avoid password in argv
@@ -304,7 +304,7 @@ pdfvision document.pdf --render-visual-regions --render-output ./regions --json
 # Per-text-item geometry (bbox + fontSize per glyph run)
 pdfvision document.pdf --json --geometry
 
-# Same geometry as token-efficient TOON (spans become tabular rows)
+# Same geometry in TOON format (spans become tabular rows)
 pdfvision document.pdf --toon --geometry
 
 # Open an encrypted PDF when you know the document password
