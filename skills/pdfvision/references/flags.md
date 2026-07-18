@@ -123,9 +123,9 @@ Multimodal flows, typically after the density Overview already flagged the page 
 
 Use when the agent already saw a suspect block via `--layout` / `warnings[]` and only wants visual confirmation of that bbox, not the whole page. PDF points, top-left origin, single-page only (errors if `--pages` resolves to multiple). Composes with `--render-scale`; on rotated pages, `pages[].rotation` explains why the cropped PNG's visible width/height may be swapped even though the input bbox stays in page coordinates.
 
-## `--search <query>` — find every occurrence with bbox
+## `--search <query>` — find occurrences with bbox
 
-Repeatable; modifiers `--search-regex` / `--search-case-sensitive`. Answers the agent's "where does this term appear?" question and returns `pages[N].matches[*]` with span/word/widget/link/annotation-level bbox so the bbox feeds straight into `--render-region` for a follow-up visual zoom — one-pipeline find-then-zoom, no second pass. Pair with `--matches-only` (v0.13.0+) to drop the pages that have no hit and get a compact match-only payload. Markdown also renders a per-page `Search matches` table when search ran; use JSON/XML/TOON when a downstream tool needs to consume coordinates directly.
+Repeatable; modifiers `--search-regex` / `--search-case-sensitive`. Answers the agent's "where does this term appear?" question and returns `pages[N].matches[*]` with span/word/widget/link/annotation-level bbox so the bbox feeds straight into `--render-region` for a follow-up visual zoom — one-pipeline find-then-zoom, no second pass. At most 10,000 matches are emitted per page, query, and source; reaching the cap drops later matches for that combination and produces a warning (stderr in the CLI, `onWarning` in the library API). Pair with `--matches-only` (v0.13.0+) to drop the pages that have no hit and get a compact match-only payload. Markdown also renders a per-page `Search matches` table when search ran; use JSON/XML/TOON when a downstream tool needs to consume coordinates directly.
 
 Match semantics:
 

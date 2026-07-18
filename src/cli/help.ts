@@ -125,7 +125,7 @@ Options
                           preserved alongside so callers can compare native vs OCR.
       --ocr-lang <lang>   Tesseract language code(s), plus-separated for multi-lang
                           (e.g. \`eng+jpn\`). Default: eng. Only used with --ocr.
-      --search <query>    Find every occurrence of <query> on each page and emit
+      --search <query>    Find occurrences of <query> on each page and emit
                           \`pages[].matches[]\` with the bbox of each hit. Pipe a
                           match's bbox into a follow-up --render-region for visual
                           zoom. Repeatable: \`--search A --search B\` searches both
@@ -137,7 +137,9 @@ Options
                           (source:'link'), visible FreeText annotations
                           (source:'annotation'), and OCR text when --ocr is on
                           (source:'ocr'); duplicate OCR hits already covered by
-                          non-OCR matches are suppressed.
+                          non-OCR matches are suppressed. At most 10,000 matches are
+                          emitted per page, query, and source; reaching the cap drops
+                          later matches for that combination and warns on stderr.
       --search-regex      Treat each --search query as a JavaScript regular expression
                           (default: literal substring).
       --search-case-sensitive
@@ -163,7 +165,7 @@ Output formats
                       and layout warnings surface automatically — no --layout needed. --layout adds
                       the structural Layout tables / Blocks / Tables columns on top.
   json                Full DocumentResult schema. For programmatic parsing.
-  xml                 Tag-shaped variant of json. For LLMs that parse tags more reliably than JSON.
+  xml                 Tag-shaped variant of json. For consumers or prompts that benefit from explicit tags.
   toon                Token-Oriented Object Notation: lossless, tabular encoding of the json schema
                       that can reduce repeated-key overhead for uniform arrays. Compare formats
                       on your own documents.

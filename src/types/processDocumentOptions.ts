@@ -70,10 +70,12 @@ export interface ProcessDocumentOptions {
    */
   renderRegion?: RenderRegion;
   /**
-   * Find every occurrence of the given query (or queries) on each page
+   * Find occurrences of the given query (or queries) on each page
    * and attach `pages[].matches[]` with the bbox of each hit. Pipe a
    * match's bbox straight into a follow-up `renderRegion` call to get
-   * a PNG zoomed onto the match.
+   * a PNG zoomed onto the match. At most 10,000 matches are emitted per
+   * page, query, and source; reaching the cap drops later matches for
+   * that combination and invokes `onWarning` when provided.
    *
    * Accepts a single string or an array (repeatable `--search` on the
    * CLI). Each emitted match carries `query` (the source string) and,
