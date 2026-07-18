@@ -2,7 +2,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { attachFormFieldTextAppearance } from '../../src/core/formFields/types.js';
 import { processDocument } from '../../src/core/processor.js';
-import { compileSearch, searchPage, searchPageWithMatchCap } from '../../src/core/search/index.js';
+import { compileSearch, searchOcrPage, searchPage, searchPageWithMatchCap } from '../../src/core/search/index.js';
 import type { FormField, PageAnnotation, PageLink, TextSpan } from '../../src/types/index.js';
 
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
@@ -1576,12 +1576,10 @@ describe('processDocument search', () => {
     });
   });
 
-  it('suppresses OCR duplicates when native and OCR search passes run separately', async () => {
+  it('suppresses native duplicates while preserving OCR-only hits in the separate OCR pass', () => {
     // processDocument searches native spans before OCR exists, then
-    // searches OCR text later. Keep the separate-pass path equivalent
-    // to a single searchPage(spans, ocr, ...) call.
-    const { compileSearch, searchPage, suppressDuplicateOcrMatches } = await import('../../src/core/search/index.js');
-    const compiled = compileSearch('Switzerland', {});
+    // passes the precise matches into searchOcrPage when OCR completes.
+    const compiled = compileSearch(['Switzerland', 'Austria'], {});
     if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
     const nativeMatches = searchPage(
       [{ text: 'Switzerland', x: 120, y: 220, width: 70, height: 12, fontSize: 12 }],
@@ -1591,17 +1589,19 @@ describe('processDocument search', () => {
       792,
       compiled,
     );
-    const ocrMatches = searchPage(
-      undefined,
-      { text: 'Switzerland', confidence: 0.94, lang: 'eng' },
+    const ocrMatches = searchOcrPage(
+      { text: 'Switzerland Austria', confidence: 0.94, lang: 'eng' },
       1,
       612,
       792,
       compiled,
+      nativeMatches,
     );
-    const merged = nativeMatches.concat(suppressDuplicateOcrMatches(nativeMatches, ocrMatches, compiled));
-    expect(merged).toHaveLength(1);
-    expect(merged[0].source).toBe('native');
+
+    expect(nativeMatches).toHaveLength(1);
+    expect(nativeMatches[0]).toMatchObject({ text: 'Switzerland', source: 'native', queryIndex: 0 });
+    expect(ocrMatches).toHaveLength(1);
+    expect(ocrMatches[0]).toMatchObject({ text: 'Austria', source: 'ocr', queryIndex: 1 });
   });
 
   it('does not warn when native matches exactly fill the per-page query cap', () => {
