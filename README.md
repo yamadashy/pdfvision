@@ -31,6 +31,7 @@ When the task depends on visual structure, opt into layout blocks, table hints, 
 
 ```bash
 pdfvision paper.pdf --search "BLEU" --matches-only --json
+# Substitute the selected match's page and bbox; for example:
 pdfvision paper.pdf -p 8 --render --render-region 260,55,320,120
 ```
 
