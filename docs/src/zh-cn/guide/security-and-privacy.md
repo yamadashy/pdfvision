@@ -25,11 +25,13 @@ pdfvision --clear-cache
 pdfvision --remote https://example.com/document.pdf --format json
 ```
 
-远程服务器仍然会看到这次请求。除非可以接受该网络访问，否则不要对私有 URL 使用 `--remote`。
+初始 URL 仅接受 `http:` 和 `https:`，且会自动跟随重定向。pdfvision 不会过滤环回地址、私有地址、链路本地地址、云元数据地址、DNS 解析得到的私有地址，也不会过滤重定向目标。PDF header 和下载大小检查验证的是响应正文，而不是网络目标。60 秒超时涵盖等待响应头和传输正文；如果正文停滞，达到期限时会中止。
 
-只接受 `http:` 和 `https:` URL。会跟随重定向，但非 PDF response 会在进入 remote cache 前被拒绝。pdfvision 会检查正文开头附近的 PDF header，拒绝超过下载限制的响应，并使用 network timeout 防止 stalled server 无限占用 CLI。
+只对用户独立授权的网络目标使用 `--remote`。单独运行 CLI 来获取用户自行选择的 URL，并不因此必然构成 SSRF 漏洞。如果服务器、智能体、CI 作业或多租户封装器接收不可信 URL，并将其传给 pdfvision，就会产生类 SSRF 风险。
 
-对于一次性的私有或过期 URL，使用 `--remote --no-cache`，这样下载的 PDF bytes 不会写入 remote-PDF cache。
+在这类集成中，不要把不可信 URL 直接传给 pdfvision。应使用这样的下载组件：任何 DNS 答案或重定向目标不在允许列表时都会拒绝，并将每次连接固定到已验证的 IP；下载后再把 PDF 作为本地文件传给 pdfvision。也可以把 pdfvision 的下载过程隔离在受限代理或网络沙箱之后。PDF header 和大小检查不能代替网络目标限制。
+
+远程服务器仍然会看到这次请求，包括运行时默认发送的请求头。对一次性的私有或临时 URL，使用 `--remote --no-cache`，这样下载的 PDF 字节就不会写入远程 PDF 缓存。
 
 ## 密码
 

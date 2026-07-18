@@ -27,9 +27,13 @@ to remove cached extractions, renders, remote downloads, and OCR traineddata man
 pdfvision --remote https://example.com/document.pdf --format json
 ```
 
-Only `http:` and `https:` URLs are accepted. Redirects are followed, but non-PDF responses are rejected before they enter the remote cache. pdfvision checks for a PDF header near the start of the body, rejects responses larger than the download limit, and uses a network timeout so a stalled server does not hold the CLI indefinitely.
+Only initial `http:` and `https:` URLs are accepted, and redirects are followed automatically. pdfvision does not filter loopback, private, link-local, cloud metadata, DNS-resolved private addresses, or redirect destinations. The PDF-header and download-size checks validate the response body, not the network destination. The 60-second timeout covers response headers and body transfer; stalled bodies are aborted when the deadline expires.
 
-The remote server still sees the request, including headers your runtime sends by default. Do not use `--remote` for private URLs unless that network access is acceptable. Use `--remote --no-cache` for one-off private or expiring URLs so the downloaded PDF bytes are not written to the remote-PDF cache.
+Use `--remote` only for a network destination the user independently authorized. A standalone CLI fetch of a user-selected URL is not inherently an SSRF vulnerability. SSRF-like risk arises when a server, agent, CI job, or multi-tenant wrapper accepts an untrusted URL and passes it to pdfvision.
+
+Do not pass untrusted URLs directly to pdfvision in such integrations. Use a fetcher that rejects any DNS answer or redirect target outside an allowlist, pins each connection to the validated IP, and then passes the downloaded PDF to pdfvision as a local file. Alternatively, isolate pdfvision's fetch behind a restricted proxy or network sandbox. PDF-header and size checks are not destination controls.
+
+The remote server still sees the request, including headers your runtime sends by default. Use `--remote --no-cache` for one-off private or expiring URLs so the downloaded PDF bytes are not written to the remote-PDF cache.
 
 ## Passwords
 

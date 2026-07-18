@@ -34,7 +34,9 @@ pdfvision --remote https://example.com/document.pdf --format json
 
 Remote downloads are cached and validated as PDFs before extraction. If a `.pdf` URL returns HTML, a login page, or a challenge page, pdfvision fails before caching it.
 
-`--remote` accepts only HTTP(S) URLs, follows redirects, and rejects responses that do not contain a PDF header near the start of the body. The default download guardrails are intentionally conservative: a 100 MB maximum body size and a 60 second network timeout.
+`--remote` accepts only initial HTTP(S) URLs, follows redirects, and rejects responses that do not contain a PDF header near the start of the body. The default guardrails are a 100 MB maximum body size and a 60-second deadline covering response headers and body transfer.
+
+Use `--remote` only for a destination the user independently authorized. It validates the response, not the network destination, and does not block private addresses or redirect targets. Do not pass untrusted URLs directly: use a fetcher that validates every resolved IP and redirect hop against an allowlist and pins the connection, then pass a local file—or isolate pdfvision's fetch behind network controls. See [Security and Privacy](./security-and-privacy.md#remote-pdfs).
 
 Remote cache entries are keyed by URL. If a stable URL is updated in place, use `--no-cache` for a fresh one-off fetch or `--clear-cache` to remove the cached copy:
 
@@ -152,4 +154,4 @@ Set `PDFVISION_CACHE_DIR` when an application needs cache data under a known dir
 PDFVISION_CACHE_DIR=/secure/pdfvision-cache pdfvision document.pdf --json
 ```
 
-For remote PDFs, `--no-cache` also skips the remote-PDF cache and streams the freshly downloaded bytes into extraction. This is the safest option when a URL is private, time-limited, or expected to change without a versioned URL.
+For remote PDFs, `--no-cache` also skips the remote-PDF cache and streams the freshly downloaded bytes into extraction. For private or time-limited URLs, this avoids retaining the downloaded PDF bytes; it also forces a fresh fetch when a URL may change in place. It does not make an otherwise unauthorized network destination safe.

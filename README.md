@@ -344,6 +344,8 @@ Results land under `<os-tmp>/pdfvision/<sha256-prefix>/` keyed by file content. 
 
 Remote downloads must actually return a PDF header. If a `.pdf` URL returns an HTML challenge, landing page, or other non-PDF body, pdfvision fails before caching it and reports the response content type instead of surfacing a later `Invalid PDF structure` parse error.
 
+`--remote` follows redirects and validates the response, not the network destination; it does not block private addresses or redirect targets. Use it only for user-authorized URLs. Do not pass untrusted URLs directly: fetch with a component that validates every resolved IP and redirect hop against an allowlist, pins each connection to the validated IP, and then passes a local file—or isolate the fetch behind network controls.
+
 When `--remote --no-cache` is set, the downloaded PDF is streamed directly into extraction and is not written to the remote-PDF cache.
 
 ## 🛠️ Requirements
