@@ -5,10 +5,10 @@ import { escapeAttr, escapeText } from './xml/helpers.js';
 
 /**
  * Compact search-only output. Instead of the full per-page document, emit
- * a flat list of every search hit with its page, source, text, context,
- * and bbox — so an agent that only wants "where does BLEU appear" gets a
- * sub-kilobyte answer it can pipe straight into `--render-region`, rather
- * than a 40 KB document dump.
+ * a flat list of emitted search hits with their page, source, text, context,
+ * and bbox. This keeps body text out of the payload so an agent that only
+ * wants "where does BLEU appear" can feed a reported bbox straight into
+ * `--render-region` without carrying the full per-page document.
  *
  * Pages that matched nothing do not appear at all. A run that matched
  * nothing anywhere still succeeds (exit 0) and emits a minimal 0-match

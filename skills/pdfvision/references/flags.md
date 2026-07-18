@@ -125,7 +125,7 @@ Use when the agent already saw a suspect block via `--layout` / `warnings[]` and
 
 ## `--search <query>` — find occurrences with bbox
 
-Repeatable; modifiers `--search-regex` / `--search-case-sensitive`. Answers the agent's "where does this term appear?" question and returns `pages[N].matches[*]` with span/word/widget/link/annotation-level bbox so the bbox feeds straight into `--render-region` for a follow-up visual zoom — one-pipeline find-then-zoom, no second pass. At most 10,000 matches are emitted per page, query, and source; reaching the cap drops later matches for that combination and produces a warning (stderr in the CLI, `onWarning` in the library API). Pair with `--matches-only` (v0.13.0+) to drop the pages that have no hit and get a compact match-only payload. Markdown also renders a per-page `Search matches` table when search ran; use JSON/XML/TOON when a downstream tool needs to consume coordinates directly.
+Repeatable; modifiers `--search-regex` / `--search-case-sensitive`. Answers the agent's "where does this term appear?" question and returns `pages[N].matches[*]` with span/word/widget/link/annotation-level bbox so the bbox feeds straight into `--render-region` for a follow-up visual zoom — one-pipeline find-then-zoom, no second pass. At most 10,000 matches are emitted per page, query, and source. Reaching the cap produces a warning (stderr in the CLI, `onWarning` in the library API); any further matches for that combination are dropped. Pair with `--matches-only` (v0.13.0+) to drop the pages that have no hit and get a compact match-only payload. Markdown also renders a per-page `Search matches` table when search ran; use JSON/XML/TOON when a downstream tool needs to consume coordinates directly.
 
 Match semantics:
 

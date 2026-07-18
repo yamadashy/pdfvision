@@ -74,8 +74,8 @@ export interface ProcessDocumentOptions {
    * and attach `pages[].matches[]` with the bbox of each hit. Pipe a
    * match's bbox straight into a follow-up `renderRegion` call to get
    * a PNG zoomed onto the match. At most 10,000 matches are emitted per
-   * page, query, and source; reaching the cap drops later matches for
-   * that combination and invokes `onWarning` when provided.
+   * page, query, and source. Reaching the cap invokes `onWarning` when
+   * provided; any further matches for that combination are dropped.
    *
    * Accepts a single string or an array (repeatable `--search` on the
    * CLI). Each emitted match carries `query` (the source string) and,

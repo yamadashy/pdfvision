@@ -22,19 +22,19 @@ export { suppressDuplicateOcrMatches } from './duplicates.js';
  * deliberately not paid. Library consumers exposing pdfvision to
  * untrusted regex input should wrap the call in their own timeout.
  *
- * 10000 is generous enough that a real "find every paragraph match"
- * query passes; lower and we'd false-positive on legitimate use, higher
- * and a degenerate pattern stays expensive enough to be a problem.
+ * The threshold leaves room for legitimate high-hit-count searches while
+ * bounding how expensive a degenerate pattern can become after it starts
+ * emitting matches.
  */
 const MAX_MATCHES_PER_QUERY_PER_PAGE = 10000;
 
 /**
  * Find occurrences of every compiled query in the given page's native
  * text (via spans) and OCR text (when present). Emission is capped at
- * 10,000 matches per page, query, and source; reaching the cap drops later
- * matches for that combination and invokes onWarning when provided. Returns
- * native matches in top-down, left-right line order, then OCR-derived
- * matches appended after.
+ * 10,000 matches per page, query, and source. Reaching the cap invokes
+ * onWarning when provided; any further matches for that combination are
+ * dropped. Returns native matches in top-down, left-right line order, then
+ * OCR-derived matches appended after.
  *
  * Native matches are found against line-level text reconstructed from
  * adjacent spans, so a query can cross pdf.js font-run boundaries

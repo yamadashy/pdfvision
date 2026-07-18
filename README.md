@@ -210,13 +210,13 @@ Options
                           (source:'annotation'), and OCR text when --ocr is on
                           (source:'ocr'); duplicate OCR hits already covered by
                           non-OCR matches are suppressed. At most 10,000 matches are
-                          emitted per page, query, and source; reaching the cap drops
-                          later matches for that combination and warns on stderr.
+                          emitted per page, query, and source. Reaching the cap warns on
+                          stderr; any further matches for that combination are dropped.
       --search-regex      Treat each --search query as a JavaScript regular expression
                           (default: literal substring).
       --search-case-sensitive
                           Match case exactly (default: insensitive).
-      --matches-only      Emit only the search hits — a flat list of every match with its
+      --matches-only      Emit only the search hits — a flat list of emitted matches with their
                           page, source, text, context, and bbox — instead of the full
                           per-page document. Requires --search. Pages with no match are
                           omitted; zero matches overall still exits 0 with a minimal report.
@@ -238,9 +238,9 @@ Output formats
                       the structural Layout tables / Blocks / Tables columns on top.
   json                Full DocumentResult schema. For programmatic parsing.
   xml                 Tag-shaped variant of json. For consumers or prompts that benefit from explicit tags.
-  toon                Token-Oriented Object Notation: lossless, tabular encoding of the json schema
-                      that can reduce repeated-key overhead for uniform arrays. Compare formats
-                      on your own documents.
+  toon                Token-Oriented Object Notation: lossless encoding of the json schema.
+                      Arrays whose entries have the same scalar fields can use a tabular form;
+                      normal overview and mixed-field spans/lines stay in list form.
 
 Examples
   pdfvision document.pdf                                                       # markdown to stdout
@@ -249,7 +249,7 @@ Examples
   pdfvision document.pdf -r --render-output ./images                           # render PNGs to ./images
   pdfvision slides.pdf -r --render-scale 1                                     # 1× raster (smaller PNGs)
   pdfvision report.pdf -p 3 -r --render-region 100,200,300,150                 # zoom into a 300×150pt box on page 3
-  pdfvision report.pdf --search "revenue" --json                               # find every "revenue" with bbox; pipe to --render-region
+  pdfvision report.pdf --search "revenue" --json                               # find emitted "revenue" matches with bboxes; pipe to --render-region
   pdfvision paper.pdf --search "GPT" --search "transformer" --json             # multi-query (each match keeps its source query)
   pdfvision paper.pdf --search "BLEU" --matches-only                           # just the hits + bboxes, without body text
   pdfvision report.pdf -p 3-5 -r --render-output ./images --geometry --json    # PNGs + spans for 3-5
@@ -275,7 +275,7 @@ Exit codes
 - **`markdown` (default)** — per-page sections, density Overview table, image links inline. For LLM context windows.
 - **`json`** — full `DocumentResult` schema. For programmatic consumers.
 - **`xml`** — same data as JSON but tag-shaped. For consumers or prompts that benefit from explicit `<page>` / `<text>` tags.
-- **`toon`** — [Token-Oriented Object Notation](https://toonformat.dev): a lossless, tabular encoding of the same `DocumentResult` schema. Uniform arrays (`spans`, `imageBoxes`, `layout` lines) declare field names once instead of per row, which can reduce repeated-key overhead. Round-trips back to JSON; compare formats on your own documents.
+- **`toon`** — [Token-Oriented Object Notation](https://toonformat.dev): a lossless encoding of the same `DocumentResult` schema. Arrays whose entries all have the same scalar fields can declare those fields once and use tabular rows, which can reduce repeated-key overhead. Normal `overview[]` stays in list form because `quality` is nested, and mixed optional fields can keep `spans[]` or layout lines in list form too. Round-trips back to JSON; compare formats on your own documents.
 
 ### Examples
 
@@ -286,7 +286,7 @@ pdfvision document.pdf -p 1-3 --json
 # Render PNGs into ./images for a multimodal LLM
 pdfvision document.pdf -r --render-output ./images
 
-# Find every "revenue" with a bbox, then zoom into one hit
+# Find emitted "revenue" matches with bboxes, then zoom into one hit
 pdfvision report.pdf --search "revenue" --json
 pdfvision report.pdf -p 3 -r --render-region 100,200,300,150
 
@@ -304,7 +304,7 @@ pdfvision document.pdf --render-visual-regions --render-output ./regions --json
 # Per-text-item geometry (bbox + fontSize per glyph run)
 pdfvision document.pdf --json --geometry
 
-# Same geometry in TOON format (spans become tabular rows)
+# Same geometry in TOON format (uniform scalar spans may use tabular rows)
 pdfvision document.pdf --toon --geometry
 
 # Open an encrypted PDF when you know the document password
