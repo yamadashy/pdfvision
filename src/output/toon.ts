@@ -7,10 +7,9 @@ import type { DocumentResult } from '../types/index.js';
  * tuned for LLM token budgets: uniform object arrays (`overview`, `spans`,
  * `imageBoxes`, `layout.blocks[].lines`, ...) collapse into a CSV-like
  * tabular form that declares field names once instead of repeating every
- * key on every row. On geometry / layout-heavy output — where spans can
- * outnumber the textual length 5–10× — this is ~40% fewer tokens than the
- * pretty-printed JSON. On plain text-body extraction the win is smaller,
- * because free text doesn't compress.
+ * key on every row. This can reduce repeated-key overhead when uniform arrays
+ * dominate the output. Free text doesn't compress, so consumers should compare
+ * formats on their own documents.
  *
  * The encoding round-trips back to the JSON data model via `decode`, so
  * programmatic consumers lose nothing relative to `-f json`.

@@ -218,8 +218,8 @@ Options
                           page, source, text, context, and bbox — instead of the full
                           per-page document. Requires --search. Pages with no match are
                           omitted; zero matches overall still exits 0 with a minimal report.
-                          Works in every format; keeps search output well under 1 KB so an
-                          agent can find-then-zoom without spending its context on body text.
+                          Works in every format; omits body text to keep the payload focused
+                          on hits, context, and bboxes for an efficient find-then-zoom workflow.
       --remote <url>      Download an http(s) PDF, validate the PDF header, and run extraction
                           on it. Same URL → same cache slot unless --no-cache streams the
                           bytes directly without writing the remote-PDF cache.
@@ -237,7 +237,8 @@ Output formats
   json                Full DocumentResult schema. For programmatic parsing.
   xml                 Tag-shaped variant of json. For LLMs that parse tags more reliably than JSON.
   toon                Token-Oriented Object Notation: lossless, tabular encoding of the json schema
-                      that cuts tokens (~40% on geometry/layout-heavy output). For tight LLM budgets.
+                      that can reduce repeated-key overhead for uniform arrays. Compare formats
+                      on your own documents.
 
 Examples
   pdfvision document.pdf                                                       # markdown to stdout
@@ -248,7 +249,7 @@ Examples
   pdfvision report.pdf -p 3 -r --render-region 100,200,300,150                 # zoom into a 300×150pt box on page 3
   pdfvision report.pdf --search "revenue" --json                               # find every "revenue" with bbox; pipe to --render-region
   pdfvision paper.pdf --search "GPT" --search "transformer" --json             # multi-query (each match keeps its source query)
-  pdfvision paper.pdf --search "BLEU" --matches-only                           # just the hits + bboxes (compact, <1KB)
+  pdfvision paper.pdf --search "BLEU" --matches-only                           # just the hits + bboxes, without body text
   pdfvision report.pdf -p 3-5 -r --render-output ./images --geometry --json    # PNGs + spans for 3-5
   pdfvision slides.pdf --xml --geometry                                        # layout / geometry as XML
   pdfvision report.pdf --toon --geometry                                       # token-efficient spans (TOON)
@@ -272,7 +273,7 @@ Exit codes
 - **`markdown` (default)** — per-page sections, density Overview table, image links inline. For LLM context windows.
 - **`json`** — full `DocumentResult` schema. For programmatic consumers.
 - **`xml`** — same data as JSON but tag-shaped. For LLMs that locate `<page>` / `<text>` tags more reliably than nested object keys.
-- **`toon`** — [Token-Oriented Object Notation](https://toonformat.dev): a lossless, tabular encoding of the same `DocumentResult` schema. Uniform arrays (`spans`, `imageBoxes`, `layout` lines) declare field names once instead of per row, cutting ~40% of tokens versus pretty-printed JSON on geometry / layout-heavy output. Round-trips back to JSON.
+- **`toon`** — [Token-Oriented Object Notation](https://toonformat.dev): a lossless, tabular encoding of the same `DocumentResult` schema. Uniform arrays (`spans`, `imageBoxes`, `layout` lines) declare field names once instead of per row, which can reduce repeated-key overhead. Round-trips back to JSON; compare formats on your own documents.
 
 ### Examples
 
