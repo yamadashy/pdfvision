@@ -57,7 +57,7 @@ npm install -g pdfvision
 pdfvision document.pdf
 ```
 
-Full documentation: <https://pdfvision.dev/>
+Full documentation: <https://pdfvision.dev/> · **[Changelog](https://github.com/yamadashy/pdfvision/blob/main/CHANGELOG.md)**
 
 ## 🤖 Agent Skill
 
