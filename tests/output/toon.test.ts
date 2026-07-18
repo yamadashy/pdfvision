@@ -160,7 +160,7 @@ describe('formatToon', () => {
       }),
     );
     expect(out).toContain('overview[2]:');
-    expect(out).not.toMatch(/overview\[2\]\{/);
+    expect(out).not.toContain('overview[2]{');
   });
 
   it('round-trips document and page labels through the TOON data model', () => {
