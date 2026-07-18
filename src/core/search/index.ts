@@ -31,9 +31,10 @@ const MAX_MATCHES_PER_QUERY_PER_PAGE = 10000;
 /**
  * Find occurrences of every compiled query in the given page's native
  * text (via spans) and OCR text (when present). Emission is capped at
- * 10,000 matches per page, query, and source. Reaching the cap invokes
- * onWarning when provided; any further matches for that combination are
- * dropped. Returns native matches in top-down, left-right line order, then
+ * 10,000 matches per page, query, and source. The first additional valid
+ * match invokes onWarning when provided; it and later matches for that
+ * combination are dropped. Returns native matches in top-down, left-right
+ * line order, then
  * OCR-derived matches appended after.
  *
  * Native matches are found against line-level text reconstructed from

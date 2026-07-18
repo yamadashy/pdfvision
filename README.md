@@ -213,8 +213,9 @@ Options
                           (source:'annotation'), and OCR text when --ocr is on
                           (source:'ocr'); duplicate OCR hits already covered by
                           non-OCR matches are suppressed. At most 10,000 matches are
-                          emitted per page, query, and source. Reaching the cap warns on
-                          stderr; any further matches for that combination are dropped.
+                          emitted per page, query, and source. The first additional valid
+                          match warns on stderr; it and later matches for that combination
+                          are dropped.
       --search-regex      Treat each --search query as a JavaScript regular expression
                           (default: literal substring).
       --search-case-sensitive

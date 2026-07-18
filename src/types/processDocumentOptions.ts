@@ -74,8 +74,8 @@ export interface ProcessDocumentOptions {
    * and attach `pages[].matches[]` with the bbox of each hit. Pipe a
    * match's bbox straight into a follow-up `renderRegion` call to get
    * a PNG zoomed onto the match. At most 10,000 matches are emitted per
-   * page, query, and source. Reaching the cap invokes `onWarning` when
-   * provided; any further matches for that combination are dropped.
+   * page, query, and source. The first additional valid match invokes
+   * `onWarning` when provided; it and later matches are dropped.
    *
    * Accepts a single string or an array (repeatable `--search` on the
    * CLI). Each emitted match carries `query` (the source string) and,
@@ -127,7 +127,8 @@ export interface ProcessDocumentOptions {
    *  `"aaa...!"`) can stall extraction on a single string. There is a
    *  per-page, per-query, per-source emission cap (10,000 matches)
    *  that brakes degenerate patterns producing too many hits, surfaced
-   *  via `onWarning` when the cap is reached — but the cap counts
+   *  via `onWarning` when a valid match would exceed the cap — but the cap
+   *  counts
    *  emissions, not exec time, so it cannot interrupt an in-flight
    *  exponential match. Library consumers exposing pdfvision to
    *  untrusted regex input should wrap the call in their own timeout

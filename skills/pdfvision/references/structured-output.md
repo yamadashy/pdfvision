@@ -634,7 +634,7 @@ interface SearchMatch {
 }
 ```
 
-Emitted only when `--search` is passed. Each emitted query occurrence becomes one match — three emitted hits of `"foo"` on page 5 yield three entries with `page: 5`. At most 10,000 matches are emitted per page, query, and source. Reaching the cap produces a warning (stderr in the CLI, `onWarning` in the library API); any further matches for that combination are dropped.
+Emitted only when `--search` is passed. Each emitted query occurrence becomes one match — three emitted hits of `"foo"` on page 5 yield three entries with `page: 5`. At most 10,000 matches are emitted per page, query, and source. The first additional valid match produces a warning (stderr in the CLI, `onWarning` in the library API); it and later matches for that combination are dropped.
 
 **One-pipeline find-then-zoom**: a match's `bbox` is in the same coord system as `--render-region`, so the agent loop is:
 
