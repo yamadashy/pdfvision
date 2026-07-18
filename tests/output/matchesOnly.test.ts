@@ -58,12 +58,12 @@ const THREE_HITS = makeResult([
       }),
     ],
   }),
-  // Page 2 matched nothing — must not appear in matches-only output.
+  // Page 2 matched nothing, so it contributes no match entry.
   makePage({ page: 2, matches: [] }),
 ]);
 
 describe('formatMatchesOnly', () => {
-  it('markdown: header, summary line, and one flat table of every hit', () => {
+  it('markdown: report metadata and one flat table of emitted matches', () => {
     const out = formatMatchesOnly(THREE_HITS, 'markdown', ['BLEU']);
     expect(out).toMatch(/^# \/tmp\/attention\.pdf\n/);
     expect(out).toContain('- **Pages:** 15');
@@ -72,8 +72,7 @@ describe('formatMatchesOnly', () => {
     expect(out).toContain(
       '| 1 | BLEU | native | BLEU | less time to train. Our model achieves 28.4 BLEU on the WMT 2014 English- | 340.31,487.37,17.86,9.96 |',
     );
-    // No per-page bodies, no Overview table, and pages with zero matches
-    // never appear.
+    // No per-page bodies, pages[] scaffolding, or Overview table.
     expect(out).not.toContain('## Page');
     expect(out).not.toContain('Overview');
     // Exactly one table header.

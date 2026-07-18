@@ -144,12 +144,11 @@ Options
                           (default: literal substring).
       --search-case-sensitive
                           Match case exactly (default: insensitive).
-      --matches-only      Emit only the search hits — a flat list of emitted matches with their
-                          page, source, text, context, and bbox — instead of the full
-                          per-page document. Requires --search. Pages with no match are
-                          omitted; zero matches overall still exits 0 with a minimal report.
-                          Works in every format; omits body text to keep the payload focused
-                          on hits, context, and bboxes for an efficient find-then-zoom workflow.
+      --matches-only      Emit a focused search report: the file, total page/match counts, and
+                          a flat list of emitted matches with page, query reference, source,
+                          text, optional context, and bbox. Requires --search. The full pages/body
+                          payload is omitted; zero matches still exits 0 with a zero-match report.
+                          Works in every format. Size grows with emitted matches and context.
       --remote <url>      Download an http(s) PDF, validate the PDF header, and run extraction
                           on it. Same URL → same cache slot unless --no-cache streams the
                           bytes directly without writing the remote-PDF cache.
@@ -179,7 +178,7 @@ Examples
   pdfvision report.pdf -p 3 -r --render-region 100,200,300,150                 # zoom into a 300×150pt box on page 3
   pdfvision report.pdf --search "revenue" --json                               # find emitted "revenue" matches with bboxes; pipe to --render-region
   pdfvision paper.pdf --search "GPT" --search "transformer" --json             # multi-query (each match keeps its source query)
-  pdfvision paper.pdf --search "BLEU" --matches-only                           # just the hits + bboxes, without body text
+  pdfvision paper.pdf --search "BLEU" --matches-only                           # report metadata + flat match list, without page bodies
   pdfvision report.pdf -p 3-5 -r --render-output ./images --geometry --json    # PNGs + spans for 3-5
   pdfvision slides.pdf --xml --geometry                                        # layout / geometry as XML
   pdfvision report.pdf --toon --geometry                                       # geometry spans in TOON format

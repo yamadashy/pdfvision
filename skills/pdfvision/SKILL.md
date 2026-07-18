@@ -25,7 +25,7 @@ npx pdfvision doc.pdf -f json                  # structured; also -f xml, -f too
 npx pdfvision scan.pdf --ocr -f json           # OCR an image/scanned page
 npx pdfvision scan.pdf --render --render-output ./img               # PNG for a vision LLM
 npx pdfvision doc.pdf -p 3 --render --render-region 100,200,300,150 # zoom a region (PDF points)
-npx pdfvision report.pdf --search "revenue" --matches-only          # v0.13.0+: matching pages + bboxes
+npx pdfvision report.pdf --search "revenue" --matches-only          # v0.13.0+: report + bboxes
 ```
 
 Format does **not** change the cache slot — the payload is shared and re-formatted on output. `toon` ([Token-Oriented Object Notation](https://toonformat.dev)) is a lossless, token-lean re-encoding of `-f json`, best for array-heavy output (`--geometry`, `layout.tables`); `-f xml` suits block-heavy layouts.
@@ -85,7 +85,7 @@ Each page/overview row carries a derived `quality` field (observation only; the 
 1. Run `npx pdfvision doc.pdf` (`-p <range>`; `-f json` only for structured fields) — text + Overview.
 2. Read the Overview / `quality`, then act on low-coverage/dense pages: `--ocr` for text, `--render` for a vision model, `--layout` for structured/multi-column docs (`--image-boxes` for figure positions).
 3. **Zoom a flagged block.** If `warnings[]` fires on a `blockIndex` or a `layout.blocks[i]` looks suspicious, re-run `--pages <N> --render --render-region <x,y,w,h>` — PNG comes back cropped to that region.
-4. **Locate a keyword, then zoom.** Run `--search "X" --matches-only` (v0.13.0+) for only the matching pages + each hit's bbox (older versions: omit `--matches-only`, read the `Search matches` table; `-f json` for `pages[N].matches[*]`). Feed a bbox into `--pages <m.page> --render --render-region <x>,<y>,<w>,<h>`. Repeat `--search` for multiple terms.
+4. **Locate a keyword, then zoom.** Run `--search "X" --matches-only` for metadata + flat matches/bboxes, no page bodies (older: omit `--matches-only`, read the `Search matches` table; `-f json` for `pages[N].matches[*]`). Feed a bbox into `--pages <m.page> --render --render-region <x>,<y>,<w>,<h>`. Repeat `--search` for multiple terms.
 5. Cache means re-runs only re-pay the new flag combination on affected pages.
 
 ## When to read `references/`
