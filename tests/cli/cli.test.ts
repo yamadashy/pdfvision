@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -661,11 +661,83 @@ describe('cli', () => {
   });
 });
 
-// --clear-cache is intentionally NOT exercised from the CLI surface
-// here: the side effect (nuking /tmp/pdfvision/) cannot be safely
-// invoked from a parallel vitest worker because other workers are
-// concurrently writing to the same root. The CLI wiring is a 4-line
-// shim around `clearAllCache()`; the meaningful assertions — actually
-// removing a directory tree, handling an already-absent path, and
-// refusing symlinks at the root — live in tests/core/cache.test.ts
-// against an isolated temp directory.
+describe('cli cache root safety', () => {
+  let sandbox: string;
+  let cacheRoot: string;
+  let previousCacheRoot: string | undefined;
+
+  beforeEach(() => {
+    sandbox = mkdtempSync(join(tmpdir(), 'pdfvision-cli-cache-root-'));
+    cacheRoot = join(sandbox, 'cache');
+    previousCacheRoot = process.env.PDFVISION_CACHE_DIR;
+    process.env.PDFVISION_CACHE_DIR = cacheRoot;
+  });
+
+  afterEach(() => {
+    if (previousCacheRoot === undefined) delete process.env.PDFVISION_CACHE_DIR;
+    else process.env.PDFVISION_CACHE_DIR = previousCacheRoot;
+    rmSync(sandbox, { recursive: true, force: true });
+  });
+
+  it('reports a missing configured cache root as a successful no-op', async () => {
+    const result = await captureRun(['--clear-cache']);
+    expect(result.exitCode).toBeNull();
+    expect(result.stderr).toEqual([]);
+    expect(result.stdout.join('\n')).toContain('Nothing to clear:');
+    expect(existsSync(cacheRoot)).toBe(false);
+  });
+
+  it('clears a cache root initialized by a normal extraction', async () => {
+    const extracted = await captureRun([SAMPLE_PDF, '--json']);
+    expect(extracted.exitCode).toBeNull();
+    expect(existsSync(join(cacheRoot, '.pdfvision-cache-root'))).toBe(true);
+
+    const cleared = await captureRun(['--clear-cache']);
+    expect(cleared.exitCode).toBeNull();
+    expect(cleared.stderr).toEqual([]);
+    expect(cleared.stdout.join('\n')).toContain('Cleared pdfvision cache:');
+    expect(existsSync(cacheRoot)).toBe(false);
+  });
+
+  it('refuses to clear an unmarked custom root and preserves its sentinel', async () => {
+    mkdirSync(cacheRoot);
+    const sentinel = join(cacheRoot, 'sentinel');
+    writeFileSync(sentinel, 'keep');
+
+    const result = await captureRun(['--clear-cache']);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toEqual([]);
+    expect(result.stderr.join('\n')).toMatch(/Error: Refusing to clear unverified cache root/);
+    expect(readFileSync(sentinel, 'utf8')).toBe('keep');
+  });
+
+  it('ignores an invalid cache environment for a cache-independent local --no-cache run', async () => {
+    process.env.PDFVISION_CACHE_DIR = 'relative-cache-root';
+    const result = await captureRun([SAMPLE_PDF, '--json', '--no-cache']);
+    expect(result.exitCode).toBeNull();
+    expect(JSON.parse(result.stdout.join('\n')).totalPages).toBe(1);
+  });
+
+  it('does not initialize a valid missing cache root for local --no-cache extraction', async () => {
+    expect(existsSync(cacheRoot)).toBe(false);
+    const result = await captureRun([SAMPLE_PDF, '--json', '--no-cache']);
+    expect(result.exitCode).toBeNull();
+    expect(existsSync(cacheRoot)).toBe(false);
+  });
+
+  it('still rejects an invalid cache environment when --no-cache uses OCR support files', async () => {
+    process.env.PDFVISION_CACHE_DIR = 'relative-cache-root';
+    const result = await captureRun([SAMPLE_PDF, '--json', '--no-cache', '--ocr']);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toEqual([]);
+    expect(result.stderr.join('\n')).toMatch(/Invalid PDFVISION_CACHE_DIR.*absolute path/);
+  });
+
+  it('rejects the same invalid cache environment for --clear-cache', async () => {
+    process.env.PDFVISION_CACHE_DIR = 'relative-cache-root';
+    const result = await captureRun(['--clear-cache']);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toEqual([]);
+    expect(result.stderr.join('\n')).toMatch(/Invalid PDFVISION_CACHE_DIR.*absolute path/);
+  });
+});

@@ -146,12 +146,16 @@ pdfvision document.pdf --no-cache --json
 pdfvision --clear-cache
 ```
 
-pdfvision 会缓存提取结果、渲染图像、远程下载和 OCR 数据，让智能体重复读取同一 PDF 时更快。对一次性的敏感运行使用 `--no-cache`，用 `--clear-cache` 删除缓存数据。
+pdfvision 会缓存提取结果、渲染图像、远程下载和 OCR 数据，让智能体重复读取同一 PDF 时更快。如果不希望缓存提取结果和远程 PDF 字节，请使用 `--no-cache`；用 `--clear-cache` 删除缓存数据。
 
-当应用需要把缓存放在已知目录时，设置 `PDFVISION_CACHE_DIR`：
+当应用需要把缓存放在已知位置时，请将 `PDFVISION_CACHE_DIR` 设为指向专用目录的非空绝对路径。相对路径、`~`、文件系统根目录、主目录、工作目录和共享临时目录都会被拒绝：
 
 ```bash
 PDFVISION_CACHE_DIR=/secure/pdfvision-cache pdfvision document.pdf --json
 ```
+
+经过所有者检查的 `.pdfvision-cache-root` 标记用于授权递归清理。`--clear-cache` 绝不会采用未标记的自定义根目录；未设置 `PDFVISION_CACHE_DIR` override 时，只能在权限加固前后确认旧版形状后采用当前历史默认根目录。正常使用时，所有未标记根目录都要经过相同扫描。在 POSIX 上，带有 group/other 写权限的未标记根目录会被拒绝；每个祖先还必须可读/open、由当前用户或 root 拥有，并且不可写或有安全的 sticky 保护。移入 quarantine 后，POSIX 清理会比较 `st_dev`，若不一致则拒绝递归删除；原路径此时已经移动，且同一 device 的 bind mount 无法检测。身份检查仅在传统 POSIX uid/mode/sticky semantics 下增强替换防护；不会检查 ACL 或网络文件系统权限，也无法排除最终检查后由 root 或同一 UID 发起的替换。Windows 只能提供 best-effort 防护。清理不与正在运行的 OCR 协调；请重试被中断的 OCR。
+
+`--no-cache` 会跳过提取缓存和远程 PDF 缓存，但未指定 `--render-output` 的渲染 PNG 会使用单独的操作系统临时路径，显式渲染输出仍会写入指定位置。`--ocr` 仍会在经过验证的缓存根目录下持久保存 traineddata 和 worker support files。因此，即使设置了 `--no-cache`，无效的 `PDFVISION_CACHE_DIR` 仍会导致 OCR 运行失败。
 
 对远程 PDF，`--no-cache` 也会跳过远程 PDF 缓存，并把新下载的字节直接送入提取流程。对于私有或限时 URL，这可以避免保留下载的 PDF 字节；当同一 URL 的内容可能发生变化时，也会强制重新获取。但它不会让原本未经授权的网络目标变得安全。

@@ -1,8 +1,9 @@
+import { lstatSync, type Stats } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { OcrWord, PageOcr } from '../../types/index.js';
-import { ensurePrivateDir, getCacheRoot } from '../io/cache.js';
+import { createCacheRootSession, ensureCacheSubdirectory } from '../io/cache.js';
+import { sameIdentity } from '../io/cacheRoot.js';
 import { type RenderRegion, renderPageToBuffer, viewportCropForRegion } from '../renderer/index.js';
 import { DEFAULT_OCR_RENDER_SCALE, normaliseConfidence, type OcrWordTransform, transformOcrWords } from './words.js';
 import { ensureQuietTesseractWorker } from './worker.js';
@@ -23,6 +24,66 @@ export function effectiveOcrRenderScale(scale: number | undefined): number {
 export interface OcrSession {
   recognize(png: Buffer, transform: OcrWordTransform): Promise<{ text: string; confidence: number; words?: OcrWord[] }>;
   terminate(): Promise<void>;
+}
+
+/** @internal Test-only setup race hook; package consumers do not import this module. */
+export interface OcrCacheSetupTestHooks {
+  afterOcrDataReady?: (cacheRoot: string, ocrDataDir: string) => void;
+  afterWorkerReady?: (cacheRoot: string, ocrDataDir: string, workerPath: string) => void;
+}
+
+function staleSupportError(path: string, expected: 'directory' | 'file'): NodeJS.ErrnoException {
+  const error = new Error(`OCR support ${expected} changed identity at ${path}`) as NodeJS.ErrnoException;
+  error.code = 'ESTALE';
+  return error;
+}
+
+function readSupportIdentity(path: string, expected: 'directory' | 'file'): Stats {
+  const stat = lstatSync(path);
+  if (stat.isSymbolicLink() || (expected === 'directory' ? !stat.isDirectory() : !stat.isFile())) {
+    throw staleSupportError(path, expected);
+  }
+  return stat;
+}
+
+function assertSupportIdentity(path: string, expected: 'directory' | 'file', before: Stats): void {
+  const after = readSupportIdentity(path, expected);
+  if (!sameIdentity(before, after)) throw staleSupportError(path, expected);
+}
+
+async function prepareOcrSupportFiles(
+  rootSession: ReturnType<typeof createCacheRootSession>,
+  hooks: OcrCacheSetupTestHooks,
+): Promise<{ cacheRoot: string; ocrDataDir: string; workerPath: string }> {
+  const cacheRoot = rootSession.path;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const ocrDataDir = ensureCacheSubdirectory(rootSession, 'ocr-data');
+    hooks.afterOcrDataReady?.(cacheRoot, ocrDataDir);
+    try {
+      const rootIdentity = readSupportIdentity(cacheRoot, 'directory');
+      const ocrDataIdentity = readSupportIdentity(ocrDataDir, 'directory');
+      const workerPath = await ensureQuietTesseractWorker(cacheRoot);
+      const workerIdentity = readSupportIdentity(workerPath, 'file');
+      assertSupportIdentity(cacheRoot, 'directory', rootIdentity);
+      assertSupportIdentity(ocrDataDir, 'directory', ocrDataIdentity);
+      hooks.afterWorkerReady?.(cacheRoot, ocrDataDir, workerPath);
+      assertSupportIdentity(cacheRoot, 'directory', rootIdentity);
+      assertSupportIdentity(ocrDataDir, 'directory', ocrDataIdentity);
+      assertSupportIdentity(workerPath, 'file', workerIdentity);
+      return { cacheRoot, ocrDataDir, workerPath };
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if ((code !== 'ENOENT' && code !== 'ESTALE') || attempt > 0) throw error;
+    }
+  }
+  throw new Error(`Unable to prepare OCR support files under ${cacheRoot}`);
+}
+
+/** @internal Exercise a concurrent clear during OCR support setup. */
+export async function prepareOcrSupportFilesForTesting(
+  hooks: OcrCacheSetupTestHooks,
+): Promise<{ cacheRoot: string; ocrDataDir: string; workerPath: string }> {
+  return prepareOcrSupportFiles(createCacheRootSession(), hooks);
 }
 
 /** Lower bound of "this looks like a usable lang code" — letters only, 1+ chars. */
@@ -83,13 +144,10 @@ export async function createOcrSession(lang: string): Promise<OcrSession> {
 
   // Harden the cache root before touching ocr-data so a planted
   // `<tmp>/pdfvision -> /elsewhere` symlink can't redirect traineddata
-  // writes outside the cache hierarchy. Mirrors the posture getCacheDir
-  // already enforces for result caches.
-  const cacheRoot = getCacheRoot();
-  ensurePrivateDir(cacheRoot);
-  const ocrDataDir = join(cacheRoot, 'ocr-data');
-  ensurePrivateDir(ocrDataDir);
-  const workerPath = await ensureQuietTesseractWorker(cacheRoot);
+  // writes outside the cache hierarchy. The session also keeps retries on
+  // the same resolved root if a concurrent clear removes it during setup.
+  const rootSession = createCacheRootSession();
+  const { ocrDataDir, workerPath } = await prepareOcrSupportFiles(rootSession, {});
 
   const worker = await tesseract.createWorker(langs, undefined, {
     workerPath,

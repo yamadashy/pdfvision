@@ -9,7 +9,7 @@ pdfvision 在本機執行。它不收集遙測資料，也不會把 PDF 內容�
 
 ## 本機處理
 
-本機檔案會在你的機器上處理。渲染影像、OCR traineddata、遠端下載和擷取快取會寫入 pdfvision 快取目錄，除非你明確指定輸出路徑。
+本機檔案會在你的機器上處理。快取的渲染影像、OCR traineddata、遠端下載和擷取快取會寫入 pdfvision 快取目錄。即使使用 `--no-cache`，未明確指定輸出路徑的渲染仍會寫入獨立的作業系統暫存路徑，而 OCR support files 會持久保存在經過驗證的快取根目錄中。明確的輸出選項會寫入你指定的路徑。
 
 ```bash
 pdfvision --clear-cache
@@ -47,7 +47,7 @@ CLI 工作流中優先使用 `--password-stdin`。
 
 ## 快取位置與權限
 
-預設情況下，結果快取在作業系統暫存目錄下。用 `PDFVISION_CACHE_DIR` 控制位置：
+預設情況下，結果快取在作業系統暫存目錄下。若要控制位置，請將 `PDFVISION_CACHE_DIR` 設為指向專用快取目錄的非空絕對路徑。相對路徑、`~`、檔案系統根目錄、主目錄、工作目錄與共享暫存目錄都會被拒絕：
 
 ```bash
 PDFVISION_CACHE_DIR=/secure/cache pdfvision document.pdf --format json
@@ -55,7 +55,9 @@ PDFVISION_CACHE_DIR=/secure/cache pdfvision document.pdf --format json
 
 快取可能包含擷取文字、渲染 PNG、遠端 PDF、OCR traineddata 和 OCR output。請選擇與所處理 PDF 相同敏感級別的快取目錄。
 
-pdfvision 在 POSIX 系統上使用較嚴格的檔案權限，並防禦常見 symlink 與 time-of-check/time-of-use 快取問題。`--clear-cache` 會刪除設定 cache root 下由 pdfvision 管理的快取資料。
+每個已初始化的快取根目錄都包含一個經過擁有者檢查的 `.pdfvision-cache-root` 標記，用來授權遞迴清除。`--clear-cache` 絕不會採用沒有標記的自訂根目錄。只有在未設定 `PDFVISION_CACHE_DIR` override，且所有頂層項目都符合已識別的舊版快取形狀時，才能採用目前的歷史預設根目錄。正常使用快取時，也會在權限強化前後完整掃描所有未標記根目錄。在 POSIX 上，具有 group/other 寫入權限的未標記根目錄會在任何變更前被拒絕。未知項目、無效標記、symlink 與無法驗證的根目錄都會被拒絕，不會被清除。
+
+在 POSIX 上，pdfvision 會檢查擁有者，為根目錄與標記使用 `0700` / `0600` 權限。設定或清除所用的每個祖先目錄都必須可由程序讀取/open、由目前使用者或 root 擁有，且不能由 group/other 寫入；只有 sticky semantics 能保護既有子項目時例外。清除時會把根目錄移到同層 quarantine，並在 path-based 遞迴刪除前立即重新驗證其身分、標記與可信祖先。它也會比較 quarantine tree 的 device identity (`st_dev`)，若不一致就拒絕遞迴刪除；此時原始路徑已經移動，且無法偵測同一 device 的 bind mount。這些檢查只在傳統 POSIX ownership/mode/sticky semantics 下增強替換防護；不會檢查 extended ACL 或網路檔案系統權限，因此防護可能減弱，也無法排除最終檢查後由 root 或相同 UID 發起的替換。Windows 的替換防護只能是 best effort。快取清除不會與執行中的 OCR 協調；若 OCR 被中斷，請重試。
 
 ## 附件與 JavaScript actions
 

@@ -1,6 +1,6 @@
-import { writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
+import { atomicWrite } from '../io/atomicWrite.js';
 
 const QUIET_TESSERACT_WORKER_FILENAME = 'tesseract-quiet-worker.cjs';
 
@@ -31,6 +31,6 @@ export async function ensureQuietTesseractWorker(cacheRoot: string): Promise<str
   const requireFromHere = createRequire(import.meta.url);
   const tesseractWorkerPath = requireFromHere.resolve('tesseract.js/src/worker-script/node/index.js');
   const quietWorkerPath = join(cacheRoot, QUIET_TESSERACT_WORKER_FILENAME);
-  await writeFile(quietWorkerPath, buildQuietTesseractWorkerScript(tesseractWorkerPath), { mode: 0o600 });
+  atomicWrite(quietWorkerPath, Buffer.from(buildQuietTesseractWorkerScript(tesseractWorkerPath), 'utf8'));
   return quietWorkerPath;
 }

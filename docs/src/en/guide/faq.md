@@ -45,7 +45,7 @@ Boxes use raw unrotated pdf.js page-view units, with a top-left origin. The visi
 
 ## Where does the cache live?
 
-Results are cached under the operating system temp directory. Set `PDFVISION_CACHE_DIR=/path` to override it, use `--no-cache` to skip it, or run `pdfvision --clear-cache` to wipe cached entries.
+Results are cached under the operating system temp directory. Set `PDFVISION_CACHE_DIR` to a nonblank absolute path naming a dedicated directory; relative paths, `~`, filesystem roots, home, the working directory, and shared temporary roots are refused. An owned `.pdfvision-cache-root` marker authorizes recursive clearing. Clear never adopts an unmarked custom root; with no override, it may adopt the active historical default only after recognized legacy-shape scans before and after hardening. On POSIX, group/other-writable unmarked roots are refused and ancestors must be readable/openable, current-user/root-owned, and non-writable-or-safely-sticky. After quarantine rename, `st_dev` mismatches refuse recursive removal, although the original pathname has moved; same-device bind mounts are not detected. Checks resist replacement under conventional POSIX mode semantics, but do not inspect ACL/network-filesystem permissions or exclude later root/same-UID replacement. Windows replacement resistance is best effort. Clearing is not coordinated with active OCR; retry an interrupted run. Use `--no-cache` to skip extraction and remote PDF caches; OCR support files still persist under the validated cache root.
 
 ## How should I pass PDF passwords?
 

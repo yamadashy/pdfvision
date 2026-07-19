@@ -1,23 +1,9 @@
 import { createHash } from 'node:crypto';
-import { closeSync, existsSync, openSync, readSync, statSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync, readSync, type Stats } from 'node:fs';
 import { join } from 'node:path';
 import { atomicWrite } from './atomicWrite.js';
-import { ensurePrivateDir } from './cache.js';
-
-/**
- * Root directory for downloaded remote PDFs. Sibling of the result-cache
- * directory so a single `--clear-cache` clears both — `<tmpdir>/pdfvision/`
- * is the one place we keep PDF-derived state on disk. Honours the same
- * `PDFVISION_CACHE_DIR` override the rest of io/cache.ts uses, so tests can
- * isolate the entire cache hierarchy in a temp directory.
- */
-function cacheRoot(): string {
-  return process.env.PDFVISION_CACHE_DIR ?? join(tmpdir(), 'pdfvision');
-}
-function remoteCacheRoot(): string {
-  return join(cacheRoot(), 'remote');
-}
+import { createCacheRootSession, ensureCacheSubdirectory } from './cache.js';
+import { sameIdentity } from './cacheRoot.js';
 
 /** Default 100 MB. PDFs at this size are almost always intentionally pathological. */
 const DEFAULT_MAX_BYTES = 100 * 1024 * 1024;
@@ -41,6 +27,20 @@ export interface DownloadRemoteOptions {
    * unset and pdfvision uses the platform fetch.
    */
   fetchImpl?: typeof globalThis.fetch;
+}
+
+interface DownloadRemoteResult {
+  path: string;
+  data: Buffer;
+}
+
+interface DownloadRemotePathResult {
+  path: string;
+}
+
+/** @internal Test-only race hook; package consumers do not import this module. */
+export interface DownloadRemoteTestHooks {
+  afterSourceDataReady?: (cachePath: string) => void;
 }
 
 /**
@@ -71,15 +71,75 @@ function hasPdfHeader(data: Buffer): boolean {
   return data.subarray(0, PDF_HEADER_SCAN_BYTES).includes(Buffer.from('%PDF-', 'ascii'));
 }
 
-function cachedFileHasPdfHeader(path: string): boolean {
-  const fd = openSync(path, 'r');
+function currentUid(): number | undefined {
+  return typeof process.getuid === 'function' ? process.getuid() : undefined;
+}
+
+function withVerifiedCachedPdf<T>(
+  path: string,
+  recheckPath: boolean,
+  readOpenedFile: (fd: number, opened: Stats) => T,
+): T | null {
+  let before: Stats;
   try {
-    const buffer = Buffer.alloc(PDF_HEADER_SCAN_BYTES);
-    const bytesRead = readSync(fd, buffer, 0, buffer.length, 0);
-    return hasPdfHeader(buffer.subarray(0, bytesRead));
+    before = lstatSync(path);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    throw error;
+  }
+  if (before.isSymbolicLink()) {
+    throw new Error(`Refusing to read remote PDF cache file at ${path}: path is a symlink`);
+  }
+  if (!before.isFile()) {
+    throw new Error(`Refusing to read remote PDF cache file at ${path}: path is not a regular file`);
+  }
+  const uid = currentUid();
+  if (uid !== undefined && before.uid !== uid) {
+    throw new Error(`Refusing to read remote PDF cache file at ${path}: owned by uid ${before.uid}, not ${uid}`);
+  }
+  if (before.size === 0) return null;
+
+  const noFollow = typeof constants.O_NOFOLLOW === 'number' ? constants.O_NOFOLLOW : 0;
+  const fd = openSync(path, constants.O_RDONLY | noFollow);
+  try {
+    const opened = fstatSync(fd);
+    if (!opened.isFile() || !sameIdentity(before, opened)) {
+      throw new Error(`Refusing to read remote PDF cache file at ${path}: file identity changed`);
+    }
+    const result = readOpenedFile(fd, opened);
+    if (recheckPath) {
+      let after: Stats;
+      try {
+        after = lstatSync(path);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+          throw new Error(`Refusing to return remote PDF cache path at ${path}: file identity changed`);
+        }
+        throw error;
+      }
+      if (after.isSymbolicLink() || !after.isFile() || !sameIdentity(opened, after)) {
+        throw new Error(`Refusing to return remote PDF cache path at ${path}: file identity changed`);
+      }
+    }
+    return result;
   } finally {
     closeSync(fd);
   }
+}
+
+function readVerifiedCachedPdf(path: string): Buffer | null {
+  const data = withVerifiedCachedPdf(path, false, (fd) => readFileSync(fd));
+  return data !== null && hasPdfHeader(data) ? data : null;
+}
+
+function cachedFileHasPdfHeader(path: string): boolean {
+  return (
+    withVerifiedCachedPdf(path, true, (fd, opened) => {
+      const header = Buffer.allocUnsafe(Math.min(PDF_HEADER_SCAN_BYTES, opened.size));
+      const bytesRead = readSync(fd, header, 0, header.length, 0);
+      return hasPdfHeader(header.subarray(0, bytesRead));
+    }) ?? false
+  );
 }
 
 function parseRemoteUrl(rawUrl: string): URL {
@@ -189,53 +249,98 @@ export async function downloadRemoteData(rawUrl: string, options: DownloadRemote
  * resolves to the same on-disk file; subsequent calls without
  * `noCache: true` short-circuit and return the cached path. To pick up
  * an updated remote PDF, pass `noCache: true` or run
- * `pdfvision --clear-cache` to nuke the whole cache.
+ * `pdfvision --clear-cache` to clear the verified pdfvision cache root.
  *
  * Only `http:` and `https:` URLs are accepted — `file:`, `data:`,
  * `ftp:`, etc. are rejected up front so a stray scheme can't escape
  * the network-fetch path.
  */
-export async function downloadRemote(rawUrl: string, options: DownloadRemoteOptions = {}): Promise<string> {
+async function downloadRemoteImpl(
+  rawUrl: string,
+  options: DownloadRemoteOptions,
+  hooks: DownloadRemoteTestHooks,
+  includeData: true,
+): Promise<DownloadRemoteResult>;
+async function downloadRemoteImpl(
+  rawUrl: string,
+  options: DownloadRemoteOptions,
+  hooks: DownloadRemoteTestHooks,
+  includeData: false,
+): Promise<DownloadRemotePathResult>;
+async function downloadRemoteImpl(
+  rawUrl: string,
+  options: DownloadRemoteOptions,
+  hooks: DownloadRemoteTestHooks,
+  includeData: boolean,
+): Promise<DownloadRemoteResult | DownloadRemotePathResult> {
   const url = parseRemoteUrl(rawUrl);
 
   const noCache = !!options.noCache;
+  const rootSession = createCacheRootSession();
+  const cacheRoot = rootSession.path;
+  const remoteCacheRoot = join(cacheRoot, 'remote');
 
   // sha256(url) keeps two URLs that differ only by query string in
   // separate cache slots, since they often point at different PDFs
   // (signed-URL CDNs, version pins). 16 hex chars = 64 bits of
   // collision resistance; plenty for a per-user cache.
   const urlHash = createHash('sha256').update(rawUrl).digest('hex').slice(0, 16);
-  const cacheDir = join(remoteCacheRoot(), urlHash);
+  const cacheDir = join(remoteCacheRoot, urlHash);
   const cachePath = join(cacheDir, safeBasenameFromUrl(url));
 
-  if (!noCache && existsSync(cachePath)) {
-    try {
-      if (statSync(cachePath).size > 0 && cachedFileHasPdfHeader(cachePath)) return cachePath;
-    } catch {
-      // fall through and re-download
+  // Validate every parent before looking at a possible cache hit. A planted
+  // symlink at remote/<url-hash> must not turn the read path into an escape
+  // from the owned root.
+  ensureCacheSubdirectory(rootSession, 'remote', urlHash);
+
+  if (!noCache) {
+    if (includeData) {
+      const cachedData = readVerifiedCachedPdf(cachePath);
+      if (cachedData) {
+        hooks.afterSourceDataReady?.(cachePath);
+        return { path: cachePath, data: cachedData };
+      }
+    } else if (cachedFileHasPdfHeader(cachePath)) {
+      return { path: cachePath };
     }
   }
-
-  // Lay down the directory structure with the same hardening the result
-  // cache uses (0o700, owner-checked, no symlink-redirect).
-  ensurePrivateDir(cacheRoot());
-  ensurePrivateDir(remoteCacheRoot());
-  ensurePrivateDir(cacheDir);
 
   const data = await fetchRemotePdfBytes(rawUrl, options);
   // Defensive retry: another process running `--clear-cache` (or a
   // concurrent test worker rmSync-ing the cache root) can race the
-  // ensurePrivateDir calls above and nuke the parent dir before we
+  // directory setup above and remove the parent dir before we
   // write. Recreate the dirs and try once more on ENOENT before
   // surfacing the error.
   try {
     atomicWrite(cachePath, data);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-    ensurePrivateDir(cacheRoot());
-    ensurePrivateDir(remoteCacheRoot());
-    ensurePrivateDir(cacheDir);
+    ensureCacheSubdirectory(rootSession, 'remote', urlHash);
     atomicWrite(cachePath, data);
   }
-  return cachePath;
+  if (includeData) {
+    hooks.afterSourceDataReady?.(cachePath);
+    return { path: cachePath, data };
+  }
+  return { path: cachePath };
+}
+
+export async function downloadRemoteWithData(
+  rawUrl: string,
+  options: DownloadRemoteOptions = {},
+): Promise<DownloadRemoteResult> {
+  return downloadRemoteImpl(rawUrl, options, {}, true);
+}
+
+/** @internal Exercise post-read pathname races without changing production semantics. */
+export async function downloadRemoteWithDataForTesting(
+  rawUrl: string,
+  hooks: DownloadRemoteTestHooks,
+  options: DownloadRemoteOptions = {},
+): Promise<DownloadRemoteResult> {
+  return downloadRemoteImpl(rawUrl, options, hooks, true);
+}
+
+export async function downloadRemote(rawUrl: string, options: DownloadRemoteOptions = {}): Promise<string> {
+  return (await downloadRemoteImpl(rawUrl, options, {}, false)).path;
 }

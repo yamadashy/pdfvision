@@ -1,8 +1,25 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import {
+  existsSync,
+  linkSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { buildQuietTesseractWorkerScript, effectiveOcrRenderScale, parseOcrLang } from '../../src/core/ocr/index.js';
+import { CACHE_ROOT_MARKER_NAME, clearAllCache, ensureCacheRoot } from '../../src/core/io/cache.js';
+import {
+  buildQuietTesseractWorkerScript,
+  effectiveOcrRenderScale,
+  parseOcrLang,
+  prepareOcrSupportFilesForTesting,
+} from '../../src/core/ocr/index.js';
+import { ensureQuietTesseractWorker } from '../../src/core/ocr/worker.js';
 import { buildCacheKey } from '../../src/core/processor/cacheKey.js';
 import { processDocument } from '../../src/core/processor.js';
 
@@ -54,6 +71,79 @@ describe('buildQuietTesseractWorkerScript', () => {
     expect(script).toContain('TESSDATA_PREFIX');
     expect(script).toContain('require("/tmp/worker path \\"quoted\\".js")');
   });
+
+  it('atomically replaces a hard-linked worker path without mutating the external inode', async () => {
+    const sandbox = mkdtempSync(join(tmpdir(), 'pdfvision-ocr-worker-test-'));
+    try {
+      const cacheRoot = join(sandbox, 'cache');
+      mkdirSync(cacheRoot);
+      const external = join(sandbox, 'external-worker');
+      writeFileSync(external, 'keep');
+      const workerPath = join(cacheRoot, 'tesseract-quiet-worker.cjs');
+      linkSync(external, workerPath);
+
+      await ensureQuietTesseractWorker(cacheRoot);
+
+      expect(readFileSync(external, 'utf8')).toBe('keep');
+      expect(readFileSync(workerPath, 'utf8')).toContain('process.stderr.write');
+      expect(lstatSync(workerPath).nlink).toBe(1);
+    } finally {
+      rmSync(sandbox, { recursive: true, force: true });
+    }
+  });
+
+  it('recreates the validated root when clear races OCR worker setup', async () => {
+    const sandbox = mkdtempSync(join(tmpdir(), 'pdfvision-ocr-clear-race-'));
+    const previousCacheRoot = process.env.PDFVISION_CACHE_DIR;
+    const cacheRoot = join(sandbox, 'cache');
+    process.env.PDFVISION_CACHE_DIR = cacheRoot;
+    let cleared = false;
+    try {
+      const prepared = await prepareOcrSupportFilesForTesting({
+        afterOcrDataReady: () => {
+          if (cleared) return;
+          cleared = true;
+          expect(clearAllCache().removed).toBe(true);
+        },
+      });
+
+      expect(prepared.cacheRoot).toBe(realpathSync.native(cacheRoot));
+      expect(existsSync(join(cacheRoot, CACHE_ROOT_MARKER_NAME))).toBe(true);
+      expect(existsSync(prepared.ocrDataDir)).toBe(true);
+      expect(existsSync(prepared.workerPath)).toBe(true);
+    } finally {
+      if (previousCacheRoot === undefined) delete process.env.PDFVISION_CACHE_DIR;
+      else process.env.PDFVISION_CACHE_DIR = previousCacheRoot;
+      rmSync(sandbox, { recursive: true, force: true });
+    }
+  });
+
+  it('recreates support files when clear races immediately after the worker write', async () => {
+    const sandbox = mkdtempSync(join(tmpdir(), 'pdfvision-ocr-worker-clear-race-'));
+    const previousCacheRoot = process.env.PDFVISION_CACHE_DIR;
+    const cacheRoot = join(sandbox, 'cache');
+    process.env.PDFVISION_CACHE_DIR = cacheRoot;
+    let cleared = false;
+    try {
+      const prepared = await prepareOcrSupportFilesForTesting({
+        afterWorkerReady: () => {
+          if (cleared) return;
+          cleared = true;
+          expect(clearAllCache().removed).toBe(true);
+          expect(ensureCacheRoot()).toBe(realpathSync.native(cacheRoot));
+        },
+      });
+
+      expect(prepared.cacheRoot).toBe(realpathSync.native(cacheRoot));
+      expect(existsSync(join(cacheRoot, CACHE_ROOT_MARKER_NAME))).toBe(true);
+      expect(existsSync(prepared.ocrDataDir)).toBe(true);
+      expect(existsSync(prepared.workerPath)).toBe(true);
+    } finally {
+      if (previousCacheRoot === undefined) delete process.env.PDFVISION_CACHE_DIR;
+      else process.env.PDFVISION_CACHE_DIR = previousCacheRoot;
+      rmSync(sandbox, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('effectiveOcrRenderScale', () => {
@@ -90,6 +180,8 @@ describe('processDocument with --ocr', () => {
 
   it('attaches an ocr field with text, confidence, and lang', { timeout: 60_000 }, async () => {
     const result = await processDocument(SAMPLE_PDF, { ocr: true, noCache: true });
+    expect(existsSync(join(tmpRoot, CACHE_ROOT_MARKER_NAME))).toBe(true);
+    expect(existsSync(join(tmpRoot, 'ocr-data'))).toBe(true);
     const page = result.pages[0];
     expect(page.ocr).toBeDefined();
     expect(page.ocr?.lang).toBe('eng');

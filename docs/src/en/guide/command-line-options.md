@@ -93,8 +93,8 @@ OCR never replaces `pages[].text`; it is added beside the native text so the age
 
 | Option | Purpose |
 | --- | --- |
-| `--no-cache` | Skip the on-disk extraction cache. With `--remote`, stream the downloaded PDF directly without writing the remote-PDF cache. |
-| `--clear-cache` | Wipe cached extractions, rendered PNGs, and remote downloads, then exit. |
+| `--no-cache` | Skip extraction and remote-PDF caches. OCR support files still use the validated cache root; renders without `--render-output` use separate OS-temporary paths. |
+| `--clear-cache` | Clear the configured cache root only after verifying its pdfvision ownership marker, then exit. Unsafe, broad, unmarked custom, or otherwise unverified roots are refused. |
 | `-v, --version` | Print the pdfvision version. |
 | `-h, --help` | Print CLI help. |
 

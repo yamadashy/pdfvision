@@ -142,7 +142,13 @@ Full search schema and normalization rules are in `references/structured-output.
 
 ## `--no-cache` — skip the on-disk cache
 
-Forced re-extraction. Default behaviour is cache-on.
+Forced re-extraction; remote PDF bytes also bypass their cache. OCR traineddata and worker support files still use the validated cache root, while renders without `--render-output` use separate OS-temporary paths. Default behaviour is cache-on.
+
+## `--clear-cache` — clear the verified cache root
+
+Recursive clearing requires the owned `.pdfvision-cache-root` marker. It never adopts an unmarked custom root. The active historical default may be adopted only when no `PDFVISION_CACHE_DIR` override is set and every top-level entry matches a recognized legacy cache shape, with a second scan after hardening. On POSIX, unmarked group/other-writable roots are refused, and setup/clear requires ancestors to be readable/openable by the process, current-user/root-owned, and non-group/other-writable unless sticky semantics protect the owned child.
+
+Clear first renames the root to a sibling quarantine. On POSIX it then refuses recursive removal if any descendant has a different device identity (`st_dev`); the original pathname has already moved, and same-device bind mounts are not detectable by this check. Immediate identity rechecks resist replacement under conventional POSIX uid/mode/sticky semantics, but extended ACLs or network-filesystem permissions are not inspected, and root or same-UID replacement after the final check cannot be excluded. Windows marker and identity checks are best effort. Clear is not coordinated with active OCR; an interrupted OCR run may need to be retried.
 
 ## Furigana / ruby handling (automatic, no flag)
 

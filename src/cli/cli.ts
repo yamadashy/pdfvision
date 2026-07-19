@@ -107,9 +107,9 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
 
   if (values['clear-cache']) {
     // --clear-cache is a side-effect operation that ignores everything
-    // else: no extraction runs, no positional needed, just nuke the
-    // shared pdfvision cache and exit. Lazy-import to keep the heavy
-    // node:fs surface out of --help / --version paths.
+    // else: no extraction runs and no positional is needed. Root ownership
+    // is verified before removal. Lazy-import to keep the heavy node:fs
+    // surface out of --help / --version paths.
     try {
       const { clearAllCache } = await import('../core/io/cache.js');
       const { path, removed } = clearAllCache();

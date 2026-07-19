@@ -9,7 +9,7 @@ pdfvision 在本地运行。它不收集遥测数据，也不会把 PDF 内容�
 
 ## 本地处理
 
-本地文件会在你的机器上处理。渲染图像、OCR traineddata、远程下载和提取缓存会写入 pdfvision 缓存目录，除非你显式指定输出路径。
+本地文件会在你的机器上处理。缓存的渲染图像、OCR traineddata、远程下载和提取缓存会写入 pdfvision 缓存目录。即使使用 `--no-cache`，未显式指定输出路径的渲染仍会写入单独的操作系统临时路径，而 OCR support files 会持久保存在经过验证的缓存根目录中。显式输出选项会写入你指定的路径。
 
 ```bash
 pdfvision --clear-cache
@@ -47,7 +47,7 @@ CLI 工作流中优先使用 `--password-stdin`。
 
 ## 缓存位置与权限
 
-默认情况下，结果缓存在操作系统临时目录下。用 `PDFVISION_CACHE_DIR` 控制位置：
+默认情况下，结果缓存在操作系统临时目录下。要控制位置，请将 `PDFVISION_CACHE_DIR` 设为指向专用缓存目录的非空绝对路径。相对路径、`~`、文件系统根目录、主目录、工作目录和共享临时目录都会被拒绝：
 
 ```bash
 PDFVISION_CACHE_DIR=/secure/cache pdfvision document.pdf --format json
@@ -55,7 +55,9 @@ PDFVISION_CACHE_DIR=/secure/cache pdfvision document.pdf --format json
 
 缓存可能包含提取文本、渲染 PNG、远程 PDF、OCR traineddata 和 OCR output。请选择与所处理 PDF 相同敏感级别的缓存目录。
 
-pdfvision 在 POSIX 系统上使用较严格的文件权限，并防御常见 symlink 与 time-of-check/time-of-use 缓存问题。`--clear-cache` 会删除配置 cache root 下由 pdfvision 管理的缓存数据。
+每个已初始化的缓存根目录都包含一个经过所有者检查的 `.pdfvision-cache-root` 标记，用于授权递归清理。`--clear-cache` 绝不会采用没有标记的自定义根目录。仅当未设置 `PDFVISION_CACHE_DIR` override，且所有顶层条目都符合已识别的旧版缓存形状时，才可采用当前历史默认根目录。正常使用缓存时，也会在权限加固前后完整扫描所有未标记根目录。在 POSIX 上，带有 group/other 写权限的未标记根目录会在任何修改前被拒绝。未知条目、无效标记、symlink 和无法验证的根目录都会被拒绝，不会被清理。
+
+在 POSIX 上，pdfvision 会检查所有者，为根目录和标记使用 `0700` / `0600` 权限。设置或清理所用的每个祖先目录都必须可由进程读取/open、由当前用户或 root 拥有，并且不能由 group/other 写入；仅当 sticky semantics 能保护已有子条目时例外。清理时会把根目录移动到同级 quarantine，并在 path-based 递归删除前立即重新验证其身份、标记和可信祖先。它还会比较 quarantine 树中的 device identity (`st_dev`)，若不一致则拒绝递归删除；此时原路径已经移动，且无法检测同一 device 上的 bind mount。这些检查仅在传统 POSIX ownership/mode/sticky semantics 下增强替换防护；不会检查 extended ACL 或网络文件系统权限，因此防护可能减弱，也无法排除最终检查后由 root 或同一 UID 发起的替换。Windows 的替换防护只能是 best effort。缓存清理不与正在运行的 OCR 协调；若 OCR 被中断，请重试。
 
 ## 附件与 JavaScript actions
 

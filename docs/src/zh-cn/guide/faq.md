@@ -45,7 +45,7 @@ bbox 使用未旋转的 pdf.js page view 可见框原始 page-view units，并�
 
 ## 缓存在哪里？
 
-结果缓存在操作系统临时目录中。设置 `PDFVISION_CACHE_DIR=/path` 可以覆盖位置，使用 `--no-cache` 可以跳过缓存，运行 `pdfvision --clear-cache` 可以清除缓存。
+结果缓存在操作系统临时目录中。`PDFVISION_CACHE_DIR` 必须指向专用绝对路径；危险的宽泛路径会被拒绝。经过所有者检查的 `.pdfvision-cache-root` 标记用于授权递归清理。清理绝不采用未标记的自定义根目录；无 override 时，只能在权限加固前后确认旧版形状后采用当前历史默认根目录。在 POSIX 上，会拒绝带有 group/other 写权限的未标记根目录；祖先必须可读/open、由当前用户或 root 拥有且不可写或有安全的 sticky 保护。移入 quarantine 后，`st_dev` 不一致会阻止递归删除，但原路径已移动，且无法检测同一 device 的 bind mount。检查依赖传统 POSIX mode semantics，不涵盖 ACL、网络文件系统权限或最终检查后的 root/同一 UID 替换。Windows 只能提供 best-effort 防护。清理不与活动 OCR 协调；被中断时请重试。`--no-cache` 会绕过提取缓存和远程 PDF 缓存，但 OCR support files 仍会持久化在已验证的缓存根目录下。
 
 ## PDF 密码应该如何传递？
 
