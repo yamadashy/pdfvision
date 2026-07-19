@@ -96,7 +96,7 @@ OCR 不會覆蓋原生文字。使用方應比較 `page.text` 與 `page.ocr?.tex
 
 ## 座標
 
-所有 bbox 使用 PDF user-space points，左上角為原點。`x` 向右增加，`y` 向下增加，便於直接用於 `--render-region`。
+所有 bbox 使用未旋轉的 pdf.js `page.view` 可見框 PDF user-space units，並以左上角為原點。存在有效 CropBox 時，該框是 CropBox ∩ MediaBox，否則是 MediaBox。`pages[].width` / `height`、零基準座標和 `renderRegion` 邊界均相對於此框。預設 `/UserUnit` 下通常是點，而不是 PNG 像素。bbox 可原樣傳給 `--render-region`；整頁 PNG 疊加在未旋轉頁按影像/頁面尺寸縮放，在旋轉頁使用 pdf.js 的旋轉 viewport transform。
 
 帶座標的欄位包括 spans、layout blocks/lines、image boxes、vector boxes、visual regions、form fields、links、annotations、structure references、OCR words 和 search matches。代理可以從結構化擷取直接跳到視覺裁切，而不需要發明新的座標系。
 

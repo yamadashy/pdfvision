@@ -41,7 +41,7 @@ visual regions は、図、グラフ、表、フォームセクション、注�
 
 ## 座標系はどうなっていますか？
 
-bbox は PDF user-space points で、左上が原点です。`x` は右、`y` は下に増えます。
+bbox は回転前の pdf.js page view 表示ボックスの PDF user-space units で、左上が原点です。これは適用可能な場合は CropBox ∩ MediaBox、それ以外は MediaBox です。`x` は右、`y` は下に増えます。既定の `/UserUnit` では通常ポイントですが、PNG のピクセル座標ではありません。bbox は変更せず `--render-region` に渡せます。ページ全体の PNG に重ねる場合、回転なしでは画像とページの寸法比で拡大し、回転ありでは pdf.js の回転 viewport transform を使います。
 
 ## キャッシュはどこにありますか？
 

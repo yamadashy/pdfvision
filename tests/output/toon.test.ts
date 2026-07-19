@@ -1,8 +1,12 @@
+import { fileURLToPath } from 'node:url';
 import { decode } from '@toon-format/toon';
 import { describe, expect, it } from 'vitest';
+import { processDocument } from '../../src/core/processor.js';
 import { formatJson } from '../../src/output/json.js';
 import { formatToon } from '../../src/output/toon.js';
 import type { DocumentResult, PageResult } from '../../src/types/index.js';
+
+const SAMPLE_HEADERS_PDF = fileURLToPath(new URL('../fixtures/sample-headers.pdf', import.meta.url));
 
 function makePage(overrides: Partial<PageResult> & Pick<PageResult, 'page'>): PageResult {
   return {
@@ -31,6 +35,20 @@ function makeResult(overrides: Partial<DocumentResult> = {}): DocumentResult {
 }
 
 describe('formatToon', () => {
+  it('keeps processed geometry font aliases stable through TOON output', async () => {
+    const result = await processDocument(SAMPLE_HEADERS_PDF, {
+      pages: '1',
+      geometry: true,
+      noCache: true,
+    });
+    const toon = formatToon(result);
+    const decoded = decode(toon) as unknown as DocumentResult;
+
+    expect(decoded.pages[0].spans?.map((span) => span.fontName)).toEqual(['font1', 'font1']);
+    expect(toon).toContain('pdfvision headers fixture,50,27.18,108.38,10,10,font1');
+    expect(toon).not.toContain('g_d0_f1');
+  });
+
   it('round-trips optional furniture presence counts', () => {
     const result = makeResult({
       outlineCount: 2,
@@ -405,9 +423,8 @@ describe('formatToon', () => {
   });
 
   it('produces fewer characters than the pretty-printed JSON on geometry-heavy output', () => {
-    // The whole point of the format: on span-dense output (the case the
-    // type docs flag as 5–10× the textual length) TOON should be clearly
-    // smaller than the indented JSON the json formatter emits.
+    // On output with many uniform scalar spans, TOON should be smaller
+    // than the indented JSON the json formatter emits.
     const spans = Array.from({ length: 50 }, (_, i) => ({
       text: `tok${i}`,
       x: i,

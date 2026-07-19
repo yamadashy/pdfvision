@@ -1118,7 +1118,7 @@ describe('processDocument search', () => {
   });
 
   it('finds native phrase matches that cross pdf.js span boundaries', async () => {
-    // Real PDFs often split adjacent words into separate glyph runs
+    // Real PDFs often split adjacent words into separate text items
     // because the font, style, or text matrix changes. Search should
     // still find the phrase and return a bbox union suitable for
     // renderRegion zoom.

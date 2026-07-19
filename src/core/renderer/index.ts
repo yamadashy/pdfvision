@@ -38,7 +38,7 @@ function isReusableImage(path: string): boolean {
  * content-ratio computed from the pre-encode RGBA pixels — measuring
  * after PNG encode would require decoding back, which is wasteful.
  *
- * When `region` is set, pdfvision converts its MediaBox top-left bbox
+ * When `region` is set, pdfvision converts its page-view top-left bbox
  * through pdf.js's viewport first. That keeps callers on the same
  * coordinate system as `imageBoxes` / `layout.blocks`, while crop pixels
  * still follow the human-visible page rotation. The pdf.js render call

@@ -72,7 +72,7 @@ Take a match bbox and pass it to `--render-region`:
 pdfvision report.pdf --pages 3 --render --render-region 120,180,360,140 --render-output ./crops --json
 ```
 
-`--render-region` requires exactly one selected page. The region uses PDF points with a top-left origin, and it must stay within the page bounds.
+`--render-region` requires exactly one selected page. The region uses unrotated page-view user-space units (typically points with default `/UserUnit`) with a top-left origin, and it must stay within the page bounds.
 
 Use `--render-scale` when the crop contains small labels, superscripts, dense table cells, or chart legends:
 

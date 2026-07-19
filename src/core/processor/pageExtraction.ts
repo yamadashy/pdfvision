@@ -46,9 +46,10 @@ export async function extractPageData(
   const optionalContentText = content.items.some(isOptionalContentTextMarker);
 
   const view = page.view;
-  // MediaBox is normally [minX, minY, maxX, maxY] but the spec allows the
-  // pairs in either order; use abs so a flipped box still yields a sensible
-  // area instead of falling through to 0 coverage.
+  // pdf.js page.view is the visible page box: CropBox intersected with
+  // MediaBox when that intersection is distinct and valid, otherwise
+  // MediaBox. The coordinate pairs may arrive in either order; use abs/min
+  // so a flipped box still produces stable zero-based top-left geometry.
   const width = Math.abs(view[2] - view[0]);
   const height = Math.abs(view[3] - view[1]);
   const xMin = Math.min(view[0], view[2]);

@@ -49,11 +49,11 @@ export interface ProcessDocumentOptions {
    */
   renderScale?: number;
   /**
-   * Sub-rectangle of the page to rasterise instead of the full page,
-   * specified in PDF points (top-left origin, y grows downward — same
-   * coordinate system as `pages[].spans`, `layout.blocks`, and
-   * `imageBoxes`). Composes orthogonally with `renderScale`: a 400×300pt
-   * region at scale 3 yields a 1200×900px PNG.
+   * Sub-rectangle of the page to rasterise instead of the full page. It uses
+   * unrotated page-view user-space units (typically points with the default
+   * `/UserUnit`), with a top-left origin and y growing downward, matching
+   * `pages[].spans`, `layout.blocks`, and `imageBoxes`. With default
+   * `/UserUnit`, a 400×300 region at scale 3 yields a 1200×900px PNG.
    *
    * Typical agent flow: run with `--layout`, pick a suspicious block from
    * `warnings[]` / `layout.blocks[blockIndex]`, then re-run with that
@@ -161,7 +161,7 @@ export interface ProcessDocumentOptions {
    * `[[pdfvision:U+XXXX]]` markers; Markdown omits it.
    * Pass `normalize: false` if
    * original codepoint fidelity matters for downstream diff / forensics /
-   * glyph-level audit.
+   * code-point-level audit.
    *
    * Pass `false` if you specifically need the raw code points emitted by
    * pdf.js (e.g. a forensic tool inspecting how the PDF was authored).
@@ -169,10 +169,11 @@ export interface ProcessDocumentOptions {
   normalize?: boolean;
   /**
    * Emit per-text-item geometry in `pages[].spans`. Off by default because
-   * spans can outnumber the textual length by 5–10× and bloat JSON output.
-   * Turn on when a downstream consumer needs to reconstruct headings,
-   * tables, multi-column reading order, or to overlay bboxes on the
-   * rendered PNG.
+   * each retained positioned text item adds an object and can substantially
+   * enlarge structured output. Items may contain a character, word, or longer
+   * string; each bbox covers the whole item, not individual glyph outlines.
+   * Turn on when a downstream consumer needs to reconstruct headings, tables,
+   * multi-column reading order, or overlay bboxes on the rendered PNG.
    */
   geometry?: boolean;
   /**

@@ -21,6 +21,28 @@ describe('textRunGeometryFromTransform', () => {
     });
   });
 
+  it('makes coordinates zero-based relative to a non-zero page.view origin', () => {
+    // Visible page view box: [20, 30, 220, 230]. The text item's aggregate
+    // PDF-space box is [25, 210, 45, 220], so its page-view-relative top-left
+    // box is x=5, y=10, width=20, height=10.
+    const geometry = textRunGeometryFromTransform({
+      transform: [10, 0, 0, 10, 25, 210],
+      width: 20,
+      height: 10,
+      pageHeight: 200,
+      viewMinX: 20,
+      viewMinY: 30,
+    });
+
+    expect(geometry).toEqual({
+      x: 5,
+      y: 10,
+      width: 20,
+      height: 10,
+      fontSize: 10,
+    });
+  });
+
   it('uses the lower x edge when the page view is horizontally reversed', () => {
     const geometry = textRunGeometryFromTransform({
       transform: [12, 0, 0, 12, 580, 700],
@@ -51,6 +73,28 @@ describe('textRunGeometryFromTransform', () => {
       width: 7,
       height: 16.34,
       fontSize: 7,
+    });
+  });
+
+  it('returns the rounded aggregate axis-aligned envelope for an oblique transform', () => {
+    const geometry = textRunGeometryFromTransform({
+      transform: [8, 6, -3, 4, 100, 200],
+      width: 50,
+      height: 10,
+      pageHeight: 300,
+      viewMinX: 0,
+      viewMinY: 0,
+    });
+
+    // Baseline unit vector = (0.8, 0.6), normal = (-0.6, 0.8).
+    // The four aggregate run corners span x=94..140 and y=200..238
+    // in bottom-left PDF space, hence top-down y=62..100.
+    expect(geometry).toEqual({
+      x: 94,
+      y: 62,
+      width: 46,
+      height: 38,
+      fontSize: 10,
     });
   });
 

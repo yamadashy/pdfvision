@@ -38,10 +38,10 @@ Options
                           quality; larger values capture more detail.
                           Accepts decimals; bounds (0, 4].
       --render-region <x,y,width,height>
-                          Render only the given sub-rectangle (PDF points, top-left origin, y
-                          grows downward — same coordinate system as imageBoxes / layout.blocks).
-                          Composes with --render-scale: a 400×300pt region at scale 3 yields a
-                          1200×900px PNG. Single-page only: --pages must resolve to exactly one
+                          Render a sub-rectangle in unrotated page-view user-space units (typically
+                          points with default /UserUnit; top-left origin, y grows downward).
+                          With default /UserUnit, a 400×300 region at scale 3 yields a 1200×900px
+                          PNG. Single-page only: --pages must resolve to exactly one
                           page (errors otherwise). Region must fit within the page bounds.
                           Typical use: --layout to find a suspect block, then re-run with that
                           block's bbox here to zoom in.

@@ -27,9 +27,8 @@ const TRAILING_CLOSING_PUNCT = /[）」』】〕〉》｝］〙〗。、，．)\
 const CONTAINS_CJK = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}！-｠]/u;
 
 export function detectOffPage(blocks: LayoutBlock[], pageWidth: number, pageHeight: number, out: PageWarning[]): void {
-  // pageWidth / pageHeight come from the MediaBox; cropbox / trim
-  // boxes might be inside that, but for "is this likely a broken
-  // render" the outer MediaBox is the right yardstick.
+  // pageWidth / pageHeight come from the visible pdf.js page.view box,
+  // matching the zero-based coordinates used by the public geometry.
   const tolerance = offPageTolerance(pageWidth, pageHeight);
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i];

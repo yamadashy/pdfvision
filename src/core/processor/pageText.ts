@@ -145,18 +145,18 @@ function collectPageTextItems({
     if (!isTextItem(item)) continue;
     if (isLikelyPrepressProductionText(item.str)) continue;
     const w = typeof item.width === 'number' ? item.width : 0;
-    // pdfjs reports item.height as 0 for many PDFs (e.g. those produced by
+    // pdf.js reports item.height as 0 for many PDFs (e.g. those produced by
     // certain Office exporters); fall back to the vertical scale from the
-    // text matrix, which is effectively the glyph height in user units.
+    // text matrix, which approximates the text item's height in user units.
     const reportedH = typeof item.height === 'number' ? item.height : 0;
     const transform = item.transform;
     const h = reportedH > 0 ? reportedH : transform ? textMatrixFontSize(transform) : 0;
     const itemKey = textItemDedupeKey(item.str, w, h, transform, item.fontName);
     const seenIndex = seenTextItems.get(itemKey);
     if (seenIndex !== undefined) {
-      // Overprinted text often appears twice with identical geometry,
-      // sometimes differing only in pdf.js' hard-EOL flag. Keep one text
-      // run, but preserve the line-break signal if any duplicate carries it.
+      // Deduplication keys use raw text/font plus effective height, width, and
+      // every transform component at three-decimal precision. Keep the first
+      // item but preserve the hard-EOL signal if any matching draw carries it.
       if (item.hasEOL) joinItems[seenIndex].hasEOL = true;
       if (item.hasEOL) {
         previousSpanOnLine = undefined;
@@ -196,9 +196,8 @@ function collectPageTextItems({
       ...(typeof item.dir === 'string' && { dir: item.dir }),
     });
 
-    // Skip whitespace-only items in spans output — pdf.js emits a span
-    // for every positioned space, which can double the array length and
-    // sometimes carries a synthetic width that exceeds the page width.
+    // Skip whitespace-only items in spans output — pdf.js can emit standalone
+    // positioned-space items whose synthetic widths may exceed the page.
     // Preserve real word boundaries as private adjacency metadata so the
     // layout text joiner can still reconstruct RTL lines without changing
     // the public TextSpan schema.

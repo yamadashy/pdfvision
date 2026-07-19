@@ -41,7 +41,7 @@ Visual regions 是可裁剪的页面区域，可能包含有意义的图形、�
 
 ## pdfvision 使用什么坐标系？
 
-bbox 使用 PDF user-space points，左上角为原点。`x` 向右增加，`y` 向下增加。
+bbox 使用未旋转的 pdf.js page view 可见框 PDF user-space units，并以左上角为原点。适用时该框是 CropBox ∩ MediaBox，否则是 MediaBox。`x` 向右增加，`y` 向下增加。默认 `/UserUnit` 下通常是点，而不是 PNG 像素。bbox 可原样传给 `--render-region`；整页 PNG 叠加在未旋转页按图像/页面尺寸缩放，在旋转页使用 pdf.js 的旋转 viewport transform。
 
 ## 缓存在哪里？
 

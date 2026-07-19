@@ -21,8 +21,8 @@ const FONT_SIZE_FALLBACK_PT = 12;
 
 /**
  * Join the spans of a single layout line into a readable string. pdfjs
- * emits whitespace as separate items (already filtered upstream) but for
- * CJK it also splits adjacent characters into per-glyph spans. A naive
+ * can emit whitespace as separate items (already filtered upstream) and
+ * split adjacent CJK characters into separate text-item spans. A naive
  * ' ' join produces `背景・ 目 的` for what is really `背景・目的`. Use
  * the visual gap between consecutive spans as a proxy: if it's at least
  * a quarter of the font size we treat them as different words and insert

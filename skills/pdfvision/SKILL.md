@@ -13,7 +13,7 @@ description: "Extract text, metadata, per-page density signals, layout, image bo
 npx pdfvision --version   # Node.js >= 22.13; `npm i -g pdfvision` if used a lot
 ```
 
-For non-obvious flags, use `npx pdfvision --help`; inside the repo use `node --run pdfvision -- --help` (`npx` resolution can exhaust the heap).
+Help: `npx pdfvision --help`; in-repo: `node --run pdfvision -- --help` (`npx` resolution may exhaust the heap there).
 
 ## Quick reference
 
@@ -24,15 +24,15 @@ npx pdfvision doc.pdf -p 1-5                    # page subset (also -p 1,3,5)
 npx pdfvision doc.pdf -f json                  # structured; also -f xml, -f toon
 npx pdfvision scan.pdf --ocr -f json           # OCR an image/scanned page
 npx pdfvision scan.pdf --render --render-output ./img               # PNG for a vision LLM
-npx pdfvision doc.pdf -p 3 --render --render-region 100,200,300,150 # zoom a region (PDF points)
-npx pdfvision report.pdf --search "revenue" --matches-only          # v0.13.0+: report + bboxes
+npx pdfvision doc.pdf -p 3 --render --render-region 100,200,300,150 # zoom in page coordinates
+npx pdfvision report.pdf --search "revenue" --matches-only          # report + bboxes
 ```
 
 Default Markdown enables layout and may use another cache entry. Every emitted TOON payload decodes exactly to JSON; an unpaired UTF-16 surrogate requires JSON. XML is a mapped tag projection. See `references/structured-output.md` for format edge cases and XML names.
 
 ## Picking the right flags
 
-Default extraction is enough for most native-text PDFs; reach for opt-ins only when it isn't. Full caveats: `references/flags.md`.
+Use opt-ins only when default native-text extraction is insufficient. Caveats: `references/flags.md`.
 
 | Flag | Reach for it when |
 |---|---|
@@ -43,7 +43,7 @@ Default extraction is enough for most native-text PDFs; reach for opt-ins only w
 | `--links` / `--annotations` | Clickable links & targets; notes, highlights, stamps, ink, shape markup |
 | Document features | First probe: `-p 1 --page-labels --outline --viewer --layers` (page JS stays selected-page scoped); separately use `--structure`, or `--attachments --attachment-output <dir>` to save files |
 | `--password` / `--password-stdin` | Encrypted PDFs; password never guessed or emitted |
-| `--geometry` | Per-glyph bbox + fontSize (heading detection); JSON/XML/TOON only |
+| `--geometry` | Per-text-item bbox + fontSize (heading detection); JSON/XML/TOON only |
 | `--ocr` + `--ocr-lang` | `coverage: 0%` / `nonPrintableRatio >= 0.05`; primary lang first (`jpn+eng`) — see `references/ocr.md` |
 | `--render` (+ `--render-output` / `--render-scale` / `--render-region`) | Rasterise for vision; scale 1 = half-size, 3×+ = detail (default 2); `--render-region <x,y,w,h>` zooms one block (single-page) |
 | `--search <query>` | "Where does X appear?" `pages[N].matches[*]` with bbox; `--matches-only`, `--search-regex`, `--search-case-sensitive` |

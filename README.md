@@ -113,10 +113,10 @@ Options
                           quality; larger values capture more detail.
                           Accepts decimals; bounds (0, 4].
       --render-region <x,y,width,height>
-                          Render only the given sub-rectangle (PDF points, top-left origin, y
-                          grows downward — same coordinate system as imageBoxes / layout.blocks).
-                          Composes with --render-scale: a 400×300pt region at scale 3 yields a
-                          1200×900px PNG. Single-page only: --pages must resolve to exactly one
+                          Render a sub-rectangle in unrotated page-view user-space units (typically
+                          points with default /UserUnit; top-left origin, y grows downward).
+                          With default /UserUnit, a 400×300 region at scale 3 yields a 1200×900px
+                          PNG. Single-page only: --pages must resolve to exactly one
                           page (errors otherwise). Region must fit within the page bounds.
                           Typical use: --layout to find a suspect block, then re-run with that
                           block's bbox here to zoom in.
@@ -312,7 +312,7 @@ pdfvision document.pdf --layout --strip-repeated
 # Suggested visual crops as PNGs, without rendering every full page
 pdfvision document.pdf --render-visual-regions --render-output ./regions --json
 
-# Per-text-item geometry (bbox + fontSize per glyph run)
+# Per-text-item geometry (one aggregate bbox per retained pdf.js text item)
 pdfvision document.pdf --json --geometry
 
 # Same geometry in TOON format (uniform scalar spans may use tabular rows)
@@ -326,7 +326,9 @@ printf "secret\n" | pdfvision encrypted.pdf --password-stdin --json
 pdfvision scan.pdf --ocr --ocr-lang eng+jpn --json
 ```
 
-Coordinates use a **top-down origin** (0,0 at the top-left, y grows downward) in PDF user-space points. On unrotated pages, multiply by `image.width / page.width` to map spans / image bboxes onto rendered pixels. On rotated pages, `pages[].rotation` gives the clockwise page rotation; bboxes still feed directly into `--render-region`, while full-page PNG overlays should use the rotated PDF viewport transform because the rendered PNG follows the human-visible orientation.
+Coordinates use the unrotated pdf.js `page.view` visible box in PDF user-space units, with a **top-down origin** (0,0 at the view box's top-left, y grows downward). The view box is CropBox ∩ MediaBox when a distinct valid CropBox applies, otherwise MediaBox. With default `/UserUnit`, units are typically points, not PNG pixels. `pages[].width` / `height`, bboxes, and `--render-region` bounds are relative to this box, and bboxes pass unchanged to `--render-region`. For full-page PNG overlays, unrotated pages scale by image/page dimensions; rotated pages require the rotated pdf.js viewport transform because the PNG follows the human-visible orientation.
+
+Each `pages[].spans[]` entry is one retained positioned pdf.js text item, which may contain a character, word, or longer string. Adjacent items stay separate; the rounded bbox is the item's aggregate axis-aligned envelope, not glyph outlines. Layout and search may reconstruct lines or slice match boxes without changing public span granularity.
 
 ## 📚 Library API
 

@@ -44,15 +44,15 @@ export async function resolvePageNumbers({ doc, options, renderRegion }: Resolve
       `renderRegion requires exactly 1 page (resolved ${pageNumbers.length} from pages selector ${options.pages ? `"${options.pages}"` : '(all pages)'})`,
     );
   }
-  // Bounds are checked against the MediaBox coordinate system exposed
-  // by spans / imageBoxes / layout.blocks. The renderer maps that
+  // Bounds are checked against the unrotated pdf.js page.view dimensions
+  // exposed by spans / imageBoxes / layout.blocks. The renderer maps that
   // region through pdf.js's viewport, so rotated pages still crop the
   // human-visible rotated page while callers keep one coordinate system.
   if (renderRegion && (options.render || options.ocr)) {
     const probePage = await doc.getPage(pageNumbers[0]);
-    // Bounds against the page MediaBox dimensions — matches the
-    // coordinate system pdfvision exposes via spans / imageBoxes
-    // / layout.blocks, not the post-rotation viewport.
+    // Bounds against the visible page view box — matches the coordinates
+    // pdfvision exposes via spans / imageBoxes / layout.blocks, not the
+    // post-rotation viewport.
     const view = probePage.view;
     const pageW = Math.abs(view[2] - view[0]);
     const pageH = Math.abs(view[3] - view[1]);
@@ -60,7 +60,7 @@ export async function resolvePageNumbers({ doc, options, renderRegion }: Resolve
     const bottom = renderRegion.y + renderRegion.height;
     if (right > pageW + RENDER_REGION_BOUNDS_EPSILON_PT || bottom > pageH + RENDER_REGION_BOUNDS_EPSILON_PT) {
       throw new Error(
-        `renderRegion ${right}×${bottom} (right×bottom) falls outside page ${pageNumbers[0]} bounds ${pageW}×${pageH} (width×height, PDF points)`,
+        `renderRegion ${right}×${bottom} (right×bottom) falls outside page ${pageNumbers[0]} bounds ${pageW}×${pageH} (width×height, page units)`,
       );
     }
   }

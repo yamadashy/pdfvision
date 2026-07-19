@@ -234,7 +234,7 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
       // NFKC normalization and C0-control cleanup are on by default —
       // agents almost always want canonical, human-visible Unicode.
       // --no-normalize lets callers opt out for cases where the raw
-      // pdf.js code points matter (forensics, glyph-level diffing, ...).
+      // pdf.js code points matter (forensics, code-point-level diffing, ...).
       normalize: !((values['no-normalize'] as boolean | undefined) ?? false),
       geometry: (values.geometry as boolean | undefined) ?? false,
       layout,

@@ -1,21 +1,29 @@
 /**
- * One text-positioned glyph run as emitted by pdf.js. Coordinates are in
- * PDF points and use a top-down origin (0, 0) at the top-left of the page,
- * y increases downward — matching the rendered PNG convention so callers
- * can overlay spans on `image` directly without flipping.
+ * One retained positioned text item from pdf.js. An item may contain a
+ * character, word, or longer string; its bbox covers the whole item rather
+ * than individual glyph outlines, and adjacent items are not merged or split
+ * in public spans. The rounded aggregate axis-aligned bbox uses unrotated
+ * page-view user-space units (typically points with the default `/UserUnit`),
+ * with `(0, 0)` at the top-left and y increasing downward. These are page
+ * coordinates, not PNG pixels; unrotated overlays scale by image/page
+ * dimensions, while rotated overlays use the pdf.js viewport transform.
  */
 export interface TextSpan {
-  /** Glyph run text. Already NFKC-normalized and C0-cleaned when `normalize` is on. */
+  /** Text-item content. Already NFKC-normalized and C0-cleaned when `normalize` is on. */
   text: string;
-  /** Top-left x in PDF points (origin: page top-left). */
+  /** Top-left x in unrotated page user-space units. */
   x: number;
-  /** Top-left y in PDF points (origin: page top-left, y grows downward). */
+  /** Top-left y in unrotated page user-space units; y grows downward. */
   y: number;
-  /** Glyph run width in PDF points. */
+  /** Rounded aggregate text-item width in page user-space units. */
   width: number;
-  /** Glyph run height in PDF points. Approximated from the text matrix when pdf.js reports 0. */
+  /** Rounded aggregate height in page user-space units; matrix-derived when pdf.js reports 0. */
   height: number;
-  /** Approximate font size in PDF points (max of horizontal and vertical text-matrix scales). */
+  /**
+   * Approximate font size in page user-space units: the largest finite,
+   * non-zero text-matrix scale, falling back to the reported/effective item
+   * height when both matrix scales are unusable.
+   */
   fontSize: number;
   /** Stable page-local font alias (e.g. `font1`). Useful for grouping items by font within a page. */
   fontName?: string;

@@ -70,7 +70,7 @@ match 的 `source` 幫助代理判斷它應該被多大程度信任：
 pdfvision report.pdf --pages 3 --render --render-region 120,180,360,140 --render-output ./crops --json
 ```
 
-`--render-region` 要求選中的頁剛好為一頁。區域使用左上原點的 PDF points，並且必須在頁面邊界內。
+`--render-region` 要求選中的頁剛好為一頁。區域使用未旋轉的 page view box user-space units（預設 `/UserUnit` 下通常是點）和左上角原點，並且必須在頁面邊界內。
 
 如果裁切圖包含小標籤、上標、密集表格儲存格或圖表圖例，可以提高 `--render-scale`：
 

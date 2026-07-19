@@ -70,7 +70,7 @@ match の bbox を `--render-region` に渡します。
 pdfvision report.pdf --pages 3 --render --render-region 120,180,360,140 --render-output ./crops --json
 ```
 
-`--render-region` は選択ページがちょうど 1 ページである必要があります。領域は左上原点の PDF ポイントで、ページ境界内に収まる必要があります。
+`--render-region` は選択ページがちょうど 1 ページである必要があります。領域は回転前の page view box の user-space units（既定の `/UserUnit` では通常ポイント）と左上原点を使い、ページ境界内に収まる必要があります。
 
 小さいラベル、上付き文字、密な表セル、チャート凡例では `--render-scale` を上げます。
 
