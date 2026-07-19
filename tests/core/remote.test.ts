@@ -1,10 +1,20 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { createServer, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { downloadRemote, downloadRemoteData } from '../../src/core/io/remote.js';
+import { basename, dirname, join } from 'node:path';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { CACHE_ROOT_MARKER_NAME, clearAllCache } from '../../src/core/io/cache.js';
+import { downloadRemote, downloadRemoteData, downloadRemoteWithDataForTesting } from '../../src/core/io/remote.js';
 
 /**
  * One process-wide HTTP server with per-test routing. Tests register a
@@ -33,10 +43,19 @@ afterAll(async () => {
   await new Promise<void>((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())));
 });
 
-// Each test cleans the remote cache root so no two tests see the
-// previous test's payload by accident.
+let testCacheRoot: string;
+let previousCacheRoot: string | undefined;
+
+beforeEach(() => {
+  testCacheRoot = mkdtempSync(join(tmpdir(), 'pdfvision-remote-test-'));
+  previousCacheRoot = process.env.PDFVISION_CACHE_DIR;
+  process.env.PDFVISION_CACHE_DIR = testCacheRoot;
+});
+
 afterEach(() => {
-  rmSync(join(tmpdir(), 'pdfvision', 'remote'), { recursive: true, force: true });
+  if (previousCacheRoot === undefined) delete process.env.PDFVISION_CACHE_DIR;
+  else process.env.PDFVISION_CACHE_DIR = previousCacheRoot;
+  rmSync(testCacheRoot, { recursive: true, force: true });
 });
 
 const TINY_PDF = Buffer.from('%PDF-1.4\n%fake-but-non-empty\n', 'utf-8');
@@ -78,6 +97,21 @@ describe('downloadRemote', () => {
     }
   });
 
+  it('downloads bytes without consulting an invalid cache environment', async () => {
+    setHandler((_req, res) => {
+      res.statusCode = 200;
+      res.end(TINY_PDF);
+    });
+    const relativeRoot = `relative-pdfvision-cache-${process.pid}`;
+    process.env.PDFVISION_CACHE_DIR = relativeRoot;
+    expect(existsSync(join(process.cwd(), relativeRoot))).toBe(false);
+
+    const data = await downloadRemoteData(`http://127.0.0.1:${port}/uncached.pdf`);
+
+    expect(Buffer.from(data)).toEqual(TINY_PDF);
+    expect(existsSync(join(process.cwd(), relativeRoot))).toBe(false);
+  });
+
   it('hits the cache on the second call (no network) for the same URL', async () => {
     let hits = 0;
     setHandler((_req, res) => {
@@ -91,6 +125,107 @@ describe('downloadRemote', () => {
     const second = await downloadRemote(url);
     expect(second).toBe(first);
     expect(hits).toBe(1);
+  });
+
+  it('validates the root marker before returning a warmed cache hit', async () => {
+    let hits = 0;
+    setHandler((_req, res) => {
+      hits++;
+      res.statusCode = 200;
+      res.end(TINY_PDF);
+    });
+
+    const url = `http://127.0.0.1:${port}/corrupt-root-marker.pdf`;
+    await downloadRemote(url);
+    writeFileSync(join(testCacheRoot, CACHE_ROOT_MARKER_NAME), 'wrong\n');
+
+    await expect(downloadRemote(url)).rejects.toThrow(/ownership marker.*invalid contents/);
+    expect(hits).toBe(1);
+  });
+
+  it('returns bytes captured from the verified cache identity when its pathname is replaced', async () => {
+    let hits = 0;
+    setHandler((_req, res) => {
+      hits++;
+      res.statusCode = 200;
+      res.end(TINY_PDF);
+    });
+    const url = `http://127.0.0.1:${port}/verified-bytes-swap.pdf`;
+    const cachePath = await downloadRemote(url);
+    const movedPath = `${cachePath}.original`;
+    const replacement = Buffer.from('%PDF-1.4\nreplacement\n', 'utf8');
+
+    const result = await downloadRemoteWithDataForTesting(url, {
+      afterSourceDataReady: (path) => {
+        renameSync(path, movedPath);
+        writeFileSync(path, replacement);
+      },
+    });
+
+    expect(result.path).toBe(cachePath);
+    expect(result.data).toEqual(TINY_PDF);
+    expect(readFileSync(cachePath)).toEqual(replacement);
+    expect(hits).toBe(1);
+  });
+
+  it('returns already-captured cached bytes when clear removes their pathname', async () => {
+    let hits = 0;
+    setHandler((_req, res) => {
+      hits++;
+      res.statusCode = 200;
+      res.end(TINY_PDF);
+    });
+    const url = `http://127.0.0.1:${port}/verified-bytes-clear.pdf`;
+    const cachePath = await downloadRemote(url);
+
+    const result = await downloadRemoteWithDataForTesting(url, {
+      afterSourceDataReady: () => {
+        expect(clearAllCache().removed).toBe(true);
+      },
+    });
+
+    expect(result.data).toEqual(TINY_PDF);
+    expect(existsSync(cachePath)).toBe(false);
+    expect(hits).toBe(1);
+  });
+
+  it('refuses a symlinked cached PDF before reading it', async () => {
+    if (process.platform === 'win32') return;
+    setHandler((_req, res) => {
+      res.statusCode = 200;
+      res.end(TINY_PDF);
+    });
+
+    const url = `http://127.0.0.1:${port}/cached-symlink.pdf`;
+    const path = await downloadRemote(url);
+    const external = join(testCacheRoot, 'external.pdf');
+    writeFileSync(external, TINY_PDF);
+    rmSync(path);
+    symlinkSync(external, path);
+
+    await expect(downloadRemote(url)).rejects.toThrow(/remote PDF cache file.*symlink/);
+    expect(readFileSync(external)).toEqual(TINY_PDF);
+  });
+
+  it('refuses a symlinked URL-hash directory before a cache-hit lookup', async () => {
+    if (process.platform === 'win32') return;
+    setHandler((_req, res) => {
+      res.statusCode = 200;
+      res.end(TINY_PDF);
+    });
+
+    const url = `http://127.0.0.1:${port}/cached-parent-symlink.pdf`;
+    const path = await downloadRemote(url);
+    const cacheDir = dirname(path);
+    const externalDir = join(testCacheRoot, 'external-dir');
+    const externalFile = join(externalDir, basename(path));
+    mkdirSync(externalDir);
+    writeFileSync(externalFile, TINY_PDF);
+    rmSync(cacheDir, { recursive: true });
+    symlinkSync(externalDir, cacheDir);
+
+    await expect(downloadRemote(url)).rejects.toThrow(/cache directory.*symlink|junction/);
+    expect(readFileSync(externalFile)).toEqual(TINY_PDF);
   });
 
   it('re-downloads instead of returning a cached non-PDF body', async () => {

@@ -99,6 +99,8 @@ pdfvision points tesseract.js at `<cache-root>/ocr-data/` (POSIX 0700) so:
 
 First `--ocr` invocation against a new language takes a few extra seconds for the download. Subsequent invocations of the same language are instant on the boot step (still ~1–2 s for the worker init).
 
+`--no-cache` does not disable these OCR support files: OCR still validates the configured root and persists traineddata and its worker helper there.
+
 ## Troubleshooting
 
 ### Benign stderr noise on the first --ocr run

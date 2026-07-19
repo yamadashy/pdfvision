@@ -93,8 +93,8 @@ OCR 不會取代 `pages[].text`；它會作為額外訊號並列輸出，方便�
 
 | 選項 | 用途 |
 | --- | --- |
-| `--no-cache` | 跳過磁碟擷取快取。與 `--remote` 一起使用時，下載的 PDF 會直接處理，不寫入 remote-PDF 快取。 |
-| `--clear-cache` | 清除擷取、渲染 PNG 和遠端下載快取後結束。 |
+| `--no-cache` | 跳過擷取快取與遠端 PDF 快取。OCR support files 仍使用經過驗證的快取根目錄；未指定 `--render-output` 的渲染使用獨立的作業系統暫存路徑。 |
+| `--clear-cache` | 只有在驗證 pdfvision 擁有權標記後，才清除設定的快取根目錄並結束。危險的廣泛根目錄、沒有標記的自訂根目錄及其他無法驗證的根目錄都會被拒絕。 |
 | `-v, --version` | 顯示 pdfvision 版本。 |
 | `-h, --help` | 顯示 CLI 說明。 |
 

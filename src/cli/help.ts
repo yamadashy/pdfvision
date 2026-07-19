@@ -157,9 +157,14 @@ Options
       --remote <url>      Download an http(s) PDF, validate the PDF header, and run extraction
                           on it. Same URL → same cache slot unless --no-cache streams the
                           bytes directly without writing the remote-PDF cache.
-      --no-cache          Skip the on-disk cache (re-download / re-extract every run).
-      --clear-cache       Remove every cached extraction, rendered PNG, and downloaded
-                          remote PDF, then exit. No file argument required.
+      --no-cache          Skip extraction and remote-PDF caches (re-download / re-extract).
+                          OCR support files still use the validated on-disk cache root.
+      --clear-cache       Remove cached extractions, rendered PNGs, remote PDFs, and OCR
+                          support data, then exit. No file argument required. PDFVISION_CACHE_DIR,
+                          when set, must be a nonblank absolute path to a dedicated directory.
+                          An ownership marker authorizes recursive clearing; broad, unmarked custom,
+                          or otherwise unverified roots are refused. POSIX ownership and no-follow
+                          checks are stronger; Windows replacement resistance is best effort.
   -v, --version           Show version
   -h, --help              Show this help
 
@@ -196,7 +201,7 @@ Examples
   pdfvision scan.pdf --ocr --json                                              # OCR a scanned PDF
   pdfvision scan-ja.pdf --ocr --ocr-lang jpn+eng --json                        # multi-lang OCR
   pdfvision --remote https://example.com/paper.pdf --json                      # fetch + extract JSON
-  pdfvision --clear-cache                                                      # wipe the on-disk cache
+  pdfvision --clear-cache                                                      # clear the verified pdfvision cache
 
 Exit codes
   0  Success

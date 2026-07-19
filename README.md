@@ -232,9 +232,14 @@ Options
       --remote <url>      Download an http(s) PDF, validate the PDF header, and run extraction
                           on it. Same URL → same cache slot unless --no-cache streams the
                           bytes directly without writing the remote-PDF cache.
-      --no-cache          Skip the on-disk cache (re-download / re-extract every run).
-      --clear-cache       Remove every cached extraction, rendered PNG, and downloaded
-                          remote PDF, then exit. No file argument required.
+      --no-cache          Skip extraction and remote-PDF caches (re-download / re-extract).
+                          OCR support files still use the validated on-disk cache root.
+      --clear-cache       Remove cached extractions, rendered PNGs, remote PDFs, and OCR
+                          support data, then exit. No file argument required. PDFVISION_CACHE_DIR,
+                          when set, must be a nonblank absolute path to a dedicated directory.
+                          An ownership marker authorizes recursive clearing; broad, unmarked custom,
+                          or otherwise unverified roots are refused. POSIX ownership and no-follow
+                          checks are stronger; Windows replacement resistance is best effort.
   -v, --version           Show version
   -h, --help              Show this help
 
@@ -271,7 +276,7 @@ Examples
   pdfvision scan.pdf --ocr --json                                              # OCR a scanned PDF
   pdfvision scan-ja.pdf --ocr --ocr-lang jpn+eng --json                        # multi-lang OCR
   pdfvision --remote https://example.com/paper.pdf --json                      # fetch + extract JSON
-  pdfvision --clear-cache                                                      # wipe the on-disk cache
+  pdfvision --clear-cache                                                      # clear the verified pdfvision cache
 
 Exit codes
   0  Success
@@ -352,13 +357,19 @@ Exports: `processDocument`, `processFile`, `parsePageRange`, plus full type defi
 
 ## 💾 Caching
 
-Results land under `<os-tmp>/pdfvision/<sha256-prefix>/` keyed by file content. POSIX `0700` / `0600` permissions, symlink/TOCTOU defences. Override the location with `PDFVISION_CACHE_DIR=/path` or wipe everything with `pdfvision --clear-cache`.
+Results land under `<os-tmp>/pdfvision/<sha256-prefix>/` keyed by file content. To override the location, set `PDFVISION_CACHE_DIR` to a nonblank absolute path naming a dedicated cache directory; relative paths, `~`, filesystem roots, home, the working directory, and shared temporary roots are refused. Dedicated descendants such as `/tmp/my-app/pdfvision` remain valid.
+
+Each initialized root contains an owned `.pdfvision-cache-root` marker that authorizes recursive clearing. `pdfvision --clear-cache` validates the canonical root and marker, moves that root to a randomized sibling quarantine, and revalidates it immediately before path-based recursive removal. Unmarked custom roots are never adopted by a clear. When no `PDFVISION_CACHE_DIR` override is set, the active historical default may be adopted only if every top-level entry matches a recognized legacy cache shape; normal cache use applies the same complete pre/post-hardening scan to every unmarked root. On POSIX, unmarked roots that are group/other writable are refused before mutation. Unknown entries, invalid markers, symlinks, and unverified roots are refused without being cleared.
+
+On POSIX, cache roots and markers are owner-checked with `0700` / `0600` permissions. Every path ancestor used for setup or clearing must be readable/openable by the process, owned by the current user or root, and non-group/other-writable unless sticky-directory semantics protect the owned child entry. These checks and immediate no-follow identity rechecks resist replacement under conventional POSIX ownership/mode/sticky semantics; extended ACLs and network-filesystem permission semantics are not inspected and can weaken that protection, and Node's path-based removal cannot exclude root or same-UID replacement after the final check. After the quarantine rename, POSIX clearing compares device identity (`st_dev`) throughout the tree and refuses recursive removal on a mismatch; the original pathname has already moved, and same-device bind mounts are not detected. Windows rejects drive/UNC roots and leaf links or junctions, validates the marker, and rechecks available identities, but replacement resistance is best effort. Cache clearing is not coordinated with active OCR; retry an OCR run if clearing interrupts it.
 
 Remote downloads must actually return a PDF header. If a `.pdf` URL returns an HTML challenge, landing page, or other non-PDF body, pdfvision fails before caching it and reports the response content type instead of surfacing a later `Invalid PDF structure` parse error.
 
 `--remote` follows redirects and validates the response, not the network destination; it does not block private addresses or redirect targets. Use it only for user-authorized URLs. Do not pass untrusted URLs directly: fetch with a component that validates every resolved IP and redirect hop against an allowlist, pins each connection to the validated IP, and then passes a local file—or isolate the fetch behind network controls.
 
 When `--remote --no-cache` is set, the downloaded PDF is streamed directly into extraction and is not written to the remote-PDF cache.
+
+`--no-cache` skips extraction and remote-PDF caches, but renders without `--render-output` use separate OS-temporary paths, explicit render outputs still go where requested, and `--ocr` still persists traineddata and worker support files under the validated cache root.
 
 ## 🛠️ Requirements
 

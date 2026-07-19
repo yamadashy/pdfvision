@@ -45,7 +45,7 @@ bbox 使用未旋轉的 pdf.js page view 可見框原始 page-view units，並�
 
 ## 快取在哪裡？
 
-結果快取在作業系統暫存目錄中。設定 `PDFVISION_CACHE_DIR=/path` 可以覆蓋位置，使用 `--no-cache` 可以跳過快取，執行 `pdfvision --clear-cache` 可以清除快取。
+結果快取在作業系統暫存目錄中。`PDFVISION_CACHE_DIR` 必須指向專用絕對路徑；危險的寬廣路徑會被拒絕。經過擁有者檢查的 `.pdfvision-cache-root` 標記用來授權遞迴清除。清除絕不採用未標記的自訂根目錄；無 override 時，只能在權限強化前後確認舊版形狀後採用目前的歷史預設根目錄。在 POSIX 上，會拒絕具有 group/other 寫入權限的未標記根目錄；祖先必須可讀/open、由目前使用者或 root 擁有且不可寫或有安全的 sticky 保護。移入 quarantine 後，`st_dev` 不一致會阻止遞迴刪除，但原始路徑已移動，且無法偵測同一 device 的 bind mount。檢查依賴傳統 POSIX mode semantics，不涵蓋 ACL、網路檔案系統權限或最終檢查後的 root/相同 UID 替換。Windows 只能提供 best-effort 防護。清除不會與執行中的 OCR 協調；被中斷時請重試。`--no-cache` 會略過擷取快取與遠端 PDF 快取，但 OCR support files 仍會持久化在已驗證的快取根目錄下。
 
 ## PDF 密碼應該如何傳遞？
 

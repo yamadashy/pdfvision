@@ -93,8 +93,8 @@ OCR 不会替换 `pages[].text`；它会作为额外信号并列输出，便于�
 
 | 选项 | 用途 |
 | --- | --- |
-| `--no-cache` | 跳过磁盘提取缓存。与 `--remote` 一起使用时，下载的 PDF 会直接处理，不写入 remote-PDF 缓存。 |
-| `--clear-cache` | 清除提取、渲染 PNG 和远程下载缓存后退出。 |
+| `--no-cache` | 跳过提取缓存和远程 PDF 缓存。OCR support files 仍使用经过验证的缓存根目录；未指定 `--render-output` 的渲染使用单独的操作系统临时路径。 |
+| `--clear-cache` | 仅在验证 pdfvision 所有权标记后清除配置的缓存根目录，然后退出。危险的宽泛根目录、没有标记的自定义根目录及其他无法验证的根目录都会被拒绝。 |
 | `-v, --version` | 打印 pdfvision 版本。 |
 | `-h, --help` | 打印 CLI 帮助。 |
 

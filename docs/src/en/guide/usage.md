@@ -146,12 +146,16 @@ pdfvision document.pdf --no-cache --json
 pdfvision --clear-cache
 ```
 
-pdfvision caches extraction results, rendered images, remote downloads, and OCR data so repeated agent reads are fast. Use `--no-cache` for one-off sensitive runs or `--clear-cache` to remove cached data.
+pdfvision caches extraction results, rendered images, remote downloads, and OCR data so repeated agent reads are fast. Use `--no-cache` when extraction results and remote PDF bytes should not be cached; use `--clear-cache` to remove cached data.
 
-Set `PDFVISION_CACHE_DIR` when an application needs cache data under a known directory:
+Set `PDFVISION_CACHE_DIR` to a nonblank absolute path naming a dedicated directory when an application needs cache data under a known location. Relative paths, `~`, filesystem roots, home, the working directory, and shared temporary roots are refused:
 
 ```bash
 PDFVISION_CACHE_DIR=/secure/pdfvision-cache pdfvision document.pdf --json
 ```
+
+An owned `.pdfvision-cache-root` marker authorizes recursive clearing. `--clear-cache` never adopts an unmarked custom root; with no `PDFVISION_CACHE_DIR` override, it may adopt the active historical default only after recognized legacy-shape scans before and after hardening. Normal use applies the same scans to every unmarked root. On POSIX, group/other-writable unmarked roots are refused, and every ancestor must be readable/openable, current-user/root-owned, and non-writable-or-safely-sticky. After quarantine rename, POSIX clearing compares `st_dev` and refuses recursive removal on a mismatch; the original pathname has already moved, and same-device bind mounts are not detected. Identity checks resist replacement only under conventional POSIX uid/mode/sticky semantics: ACLs and network-filesystem permissions are not inspected, and root or same-UID replacement after the final check cannot be excluded. Windows replacement resistance is best effort. Clearing is not coordinated with active OCR; retry an interrupted OCR run.
+
+`--no-cache` skips extraction and remote-PDF caches, but renders without `--render-output` use separate OS-temporary paths, explicit render outputs still go where requested, and `--ocr` still uses persistent traineddata and worker support files under the validated cache root. An invalid `PDFVISION_CACHE_DIR` therefore still fails an OCR run even when `--no-cache` is set.
 
 For remote PDFs, `--no-cache` also skips the remote-PDF cache and streams the freshly downloaded bytes into extraction. For private or time-limited URLs, this avoids retaining the downloaded PDF bytes; it also forces a fresh fetch when a URL may change in place. It does not make an otherwise unauthorized network destination safe.
