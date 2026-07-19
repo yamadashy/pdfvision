@@ -41,7 +41,7 @@ Use layout when:
 pdfvision document.pdf --geometry --format json
 ```
 
-`--geometry` emits one span per retained positioned pdf.js text item. An item may contain a character, word, or longer string; adjacent items remain separate. Each bbox is the rounded aggregate axis-aligned envelope, not glyph outlines. Layout/search can reconstruct lines or slice match boxes without changing public span granularity.
+`--geometry` emits one span per retained positioned pdf.js text item. An item may contain a character, word, or longer string; adjacent items remain separate. Each bbox is the rounded aggregate axis-aligned envelope, not glyph outlines. Each span also carries an approximate `fontSize` for uses such as heading detection. Layout/search can reconstruct lines or slice match boxes without changing public span granularity.
 
 ## Visual Boxes and Regions
 

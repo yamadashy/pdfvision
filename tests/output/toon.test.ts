@@ -1,4 +1,4 @@
-import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { decode } from '@toon-format/toon';
 import { describe, expect, it } from 'vitest';
 import { processDocument } from '../../src/core/processor.js';
@@ -6,7 +6,7 @@ import { formatJson } from '../../src/output/json.js';
 import { formatToon } from '../../src/output/toon.js';
 import type { DocumentResult, PageResult } from '../../src/types/index.js';
 
-const SAMPLE_HEADERS_PDF = resolve(__dirname, '../fixtures/sample-headers.pdf');
+const SAMPLE_HEADERS_PDF = fileURLToPath(new URL('../fixtures/sample-headers.pdf', import.meta.url));
 
 function makePage(overrides: Partial<PageResult> & Pick<PageResult, 'page'>): PageResult {
   return {
