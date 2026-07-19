@@ -34,7 +34,9 @@ pdfvision --remote https://example.com/document.pdf --format json
 
 远程下载会被缓存，并在提取前验证是否为 PDF。如果 `.pdf` URL 返回 HTML、登录页或挑战页，pdfvision 会在缓存前失败。
 
-`--remote` 只接受 HTTP(S) URL，跟随重定向，并拒绝正文开头附近没有 PDF header 的响应。默认下载保护比较保守：最大 100 MB，网络超时 60 秒。
+`--remote` 的初始 URL 仅支持 HTTP(S)，并会跟随重定向。如果响应正文开头附近没有 PDF header，pdfvision 会拒绝该响应。默认限制为 100 MB 的正文上限，以及涵盖等待响应头和传输正文的 60 秒截止时间。
+
+只对用户独立授权的目标使用 `--remote`。它验证响应，但不验证网络目标，也不会阻止私有地址或重定向目标。不要直接传入不可信 URL；应使用下载组件通过允许列表验证每个解析 IP 和重定向节点、固定连接目标，再把本地文件传给 pdfvision，或者把 pdfvision 的下载过程隔离在网络控制之后。详见[安全与隐私](./security-and-privacy.md#远程-pdf)。
 
 远程缓存按 URL 建立。如果一个稳定 URL 的内容会被原地更新，可用 `--no-cache` 做一次新鲜获取，或用 `--clear-cache` 删除缓存副本：
 
@@ -152,4 +154,4 @@ pdfvision 会缓存提取结果、渲染图像、远程下载和 OCR 数据，�
 PDFVISION_CACHE_DIR=/secure/pdfvision-cache pdfvision document.pdf --json
 ```
 
-对远程 PDF，`--no-cache` 也会跳过远程 PDF 缓存，并把新下载的字节直接送入提取流程。当 URL 是私有、限时，或可能在没有版本号的情况下变化时，这是最安全的选择。
+对远程 PDF，`--no-cache` 也会跳过远程 PDF 缓存，并把新下载的字节直接送入提取流程。对于私有或限时 URL，这可以避免保留下载的 PDF 字节；当同一 URL 的内容可能发生变化时，也会强制重新获取。但它不会让原本未经授权的网络目标变得安全。

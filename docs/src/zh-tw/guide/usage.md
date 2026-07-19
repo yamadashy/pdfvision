@@ -34,7 +34,9 @@ pdfvision --remote https://example.com/document.pdf --format json
 
 遠端下載會被快取，並在擷取前驗證是否為 PDF。如果 `.pdf` URL 回傳 HTML、登入頁或挑戰頁，pdfvision 會在快取前失敗。
 
-`--remote` 只接受 HTTP(S) URL，跟隨重新導向，並拒絕本文開頭附近沒有 PDF header 的回應。預設下載保護比較保守：最大 100 MB，網路逾時 60 秒。
+`--remote` 的初始 URL 僅支援 HTTP(S)，並會跟隨重新導向。如果回應本文開頭附近沒有 PDF header，pdfvision 會拒絕該回應。預設限制為 100 MB 的本文上限，以及涵蓋等待回應標頭和傳輸本文的 60 秒截止時間。
+
+只對使用者獨立授權的目標使用 `--remote`。它驗證回應，但不驗證網路目標，也不會阻擋私有位址或重新導向目標。不要直接傳入不可信 URL；應使用下載元件透過允許清單驗證每個解析 IP 和重新導向節點、固定連線目標，再把本機檔案傳給 pdfvision，或把 pdfvision 的下載程序隔離在網路控制之後。詳見[安全與隱私](./security-and-privacy.md#遠端-pdf)。
 
 遠端快取按 URL 建立。如果一個穩定 URL 的內容會被原地更新，可用 `--no-cache` 做一次新鮮取得，或用 `--clear-cache` 刪除快取副本：
 
@@ -152,4 +154,4 @@ pdfvision 會快取擷取結果、渲染影像、遠端下載和 OCR 資料，�
 PDFVISION_CACHE_DIR=/secure/pdfvision-cache pdfvision document.pdf --json
 ```
 
-對遠端 PDF，`--no-cache` 也會跳過遠端 PDF 快取，並把新下載的 bytes 直接送入擷取流程。當 URL 是私有、限時，或可能在沒有版本號的情況下變化時，這是最安全的選擇。
+對遠端 PDF，`--no-cache` 也會跳過遠端 PDF 快取，並把新下載的 bytes 直接送入擷取流程。對於私有或限時 URL，這可避免保留下載的 PDF 位元組；當同一 URL 的內容可能變動時，也會強制重新取得。但它不會讓原本未經授權的網路目標變得安全。
