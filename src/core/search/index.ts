@@ -1,7 +1,7 @@
 import type { FormField, PageAnnotation, PageLink, PageOcr, SearchMatch, TextSpan } from '../../types/index.js';
 import { contributingBoxes, round2, unionBoxes } from './boxes.js';
 import { type CompiledSearch, nfkc } from './compiler.js';
-import { duplicateKey, suppressDuplicateOcrMatches } from './duplicates.js';
+import { buildPreciseDuplicateBudget, duplicateKey } from './duplicates.js';
 import { buildOcrSearchLines, buildSearchLines } from './lines.js';
 import { appendAnnotationMatches, appendFormFieldMatches, appendLinkMatches } from './sourceMatches.js';
 import type { SearchLine } from './types.js';
@@ -31,9 +31,10 @@ const MAX_MATCHES_PER_QUERY_PER_PAGE = 10000;
 /**
  * Find occurrences of every compiled query in the given page's native
  * text (via spans) and OCR text (when present). Emission is capped at
- * 10,000 matches per page, query, and source. Reaching the cap invokes
- * onWarning when provided; any further matches for that combination are
- * dropped. Returns native matches in top-down, left-right line order, then
+ * 10,000 matches per page, query, and source. The first additional valid
+ * match invokes onWarning when provided; it and later matches for that
+ * combination are dropped. Returns native matches in top-down, left-right
+ * line order, then
  * OCR-derived matches appended after.
  *
  * Native matches are found against line-level text reconstructed from
@@ -73,6 +74,61 @@ export function searchPage(
   formFields?: readonly FormField[],
   annotations?: readonly PageAnnotation[],
   links?: readonly PageLink[],
+): SearchMatch[] {
+  return searchPageWithMatchCap(
+    spans,
+    ocr,
+    pageNum,
+    pageWidth,
+    pageHeight,
+    compiled,
+    MAX_MATCHES_PER_QUERY_PER_PAGE,
+    onWarning,
+    formFields,
+    annotations,
+    links,
+  );
+}
+
+export function searchOcrPage(
+  ocr: PageOcr,
+  pageNum: number,
+  pageWidth: number,
+  pageHeight: number,
+  compiled: CompiledSearch,
+  preciseMatches: readonly SearchMatch[] | undefined,
+  onWarning?: (message: string) => void,
+): SearchMatch[] {
+  return searchPageWithMatchCap(
+    undefined,
+    ocr,
+    pageNum,
+    pageWidth,
+    pageHeight,
+    compiled,
+    MAX_MATCHES_PER_QUERY_PER_PAGE,
+    onWarning,
+    undefined,
+    undefined,
+    undefined,
+    preciseMatches,
+  );
+}
+
+/** @internal Exported for boundary-focused tests with a small cap. */
+export function searchPageWithMatchCap(
+  spans: readonly TextSpan[] | undefined,
+  ocr: PageOcr | undefined,
+  pageNum: number,
+  pageWidth: number,
+  pageHeight: number,
+  compiled: CompiledSearch,
+  matchCap: number,
+  onWarning?: (message: string) => void,
+  formFields?: readonly FormField[],
+  annotations?: readonly PageAnnotation[],
+  links?: readonly PageLink[],
+  ocrDuplicateMatches?: readonly SearchMatch[],
 ): SearchMatch[] {
   const matches: SearchMatch[] = [];
 
@@ -118,6 +174,17 @@ export function searchPage(
         if (line.syntheticStacked && hitBoxes.length < 2) continue;
         if (line.syntheticVertical && hitBoxes.length < 2 && !line.syntheticRubyBase) continue;
         const box = unionBoxes(hitBoxes);
+        const count = nativeCount.get(mi) ?? 0;
+        if (count >= matchCap) {
+          nativeCapped.add(mi);
+          onWarning?.(
+            `search query ${JSON.stringify(m.query)} exceeded the per-page native match cap of ${matchCap} on page ${pageNum}; later native matches for this query on this page were dropped.`,
+          );
+          // Stop scanning further lines for this matcher; other
+          // matchers may still have budget.
+          if (nativeCapped.size === compiled.matchers.length) break lineLoop;
+          break;
+        }
         matches.push({
           page: pageNum,
           query: m.query,
@@ -131,25 +198,15 @@ export function searchPage(
           source: 'native',
           context: haystack,
         });
-        const next = (nativeCount.get(mi) ?? 0) + 1;
-        nativeCount.set(mi, next);
-        if (next >= MAX_MATCHES_PER_QUERY_PER_PAGE) {
-          nativeCapped.add(mi);
-          onWarning?.(
-            `search query ${JSON.stringify(m.query)} hit the per-page native match cap of ${MAX_MATCHES_PER_QUERY_PER_PAGE} on page ${pageNum}; subsequent native matches for this query on this page were dropped.`,
-          );
-          // Stop scanning further lines for this matcher; other
-          // matchers may still have budget.
-          if (nativeCapped.size === compiled.matchers.length) break lineLoop;
-          break;
-        }
+        nativeCount.set(mi, count + 1);
       }
     }
   }
 
-  appendFormFieldMatches(matches, formFields, pageNum, compiled, MAX_MATCHES_PER_QUERY_PER_PAGE, onWarning);
-  appendAnnotationMatches(matches, annotations, pageNum, compiled, MAX_MATCHES_PER_QUERY_PER_PAGE, onWarning);
-  appendLinkMatches(matches, links, pageNum, compiled, MAX_MATCHES_PER_QUERY_PER_PAGE, onWarning);
+  appendFormFieldMatches(matches, formFields, pageNum, compiled, matchCap, onWarning);
+  appendAnnotationMatches(matches, annotations, pageNum, compiled, matchCap, onWarning);
+  appendLinkMatches(matches, links, pageNum, compiled, matchCap, onWarning);
+  const preciseOcrDuplicateBudget = buildPreciseDuplicateBudget(ocrDuplicateMatches ?? matches, compiled);
 
   // OCR pass — prefer word-level OCR geometry when available, then
   // supplement from the post-trim OCR text with a page-level bbox for
@@ -161,9 +218,14 @@ export function searchPage(
     for (const m of compiled.matchers) {
       let count = 0;
       let capped = false;
+      const wordDuplicateBudget = new Map<string, number>();
       const matcherDuplicateKey = (matchText: string) =>
         duplicateKey(m.queryIndex, m.query, matchText, m.regex.ignoreCase);
-      const searchLines = (lines: readonly SearchLine[], duplicateBudget?: Map<string, number>) => {
+      const searchLines = (
+        lines: readonly SearchLine[],
+        duplicateBudget?: Map<string, number>,
+        recordDuplicateBudget?: Map<string, number>,
+      ) => {
         for (const line of lines) {
           const ocrHaystack = line.text;
           if (line.syntheticHyphenated && !m.query.includes('-')) continue;
@@ -188,10 +250,22 @@ export function searchPage(
             const hitBoxes = contributingBoxes(line, hit.index, hitEnd);
             if ((line.syntheticHyphenated || line.syntheticDehyphenated) && hitBoxes.length < 2) continue;
             const hitKey = matcherDuplicateKey(hit[0]);
+            if (recordDuplicateBudget) {
+              recordDuplicateBudget.set(hitKey, (recordDuplicateBudget.get(hitKey) ?? 0) + 1);
+            }
             const remainingDuplicates = duplicateBudget?.get(hitKey) ?? 0;
             if (remainingDuplicates > 0) {
               duplicateBudget?.set(hitKey, remainingDuplicates - 1);
               continue;
+            }
+            const remainingPreciseDuplicates = preciseOcrDuplicateBudget.get(hitKey) ?? 0;
+            if (remainingPreciseDuplicates > 0) {
+              preciseOcrDuplicateBudget.set(hitKey, remainingPreciseDuplicates - 1);
+              continue;
+            }
+            if (count >= matchCap) {
+              capped = true;
+              break;
             }
             ocrMatches.push({
               page: pageNum,
@@ -204,33 +278,23 @@ export function searchPage(
               context,
             });
             count++;
-            if (count >= MAX_MATCHES_PER_QUERY_PER_PAGE) {
-              capped = true;
-              break;
-            }
           }
           if (capped) break;
         }
       };
-      const wordMatchStart = ocrMatches.length;
-      searchLines(ocrWordLines);
+      searchLines(ocrWordLines, undefined, wordDuplicateBudget);
       if (!capped) {
-        const rawDuplicateBudget = new Map<string, number>();
-        for (const match of ocrMatches.slice(wordMatchStart)) {
-          const key = matcherDuplicateKey(match.text);
-          rawDuplicateBudget.set(key, (rawDuplicateBudget.get(key) ?? 0) + 1);
-        }
-        searchLines([ocrTextLine], rawDuplicateBudget);
+        searchLines([ocrTextLine], wordDuplicateBudget);
       }
       if (capped) {
         onWarning?.(
-          `search query ${JSON.stringify(m.query)} hit the per-page OCR match cap of ${MAX_MATCHES_PER_QUERY_PER_PAGE} on page ${pageNum}; subsequent OCR matches for this query on this page were dropped.`,
+          `search query ${JSON.stringify(m.query)} exceeded the per-page OCR match cap of ${matchCap} on page ${pageNum}; later OCR matches for this query on this page were dropped.`,
         );
       }
     }
   }
 
-  matches.push(...suppressDuplicateOcrMatches(matches, ocrMatches, compiled));
+  for (const match of ocrMatches) matches.push(match);
   return matches;
 }
 

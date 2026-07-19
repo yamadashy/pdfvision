@@ -33,6 +33,14 @@ export function appendLinkMatches(
         const hitKey = duplicateKey(m.queryIndex, m.query, hit[0], m.regex.ignoreCase);
         const box = roundedBox(link);
         if (hasPreciseDuplicateAtBox(matches, compiled, hitKey, box)) continue;
+        const count = linkCount.get(mi) ?? 0;
+        if (count >= matchCap) {
+          linkCapped.add(mi);
+          onWarning?.(
+            `search query ${JSON.stringify(m.query)} exceeded the per-page link match cap of ${matchCap} on page ${pageNum}; later link matches for this query on this page were dropped.`,
+          );
+          break;
+        }
         matches.push({
           page: pageNum,
           query: m.query,
@@ -43,15 +51,7 @@ export function appendLinkMatches(
           source: 'link',
           context: linkMatchContext(link, haystack),
         });
-        const next = (linkCount.get(mi) ?? 0) + 1;
-        linkCount.set(mi, next);
-        if (next >= matchCap) {
-          linkCapped.add(mi);
-          onWarning?.(
-            `search query ${JSON.stringify(m.query)} hit the per-page link match cap of ${matchCap} on page ${pageNum}; subsequent link matches for this query on this page were dropped.`,
-          );
-          break;
-        }
+        linkCount.set(mi, count + 1);
       }
     }
     if (linkCapped.size === compiled.matchers.length) break;

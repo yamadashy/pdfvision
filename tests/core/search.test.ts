@@ -2,7 +2,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { attachFormFieldTextAppearance } from '../../src/core/formFields/types.js';
 import { processDocument } from '../../src/core/processor.js';
-import { compileSearch, searchPage } from '../../src/core/search/index.js';
+import { compileSearch, searchOcrPage, searchPage, searchPageWithMatchCap } from '../../src/core/search/index.js';
 import type { FormField, PageAnnotation, PageLink, TextSpan } from '../../src/types/index.js';
 
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
@@ -1576,12 +1576,10 @@ describe('processDocument search', () => {
     });
   });
 
-  it('suppresses OCR duplicates when native and OCR search passes run separately', async () => {
+  it('suppresses native duplicates while preserving OCR-only hits in the separate OCR pass', () => {
     // processDocument searches native spans before OCR exists, then
-    // searches OCR text later. Keep the separate-pass path equivalent
-    // to a single searchPage(spans, ocr, ...) call.
-    const { compileSearch, searchPage, suppressDuplicateOcrMatches } = await import('../../src/core/search/index.js');
-    const compiled = compileSearch('Switzerland', {});
+    // passes the precise matches into searchOcrPage when OCR completes.
+    const compiled = compileSearch(['Switzerland', 'Austria'], {});
     if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
     const nativeMatches = searchPage(
       [{ text: 'Switzerland', x: 120, y: 220, width: 70, height: 12, fontSize: 12 }],
@@ -1591,36 +1589,236 @@ describe('processDocument search', () => {
       792,
       compiled,
     );
-    const ocrMatches = searchPage(
-      undefined,
-      { text: 'Switzerland', confidence: 0.94, lang: 'eng' },
+    const ocrMatches = searchOcrPage(
+      { text: 'Switzerland Austria', confidence: 0.94, lang: 'eng' },
       1,
       612,
       792,
       compiled,
+      nativeMatches,
     );
-    const merged = nativeMatches.concat(suppressDuplicateOcrMatches(nativeMatches, ocrMatches, compiled));
-    expect(merged).toHaveLength(1);
-    expect(merged[0].source).toBe('native');
+
+    expect(nativeMatches).toHaveLength(1);
+    expect(nativeMatches[0]).toMatchObject({ text: 'Switzerland', source: 'native', queryIndex: 0 });
+    expect(ocrMatches).toHaveLength(1);
+    expect(ocrMatches[0]).toMatchObject({ text: 'Austria', source: 'ocr', queryIndex: 1 });
   });
 
-  it('caps matches per page per query at MAX_MATCHES_PER_QUERY_PER_PAGE and surfaces a warning', async () => {
+  it('does not warn when native matches exactly fill the per-page query cap', () => {
     // Defence-in-depth against a degenerate regex (or a bad literal
     // query that happens to match every span). Test directly against
     // searchPage with a synthesised span so we don't need a fixture
-    // big enough to hit the cap — easier to assert exact cap value
-    // (10000) than to ship a > 10k-char PDF.
-    const { compileSearch, searchPage } = await import('../../src/core/search/index.js');
+    // big enough to hit the cap.
     const compiled = compileSearch('.', { regex: true });
     if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
-    // 20k characters: easily exceeds the 10k cap and gives plenty of
-    // headroom so the cap message is unambiguous.
-    const longText = 'x'.repeat(20000);
+    const longText = 'x'.repeat(10000);
     const span = { text: longText, x: 0, y: 0, width: 100, height: 12, fontSize: 12 };
     const warnings: string[] = [];
     const matches = searchPage([span], undefined, 1, 612, 792, compiled, (m) => warnings.push(m));
+
     expect(matches.length).toBe(10000);
-    expect(warnings.some((m) => m.includes('per-page native match cap'))).toBe(true);
+    expect(warnings).toEqual([]);
+  });
+
+  it('warns only after a native match exceeds the per-page query cap', () => {
+    const compiled = compileSearch('.', { regex: true });
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const longText = 'x'.repeat(10001);
+    const span = { text: longText, x: 0, y: 0, width: 100, height: 12, fontSize: 12 };
+    const warnings: string[] = [];
+    const matches = searchPage([span], undefined, 1, 612, 792, compiled, (m) => warnings.push(m));
+
+    expect(matches.length).toBe(10000);
+    expect(warnings).toEqual([
+      'search query "." exceeded the per-page native match cap of 10000 on page 1; later native matches for this query on this page were dropped.',
+    ]);
+  });
+
+  it('warns for OCR only after a unique hit exceeds the cap', () => {
+    const compiled = compileSearch('needle', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const words = [
+      { text: 'needle', confidence: 0.99, x: 10, y: 10, width: 30, height: 10 },
+      { text: 'needle', confidence: 0.99, x: 10, y: 30, width: 30, height: 10 },
+    ];
+    const exactWarnings: string[] = [];
+    const exactMatches = searchPageWithMatchCap(
+      [],
+      { text: 'needle\nneedle', confidence: 0.99, lang: 'eng', words },
+      1,
+      612,
+      792,
+      compiled,
+      2,
+      (message) => exactWarnings.push(message),
+    );
+
+    expect(exactMatches.filter((match) => match.source === 'ocr')).toHaveLength(2);
+    expect(exactWarnings).toEqual([]);
+
+    const overflowWarnings: string[] = [];
+    const overflowMatches = searchPageWithMatchCap(
+      [],
+      { text: 'needle\nneedle\nneedle', confidence: 0.99, lang: 'eng', words },
+      1,
+      612,
+      792,
+      compiled,
+      2,
+      (message) => overflowWarnings.push(message),
+    );
+
+    expect(overflowMatches.filter((match) => match.source === 'ocr')).toHaveLength(2);
+    expect(overflowWarnings).toEqual([
+      'search query "needle" exceeded the per-page OCR match cap of 2 on page 1; later OCR matches for this query on this page were dropped.',
+    ]);
+  });
+
+  it('counts only OCR hits that survive precise duplicate suppression toward the cap', () => {
+    const compiled = compileSearch('needle', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const spans: TextSpan[] = [
+      { text: 'needle', x: 10, y: 10, width: 30, height: 10, fontSize: 10 },
+      { text: 'needle', x: 10, y: 30, width: 30, height: 10, fontSize: 10 },
+    ];
+    const words = Array.from({ length: 5 }, (_, index) => ({
+      text: 'needle',
+      confidence: 0.99,
+      x: 10,
+      y: 10 + index * 20,
+      width: 30,
+      height: 10,
+    }));
+    const exactWarnings: string[] = [];
+    const exactMatches = searchPageWithMatchCap(
+      spans,
+      { text: 'needle\nneedle\nneedle', confidence: 0.99, lang: 'eng', words: words.slice(0, 3) },
+      1,
+      612,
+      792,
+      compiled,
+      2,
+      (message) => exactWarnings.push(message),
+    );
+
+    expect(exactMatches.filter((match) => match.source === 'native')).toHaveLength(2);
+    expect(exactMatches.filter((match) => match.source === 'ocr')).toMatchObject([
+      { source: 'ocr', bbox: { x: 10, y: 50, width: 30, height: 10 } },
+    ]);
+    expect(exactWarnings).toEqual([]);
+
+    const overflowWarnings: string[] = [];
+    const overflowMatches = searchPageWithMatchCap(
+      spans,
+      { text: Array.from({ length: 5 }, () => 'needle').join('\n'), confidence: 0.99, lang: 'eng', words },
+      1,
+      612,
+      792,
+      compiled,
+      2,
+      (message) => overflowWarnings.push(message),
+    );
+
+    expect(overflowMatches.filter((match) => match.source === 'native')).toHaveLength(2);
+    expect(overflowMatches.filter((match) => match.source === 'ocr')).toMatchObject([
+      { source: 'ocr', bbox: { x: 10, y: 50, width: 30, height: 10 } },
+      { source: 'ocr', bbox: { x: 10, y: 70, width: 30, height: 10 } },
+    ]);
+    expect(overflowWarnings).toEqual([
+      'search query "needle" exceeded the per-page OCR match cap of 2 on page 1; later OCR matches for this query on this page were dropped.',
+    ]);
+  });
+
+  it('applies exact-cap and overflow semantics independently to structured text sources', () => {
+    const compiled = compileSearch('needle', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const makeSources = (count: number) => ({
+      fields: Array.from(
+        { length: count },
+        (_, index): FormField => ({
+          name: `Field${index}`,
+          type: 'text',
+          value: 'needle',
+          x: index * 20,
+          y: 10,
+          width: 10,
+          height: 10,
+        }),
+      ),
+      annotations: Array.from(
+        { length: count },
+        (_, index): PageAnnotation => ({
+          subtype: 'FreeText',
+          contents: 'needle',
+          x: index * 20,
+          y: 40,
+          width: 10,
+          height: 10,
+        }),
+      ),
+      links: Array.from(
+        { length: count },
+        (_, index): PageLink => ({
+          type: 'url',
+          target: 'needle',
+          x: index * 20,
+          y: 70,
+          width: 10,
+          height: 10,
+        }),
+      ),
+    });
+    const exact = makeSources(2);
+    exact.fields.push({ ...exact.fields[0], name: 'DuplicateField' });
+    exact.annotations.push({ ...exact.annotations[0] });
+    exact.links.push({ ...exact.links[0] });
+    const exactWarnings: string[] = [];
+    const exactMatches = searchPageWithMatchCap(
+      [],
+      undefined,
+      1,
+      612,
+      792,
+      compiled,
+      2,
+      (message) => exactWarnings.push(message),
+      exact.fields,
+      exact.annotations,
+      exact.links,
+    );
+
+    expect(exactMatches.filter((match) => match.source === 'formField')).toHaveLength(2);
+    expect(exactMatches.filter((match) => match.source === 'annotation')).toHaveLength(2);
+    expect(exactMatches.filter((match) => match.source === 'link')).toHaveLength(2);
+    expect(exactWarnings).toEqual([]);
+
+    const overflow = makeSources(3);
+    overflow.fields.splice(2, 0, { ...overflow.fields[0], name: 'DuplicateField' });
+    overflow.annotations.splice(2, 0, { ...overflow.annotations[0] });
+    overflow.links.splice(2, 0, { ...overflow.links[0] });
+    const overflowWarnings: string[] = [];
+    const overflowMatches = searchPageWithMatchCap(
+      [],
+      undefined,
+      1,
+      612,
+      792,
+      compiled,
+      2,
+      (message) => overflowWarnings.push(message),
+      overflow.fields,
+      overflow.annotations,
+      overflow.links,
+    );
+
+    expect(overflowMatches.filter((match) => match.source === 'formField')).toHaveLength(2);
+    expect(overflowMatches.filter((match) => match.source === 'annotation')).toHaveLength(2);
+    expect(overflowMatches.filter((match) => match.source === 'link')).toHaveLength(2);
+    expect(overflowWarnings).toEqual([
+      'search query "needle" exceeded the per-page form-field match cap of 2 on page 1; later form-field matches for this query on this page were dropped.',
+      'search query "needle" exceeded the per-page annotation match cap of 2 on page 1; later annotation matches for this query on this page were dropped.',
+      'search query "needle" exceeded the per-page link match cap of 2 on page 1; later link matches for this query on this page were dropped.',
+    ]);
   });
 
   it('keeps cache entries with different search queries separate', async () => {
