@@ -13,7 +13,9 @@ import { appendPage } from './xml/page.js';
  * `page` becomes `no`, `pageLabel` becomes `label`, `quality` fields are
  * flattened into page attributes, overview rotation is currently omitted,
  * and empty-field presence differs from JSON. Page-result rotation remains
- * a `<page rotation="...">` attribute.
+ * a `<page rotation="...">` attribute. XML-1.0-forbidden code units are
+ * represented as `[[pdfvision:U+XXXX]]`; literal `[[pdfvision:` prefixes are
+ * escaped as `[[pdfvision:literal:` so the representation is unambiguous.
  *
  * Representative shape:
  *   <document file=".." totalPages="N">

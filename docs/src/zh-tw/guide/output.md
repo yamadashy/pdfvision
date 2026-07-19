@@ -50,6 +50,8 @@ XML 是用於呈現的標籤形 near-parity projection，不是可逆的 `Docume
 
 `rawText` 變為同層 `<rawText>`，`repeated: true` 變為 `<block repeated="true">`，頂層 `xfa: true` 變為 `<document xfa="true">`。
 
+XML 1.0 無法包含大多數 C0 控制字元、`U+FFFE` / `U+FFFF` 或未配對的 UTF-16 代理項。pdfvision 會將每個禁止的程式碼單元表示為 `[[pdfvision:U+XXXX]]`，以維持 XML 格式正確。原文中的 `[[pdfvision:` 前綴會輸出為 `[[pdfvision:literal:`，因此一般文字不會與產生的標記衝突。需要原始程式碼單元時，請在解析 XML 後由左至右掃描一次：還原 literal-prefix 逸出且不要再次掃描已還原的前綴，並只解碼產生的程式碼單元標記。
+
 當使用方或提示詞按照明確的 `<page>`、`<text>`、`<warning>`、match 和 layout block 邊界建立時使用 XML。
 
 ## TOON
@@ -58,7 +60,7 @@ XML 是用於呈現的標籤形 near-parity projection，不是可逆的 `Docume
 pdfvision document.pdf --format toon
 ```
 
-解碼 TOON 後會與 JSON 資料模型完全一致，未設定的 `undefined` 欄位保持不存在。具有相同純量欄位的物件陣列可以使用只宣告一次欄位名稱的表格形式。
+每個成功輸出的 TOON 在解碼後都與 JSON 資料模型完全一致，未設定的 `undefined` 欄位保持不存在。TOON 的字串語法無法讓未配對的 UTF-16 代理項無損通過 UTF-8 邊界，因此 pdfvision 會拒絕此邊界情況並提示使用 JSON，而不會默默替換字元。有效的代理項配對和字面值 `\uD800` 文字不受影響。具有相同純量欄位的物件陣列可以使用只宣告一次欄位名稱的表格形式。
 
 包含巢狀值的陣列，以及項目之間欄位不同的陣列，仍使用列表形式。
 

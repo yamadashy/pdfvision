@@ -154,8 +154,11 @@ export interface ProcessDocumentOptions {
    * When normalization actually changes the page text, the returned
    * `DocumentResult` preserves the pre-normalization form on
    * `pages[].rawText` so callers can diff the two without re-running with
-   * `normalize: false`. JSON and decoded TOON preserve that exact field;
-   * XML projects it as a sibling `<rawText>` element, and Markdown omits it.
+   * `normalize: false`. JSON preserves that exact field. Decoded TOON does too
+   * unless the string contains an unpaired UTF-16 surrogate. TOON rejects that
+   * edge case to avoid lossy UTF-8 output, so use JSON. XML projects it as a
+   * sibling `<rawText>` element and represents XML-1.0-forbidden code units with unambiguous
+   * `[[pdfvision:U+XXXX]]` markers; Markdown omits it.
    * Pass `normalize: false` if
    * original codepoint fidelity matters for downstream diff / forensics /
    * glyph-level audit.

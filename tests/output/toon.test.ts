@@ -118,6 +118,68 @@ describe('formatToon', () => {
     expect(decoded).toEqual(JSON.parse(formatJson(result)));
   });
 
+  it('preserves Unicode scalar strings across UTF-8 and rejects lone surrogates before they corrupt', () => {
+    const scalarText = 'valid pair: \u{1F600}; literal escapes: \\uD800 and \\uDC00';
+    const scalarResult = makeResult({
+      pages: [makePage({ page: 1, text: scalarText, charCount: scalarText.length })],
+    });
+    const toonBytes = Buffer.from(formatToon(scalarResult), 'utf8');
+    const decoded = decode(toonBytes.toString('utf8')) as unknown as DocumentResult;
+    expect(decoded).toEqual(JSON.parse(formatJson(scalarResult)));
+    expect(decoded.pages[0].text).toBe(scalarText);
+
+    for (const [surrogate, code] of [
+      ['\ud800', 'D800'],
+      ['\udc00', 'DC00'],
+    ] as const) {
+      const text = `before${surrogate}after`;
+      const result = makeResult({ pages: [makePage({ page: 1, text, charCount: text.length })] });
+      expect(() => formatToon(result)).toThrow(
+        `TOON cannot losslessly encode unpaired UTF-16 surrogate U+${code} at $.pages[0].text[6]`,
+      );
+
+      // JSON is the documented lossless fallback: its ASCII escape survives
+      // a real UTF-8 byte boundary and JSON.parse restores the code unit.
+      const jsonBytes = Buffer.from(formatJson(result), 'utf8');
+      const jsonDecoded = JSON.parse(jsonBytes.toString('utf8')) as DocumentResult;
+      expect(jsonDecoded.pages[0].text).toBe(text);
+    }
+  });
+
+  it('rejects lone surrogates in object property keys with the owning path and key index', () => {
+    const actionName = 'open\ud800action';
+    const result = makeResult({
+      viewer: { jsActions: { [actionName]: ['app.alert("test")'] } },
+    });
+
+    expect(() => formatToon(result)).toThrow(
+      'TOON cannot losslessly encode unpaired UTF-16 surrogate U+D800 at $.viewer.jsActions (property key "open\\ud800action", code-unit index 4)',
+    );
+
+    const jsonBytes = Buffer.from(formatJson(result), 'utf8');
+    const jsonDecoded = JSON.parse(jsonBytes.toString('utf8')) as DocumentResult;
+    expect(jsonDecoded.viewer?.jsActions?.[actionName]).toEqual(['app.alert("test")']);
+  });
+
+  it('bounds attacker-controlled property-key previews in errors', () => {
+    const actionName = `${'x'.repeat(512)}\ud800tail-that-must-not-appear`;
+    const result = makeResult({
+      viewer: { jsActions: { [actionName]: ['app.alert("test")'] } },
+    });
+
+    let message = '';
+    try {
+      formatToon(result);
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    }
+    expect(message).toContain('at $.viewer.jsActions (property key "');
+    expect(message).toContain('…');
+    expect(message).toContain('code-unit index 512');
+    expect(message).not.toContain('tail-that-must-not-appear');
+    expect(message.length).toBeLessThan(400);
+  });
+
   it('collapses a uniform spans array into a tabular header declared once', () => {
     const out = formatToon(
       makeResult({

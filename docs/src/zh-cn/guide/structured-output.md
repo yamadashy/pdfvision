@@ -5,7 +5,7 @@ description: 理解 pdfvision 的 DocumentResult、PageResult、overview、quali
 
 # 结构化输出
 
-`--format json` 序列化 `DocumentResult`。`--format toon` 的解码结果与 JSON 的 parse 结果完全一致，未设置的 `undefined` 保持不存在。XML 是面向展示的标签形 near-parity projection，不是可逆的 `DocumentResult` 序列化。Markdown 会有意转换或省略字段。
+`--format json` 序列化 `DocumentResult`。每个成功输出的 `--format toon` 在解码后都与 JSON 的 parse 结果完全一致，未设置的 `undefined` 保持不存在。TOON 无法让未配对的 UTF-16 代理项无损通过 UTF-8 边界，因此该边界情况会报错并要求使用 JSON；有效的代理项对和字面量 backslash-u 文本不受影响。XML 是面向展示的标签形 near-parity projection，不是可逆的 `DocumentResult` 序列化。Markdown 会有意转换或省略字段。
 
 该 schema 被设计成智能体的 evidence model。它不只说“这里是文本”，还会说明找到了多少文本、页面上有哪些视觉材料、原生文本是否可信、证据出现在页面的哪里，以及请求到的 PDF 功能字段是否存在。
 
@@ -13,7 +13,7 @@ description: 理解 pdfvision 的 DocumentResult、PageResult、overview、quali
 
 本页的 JSON 风格路径仅对 JSON、解码后的 TOON 和 `processDocument()` 精确有效。XML 将 `page` 映射为 `no`、`pageLabel` 映射为 `label`，并将嵌套 `quality` 展平为属性。页面结果保留 rotation 属性，overview rotation 当前省略，空字段的存在方式也可能不同。
 
-JSON/TOON 精确使用 `pages[].rawText` 和 `layout.blocks[].repeated`；XML 使用同级 `<rawText>` 和 `<block repeated="true">`；Markdown 省略 `rawText`，仅在指定 `--strip-repeated` 时移除重复块。JSON/TOON 使用顶层 `xfa`，XML 使用 `<document xfa="true">`。
+JSON 和成功输出的 TOON 精确使用 `pages[].rawText` 和 `layout.blocks[].repeated`；XML 使用同级 `<rawText>` 和 `<block repeated="true">`；Markdown 省略 `rawText`，仅在指定 `--strip-repeated` 时移除重复块。JSON/TOON 使用顶层 `xfa`，XML 使用 `<document xfa="true">`。XML 1.0 禁止的代码单元表示为 `[[pdfvision:U+XXXX]]`，原文中的 `[[pdfvision:` 前缀会转义为 `[[pdfvision:literal:`，因此这种表示不会产生歧义。
 
 ## 顶层结构
 

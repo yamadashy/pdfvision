@@ -1,6 +1,6 @@
-import { encode } from '@toon-format/toon';
 import type { DocumentResult, OutputFormat, SearchMatch } from '../types/index.js';
 import { escapeTableCell, formatBox } from './markdown/helpers.js';
+import { encodeJsonModelAsToon } from './toon.js';
 import { escapeAttr, escapeText } from './xml/helpers.js';
 
 /**
@@ -118,11 +118,7 @@ function formatJson(model: MatchesOnlyModel): string {
 }
 
 function formatToon(model: MatchesOnlyModel): string {
-  // Encode the JSON-normalized form for the same reason the full toon
-  // formatter does: the encoder renders `undefined` as explicit `null`,
-  // so round-tripping through JSON keeps optional fields (context) off
-  // when absent instead of emitting spurious `context: null` rows.
-  return encode(JSON.parse(JSON.stringify(serializableModel(model))));
+  return encodeJsonModelAsToon(serializableModel(model));
 }
 
 function formatXml(model: MatchesOnlyModel): string {

@@ -28,6 +28,56 @@ function makeResult(overrides: Partial<DocumentResult> = {}): DocumentResult {
   };
 }
 
+function xmlForbiddenMarker(codeUnit: number): string {
+  return `[[pdfvision:U+${codeUnit.toString(16).toUpperCase().padStart(4, '0')}]]`;
+}
+
+const FORBIDDEN_C0_CODE_UNITS = [
+  ...Array.from({ length: 9 }, (_, codeUnit) => codeUnit),
+  0x0b,
+  0x0c,
+  ...Array.from({ length: 18 }, (_, index) => index + 0x0e),
+];
+const HIGH_SURROGATE_CODE_UNITS = Array.from({ length: 0x400 }, (_, index) => index + 0xd800);
+const LOW_SURROGATE_CODE_UNITS = Array.from({ length: 0x400 }, (_, index) => index + 0xdc00);
+const XML_FORBIDDEN_CASES = [
+  ...FORBIDDEN_C0_CODE_UNITS.map((codeUnit) => ({
+    name: `C0 U+${codeUnit.toString(16).toUpperCase().padStart(4, '0')}`,
+    input: String.fromCharCode(codeUnit),
+    represented: xmlForbiddenMarker(codeUnit),
+  })),
+  ...[0xfffe, 0xffff].map((codeUnit) => ({
+    name: `noncharacter U+${codeUnit.toString(16).toUpperCase()}`,
+    input: String.fromCharCode(codeUnit),
+    represented: xmlForbiddenMarker(codeUnit),
+  })),
+  {
+    name: 'every lone high surrogate',
+    input: HIGH_SURROGATE_CODE_UNITS.map((codeUnit) => String.fromCharCode(codeUnit)).join('X'),
+    represented: HIGH_SURROGATE_CODE_UNITS.map(xmlForbiddenMarker).join('X'),
+  },
+  {
+    name: 'every lone low surrogate',
+    input: LOW_SURROGATE_CODE_UNITS.map((codeUnit) => String.fromCharCode(codeUnit)).join('X'),
+    represented: LOW_SURROGATE_CODE_UNITS.map(xmlForbiddenMarker).join('X'),
+  },
+  {
+    name: 'high-high-low malformed sequence',
+    input: '\ud800\ud801\udc00',
+    represented: `${xmlForbiddenMarker(0xd800)}\ud801\udc00`,
+  },
+  {
+    name: 'high-low-low malformed sequence',
+    input: '\ud800\udc00\udc01',
+    represented: `\ud800\udc00${xmlForbiddenMarker(0xdc01)}`,
+  },
+  {
+    name: 'low-high malformed sequence',
+    input: '\udc00\ud800',
+    represented: `${xmlForbiddenMarker(0xdc00)}${xmlForbiddenMarker(0xd800)}`,
+  },
+];
+
 describe('formatXml', () => {
   it('wraps the result in a <document> root tag with file and totalPages attributes', () => {
     const out = formatXml(makeResult({ totalPages: 5 }));
@@ -147,6 +197,62 @@ describe('formatXml', () => {
     );
     expect(out).toMatch(/<text>\nABC\n<\/text>/);
     expect(out).toMatch(/<rawText>\nＡＢＣ\n<\/rawText>/);
+  });
+
+  it('represents XML-1.0-forbidden code units without colliding with literal marker text', () => {
+    const literalMarker = '[[pdfvision:U+0008]]';
+    const literalEscape = '[[pdfvision:literal:U+0008]]';
+    const out = formatXml(
+      makeResult({
+        file: `/tmp/attr\b-${literalMarker}.pdf`,
+        metadata: {
+          title: `metadata\u0000${literalMarker} ${literalEscape}`,
+          author: null,
+          subject: null,
+          creator: null,
+        },
+        pages: [
+          makePage({
+            page: 1,
+            pageLabel: 'A\fB',
+            text: `visible\b emoji \u{1F600} ${literalMarker}`,
+            rawText: 'raw\u0000\u0001\ud800X\udc00',
+            charCount: 10,
+          }),
+        ],
+      }),
+    );
+
+    expect(out).toContain('file="/tmp/attr[[pdfvision:U+0008]]-[[pdfvision:literal:U+0008]].pdf"');
+    expect(out).toContain(
+      '<title>metadata[[pdfvision:U+0000]][[pdfvision:literal:U+0008]] [[pdfvision:literal:literal:U+0008]]</title>',
+    );
+    expect(out).toContain('label="A[[pdfvision:U+000C]]B"');
+    expect(out).toContain('visible[[pdfvision:U+0008]] emoji \u{1F600} [[pdfvision:literal:U+0008]]');
+    expect(out).toContain('raw[[pdfvision:U+0000]][[pdfvision:U+0001]][[pdfvision:U+D800]]X[[pdfvision:U+DC00]]');
+    const hasXmlForbiddenCodePoint = [...out].some((character) => {
+      const codePoint = character.codePointAt(0) ?? 0;
+      return (
+        (codePoint < 0x20 && codePoint !== 0x09 && codePoint !== 0x0a && codePoint !== 0x0d) ||
+        (codePoint >= 0xd800 && codePoint <= 0xdfff) ||
+        codePoint === 0xfffe ||
+        codePoint === 0xffff
+      );
+    });
+    expect(hasXmlForbiddenCodePoint).toBe(false);
+  });
+
+  it.each(XML_FORBIDDEN_CASES)('represents the complete XML-forbidden set: $name', ({ input, represented }) => {
+    const out = formatXml(
+      makeResult({
+        file: `attr-${input}`,
+        pages: [makePage({ page: 1, text: `text-${input}`, rawText: `raw-${input}`, charCount: input.length })],
+      }),
+    );
+
+    expect(out).toContain(`file="attr-${represented}"`);
+    expect(out).toContain(`<text>\ntext-${represented}\n</text>`);
+    expect(out).toContain(`<rawText>\nraw-${represented}\n</rawText>`);
   });
 
   it('emits a <spans> block with bbox attributes when spans are present', () => {

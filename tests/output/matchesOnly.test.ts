@@ -110,11 +110,45 @@ describe('formatMatchesOnly', () => {
   });
 
   it('toon: round-trips to the same flat data model as json', () => {
-    const toon = formatMatchesOnly(THREE_HITS, 'toon', ['BLEU']);
-    const decoded = decode(toon) as { totalMatches: number; matches: unknown[]; pages?: unknown };
-    expect(decoded.totalMatches).toBe(3);
-    expect(decoded.matches).toHaveLength(3);
-    expect(decoded.pages).toBeUndefined();
+    const toonBytes = Buffer.from(formatMatchesOnly(THREE_HITS, 'toon', ['BLEU']), 'utf8');
+    const decoded = decode(toonBytes.toString('utf8'));
+    expect(decoded).toEqual(JSON.parse(formatMatchesOnly(THREE_HITS, 'json', ['BLEU'])));
+  });
+
+  it.each([
+    { field: 'query', code: 'D800', surrogate: '\ud800', path: '$.queries[0][6]' },
+    { field: 'text', code: 'DC00', surrogate: '\udc00', path: '$.matches[0].text[6]' },
+    { field: 'context', code: 'DBFF', surrogate: '\udbff', path: '$.matches[0].context[6]' },
+  ] as const)('toon: rejects an unpaired surrogate in matches-only $field before UTF-8 output', (testCase) => {
+    const unsafe = `before${testCase.surrogate}after`;
+    const queries = [testCase.field === 'query' ? unsafe : 'BLEU'];
+    const result = makeResult([
+      makePage({
+        page: 1,
+        matches: [
+          match({
+            page: 1,
+            ...(testCase.field === 'text' && { text: unsafe }),
+            ...(testCase.field === 'context' && { context: unsafe }),
+          }),
+        ],
+      }),
+    ]);
+
+    expect(() => formatMatchesOnly(result, 'toon', queries)).toThrow(
+      `TOON cannot losslessly encode unpaired UTF-16 surrogate U+${testCase.code} at ${testCase.path}`,
+    );
+
+    // The documented JSON fallback keeps the code unit through the same
+    // UTF-8 byte boundary that would otherwise replace a raw surrogate.
+    const jsonBytes = Buffer.from(formatMatchesOnly(result, 'json', queries), 'utf8');
+    const parsed = JSON.parse(jsonBytes.toString('utf8')) as {
+      queries: string[];
+      matches: { text: string; context?: string }[];
+    };
+    const recovered =
+      testCase.field === 'query' ? parsed.queries[0] : (parsed.matches[0][testCase.field] as string | undefined);
+    expect(recovered).toBe(unsafe);
   });
 
   it('multi-query: keeps queryIndex per hit and lists every query', () => {

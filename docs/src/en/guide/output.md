@@ -52,6 +52,8 @@ XML is a tag-shaped near-parity presentation projection, not a reversible `Docum
 
 `rawText` becomes a sibling `<rawText>` element, `repeated: true` becomes `<block repeated="true">`, and top-level `xfa: true` becomes `<document xfa="true">`.
 
+XML 1.0 cannot contain most C0 controls, `U+FFFE`/`U+FFFF`, or unpaired UTF-16 surrogates. pdfvision keeps the document well-formed by representing each forbidden code unit as `[[pdfvision:U+XXXX]]`. A literal `[[pdfvision:` prefix is emitted as `[[pdfvision:literal:`, so normal text cannot collide with a generated marker. To recover source code units after XML parsing, scan once from left to right: restore the literal-prefix escape without rescanning the restored prefix, and decode generated code-unit markers.
+
 Use XML when a consumer or prompt is built around explicit `<page>`, `<text>`, `<warning>`, match, and layout-block boundaries.
 
 ## TOON
@@ -60,7 +62,7 @@ Use XML when a consumer or prompt is built around explicit `<page>`, `<text>`, `
 pdfvision document.pdf --format toon
 ```
 
-Decoding TOON exactly matches the JSON data model (`JSON.parse(formatJson(result))`), including omission of unset `undefined` fields. Arrays of objects with identical scalar fields can use a tabular form that declares field names once and reduces repeated-key overhead.
+Every emitted TOON payload decodes to exactly the JSON data model (`JSON.parse(formatJson(result))`), including omission of unset `undefined` fields. TOON's string grammar cannot losslessly represent an unpaired UTF-16 surrogate across a UTF-8 wire boundary, so pdfvision rejects that edge case and directs callers to JSON rather than silently replacing it. Valid surrogate pairs and literal `\uD800` text are preserved. Arrays of objects with identical scalar fields can use a tabular form that declares field names once and reduces repeated-key overhead.
 
 Arrays with nested values or entries with differing fields remain in list form.
 

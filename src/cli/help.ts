@@ -169,8 +169,10 @@ Output formats
                       the structural Layout tables / Blocks / Tables columns on top.
   json                Full DocumentResult schema. For programmatic parsing.
   xml                 Tag-shaped near-parity projection. Page rotation stays; overview rotation is omitted;
-                      names, nesting, and empty-field presence can differ.
-  toon                Token-Oriented Object Notation: decodes to exactly the json data model.
+                      names, nesting, and empty-field presence can differ. XML-forbidden code units become
+                      unambiguous [[pdfvision:U+XXXX]] markers.
+  toon                Token-Oriented Object Notation: decodes to exactly the json data model when emitted;
+                      an unpaired UTF-16 surrogate errors instead of corrupting it (use json for that case).
                       Arrays whose entries have the same scalar fields can use a tabular form;
                       normal overview and mixed-field spans/lines stay in list form.
 

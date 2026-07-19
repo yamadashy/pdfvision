@@ -28,7 +28,7 @@ npx pdfvision doc.pdf -p 3 --render --render-region 100,200,300,150 # zoom a reg
 npx pdfvision report.pdf --search "revenue" --matches-only          # v0.13.0+: report + bboxes
 ```
 
-Default Markdown enables layout and may use another cache entry. Decoded TOON exactly matches JSON; XML is a mapped tag projection. See `references/structured-output.md` for XML names.
+Default Markdown enables layout and may use another cache entry. Every emitted TOON payload decodes exactly to JSON; an unpaired UTF-16 surrogate requires JSON. XML is a mapped tag projection. See `references/structured-output.md` for format edge cases and XML names.
 
 ## Picking the right flags
 

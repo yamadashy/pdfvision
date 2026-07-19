@@ -5,7 +5,7 @@ description: pdfvision の DocumentResult、PageResult、overview、quality、la
 
 # 構造化出力
 
-`--format json` は `DocumentResult` をシリアライズします。`--format toon` のデコード結果は JSON の parse 結果と完全に一致し、未設定の `undefined` は存在しません。XML は可逆な `DocumentResult` シリアライズではなく、タグ形式の near-parity 表示用 projection です。Markdown はフィールドを意図的に変換・省略します。
+`--format json` は `DocumentResult` をシリアライズします。出力された `--format toon` は、デコードすると JSON の parse 結果と完全に一致し、未設定の `undefined` は存在しません。ただし、単独の UTF-16 サロゲートは UTF-8 の境界越しに保持できないため、この場合はエラーとなり JSON が必要です。正しいサロゲートペアと、文字どおりの backslash-u は影響を受けません。XML は可逆な `DocumentResult` シリアライズではなく、タグ形式の near-parity 表示用 projection です。Markdown はフィールドを意図的に変換・省略します。
 
 この schema はエージェント向けの evidence model として設計されています。「テキストはこれです」だけでなく、どれだけテキストが見つかったか、どの視覚要素があるか、ネイティブテキストは信頼できそうか、根拠がページ上のどこにあるか、どの PDF 機能が存在したかを同時に伝えます。
 
@@ -13,7 +13,7 @@ description: pdfvision の DocumentResult、PageResult、overview、quality、la
 
 このページの JSON 形式パスは、JSON、デコード後の TOON、`processDocument()` でのみ正確です。XML では `page` → `no`、`pageLabel` → `label` となり、ネストされた `quality` は属性へ平坦化されます。ページ結果の rotation は属性に残りますが、overview の rotation は現在省略され、空フィールドの存在方も異なります。
 
-JSON/TOON は `pages[].rawText` と `layout.blocks[].repeated` を正確なフィールドとして保持します。XML は兄弟の `<rawText>` と `<block repeated="true">` を使います。Markdown は `rawText` を省略し、`--strip-repeated` 指定時だけ繰り返しブロックを除きます。JSON/TOON のトップレベル `xfa` は、XML では `<document xfa="true">` です。
+JSON と正常に出力された TOON は、`pages[].rawText` と `layout.blocks[].repeated` を正確なフィールドとして保持します。XML は兄弟の `<rawText>` と `<block repeated="true">` を使います。Markdown は `rawText` を省略し、`--strip-repeated` 指定時だけ繰り返しブロックを除きます。JSON/TOON のトップレベル `xfa` は、XML では `<document xfa="true">` です。XML 1.0 で禁止されたコードユニットは `[[pdfvision:U+XXXX]]` で表します。元の `[[pdfvision:` は `[[pdfvision:literal:` に変換するため、マーカーとの区別は失われません。
 
 ## トップレベル
 

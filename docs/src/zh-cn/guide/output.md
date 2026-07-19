@@ -50,6 +50,8 @@ XML 是面向展示的标签形 near-parity projection，不是可逆的 `Docume
 
 `rawText` 变为同级 `<rawText>`，`repeated: true` 变为 `<block repeated="true">`，顶层 `xfa: true` 变为 `<document xfa="true">`。
 
+XML 1.0 无法包含大多数 C0 控制字符、`U+FFFE` / `U+FFFF` 或未配对的 UTF-16 代理项。pdfvision 将每个禁止的代码单元表示为 `[[pdfvision:U+XXXX]]`，以保持 XML 格式正确。原文中的 `[[pdfvision:` 前缀会输出为 `[[pdfvision:literal:`，因此普通文本不会与生成的标记冲突。需要原始代码单元时，请在解析 XML 后从左到右扫描一次：还原 literal-prefix 转义且不要再次扫描已还原的前缀，并仅解码生成的代码单元标记。
+
 当使用方或提示词按照明确的 `<page>`、`<text>`、`<warning>`、match 和 layout block 边界构建时使用 XML。
 
 ## TOON
@@ -58,7 +60,7 @@ XML 是面向展示的标签形 near-parity projection，不是可逆的 `Docume
 pdfvision document.pdf --format toon
 ```
 
-解码 TOON 后会与 JSON 数据模型完全一致，未设置的 `undefined` 字段保持不存在。具有相同标量字段的对象数组可以使用只声明一次字段名的表格形式。
+每个成功输出的 TOON 在解码后都与 JSON 数据模型完全一致，未设置的 `undefined` 字段保持不存在。TOON 的字符串语法无法让未配对的 UTF-16 代理项无损通过 UTF-8 边界，因此 pdfvision 会拒绝该边界情况并提示使用 JSON，而不是静默替换字符。有效的代理项对和字面量 `\uD800` 文本不受影响。具有相同标量字段的对象数组可以使用只声明一次字段名的表格形式。
 
 包含嵌套值的数组，以及元素之间字段不同的数组，仍使用列表形式。
 
