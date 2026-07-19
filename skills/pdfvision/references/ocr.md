@@ -25,7 +25,7 @@ npx pdfvision doc.pdf --ocr --ocr-lang chi_sim     # Simplified Chinese
 npx pdfvision doc.pdf --ocr --ocr-lang eng+chi_sim+chi_tra
 ```
 
-**Order matters.** Tesseract treats the first language as the primary recogniser; later languages act as additional candidate dictionaries. `eng+jpn` favours English glyph recognition and falls back to Japanese; `jpn+eng` does the opposite. Empirically:
+**Order matters.** [Tesseract documents](https://tesseract-ocr.github.io/tessdoc/Command-Line-Usage.html#order-of-multiple-languages) the first language as primary and notes that language order can change OCR output and runtime. Put the dominant language first:
 
 - For mostly-Japanese slides with English headers / labels: `jpn+eng`
 - For English documentation with sparse Japanese terms: `eng+jpn`
@@ -128,9 +128,9 @@ This is a known limitation tracked separately from OCR. Workaround: source a dif
 
 ### "Confidence is moderate but text has obvious garbage"
 
-Most often a `--ocr-lang` mismatch — the page contains a language not listed in the spec, or the order is wrong (Japanese-dominant page run with `eng+jpn` instead of `jpn+eng`). Try the alternative ordering and compare.
+One possibility is a `--ocr-lang` mismatch — the page contains a language not listed in the spec, or the dominant language is not first (for example, a Japanese-dominant page run with `eng+jpn` instead of `jpn+eng`). Try the alternative ordering and compare.
 
-Second most common: low resolution. pdfvision renders at 2× by default. For genuinely fine print, render to PNG manually at higher scale and feed through tesseract.js directly via the library API (the CLI doesn't currently expose a scale flag for OCR).
+Another possibility is low resolution. pdfvision renders OCR at 2× by default. For genuinely fine print, try `--ocr --render-scale 3` first (supported range `(0, 4]`). If that is still insufficient, render a higher-resolution PNG separately and pass it to tesseract.js directly.
 
 ### "OCR is slow — N pages × M seconds is unbearable"
 
@@ -151,7 +151,7 @@ Keeping both signals available means a sanity check (compare native vs OCR for a
 ## Examples
 
 ```bash
-# Japanese slide deck, eng-dominant titles
+# Japanese-dominant slide deck with English titles
 npx pdfvision slides.pdf --ocr --ocr-lang jpn+eng -f json
 
 # English paper with embedded Chinese citations
