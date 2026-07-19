@@ -46,7 +46,7 @@ JSON は完全な `DocumentResult` スキーマを出力します。ツール、
 pdfvision document.pdf --format xml
 ```
 
-XML はタグ形式の near-parity 表示用 projection であり、可逆な `DocumentResult` シリアライズではありません。`page` は `no`、`pageLabel` は `label` に対応し、ネストされた `quality` はページ属性へ平坦化されます。ページ結果の rotation は属性に残りますが、overview の rotation は現在省略され、空フィールドの存在方も異なります。
+XML はタグ形式の near-parity 表示用 projection であり、可逆な `DocumentResult` シリアライズではありません。`page` は `no`、`pageLabel` は `label` に対応し、ネストされた `quality` はページ属性へ平坦化されます。ページ結果の rotation は属性に残りますが、overview の rotation は現在省略され、空フィールドの扱いも異なります。
 
 `rawText` は兄弟の `<rawText>`、`repeated: true` は `<block repeated="true">`、トップレベルの `xfa: true` は `<document xfa="true">` になります。
 

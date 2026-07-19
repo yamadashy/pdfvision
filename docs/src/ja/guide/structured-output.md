@@ -11,7 +11,7 @@ description: pdfvision の DocumentResult、PageResult、overview、quality、la
 
 ## 形式ごとの契約
 
-このページの JSON 形式パスは、JSON、デコード後の TOON、`processDocument()` でのみ正確です。XML では `page` → `no`、`pageLabel` → `label` となり、ネストされた `quality` は属性へ平坦化されます。ページ結果の rotation は属性に残りますが、overview の rotation は現在省略され、空フィールドの存在方も異なります。
+このページの JSON 形式パスは、JSON、デコード後の TOON、`processDocument()` でのみ正確です。XML では `page` → `no`、`pageLabel` → `label` となり、ネストされた `quality` は属性へ平坦化されます。ページ結果の rotation は属性に残りますが、overview の rotation は現在省略され、空フィールドの扱いも異なります。
 
 JSON と正常に出力された TOON は、`pages[].rawText` と `layout.blocks[].repeated` を正確なフィールドとして保持します。XML は兄弟の `<rawText>` と `<block repeated="true">` を使います。Markdown は `rawText` を省略し、`--strip-repeated` 指定時だけ繰り返しブロックを除きます。JSON/TOON のトップレベル `xfa` は、XML では `<document xfa="true">` です。XML 1.0 で禁止されたコードユニットは `[[pdfvision:U+XXXX]]` で表します。元の `[[pdfvision:` は `[[pdfvision:literal:` に変換するため、マーカーとの区別は失われません。
 
