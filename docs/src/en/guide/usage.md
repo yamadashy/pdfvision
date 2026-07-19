@@ -125,10 +125,10 @@ Use this when a PDF contains widget values, checkboxes, radio groups, visible co
 ## Outlines, Page Labels, and Document Features
 
 ```bash
-pdfvision document.pdf --page-labels --outline --viewer --layers --format json
+pdfvision document.pdf -p 1 --page-labels --outline --viewer --layers --format json
 ```
 
-Use these options when the PDF viewer experience matters: page labels that differ from physical page numbers, bookmarks, open actions, optional content layers, or viewer preferences.
+Use this probe when the PDF viewer experience matters: page labels that differ from physical page numbers, bookmarks, open actions, optional content layers, or viewer preferences. Here `-p 1` limits page extraction and emitted page output; it does not promise first-page-only document loading, parsing, or runtime. Without it, the feature flags still extract every page. Document-level fields still return. Page-level JavaScript actions are returned only for selected pages; when they matter, rerun `--viewer` with the relevant page range.
 
 ## Encrypted PDFs
 

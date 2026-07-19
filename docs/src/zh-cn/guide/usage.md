@@ -125,10 +125,10 @@ pdfvision form.pdf --layout --form-fields --annotations --links --format json
 ## 目录、页码标签与文档功能
 
 ```bash
-pdfvision document.pdf --page-labels --outline --viewer --layers --format json
+pdfvision document.pdf -p 1 --page-labels --outline --viewer --layers --format json
 ```
 
-当 PDF viewer 体验有意义时使用这些选项：不同于物理页码的页码标签、书签、open action、optional content layer 或 viewer preferences。
+当 PDF viewer 体验有意义时，使用此命令进行探测，例如检查不同于物理页码的页码标签、书签、open action、optional content layer 或 viewer preferences。这里的 `-p 1` 只限制页面提取和输出，并不保证只加载或解析第一页，也不限制整个文档的运行时间。若不指定它，文档功能选项仍会提取所有页面。文档级字段仍会返回。页面级 JavaScript actions 只针对选中的页面返回；如需检查，请用相关页范围重新运行 `--viewer`。
 
 ## 加密 PDF
 

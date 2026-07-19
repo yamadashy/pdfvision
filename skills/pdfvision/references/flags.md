@@ -79,6 +79,10 @@ Reviewed PDFs, annotated drafts, PDFs with sticky notes, highlights, underlines,
 
 Accessible PDFs, government forms/reports, manuals, and any PDF where figure alt text, role hierarchy, language hints, structure bboxes, or tagged tables may explain content that native text and rendered pixels alone do not label. Tagged `Table` structures are also reconstructed as row-major `structureTables[]` grids and GFM tables. Structure bboxes use the same top-left PDF-point coordinates as spans/layout/image boxes. Stray control bytes in structure strings are removed.
 
+## Document-level feature probes
+
+For the initial `-p 1 --page-labels --outline --viewer --layers` probe, `-p 1` limits page extraction/output, not whole-document loading, parsing, or runtime; document-level fields still return. Page JavaScript stays selected-page scoped, so rerun `--viewer` with the relevant range when it matters. Use `--structure` separately for page-level tagged trees.
+
 ## `--page-labels` — viewer page labels
 
 Long reports, specs, books, and papers where the PDF viewer shows roman front matter, section prefixes, or restarted page numbering that differs from physical page numbers.

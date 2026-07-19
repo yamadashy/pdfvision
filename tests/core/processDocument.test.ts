@@ -435,6 +435,24 @@ describe('processDocument', () => {
     }
   });
 
+  it('keeps document features complete when page extraction is limited', async () => {
+    const result = await processDocument(SAMPLE_FURNITURE_PDF, {
+      pages: '1',
+      noCache: true,
+      pageLabels: true,
+      outline: true,
+      viewer: true,
+      layers: true,
+    });
+
+    expect(result.pages.map((page) => page.page)).toEqual([1]);
+    expect(result.pageLabels).toEqual([]);
+    expect(result.outlineCount).toBe(2);
+    expect(result.outline).toEqual(expect.arrayContaining([expect.objectContaining({ type: 'destination', page: 2 })]));
+    expect(result.viewer).toMatchObject({ pageMode: 'UseOutlines' });
+    expect(result.layers).toEqual({ groups: [] });
+  });
+
   it('reports page dimensions in points so agents can reason about layout', async () => {
     // sample.pdf is US Letter (612 × 792 pt). Width / height let downstream
     // consumers map render coords / future bbox data back onto the page.

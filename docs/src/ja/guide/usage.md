@@ -125,10 +125,10 @@ PDF にウィジェット値、チェックボックス、ラジオグループ�
 ## アウトライン、ページラベル、文書機能
 
 ```bash
-pdfvision document.pdf --page-labels --outline --viewer --layers --format json
+pdfvision document.pdf -p 1 --page-labels --outline --viewer --layers --format json
 ```
 
-物理ページ番号と異なるページラベル、しおり、open action、optional content layer、viewer preference など、PDF viewer での見え方が意味を持つ場合に使います。
+物理ページ番号と異なるページラベル、しおり、open action、optional content layer、viewer preference など、PDF viewer での見え方が意味を持つ場合は、このコマンドで確認します。ここでの `-p 1` はページ抽出と出力だけを先頭ページに限定し、文書全体の読み込み・解析・実行時間まで限定するものではありません。指定しなければ、文書機能フラグは全ページを抽出します。文書レベルのフィールドは引き続き取得できます。ページ単位の JavaScript action は選択したページについてだけ返されるため、必要なら対象範囲を指定して `--viewer` を再実行してください。
 
 ## 暗号化 PDF
 

@@ -125,10 +125,10 @@ pdfvision form.pdf --layout --form-fields --annotations --links --format json
 ## 目錄、頁碼標籤與文件功能
 
 ```bash
-pdfvision document.pdf --page-labels --outline --viewer --layers --format json
+pdfvision document.pdf -p 1 --page-labels --outline --viewer --layers --format json
 ```
 
-當 PDF viewer 體驗有意義時使用這些選項：不同於實體頁碼的頁碼標籤、書籤、open action、optional content layer 或 viewer preferences。
+當 PDF viewer 體驗有意義時，使用此指令進行探查，例如檢查不同於實體頁碼的頁碼標籤、書籤、open action、optional content layer 或 viewer preferences。這裡的 `-p 1` 只限制頁面擷取與輸出，並不保證只載入或解析第 1 頁，也不限制整份文件的執行時間。若未指定，文件功能選項仍會擷取所有頁面。文件層級欄位仍會回傳。頁面層級的 JavaScript actions 只針對選取的頁面回傳；如需檢查，請用相關頁面範圍重新執行 `--viewer`。
 
 ## 加密 PDF
 
