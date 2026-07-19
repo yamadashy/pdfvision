@@ -85,7 +85,7 @@
     "pdfkit": "^0.19.1",
     "secretlint": "^13.0.2",
     "tsdown": "^0.22.5",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "vitepress": "^1.6.4",
     "vitepress-plugin-llms": "^1.13.3",
     "vitest": "^4.1.10",
