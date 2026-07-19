@@ -151,12 +151,17 @@ export interface ProcessDocumentOptions {
    * variants. Non-visible C0 controls other than tab / newline / carriage
    * return are stripped from normalized text.
    *
-   * When the normalization actually changes the page text, the
-   * pre-normalization form is preserved on `pages[].rawText` (json / xml
-   * outputs) so callers can diff the two without re-running with
-   * `normalize: false`. Markdown output only renders the normalized form
-   * — pass `normalize: false` if original codepoint fidelity matters for
-   * downstream diff / forensics / glyph-level audit.
+   * When normalization actually changes the page text, the returned
+   * `DocumentResult` preserves the pre-normalization form on
+   * `pages[].rawText` so callers can diff the two without re-running with
+   * `normalize: false`. JSON preserves that exact field. Decoded TOON does too
+   * unless the string contains an unpaired UTF-16 surrogate. TOON rejects that
+   * edge case to avoid lossy UTF-8 output, so use JSON. XML projects it as a
+   * sibling `<rawText>` element and represents XML-1.0-forbidden code units with unambiguous
+   * `[[pdfvision:U+XXXX]]` markers; Markdown omits it.
+   * Pass `normalize: false` if
+   * original codepoint fidelity matters for downstream diff / forensics /
+   * glyph-level audit.
    *
    * Pass `false` if you specifically need the raw code points emitted by
    * pdf.js (e.g. a forensic tool inspecting how the PDF was authored).

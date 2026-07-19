@@ -26,9 +26,11 @@ This page groups the CLI flags by task. Run `pdfvision --help` for the exact hel
 | `--json` | Shortcut for `--format json`. |
 | `--xml` | Shortcut for `--format xml`. |
 | `--toon` | Shortcut for `--format toon`. |
-| `--no-normalize` | Disable Unicode NFKC normalization. With normalization enabled, JSON and XML preserve changed pre-normalization text in `rawText`. |
+| `--no-normalize` | Disable Unicode NFKC normalization. With normalization enabled, JSON/TOON preserve changed text in `pages[].rawText`; XML uses a sibling `<rawText>`. Markdown omits it. |
 
 Format shortcuts are intentionally strict. Passing two different shortcuts, or a shortcut that conflicts with `--format`, is an error.
+
+JSON-style paths below are exact for JSON, decoded TOON, and `processDocument()`. XML maps them to tags/attributes (`page` → `no`, `pageLabel` → `label`, nested `quality` → flat attributes). Page-result rotation remains an attribute, overview rotation is currently omitted, and empty-field presence can differ.
 
 ## Rendering
 
@@ -51,7 +53,7 @@ Coordinates use a top-left origin: `x` grows right, `y` grows downward. The same
 | `--vector-boxes` | Emit vector drawing boxes in `pages[].vectorBoxes`. |
 | `--visual-regions` | Emit crop-ready regions for figures, charts, diagrams, tables, forms, annotations, and raster/vector clusters. |
 | `--render-visual-regions` | Render visual-region crops and attach crop paths, content ratios, and tighter rendered content boxes. Implies `--visual-regions`. |
-| `--strip-repeated` | Remove repeated headers, footers, and page-number blocks from Markdown output. Requires `--layout`; Markdown only. |
+| `--strip-repeated` | Remove repeated headers, footers, and page-number blocks from Markdown. Requires `--layout`; JSON/TOON retain `repeated: true`, and XML uses a `repeated="true"` block attribute. |
 
 ## Search
 
@@ -71,7 +73,7 @@ Search is NFKC-aware by default and can match native text, form-field text, link
 | `--links` | Emit link annotations with bboxes, URLs, named destinations, and resolved destination pages when available. Markdown also renders a links table. |
 | `--annotations` | Emit non-link annotations such as comments, highlights, stamps, file attachments, shapes, and ink. |
 | `--structure` | Emit tagged-PDF structure trees when the PDF provides them. |
-| `--page-labels` | Emit viewer page labels in `pageLabels` and `pages[].pageLabel`. |
+| `--page-labels` | Emit viewer page labels as `pageLabels` / `pages[].pageLabel` in JSON/TOON; XML uses `page` / `label` attributes. |
 | `--attachments` | Emit embedded file attachment metadata without embedding file bytes in the structured output. |
 | `--attachment-output <dir>` | Write embedded attachment files to disk. Requires `--attachments`. |
 | `--outline` | Emit document outline/bookmarks, preserving hierarchy, URLs, actions, and resolved destinations when possible. |

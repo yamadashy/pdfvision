@@ -5,7 +5,7 @@ description: pdfvision の Markdown、JSON、XML、TOON 出力の選び方。
 
 # 出力形式
 
-pdfvision は同じ抽出結果を複数の形式で出力できます。
+pdfvision は同じ抽出根拠を複数の形式で表現できますが、シリアライズ契約は形式ごとに異なります。
 
 出力を読む相手に応じて形式を選びます。人間、LLM prompt、tool、token 制約のある agent loop では適した表現が違います。抽出される根拠フィールドは同じで、形式だけが変わります。
 
@@ -16,7 +16,7 @@ pdfvision document.pdf
 pdfvision document.pdf --format markdown
 ```
 
-Markdown はデフォルトです。会話型 AI のコンテキストに渡しやすいよう、概要テーブル、ページごとの本文、警告、レンダリング画像リンクを含みます。
+Markdown はデフォルトです。会話型 AI のコンテキストに渡しやすいよう、概要テーブル、ページごとの本文、警告、レンダリング画像リンクを含みます。構造化フィールドは意図的に変換・省略され、`rawText` は出力されません。`--strip-repeated` は繰り返しブロックを本文から除きます。
 
 人間または chat model が直接読む場合に使います。会話の中で文書を推論し、次に実行すべき pdfvision コマンドを出す初回パスにも向いています。
 
@@ -46,7 +46,11 @@ JSON は完全な `DocumentResult` スキーマを出力します。ツール、
 pdfvision document.pdf --format xml
 ```
 
-XML は同じ `DocumentResult` データをタグ形式で再エンコードします。
+XML はタグ形式の near-parity 表示用 projection であり、可逆な `DocumentResult` シリアライズではありません。`page` は `no`、`pageLabel` は `label` に対応し、ネストされた `quality` はページ属性へ平坦化されます。ページ結果の rotation は属性に残りますが、overview の rotation は現在省略され、空フィールドの扱いも異なります。
+
+`rawText` は兄弟の `<rawText>`、`repeated: true` は `<block repeated="true">`、トップレベルの `xfa: true` は `<document xfa="true">` になります。
+
+XML 1.0 では、ほとんどの C0 制御文字、`U+FFFE` / `U+FFFF`、単独の UTF-16 サロゲートを扱えません。pdfvision は XML を整形式に保つため、禁止されたコードユニットを `[[pdfvision:U+XXXX]]` として表します。元のテキストにある `[[pdfvision:` は `[[pdfvision:literal:` に変換するので、通常の文字列と生成したマーカーは衝突しません。元のコードユニットが必要な場合は、XML の parse 後に左から一度だけ走査します。`literal:` の escape は元の prefix に戻し、戻した prefix を再走査せず、生成されたコードユニットマーカーだけをデコードしてください。
 
 `<page>`、`<text>`、`<warning>`、match、layout block の明示的な境界を前提とする利用側やプロンプトで使います。
 
@@ -56,7 +60,7 @@ XML は同じ `DocumentResult` データをタグ形式で再エンコードし�
 pdfvision document.pdf --format toon
 ```
 
-TOON は同じ構造化結果をロスなく再エンコードします。同じスカラーフィールドを持つオブジェクト配列は、フィールド名を一度だけ宣言する表形式になり、キーの反復を減らせます。
+出力された TOON は、デコードすると JSON のデータモデルと完全に一致します。未設定の `undefined` フィールドも存在しません。ただし TOON の文字列文法では、単独の UTF-16 サロゲートを UTF-8 の境界越しに保持できません。この場合、pdfvision は文字化けさせずにエラーとし、JSON の利用を案内します。正しいサロゲートペアと、文字どおりの `\uD800` は保持されます。同じスカラーフィールドを持つオブジェクト配列は、フィールド名を一度だけ宣言する表形式にできます。
 
 ネストされた値を含む配列や、要素間でフィールドが異なる配列はリスト形式のままです。
 

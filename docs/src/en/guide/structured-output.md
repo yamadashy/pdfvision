@@ -5,9 +5,15 @@ description: Understand pdfvision DocumentResult, PageResult, overview, quality,
 
 # Structured Output
 
-`--format json`, `--format xml`, and `--format toon` re-encode the same underlying `DocumentResult` data. JSON is easiest for programs, and XML is tag-shaped for consumers or prompts built around explicit tags. TOON is lossless; arrays of objects with identical scalar fields can use a tabular form that reduces repeated-key overhead, while arrays with nested values or entries with differing fields remain in list form. Compare formats on your own documents and in the target model context.
+`--format json` serializes `DocumentResult`. Every emitted `--format toon` payload decodes to the exact parsed JSON output, with unset `undefined` fields absent. Because TOON cannot preserve an unpaired UTF-16 surrogate across UTF-8, that edge case errors and requires JSON; valid pairs and literal backslash-u text are unaffected. XML is a tag-shaped near-parity presentation projection rather than a reversible `DocumentResult` serialization, and Markdown deliberately transforms or omits fields. Compare formats on your own documents and in the target model context.
 
 The schema is designed as an evidence model for agents. It does not only say "here is the text"; it also says how much text was found, what visual material exists, whether the native text looks trustworthy, where evidence appears on the page, and what optional PDF features were present.
+
+## Format Contracts
+
+JSON-style paths on this page are exact only for JSON, decoded TOON, and `processDocument()`. XML maps `page` to `no`, `pageLabel` to `label`, and nested `quality` fields to flat attributes. It keeps page-result rotation as an attribute but currently omits overview rotation, and its empty-field presence can differ.
+
+Format-specific truths: JSON/TOON use the exact `pages[].rawText` and `layout.blocks[].repeated` fields for successful output; XML uses sibling `<rawText>` and `<block repeated="true">`; Markdown omits `rawText` and removes repeated blocks only with `--strip-repeated`. JSON/TOON use top-level `xfa`, while XML uses `<document xfa="true">`. XML-1.0-forbidden code units are represented as `[[pdfvision:U+XXXX]]`, and literal `[[pdfvision:` prefixes are escaped as `[[pdfvision:literal:` so the representation is unambiguous.
 
 ## Top-Level Shape
 

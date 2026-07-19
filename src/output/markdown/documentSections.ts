@@ -5,7 +5,7 @@ function outlineLabel(item: NonNullable<DocumentResult['outline']>[number]): str
   // Markdown keeps only what an agent can act on: the resolved page number,
   // external URLs, and viewer action names. Internal destination identifiers
   // (e.g. `G6.2293078`) cost ~30% of the outline tokens on bookmark-heavy
-  // documents and feed no follow-up command; JSON/XML still carry them.
+  // documents and feed no follow-up command; structured output still carries them.
   const parts: string[] = [];
   if (item.page !== undefined) parts.push(`p. ${item.page}`);
   if (item.type === 'url' && item.target) parts.push(item.target);

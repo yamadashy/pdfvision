@@ -70,10 +70,11 @@ export interface ProcessOptions {
    * and conservative vertical edge markers) from the rendered Markdown
    * body so an LLM doesn't have to read the same footer N times.
    *
-   * Only applies when `format` is `'markdown'`. Passing it with `'json'`
-   * or `'xml'` throws — those formats already expose `repeated: true`
-   * on each layout block, so downstream consumers can filter themselves
-   * and a silent no-op there would be a footgun.
+   * Only applies when `format` is `'markdown'`. Passing it with `'json'`,
+   * `'xml'`, or `'toon'` throws — JSON/TOON preserve `repeated: true` on
+   * each layout block, while XML uses a `repeated="true"` block attribute.
+   * Downstream consumers can filter either projection themselves, and a
+   * silent no-op would be a footgun.
    *
    * Requires `layout: true` (the `repeated` flag is only set during the
    * layout post-processing pass); throws otherwise.

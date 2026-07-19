@@ -712,7 +712,7 @@ describe('formatMarkdown', () => {
     expect(out).toContain('## Outline');
     // Internal destination identifiers are dropped in Markdown once the page
     // is resolved — they feed no follow-up command and dominate outline size
-    // on bookmark-heavy documents. JSON/XML keep the full target.
+    // on bookmark-heavy documents. Structured output keeps the full target.
     expect(out).toContain('- Intro \\[draft\\] (p. 1)');
     expect(out).not.toContain('section.1');
     expect(out).toContain('  - Website (https://example.com)');
@@ -1202,7 +1202,7 @@ describe('formatMarkdown', () => {
 
   it('appends a native: unusable_glyph_indices badge when quality flags cmap garbage', () => {
     // Hebrew UDHR-shaped page: usable charCount but the glyph indices are
-    // garbage. JSON / XML already expose this; markdown must surface it
+    // garbage. Structured output already exposes this; markdown must surface it
     // too so an agent reader can dispatch without inferring "62% means bad".
     const out = formatMarkdown(
       makeResult({

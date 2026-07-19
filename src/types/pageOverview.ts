@@ -42,7 +42,8 @@ export interface PageOverview {
   /**
    * Mirror of {@link PageResult.rotation}, present only for rotated pages
    * so multi-page consumers can spot pages whose rendered PNG orientation
-   * differs from the MediaBox coordinate system.
+   * differs from the MediaBox coordinate system. XML currently omits this
+   * overview attribute; JSON, decoded TOON, and the library retain it.
    */
   rotation?: number;
   /**

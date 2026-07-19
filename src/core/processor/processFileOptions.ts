@@ -10,7 +10,7 @@ export function validateProcessFileOptions(options: ProcessOptions): void {
     throw new Error('stripRepeated requires layout: true');
   }
   if (options.stripRepeated && options.format !== 'markdown') {
-    // JSON / XML already expose `repeated: true` on each layout block,
+    // Structured output already exposes `repeated: true` on each layout block,
     // so passing `stripRepeated` with those formats is a misconfigured
     // call (the flag would silently no-op against the formatter).
     // Match the CLI's posture and fail loudly so library users notice

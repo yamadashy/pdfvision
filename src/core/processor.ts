@@ -385,7 +385,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
 /**
  * Format-applied variant of {@link processDocument}. Used by the CLI.
  *
- * Returns the formatted string ("text" or "json"). Library callers
+ * Returns a formatted Markdown, JSON, XML, or TOON string. Library callers
  * usually want `processDocument()` instead.
  */
 export async function processFile(filePath: string, options: ProcessOptions): Promise<string> {

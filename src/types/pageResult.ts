@@ -35,7 +35,12 @@ export interface PageResult {
    * was applied (the default) AND it actually changed the string — i.e.
    * the source PDF embedded compatibility codepoints or stripped C0
    * controls. Lets agents diff the two forms without re-running with
-   * `--no-normalize`.
+   * `--no-normalize`. JSON preserves this exact field. Decoded TOON does too
+   * for successful output; XML emits a sibling `<rawText>` element,
+   * representing XML-1.0-forbidden
+   * code units as unambiguous `[[pdfvision:U+XXXX]]` markers, and Markdown
+   * omits it. TOON rejects an unpaired UTF-16 surrogate because its string
+   * grammar cannot preserve one across UTF-8; use JSON for that edge case.
    */
   rawText?: string;
   image?: string;
@@ -116,7 +121,7 @@ export interface PageResult {
    * `layout.blocks`, `imageBoxes`, `renderRegion`, etc.) remain in the
    * unrotated MediaBox coordinate system; renderers map those boxes through
    * the rotated viewport so full-page and cropped PNGs follow the
-   * human-visible orientation.
+   * human-visible orientation. XML projects this as a page attribute.
    */
   rotation?: number;
   /**

@@ -162,7 +162,8 @@ export interface DocumentResult {
    * True when the PDF declares an XFA (LiveCycle) form. The standard text
    * layer of such documents is often only a viewer placeholder ("Please
    * wait..."), so extraction may not reflect the real form content. Omitted
-   * otherwise.
+   * otherwise. JSON and decoded TOON use this top-level field; XML projects
+   * it as `xfa="true"` on `<document>`.
    */
   xfa?: boolean;
   /**
