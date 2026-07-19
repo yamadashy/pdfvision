@@ -20,7 +20,7 @@ export interface PageAnnotationPoint {
 }
 
 export interface PageAnnotationBorder {
-  /** Border width in page user-space units. */
+  /** Border width in raw page-view units. */
   width?: number;
   /** PDF border style such as solid, dashed, beveled, inset, or underline. */
   style?: string;

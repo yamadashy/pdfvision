@@ -5,7 +5,7 @@ import { appendFormFields } from './markdown/formFields.js';
 import { escapeInline, escapeTableCell, jsActionCount } from './markdown/helpers.js';
 import { appendLayoutTables } from './markdown/layoutTables.js';
 import { appendLinks } from './markdown/links.js';
-import { appendOverview, formatSize } from './markdown/overview.js';
+import { appendOverview, formatPhysicalSize } from './markdown/overview.js';
 import { appendJavaScriptActions, appendOcr, appendPageImage, appendWarnings } from './markdown/pageArtifacts.js';
 import { appendSearchMatches } from './markdown/pageSections.js';
 import { appendStructureItem, appendStructureTables, structureNodeCount } from './markdown/structure.js';
@@ -211,7 +211,7 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     // because no search ran. Mirrors the overview Matches column.
     const matchesFragment = page.matches !== undefined ? ` · matches: ${page.matches.length}` : '';
     lines.push(
-      `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${pageLabelFragment}${nonPrintFragment}${renderFragment}${rotationFragment}${vectorsFragment}${vectorBoxesFragment}${layoutTablesFragment}${visualRegionsFragment}${formFieldsFragment}${linksFragment}${annotationsFragment}${structureFragment}${jsActionsFragment}${nativeFragment}${visualFragment}${warningsFragment}${matchesFragment} · size: ${formatSize(page)}pt_`,
+      `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${pageLabelFragment}${nonPrintFragment}${renderFragment}${rotationFragment}${vectorsFragment}${vectorBoxesFragment}${layoutTablesFragment}${visualRegionsFragment}${formFieldsFragment}${linksFragment}${annotationsFragment}${structureFragment}${jsActionsFragment}${nativeFragment}${visualFragment}${warningsFragment}${matchesFragment} · size: ${formatPhysicalSize(page)}_`,
     );
     const body = pageBody(page, options);
     if (body) {

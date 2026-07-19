@@ -59,7 +59,7 @@ interface DocumentResult {
 
 ## Page Result
 
-各 `pages[]` には、`text`, `rawText`, ページ寸法、密度フィールド、必要に応じて `spans`, `layout`, `imageBoxes`, `vectorBoxes`, `visualRegions`, `formFields`, `links`, `annotations`, `structure`, `ocr`, `warnings`, `matches` が入ります。
+各 `pages[]` には、`text`、`rawText`、生の page-view units で表したページ寸法、既定値以外の場合の `userUnit`、密度フィールド、必要に応じて `spans`、`layout`、`imageBoxes`、`vectorBoxes`、`visualRegions`、`formFields`、`links`、`annotations`、`structure`、`ocr`、`warnings`、`matches` が入ります。
 
 OCR はネイティブテキストを上書きしません。利用側が `page.text` と `page.ocr?.text` を比較して選びます。
 
@@ -96,7 +96,9 @@ OCR はネイティブテキストを上書きしません。利用側が `page.
 
 ## 座標系
 
-すべての bbox は回転前の pdf.js `page.view` 表示ボックスの PDF user-space units で、左上原点です。このボックスは、有効な CropBox が適用される場合は CropBox ∩ MediaBox、それ以外は MediaBox です。`pages[].width` / `height`、ゼロ基準座標、`renderRegion` の境界はこのボックス基準です。既定の `/UserUnit` では通常ポイントですが、PNG のピクセル座標ではありません。bbox は変更せず `--render-region` に渡せます。ページ全体の PNG に重ねる場合、回転なしの場合は画像とページの寸法比で拡大し、回転ありの場合は pdf.js の回転 viewport transform を使います。
+すべての bbox は、回転前の pdf.js `page.view` を基準とする生の page-view units で表し、左上を原点とします。表示ボックスは、有効な CropBox が適用される場合は CropBox ∩ MediaBox、それ以外は MediaBox です。`pages[].width` / `height`、ゼロ基準座標、`renderRegion` の境界も、このボックスを基準にします。`pages[].userUnit` と `overview[].userUnit` は、既定値 1 以外の PDF `/UserUnit` を示し、1 の場合は省略されます。物理サイズのポイント数は「生の page-view 値 × userUnit（省略時は 1）」、レンダリング後のピクセル数は「生の領域 × UserUnit × render scale」です。bbox は変更せず `--render-region` に渡せます。ページ全体の PNG に重ねる場合、回転なしの場合は画像とページの寸法比で拡大し、回転ありの場合は pdf.js の回転 viewport transform を使います。
+
+警告検出のしきい値と `pt` / `pt²` を含むメッセージには、抽出済みジオメトリを物理ポイントへ換算した非公開ビューを使います。ただし、抽出処理のすべてが物理サイズに対して不変になるわけではありません。レイアウトのグループ化、フォームラベルの再構築、vector box の整形、visual region の生成には、生の単位に基づくヒューリスティックが残っているため、物理的に同等な PDF でも上流の抽出結果が異なる場合があります。
 
 座標を持つフィールドには、spans、layout blocks/lines、image boxes、vector boxes、visual regions、form fields、links、annotations、structure references、OCR words、search matches が含まれます。これにより、エージェントは新しい座標系を発明せずに、構造化抽出から視覚クロップへ移れます。
 

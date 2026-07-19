@@ -21,7 +21,7 @@ pdfvision 把渲染当作证据，而不是最后手段。智能体可以先读�
 pdfvision document.pdf --render --render-output ./images --format json
 ```
 
-每个选中页面都会得到一个图像路径。布局 bbox 使用未旋转的 pdf.js page view box 页面坐标，而不是 PNG 像素。未旋转整页按图像/页面尺寸缩放；旋转页使用 pdf.js 的旋转 viewport transform。
+每个选中页面都会得到一个图像路径。布局 bbox 使用未旋转的 pdf.js page view box 原始 page-view units，而不是 PNG 像素。物理点数 = 原始值 × `pages[].userUnit`（省略时按 1）；像素数 = 原始值 × UserUnit × render scale。旋转页使用 pdf.js 的旋转 viewport transform。
 
 ```bash
 pdfvision document.pdf --render --render-scale 3
@@ -44,7 +44,7 @@ pdfvision document.pdf --render --render-scale 3
 pdfvision document.pdf --pages 2 --render --render-region 120,180,360,240 --render-output ./regions
 ```
 
-`--render-region` 使用未旋转的 page view box user-space units（默认 `/UserUnit` 下通常是点）和左上角原点。布局、图像或视觉区域 bbox 可原样传入。
+`--render-region` 使用未旋转的原始 page-view units 和左上角原点。布局、图像或视觉区域 bbox 可原样传入；渲染器在生成像素时应用 UserUnit 与 render scale。
 
 搜索结果的 bbox 也可以使用同一裁剪流程。参见 [搜索与区域放大](./search-and-region-zoom.md)。
 

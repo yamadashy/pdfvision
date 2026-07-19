@@ -25,7 +25,7 @@ export interface PageResult {
    * Rendered region echoed back when `renderRegion` was passed to the
    * extraction call. Lets consumers tell whether `pages[].image` is the
    * full page or a sub-rectangle without having to track the original
-   * request. Coordinates use the unrotated page-view user-space system
+   * request. Coordinates use the raw unrotated page-view system
    * (top-left origin), matching the input. Omitted for full-page renders.
    */
   renderRegion?: RenderRegion;
@@ -125,13 +125,19 @@ export interface PageResult {
    */
   rotation?: number;
   /**
+   * Physical scale declared by the PDF page dictionary. Omitted for the
+   * default value of 1. Geometry remains in raw pdf.js `page.view` units;
+   * multiply a raw coordinate or length by `userUnit` to obtain points.
+   */
+  userUnit?: number;
+  /**
    * Page width in the unrotated pdf.js `page.view` visible box. This is the
    * CropBox/MediaBox intersection when a distinct valid CropBox applies,
-   * otherwise the MediaBox. With default `/UserUnit`, units are typically
-   * PostScript points (1/72 in).
+   * otherwise the MediaBox. The value is in raw page-view units. Multiply by
+   * `userUnit` (or 1 when omitted) to obtain PostScript points (1/72 in).
    */
   width: number;
-  /** Page-view height in PDF user-space units. See {@link width}. */
+  /** Page-view height in raw page-view units. See {@link width}. */
   height: number;
   /**
    * Per-text-item geometry, only present when `geometry: true` was passed.
@@ -166,7 +172,7 @@ export interface PageResult {
    * where pdf.js reports a path bbox, plus shading fills when pdf.js
    * exposes the active clipping bbox, excluding page-sized white
    * background fills. Coordinates use the same unrotated page-view top-left
-   * user-space system as `spans`, `layout.blocks`, and `imageBoxes`.
+   * raw page-view system as `spans`, `layout.blocks`, and `imageBoxes`.
    */
   vectorBoxes?: VectorBox[];
   /**

@@ -50,10 +50,10 @@ export interface ProcessDocumentOptions {
   renderScale?: number;
   /**
    * Sub-rectangle of the page to rasterise instead of the full page. It uses
-   * unrotated page-view user-space units (typically points with the default
-   * `/UserUnit`), with a top-left origin and y growing downward, matching
-   * `pages[].spans`, `layout.blocks`, and `imageBoxes`. With default
-   * `/UserUnit`, a 400×300 region at scale 3 yields a 1200×900px PNG.
+   * raw unrotated page-view units, with a top-left origin and y growing
+   * downward, matching `pages[].spans`, `layout.blocks`, and `imageBoxes`.
+   * Physical points equal raw values × the page's `userUnit` (or 1 when
+   * omitted); pixels equal raw region × UserUnit × render scale.
    *
    * Typical agent flow: run with `--layout`, pick a suspicious block from
    * `warnings[]` / `layout.blocks[blockIndex]`, then re-run with that

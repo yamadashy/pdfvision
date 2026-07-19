@@ -17,6 +17,8 @@ pdfvision report.pdf --search "revenue" --json
 
 匹配结果会输出到 `pages[].matches[]`。每个 match 包含页码、query、source、文本片段，以及能够定位可见区域时的 bbox。
 
+如需省略页面正文的紧凑扁平报告，可添加 `--matches-only`。如果任一选中页面使用非默认 PDF `/UserUnit`，JSON/TOON 会保留 `pageUserUnits: [{ page, userUnit }]`，XML 会输出等价的 `<pageUserUnits>`，Markdown 会输出 `Page UserUnits` 摘要。所有选中页面均使用 UserUnit 1 时，该元数据会被省略。
+
 重复 `--search` 可以一次运行多个查询：
 
 ```bash
@@ -70,7 +72,7 @@ match 的 `source` 帮助智能体判断它应该被多大程度信任：
 pdfvision report.pdf --pages 3 --render --render-region 120,180,360,140 --render-output ./crops --json
 ```
 
-`--render-region` 要求选中的页恰好为一页。区域使用未旋转的 page view box user-space units（默认 `/UserUnit` 下通常是点）和左上角原点，并且必须在页面边界内。
+`--render-region` 要求选中的页恰好为一页。区域使用未旋转的原始 page-view units 和左上角原点，并且必须在页面边界内。物理点数 = 原始值 × `pages[].userUnit`（省略时按 1）；像素数 = 原始区域 × UserUnit × render scale。
 
 如果裁剪图包含小标签、上标、密集表格单元格或图表图例，可以提高 `--render-scale`：
 

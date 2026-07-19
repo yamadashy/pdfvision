@@ -55,6 +55,7 @@ export async function extractPageData(
   const xMin = Math.min(view[0], view[2]);
   const yMin = Math.min(view[1], view[3]);
   const rotation = normalizePageRotation(page.rotate);
+  const userUnit = normalizePageUserUnit(page.userUnit);
 
   const {
     text,
@@ -250,8 +251,9 @@ export async function extractPageData(
     nonPrintableRatio: npStats.ratio,
     nonPrintableCount: npStats.count,
     ...(rotation !== undefined && { rotation }),
-    // Round to 2dp; PDF dimensions are nominally integers (Letter 612×792,
-    // A4 595×842) but encrypted/cropped PDFs can carry sub-point fractions.
+    ...(userUnit !== undefined && { userUnit }),
+    // Round to 2dp; raw page-view dimensions are commonly integers (Letter
+    // 612×792 at UserUnit 1) but encrypted/cropped PDFs can carry fractions.
     width: round2(width),
     height: round2(height),
     // Spans are only exposed publicly when --geometry is on; layout /
@@ -298,4 +300,9 @@ function normalizePageRotation(rotation: number | undefined): number | undefined
   if (typeof rotation !== 'number' || !Number.isFinite(rotation)) return undefined;
   const normalized = ((Math.round(rotation) % 360) + 360) % 360;
   return normalized === 0 ? undefined : normalized;
+}
+
+function normalizePageUserUnit(userUnit: number | undefined): number | undefined {
+  if (typeof userUnit !== 'number' || !Number.isFinite(userUnit) || userUnit <= 0 || userUnit === 1) return undefined;
+  return userUnit;
 }

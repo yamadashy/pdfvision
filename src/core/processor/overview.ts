@@ -22,6 +22,7 @@ export function buildOverview(
     // produced a raster.
     ...(page.renderContentRatio !== undefined && { renderContentRatio: page.renderContentRatio }),
     ...(page.rotation !== undefined && { rotation: page.rotation }),
+    ...(page.userUnit !== undefined && { userUnit: page.userUnit }),
     quality: page.quality,
     // Mirror the warnings count from each page so the top-level
     // table flags problem pages at a glance. Omitted when no

@@ -27,8 +27,8 @@ const TRAILING_CLOSING_PUNCT = /[）」』】〕〉》｝］〙〗。、，．)\
 const CONTAINS_CJK = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}！-｠]/u;
 
 export function detectOffPage(blocks: LayoutBlock[], pageWidth: number, pageHeight: number, out: PageWarning[]): void {
-  // pageWidth / pageHeight come from the visible pdf.js page.view box,
-  // matching the zero-based coordinates used by the public geometry.
+  // pageWidth / pageHeight and blocks use the same zero-based visible coordinate
+  // space. The main warning pipeline supplies its private physical-point view.
   const tolerance = offPageTolerance(pageWidth, pageHeight);
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i];

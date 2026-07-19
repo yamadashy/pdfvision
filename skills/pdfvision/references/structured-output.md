@@ -50,6 +50,7 @@ interface PageOverview {
   nonPrintableCount: number;      // raw count — stays discriminable when the 3dp ratio rounds to 0
   renderContentRatio?: number;    // 0..1, fraction of pixels differing from the page's dominant background (present iff --render or --ocr)
   rotation?: number;               // clockwise page rotation in degrees; present only for rotated pages
+  userUnit?: number;               // PDF /UserUnit; omitted when 1; physical points = raw page-view value * userUnit
   quality: PageQuality;           // derived classification — see below
   warningCount?: number;          // mirror of pages[N].warnings.length, omitted when no rule fired
   matchCount?: number;            // mirror of pages[N].matches.length; present-with-0 means "search ran, no hit"
@@ -59,7 +60,7 @@ interface PageOverview {
   linkCount?: number;             // furniture presence count; automatic when non-zero, present-with-0 when the matching flag ran
   annotationCount?: number;       // furniture presence count; automatic when non-zero, present-with-0 when the matching flag ran
   structureNodeCount?: number;    // count of tagged-PDF structure nodes; present iff --structure
-  width: number;                  // unrotated page-view user-space units
+  width: number;                  // raw unrotated page-view units
   height: number;
 }
 ```
@@ -94,6 +95,7 @@ interface PageResult {
   renderContentRatio?: number;   // pixel fraction differing from the page's dominant background (present iff --render or --ocr)
   quality: PageQuality;          // derived per-page classification — agent-side dispatch lives on this field
   rotation?: number;              // clockwise page rotation in degrees; present only for rotated pages
+  userUnit?: number;              // PDF /UserUnit; omitted when 1; mirrored in overview[]
   width: number;
   height: number;
   image?: string;                // absolute PNG path — present iff --render
@@ -452,7 +454,7 @@ interface VectorBox {
 }
 ```
 
-One entry per painted vector path where pdf.js reports a path bbox, plus shading fills when pdf.js exposes the active clipping bbox, excluding page-sized white background fills. This is useful for maps, symbol tables, charts, diagrams, gradient panels, table rules, form boxes, and slide shapes: content a human sees, but that is neither native text nor a raster image. Horizontal/vertical strokes are expanded to at least 0.5pt in the degenerate dimension so their boxes can feed `--render-region`. `vectorCount` remains the broad density signal for meaningful vector drawing operations; `vectorBoxes[]` is the opt-in location signal and can be shorter than `vectorCount` when a low-level op has no bbox.
+One entry per painted vector path where pdf.js reports a path bbox, plus shading fills when pdf.js exposes the active clipping bbox, excluding page-sized white background fills. This is useful for maps, symbol tables, charts, diagrams, gradient panels, table rules, form boxes, and slide shapes: content a human sees, but that is neither native text nor a raster image. Horizontal/vertical strokes are expanded to at least 0.5 raw page-view unit in the degenerate dimension so their boxes can feed `--render-region`. `vectorCount` remains the broad density signal for meaningful vector drawing operations; `vectorBoxes[]` is the opt-in location signal and can be shorter than `vectorCount` when a low-level op has no bbox.
 
 ## Visual regions (`--visual-regions`)
 
@@ -524,7 +526,9 @@ interface OcrWord {
 
 ## Coordinate system
 
-All coordinates (spans, layout blocks, image boxes, vector boxes, visual regions, form fields, `renderRegion`) use the unrotated pdf.js `page.view` visible box in PDF user-space units, with `(0, 0)` at its top-left and `y` growing downward. This box is CropBox ∩ MediaBox when a distinct valid CropBox applies, otherwise MediaBox. With default `/UserUnit`, units are typically points, not PNG pixels. `pages[].width` / `height` and `renderRegion` bounds are relative to this box, and the same bbox passes unchanged to `--render-region`. Unrotated full-page PNG overlays scale by image/page dimensions; rotated pages require the rotated pdf.js viewport transform. JSON, decoded TOON, and the library retain clockwise rotation in `pages[].rotation` and `overview[].rotation`; XML keeps page-result rotation on `<pages><page rotation="...">` but currently omits overview rotation.
+All coordinates (spans, layout blocks, image boxes, vector boxes, visual regions, form fields, `renderRegion`) use raw units from the unrotated pdf.js `page.view` visible box, with `(0, 0)` at its top-left and `y` growing downward. This box is CropBox ∩ MediaBox when a distinct valid CropBox applies, otherwise MediaBox. `pages[].userUnit` and `overview[].userUnit` expose a non-default PDF `/UserUnit` and are omitted when it is 1. Physical points = raw page-view value × UserUnit; rendered pixels = raw region × UserUnit × render scale before rotation swaps axes. `pages[].width` / `height` and `renderRegion` bounds are raw values relative to the visible box, and the same bbox passes unchanged to `--render-region`. JSON, decoded TOON, and the library retain clockwise rotation in `pages[].rotation` and `overview[].rotation`; XML keeps page-result rotation on `<pages><page rotation="...">` but currently omits overview rotation.
+
+Warning-detector thresholds and `pt` / `pt²` messages use a private physical-point view of the geometry already extracted, while public bboxes stay raw. This does not make the full extraction pipeline physically invariant: layout grouping, form-label reconstruction, vector-box shaping, and visual-region generation still include raw-unit heuristics and can produce different upstream signals for physically equivalent non-default-UserUnit PDFs.
 
 To map unrotated page coordinates onto an unrotated full-page PNG:
 
@@ -540,8 +544,8 @@ This direct scale is valid for unrotated pages. For rotated pages, use `pages[].
 
 Both flags only have effect when `--render` (or `--ocr`, which internally rasterises) is on.
 
-- **`--render-scale <n>`**: rasterisation scale multiplier. Default `2` (≈144 DPI with default `/UserUnit`). Bounds `(0, 4]`. Smaller values shrink the vision-model payload; larger values capture finer detail.
-- **`--render-region <x,y,w,h>`**: render one page sub-rectangle in the same unrotated page-view top-left system as `imageBoxes` / `layout.blocks`; the bbox passes unchanged. With default `/UserUnit`, a 400×300 unrotated region at scale 3 produces a 1200×900px PNG. Rotated pages can swap output pixel width/height because the crop is mapped through the human-visible viewport. It is single-page only and rejects out-of-bounds regions. The tuple is in the cache key and filename, and is echoed in `PageResult.renderRegion`.
+- **`--render-scale <n>`**: rasterisation scale multiplier. Default `2` (≈144 DPI). Bounds `(0, 4]`. Smaller values shrink the vision-model payload; larger values capture finer detail.
+- **`--render-region <x,y,w,h>`**: render one page sub-rectangle in the same raw unrotated page-view top-left system as `imageBoxes` / `layout.blocks`; the bbox passes unchanged. Pixel dimensions equal raw region × UserUnit × render scale. Rotated pages can swap output pixel width/height because the crop is mapped through the human-visible viewport. It is single-page only and rejects out-of-bounds regions. The tuple is in the cache key and filename, and is echoed in `PageResult.renderRegion`.
 - **`--render-visual-regions`**: render every `visualRegions[]` crop and attach `image` / `renderContentRatio` on each region. When the rendered crop contains measurable non-background pixels, `renderedContentBox` gives the tighter rendered-pixel bbox in page coordinates while leaving the source-geometry region unchanged. Region boxes include associated captions/form labels, nearby panel titles, short table lead-ins, short image labels, and nearby headings when detected, so the crop is usually closer to what a human would select before asking a vision model to read it. This uses the same output directory, `--render-scale`, cache image validation, and safe per-PDF subdirectory rules as full-page `--render`, but leaves `pages[].image` absent unless `--render` was also requested.
 
 Typical agent flow: extract with `--layout`, find a suspect block in `layout.blocks[i]` (or get its index out of `warnings[i].blockIndex`), then re-run with `--pages <N> --render --render-region <x,y,w,h>` using `blocks[i]`'s bbox to zoom in.
@@ -649,6 +653,8 @@ pdfvision doc.pdf --search "revenue" --json
 pdfvision doc.pdf -p <m.page> --render --render-region <m.bbox.x>,<m.bbox.y>,<m.bbox.width>,<m.bbox.height>
 ```
 
+`--matches-only` keeps the flat report compact but preserves non-default physical scaling as optional `pageUserUnits: [{ page, userUnit }]` metadata in JSON/TOON, equivalent `<pageUserUnits>` entries in XML, and a `Page UserUnits` summary in Markdown. The field is omitted when every selected page uses UserUnit 1. Match bboxes remain raw page-view values and pass unchanged to `--render-region`.
+
 **Semantics**:
 
 - **literal substring** by default (regex chars in the query are escaped). Pass `--search-regex` to opt into JavaScript regular expressions.
@@ -663,7 +669,7 @@ pdfvision doc.pdf -p <m.page> --render --render-region <m.bbox.x>,<m.bbox.y>,<m.
 - **Text/choice form field values are searched too**. Form-field matches come back with `source: 'formField'` and use the widget bbox, even when `--form-fields` was not requested for output; comb text widgets narrow matches to the matching cells when pdf.js exposes `maxLen`/comb appearance metadata. Choice fields search the selected option's visible display value when it differs from the exported value. Internal values that are not visible text, such as unchecked checkbox `Off` or hidden/noView widget values, are not searched.
 - **Link targets are searched too**. Link matches come back with `source: 'link'` and use the clickable link bbox, even when `--links` was not requested for output. This lets URL / destination / attachment-target searches succeed even when the visible link text is glyph-garbled.
 - **Visible FreeText annotation contents are searched too**. Annotation matches come back with `source: 'annotation'` and use the annotation bbox, even when `--annotations` was not requested for output. Sticky-note popup contents and other normally closed annotation comments are not searched.
-- **OCR text is searched too when `--ocr` is on**. OCR-derived matches come back with `source: 'ocr'`; when `ocr.words[]` is present, `bbox`/`boxes[]` use OCR word geometry in the same page-point coordinate system as native spans. If word-level reconstruction misses one or more occurrences, pdfvision supplements from full `ocr.text` with a page-level bbox so no-space scripts and OCR line-boundary differences still remain searchable. If native text, a form-field value, or visible annotation text already produced the same query/text hit on that page, the duplicate OCR hit is suppressed so the precise non-OCR bbox wins; OCR-only extra hits are still emitted.
+- **OCR text is searched too when `--ocr` is on**. OCR-derived matches come back with `source: 'ocr'`; when `ocr.words[]` is present, `bbox`/`boxes[]` use OCR word geometry in the same raw page-view coordinate system as native spans. If word-level reconstruction misses one or more occurrences, pdfvision supplements from full `ocr.text` with a page-level bbox so no-space scripts and OCR line-boundary differences still remain searchable. If native text, a form-field value, or visible annotation text already produced the same query/text hit on that page, the duplicate OCR hit is suppressed so the precise non-OCR bbox wins; OCR-only extra hits are still emitted.
 
 `pages[].matches` is **present-with-`[]`** when `--search` ran but the page had no hits — distinct from the field being absent entirely (search wasn't requested). The same posture extends to the overview, which gains a `matchCount` mirror field with the same present-with-`0` semantics.
 
@@ -678,11 +684,11 @@ pdfvision doc.pdf -p <m.page> --render --render-region <m.bbox.x>,<m.bbox.y>,<m.
     <author>...</author>
   </metadata>
   <overview>
-    <page no="1" label="i" charCount="..." imageCount="..." vectorCount="..." textCoverage="..." nonPrintableRatio="..." nonPrintableCount="..." nativeTextStatus="..." visualStatus="..." width="..." height="..."/>
+    <page no="1" label="i" charCount="..." imageCount="..." vectorCount="..." textCoverage="..." nonPrintableRatio="..." nonPrintableCount="..." nativeTextStatus="..." visualStatus="..." userUnit="2" width="..." height="..."/>
     ...
   </overview>
   <pages>
-    <page no="1" label="i" charCount="..." imageCount="..." vectorCount="..." textCoverage="..." nonPrintableRatio="..." nonPrintableCount="..." formFieldCount="..." linkCount="..." annotationCount="..." nativeTextStatus="..." visualStatus="..." rotation="90" width="..." height="..." image="...">
+    <page no="1" label="i" charCount="..." imageCount="..." vectorCount="..." textCoverage="..." nonPrintableRatio="..." nonPrintableCount="..." formFieldCount="..." linkCount="..." annotationCount="..." nativeTextStatus="..." visualStatus="..." rotation="90" userUnit="2" width="..." height="..." image="...">
       <spans>
         <span text="..." x="..." y="..." width="..." height="..." fontSize="..." fontName="..."/>
         ...

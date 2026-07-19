@@ -46,6 +46,8 @@ export interface PageOverview {
    * omits this overview attribute; JSON, decoded TOON, and the library retain it.
    */
   rotation?: number;
+  /** Mirror of {@link PageResult.userUnit}; omitted for the default value of 1. */
+  userUnit?: number;
   /**
    * Mirror of {@link PageResult.quality} so the overview can flag
    * unusable / blank pages at a glance without descending into

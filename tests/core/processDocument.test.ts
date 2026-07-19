@@ -1,10 +1,15 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, resolve } from 'node:path';
+import { decode } from '@toon-format/toon';
 import PDFDocument from 'pdfkit';
 import { describe, expect, it } from 'vitest';
 import { buildPageStructure } from '../../src/core/document/structure.js';
 import { processDocument, processFile } from '../../src/core/processor.js';
+import { formatJson } from '../../src/output/json.js';
+import { formatMarkdown } from '../../src/output/markdown.js';
+import { formatToon } from '../../src/output/toon.js';
+import { formatXml } from '../../src/output/xml.js';
 
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
 const SAMPLE_JA_PDF = resolve(__dirname, '../fixtures/sample-ja.pdf');
@@ -161,6 +166,47 @@ function buildPdfWithCroppedView(): Uint8Array {
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
     '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 300] /CropBox [20 30 220 230] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>',
+    `<< /Length ${length} >>\nstream\n${stream}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ]);
+}
+
+function buildPdfWithUserUnit(
+  options: {
+    userUnit?: number;
+    width?: number;
+    height?: number;
+    fontSize?: number;
+    textX?: number;
+    textY?: number;
+  } = {},
+): Uint8Array {
+  const userUnit = options.userUnit ?? 1;
+  const width = options.width ?? 200;
+  const height = options.height ?? 100;
+  const fontSize = options.fontSize ?? 10;
+  const textX = options.textX ?? 20;
+  const textY = options.textY ?? 60;
+  const stream = `BT /F1 ${fontSize} Tf ${textX} ${textY} Td (UserUnit geometry) Tj ET`;
+  const length = Buffer.byteLength(stream, 'binary');
+  return buildRawPdf([
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${width} ${height}]${userUnit === 1 ? '' : ` /UserUnit ${userUnit}`} /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>`,
+    `<< /Length ${length} >>\nstream\n${stream}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ]);
+}
+
+function buildPdfWithMixedUserUnits(): Uint8Array {
+  const stream = 'BT /F1 10 Tf 20 60 Td (UserUnit overview) Tj ET';
+  const length = Buffer.byteLength(stream, 'binary');
+  return buildRawPdf([
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 100] /UserUnit 2 /Resources << /Font << /F1 7 0 R >> >> /Contents 5 0 R >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 100] /Resources << /Font << /F1 7 0 R >> >> /Contents 6 0 R >>',
+    `<< /Length ${length} >>\nstream\n${stream}\nendstream`,
     `<< /Length ${length} >>\nstream\n${stream}\nendstream`,
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
   ]);
@@ -482,12 +528,101 @@ describe('processDocument', () => {
     expect(result.layers).toEqual({ groups: [] });
   });
 
-  it('reports page dimensions in points so agents can reason about layout', async () => {
-    // sample.pdf is US Letter (612 × 792 pt). Width / height let downstream
+  it('reports default-UserUnit page dimensions in raw page-view units', async () => {
+    // sample.pdf is US Letter (612 × 792 raw units with UserUnit 1). Width / height let downstream
     // consumers map render coords / future bbox data back onto the page.
     const result = await processDocument(SAMPLE_PDF, { noCache: true });
     expect(result.pages[0].width).toBe(612);
     expect(result.pages[0].height).toBe(792);
+    expect(result.pages[0].userUnit).toBeUndefined();
+  });
+
+  it('surfaces non-default UserUnit without changing raw page or span geometry', async () => {
+    const defaultUnit = await processDocument('memory://user-unit-default.pdf', {
+      sourceData: buildPdfWithUserUnit(),
+      geometry: true,
+      noCache: true,
+    });
+    const doubleUnit = await processDocument('memory://user-unit-2.pdf', {
+      sourceData: buildPdfWithUserUnit({ userUnit: 2 }),
+      geometry: true,
+      noCache: true,
+    });
+
+    expect(defaultUnit.pages[0].userUnit).toBeUndefined();
+    expect(doubleUnit.pages[0].userUnit).toBe(2);
+    expect(doubleUnit.pages[0].width).toBe(200);
+    expect(doubleUnit.pages[0].height).toBe(100);
+    expect(doubleUnit.pages[0].spans).toEqual(defaultUnit.pages[0].spans);
+  });
+
+  it('preserves non-default UserUnit through a structured cache round-trip', async () => {
+    const cacheRoot = mkdtempSync(resolve(tmpdir(), 'pdfvision-user-unit-cache-'));
+    const previousCache = process.env.PDFVISION_CACHE_DIR;
+    process.env.PDFVISION_CACHE_DIR = cacheRoot;
+    try {
+      const options = { sourceData: buildPdfWithUserUnit({ userUnit: 2 }), geometry: true } as const;
+      const fresh = await processDocument('memory://user-unit-cache.pdf', options);
+      const cached = await processDocument('memory://user-unit-cache.pdf', options);
+      expect(cached).toEqual(fresh);
+      expect(cached.pages[0].userUnit).toBe(2);
+    } finally {
+      if (previousCache === undefined) delete process.env.PDFVISION_CACHE_DIR;
+      else process.env.PDFVISION_CACHE_DIR = previousCache;
+      rmSync(cacheRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('mirrors only non-default UserUnits into the overview and every full formatter', async () => {
+    const result = await processDocument('memory://mixed-user-units.pdf', {
+      sourceData: buildPdfWithMixedUserUnits(),
+      geometry: true,
+      noCache: true,
+    });
+
+    expect(result.pages.map((page) => page.userUnit)).toEqual([2, undefined]);
+    expect(result.overview?.map((page) => page.userUnit)).toEqual([2, undefined]);
+
+    const json = JSON.parse(formatJson(result));
+    expect(json.pages[0].userUnit).toBe(2);
+    expect(json.pages[1]).not.toHaveProperty('userUnit');
+    expect(json.overview[0].userUnit).toBe(2);
+    expect(decode(formatToon(result))).toEqual(json);
+
+    const xml = formatXml(result);
+    expect(xml).toMatch(/<overview>[\s\S]*<page no="1"[^>]*userUnit="2"/);
+    expect(xml).toMatch(/<page no="1"[^>]*userUnit="2"/);
+    expect(xml).not.toMatch(/<page no="2"[^>]*userUnit=/);
+
+    const markdown = formatMarkdown(result);
+    expect(markdown).toContain('| Page | Chars | Images | Coverage | Size |');
+    expect(markdown).toContain('200×100 page-view units (UserUnit 2; 400×200pt physical)');
+    expect(markdown).toContain('· size: 200×100pt_');
+  });
+
+  it('keeps warning behavior and point-based messages equivalent for physically identical raw PDFs', async () => {
+    const defaultUnit = await processDocument('memory://physical-warning-default.pdf', {
+      sourceData: buildPdfWithUserUnit({ fontSize: 1.5 }),
+      geometry: true,
+      noCache: true,
+    });
+    const doubleUnit = await processDocument('memory://physical-warning-user-unit-2.pdf', {
+      sourceData: buildPdfWithUserUnit({
+        userUnit: 2,
+        width: 100,
+        height: 50,
+        fontSize: 0.75,
+        textX: 10,
+        textY: 30,
+      }),
+      geometry: true,
+      noCache: true,
+    });
+
+    expect(doubleUnit.pages[0].warnings).toEqual(defaultUnit.pages[0].warnings);
+    expect(doubleUnit.pages[0].warnings).toContainEqual(expect.objectContaining({ code: 'tiny_native_text_noise' }));
+    expect(doubleUnit.pages[0].spans?.[0].fontSize).toBe(0.75);
+    expect(defaultUnit.pages[0].spans?.[0].fontSize).toBe(1.5);
   });
 
   it('omits the top-level overview field on single-page docs', async () => {
@@ -1390,6 +1525,42 @@ describe('processDocument', () => {
     const img = await loadImage(result.pages[0].image as string);
     expect(img.width).toBe(842);
     expect(img.height).toBe(596);
+  });
+
+  it('applies UserUnit to full-page and cropped pixel dimensions while keeping raw renderRegion input', async () => {
+    const { loadImage } = await import('@napi-rs/canvas');
+    const sourceData = buildPdfWithUserUnit({ userUnit: 2 });
+    const full = await processDocument('memory://user-unit-full-render.pdf', {
+      sourceData,
+      render: true,
+      renderScale: 1,
+      noCache: true,
+    });
+    const fullImage = await loadImage(full.pages[0].image as string);
+    expect(full.pages[0]).toMatchObject({ width: 200, height: 100, userUnit: 2 });
+    expect({ width: fullImage.width, height: fullImage.height }).toEqual({ width: 400, height: 200 });
+
+    const cropped = await processDocument('memory://user-unit-crop-render.pdf', {
+      sourceData,
+      render: true,
+      renderRegion: { x: 10, y: 15, width: 50, height: 25 },
+      renderScale: 1,
+      noCache: true,
+    });
+    const cropImage = await loadImage(cropped.pages[0].image as string);
+    expect(cropped.pages[0].renderRegion).toEqual({ x: 10, y: 15, width: 50, height: 25 });
+    expect({ width: cropImage.width, height: cropImage.height }).toEqual({ width: 100, height: 50 });
+  });
+
+  it('validates renderRegion against raw page-view bounds on non-default UserUnit pages', async () => {
+    await expect(
+      processDocument('memory://user-unit-bounds.pdf', {
+        sourceData: buildPdfWithUserUnit({ userUnit: 2 }),
+        render: true,
+        renderRegion: { x: 160, y: 0, width: 50, height: 25 },
+        noCache: true,
+      }),
+    ).rejects.toThrow(/falls outside page 1 bounds 200×100/);
   });
 
   it('keeps a sub-pixel region from collapsing the canvas to a zero dimension', async () => {

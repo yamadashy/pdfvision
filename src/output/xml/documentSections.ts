@@ -155,6 +155,7 @@ function appendOverview(out: string[], result: DocumentResult): void {
     ];
     if (p.pageLabel !== undefined) ovAttrs.push(`label="${escapeAttr(p.pageLabel)}"`);
     if (p.renderContentRatio !== undefined) ovAttrs.push(`renderContentRatio="${p.renderContentRatio}"`);
+    if (p.userUnit !== undefined) ovAttrs.push(`userUnit="${p.userUnit}"`);
     ovAttrs.push(`nativeTextStatus="${p.quality.nativeTextStatus}"`);
     if (p.quality.visualStatus !== undefined) ovAttrs.push(`visualStatus="${p.quality.visualStatus}"`);
     if (p.warningCount !== undefined) ovAttrs.push(`warningCount="${p.warningCount}"`);

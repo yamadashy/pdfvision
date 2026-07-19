@@ -16,8 +16,12 @@ import { escapeAttr, escapeText } from './xml/helpers.js';
  *
  * The JSON/TOON model has this flat shape; Markdown and XML expose the same
  * report metadata and match fields in their native representations:
- *   { file, totalPages, queries, totalMatches, matches: [{ page,
- *     queryIndex, source, text, context?, bbox: {x,y,width,height} }] }
+ *   { file, totalPages, queries, totalMatches, pageUserUnits?:
+ *     [{ page, userUnit }], matches: [{ page, queryIndex, source, text,
+ *     context?, bbox: {x,y,width,height} }] }
+ * `pageUserUnits` is omitted when every selected page uses the default value
+ * 1. It keeps raw match boxes physically interpretable without restoring the
+ * full pages[] payload; boxes still pass unchanged to renderRegion.
  */
 
 /** One flattened match, carrying the parent query string (markdown shows
@@ -37,6 +41,7 @@ interface MatchesOnlyModel {
   totalPages: number;
   queries: string[];
   totalMatches: number;
+  pageUserUnits?: { page: number; userUnit: number }[];
   matches: FlatMatch[];
 }
 
@@ -58,7 +63,17 @@ function buildModel(result: DocumentResult, queries: string[]): MatchesOnlyModel
       });
     }
   }
-  return { file: result.file, totalPages: result.totalPages, queries, totalMatches: matches.length, matches };
+  const pageUserUnits = result.pages.flatMap((page) =>
+    page.userUnit === undefined ? [] : [{ page: page.page, userUnit: page.userUnit }],
+  );
+  return {
+    file: result.file,
+    totalPages: result.totalPages,
+    queries,
+    totalMatches: matches.length,
+    ...(pageUserUnits.length > 0 && { pageUserUnits }),
+    matches,
+  };
 }
 
 /** Serialisable entry with the query string dropped — json/xml/toon key
@@ -80,6 +95,7 @@ function serializableModel(model: MatchesOnlyModel) {
     totalPages: model.totalPages,
     queries: model.queries,
     totalMatches: model.totalMatches,
+    ...(model.pageUserUnits !== undefined && { pageUserUnits: model.pageUserUnits }),
     matches: model.matches.map(serializableEntry),
   };
 }
@@ -100,6 +116,11 @@ function formatMarkdown(model: MatchesOnlyModel): string {
   lines.push('');
   lines.push(`- **Pages:** ${model.totalPages}`);
   lines.push(`- **Matches:** ${summaryLine(model)}`);
+  if (model.pageUserUnits) {
+    lines.push(
+      `- **Page UserUnits:** ${model.pageUserUnits.map((item) => `${item.page}=${item.userUnit}`).join(', ')}`,
+    );
+  }
   if (model.totalMatches === 0) return lines.join('\n');
 
   lines.push('');
@@ -129,6 +150,11 @@ function formatXml(model: MatchesOnlyModel): string {
   out.push('<queries>');
   for (const q of model.queries) out.push(`<query>${escapeText(q)}</query>`);
   out.push('</queries>');
+  if (model.pageUserUnits) {
+    out.push('<pageUserUnits>');
+    for (const item of model.pageUserUnits) out.push(`<page no="${item.page}" userUnit="${item.userUnit}"/>`);
+    out.push('</pageUserUnits>');
+  }
   for (const m of model.matches) {
     const attrs = [
       `page="${m.page}"`,

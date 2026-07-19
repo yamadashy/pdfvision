@@ -108,15 +108,15 @@ Options
                           same dir is written with a `-2` suffix and a note on stderr.
                           Without this, PNGs land under the cache (or OS tmp with --no-cache).
       --render-scale <n>  Rasterisation multiplier for --render / --render-visual-regions / --ocr.
-                          Default 2 (≈144 DPI on a letter page). Smaller values shrink the PNG
+                          Default 2 (≈144 DPI). Smaller values shrink the PNG
                           (and vision-model payload); OCR keeps at least scale 2 for recognition
                           quality; larger values capture more detail.
                           Accepts decimals; bounds (0, 4].
       --render-region <x,y,width,height>
-                          Render a sub-rectangle in unrotated page-view user-space units (typically
-                          points with default /UserUnit; top-left origin, y grows downward).
-                          With default /UserUnit, a 400×300 region at scale 3 yields a 1200×900px
-                          PNG. Single-page only: --pages must resolve to exactly one
+                          Render a sub-rectangle in raw unrotated page-view units (top-left origin,
+                          y grows downward). Physical points = raw value × pages[].userUnit (or 1
+                          when omitted); pixels = raw region × UserUnit × render scale. Single-page
+                          only: --pages must resolve to exactly one
                           page (errors otherwise). Region must fit within the page bounds.
                           Typical use: --layout to find a suspect block, then re-run with that
                           block's bbox here to zoom in.
@@ -225,7 +225,8 @@ Options
                           Match case exactly (default: insensitive).
       --matches-only      Emit a focused search report: the file, total page/match counts, and
                           a flat list of emitted matches with page, query reference, source,
-                          text, optional context, and bbox. Requires --search. The full pages/body
+                          text, optional context, and bbox. Non-default page UserUnits are retained
+                          in compact pageUserUnits metadata. Requires --search. The full pages/body
                           payload is omitted; zero matches still exits 0 with a zero-match report.
                           Works in every format. Size grows with emitted matches and context.
       --remote <url>      Download an http(s) PDF, validate the PDF header, and run extraction
@@ -257,7 +258,7 @@ Examples
   pdfvision document.pdf -p 1-3 --json                                         # specific pages, JSON
   pdfvision document.pdf -r --render-output ./images                           # render PNGs to ./images
   pdfvision slides.pdf -r --render-scale 1                                     # 1× raster (smaller PNGs)
-  pdfvision report.pdf -p 3 -r --render-region 100,200,300,150                 # zoom into a 300×150pt box on page 3
+  pdfvision report.pdf -p 3 -r --render-region 100,200,300,150                 # zoom into a 300×150 page-view-unit box on page 3
   pdfvision report.pdf --search "revenue" --json                               # find emitted "revenue" matches with bboxes; pipe to --render-region
   pdfvision paper.pdf --search "GPT" --search "transformer" --json             # multi-query (each match keeps its source query)
   pdfvision paper.pdf --search "BLEU" --matches-only                           # report metadata + flat match list, without page bodies
@@ -326,7 +327,7 @@ printf "secret\n" | pdfvision encrypted.pdf --password-stdin --json
 pdfvision scan.pdf --ocr --ocr-lang eng+jpn --json
 ```
 
-Coordinates use the unrotated pdf.js `page.view` visible box in PDF user-space units, with a **top-down origin** (0,0 at the view box's top-left, y grows downward). The view box is CropBox ∩ MediaBox when a distinct valid CropBox applies, otherwise MediaBox. With default `/UserUnit`, units are typically points, not PNG pixels. `pages[].width` / `height`, bboxes, and `--render-region` bounds are relative to this box, and bboxes pass unchanged to `--render-region`. For full-page PNG overlays, unrotated pages scale by image/page dimensions; rotated pages require the rotated pdf.js viewport transform because the PNG follows the human-visible orientation.
+Coordinates use raw units from the unrotated pdf.js `page.view` visible box, with a **top-down origin** (0,0 at the view box's top-left, y grows downward). The view box is CropBox ∩ MediaBox when a distinct valid CropBox applies, otherwise MediaBox. Non-default PDF `/UserUnit` values appear as `pages[].userUnit` and `overview[].userUnit`; the fields are omitted when the value is 1. Physical points = raw page-view value × UserUnit, while rendered pixels = raw region × UserUnit × render scale before rotation swaps axes. `pages[].width` / `height`, bboxes, and `--render-region` bounds stay raw, and bboxes pass unchanged to `--render-region`.
 
 Each `pages[].spans[]` entry is one retained positioned pdf.js text item, which may contain a character, word, or longer string. Adjacent items stay separate; the rounded bbox is the item's aggregate axis-aligned envelope, not glyph outlines. Layout and search may reconstruct lines or slice match boxes without changing public span granularity.
 

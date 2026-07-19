@@ -60,7 +60,7 @@ export async function resolvePageNumbers({ doc, options, renderRegion }: Resolve
     const bottom = renderRegion.y + renderRegion.height;
     if (right > pageW + RENDER_REGION_BOUNDS_EPSILON_PT || bottom > pageH + RENDER_REGION_BOUNDS_EPSILON_PT) {
       throw new Error(
-        `renderRegion ${right}×${bottom} (right×bottom) falls outside page ${pageNumbers[0]} bounds ${pageW}×${pageH} (width×height, page units)`,
+        `renderRegion ${right}×${bottom} (right×bottom) falls outside page ${pageNumbers[0]} bounds ${pageW}×${pageH} (width×height, raw page-view units)`,
       );
     }
   }

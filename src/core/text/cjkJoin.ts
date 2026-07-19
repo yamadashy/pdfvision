@@ -28,7 +28,7 @@ export interface JoinItem {
   x: number;
   /** Top of the aggregate item bbox in top-down page coordinates, when geometry is available. */
   y?: number;
-  /** Text-item advance width in PDF user-space units (may be 0 on broken PDFs). */
+  /** Text-item advance width in raw page-view units (may be 0 on broken PDFs). */
   width: number;
   /** Text-matrix scale, with the item's reported or derived height as a fallback. */
   fontSize: number;

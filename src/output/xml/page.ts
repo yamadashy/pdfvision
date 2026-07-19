@@ -32,6 +32,7 @@ function pageAttributes(page: PageResult): string[] {
   if (page.annotationCount !== undefined) attrs.push(`annotationCount="${page.annotationCount}"`);
   if (page.renderContentRatio !== undefined) attrs.push(`renderContentRatio="${page.renderContentRatio}"`);
   if (page.rotation !== undefined) attrs.push(`rotation="${page.rotation}"`);
+  if (page.userUnit !== undefined) attrs.push(`userUnit="${page.userUnit}"`);
   attrs.push(`nativeTextStatus="${page.quality.nativeTextStatus}"`);
   if (page.quality.visualStatus !== undefined) attrs.push(`visualStatus="${page.quality.visualStatus}"`);
   attrs.push(`width="${page.width}"`, `height="${page.height}"`);

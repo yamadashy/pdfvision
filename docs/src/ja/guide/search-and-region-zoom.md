@@ -17,6 +17,8 @@ pdfvision report.pdf --search "revenue" --json
 
 一致結果は `pages[].matches[]` に出ます。各 match にはページ番号、query、source、テキスト断片、位置を特定できた場合の bbox が含まれます。
 
+ページ本文を除いた小さなフラット形式が必要なら、`--matches-only` を追加します。選択ページに既定値以外の PDF `/UserUnit` があれば、JSON/TOON では `pageUserUnits: [{ page, userUnit }]`、XML では同等の `<pageUserUnits>`、Markdown では `Page UserUnits` の要約として保持します。すべての選択ページが UserUnit 1 の場合、このメタデータは省略されます。
+
 複数の query は `--search` を繰り返します。
 
 ```bash
@@ -70,7 +72,7 @@ match の bbox を `--render-region` に渡します。
 pdfvision report.pdf --pages 3 --render --render-region 120,180,360,140 --render-output ./crops --json
 ```
 
-`--render-region` は選択ページがちょうど 1 ページである必要があります。領域は回転前の page view box の user-space units（既定の `/UserUnit` では通常ポイント）と左上原点を使い、ページ境界内に収まる必要があります。
+`--render-region` は、選択ページがちょうど 1 ページである必要があります。領域は回転前の生の page-view units と左上原点を使い、ページ境界内に収めます。物理サイズのポイント数は「生の値 × `pages[].userUnit`（省略時は 1）」、ピクセル数は「生の領域 × UserUnit × render scale」です。
 
 小さいラベル、上付き文字、密な表セル、チャート凡例では `--render-scale` を上げます。
 
