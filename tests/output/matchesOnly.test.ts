@@ -151,6 +151,27 @@ describe('formatMatchesOnly', () => {
     expect(recovered).toBe(unsafe);
   });
 
+  it('preserves only non-default page UserUnits across every compact format', () => {
+    const result = makeResult([
+      makePage({ page: 1, userUnit: 2, matches: [match({ page: 1 })] }),
+      makePage({ page: 2, matches: [] }),
+    ]);
+
+    const json = JSON.parse(formatMatchesOnly(result, 'json', ['BLEU']));
+    expect(json.pageUserUnits).toEqual([{ page: 1, userUnit: 2 }]);
+    expect(decode(formatMatchesOnly(result, 'toon', ['BLEU']))).toEqual(json);
+    expect(formatMatchesOnly(result, 'xml', ['BLEU'])).toContain(
+      '<pageUserUnits>\n<page no="1" userUnit="2"/>\n</pageUserUnits>',
+    );
+    expect(formatMatchesOnly(result, 'markdown', ['BLEU'])).toContain('- **Page UserUnits:** 1=2');
+
+    const defaultJson = JSON.parse(formatMatchesOnly(THREE_HITS, 'json', ['BLEU']));
+    expect(defaultJson.pageUserUnits).toBeUndefined();
+    expect(formatMatchesOnly(THREE_HITS, 'xml', ['BLEU'])).not.toContain('pageUserUnits');
+    expect(formatMatchesOnly(THREE_HITS, 'markdown', ['BLEU'])).not.toContain('Page UserUnits');
+    expect(decode(formatMatchesOnly(THREE_HITS, 'toon', ['BLEU']))).not.toHaveProperty('pageUserUnits');
+  });
+
   it('multi-query: keeps queryIndex per hit and lists every query', () => {
     const result = makeResult([
       makePage({

@@ -19,6 +19,7 @@ import {
   hasUnreliableGlyphGeometry,
 } from './glyphText.js';
 import { detectInvisibleText } from './invisibleText.js';
+import { warningInputsInPhysicalPoints } from './physicalGeometry.js';
 import { detectFormLabelReadingOrderDivergence, detectReadingOrderDivergence } from './readingOrder.js';
 import { detectTextUnderOpaqueFill } from './redactionBypass.js';
 import { detectRtlScriptText } from './rtlScript.js';
@@ -96,6 +97,11 @@ export interface PageWarningContext {
  * omitting the field from the public output when the array is empty.
  */
 export function detectPageWarnings(page: PageResult, context: PageWarningContext = {}): PageWarning[] {
+  const physical = warningInputsInPhysicalPoints(page, context);
+  return detectPageWarningsInPhysicalPoints(physical.page, physical.context);
+}
+
+function detectPageWarningsInPhysicalPoints(page: PageResult, context: PageWarningContext): PageWarning[] {
   const warnings: PageWarning[] = [];
 
   detectGlyphGarbageText(page, warnings);

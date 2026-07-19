@@ -39,9 +39,9 @@ description: PDF 入力、出力形式、レンダリング、OCR、検索、レ
 | `-r, --render` | 選択ページを PNG としてレンダリングし、ページ結果に画像パスを付けます。 |
 | `--render-output <dir>` | ページ PNG または視覚領域 PNG の出力先を指定します。`--render` または `--render-visual-regions` が必要です。 |
 | `--render-scale <n>` | `--render`, `--render-visual-regions`, `--ocr` のラスタライズ倍率を指定します。既定は `2`、範囲は `(0, 4]` です。 |
-| `--render-region <x,y,width,height>` | 回転前の page view box の user-space units で 1 ページの矩形をレンダリングします。`--render` または `--ocr` が必要で、`--pages` はちょうど 1 ページに解決される必要があります。 |
+| `--render-region <x,y,width,height>` | 回転前の生の page-view units で、1 ページ内の矩形をレンダリングします。`--render` または `--ocr` が必要で、`--pages` はちょうど 1 ページに解決される必要があります。 |
 
-座標は左上原点で、`x` は右、`y` は下に増えます。既定の `/UserUnit` では通常ポイントですが、PNG のピクセルではありません。layout block、image box、vector box、search match、visual region と同じ座標系です。
+座標は左上原点で、`x` は右、`y` は下に増えます。layout block、image box、vector box、search match、visual region も同じ生の page-view units を使います。物理サイズのポイント数は「生の値 × `pages[].userUnit`（省略時は 1）」、ピクセル数は「生の領域 × UserUnit × render scale」です。
 
 ## レイアウトと視覚構造
 

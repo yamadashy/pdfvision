@@ -41,7 +41,7 @@ Yes. `--search` emits `pages[].matches[]` with page, source, matched text, conte
 
 ## What coordinate system does pdfvision use?
 
-Boxes use the unrotated pdf.js page-view visible box in PDF user-space units, with a top-left origin. This is CropBox ∩ MediaBox when applicable, otherwise MediaBox. `x` grows right and `y` grows downward. With default `/UserUnit`, units are typically points, not PNG pixels. Bboxes pass unchanged to `--render-region`; full-page PNG overlays scale unrotated pages by image/page dimensions and use the rotated pdf.js viewport transform on rotated pages.
+Boxes use raw unrotated pdf.js page-view units, with a top-left origin. The visible box is CropBox ∩ MediaBox when applicable, otherwise MediaBox. `x` grows right and `y` grows downward. Physical points = raw value × `pages[].userUnit` (or 1 when omitted); pixels = raw region × UserUnit × render scale. Bboxes pass unchanged to `--render-region`; rotated pages use the rotated pdf.js viewport transform.
 
 ## Where does the cache live?
 

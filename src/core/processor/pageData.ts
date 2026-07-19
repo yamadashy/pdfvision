@@ -25,6 +25,8 @@ export interface PageData {
   nonPrintableRatio: number;
   nonPrintableCount: number;
   rotation?: number;
+  /** PDF page dictionary /UserUnit. Omitted for the default value (1). */
+  userUnit?: number;
   width: number;
   height: number;
   spans?: TextSpan[];

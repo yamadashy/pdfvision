@@ -8,6 +8,13 @@ export function formatSize(page: PageResult): string {
   return `${trim(page.width)}×${trim(page.height)}`;
 }
 
+/** Compact physical size for ordinary pages; explicit raw/physical sizes when /UserUnit is non-default. */
+export function formatPhysicalSize(page: PageResult): string {
+  if (page.userUnit === undefined) return `${formatSize(page)}pt`;
+  const physical = { ...page, width: page.width * page.userUnit, height: page.height * page.userUnit };
+  return `${formatSize(page)} page-view units (UserUnit ${page.userUnit}; ${formatSize(physical)}pt physical)`;
+}
+
 interface AppendOverviewOptions {
   /** The user's explicit --layout choice. Markdown always computes
    *  layout internally, so the Blocks / Tables columns (structural
@@ -36,12 +43,13 @@ export function appendOverview(lines: string[], result: DocumentResult, options:
   const showPageLabels = result.pages.some((p) => p.pageLabel !== undefined);
   const showWarnings = result.pages.some((p) => p.warnings && p.warnings.length > 0);
   const showMatches = result.pages.some((p) => p.matches !== undefined);
+  const showUserUnit = result.pages.some((p) => p.userUnit !== undefined);
 
   lines.push('');
   lines.push('## Overview');
   lines.push('');
   lines.push(
-    `| Page |${showPageLabels ? ' Label |' : ''} Chars | Images | Coverage |${showNonPrint ? ' NonPrint |' : ''}${showRender ? ' Render |' : ''} Size (pt) |${showRotation ? ' Rotation |' : ''}${showVectors ? ' Vectors |' : ''}${showVectorBoxes ? ' VectorBoxes |' : ''}${showLayoutTables ? ' Tables |' : ''}${showVisualRegions ? ' VisualRegions |' : ''}${showBlocks ? ' Blocks |' : ''}${showWarnings ? ' Warnings |' : ''}${showMatches ? ' Matches |' : ''}${showFormFields ? ' Fields |' : ''}${showLinks ? ' Links |' : ''}${showAnnotations ? ' Annots |' : ''}${showStructure ? ' Structure |' : ''}${showPageJsActions ? ' JS Actions |' : ''}`,
+    `| Page |${showPageLabels ? ' Label |' : ''} Chars | Images | Coverage |${showNonPrint ? ' NonPrint |' : ''}${showRender ? ' Render |' : ''} ${showUserUnit ? 'Size' : 'Size (pt)'} |${showRotation ? ' Rotation |' : ''}${showVectors ? ' Vectors |' : ''}${showVectorBoxes ? ' VectorBoxes |' : ''}${showLayoutTables ? ' Tables |' : ''}${showVisualRegions ? ' VisualRegions |' : ''}${showBlocks ? ' Blocks |' : ''}${showWarnings ? ' Warnings |' : ''}${showMatches ? ' Matches |' : ''}${showFormFields ? ' Fields |' : ''}${showLinks ? ' Links |' : ''}${showAnnotations ? ' Annots |' : ''}${showStructure ? ' Structure |' : ''}${showPageJsActions ? ' JS Actions |' : ''}`,
   );
   lines.push(
     `| ---: |${showPageLabels ? ' --- |' : ''} ---: | ---: | ---: |${showNonPrint ? ' ---: |' : ''}${showRender ? ' ---: |' : ''} ---: |${showRotation ? ' ---: |' : ''}${showVectors ? ' ---: |' : ''}${showVectorBoxes ? ' ---: |' : ''}${showLayoutTables ? ' ---: |' : ''}${showVisualRegions ? ' ---: |' : ''}${showBlocks ? ' ---: |' : ''}${showWarnings ? ' ---: |' : ''}${showMatches ? ' ---: |' : ''}${showFormFields ? ' ---: |' : ''}${showLinks ? ' ---: |' : ''}${showAnnotations ? ' ---: |' : ''}${showStructure ? ' ---: |' : ''}${showPageJsActions ? ' ---: |' : ''}`,
@@ -64,6 +72,7 @@ export function appendOverview(lines: string[], result: DocumentResult, options:
       showAnnotations,
       showStructure,
       showPageJsActions,
+      showUserUnit,
     });
   }
 }
@@ -85,6 +94,7 @@ interface OverviewColumns {
   showAnnotations: boolean;
   showStructure: boolean;
   showPageJsActions: boolean;
+  showUserUnit: boolean;
 }
 
 function appendOverviewRow(lines: string[], page: PageResult, columns: OverviewColumns): void {
@@ -110,7 +120,8 @@ function appendOverviewRow(lines: string[], page: PageResult, columns: OverviewC
   const annotationsCell = columns.showAnnotations ? ` ${page.annotationCount ?? page.annotations?.length ?? 0} |` : '';
   const structureCell = columns.showStructure ? ` ${structureNodeCount(page.structure)} |` : '';
   const jsActionsCell = columns.showPageJsActions ? ` ${jsActionCount(page.jsActions)} |` : '';
+  const size = columns.showUserUnit ? formatPhysicalSize(page) : formatSize(page);
   lines.push(
-    `| ${page.page} |${pageLabelCell} ${page.charCount} | ${page.imageCount} | ${coveragePct}% |${nonPrintCell}${renderCell} ${formatSize(page)} |${rotationCell}${vectorsCell}${vectorBoxesCell}${layoutTablesCell}${visualRegionsCell}${blocksCell}${warningsCell}${matchesCell}${formFieldsCell}${linksCell}${annotationsCell}${structureCell}${jsActionsCell}`,
+    `| ${page.page} |${pageLabelCell} ${page.charCount} | ${page.imageCount} | ${coveragePct}% |${nonPrintCell}${renderCell} ${size} |${rotationCell}${vectorsCell}${vectorBoxesCell}${layoutTablesCell}${visualRegionsCell}${blocksCell}${warningsCell}${matchesCell}${formFieldsCell}${linksCell}${annotationsCell}${structureCell}${jsActionsCell}`,
   );
 }

@@ -24,7 +24,7 @@ npx pdfvision doc.pdf -p 1-5                    # page subset (also -p 1,3,5)
 npx pdfvision doc.pdf -f json                  # structured; also -f xml, -f toon
 npx pdfvision scan.pdf --ocr -f json           # OCR an image/scanned page
 npx pdfvision scan.pdf --render --render-output ./img               # PNG for a vision LLM
-npx pdfvision doc.pdf -p 3 --render --render-region 100,200,300,150 # zoom in page coordinates
+npx pdfvision doc.pdf -p 3 --render --render-region 100,200,300,150 # raw page-view units
 npx pdfvision report.pdf --search "revenue" --matches-only          # report + bboxes
 ```
 
@@ -45,7 +45,7 @@ Use opt-ins only when default native-text extraction is insufficient. Caveats: `
 | `--password` / `--password-stdin` | Encrypted PDFs; password never guessed or emitted |
 | `--geometry` | Per-text-item bbox + fontSize (heading detection); JSON/XML/TOON only |
 | `--ocr` + `--ocr-lang` | `coverage: 0%` / `nonPrintableRatio >= 0.05`; primary lang first (`jpn+eng`) — see `references/ocr.md` |
-| `--render` (+ `--render-output` / `--render-scale` / `--render-region`) | Rasterise for vision; scale 1 = half-size, 3×+ = detail (default 2); `--render-region <x,y,w,h>` zooms one block (single-page) |
+| `--render` (+`--render-output` / `--render-scale` / `--render-region`) | Rasterise; scale 1 = half-size, 3×+ = detail (default 2); region uses raw units (single-page) |
 | `--search <query>` | "Where does X appear?" `pages[N].matches[*]` with bbox; `--matches-only`, `--search-regex`, `--search-case-sensitive` |
 | `--no-cache` | Force re-extraction |
 

@@ -309,7 +309,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     const pagesWithLayout = pages.filter((p) => p.layout && p.layout.blocks.length > 0).length;
     const chromeDetectionReliable = pagesWithLayout >= 2;
     for (const p of pages) {
-      const warnings = detectPageWarnings(p, {
+      const warningContext = {
         chromeDetectionReliable,
         rasterBackedTextLayer: rasterBackedTextLayerByPage.get(p.page),
         optionalContentText: optionalContentTextByPage.get(p.page),
@@ -321,7 +321,8 @@ export async function processDocument(filePath: string, options: ProcessDocument
         invisibleText: invisibleTextByPage.get(p.page),
         opaqueFillText: opaqueFillTextByPage.get(p.page),
         pdfJsWarnings,
-      });
+      };
+      const warnings = detectPageWarnings(p, warningContext);
       if (warnings.length > 0) p.warnings = warnings;
       else delete p.warnings;
     }

@@ -19,6 +19,8 @@ Matches are emitted in `pages[].matches[]`. Each match includes the page number,
 
 Markdown output also shows a per-page `Search matches` table when `--search` is used. Use JSON, XML, or TOON when a downstream tool needs to consume the coordinates directly.
 
+Add `--matches-only` for a compact flat report without page bodies. If any selected page has a non-default PDF `/UserUnit`, the report preserves it as `pageUserUnits: [{ page, userUnit }]` in JSON/TOON, equivalent `<pageUserUnits>` entries in XML, and a `Page UserUnits` summary in Markdown. The metadata is omitted when every selected page uses UserUnit 1.
+
 Repeat `--search` to run multiple queries in one pass:
 
 ```bash
@@ -72,7 +74,7 @@ Take a match bbox and pass it to `--render-region`:
 pdfvision report.pdf --pages 3 --render --render-region 120,180,360,140 --render-output ./crops --json
 ```
 
-`--render-region` requires exactly one selected page. The region uses unrotated page-view user-space units (typically points with default `/UserUnit`) with a top-left origin, and it must stay within the page bounds.
+`--render-region` requires exactly one selected page. The region uses raw unrotated page-view units with a top-left origin, and it must stay within the page bounds. Physical points = raw value × `pages[].userUnit` (or 1 when omitted); pixels = raw region × UserUnit × render scale.
 
 Use `--render-scale` when the crop contains small labels, superscripts, dense table cells, or chart legends:
 

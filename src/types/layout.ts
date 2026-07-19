@@ -3,24 +3,24 @@
  * character, word, or longer string; its bbox covers the whole item rather
  * than individual glyph outlines, and adjacent items are not merged or split
  * in public spans. The rounded aggregate axis-aligned bbox uses unrotated
- * page-view user-space units (typically points with the default `/UserUnit`),
- * with `(0, 0)` at the top-left and y increasing downward. These are page
- * coordinates, not PNG pixels; unrotated overlays scale by image/page
- * dimensions, while rotated overlays use the pdf.js viewport transform.
+ * raw page-view units, with `(0, 0)` at the top-left and y increasing
+ * downward. Multiply by `pages[].userUnit` (or 1 when omitted) for physical
+ * points. These are page coordinates, not PNG pixels; rendered pixels equal
+ * raw lengths × UserUnit × render scale before rotation swaps axes.
  */
 export interface TextSpan {
   /** Text-item content. Already NFKC-normalized and C0-cleaned when `normalize` is on. */
   text: string;
-  /** Top-left x in unrotated page user-space units. */
+  /** Top-left x in raw unrotated page-view units. */
   x: number;
-  /** Top-left y in unrotated page user-space units; y grows downward. */
+  /** Top-left y in raw unrotated page-view units; y grows downward. */
   y: number;
-  /** Rounded aggregate text-item width in page user-space units. */
+  /** Rounded aggregate text-item width in raw page-view units. */
   width: number;
-  /** Rounded aggregate height in page user-space units; matrix-derived when pdf.js reports 0. */
+  /** Rounded aggregate height in raw page-view units; matrix-derived when pdf.js reports 0. */
   height: number;
   /**
-   * Approximate font size in page user-space units: the largest finite,
+   * Approximate font size in raw page-view units: the largest finite,
    * non-zero text-matrix scale, falling back to the reported/effective item
    * height when both matrix scales are unusable.
    */

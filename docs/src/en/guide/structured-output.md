@@ -65,7 +65,7 @@ The overview is especially useful for long documents because it lets the agent c
 Each `pages[]` entry includes:
 
 - `text` and optional `rawText`.
-- page dimensions in unrotated page-view user-space units.
+- page dimensions in raw unrotated page-view units, plus optional `userUnit` when it is not 1.
 - optional page rotation in degrees when the PDF page is rotated.
 - density fields mirrored from the overview.
 - optional `formFieldCount`, `linkCount`, and `annotationCount` presence signals, omitted when zero.
@@ -107,9 +107,11 @@ Practical interpretation:
 
 ## Coordinates
 
-All boxes use the unrotated pdf.js `page.view` visible box in PDF user-space units, with a top-left origin. The box is CropBox ∩ MediaBox when a distinct valid CropBox applies, otherwise MediaBox. `pages[].width` / `height`, zero-based coordinates, and `renderRegion` bounds are relative to it. With default `/UserUnit`, units are typically points, not PNG pixels.
+All boxes use raw unrotated pdf.js `page.view` units, with a top-left origin. The visible box is CropBox ∩ MediaBox when a distinct valid CropBox applies, otherwise MediaBox. `pages[].width` / `height`, zero-based coordinates, and `renderRegion` bounds are relative to it. `pages[].userUnit` and `overview[].userUnit` expose a non-default PDF `/UserUnit` and are omitted when it is 1. Physical points equal a raw page-view value × `userUnit` (or 1 when omitted); rendered pixels equal a raw region × UserUnit × render scale before rotation swaps axes.
 
-Pass bboxes unchanged to `--render-region`. For full-page PNG overlays, scale unrotated pages by image/page dimensions; on rotated pages, use `pages[].rotation` and the rotated pdf.js viewport transform because the PNG follows the human-visible orientation.
+Pass raw bboxes unchanged to `--render-region`. For full-page PNG overlays, scale unrotated pages by image/page dimensions; on rotated pages, use `pages[].rotation` and the rotated pdf.js viewport transform because the PNG follows the human-visible orientation.
+
+Warning-detector thresholds and `pt` / `pt²` messages use a private physical-point view of already extracted geometry. This does not make all extraction physically invariant: layout grouping, form-label reconstruction, vector-box shaping, and visual-region generation still include raw-unit heuristics and can produce different upstream signals for physically equivalent PDFs.
 
 Coordinate-bearing fields include spans, layout blocks and lines, image boxes, vector boxes, visual regions, form fields, links, annotations, structure references, OCR words, and search matches. This means an agent can move from structured extraction to a visual crop without inventing a new coordinate system.
 

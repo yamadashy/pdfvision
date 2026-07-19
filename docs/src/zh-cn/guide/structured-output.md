@@ -59,7 +59,7 @@ interface DocumentResult {
 
 ## Page Result
 
-每个 `pages[]` 条目包含 `text`、`rawText`、页面尺寸、密度字段，以及按需出现的 `spans`、`layout`、`imageBoxes`、`vectorBoxes`、`visualRegions`、`formFields`、`links`、`annotations`、`structure`、`ocr`、`warnings` 和 `matches`。
+每个 `pages[]` 条目包含 `text`、`rawText`、以原始 page-view units 表示的页面尺寸、非默认时出现的 `userUnit`、密度字段，以及按需出现的 `spans`、`layout`、`imageBoxes`、`vectorBoxes`、`visualRegions`、`formFields`、`links`、`annotations`、`structure`、`ocr`、`warnings` 和 `matches`。
 
 OCR 不会覆盖原生文本。使用方应比较 `page.text` 与 `page.ocr?.text` 后再选择。
 
@@ -96,7 +96,9 @@ OCR 不会覆盖原生文本。使用方应比较 `page.text` 与 `page.ocr?.tex
 
 ## 坐标
 
-所有 bbox 使用未旋转的 pdf.js `page.view` 可见框 PDF user-space units，并以左上角为原点。存在有效 CropBox 时，该框是 CropBox ∩ MediaBox，否则是 MediaBox。`pages[].width` / `height`、零基准坐标和 `renderRegion` 边界均相对于此框。默认 `/UserUnit` 下通常是点，而不是 PNG 像素。bbox 可原样传给 `--render-region`；整页 PNG 叠加在未旋转页按图像/页面尺寸缩放，在旋转页使用 pdf.js 的旋转 viewport transform。
+所有 bbox 均使用未旋转的 pdf.js `page.view` 原始 page-view units，并以左上角为原点。存在有效 CropBox 时，可见框是 CropBox ∩ MediaBox，否则是 MediaBox。`pages[].width` / `height`、零基准坐标和 `renderRegion` 边界均相对于此框。`pages[].userUnit` 与 `overview[].userUnit` 只在 PDF `/UserUnit` 不为默认值 1 时出现。物理点数 = 原始 page-view 值 × `userUnit`（省略时按 1）；渲染像素数 = 原始区域 × UserUnit × render scale，旋转可能交换两个轴。bbox 可原样传给 `--render-region`；旋转页使用 pdf.js 的旋转 viewport transform。
+
+警告检测阈值以及包含 `pt` / `pt²` 的消息使用已提取几何的私有物理点视图。但这并不保证整个提取流程在物理尺寸上保持不变：布局分组、表单标签重建、vector box 整形和 visual region 生成仍包含基于原始单位的启发式规则，因此物理上等价的 PDF 仍可能产生不同的上游信号。
 
 带坐标的字段包括 spans、layout blocks/lines、image boxes、vector boxes、visual regions、form fields、links、annotations、structure references、OCR words 和 search matches。智能体可以从结构化提取直接跳到视觉裁剪，而不需要发明新的坐标系。
 

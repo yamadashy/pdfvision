@@ -21,7 +21,7 @@ pdfvision はレンダリングを最後の手段ではなく、根拠の一種�
 pdfvision document.pdf --render --render-output ./images --format json
 ```
 
-選択ページに画像パスが付きます。レイアウト bbox は回転前の pdf.js page view box 座標で、PNG のピクセル座標ではありません。回転なしのページ全体 PNG では画像とページの寸法比で拡大し、回転ありでは pdf.js の回転 viewport transform を使います。
+選択ページに画像パスが付きます。レイアウト bbox は、回転前の pdf.js page view box を基準とする生の page-view units で、PNG のピクセル座標ではありません。物理サイズのポイント数は「生の値 × `pages[].userUnit`（省略時は 1）」、ピクセル数は「生の値 × UserUnit × render scale」です。回転ページでは、pdf.js の回転 viewport transform を使います。
 
 ```bash
 pdfvision document.pdf --render --render-scale 3
@@ -44,7 +44,7 @@ pdfvision document.pdf --render --render-scale 3
 pdfvision document.pdf --pages 2 --render --render-region 120,180,360,240 --render-output ./regions
 ```
 
-`--render-region` は回転前の page view box の user-space units（既定の `/UserUnit` では通常ポイント）で矩形を指定します。レイアウトブロックや視覚領域の bbox は変更せず渡せます。
+`--render-region` は、回転前の生の page-view units で矩形を指定します。レイアウトブロックや視覚領域の bbox は変更せず渡せます。ピクセル化するときは、レンダラーが UserUnit と render scale を適用します。
 
 検索結果の bbox からも同じ流れでクロップできます。詳しくは [検索と領域ズーム](./search-and-region-zoom.md) を参照してください。
 

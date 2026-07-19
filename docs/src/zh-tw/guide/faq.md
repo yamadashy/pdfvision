@@ -41,7 +41,7 @@ Visual regions 是可裁切的頁面區域，可能包含有意義的圖形、�
 
 ## pdfvision 使用什麼座標系？
 
-bbox 使用未旋轉的 pdf.js page view 可見框 PDF user-space units，並以左上角為原點。適用時該框是 CropBox ∩ MediaBox，否則是 MediaBox。`x` 向右增加，`y` 向下增加。預設 `/UserUnit` 下通常是點，而不是 PNG 像素。bbox 可原樣傳給 `--render-region`；整頁 PNG 疊加在未旋轉頁按影像/頁面尺寸縮放，在旋轉頁使用 pdf.js 的旋轉 viewport transform。
+bbox 使用未旋轉的 pdf.js page view 可見框原始 page-view units，並以左上角為原點。適用時該框是 CropBox ∩ MediaBox，否則是 MediaBox。`x` 向右增加，`y` 向下增加。物理點數 = 原始值 × `pages[].userUnit`（省略時按 1）；像素數 = 原始區域 × UserUnit × render scale。bbox 可原樣傳給 `--render-region`；旋轉頁使用 pdf.js 的旋轉 viewport transform。
 
 ## 快取在哪裡？
 
