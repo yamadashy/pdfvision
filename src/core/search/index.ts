@@ -294,7 +294,7 @@ export function searchPageWithMatchCap(
     }
   }
 
-  matches.push(...ocrMatches);
+  for (const match of ocrMatches) matches.push(match);
   return matches;
 }
 
