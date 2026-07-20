@@ -17,7 +17,7 @@ description: pdfvision CLI 选项参考，涵盖 PDF 输入、输出格式、渲
 | `--password <value>` | 使用密码打开加密 PDF。密码不会写入输出。 |
 | `--password-stdin` | 从管道 stdin 读取密码。stdin 为空时回退到 `--password`。 |
 
-CLI 首先解析选项语法：未知选项或缺少选项值时，即使同时提供 `--help` 也会以退出码 `1` 结束。解析成功后，terminal action 的优先级依次为 `--version`、`--help`、`--clear-cache`；这些操作会跳过输入检查和提取选项的语义验证。其他情况下，pdfvision 会 trim `--remote`，检查是否存在位置参数或非空白 URL；两者都没有时，会在提取、缓存设置或提取选项语义验证前将完整 usage 输出到 stderr，并以退出码 `2` 结束。有可用输入时的参数语义错误，以及 `--clear-cache` 失败，均以退出码 `1` 结束。
+CLI 首先解析选项语法：未知选项或缺少选项值时，即使同时提供 `--help` 也会以退出码 `1` 结束。解析成功后，terminal action 的优先级依次为 `--version`、`--help`、`--clear-cache`；这些操作会跳过输入检查和提取选项的语义验证。其他情况下，pdfvision 会先 trim `--remote`。如果有多个位置参数，则会在检查输入源是否存在之前以退出码 `1` 结束。位置参数最多一个时，pdfvision 会检查是否存在非空位置参数或非空白的 `--remote` URL；两者都没有时，会在提取、缓存设置或提取选项语义验证前将完整 usage 输出到 stderr，并以退出码 `2` 结束。有可用输入时的参数语义错误，以及 `--clear-cache` 失败，均以退出码 `1` 结束。
 
 ## 输出格式
 
@@ -105,5 +105,5 @@ OCR 不会替换 `pages[].text`；它会作为额外信号并列输出，便于�
 | 代码 | 含义 |
 | --- | --- |
 | `0` | 成功，包括 `--help`、`--version` 和成功的 `--clear-cache`。 |
-| `1` | 选项语法错误；有可用输入时的参数语义错误；文件不存在、网络/缓存/clear-cache错误或提取失败。错误信息会输出到 stderr。 |
-| `2` | 未提供位置参数或非空白的 `--remote` URL。完整 usage 会输出到 stderr。 |
+| `1` | 选项语法错误；提供多个位置参数；有可用输入时的参数语义错误；文件不存在、网络/缓存/clear-cache错误或提取失败。错误信息会输出到 stderr。 |
+| `2` | 位置参数最多一个，且未提供非空位置参数或非空白的 `--remote` URL。完整 usage 会输出到 stderr。 |

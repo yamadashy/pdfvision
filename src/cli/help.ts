@@ -173,9 +173,10 @@ Argument handling
   Option syntax is parsed first; an unknown option or missing option value exits 1 even
   when --help is present. After successful parsing, terminal precedence is --version,
   then --help, then --clear-cache; these skip input and extraction-option semantic checks.
-  Otherwise, source presence is checked before extraction-option semantics: no positional
-  input or nonblank --remote URL prints usage to stderr and exits 2. With a source,
-  semantic and other handled failures exit 1; a --clear-cache failure also exits 1.
+  Otherwise, multiple positional arguments exit 1 before source presence is checked.
+  With at most one positional argument, the absence of both a non-empty positional input
+  and a nonblank --remote URL prints usage to stderr and exits 2. With a source, semantic
+  and other handled failures exit 1; a --clear-cache failure also exits 1.
 
 Output formats
   markdown (default)  Per-page sections, density Overview table, image links inline. For LLM context.
@@ -214,6 +215,7 @@ Examples
 
 Exit codes
   0  Success, including --help, --version, and a successful --clear-cache
-  1  Option-syntax error; semantic argument failure with a source; file, network,
-     cache, or extraction failure (error message on stderr)
-  2  No positional input or nonblank --remote URL was provided (usage printed on stderr)`;
+  1  Option-syntax error; multiple positional arguments; semantic argument failure with
+     a source; file, network, cache, or extraction failure (error message on stderr)
+  2  With at most one positional argument, no non-empty positional input or nonblank
+     --remote URL was provided (usage printed on stderr)`;

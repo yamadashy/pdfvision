@@ -17,7 +17,7 @@ This page groups the CLI flags by task. Run `pdfvision --help` for the exact hel
 | `--password <value>` | Open an encrypted PDF with a password. The password is not emitted in output. |
 | `--password-stdin` | Read the encrypted PDF password from piped stdin. Falls back to `--password` if stdin is empty. |
 
-CLI option syntax is parsed first: an unknown option or missing option value exits `1`, even when `--help` is present. After successful parsing, terminal precedence is `--version`, then `--help`, then `--clear-cache`; these skip input and extraction-option semantic checks. Otherwise, pdfvision trims `--remote`, checks for a positional input or nonblank URL, and—with neither—prints full usage to stderr and exits `2` before extraction, cache setup, or extraction-option semantic validation. With a usable source, semantic argument failures exit `1`; a `--clear-cache` failure also exits `1`.
+CLI option syntax is parsed first: an unknown option or missing option value exits `1`, even when `--help` is present. After successful parsing, terminal precedence is `--version`, then `--help`, then `--clear-cache`; these skip input and extraction-option semantic checks. Otherwise, pdfvision trims `--remote`. Multiple positional arguments exit `1` before source presence is checked. With at most one positional argument, pdfvision checks for a non-empty positional input or nonblank `--remote` URL and—with neither—prints full usage to stderr and exits `2` before extraction, cache setup, or extraction-option semantic validation. With a usable source, semantic argument failures exit `1`; a `--clear-cache` failure also exits `1`.
 
 ## Output Format
 
@@ -105,5 +105,5 @@ OCR never replaces `pages[].text`; it is added beside the native text so the age
 | Code | Meaning |
 | --- | --- |
 | `0` | Success, including `--help`, `--version`, and a successful `--clear-cache`. |
-| `1` | Option-syntax error; semantic argument failure with a usable source; file, network, cache, clear-cache, or extraction failure. The error message is printed to stderr. |
-| `2` | No positional input or nonblank `--remote` URL was provided. Full usage is printed to stderr. |
+| `1` | Option-syntax error; multiple positional arguments; semantic argument failure with a usable source; file, network, cache, clear-cache, or extraction failure. The error message is printed to stderr. |
+| `2` | With at most one positional argument, no non-empty positional input or nonblank `--remote` URL was provided. Full usage is printed to stderr. |

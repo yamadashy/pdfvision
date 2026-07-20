@@ -132,20 +132,27 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
   // only --remote value is no source at all. Trimming surrounding argument
   // whitespace avoids a different URL or a false conflict with a positional file.
   const remoteUrl = (values.remote as string | undefined)?.trim();
-  // No input source at all (no positional and no --remote URL) is a
+  // Preserve the existing multi-positional error before interpreting the one
+  // allowed positional as an input source.
+  if (positionals.length > 1) {
+    exitWithError(`Unexpected extra arguments: ${positionals.slice(1).join(' ')}`);
+  }
+  // A sole explicitly empty argv element is no positional input. Do not trim:
+  // whitespace-only filenames are valid on supported filesystems and must
+  // continue down the normal file-resolution path.
+  const positionalInput = positionals[0];
+  const hasPositionalInput = positionalInput !== undefined && positionalInput !== '';
+  // No input source at all (no non-empty positional and no --remote URL) is a
   // usage error, not a help request: print to stderr and exit 2 so a
   // caller can tell "showed help on request" (stdout / 0) apart from
   // "invoked with nothing to do" (stderr / 2), matching common CLI
   // conventions (git, curl, ...).
-  if (positionals.length === 0 && !remoteUrl) {
+  if (!hasPositionalInput && !remoteUrl) {
     console.error(HELP_TEXT);
     process.exit(2);
   }
 
-  if (positionals.length > 1) {
-    exitWithError(`Unexpected extra arguments: ${positionals.slice(1).join(' ')}`);
-  }
-  if (remoteUrl && positionals.length > 0) {
+  if (remoteUrl && hasPositionalInput) {
     // Two input sources at once is almost certainly a mistake — bail
     // rather than silently picking one over the other.
     exitWithError('--remote and a file path are mutually exclusive');
@@ -213,7 +220,11 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
     exitWithError('--password-stdin requires piped stdin or --password fallback');
   }
 
-  const { filePath, sourceData } = await resolveInputSource(remoteUrl, positionals, noCache);
+  const { filePath, sourceData } = await resolveInputSource(
+    remoteUrl,
+    hasPositionalInput ? [positionalInput] : [],
+    noCache,
+  );
 
   try {
     // Lazy-load the processor (and the heavy pdfjs-dist + optional

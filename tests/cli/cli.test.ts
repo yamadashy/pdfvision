@@ -130,6 +130,22 @@ describe('cli', () => {
     expect(r.stderr.join('\n')).not.toContain('Error:');
   });
 
+  it('treats an empty positional after -- as no input', async () => {
+    const r = await captureRun(['--', '']);
+    expect(r.exitCode).toBe(2);
+    expect(r.stdout).toEqual([]);
+    expect(r.stderr.join('\n')).toContain('Usage:');
+    expect(r.stderr.join('\n')).not.toContain('Error:');
+  });
+
+  it('treats a blank --remote value plus an empty positional as no input', async () => {
+    const r = await captureRun(['--remote=', '']);
+    expect(r.exitCode).toBe(2);
+    expect(r.stdout).toEqual([]);
+    expect(r.stderr.join('\n')).toContain('Usage:');
+    expect(r.stderr.join('\n')).not.toContain('Error:');
+  });
+
   it('exits 1 when --remote is missing its required value', async () => {
     const r = await captureRun(['--remote']);
     expect(r.exitCode).toBe(1);
@@ -211,10 +227,59 @@ describe('cli', () => {
     expect(reads).toBe(0);
   });
 
+  it('treats an explicit empty positional as no input without side effects', async () => {
+    const sandbox = mkdtempSync(join(tmpdir(), 'pdfvision-cli-empty-positional-'));
+    const cacheRoot = join(sandbox, 'cache');
+    const previousCacheRoot = process.env.PDFVISION_CACHE_DIR;
+    let stdinReads = 0;
+    const stdin = {
+      isTTY: false,
+      [Symbol.asyncIterator]() {
+        return {
+          async next(): Promise<IteratorResult<string>> {
+            stdinReads++;
+            throw new Error('stdin must not be consumed');
+          },
+        };
+      },
+    };
+    process.env.PDFVISION_CACHE_DIR = cacheRoot;
+
+    try {
+      const r = await captureRun(['', '--password-stdin', '--ocr'], { stdin });
+      expect(r.exitCode).toBe(2);
+      expect(r.stdout).toEqual([]);
+      expect(r.stderr.join('\n')).toContain('Usage:');
+      expect(r.stderr.join('\n')).not.toContain('Error:');
+      expect(stdinReads).toBe(0);
+      expect(existsSync(cacheRoot)).toBe(false);
+    } finally {
+      if (previousCacheRoot === undefined) delete process.env.PDFVISION_CACHE_DIR;
+      else process.env.PDFVISION_CACHE_DIR = previousCacheRoot;
+      rmSync(sandbox, { recursive: true, force: true });
+    }
+  });
+
+  it('preserves a whitespace-only positional as a filename', async () => {
+    const r = await captureRun([' \t ']);
+    expect(r.exitCode).toBe(1);
+    expect(r.stdout).toEqual([]);
+    expect(r.stderr.join('\n')).toMatch(/Error: File not found/);
+    expect(r.stderr.join('\n')).not.toContain('pdfvision <file.pdf>');
+  });
+
   it('does not treat a blank --remote value as conflicting with a positional file', async () => {
     const r = await captureRun(['--remote=', SAMPLE_PDF, '--no-cache']);
     expect(r.exitCode).toBeNull();
     expect(r.stdout.join('\n')).toContain('Hello pdfvision');
+    expect(r.stderr.join('\n')).not.toContain('mutually exclusive');
+  });
+
+  it('allows a nonblank --remote URL with a sole empty positional', async () => {
+    const r = await captureRun(['--remote', 'http://127.0.0.1:0/x.pdf', '', '--format', 'yaml']);
+    expect(r.exitCode).toBe(1);
+    expect(r.stdout).toEqual([]);
+    expect(r.stderr.join('\n')).toMatch(/Invalid --format/);
     expect(r.stderr.join('\n')).not.toContain('mutually exclusive');
   });
 
@@ -253,6 +318,16 @@ describe('cli', () => {
   it('exits with error on extra positional args', async () => {
     const r = await captureRun([SAMPLE_PDF, 'extra-arg']);
     expect(r.exitCode).toBe(1);
+    expect(r.stderr.join('\n')).toMatch(/extra arguments/i);
+  });
+
+  it.each([
+    { label: 'two empty positionals', argv: ['', ''] },
+    { label: 'an empty positional followed by a file', argv: ['', SAMPLE_PDF] },
+  ])('keeps $label as a multi-positional error', async ({ argv }) => {
+    const r = await captureRun(argv);
+    expect(r.exitCode).toBe(1);
+    expect(r.stdout).toEqual([]);
     expect(r.stderr.join('\n')).toMatch(/extra arguments/i);
   });
 
@@ -688,6 +763,13 @@ describe('cli', () => {
     // silently picking one.
     const r = await captureRun(['--remote', 'http://127.0.0.1:0/x.pdf', SAMPLE_PDF]);
     expect(r.exitCode).toBe(1);
+    expect(r.stderr.join('\n')).toMatch(/--remote and a file path are mutually exclusive/);
+  });
+
+  it('treats a whitespace-only positional as a real filename when --remote is present', async () => {
+    const r = await captureRun(['--remote', 'http://127.0.0.1:0/x.pdf', ' \t ']);
+    expect(r.exitCode).toBe(1);
+    expect(r.stdout).toEqual([]);
     expect(r.stderr.join('\n')).toMatch(/--remote and a file path are mutually exclusive/);
   });
 
