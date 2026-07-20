@@ -17,6 +17,8 @@ description: pdfvision CLI 選項參考，涵蓋 PDF 輸入、輸出格式、渲
 | `--password <value>` | 使用密碼開啟加密 PDF。密碼不會寫入輸出。 |
 | `--password-stdin` | 從管線 stdin 讀取密碼。stdin 為空時回退到 `--password`。 |
 
+CLI 會先解析選項語法：遇到未知選項或缺少選項值時，即使同時提供 `--help` 也會以結束碼 `1` 結束。解析成功後，terminal action 的優先順序依次為 `--version`、`--help`、`--clear-cache`；這些操作會略過輸入檢查與擷取選項的語意驗證。其他情況下，pdfvision 會 trim `--remote`，檢查是否有位置引數或非空白 URL；兩者都沒有時，會在擷取、快取設定或擷取選項語意驗證前把完整 usage 輸出到 stderr，並以結束碼 `2` 結束。有可用輸入時的參數語意錯誤，以及 `--clear-cache` 失敗，均以結束碼 `1` 結束。
+
 ## 輸出格式
 
 | 選項 | 用途 |
@@ -102,5 +104,6 @@ OCR 不會取代 `pages[].text`；它會作為額外訊號並列輸出，方便�
 
 | 代碼 | 含義 |
 | --- | --- |
-| `0` | 成功。 |
-| `1` | 參數錯誤、檔案不存在、網路錯誤或擷取失敗。錯誤訊息會輸出到 stderr。 |
+| `0` | 成功，包括 `--help`、`--version` 和成功的 `--clear-cache`。 |
+| `1` | 選項語法錯誤；有可用輸入時的參數語意錯誤；檔案不存在、網路/快取/clear-cache錯誤或擷取失敗。錯誤訊息會輸出到 stderr。 |
+| `2` | 未提供位置引數或非空白的 `--remote` URL。完整 usage 會輸出到 stderr。 |
