@@ -109,19 +109,127 @@ describe('cli', () => {
     // --help (stdout, exit 0).
     const r = await captureRun([]);
     expect(r.stderr.join('\n')).toContain('Usage:');
-    expect(r.stdout.join('\n')).not.toContain('Usage:');
+    expect(r.stderr.join('\n')).not.toContain('Error:');
+    expect(r.stdout).toEqual([]);
     expect(r.exitCode).toBe(2);
+  });
+
+  it('exits 2 for an extraction option without a usable source', async () => {
+    const r = await captureRun(['--json']);
+    expect(r.exitCode).toBe(2);
+    expect(r.stdout).toEqual([]);
+    expect(r.stderr.join('\n')).toContain('Usage:');
+    expect(r.stderr.join('\n')).not.toContain('Error:');
+  });
+
+  it('exits 2 for an empty --remote= value', async () => {
+    const r = await captureRun(['--remote=']);
+    expect(r.exitCode).toBe(2);
+    expect(r.stdout).toEqual([]);
+    expect(r.stderr.join('\n')).toContain('Usage:');
+    expect(r.stderr.join('\n')).not.toContain('Error:');
+  });
+
+  it('exits 1 when --remote is missing its required value', async () => {
+    const r = await captureRun(['--remote']);
+    expect(r.exitCode).toBe(1);
+    expect(r.stdout).toEqual([]);
+    expect(r.stderr.join('\n')).toMatch(/remote.*argument|argument.*remote|value/i);
+    expect(r.stderr.join('\n')).not.toContain('pdfvision <file.pdf>');
+  });
+
+  it('checks for a usable source before validating extraction-option semantics', async () => {
+    const r = await captureRun(['--format', 'yaml']);
+    expect(r.exitCode).toBe(2);
+    expect(r.stdout).toEqual([]);
+    expect(r.stderr.join('\n')).toContain('Usage:');
+    expect(r.stderr.join('\n')).not.toContain('Error:');
+    expect(r.stderr.join('\n')).not.toContain('Invalid --format');
+  });
+
+  it('parses option syntax before honoring --help', async () => {
+    const r = await captureRun(['--help', '--bogus']);
+    expect(r.exitCode).toBe(1);
+    expect(r.stdout).toEqual([]);
+    expect(r.stderr.join('\n')).toMatch(/unknown/i);
+  });
+
+  it('honors --help before extraction-option semantic validation', async () => {
+    const r = await captureRun(['--help', '--format', 'yaml']);
+    expect(r.exitCode).toBeNull();
+    expect(r.stdout.join('\n')).toContain('Usage:');
+    expect(r.stderr).toEqual([]);
+  });
+
+  it('gives --version precedence over --help after successful parsing', async () => {
+    const r = await captureRun(['--version', '--help']);
+    expect(r.exitCode).toBeNull();
+    expect(r.stdout).toHaveLength(1);
+    expect(r.stdout[0]).toMatch(/^\d+\.\d+\.\d+/);
+    expect(r.stdout[0]).not.toContain('Usage:');
+    expect(r.stderr).toEqual([]);
+  });
+
+  it('treats a whitespace-only --remote value as missing input before cache setup', async () => {
+    const sandbox = mkdtempSync(join(tmpdir(), 'pdfvision-cli-empty-remote-'));
+    const cacheRoot = join(sandbox, 'cache');
+    const previousCacheRoot = process.env.PDFVISION_CACHE_DIR;
+    process.env.PDFVISION_CACHE_DIR = cacheRoot;
+    try {
+      const r = await captureRun(['--remote', ' \t\n ', '--ocr']);
+      expect(r.stderr.join('\n')).toContain('Usage:');
+      expect(r.stderr.join('\n')).not.toContain('Error:');
+      expect(r.stdout).toEqual([]);
+      expect(r.exitCode).toBe(2);
+      expect(existsSync(cacheRoot)).toBe(false);
+    } finally {
+      if (previousCacheRoot === undefined) delete process.env.PDFVISION_CACHE_DIR;
+      else process.env.PDFVISION_CACHE_DIR = previousCacheRoot;
+      rmSync(sandbox, { recursive: true, force: true });
+    }
+  });
+
+  it('does not consume password stdin when no source is present', async () => {
+    let reads = 0;
+    const stdin = {
+      isTTY: false,
+      [Symbol.asyncIterator]() {
+        return {
+          async next(): Promise<IteratorResult<string>> {
+            reads++;
+            throw new Error('stdin must not be consumed');
+          },
+        };
+      },
+    };
+
+    const r = await captureRun(['--password-stdin'], { stdin });
+    expect(r.exitCode).toBe(2);
+    expect(r.stdout).toEqual([]);
+    expect(r.stderr.join('\n')).toContain('Usage:');
+    expect(r.stderr.join('\n')).not.toContain('Error:');
+    expect(reads).toBe(0);
+  });
+
+  it('does not treat a blank --remote value as conflicting with a positional file', async () => {
+    const r = await captureRun(['--remote=', SAMPLE_PDF, '--no-cache']);
+    expect(r.exitCode).toBeNull();
+    expect(r.stdout.join('\n')).toContain('Hello pdfvision');
+    expect(r.stderr.join('\n')).not.toContain('mutually exclusive');
   });
 
   it('prints help to stdout with exit 0 for explicit --help', async () => {
     const r = await captureRun(['--help']);
     expect(r.stdout.join('\n')).toContain('Usage:');
+    expect(r.stderr).toEqual([]);
     expect(r.exitCode).toBeNull();
   });
 
   it('prints version with --version', async () => {
     const r = await captureRun(['--version']);
     expect(r.stdout.join('\n')).toMatch(/\d+\.\d+\.\d+/);
+    expect(r.stderr).toEqual([]);
+    expect(r.exitCode).toBeNull();
   });
 
   it('exits with error on invalid --format', async () => {
@@ -611,10 +719,12 @@ describe('cli', () => {
     const cacheRoot = mkdtempSync(join(tmpdir(), 'pdfvision-cli-remote-'));
     process.env.PDFVISION_CACHE_DIR = cacheRoot;
     try {
-      const r = await captureRun(['--remote', `http://127.0.0.1:${port}/doc.pdf`, '--no-cache']);
+      const url = `http://127.0.0.1:${port}/doc.pdf`;
+      const r = await captureRun(['--remote', ` \t${url}\n`, '--no-cache']);
       expect(r.exitCode).toBeNull();
       expect(r.stdout.join('\n')).toContain('Hello pdfvision');
       expect(r.stdout.join('\n')).toMatch(/^# http:\/\/127\.0\.0\.1:/);
+      expect(r.stdout.join('\n')).toContain(url);
       expect(existsSync(join(cacheRoot, 'remote'))).toBe(false);
     } finally {
       if (prevCacheDir === undefined) {
@@ -687,6 +797,27 @@ describe('cli cache root safety', () => {
     expect(existsSync(cacheRoot)).toBe(false);
   });
 
+  it('honors --clear-cache before extraction-option semantic validation', async () => {
+    const result = await captureRun(['--clear-cache', '--format', 'yaml']);
+    expect(result.exitCode).toBeNull();
+    expect(result.stderr).toEqual([]);
+    expect(result.stdout.join('\n')).toContain('Nothing to clear:');
+    expect(existsSync(cacheRoot)).toBe(false);
+  });
+
+  it('keeps explicit --help side-effect free when --clear-cache is also present', async () => {
+    mkdirSync(cacheRoot);
+    const sentinel = join(cacheRoot, 'sentinel');
+    writeFileSync(sentinel, 'keep');
+
+    const result = await captureRun(['--help', '--clear-cache']);
+
+    expect(result.exitCode).toBeNull();
+    expect(result.stdout.join('\n')).toContain('Usage:');
+    expect(result.stderr).toEqual([]);
+    expect(readFileSync(sentinel, 'utf8')).toBe('keep');
+  });
+
   it('clears a cache root initialized by a normal extraction', async () => {
     const extracted = await captureRun([SAMPLE_PDF, '--json']);
     expect(extracted.exitCode).toBeNull();
@@ -699,7 +830,7 @@ describe('cli cache root safety', () => {
     expect(existsSync(cacheRoot)).toBe(false);
   });
 
-  it('refuses to clear an unmarked custom root and preserves its sentinel', async () => {
+  it('exits 1 when clear-cache verification fails and preserves the sentinel', async () => {
     mkdirSync(cacheRoot);
     const sentinel = join(cacheRoot, 'sentinel');
     writeFileSync(sentinel, 'keep');

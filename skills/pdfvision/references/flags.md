@@ -140,6 +140,10 @@ Match semantics:
 
 Full search schema and normalization rules are in `references/structured-output.md`.
 
+## `--remote <url>` — use a remote PDF as the input
+
+Option syntax is parsed first, so unknown options or missing values exit `1` even with `--help`. After parsing, terminal precedence is `--version`, then `--help`, then `--clear-cache`; these skip input and extraction-option semantic checks. Otherwise the URL is trimmed before source arbitration, and a nonblank remote URL cannot be combined with a positional file. No positional input or nonblank URL prints usage to stderr and exits `2` before extraction, cache setup, or extraction-option semantics. With a usable source, semantic failures exit `1`; clear-cache failures also exit `1`.
+
 ## `--no-cache` — skip the on-disk cache
 
 Forced re-extraction; remote PDF bytes also bypass their cache. OCR traineddata and worker support files still use the validated cache root, while renders without `--render-output` use separate OS-temporary paths. Default behaviour is cache-on.

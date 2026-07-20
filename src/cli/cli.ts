@@ -105,6 +105,14 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
     return;
   }
 
+  // Explicit --help is a successful, side-effect-free terminal action.
+  // Resolve it before --clear-cache so a composed invocation cannot mutate
+  // cache state merely because the user also asked for help.
+  if (values.help) {
+    console.log(HELP_TEXT);
+    return;
+  }
+
   if (values['clear-cache']) {
     // --clear-cache is a side-effect operation that ignores everything
     // else: no extraction runs and no positional is needed. Root ownership
@@ -120,12 +128,10 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
     }
   }
 
-  const remoteUrl = values.remote as string | undefined;
-  // Explicit --help prints to stdout and exits 0 — the user asked for it.
-  if (values.help) {
-    console.log(HELP_TEXT);
-    return;
-  }
+  // Normalize before deciding which input source is present. A whitespace-
+  // only --remote value is no source at all. Trimming surrounding argument
+  // whitespace avoids a different URL or a false conflict with a positional file.
+  const remoteUrl = (values.remote as string | undefined)?.trim();
   // No input source at all (no positional and no --remote URL) is a
   // usage error, not a help request: print to stderr and exit 2 so a
   // caller can tell "showed help on request" (stdout / 0) apart from

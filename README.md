@@ -231,7 +231,8 @@ Options
                           Works in every format. Size grows with emitted matches and context.
       --remote <url>      Download an http(s) PDF, validate the PDF header, and run extraction
                           on it. Same URL → same cache slot unless --no-cache streams the
-                          bytes directly without writing the remote-PDF cache.
+                          bytes directly without writing the remote-PDF cache. Surrounding
+                          whitespace is trimmed; a blank value does not count as an input source.
       --no-cache          Skip extraction and remote-PDF caches (re-download / re-extract).
                           OCR support files still use the validated on-disk cache root.
       --clear-cache       Remove cached extractions, rendered PNGs, remote PDFs, and OCR
@@ -242,6 +243,14 @@ Options
                           checks are stronger; Windows replacement resistance is best effort.
   -v, --version           Show version
   -h, --help              Show this help
+
+Argument handling
+  Option syntax is parsed first; an unknown option or missing option value exits 1 even
+  when --help is present. After successful parsing, terminal precedence is --version,
+  then --help, then --clear-cache; these skip input and extraction-option semantic checks.
+  Otherwise, source presence is checked before extraction-option semantics: no positional
+  input or nonblank --remote URL prints usage to stderr and exits 2. With a source,
+  semantic and other handled failures exit 1; a --clear-cache failure also exits 1.
 
 Output formats
   markdown (default)  Per-page sections, density Overview table, image links inline. For LLM context.
@@ -279,8 +288,10 @@ Examples
   pdfvision --clear-cache                                                      # clear the verified pdfvision cache
 
 Exit codes
-  0  Success
-  1  Argument error, file not found, network error, or extraction failure (error message on stderr)
+  0  Success, including --help, --version, and a successful --clear-cache
+  1  Option-syntax error; semantic argument failure with a source; file, network,
+     cache, or extraction failure (error message on stderr)
+  2  No positional input or nonblank --remote URL was provided (usage printed on stderr)
 ```
 
 <!-- usage:end -->
