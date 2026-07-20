@@ -142,7 +142,7 @@ Full search schema and normalization rules are in `references/structured-output.
 
 ## `--remote <url>` — use a remote PDF as the input
 
-Option syntax is parsed first, so unknown options or missing values exit `1` even with `--help`. After parsing, terminal precedence is `--version`, then `--help`, then `--clear-cache`; these skip input and extraction-option semantic checks. Otherwise the URL is trimmed before source arbitration, and a nonblank remote URL cannot be combined with a positional file. No positional input or nonblank URL prints usage to stderr and exits `2` before extraction, cache setup, or extraction-option semantics. With a usable source, semantic failures exit `1`; clear-cache failures also exit `1`.
+Option syntax is parsed first, so unknown options or missing values exit `1` even with `--help`. After parsing, terminal precedence is `--version`, then `--help`, then `--clear-cache`; these skip input and extraction-option semantic checks. Otherwise the URL is trimmed before source arbitration. Multiple positional arguments exit `1` before source presence is checked. With at most one positional argument, a nonblank remote URL cannot be combined with a non-empty positional input, while the absence of both prints usage to stderr and exits `2` before extraction, cache setup, or extraction-option semantics. With a usable source, semantic failures exit `1`; clear-cache failures also exit `1`.
 
 ## `--no-cache` — skip the on-disk cache
 
