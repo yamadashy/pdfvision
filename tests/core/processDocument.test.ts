@@ -1824,18 +1824,17 @@ describe('processDocument', () => {
     ).rejects.toThrow(/stripRepeated requires layout/);
   });
 
-  it.each([
-    'json',
-    'xml',
-    'toon',
-  ] as const)('rejects processFile({ stripRepeated, format: "%s" }) — strip is markdown-only', async (format) => {
-    // Structured formats preserve the repeated marker (as a field in
-    // JSON/TOON and an XML block attribute), so stripping would be either
-    // destructive or a silent no-op.
-    await expect(processFile(SAMPLE_PDF, { format, stripRepeated: true, layout: true, noCache: true })).rejects.toThrow(
-      /stripRepeated only applies to markdown/,
-    );
-  });
+  it.each(['json', 'xml', 'toon'] as const)(
+    'rejects processFile({ stripRepeated, format: "%s" }) — strip is markdown-only',
+    async (format) => {
+      // Structured formats preserve the repeated marker (as a field in
+      // JSON/TOON and an XML block attribute), so stripping would be either
+      // destructive or a silent no-op.
+      await expect(
+        processFile(SAMPLE_PDF, { format, stripRepeated: true, layout: true, noCache: true }),
+      ).rejects.toThrow(/stripRepeated only applies to markdown/);
+    },
+  );
 
   it('is reachable through the package public entrypoint', async () => {
     // Guard against accidentally breaking the index.ts re-export of the
