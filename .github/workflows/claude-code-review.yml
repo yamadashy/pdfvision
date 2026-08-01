@@ -36,10 +36,12 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # Renovate authors its dependency PRs as a bot, and the action refuses
-          # non-human actors unless they are listed here. Name the single bot
-          # rather than '*' so an unrelated App cannot drive this review.
-          allowed_bots: 'renovate'
+          # Renovate and Dependabot author their dependency PRs as bots, and the
+          # action refuses non-human actors unless they are listed here. Name the
+          # two bots rather than '*': allowed bots bypass the repository
+          # permission check, so on a public repo '*' would let any external App
+          # drive this review with a prompt it controls.
+          allowed_bots: 'dependabot[bot],renovate[bot]'
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
           plugins: 'code-review@claude-code-plugins'
           prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
