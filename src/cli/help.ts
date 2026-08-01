@@ -174,9 +174,8 @@ Subcommands
   mcp                     Serve pdfvision over the Model Context Protocol on stdio, for hosts
                           that cannot run a shell (Claude Desktop, Cursor, Cline, Zed, n8n).
                           Exposes three tools — read_pdf, search_pdf, render_pdf — rather than
-                          the flags above; see "pdfvision mcp --help". The standalone
-                          \`pdfvision-mcp\` binary is equivalent. Prefer the CLI plus the bundled
-                          agent skill in shell-capable agents: MCP tool schemas stay in the
+                          the flags above; see "pdfvision mcp --help". Prefer the CLI plus the
+                          bundled agent skill in shell-capable agents: MCP tool schemas stay in the
                           host's context for the whole session, a skill loads on demand.
                           Resolved before option parsing and takes no arguments, so a file
                           actually named \`mcp\` must be passed as \`./mcp\`.
@@ -240,14 +239,13 @@ export const MCP_HELP_TEXT = `pdfvision mcp - Serve pdfvision over the Model Con
 
 Usage:
   pdfvision mcp          Start the server. Takes no arguments.
-  pdfvision-mcp          Equivalent standalone binary.
 
 For MCP hosts that cannot run a shell: Claude Desktop, Cursor, Cline, Zed, n8n.
 Shell-capable agents should prefer the CLI plus the bundled agent skill —
 MCP tool schemas sit in the host's context for a whole session.
 
 Host config:
-  { "mcpServers": { "pdfvision": { "command": "npx", "args": ["-y", "pdfvision-mcp"] } } }
+  { "mcpServers": { "pdfvision": { "command": "npx", "args": ["-y", "pdfvision", "mcp"] } } }
 
 Tools
   read_pdf      Text as Markdown. Without \`pages\` on a long document, a document map

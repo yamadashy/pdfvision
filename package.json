@@ -15,8 +15,7 @@
     }
   },
   "bin": {
-    "pdfvision": "dist/bin/pdfvision.mjs",
-    "pdfvision-mcp": "dist/bin/pdfvision-mcp.mjs"
+    "pdfvision": "dist/bin/pdfvision.mjs"
   },
   "files": [
     "dist/",

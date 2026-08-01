@@ -4,7 +4,6 @@ export default defineConfig({
   entry: {
     index: 'src/index.ts',
     'bin/pdfvision': 'src/bin/pdfvision.ts',
-    'bin/pdfvision-mcp': 'src/bin/pdfvisionMcp.ts',
   },
   outDir: 'dist',
   format: 'esm',

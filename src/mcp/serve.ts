@@ -2,8 +2,7 @@ import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import { createServer } from './server.js';
 
 /**
- * Start the MCP server on stdio. Shared by the `pdfvision mcp`
- * subcommand and the standalone `pdfvision-mcp` binary.
+ * Start the MCP server on stdio, behind the `pdfvision mcp` subcommand.
  */
 export function serveMcpStdio(): void {
   // stdout is the JSON-RPC channel. pdfjs-dist writes raw "Warning: ..."
@@ -18,7 +17,7 @@ export function serveMcpStdio(): void {
 
   serveStdio(() => createServer(), {
     onerror: (error) => {
-      process.stderr.write(`pdfvision-mcp: ${error.message}\n`);
+      process.stderr.write(`pdfvision mcp: ${error.message}\n`);
     },
   });
 }

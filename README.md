@@ -79,11 +79,6 @@ The skill covers the daily extraction flow, the density-Overview-based silent-fa
 
 For hosts that cannot run a shell — Claude Desktop, Cursor, Cline, Zed, n8n — pdfvision serves itself over MCP on stdio:
 
-```bash
-pdfvision mcp          # subcommand
-pdfvision-mcp          # equivalent standalone binary
-```
-
 ```jsonc
 {
   "mcpServers": {
@@ -280,9 +275,8 @@ Subcommands
   mcp                     Serve pdfvision over the Model Context Protocol on stdio, for hosts
                           that cannot run a shell (Claude Desktop, Cursor, Cline, Zed, n8n).
                           Exposes three tools — read_pdf, search_pdf, render_pdf — rather than
-                          the flags above; see "pdfvision mcp --help". The standalone
-                          `pdfvision-mcp` binary is equivalent. Prefer the CLI plus the bundled
-                          agent skill in shell-capable agents: MCP tool schemas stay in the
+                          the flags above; see "pdfvision mcp --help". Prefer the CLI plus the
+                          bundled agent skill in shell-capable agents: MCP tool schemas stay in the
                           host's context for the whole session, a skill loads on demand.
                           Resolved before option parsing and takes no arguments, so a file
                           actually named `mcp` must be passed as `./mcp`.
