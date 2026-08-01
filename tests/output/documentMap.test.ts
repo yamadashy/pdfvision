@@ -90,6 +90,43 @@ describe('formatDocumentMap', () => {
     expect(output).not.toContain('Too deep');
   });
 
+  it('counts the omitted outline entries against every rendered row', () => {
+    // The budget covers children too, so measuring the shortfall against
+    // the top-level count alone reported a negative number and could drop
+    // children with no notice at all.
+    const output = formatDocumentMap(
+      document([page(1, ok)], {
+        outlineCount: 2,
+        outline: [
+          {
+            title: 'Chapter 1',
+            page: 1,
+            items: Array.from({ length: 39 }, (_unused, index) => ({ title: `Section ${index}`, page: index + 2 })),
+          },
+          { title: 'Chapter 2', page: 50 },
+        ],
+      }),
+    );
+    expect(output).toContain('1 further outline entry omitted');
+    expect(output).not.toMatch(/-\d+ further/);
+  });
+
+  it('never silently drops children past the row budget', () => {
+    const output = formatDocumentMap(
+      document([page(1, ok)], {
+        outlineCount: 1,
+        outline: [
+          {
+            title: 'Only chapter',
+            page: 1,
+            items: Array.from({ length: 60 }, (_unused, index) => ({ title: `Section ${index}`, page: index + 2 })),
+          },
+        ],
+      }),
+    );
+    expect(output).toContain('21 further outline entries omitted');
+  });
+
   it('escapes pipes so a title cannot break the tables', () => {
     const output = formatDocumentMap(
       document([page(1, ok)], { outlineCount: 1, outline: [{ title: 'A | B', page: 1 }] }),

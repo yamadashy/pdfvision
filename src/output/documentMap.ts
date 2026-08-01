@@ -47,23 +47,30 @@ function appendGroupedTable(
   }
 }
 
+function outlineEntry(item: DocumentOutlineItem, indent: string): string {
+  return `${indent}- ${escapeInline(item.title)}${item.page !== undefined ? ` — p.${item.page}` : ''}`;
+}
+
 function appendOutline(lines: string[], outline: readonly DocumentOutlineItem[]): void {
   if (outline.length === 0) return;
   lines.push('', '## Outline', '');
-  let emitted = 0;
+
+  // Depth 2 only: deeper bookmark trees are navigation noise at map scale.
+  // Flatten first so the row budget and the "omitted" count are measured
+  // against the same list — counting children while reporting the
+  // shortfall against the top-level total gave a wrong (and sometimes
+  // negative) number, and could drop children with no notice at all.
+  const entries: string[] = [];
   for (const item of outline) {
-    if (emitted >= MAX_DETAIL_ROWS) {
-      lines.push(`- _…${outline.length - emitted} further top-level entries omitted._`);
-      break;
-    }
-    lines.push(`- ${escapeInline(item.title)}${item.page !== undefined ? ` — p.${item.page}` : ''}`);
-    emitted += 1;
-    // Depth 2 only: deeper bookmark trees are navigation noise at map scale.
-    for (const child of item.items ?? []) {
-      if (emitted >= MAX_DETAIL_ROWS) break;
-      lines.push(`  - ${escapeInline(child.title)}${child.page !== undefined ? ` — p.${child.page}` : ''}`);
-      emitted += 1;
-    }
+    entries.push(outlineEntry(item, ''));
+    for (const child of item.items ?? []) entries.push(outlineEntry(child, '  '));
+  }
+
+  lines.push(...entries.slice(0, MAX_DETAIL_ROWS));
+  if (entries.length > MAX_DETAIL_ROWS) {
+    lines.push(
+      `- _…${entries.length - MAX_DETAIL_ROWS} further outline entr${entries.length - MAX_DETAIL_ROWS === 1 ? 'y' : 'ies'} omitted._`,
+    );
   }
 }
 

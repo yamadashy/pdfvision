@@ -105,8 +105,18 @@ export async function assertRoutableUrl(rawUrl: string): Promise<URL> {
 
 /**
  * Follows redirects one hop at a time so every hop is re-validated. The
- * platform fetch follows redirects internally, which would let an
- * allowed public host bounce the request to 169.254.169.254.
+ * platform fetch follows redirects internally, which would let an allowed
+ * public host bounce the request to 169.254.169.254.
+ *
+ * Known limit: the address checked in {@link assertRoutableUrl} is not the
+ * address `fetch` then connects to — it re-resolves the hostname — so a
+ * name server that answers with a public address and then a private one
+ * can still get through. Closing that window needs the connection pinned
+ * to the validated IP, which either breaks TLS hostname verification or
+ * requires a custom HTTP dispatcher (a new runtime dependency). What is
+ * here blocks the cases that do not need attacker-controlled DNS:
+ * private literals, hostnames that simply resolve inward, and redirects
+ * into the metadata endpoint.
  */
 async function guardedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   let current = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
@@ -116,6 +126,9 @@ async function guardedFetch(input: RequestInfo | URL, init?: RequestInit): Promi
     if (response.status < 300 || response.status >= 400) return response;
     const location = response.headers.get('location');
     if (!location) return response;
+    // Nothing reads a redirect body, and an unconsumed one holds its
+    // socket open for the life of this long-running server.
+    await response.body?.cancel().catch(() => undefined);
     current = new URL(location, current).href;
   }
   throw new SourceError(`Too many redirects (>${MAX_REDIRECT_HOPS}) fetching the PDF`);

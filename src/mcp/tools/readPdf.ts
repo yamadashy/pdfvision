@@ -40,7 +40,9 @@ function bodyFor(result: DocumentResult): string {
   });
   // The hint deliberately omits `source`: the model already has it, and
   // echoing a long absolute path back on every truncation is pure noise.
-  return truncateBody(header, pages, { continuationHint: (from, to) => `read_pdf(pages: "${from}-${to}")` });
+  return truncateBody(header, pages, {
+    continuationHint: (dropped) => `read_pdf(pages: "${formatPageRange(dropped)}")`,
+  });
 }
 
 /**
