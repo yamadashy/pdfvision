@@ -16,11 +16,21 @@ pdfvision is a CLI tool for extracting text, metadata, and page images from PDF 
 pdfvision/
 ├── src/
 │   ├── bin/
-│   │   └── pdfvision.ts          # Thin CLI entry point (delegates to cli/cli.ts)
+│   │   ├── pdfvision.ts          # Thin CLI entry point (delegates to cli/cli.ts)
+│   │   └── pdfvisionMcp.ts       # Thin MCP stdio entry point (delegates to mcp/server.ts)
 │   ├── cli/
 │   │   ├── cli.ts            # Argument parsing and dispatch
 │   │   ├── help.ts           # Help text
 │   │   └── version.ts        # Reads version from package.json
+│   ├── mcp/
+│   │   ├── server.ts         # MCP tool registration (read_pdf / search_pdf / render_pdf)
+│   │   ├── tools/            # One module per tool
+│   │   ├── source.ts         # Path-or-URL resolution and SSRF guard
+│   │   ├── limits.ts         # Response budgets
+│   │   ├── refs.ts           # Short region handles (`p47m1`) for follow-up renders
+│   │   ├── summary.ts        # Document-map formatter for unscoped reads
+│   │   ├── truncate.ts       # Page-boundary clipping with recovery guidance
+│   │   └── compact.ts        # Strips empty sections the flagless design would otherwise emit
 │   ├── core/
 │   │   ├── processor.ts      # Document-level processing entry point
 │   │   ├── annotations/      # PDF annotation normalization and geometry
@@ -62,8 +72,9 @@ pdfvision/
 
 ## Architecture Principles
 
-- **bin/ stays thin**: only sets up error handlers and calls `cli/cli.ts`.
+- **bin/ stays thin**: only sets up error handlers and calls `cli/cli.ts` (or `mcp/server.ts`).
 - **cli/ does I/O**: argument parsing, help/version, calling `core/`.
+- **mcp/ is a peer of cli/**, not a wrapper around it: it calls `core/` directly and owns its own response budgets, truncation, and document-map formatting. Deliberately **three** tools (`read_pdf` / `search_pdf` / `render_pdf`) — tool schemas are permanently resident in a host's context, so a CLI flag does **not** become an MCP parameter by default. Anything pdfvision can decide from the document itself is decided by the server. A new parameter needs to justify its permanent context cost; `tests/mcp/server.test.ts` guards the schema budget and the banned parameter names.
 - **core/ is pure-ish logic**: no `process.exit`, no `console.log`. Throws on real errors.
 - **core/ root stays small**: keep only document-level entry points at `src/core/` root; move supporting implementation into responsibility-oriented subdirectories such as `layout/`, `io/`, `renderer/`, and `processor/`.
 - **output/ formatters are pluggable**: each format takes a `DocumentResult` and returns a string.

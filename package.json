@@ -15,7 +15,8 @@
     }
   },
   "bin": {
-    "pdfvision": "dist/bin/pdfvision.mjs"
+    "pdfvision": "dist/bin/pdfvision.mjs",
+    "pdfvision-mcp": "dist/bin/pdfvision-mcp.mjs"
   },
   "files": [
     "dist/",
@@ -66,9 +67,11 @@
     "node": ">=22.13.0"
   },
   "dependencies": {
+    "@modelcontextprotocol/server": "^2.0.0",
     "@napi-rs/canvas": "^1.0.0",
     "@toon-format/toon": "^2.3.1",
-    "pdfjs-dist": "^6.1.200"
+    "pdfjs-dist": "^6.1.200",
+    "zod": "^4.4.3"
   },
   "optionalDependencies": {
     "tesseract.js": "^7.0.0"
