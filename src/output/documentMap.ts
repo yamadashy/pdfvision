@@ -19,7 +19,9 @@ const MAX_DETAIL_ROWS = 40;
 function groupByKey<T extends string>(pages: readonly PageResult[], key: (page: PageResult) => T[]): Map<T, number[]> {
   const grouped = new Map<T, number[]>();
   for (const page of pages) {
-    for (const value of key(page)) {
+    // De-duplicate per page: a page raises one `text_overlap` per
+    // overlapping pair, and the column counts pages, not warnings.
+    for (const value of new Set(key(page))) {
       const bucket = grouped.get(value);
       if (bucket) bucket.push(page.page);
       else grouped.set(value, [page.page]);

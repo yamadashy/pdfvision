@@ -48,6 +48,8 @@ describe('assertRoutableUrl', () => {
     ['CGNAT', 'http://100.64.0.1/a.pdf'],
     ['IPv6 loopback', 'http://[::1]/a.pdf'],
     ['IPv6 unique local', 'http://[fd00::1]/a.pdf'],
+    ['IPv6 link-local', 'http://[fe80::1]/a.pdf'],
+    ['IPv6 site-local', 'http://[fec0::1]/a.pdf'],
     ['IPv4-mapped IPv6', 'http://[::ffff:10.0.0.1]/a.pdf'],
   ])('refuses %s', async (_label, url) => {
     await expect(assertRoutableUrl(url)).rejects.toThrow(/private, loopback, or link-local/);

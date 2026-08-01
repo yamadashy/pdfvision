@@ -134,6 +134,22 @@ describe('render_pdf', () => {
     expect(images(result)).toHaveLength(1);
   });
 
+  it('names what a ref resolved to, so a stale one is visible', async () => {
+    // Every call renumbers refs from `p1m1`, so a ref held over from an
+    // earlier search silently resolves to the newer result. Echoing the
+    // origin is what lets the caller notice.
+    await searchPdf({ source: SAMPLE, query: 'pdfvision' });
+    const body = text(await renderPdf({ source: SAMPLE, ref: 'p1m1' }));
+    expect(body).toContain('Ref `p1m1` → search hit for pdfvision');
+  });
+
+  it('reports the pages it rendered, not the range it was asked for', async () => {
+    const body = text(await renderPdf({ source: SAMPLE, pages: '1-2' }));
+    expect(body).toContain('page(s) 1');
+    expect(body).not.toContain('page(s) 1-2');
+    expect(body).toContain('past the end of this 1-page document');
+  });
+
   it('explains how to recover from an unknown ref', async () => {
     await expect(renderPdf({ source: SAMPLE, ref: 'p9m9' })).rejects.toThrow(/Unknown ref "p9m9"/);
   });

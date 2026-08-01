@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { parsePageRange } from '../../core/options/pageRange.js';
+import { formatPageRange, parsePageRangeWithSkipped } from '../../core/options/pageRange.js';
 import { processDocument } from '../../core/processor.js';
 import { formatBox } from '../../output/markdown/helpers.js';
 import { formatPhysicalSize } from '../../output/markdown/overview.js';
@@ -84,6 +84,7 @@ export async function renderPdf(input: RenderPdfInput): Promise<ToolResult> {
 
   let pages = input.pages;
   let region: RenderRegion | undefined;
+  let refOrigin: string | undefined;
 
   if (input.ref !== undefined) {
     const target = lookupRef(input.source, input.ref);
@@ -94,6 +95,7 @@ export async function renderPdf(input: RenderPdfInput): Promise<ToolResult> {
     }
     pages = String(target.page);
     region = target.region;
+    refOrigin = target.origin;
   } else if (input.region !== undefined) {
     region = toRegion(input.region);
   }
@@ -103,8 +105,7 @@ export async function renderPdf(input: RenderPdfInput): Promise<ToolResult> {
   }
 
   const probe = await processDocument(resolved.filePath, { ...base, pages: '1' });
-  const selected = parsePageRange(pages, probe.totalPages);
-  if (selected.length === 0) throw new Error(`\`pages\` "${pages}" selects no page of ${probe.totalPages}.`);
+  const { pages: selected, skipped, skippedTruncated } = parsePageRangeWithSkipped(pages, probe.totalPages);
   if (selected.length > MAX_RENDER_PAGES) {
     throw new Error(
       `render_pdf renders at most ${MAX_RENDER_PAGES} pages per call (requested ${selected.length}). Split the range, or use search_pdf to find the page that matters.`,
@@ -133,9 +134,22 @@ export async function renderPdf(input: RenderPdfInput): Promise<ToolResult> {
     visualRegions: region === undefined,
   });
 
+  // Report what was rendered, not what was asked for: `pages: "1-2"` on a
+  // one-page document silently drops page 2, and echoing the request back
+  // would claim an image the response does not carry.
   const lines: string[] = [
-    `# ${result.file} — rendered ${region ? `region ${formatBox(region)} of ` : ''}page(s) ${pages}`,
+    `# ${result.file} — rendered ${region ? `region ${formatBox(region)} of ` : ''}page(s) ${formatPageRange(selected)}`,
   ];
+  if (skipped.length > 0) {
+    lines.push(
+      '',
+      `_\`pages\` "${pages}" also named ${formatPageRange(skipped)}${skippedTruncated ? ' and beyond' : ''}, past the end of this ${probe.totalPages}-page document._`,
+    );
+  }
+  // Refs are renumbered from `p1m1` by every call, so one held over from
+  // an earlier search now resolves to that call's result. Naming what it
+  // resolved to is what lets the caller notice.
+  if (refOrigin) lines.push('', `_Ref \`${input.ref}\` → ${refOrigin}._`);
   const images: ToolBlock[] = [];
   let bytesUsed = 0;
 

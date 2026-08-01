@@ -66,6 +66,15 @@ describe('formatDocumentMap', () => {
     expect(formatDocumentMap(document(pages))).toContain('| `raster_backed_text_layer` | 2 | 2-3 |');
   });
 
+  it('counts pages, not warnings, when one page raises a code twice', () => {
+    // `text_overlap` is emitted once per overlapping block pair, so a
+    // single page routinely carries several. Counting them made the
+    // Pages column disagree with the range beside it.
+    const overlap = (message: string): PageWarning => ({ code: 'text_overlap', severity: 'warning', message });
+    const pages = [page(1, ok, [overlap('a'), overlap('b'), overlap('c')]), page(2, ok, [overlap('d')])];
+    expect(formatDocumentMap(document(pages))).toContain('| `text_overlap` | 2 | 1-2 |');
+  });
+
   it('flags an XFA form loudly', () => {
     const output = formatDocumentMap(document([page(1, ok)], { xfa: true }));
     expect(output).toContain('XFA (LiveCycle) form');

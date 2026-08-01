@@ -36,17 +36,23 @@ export interface TruncateOptions {
 }
 
 /**
- * Last-resort clip on the assembled response.
+ * Room held back from the budget so the recovery notice always fits.
  *
- * Dropping whole pages cannot bound a response on its own: the document
- * header carries an Overview row per selected page, so `pages: "1-500"`
- * blows the budget before the first page body is added. Page-boundary
- * truncation stays the primary mechanism because it leaves a usable,
- * well-formed document behind; this only catches what it cannot.
+ * A fixed reserve rather than the notice's own length: measuring the
+ * finished text made the page selection depend on the notice and the
+ * notice depend on the selection, and the clamp that broke that cycle
+ * could cut into a page the notice had already reported as included.
  *
- * The cap bounds the *content*. Notices are added on top, so a response
- * can run a few hundred characters over — deliberately, because guidance
- * the model cannot read is worse than a slightly larger reply.
+ * The reserve bounds the *content*. A selector with many non-adjacent
+ * pages can still push the notice past it, which is deliberate —
+ * guidance the model cannot read is worse than a slightly larger reply.
+ */
+const NOTICE_RESERVE = 400;
+
+/**
+ * Last-resort clip, for the one case page selection cannot cover: not
+ * even the first page fits, so the response is cut mid-content and has
+ * to say where.
  */
 function clampBody(body: string, limit: number, charCap: number): string {
   if (body.length <= limit) return body;
@@ -60,32 +66,46 @@ export function truncateBody(
 ): string {
   const charCap = options.charCap ?? BODY_CHAR_CAP;
   const clipped = sections.map(clipPage);
+  const full = header + clipped.map((section) => section.text).join('');
+  if (full.length <= charCap) return full;
 
+  const limit = Math.max(Math.floor(charCap / 2), charCap - NOTICE_RESERVE);
   const kept: MarkdownPageSection[] = [];
   let used = header.length;
   for (const section of clipped) {
-    // Always keep the first page: a response that is only a header tells
-    // the model nothing and gives it no way to make progress.
-    if (kept.length > 0 && used + section.text.length > charCap) break;
     kept.push(section);
     used += section.text.length;
+    if (used > limit) {
+      kept.pop();
+      break;
+    }
   }
 
-  const body = header + kept.map((section) => section.text).join('');
-  if (kept.length === sections.length) return clampBody(body, charCap, charCap);
-
   const dropped = clipped.slice(kept.length).map((section) => section.page);
+  if (dropped.length === 0) return clampBody(header, limit, charCap);
+
+  // A page is only reported as delivered when it fits whole. When none
+  // does — the header carries an Overview row per selected page, so
+  // `pages: "1-500"` can fill the budget on its own — the first page is
+  // still shown as far as there is room for, because a bare header
+  // leaves the model nothing to work with. It counts as omitted all the
+  // same: the caller has to ask again to get the rest of it, and naming
+  // a page the reader did not fully receive is the failure this whole
+  // layer exists to prevent.
+  const body =
+    kept.length > 0
+      ? header + kept.map((section) => section.text).join('')
+      : clampBody(header + (clipped[0]?.text ?? ''), limit, charCap);
+  const shown =
+    kept.length > 0
+      ? `showing pages ${formatPageRange(kept.map((section) => section.page))}`
+      : 'no page fits it whole, so nothing below is complete';
+
   const notice = [
     '',
-    `[pdfvision] Truncated at the ${charCap.toLocaleString('en-US')}-char response budget: showing pages ${formatPageRange(kept.map((section) => section.page))}, ${dropped.length} page${dropped.length === 1 ? '' : 's'} omitted (${formatPageRange(dropped)}).`,
+    `[pdfvision] Truncated at the ${charCap.toLocaleString('en-US')}-char response budget: ${shown}, ${dropped.length} page${dropped.length === 1 ? '' : 's'} omitted (${formatPageRange(dropped)}).`,
     `Continue with ${options.continuationHint(dropped)}, or narrow with search_pdf first.`,
     '',
   ].join('\n');
-  // Reserve room for the notice before clamping: clipping the response to
-  // the cap and *then* appending would cut off the recovery instructions,
-  // which are the one part that must survive. Never give the notice more
-  // than half the budget, so a tiny cap still returns some content rather
-  // than nothing but its own apology.
-  const bodyLimit = Math.max(Math.floor(charCap / 2), charCap - notice.length);
-  return clampBody(body, bodyLimit, charCap) + notice;
+  return body + notice;
 }

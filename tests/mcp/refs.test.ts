@@ -49,4 +49,18 @@ describe('refs', () => {
     rememberRef('doc.pdf', 'extra', { page: 1, region, origin: 'bulk' });
     expect(lookupRef('doc.pdf', 'keep')?.origin).toBe('refreshed');
   });
+
+  it('refreshes an entry that is merely read', () => {
+    // Eviction has to follow use, not insertion: a ref the caller keeps
+    // rendering was otherwise pushed out by 500 newer ones it never
+    // touched, and the next render_pdf failed with "unknown ref".
+    rememberRef('doc.pdf', 'keep', { page: 1, region, origin: 'first' });
+    for (let index = 0; index < 499; index += 1) {
+      rememberRef('doc.pdf', `p1m${index}`, { page: 1, region, origin: 'bulk' });
+    }
+    expect(lookupRef('doc.pdf', 'keep')).toBeDefined();
+    rememberRef('doc.pdf', 'extra', { page: 1, region, origin: 'bulk' });
+    expect(lookupRef('doc.pdf', 'keep')?.origin).toBe('first');
+    expect(lookupRef('doc.pdf', 'p1m0')).toBeUndefined();
+  });
 });

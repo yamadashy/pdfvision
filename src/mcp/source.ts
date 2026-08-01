@@ -63,6 +63,7 @@ function isPrivateIPv6(address: string): boolean {
   if (normalized === '::1' || normalized === '::') return true;
   if (/^f[cd]/.test(normalized)) return true; // unique local fc00::/7
   if (/^fe[89ab]/.test(normalized)) return true; // link-local fe80::/10
+  if (/^fe[c-f]/.test(normalized)) return true; // site-local fec0::/10 — deprecated, still routed on some intranets
   if (normalized.startsWith('ff')) return true; // multicast
   return false;
 }
