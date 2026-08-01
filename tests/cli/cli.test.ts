@@ -290,6 +290,33 @@ describe('cli', () => {
     expect(r.exitCode).toBeNull();
   });
 
+  it('documents the mcp subcommand in the main help', async () => {
+    const r = await captureRun(['--help']);
+    expect(r.stdout.join('\n')).toContain('pdfvision mcp');
+  });
+
+  it('prints MCP-specific help for `mcp --help` without starting a server', async () => {
+    const r = await captureRun(['mcp', '--help']);
+    const out = r.stdout.join('\n');
+    expect(out).toContain('Model Context Protocol');
+    expect(out).toContain('read_pdf');
+    expect(r.exitCode).toBeNull();
+  });
+
+  it('exits 1 when the mcp subcommand is given arguments', async () => {
+    const r = await captureRun(['mcp', '--json']);
+    expect(r.stderr.join('\n')).toContain('takes no arguments');
+    expect(r.exitCode).toBe(1);
+  });
+
+  it('still treats a positional named mcp.pdf as a file', async () => {
+    const r = await captureRun(['mcp.pdf']);
+    // Resolved as a path, so it fails as a missing file rather than
+    // being swallowed by the subcommand.
+    expect(r.stderr.join('\n')).toContain('File not found');
+    expect(r.exitCode).toBe(1);
+  });
+
   it('prints version with --version', async () => {
     const r = await captureRun(['--version']);
     expect(r.stdout.join('\n')).toMatch(/\d+\.\d+\.\d+/);

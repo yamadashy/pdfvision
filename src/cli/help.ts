@@ -12,6 +12,7 @@ Usage:
   pdfvision <file.pdf> [options]
   pdfvision --remote <url> [options]
   pdfvision --clear-cache
+  pdfvision mcp
 
 Options
   -p, --pages <range>     Pages to extract: "1", "1-5", "1,3,5", "2-4,7". Default: all pages.
@@ -169,6 +170,17 @@ Options
   -v, --version           Show version
   -h, --help              Show this help
 
+Subcommands
+  mcp                     Serve pdfvision over the Model Context Protocol on stdio, for hosts
+                          that cannot run a shell (Claude Desktop, Cursor, Cline, Zed, n8n).
+                          Exposes three tools — read_pdf, search_pdf, render_pdf — rather than
+                          the flags above; see "pdfvision mcp --help". The standalone
+                          \`pdfvision-mcp\` binary is equivalent. Prefer the CLI plus the bundled
+                          agent skill in shell-capable agents: MCP tool schemas stay in the
+                          host's context for the whole session, a skill loads on demand.
+                          Resolved before option parsing and takes no arguments, so a file
+                          actually named \`mcp\` must be passed as \`./mcp\`.
+
 Argument handling
   Option syntax is parsed first; an unknown option or missing option value exits 1 even
   when --help is present. After successful parsing, terminal precedence is --version,
@@ -219,3 +231,45 @@ Exit codes
      a source; file, network, cache, or extraction failure (error message on stderr)
   2  With at most one positional argument, no non-empty positional input or nonblank
      --remote URL was provided (usage printed on stderr)`;
+
+// Shown by `pdfvision mcp --help`. Deliberately short: the audience is a
+// human wiring up an MCP host config, not an agent picking flags — the
+// agent-facing detail lives in the tool descriptions the server itself
+// advertises over `tools/list`.
+export const MCP_HELP_TEXT = `pdfvision mcp - Serve pdfvision over the Model Context Protocol (stdio)
+
+Usage:
+  pdfvision mcp          Start the server. Takes no arguments.
+  pdfvision-mcp          Equivalent standalone binary.
+
+For MCP hosts that cannot run a shell: Claude Desktop, Cursor, Cline, Zed, n8n.
+Shell-capable agents should prefer the CLI plus the bundled agent skill —
+MCP tool schemas sit in the host's context for a whole session.
+
+Host config:
+  { "mcpServers": { "pdfvision": { "command": "npx", "args": ["-y", "pdfvision-mcp"] } } }
+
+Tools
+  read_pdf      Text as Markdown. Without \`pages\` on a long document, a document map
+                (page count, outline, per-page quality, warning codes by page range)
+                instead of the body. \`ocr\` takes Tesseract languages, e.g. "jpn+eng".
+  search_pdf    Flat hit list with page, origin, context, region, and a short ref.
+                Names the pages whose native text is unusable, so zero hits is not
+                mistaken for absence.
+  render_pdf    Page or region PNGs as image blocks. Takes a ref from an earlier
+                response, so coordinates never have to be transcribed.
+
+Responses are budgeted and every truncation names the exact follow-up call. There is no
+format, include, scale, or cache parameter: what pdfvision can decide from the document,
+the server decides.
+
+Environment
+  PDFVISION_MCP_ALLOW_PRIVATE_NETWORK=1
+      Allow remote URLs that resolve to private, loopback, or link-local addresses.
+      Refused by default because the model, not a human, chooses the URL.
+  PDFVISION_CACHE_DIR
+      Same cache root override the CLI uses.
+
+Exit codes
+  0  Clean shutdown, including --help
+  1  Arguments were passed to the subcommand`;

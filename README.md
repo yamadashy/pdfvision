@@ -77,12 +77,17 @@ The skill covers the daily extraction flow, the density-Overview-based silent-fa
 
 ## 🔌 MCP Server
 
-For hosts that cannot run a shell — Claude Desktop, Cursor, Cline, Zed, n8n — pdfvision ships an MCP server over stdio:
+For hosts that cannot run a shell — Claude Desktop, Cursor, Cline, Zed, n8n — pdfvision serves itself over MCP on stdio:
+
+```bash
+pdfvision mcp          # subcommand
+pdfvision-mcp          # equivalent standalone binary
+```
 
 ```jsonc
 {
   "mcpServers": {
-    "pdfvision": { "command": "npx", "args": ["-y", "pdfvision-mcp"] }
+    "pdfvision": { "command": "npx", "args": ["-y", "pdfvision", "mcp"] }
   }
 }
 ```
@@ -113,6 +118,7 @@ Usage:
   pdfvision <file.pdf> [options]
   pdfvision --remote <url> [options]
   pdfvision --clear-cache
+  pdfvision mcp
 
 Options
   -p, --pages <range>     Pages to extract: "1", "1-5", "1,3,5", "2-4,7". Default: all pages.
@@ -269,6 +275,17 @@ Options
                           checks are stronger; Windows replacement resistance is best effort.
   -v, --version           Show version
   -h, --help              Show this help
+
+Subcommands
+  mcp                     Serve pdfvision over the Model Context Protocol on stdio, for hosts
+                          that cannot run a shell (Claude Desktop, Cursor, Cline, Zed, n8n).
+                          Exposes three tools — read_pdf, search_pdf, render_pdf — rather than
+                          the flags above; see "pdfvision mcp --help". The standalone
+                          `pdfvision-mcp` binary is equivalent. Prefer the CLI plus the bundled
+                          agent skill in shell-capable agents: MCP tool schemas stay in the
+                          host's context for the whole session, a skill loads on demand.
+                          Resolved before option parsing and takes no arguments, so a file
+                          actually named `mcp` must be passed as `./mcp`.
 
 Argument handling
   Option syntax is parsed first; an unknown option or missing option value exits 1 even

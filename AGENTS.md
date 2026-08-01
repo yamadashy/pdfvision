@@ -17,12 +17,14 @@ pdfvision/
 ├── src/
 │   ├── bin/
 │   │   ├── pdfvision.ts          # Thin CLI entry point (delegates to cli/cli.ts)
-│   │   └── pdfvisionMcp.ts       # Thin MCP stdio entry point (delegates to mcp/server.ts)
+│   │   └── pdfvisionMcp.ts       # Thin MCP stdio entry point (delegates to mcp/serve.ts)
 │   ├── cli/
 │   │   ├── cli.ts            # Argument parsing and dispatch
-│   │   ├── help.ts           # Help text
+│   │   ├── help.ts           # Help text (CLI + `pdfvision mcp`)
+│   │   ├── mcpCommand.ts     # `pdfvision mcp` subcommand dispatch, resolved before parseArgs
 │   │   └── version.ts        # Reads version from package.json
 │   ├── mcp/
+│   │   ├── serve.ts          # stdio entry shared by `pdfvision mcp` and the pdfvision-mcp bin
 │   │   ├── server.ts         # MCP tool registration (read_pdf / search_pdf / render_pdf)
 │   │   ├── tools/            # One module per tool
 │   │   ├── source.ts         # Path-or-URL resolution and SSRF guard
@@ -72,7 +74,7 @@ pdfvision/
 
 ## Architecture Principles
 
-- **bin/ stays thin**: only sets up error handlers and calls `cli/cli.ts` (or `mcp/server.ts`).
+- **bin/ stays thin**: only sets up error handlers and calls `cli/cli.ts` (or `mcp/serve.ts`).
 - **cli/ does I/O**: argument parsing, help/version, calling `core/`.
 - **mcp/ is a peer of cli/**, not a wrapper around it: it calls `core/` directly and owns its own response budgets, truncation, and document-map formatting. Deliberately **three** tools (`read_pdf` / `search_pdf` / `render_pdf`) — tool schemas are permanently resident in a host's context, so a CLI flag does **not** become an MCP parameter by default. Anything pdfvision can decide from the document itself is decided by the server. A new parameter needs to justify its permanent context cost; `tests/mcp/server.test.ts` guards the schema budget and the banned parameter names.
 - **core/ is pure-ish logic**: no `process.exit`, no `console.log`. Throws on real errors.

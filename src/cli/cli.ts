@@ -1,8 +1,9 @@
 import { parseArgs } from 'node:util';
 import { exitWithError, formatCliErrorMessage } from './errors.js';
 import { resolveOutputFormat } from './format.js';
-import { HELP_TEXT } from './help.js';
+import { HELP_TEXT, MCP_HELP_TEXT } from './help.js';
 import { readPasswordFromStdin, resolveInputSource } from './input.js';
+import { resolveMcpCommand } from './mcpCommand.js';
 import { resolveRenderOptions } from './renderOptions.js';
 import type { ParsedCliValues, RunOptions } from './types.js';
 import { getVersion } from './version.js';
@@ -33,6 +34,21 @@ function emitOutputSizeNote(result: string): void {
 }
 
 export async function run(argv: string[] = process.argv.slice(2), options: RunOptions = {}): Promise<void> {
+  // Resolved before parseArgs: `pdfvision mcp` starts a long-lived stdio
+  // server with no CLI options of its own, and the MCP SDK is imported
+  // lazily so a normal extraction run never pays for loading it.
+  const mcpCommand = resolveMcpCommand(argv);
+  if (mcpCommand) {
+    if (mcpCommand.kind === 'error') exitWithError(mcpCommand.message);
+    if (mcpCommand.kind === 'help') {
+      console.log(MCP_HELP_TEXT);
+      return;
+    }
+    const { serveMcpStdio } = await import('../mcp/serve.js');
+    serveMcpStdio();
+    return;
+  }
+
   let values: ParsedCliValues;
   let positionals: string[];
   try {

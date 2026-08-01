@@ -1,3 +1,4 @@
+import { formatBox } from '../output/markdown/helpers.js';
 import type { PageResult, RenderRegion } from '../types/index.js';
 
 /**
@@ -31,7 +32,17 @@ export function padRegion(bbox: RenderRegion, page: Pick<PageResult, 'width' | '
   };
 }
 
+/**
+ * Same `x,y,width,height` shape the Markdown output uses, rounded first:
+ * padding produces long floats that cost tokens and help nobody, and the
+ * value is round-tripped into `render_pdf` where 0.1 units is noise.
+ */
 export function formatRegion(region: RenderRegion): string {
   const round = (value: number) => Math.round(value * 10) / 10;
-  return `${round(region.x)},${round(region.y)},${round(region.width)},${round(region.height)}`;
+  return formatBox({
+    x: round(region.x),
+    y: round(region.y),
+    width: round(region.width),
+    height: round(region.height),
+  });
 }
