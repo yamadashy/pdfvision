@@ -1,10 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import { parsePageRange } from '../../core/options/pageRange.js';
 import { processDocument } from '../../core/processor.js';
+import { formatBox } from '../../output/markdown/helpers.js';
+import { formatPhysicalSize } from '../../output/markdown/overview.js';
 import type { PageResult, RenderRegion } from '../../types/index.js';
 import { MAX_IMAGE_EDGE_PX, MAX_RENDER_PAGES, MAX_TOTAL_IMAGE_BYTES } from '../limits.js';
 import { lookupRef, regionRef, rememberRef } from '../refs.js';
-import { formatRegion } from '../region.js';
 import { type ToolBlock, type ToolResult, textBlock, toolResult } from '../result.js';
 import { resolveSource } from '../source.js';
 
@@ -51,16 +52,22 @@ function appendVisualRegions(lines: string[], page: PageResult, source: string):
     rememberRef(source, ref, { page: page.page, region: bbox, origin: `${region.kind} region` });
     const caption = region.associatedText?.[0]?.text;
     lines.push(
-      `- \`${ref}\` ${region.kind}${caption ? ` — "${caption.replace(/\s+/g, ' ').trim().slice(0, 100)}"` : ''} · region ${formatRegion(bbox)}`,
+      `- \`${ref}\` ${region.kind}${caption ? ` — "${caption.replace(/\s+/g, ' ').trim().slice(0, 100)}"` : ''} · region ${formatBox(bbox)}`,
     );
   }
 }
 
+/**
+ * The same density vocabulary the Markdown body uses, trimmed to what
+ * matters next to a picture, plus the warning codes themselves — on a
+ * render the codes are the reason the caller is looking at all.
+ */
 function describePage(page: PageResult): string {
   const parts = [
     `chars: ${page.charCount}`,
     `images: ${page.imageCount}`,
     `coverage: ${Math.round(page.textCoverage * 100)}%`,
+    `size: ${formatPhysicalSize(page)}`,
   ];
   if (page.quality.nativeTextStatus !== 'ok') parts.push(`native: ${page.quality.nativeTextStatus}`);
   if (page.quality.visualStatus && page.quality.visualStatus !== 'ok') {
@@ -127,7 +134,7 @@ export async function renderPdf(input: RenderPdfInput): Promise<ToolResult> {
   });
 
   const lines: string[] = [
-    `# ${result.file} — rendered ${region ? `region ${formatRegion(region)} of ` : ''}page(s) ${pages}`,
+    `# ${result.file} — rendered ${region ? `region ${formatBox(region)} of ` : ''}page(s) ${pages}`,
   ];
   const images: ToolBlock[] = [];
   let bytesUsed = 0;

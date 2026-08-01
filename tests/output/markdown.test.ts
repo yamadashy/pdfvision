@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatMarkdown } from '../../src/output/markdown.js';
+import { formatMarkdown, formatMarkdownSections } from '../../src/output/markdown.js';
 import type { DocumentResult, PageResult } from '../../src/types/index.js';
 
 // US Letter dimensions in PDF points; the formatter doesn't read width/height
@@ -1676,5 +1676,65 @@ describe('formatMarkdown', () => {
     expect(out).toMatch(/\| Warnings \|/);
     // Page 2's row carries the count, page 1 shows 0.
     expect(out).toMatch(/\| 2 \| 7 \|.*\| 1 \|/);
+  });
+});
+
+describe('formatMarkdownSections', () => {
+  const doc = (): DocumentResult =>
+    makeResult({
+      totalPages: 2,
+      pages: [makePage({ page: 1, text: 'one', charCount: 3 }), makePage({ page: 2, text: 'two', charCount: 3 })],
+    });
+
+  it('concatenates back to formatMarkdown byte for byte', () => {
+    const result = doc();
+    const { header, pages } = formatMarkdownSections(result);
+    expect(header + pages.map((section) => section.text).join('')).toBe(formatMarkdown(result));
+  });
+
+  it('reports the page number each section belongs to', () => {
+    expect(formatMarkdownSections(doc()).pages.map((section) => section.page)).toEqual([1, 2]);
+  });
+
+  it('keeps the page heading inside its own section', () => {
+    const [first] = formatMarkdownSections(doc()).pages;
+    expect(first?.text).toContain('## Page 1');
+    expect(first?.text).not.toContain('## Page 2');
+  });
+});
+
+describe('omitEmptySections', () => {
+  const emptyPasses = (): DocumentResult =>
+    makeResult({
+      pages: [makePage({ page: 1, formFields: [], links: [], annotations: [], visualRegions: [] })],
+    });
+
+  it('reports empty passes by default, because the user asked for them', () => {
+    const output = formatMarkdown(emptyPasses());
+    expect(output).toContain('_No interactive form fields found._');
+    expect(output).toContain('_No clickable links found._');
+    expect(output).toContain('_No non-link annotations found._');
+    expect(output).toContain('_No crop-ready visual regions found._');
+    expect(output).toContain('formFields: 0');
+  });
+
+  it('drops the empty sections and their zero counters when set', () => {
+    const output = formatMarkdown(emptyPasses(), { omitEmptySections: true });
+    expect(output).not.toContain('### Form fields');
+    expect(output).not.toContain('### Links');
+    expect(output).not.toContain('### Annotations');
+    expect(output).not.toContain('### Visual regions');
+    expect(output).not.toContain('formFields: 0');
+    expect(output).not.toContain('links: 0');
+    expect(output).not.toContain('annotations: 0');
+  });
+
+  it('still renders a pass that found something', () => {
+    const result = emptyPasses();
+    const page = result.pages[0];
+    if (page) page.links = [{ type: 'url', target: 'https://example.com', x: 1, y: 2, width: 3, height: 4 }];
+    const output = formatMarkdown(result, { omitEmptySections: true });
+    expect(output).toContain('### Links');
+    expect(output).toContain('links: 1');
   });
 });

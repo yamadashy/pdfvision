@@ -9,8 +9,16 @@ import {
   formatBox,
 } from './helpers.js';
 
-export function appendAnnotations(lines: string[], page: PageResult): void {
+/**
+ * `omitEmpty` drops the "the pass ran and found nothing" stanza. The CLI
+ * wants it — the user typed a flag and deserves to know the answer was
+ * genuinely empty. Callers that request the pass on the user's behalf
+ * (the MCP server asks for every page-level pass on every read) would
+ * otherwise pay an empty section per page for the privilege.
+ */
+export function appendAnnotations(lines: string[], page: PageResult, omitEmpty = false): void {
   if (!page.annotations) return;
+  if (omitEmpty && page.annotations.length === 0) return;
 
   lines.push('');
   lines.push('### Annotations');

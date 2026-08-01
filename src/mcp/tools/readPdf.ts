@@ -1,12 +1,12 @@
-import { parsePageRange } from '../../core/options/pageRange.js';
+import { formatPageRange, parsePageRange } from '../../core/options/pageRange.js';
 import { processDocument } from '../../core/processor.js';
-import { formatMarkdown } from '../../output/markdown.js';
+import { unreliableNativeTextPages } from '../../core/quality/pageQuality.js';
+import { formatDocumentMap } from '../../output/documentMap.js';
+import { formatMarkdownSections } from '../../output/markdown.js';
 import type { DocumentResult, ProcessDocumentOptions } from '../../types/index.js';
-import { compactBody } from '../compact.js';
 import { MAX_OCR_PAGES, UNSCOPED_FULL_READ_PAGE_LIMIT } from '../limits.js';
 import { type ToolResult, toolResult } from '../result.js';
 import { resolveSource } from '../source.js';
-import { renderSummary } from '../summary.js';
 import { truncateBody } from '../truncate.js';
 
 export interface ReadPdfInput {
@@ -20,24 +20,56 @@ export interface ReadPdfInput {
  * Opt-ins the CLI exposes as flags are decided here instead of being
  * parameters. The flags exist because a CLI cannot afford to compute
  * everything on every run; an MCP result's cost is about *emission*, and
- * the Markdown formatter already omits form-field / link / annotation
- * sections when a page has none. Handing the model an `include` array
- * would just re-create the flag surface as permanently resident schema
- * and invite `include: [everything]`.
+ * `omitEmptySections` makes the formatter charge nothing for a pass that
+ * found nothing. Handing the model an `include` array would just
+ * re-create the flag surface as permanently resident schema and invite
+ * `include: [everything]`.
  *
  * `stripRepeated` is on unconditionally: re-reading the same running
- * footer N times is pure context waste, which is exactly what the flag
- * was built to avoid.
+ * footer N times is pure context waste, which is what the flag is for.
  */
 function detailOptions(base: ProcessDocumentOptions): ProcessDocumentOptions {
   return { ...base, layout: true, formFields: true, links: true, annotations: true };
 }
 
 function bodyFor(result: DocumentResult): string {
-  const markdown = compactBody(formatMarkdown(result, { layout: true, stripRepeated: true }));
+  const { header, pages } = formatMarkdownSections(result, {
+    layout: true,
+    stripRepeated: true,
+    omitEmptySections: true,
+  });
   // The hint deliberately omits `source`: the model already has it, and
   // echoing a long absolute path back on every truncation is pure noise.
-  return truncateBody(markdown, { continuationHint: (from, to) => `read_pdf(pages: "${from}-${to}")` });
+  return truncateBody(header, pages, { continuationHint: (from, to) => `read_pdf(pages: "${from}-${to}")` });
+}
+
+/**
+ * The document map reports what the document is; which call to make next
+ * is this server's concern, not the formatter's, so it is appended here.
+ */
+function withNextSteps(map: string, result: DocumentResult): string {
+  const unreliable = unreliableNativeTextPages(result.pages);
+  const steps = [
+    `- \`read_pdf(pages: "${formatPageRange(result.pages.slice(0, 10).map((page) => page.page))}")\` — read from the start`,
+    '- `search_pdf(query: "…")` — locate a term, then read or render only the pages it hits',
+  ];
+  if (unreliable.length > 0) {
+    steps.push(
+      `- \`read_pdf(pages: "${formatPageRange(unreliable.slice(0, 5))}", ocr: "eng")\` — ${unreliable.length} page(s) have no usable native text (set the language, e.g. \`"jpn+eng"\`)`,
+      `- \`render_pdf(pages: "${unreliable[0]}")\` — look at one of those pages instead`,
+    );
+  }
+  return [
+    map,
+    '',
+    // Why the body is missing is this server's reason, not a property of
+    // the document, so it is stated here rather than in the formatter.
+    '_No `pages` was given and the full body exceeds the response budget._',
+    '',
+    '## Next step',
+    '',
+    ...steps,
+  ].join('\n');
 }
 
 export async function readPdf(input: ReadPdfInput): Promise<ToolResult> {
@@ -48,11 +80,12 @@ export async function readPdf(input: ReadPdfInput): Promise<ToolResult> {
     ocr: input.ocr !== undefined,
     ocrLang: input.ocr,
   };
+  const probeOptions: ProcessDocumentOptions = { ...base, pages: '1', ocr: false, ocrLang: undefined };
 
   if (input.pages !== undefined) {
     // Probe first so an out-of-range selector and the OCR page budget are
     // both checked against the real page count before any heavy pass.
-    const probe = await processDocument(resolved.filePath, { ...base, pages: '1', ocr: false, ocrLang: undefined });
+    const probe = await processDocument(resolved.filePath, probeOptions);
     const selected = parsePageRange(input.pages, probe.totalPages);
     if (input.ocr !== undefined && selected.length > MAX_OCR_PAGES) {
       throw new Error(
@@ -63,7 +96,7 @@ export async function readPdf(input: ReadPdfInput): Promise<ToolResult> {
     return toolResult(bodyFor(result));
   }
 
-  const probe = await processDocument(resolved.filePath, { ...base, pages: '1', ocr: false, ocrLang: undefined });
+  const probe = await processDocument(resolved.filePath, probeOptions);
   if (input.ocr !== undefined && probe.totalPages > MAX_OCR_PAGES) {
     throw new Error(
       `OCR is limited to ${MAX_OCR_PAGES} pages per call and this document has ${probe.totalPages}. Pass \`pages\` to pick a range.`,
@@ -85,5 +118,5 @@ export async function readPdf(input: ReadPdfInput): Promise<ToolResult> {
     ocrLang: undefined,
     outline: (probe.outlineCount ?? 0) > 0,
   });
-  return toolResult(renderSummary(survey));
+  return toolResult(withNextSteps(formatDocumentMap(survey), survey));
 }

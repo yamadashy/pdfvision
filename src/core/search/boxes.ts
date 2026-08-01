@@ -1,3 +1,4 @@
+import { padAndClamp } from '../visualRegions/geometry.js';
 import type { Box, SearchLine, SearchOwner } from './types.js';
 
 export function round2(n: number): number {
@@ -117,4 +118,33 @@ function estimateLatinTextWidth(text: string, fontSize: number): number {
     else units += 0.55;
   }
   return units * fontSize;
+}
+
+/**
+ * Minimum and proportional padding applied when turning a located box
+ * into something worth rasterising. Wider than tall on purpose — see
+ * {@link padAndClamp}.
+ */
+const CROP_MIN_PAD_X_PT = 60;
+const CROP_MIN_PAD_Y_PT = 12;
+const CROP_PAD_RATIO_X = 0.6;
+const CROP_PAD_RATIO_Y = 0.3;
+
+/**
+ * Turn a located box — a search hit, a warning's block, a form widget —
+ * into a crop-ready region for `renderRegion`.
+ *
+ * A match bbox hugs its glyphs, so rendering it verbatim produces an
+ * unreadable sliver with no surrounding context. This is the padding step
+ * the README's "search → zoom → render" loop describes; `renderRegion`
+ * rejects out-of-bounds rectangles rather than clipping them, hence the
+ * clamp. Shares `padAndClamp` with visual-region cropping so both produce
+ * boxes in the same rounded, in-page form.
+ */
+export function cropRegionForBox(box: Box, page: { width: number; height: number }): Box {
+  const padded = padAndClamp(box, page.width, page.height, {
+    x: Math.max(CROP_MIN_PAD_X_PT, box.width * CROP_PAD_RATIO_X),
+    y: Math.max(CROP_MIN_PAD_Y_PT, box.height * CROP_PAD_RATIO_Y),
+  });
+  return { x: padded.x, y: padded.y, width: padded.width, height: padded.height };
 }

@@ -43,11 +43,26 @@ export function unionBox(a: BoxLike, b: BoxLike): BoxLike {
   return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
-export function padAndClamp(box: BoxLike, pageWidth: number, pageHeight: number, padding: number): BoxLike {
-  const left = Math.max(0, box.x - padding);
-  const top = Math.max(0, box.y - padding);
-  const right = Math.min(pageWidth, box.x + box.width + padding);
-  const bottom = Math.min(pageHeight, box.y + box.height + padding);
+/**
+ * Grow a box by `padding` and clamp it back inside the page.
+ *
+ * `padding` accepts separate x / y amounts because text-shaped crops need
+ * more horizontal room than vertical: a box hugging a phrase reads as
+ * broken when the neighbouring words are cut mid-glyph, while one line of
+ * clearance above and below is plenty.
+ */
+export function padAndClamp(
+  box: BoxLike,
+  pageWidth: number,
+  pageHeight: number,
+  padding: number | { x: number; y: number },
+): BoxLike {
+  const padX = typeof padding === 'number' ? padding : padding.x;
+  const padY = typeof padding === 'number' ? padding : padding.y;
+  const left = Math.max(0, box.x - padX);
+  const top = Math.max(0, box.y - padY);
+  const right = Math.min(pageWidth, box.x + box.width + padX);
+  const bottom = Math.min(pageHeight, box.y + box.height + padY);
   const x = round2(left);
   const y = round2(top);
   const roundedRight = Math.min(round2(right), floor2(pageWidth));

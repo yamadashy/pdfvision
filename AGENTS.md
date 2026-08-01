@@ -26,12 +26,11 @@ pdfvision/
 │   │   ├── serve.ts          # stdio bootstrap behind `pdfvision mcp`
 │   │   ├── server.ts         # MCP tool registration (read_pdf / search_pdf / render_pdf)
 │   │   ├── tools/            # One module per tool
-│   │   ├── source.ts         # Path-or-URL resolution and SSRF guard
+│   │   ├── source.ts         # Path-or-URL dispatch and SSRF guard
 │   │   ├── limits.ts         # Response budgets
 │   │   ├── refs.ts           # Short region handles (`p47m1`) for follow-up renders
-│   │   ├── summary.ts        # Document-map formatter for unscoped reads
 │   │   ├── truncate.ts       # Page-boundary clipping with recovery guidance
-│   │   └── compact.ts        # Strips empty sections the flagless design would otherwise emit
+│   │   └── result.ts         # Content blocks and the untrusted-data banner
 │   ├── core/
 │   │   ├── processor.ts      # Document-level processing entry point
 │   │   ├── annotations/      # PDF annotation normalization and geometry
@@ -54,6 +53,7 @@ pdfvision/
 │   │   ├── warnings/         # User-facing warning detection
 │   │   └── widgetAppearance/ # Widget appearance stream text extraction
 │   ├── output/
+│   │   ├── documentMap.ts    # Aggregated map of a document (no page bodies)
 │   │   ├── json.ts           # Structured JSON formatter
 │   │   ├── markdown.ts       # Agent-readable Markdown formatter
 │   │   ├── toon.ts           # TOON formatter
@@ -75,7 +75,8 @@ pdfvision/
 
 - **bin/ stays thin**: only sets up error handlers and calls `cli/cli.ts`.
 - **cli/ does I/O**: argument parsing, help/version, calling `core/`.
-- **mcp/ is a peer of cli/**, not a wrapper around it: it calls `core/` directly and owns its own response budgets, truncation, and document-map formatting. Deliberately **three** tools (`read_pdf` / `search_pdf` / `render_pdf`) — tool schemas are permanently resident in a host's context, so a CLI flag does **not** become an MCP parameter by default. Anything pdfvision can decide from the document itself is decided by the server. A new parameter needs to justify its permanent context cost; `tests/mcp/server.test.ts` guards the schema budget and the banned parameter names.
+- **mcp/ is a thin agent-facing front over the same `core/` and `output/` the CLI uses.** The CLI is the primary surface; MCP exists to make it usable from a host with no shell. So anything an MCP tool needs that is not protocol-specific belongs in `core/` or `output/`, where the CLI can reach it too — page-range formatting, crop-region padding, the document map, native-text-quality classification, and local input resolution all live there for this reason. What legitimately stays under `mcp/` is protocol shape: tool registration, response budgets and truncation, the session ref registry, the SSRF guard, and the untrusted-content banner. If a new MCP behaviour would be useful from the command line, add it to `core/`/`output/` and call it from both.
+- **Three MCP tools** (`read_pdf` / `search_pdf` / `render_pdf`) — tool schemas are permanently resident in a host's context, so a CLI flag does **not** become an MCP parameter by default. Anything pdfvision can decide from the document itself is decided by the server. A new parameter needs to justify its permanent context cost; `tests/mcp/server.test.ts` guards the schema budget and the banned parameter names.
 - **core/ is pure-ish logic**: no `process.exit`, no `console.log`. Throws on real errors.
 - **core/ root stays small**: keep only document-level entry points at `src/core/` root; move supporting implementation into responsibility-oriented subdirectories such as `layout/`, `io/`, `renderer/`, and `processor/`.
 - **output/ formatters are pluggable**: each format takes a `DocumentResult` and returns a string.

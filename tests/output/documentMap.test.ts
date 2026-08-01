@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { renderSummary } from '../../src/mcp/summary.js';
+import { formatDocumentMap } from '../../src/output/documentMap.js';
 import type { DocumentResult, PageQuality, PageResult, PageWarning } from '../../src/types/index.js';
 
 function page(number: number, quality: PageQuality, warnings: PageWarning[] = []): PageResult {
@@ -32,20 +32,25 @@ function document(pages: PageResult[], extra: Partial<DocumentResult> = {}): Doc
 const ok: PageQuality = { nativeTextStatus: 'ok' };
 const scanned: PageQuality = { nativeTextStatus: 'empty_but_visual_content' };
 
-describe('renderSummary', () => {
+describe('formatDocumentMap', () => {
   it('groups quality statuses into page ranges instead of listing every page', () => {
     const pages = [
       ...Array.from({ length: 11 }, (_unused, index) => page(index + 1, ok)),
       ...Array.from({ length: 22 }, (_unused, index) => page(index + 12, scanned)),
     ];
-    const output = renderSummary(document(pages));
+    const output = formatDocumentMap(document(pages));
     expect(output).toContain('| `ok` | 11 | 1-11 |');
     expect(output).toContain('| `empty_but_visual_content` | 22 | 12-33 |');
     expect(output).not.toContain('## Page 12');
   });
 
+  it('stays small on a long document', () => {
+    const pages = Array.from({ length: 2_000 }, (_unused, index) => page(index + 1, ok));
+    expect(formatDocumentMap(document(pages)).length).toBeLessThan(2_000);
+  });
+
   it('carries the document metadata and page count', () => {
-    const output = renderSummary(document([page(1, ok)]));
+    const output = formatDocumentMap(document([page(1, ok)]));
     expect(output).toContain('- **Pages:** 1');
     expect(output).toContain('- **Title:** Annual Report');
     expect(output).toContain('- **Author:** Acme');
@@ -58,30 +63,17 @@ describe('renderSummary', () => {
       message: 'text layer over a scan',
     };
     const pages = [page(1, ok), page(2, scanned, [warning]), page(3, scanned, [warning])];
-    const output = renderSummary(document(pages));
-    expect(output).toContain('| `raster_backed_text_layer` | 2 | 2-3 |');
-  });
-
-  it('suggests OCR and a render when pages have no usable native text', () => {
-    const output = renderSummary(document([page(1, ok), page(2, scanned)]));
-    expect(output).toContain('ocr: "eng"');
-    expect(output).toContain('render_pdf(pages: "2")');
-  });
-
-  it('omits the OCR suggestion when every page reads cleanly', () => {
-    const output = renderSummary(document([page(1, ok), page(2, ok)]));
-    expect(output).not.toContain('ocr:');
-    expect(output).toContain('read_pdf(pages: "1-2")');
+    expect(formatDocumentMap(document(pages))).toContain('| `raster_backed_text_layer` | 2 | 2-3 |');
   });
 
   it('flags an XFA form loudly', () => {
-    const output = renderSummary(document([page(1, ok)], { xfa: true }));
+    const output = formatDocumentMap(document([page(1, ok)], { xfa: true }));
     expect(output).toContain('XFA (LiveCycle) form');
     expect(output).toContain('Adobe Acrobat/Reader');
   });
 
   it('renders a two-level outline and drops deeper nesting', () => {
-    const output = renderSummary(
+    const output = formatDocumentMap(
       document([page(1, ok)], {
         outlineCount: 1,
         outline: [
@@ -99,7 +91,15 @@ describe('renderSummary', () => {
   });
 
   it('escapes pipes so a title cannot break the tables', () => {
-    const output = renderSummary(document([page(1, ok)], { outlineCount: 1, outline: [{ title: 'A | B', page: 1 }] }));
+    const output = formatDocumentMap(
+      document([page(1, ok)], { outlineCount: 1, outline: [{ title: 'A | B', page: 1 }] }),
+    );
     expect(output).toContain('A \\| B');
+  });
+
+  it('leaves the next call to the caller', () => {
+    // Suggestions name a specific surface's commands, so they belong to
+    // whoever is serving the map, not to the formatter.
+    expect(formatDocumentMap(document([page(1, scanned)]))).not.toContain('Next step');
   });
 });

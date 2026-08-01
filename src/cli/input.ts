@@ -1,5 +1,4 @@
-import { accessSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { resolveLocalPdfPath } from '../core/io/localInput.js';
 import { exitWithError } from './errors.js';
 import type { InputSource, RunOptions } from './types.js';
 
@@ -38,11 +37,9 @@ export async function resolveInputSource(
   if (!inputPath) {
     exitWithError('Missing input file path');
   }
-  const filePath = resolve(inputPath);
   try {
-    accessSync(filePath);
-  } catch {
-    exitWithError(`File not found: ${filePath}`);
+    return { filePath: resolveLocalPdfPath(inputPath) };
+  } catch (error) {
+    exitWithError(error instanceof Error ? error.message : String(error));
   }
-  return { filePath };
 }

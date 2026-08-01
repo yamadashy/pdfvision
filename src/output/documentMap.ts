@@ -1,26 +1,20 @@
-import { escapeInline, escapeTableCell } from '../output/markdown/helpers.js';
+import { formatPageRange } from '../core/options/pageRange.js';
 import type { DocumentOutlineItem, DocumentResult, PageResult } from '../types/index.js';
-import { SUMMARY_MAX_DETAIL_ROWS } from './limits.js';
-import { formatPageRanges } from './ranges.js';
+import { escapeInline, escapeTableCell } from './markdown/helpers.js';
 
 /**
- * The document map returned when `read_pdf` is called without `pages` on
- * a document too large to inline.
+ * A map of a document instead of its contents: metadata, native-text
+ * quality and warning codes grouped into page ranges, and the outline.
  *
- * This is not the Markdown formatter with the body removed. The whole
- * point is aggregation: a 312-row Overview table is itself a context
- * problem, so quality statuses and warning codes are grouped into page
- * ranges, and the response ends with the concrete calls worth making
- * next. The CLI never needs this because its caller can pipe and grep.
+ * This is not the Markdown formatter with the body removed — the point is
+ * aggregation. A 312-row Overview table is itself a size problem, so
+ * repeated statuses collapse into `12-33` style ranges. Callers append
+ * their own trailer (the MCP server suggests its next tool calls there);
+ * this formatter only reports what the document is.
  */
 
-/** Statuses that mean native text is missing or untrustworthy, in rough severity order. */
-const OCR_WORTHY_STATUSES = new Set([
-  'empty_but_visual_content',
-  'unusable_glyph_indices',
-  'mixed_glyph_indices',
-  'sparse_text_with_visual_content',
-]);
+/** Rows of per-value detail before the table is cut short. */
+const MAX_DETAIL_ROWS = 40;
 
 function groupByKey<T extends string>(pages: readonly PageResult[], key: (page: PageResult) => T[]): Map<T, number[]> {
   const grouped = new Map<T, number[]>();
@@ -45,11 +39,11 @@ function appendGroupedTable(
   lines.push('', `## ${heading}`, '');
   lines.push(`| ${columnLabel} | Pages | Where |`);
   lines.push('| --- | ---: | --- |');
-  for (const [value, pages] of rows.slice(0, SUMMARY_MAX_DETAIL_ROWS)) {
-    lines.push(`| \`${escapeTableCell(value)}\` | ${pages.length} | ${formatPageRanges(pages)} |`);
+  for (const [value, pages] of rows.slice(0, MAX_DETAIL_ROWS)) {
+    lines.push(`| \`${escapeTableCell(value)}\` | ${pages.length} | ${formatPageRange(pages)} |`);
   }
-  if (rows.length > SUMMARY_MAX_DETAIL_ROWS) {
-    lines.push('', `_${rows.length - SUMMARY_MAX_DETAIL_ROWS} further row(s) omitted._`);
+  if (rows.length > MAX_DETAIL_ROWS) {
+    lines.push('', `_${rows.length - MAX_DETAIL_ROWS} further row(s) omitted._`);
   }
 }
 
@@ -58,7 +52,7 @@ function appendOutline(lines: string[], outline: readonly DocumentOutlineItem[])
   lines.push('', '## Outline', '');
   let emitted = 0;
   for (const item of outline) {
-    if (emitted >= SUMMARY_MAX_DETAIL_ROWS) {
+    if (emitted >= MAX_DETAIL_ROWS) {
       lines.push(`- _…${outline.length - emitted} further top-level entries omitted._`);
       break;
     }
@@ -66,31 +60,14 @@ function appendOutline(lines: string[], outline: readonly DocumentOutlineItem[])
     emitted += 1;
     // Depth 2 only: deeper bookmark trees are navigation noise at map scale.
     for (const child of item.items ?? []) {
-      if (emitted >= SUMMARY_MAX_DETAIL_ROWS) break;
+      if (emitted >= MAX_DETAIL_ROWS) break;
       lines.push(`  - ${escapeInline(child.title)}${child.page !== undefined ? ` — p.${child.page}` : ''}`);
       emitted += 1;
     }
   }
 }
 
-function appendNextSteps(lines: string[], result: DocumentResult): void {
-  const ocrPages = result.pages
-    .filter((page) => OCR_WORTHY_STATUSES.has(page.quality.nativeTextStatus))
-    .map((page) => page.page);
-  const firstPages = result.pages.slice(0, 10).map((page) => page.page);
-
-  lines.push('', '## Next step', '');
-  lines.push(`- \`read_pdf(pages: "${formatPageRanges(firstPages)}")\` — read from the start`);
-  lines.push('- `search_pdf(query: "…")` — locate a term, then read or render only the pages it hits');
-  if (ocrPages.length > 0) {
-    lines.push(
-      `- \`read_pdf(pages: "${formatPageRanges(ocrPages.slice(0, 5))}", ocr: "eng")\` — ${ocrPages.length} page(s) have no usable native text (set the language, e.g. \`"jpn+eng"\`)`,
-    );
-    lines.push(`- \`render_pdf(pages: "${ocrPages[0]}")\` — look at one of those pages instead`);
-  }
-}
-
-export function renderSummary(result: DocumentResult): string {
+export function formatDocumentMap(result: DocumentResult): string {
   const lines: string[] = [`# ${result.file}`, ''];
   lines.push(`- **Pages:** ${result.totalPages}`);
   if (result.metadata.title) lines.push(`- **Title:** ${escapeInline(result.metadata.title)}`);
@@ -109,10 +86,7 @@ export function renderSummary(result: DocumentResult): string {
     );
   }
 
-  lines.push(
-    '',
-    '_Document map: `pages` was not given and the full body exceeds the response budget, so page bodies are omitted._',
-  );
+  lines.push('', '_Document map: page bodies are omitted._');
 
   appendGroupedTable(
     lines,
@@ -127,7 +101,6 @@ export function renderSummary(result: DocumentResult): string {
     groupByKey(result.pages, (page) => (page.warnings ?? []).map((warning) => warning.code)),
   );
   if (result.outline) appendOutline(lines, result.outline);
-  appendNextSteps(lines, result);
 
   return lines.join('\n');
 }

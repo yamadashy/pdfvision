@@ -1,7 +1,6 @@
 import { lookup } from 'node:dns/promises';
-import { statSync } from 'node:fs';
 import { isIP } from 'node:net';
-import { resolve } from 'node:path';
+import { resolveLocalPdfPath } from '../core/io/localInput.js';
 import { downloadRemoteWithData } from '../core/io/remote.js';
 import { MAX_LOCAL_FILE_BYTES, MAX_REDIRECT_HOPS } from './limits.js';
 
@@ -122,21 +121,6 @@ async function guardedFetch(input: RequestInfo | URL, init?: RequestInit): Promi
   throw new SourceError(`Too many redirects (>${MAX_REDIRECT_HOPS}) fetching the PDF`);
 }
 
-function resolveLocal(source: string): ResolvedSource {
-  const filePath = resolve(source);
-  let stats: ReturnType<typeof statSync>;
-  try {
-    stats = statSync(filePath);
-  } catch {
-    throw new SourceError(`File not found: ${filePath}`);
-  }
-  if (!stats.isFile()) throw new SourceError(`Not a file: ${filePath}`);
-  if (stats.size > MAX_LOCAL_FILE_BYTES) {
-    throw new SourceError(`PDF is ${stats.size} bytes, over the ${MAX_LOCAL_FILE_BYTES}-byte limit`);
-  }
-  return { filePath, isRemote: false };
-}
-
 /**
  * One `source` parameter accepts both a local path and an http(s) URL.
  * The CLI splits these (positional vs `--remote`) for CLI reasons; making
@@ -145,7 +129,13 @@ function resolveLocal(source: string): ResolvedSource {
 export async function resolveSource(source: string): Promise<ResolvedSource> {
   const trimmed = source.trim();
   if (trimmed.length === 0) throw new SourceError('`source` is empty');
-  if (!REMOTE_SCHEME.test(trimmed)) return resolveLocal(trimmed);
+  if (!REMOTE_SCHEME.test(trimmed)) {
+    try {
+      return { filePath: resolveLocalPdfPath(trimmed, { maxBytes: MAX_LOCAL_FILE_BYTES }), isRemote: false };
+    } catch (error) {
+      throw new SourceError(error instanceof Error ? error.message : String(error));
+    }
+  }
 
   await assertRoutableUrl(trimmed);
   try {

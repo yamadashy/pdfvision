@@ -1,9 +1,11 @@
+import { formatPageRange } from '../../core/options/pageRange.js';
 import { processDocument } from '../../core/processor.js';
+import { hasUnreliableNativeText } from '../../core/quality/pageQuality.js';
+import { cropRegionForBox } from '../../core/search/boxes.js';
+import { formatBox } from '../../output/markdown/helpers.js';
 import type { PageResult } from '../../types/index.js';
 import { MATCH_CONTEXT_CHAR_CAP, MAX_MATCHES } from '../limits.js';
-import { formatPageRanges } from '../ranges.js';
 import { matchRef, rememberRef } from '../refs.js';
-import { formatRegion, padRegion } from '../region.js';
 import { type ToolResult, toolResult } from '../result.js';
 import { resolveSource } from '../source.js';
 
@@ -15,30 +17,24 @@ export interface SearchPdfInput {
   password?: string;
 }
 
-/**
- * Native text can be absent or corrupted while search still returns
- * zero hits without complaint. A silent "not found" on a scanned page is
- * the exact failure pdfvision exists to expose, so the report says which
- * pages could not have matched in the first place.
- */
-const UNSEARCHABLE_STATUSES = new Set([
-  'empty_but_visual_content',
-  'unusable_glyph_indices',
-  'mixed_glyph_indices',
-  'sparse_text_with_visual_content',
-]);
-
 function condense(text: string, cap: number): string {
   const flat = text.replace(/\s+/g, ' ').trim();
   return flat.length <= cap ? flat : `${flat.slice(0, cap)}…`;
 }
 
+/**
+ * Native text can be absent or corrupted while search still returns zero
+ * hits without complaint. A silent "not found" on a scanned page is the
+ * exact failure pdfvision exists to expose, so the report says which
+ * pages could not have matched in the first place. Same classification
+ * the document map uses to suggest OCR.
+ */
 function appendUnsearchable(lines: string[], pages: readonly PageResult[]): void {
-  const suspect = pages.filter((page) => UNSEARCHABLE_STATUSES.has(page.quality.nativeTextStatus));
+  const suspect = pages.filter(hasUnreliableNativeText);
   if (suspect.length === 0) return;
   lines.push(
     '',
-    `> ${suspect.length} of the searched pages have no usable native text (${formatPageRanges(suspect.map((page) => page.page))}), so a miss there is not evidence of absence. Re-run \`read_pdf\` with \`ocr\` on those pages, or \`render_pdf\` to look at them.`,
+    `> ${suspect.length} of the searched pages have no usable native text (${formatPageRange(suspect.map((page) => page.page))}), so a miss there is not evidence of absence. Re-run \`read_pdf\` with \`ocr\` on those pages, or \`render_pdf\` to look at them.`,
   );
 }
 
@@ -64,11 +60,11 @@ export async function searchPdf(input: SearchPdfInput): Promise<ToolResult> {
     lines.push('', 'Each hit carries a `ref` — pass it straight to `render_pdf` instead of copying coordinates.', '');
     for (const { page, match, index } of hits.slice(0, MAX_MATCHES)) {
       const ref = matchRef(page.page, index);
-      const region = padRegion(match.bbox, page);
+      const region = cropRegionForBox(match.bbox, page);
       rememberRef(input.source, ref, { page: page.page, region, origin: `search hit for ${input.query}` });
       const context = match.context ? ` — "${condense(match.context, MATCH_CONTEXT_CHAR_CAP)}"` : '';
       lines.push(
-        `- \`${ref}\` p.${page.page} ${match.source} · \`${condense(match.text, 80)}\`${context} · region ${formatRegion(region)}`,
+        `- \`${ref}\` p.${page.page} ${match.source} · \`${condense(match.text, 80)}\`${context} · region ${formatBox(region)}`,
       );
     }
     if (hits.length > MAX_MATCHES) {

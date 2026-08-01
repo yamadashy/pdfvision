@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePageRange, parsePageRangeWithSkipped } from '../../src/core/options/pageRange.js';
+import { formatPageRange, parsePageRange, parsePageRangeWithSkipped } from '../../src/core/options/pageRange.js';
 
 describe('parsePageRange', () => {
   it('parses a single page', () => {
@@ -88,5 +88,32 @@ describe('parsePageRangeWithSkipped', () => {
     // Behaviour preserved from parsePageRange — a request that matches
     // nothing is a usage error, not a warning.
     expect(() => parsePageRangeWithSkipped('11-20', 10)).toThrow(/no pages selected/);
+  });
+});
+
+describe('formatPageRange', () => {
+  it('returns an empty string for no pages', () => {
+    expect(formatPageRange([])).toBe('');
+  });
+
+  it('collapses a contiguous run', () => {
+    expect(formatPageRange([1, 2, 3, 4])).toBe('1-4');
+  });
+
+  it('keeps isolated pages separate', () => {
+    expect(formatPageRange([1, 3, 5])).toBe('1, 3, 5');
+  });
+
+  it('mixes runs and singletons', () => {
+    expect(formatPageRange([12, 13, 14, 20, 31, 32])).toBe('12-14, 20, 31-32');
+  });
+
+  it('sorts and deduplicates', () => {
+    expect(formatPageRange([5, 1, 3, 1, 2])).toBe('1-3, 5');
+  });
+
+  it('round-trips through parsePageRange', () => {
+    const pages = [1, 2, 3, 7, 9, 10];
+    expect(parsePageRange(formatPageRange(pages), 20)).toEqual(pages);
   });
 });
