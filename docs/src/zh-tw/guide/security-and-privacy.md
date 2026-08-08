@@ -33,6 +33,8 @@ pdfvision --remote https://example.com/document.pdf --format json
 
 遠端伺服器仍然會看到這次請求，包括執行環境預設傳送的請求標頭。對一次性的私有或臨時 URL，使用 `--remote --no-cache`，這樣下載的 PDF 位元組就不會寫入遠端 PDF 快取。
 
+[MCP 伺服器](./mcp-server.md)採用比 `--remote` 更嚴格的策略，因為在那裡選擇 URL 的是模型：它會拒絕解析到私有位址、迴路位址、鏈路本地位址、CGNAT 位址或 NAT64 位址的 URL，並重新驗證每一跳重新導向。
+
 ## 密碼
 
 PDF 密碼只用於 pdf.js 解密，不會出現在輸出中。
