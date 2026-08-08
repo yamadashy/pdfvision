@@ -75,6 +75,14 @@ describe('formatDocumentMap', () => {
     expect(formatDocumentMap(document(pages))).toContain('| `text_overlap` | 2 | 1-2 |');
   });
 
+  it('names a way to open the attachments it reports', () => {
+    // A count with no call to act on it was the one dead end the map
+    // created for a caller with no shell.
+    const output = formatDocumentMap(document([page(1, ok)], { attachmentCount: 2 }));
+    expect(output).toContain('2 embedded file(s)');
+    expect(output).toContain('read_pdf(attachment:');
+  });
+
   it('flags an XFA form loudly', () => {
     const output = formatDocumentMap(document([page(1, ok)], { xfa: true }));
     expect(output).toContain('XFA (LiveCycle) form');

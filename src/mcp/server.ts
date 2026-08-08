@@ -40,6 +40,13 @@ const readSchema = z.object({
     .describe(
       'Tesseract language code(s) to OCR the selected pages with, primary language first — "eng", "jpn+eng". Omit to use the PDF\'s own text layer. Slow, and limited to 5 pages per call; reach for it when quality reports empty or garbled native text.',
     ),
+  attachment: z
+    .string()
+    .min(1)
+    .optional()
+    .describe(
+      'Read an embedded file instead of the pages, by name or 1-based index. Reach for it when a response reports attachments — in e-invoices and filings the embedded XML is the authoritative data and the pages are only its rendering.',
+    ),
   password: PASSWORD,
 });
 

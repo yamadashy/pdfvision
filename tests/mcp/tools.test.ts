@@ -89,6 +89,68 @@ describe('read_pdf', () => {
   });
 });
 
+describe('read_pdf attachments', () => {
+  // The fixture is an e-invoice in miniature: the page is a rendering,
+  // the embedded XML is the authoritative payload, and the other two
+  // attachments cover the image and opaque-binary branches.
+  const ATTACHMENTS = join(import.meta.dirname, '..', 'fixtures', 'sample-attachments.pdf');
+
+  it('inlines a text attachment, which is the whole point on an e-invoice', async () => {
+    const body = text(await readPdf({ source: ATTACHMENTS, attachment: 'invoice.xml' }));
+    expect(body).toContain('Attachment `invoice.xml`');
+    expect(body).toContain('Authoritative invoice data');
+    expect(body).toContain('<Total currency="EUR">1234.56</Total>');
+  });
+
+  it('resolves an attachment by 1-based index in the listed order', async () => {
+    // Sorted by name: 1 bundle.zip, 2 invoice.xml, 3 stamp.png.
+    const body = text(await readPdf({ source: ATTACHMENTS, attachment: '2' }));
+    expect(body).toContain('Attachment `invoice.xml`');
+  });
+
+  it('returns an image attachment as an image block', async () => {
+    const result = await readPdf({ source: ATTACHMENTS, attachment: 'stamp.png' });
+    const blocks = images(result);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]?.mimeType).toBe('image/png');
+    expect(text(result)).toContain('Attachment stamp.png:');
+  });
+
+  it('refuses an opaque binary and names the command that does deliver it', async () => {
+    const body = text(await readPdf({ source: ATTACHMENTS, attachment: 'bundle.zip' }));
+    expect(body).toContain('neither text nor a displayable image');
+    expect(body).toContain('--attachments --attachment-output');
+    // The bytes must not be smuggled in as an image block or base64.
+    expect(images(await readPdf({ source: ATTACHMENTS, attachment: 'bundle.zip' }))).toHaveLength(0);
+  });
+
+  it('lists what is actually there when the selector misses', async () => {
+    await expect(readPdf({ source: ATTACHMENTS, attachment: 'nope.txt' })).rejects.toThrow(
+      /This document has 3: 1\. bundle\.zip .*2\. invoice\.xml .*3\. stamp\.png/,
+    );
+  });
+
+  it('says so plainly when the document carries no embedded files', async () => {
+    await expect(readPdf({ source: SAMPLE, attachment: 'anything' })).rejects.toThrow(/has no embedded files/);
+  });
+
+  it('matches a name case-insensitively', async () => {
+    const body = text(await readPdf({ source: ATTACHMENTS, attachment: 'INVOICE.XML' }));
+    expect(body).toContain('Attachment `invoice.xml`');
+  });
+
+  it('never points a shell-less caller at a CLI flag it cannot run', async () => {
+    // The presence bullets defaulted to naming --attachments / --viewer.
+    // Reporting a count and then advising an impossible command is the
+    // dead end this parameter exists to remove.
+    const body = text(await readPdf({ source: ATTACHMENTS }));
+    expect(body).toContain('3 embedded files');
+    expect(body).toContain('read_pdf(attachment:');
+    expect(body).not.toContain('use --attachments');
+    expect(body).not.toContain('use --viewer');
+  });
+});
+
 describe('search_pdf', () => {
   it('reports hits with a ref, page, and region and no page body', async () => {
     const body = text(await searchPdf({ source: SAMPLE, query: 'pdfvision' }));

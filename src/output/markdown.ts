@@ -34,6 +34,21 @@ export interface MarkdownOptions {
    *  Callers that request every page-level pass on the user's behalf —
    *  the MCP server does — turn it on so a clean page costs nothing. */
   omitEmptySections?: boolean;
+  /** Parenthetical after the Attachments bullet. `''` omits it. Defaults to the CLI flag. */
+  attachmentHint?: string;
+  /** Parenthetical after the JavaScript bullet. `''` omits it. Defaults to the CLI flag. */
+  javascriptHint?: string;
+}
+
+/**
+ * These presence bullets have always named the CLI flag that opens the
+ * feature. That advice is wrong on any surface without a shell, where it
+ * reads as an instruction the caller cannot follow, so the parenthetical
+ * belongs to whoever is serving the output. `''` drops it entirely.
+ */
+function hint(supplied: string | undefined, fallback: string): string {
+  const value = supplied ?? fallback;
+  return value === '' ? '' : ` (${value})`;
 }
 
 function layoutBody(page: PageResult, filterRepeated: boolean): string {
@@ -116,12 +131,12 @@ export function formatMarkdownSections(
   if (result.metadata.creator) lines.push(`- **Creator:** ${result.metadata.creator}`);
   if (result.attachmentCount !== undefined && result.attachments === undefined) {
     lines.push(
-      `- **Attachments:** ${result.attachmentCount} embedded ${result.attachmentCount === 1 ? 'file' : 'files'} (use --attachments)`,
+      `- **Attachments:** ${result.attachmentCount} embedded ${result.attachmentCount === 1 ? 'file' : 'files'}${hint(options.attachmentHint, 'use --attachments')}`,
     );
   }
   if (result.javascriptActionCount !== undefined && result.viewer?.jsActions === undefined) {
     lines.push(
-      `- **JavaScript:** ${result.javascriptActionCount} document-level ${result.javascriptActionCount === 1 ? 'action' : 'actions'} (use --viewer)`,
+      `- **JavaScript:** ${result.javascriptActionCount} document-level ${result.javascriptActionCount === 1 ? 'action' : 'actions'}${hint(options.javascriptHint, 'use --viewer')}`,
     );
   }
   if (result.outlineCount !== undefined && result.outline === undefined) {

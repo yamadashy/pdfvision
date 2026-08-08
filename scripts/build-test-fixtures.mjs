@@ -39,6 +39,7 @@ const FIXTURE_INVISIBLE_TEXT_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-
 const FIXTURE_REDACTION_BYPASS_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-redaction-bypass.pdf');
 const FIXTURE_TAGGED_TABLE_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-tagged-table.pdf');
 const FIXTURE_JAVASCRIPT_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-javascript.pdf');
+const FIXTURE_ATTACHMENTS_OUT = join(REPO_ROOT, 'tests', 'fixtures', 'sample-attachments.pdf');
 
 // Smallest standard valid PNG (1×1 red pixel). Embedded into the fixture
 // so pdfjs emits a paintImageXObject opcode and density tests can verify
@@ -576,4 +577,60 @@ await buildTruncatedLinePdf();
 await buildInvisibleTextPdf();
 await buildRedactionBypassPdf();
 await buildTaggedTablePdf();
+/**
+ * An e-invoice in miniature: the pages are a human-readable rendering
+ * and the embedded XML is the authoritative payload. This is the shape
+ * (Factur-X / ZUGFeRD) where reading only the pages gets you the wrong
+ * answer, so it is what the attachment paths are tested against.
+ */
+async function buildAttachmentsPdf() {
+  const doc = new PDFDocument({
+    info: {
+      Title: 'pdfvision attachments fixture',
+      Author: 'pdfvision build-fixtures',
+      Subject: 'Embedded file attachment fixture',
+      Creator: 'pdfvision',
+      CreationDate: FIXED_DATE,
+      ModDate: FIXED_DATE,
+    },
+    autoFirstPage: false,
+  });
+  doc._id = FIXED_FILE_ID;
+
+  const chunks = [];
+  doc.on('data', (c) => chunks.push(c));
+  const done = new Promise((resolveDone, rejectDone) => {
+    doc.on('end', resolveDone);
+    doc.on('error', rejectDone);
+  });
+
+  doc.addPage().font('Helvetica').fontSize(12).text('Invoice 2026-001 - rendering only; see the embedded XML.', 50, 70);
+  doc.file(Buffer.from('<?xml version="1.0"?>\n<Invoice><Total currency="EUR">1234.56</Total></Invoice>\n', 'utf8'), {
+    name: 'invoice.xml',
+    description: 'Authoritative invoice data',
+    creationDate: FIXED_DATE,
+    modifiedDate: FIXED_DATE,
+  });
+  doc.file(TINY_RED_PNG, {
+    name: 'stamp.png',
+    description: 'Scanned approval stamp',
+    creationDate: FIXED_DATE,
+    modifiedDate: FIXED_DATE,
+  });
+  doc.file(Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x00, 0x01, 0x02, 0x03]), {
+    name: 'bundle.zip',
+    description: 'Opaque archive',
+    creationDate: FIXED_DATE,
+    modifiedDate: FIXED_DATE,
+  });
+
+  doc.end();
+  await done;
+
+  const out = Buffer.concat(chunks);
+  writeFileSync(FIXTURE_ATTACHMENTS_OUT, out);
+  console.log(`Wrote ${FIXTURE_ATTACHMENTS_OUT} (${out.byteLength} bytes)`);
+}
+
 await buildJavaScriptPdf();
+await buildAttachmentsPdf();
