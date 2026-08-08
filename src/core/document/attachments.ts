@@ -42,7 +42,7 @@ export function buildAttachments(
   const usedFilenames = new Set<string>();
   return Object.entries(attachments)
     .map(([key, value], index) => buildAttachment(key, value as PdfAttachment, index + 1, usedFilenames, options))
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => a.name.localeCompare(b.name, 'en-US'));
 }
 
 /**
@@ -65,12 +65,13 @@ export function buildAttachmentsWithContent(
   return Object.entries(attachments)
     .map(([key, value], index) => {
       const attachment = value as PdfAttachment;
+      const content = bytes(attachment.content);
       return {
         ...buildAttachment(key, attachment, index + 1, usedFilenames, options),
-        ...(bytes(attachment.content) !== undefined && { content: bytes(attachment.content) }),
+        ...(content !== undefined && { content }),
       };
     })
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => a.name.localeCompare(b.name, 'en-US'));
 }
 
 export function mergeAttachmentRecords(

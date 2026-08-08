@@ -2,8 +2,10 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
+import { resolveAttachment } from '../../src/core/document/attachmentContent.js';
 import {
   buildAttachments,
+  buildAttachmentsWithContent,
   catalogAttachmentsToRecord,
   mergeAttachmentRecords,
 } from '../../src/core/document/attachments.js';
@@ -102,6 +104,17 @@ describe('buildAttachments', () => {
     }
   });
 
+  it('carries bytes only for entries the document actually embeds', () => {
+    const list = buildAttachmentsWithContent({
+      embedded: { filename: 'a.txt', content: new Uint8Array([65]) },
+      referenced: { filename: 'b.txt' },
+    });
+
+    expect(list.map((entry) => entry.name)).toEqual(['a.txt', 'b.txt']);
+    expect(list[0].content?.toString('utf8')).toBe('A');
+    expect('content' in list[1]).toBe(false);
+  });
+
   it('refuses to write attachment bytes into a symlinked output directory', () => {
     if (process.platform === 'win32') return;
     const dir = mkdtempSync(join(tmpdir(), 'pdfvision-attachments-symlink-unit-'));
@@ -116,5 +129,38 @@ describe('buildAttachments', () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('resolveAttachment', () => {
+  const embedded = { name: 'invoice.xml', size: 3, content: Buffer.from('abc') };
+  const referenced = { name: 'linked.dat', size: 0 };
+
+  it('resolves a 1-based index in listed order', () => {
+    const result = resolveAttachment([embedded, { name: 'stamp.png', size: 1, content: Buffer.from('x') }], '2');
+    expect(result).toMatchObject({ found: true, attachment: { name: 'stamp.png' } });
+  });
+
+  it('matches names case-insensitively without host-locale surprises', () => {
+    expect(resolveAttachment([embedded], 'INVOICE.XML')).toMatchObject({ found: true });
+  });
+
+  it('reports a listed-but-not-embedded match by name instead of calling it a miss', () => {
+    // A FileAttachment annotation may reference a file the PDF never
+    // embeds. Calling that "no attachment" while listing the very name
+    // the caller asked for would contradict itself.
+    expect(resolveAttachment([embedded, referenced], 'linked.dat')).toEqual({
+      found: false,
+      matchedName: 'linked.dat',
+      available: [
+        { name: 'invoice.xml', size: 3 },
+        { name: 'linked.dat', size: 0 },
+      ],
+    });
+  });
+
+  it('omits matchedName on a plain miss, including an out-of-range index', () => {
+    expect(resolveAttachment([embedded], 'nope.txt')).not.toHaveProperty('matchedName');
+    expect(resolveAttachment([embedded], '5')).not.toHaveProperty('matchedName');
   });
 });
