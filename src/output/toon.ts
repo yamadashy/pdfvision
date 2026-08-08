@@ -73,11 +73,13 @@ function findUnpairedSurrogate(value: unknown): UnpairedSurrogate | undefined {
 /**
  * TOON (Token-Oriented Object Notation) output. Decoding exactly matches
  * the parsed JSON formatter output, but the wire representation is
- * tuned for LLM token budgets: arrays whose entries all have the same scalar
+ * tuned for LLM token budgets: arrays whose entries all have the same
  * fields can collapse into a CSV-like tabular form that declares field names
- * once instead of repeating every key on every row. Arrays with nested values
- * (including normal `overview[]`, whose entries contain `quality`) stay in list
- * form, as can `spans[]` or lines whose entries have differing optional fields.
+ * once instead of repeating every key on every row. A uniformly-shaped nested
+ * object folds into that header (normal `overview[]` tabularizes with
+ * `quality{nativeTextStatus}` since TOON v4). Arrays stay in list form when
+ * entries have differing optional fields (as `spans[]` or lines can),
+ * array-valued fields, or nested objects whose shapes differ between entries.
  * This can reduce repeated-key overhead when eligible arrays dominate the
  * output; consumers should compare formats on their own documents.
  *

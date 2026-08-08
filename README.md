@@ -308,8 +308,8 @@ Output formats
                       unambiguous [[pdfvision:U+XXXX]] markers.
   toon                Token-Oriented Object Notation: decodes to exactly the json data model when emitted;
                       an unpaired UTF-16 surrogate errors instead of corrupting it (use json for that case).
-                      Arrays whose entries have the same scalar fields can use a tabular form;
-                      normal overview and mixed-field spans/lines stay in list form.
+                      Arrays whose entries have the same fields can use a tabular form (nested
+                      uniform objects fold into the header); mixed-field spans/lines stay in list form.
 
 Examples
   pdfvision document.pdf                                                       # markdown to stdout
@@ -348,7 +348,7 @@ Exit codes
 - **`markdown` (default)** — per-page sections, density Overview table, image links inline. For LLM context windows.
 - **`json`** — full `DocumentResult` schema. For programmatic consumers.
 - **`xml`** — tag-shaped near-parity projection for explicit `<page>` / `<text>` prompts. It is not a reversible `DocumentResult` serialization: `page` maps to `no`, `pageLabel` to `label`, `quality` is flattened, overview rotation is currently omitted, and empty-field presence can differ. Page-result rotation remains an attribute. XML-1.0-forbidden code units are represented as `[[pdfvision:U+XXXX]]`; a literal `[[pdfvision:` prefix becomes `[[pdfvision:literal:` so the marker cannot collide with normal text.
-- **`toon`** — [Token-Oriented Object Notation](https://toonformat.dev): every emitted payload decodes to exactly the JSON data model, with unset `undefined` fields absent. TOON cannot losslessly represent an unpaired UTF-16 surrogate across UTF-8, so pdfvision errors and directs that rare input to JSON instead of silently replacing it. Valid surrogate pairs and literal backslash-u text are preserved. Uniform scalar-object arrays can declare fields once and use tabular rows, reducing repeated-key overhead. Nested or mixed-field arrays stay in list form; compare formats on your own documents.
+- **`toon`** — [Token-Oriented Object Notation](https://toonformat.dev): every emitted payload decodes to exactly the JSON data model, with unset `undefined` fields absent. TOON cannot losslessly represent an unpaired UTF-16 surrogate across UTF-8, so pdfvision errors and directs that rare input to JSON instead of silently replacing it. Valid surrogate pairs and literal backslash-u text are preserved. Arrays whose entries share the same fields can declare them once and use tabular rows, reducing repeated-key overhead; uniformly-shaped nested objects fold into the header (`quality{nativeTextStatus}`). Mixed-field arrays stay in list form; compare formats on your own documents.
 
 JSON-style field paths are exact for JSON, decoded TOON, and the library API. XML uses mapped tags/attributes: `rawText` is a sibling `<rawText>`, repeated blocks use `repeated="true"`, and top-level `xfa: true` becomes `<document xfa="true">`. Markdown omits `rawText` and can omit repeated blocks with `--strip-repeated`.
 

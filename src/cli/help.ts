@@ -207,8 +207,8 @@ Output formats
                       unambiguous [[pdfvision:U+XXXX]] markers.
   toon                Token-Oriented Object Notation: decodes to exactly the json data model when emitted;
                       an unpaired UTF-16 surrogate errors instead of corrupting it (use json for that case).
-                      Arrays whose entries have the same scalar fields can use a tabular form;
-                      normal overview and mixed-field spans/lines stay in list form.
+                      Arrays whose entries have the same fields can use a tabular form (nested
+                      uniform objects fold into the header); mixed-field spans/lines stay in list form.
 
 Examples
   pdfvision document.pdf                                                       # markdown to stdout

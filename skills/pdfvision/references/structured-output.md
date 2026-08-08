@@ -733,7 +733,7 @@ Empty `<pageLabels/>`, `<attachments/>`, `<outline/>`, `<viewer/>`, `<layers/>`,
 
 ## TOON output shape
 
-`-f toon` encodes the JSON data model as [Token-Oriented Object Notation](https://toonformat.dev): YAML-style indentation for nested objects and lists, plus a CSV-like tabular form for arrays whose entries are objects with the same scalar fields. Eligible arrays declare the fields once in a `[N]{fields}:` header and then stream one comma-delimited row per element. Arrays containing nested values, or entries whose fields differ because optional values are present on only some entries, stay in list form. Every emitted TOON payload decodes to exactly `JSON.parse(formatJson(result))`; optional `undefined` fields are absent rather than becoming `null`. An unpaired UTF-16 surrogate is rejected with a JSON-fallback error because TOON cannot represent it losslessly across UTF-8.
+`-f toon` encodes the JSON data model as [Token-Oriented Object Notation](https://toonformat.dev): YAML-style indentation for nested objects and lists, plus a CSV-like tabular form for arrays whose entries are objects with the same fields. Eligible arrays declare the fields once in a `[N]{fields}:` header and then stream one comma-delimited row per element; a uniformly-shaped nested object folds into the header as a `{parent{child}}` group. Arrays whose entries' fields differ because optional values are present on only some entries, contain array-valued fields, or nest objects with differing shapes stay in list form. Every emitted TOON payload decodes to exactly `JSON.parse(formatJson(result))`; optional `undefined` fields are absent rather than becoming `null`. An unpaired UTF-16 surrogate is rejected with a JSON-fallback error because TOON cannot represent it losslessly across UTF-8.
 
 ```
 file: /path/doc.pdf
@@ -763,7 +763,7 @@ pages[2]:
             ...
 ```
 
-Decode with the `@toon-format/toon` package (`decode(toonString)`). Normal `overview[]` stays in list form because each entry contains nested `quality`. Arrays such as `spans[]` or per-block `lines[]` can tabularize only when every entry has the same scalar fields; differing optional fields keep the array in list form. Free text bodies do not compress through tabularization. The benefit depends on each document's structure and selected options, so compare formats on your own documents.
+Decode with the `@toon-format/toon` package (`decode(toonString)`). Normal `overview[]` tabularizes with its nested `quality` folded into the header (`quality{nativeTextStatus}`). Arrays such as `spans[]` or per-block `lines[]` can tabularize only when every entry has the same fields; differing optional fields keep the array in list form. Free text bodies do not compress through tabularization. The benefit depends on each document's structure and selected options, so compare formats on your own documents.
 
 ## Library API (Node.js consumers)
 
