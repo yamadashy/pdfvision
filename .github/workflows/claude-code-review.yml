@@ -12,11 +12,10 @@ on:
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+    # Dependabot-triggered runs only receive Dependabot secrets, so
+    # CLAUDE_CODE_OAUTH_TOKEN is empty there and the action always fails.
+    # Skip by PR author (stable across re-runs) instead of github.actor.
+    if: github.event.pull_request.user.login != 'dependabot[bot]'
 
     runs-on: ubuntu-latest
     permissions:
@@ -36,12 +35,13 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # Renovate and Dependabot author their dependency PRs as bots, and the
-          # action refuses non-human actors unless they are listed here. Name the
-          # two bots rather than '*': allowed bots bypass the repository
-          # permission check, so on a public repo '*' would let any external App
-          # drive this review with a prompt it controls.
-          allowed_bots: 'dependabot[bot],renovate[bot]'
+          # Renovate authors its dependency PRs as a bot, and the action refuses
+          # non-human actors unless they are listed here. Name the bot rather
+          # than '*': allowed bots bypass the repository permission check, so on
+          # a public repo '*' would let any external App drive this review with
+          # a prompt it controls. Dependabot is not listed because its PRs are
+          # skipped at the job level (no secrets in Dependabot-triggered runs).
+          allowed_bots: 'renovate[bot]'
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
           plugins: 'code-review@claude-code-plugins'
           prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
