@@ -380,7 +380,7 @@ describe('cli', () => {
       expect(r.exitCode).toBeNull();
       expect(Buffer.byteLength(stdout, 'utf8')).toBeGreaterThan(262_144);
       expect(r.stderr.join('\n')).toMatch(
-        /pdfvision: note: output is \d+ KB \(~\d+k tokens\); consider -p <range> to page through/,
+        /pdfvision: note: output is \d+ KB \(~\d+k tokens\); consider --map .*, -p <range> to page through/,
       );
       expect(stdout).not.toContain('pdfvision: note:');
       const parsed = JSON.parse(stdout);
@@ -1001,7 +1001,25 @@ describe('cli --map', () => {
   it('costs a fraction of the full body', async () => {
     const map = (await captureRun([SAMPLE_JA_PDF, '--map', '--no-cache'])).stdout.join('\n');
     const full = (await captureRun([SAMPLE_JA_PDF, '--no-cache'])).stdout.join('\n');
+    // Assert the map is real before comparing: a rejected --map produces
+    // empty stdout, which would satisfy a bare `less than` for the wrong
+    // reason.
+    expect(map).toContain('_Document map: page bodies are omitted._');
     expect(map.length).toBeLessThan(full.length);
+  });
+
+  it('keeps --no-normalize meaningful, since metadata and outline titles pass through it', async () => {
+    const result = await captureRun([SAMPLE_JA_PDF, '--map', '--no-normalize', '--no-cache']);
+    expect(result.exitCode).toBeNull();
+    expect(result.stdout.join('\n')).toContain('_Document map: page bodies are omitted._');
+    // The flag reaches processDocument rather than being dropped, so it
+    // is not reported as one of the ignored ones either.
+    expect(result.stderr.join('\n')).not.toMatch(/ignoring.*no-normalize/);
+  });
+
+  it('names --render-visual-regions among the flags it cannot show', async () => {
+    const result = await captureRun([SAMPLE_JA_PDF, '--map', '--render-visual-regions', '--no-cache']);
+    expect(result.stderr.join('\n')).toMatch(/ignoring --render-visual-regions/);
   });
 
   it('scopes the quality table to --pages while still reporting the document total', async () => {

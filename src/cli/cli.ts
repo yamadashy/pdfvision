@@ -29,7 +29,7 @@ function emitOutputSizeNote(result: string): void {
   if (bytes <= OUTPUT_SIZE_NOTE_THRESHOLD_BYTES) return;
 
   process.stderr.write(
-    `pdfvision: note: output is ${formatOutputSize(bytes)} (~${formatEstimatedTokens(bytes)} tokens); consider -p <range> to page through, --search <query> --matches-only to locate content, or --outline -p 1 for navigation (--outline alone still emits every page)\n`,
+    `pdfvision: note: output is ${formatOutputSize(bytes)} (~${formatEstimatedTokens(bytes)} tokens); consider --map for page counts, outline, and per-page quality without any bodies, -p <range> to page through, --search <query> --matches-only to locate content, or --outline -p 1 for navigation (--outline alone still emits every page)\n`,
   );
 }
 
@@ -252,6 +252,7 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
       'image-boxes',
       'vector-boxes',
       'visual-regions',
+      'render-visual-regions',
       'form-fields',
       'links',
       'annotations',
@@ -259,6 +260,8 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
       'page-labels',
       'viewer',
       'layers',
+      'attachments',
+      'strip-repeated',
       'ocr',
       'search',
     ].filter((flag) => values[flag as keyof typeof values] !== undefined);
@@ -291,6 +294,10 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
         sourceData,
         password,
         noCache,
+        // A map carries no page bodies, but it does carry metadata and
+        // outline titles — both of which normalization rewrites, so the
+        // flag is not a no-op here.
+        normalize: !((values['no-normalize'] as boolean | undefined) ?? false),
         // The outline is the one detail pass that survives aggregation,
         // and it is a single cheap pdf.js call whether or not the
         // document has one.
@@ -299,7 +306,9 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
           process.stderr.write(`pdfvision: warning: ${msg}\n`);
         },
       });
-      console.log(formatDocumentMap(result));
+      const rendered = formatDocumentMap(result);
+      emitOutputSizeNote(rendered);
+      console.log(rendered);
       return;
     } catch (error) {
       exitWithError(formatCliErrorMessage(error));
