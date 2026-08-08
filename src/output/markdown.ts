@@ -208,8 +208,12 @@ export function formatMarkdownSections(
     // computed for the default body / warnings.
     const layoutTablesFragment =
       options.layout && (page.layout?.tables?.length ?? 0) > 0 ? ` · tables: ${page.layout?.tables?.length}` : '';
-    const visualRegionsFragment =
-      page.visualRegions !== undefined ? ` · visualRegions: ${page.visualRegions.length}` : '';
+    // A zero counter is meaningful when the user asked for the pass and
+    // noise when the caller asked on their behalf — same rule as the
+    // empty sections below.
+    const countFragment = (label: string, total: number | undefined): string =>
+      total === undefined || (options.omitEmptySections && total === 0) ? '' : ` · ${label}: ${total}`;
+    const visualRegionsFragment = countFragment('visualRegions', page.visualRegions?.length);
     // Fall back to the detailed-array lengths so library callers that
     // hand-build a DocumentResult (arrays without the scalar counts)
     // still get the fragments, and a flagged run with zero hits keeps
@@ -217,11 +221,6 @@ export function formatMarkdownSections(
     const formFieldTotal = page.formFieldCount ?? page.formFields?.length;
     const linkTotal = page.linkCount ?? page.links?.length;
     const annotationTotal = page.annotationCount ?? page.annotations?.length;
-    // A zero counter is meaningful when the user asked for the pass and
-    // noise when the caller asked on their behalf — same rule as the
-    // empty sections below.
-    const countFragment = (label: string, total: number | undefined): string =>
-      total === undefined || (options.omitEmptySections && total === 0) ? '' : ` · ${label}: ${total}`;
     const formFieldsFragment = countFragment('formFields', formFieldTotal);
     const linksFragment = countFragment('links', linkTotal);
     const annotationsFragment = countFragment('annotations', annotationTotal);

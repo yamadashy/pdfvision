@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formatPageRange } from '../../src/core/options/pageRange.js';
-import { PAGE_CHAR_CAP } from '../../src/mcp/limits.js';
+import { BODY_CHAR_CAP, PAGE_CHAR_CAP } from '../../src/mcp/limits.js';
 import { truncateBody } from '../../src/mcp/truncate.js';
 import type { MarkdownPageSection } from '../../src/output/markdown.js';
 
@@ -118,6 +118,17 @@ describe('truncateBody', () => {
       expect(output).toContain(sections[page - 1]?.text);
     }
     expect(output).not.toContain('Response clipped at');
+  });
+
+  it('stays inside the budget at the cap the server actually uses', () => {
+    // The notice is appended on top of the content allowance, so a cap
+    // smaller than the notice itself cannot be honoured. What has to
+    // hold is the real budget: at BODY_CHAR_CAP the reserve covers the
+    // notice and the whole response fits.
+    const sections = buildSections(200, 400);
+    const output = truncateBody(HEADER, sections, { continuationHint: hint });
+    expect(output.length).toBeLessThanOrEqual(BODY_CHAR_CAP);
+    expect(output).toContain('omitted');
   });
 
   it('leaves a response that fits well alone', () => {

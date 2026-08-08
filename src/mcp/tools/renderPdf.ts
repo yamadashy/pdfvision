@@ -36,10 +36,18 @@ function scaleFor(longestEdgeUnits: number): number {
 
 function toRegion(values: readonly number[]): RenderRegion {
   const [x, y, width, height] = values;
-  if (values.length !== 4 || [x, y, width, height].some((value) => typeof value !== 'number')) {
-    throw new Error('`region` must be [x, y, width, height] in raw page-view units (top-left origin).');
+  // `region` is typed `number[]`, so a `typeof` test never fires. NaN,
+  // Infinity and a zero width do get through, and a zero width sends
+  // `scaleFor` down its fallback and fails deep in the rasteriser with a
+  // message that says nothing about the argument that caused it.
+  if (values.length !== 4 || [x, y, width, height].some((value) => !Number.isFinite(value))) {
+    throw new Error('`region` must be [x, y, width, height] — four finite numbers in raw page-view units.');
   }
-  return { x: x as number, y: y as number, width: width as number, height: height as number };
+  const [rx, ry, rw, rh] = values as [number, number, number, number];
+  if (rx < 0 || ry < 0 || rw <= 0 || rh <= 0) {
+    throw new Error('`region` needs non-negative `x`/`y` and positive `width`/`height`.');
+  }
+  return { x: rx, y: ry, width: rw, height: rh };
 }
 
 function appendVisualRegions(lines: string[], page: PageResult, source: string): void {
@@ -116,11 +124,16 @@ export async function renderPdf(input: RenderPdfInput): Promise<ToolResult> {
   }
 
   // Measure before rasterising: the scale that fits the pixel budget
-  // depends on the page (or region) size, and pdfvision needs it up front.
-  const sized = await processDocument(resolved.filePath, { ...base, pages });
-  const longestEdge = region
-    ? Math.max(region.width, region.height)
-    : Math.max(...sized.pages.map((page) => Math.max(page.width, page.height)));
+  // depends on the page (or region) size, and pdfvision needs it up
+  // front. A region already carries its own size, so the measuring pass
+  // is skipped there rather than run and thrown away.
+  let longestEdge: number;
+  if (region) {
+    longestEdge = Math.max(region.width, region.height);
+  } else {
+    const sized = await processDocument(resolved.filePath, { ...base, pages });
+    longestEdge = Math.max(...sized.pages.map((page) => Math.max(page.width, page.height)));
+  }
 
   const result = await processDocument(resolved.filePath, {
     ...base,
@@ -168,7 +181,15 @@ export async function renderPdf(input: RenderPdfInput): Promise<ToolResult> {
       continue;
     }
     bytesUsed += data.byteLength;
-    images.push({ type: 'image', mimeType: 'image/png', data: data.toString('base64') });
+    // Name the page immediately before its image. The text sections and
+    // the image blocks travel separately, so positional order was the
+    // only thing tying them together — and one image dropped at the byte
+    // budget shifts every pairing after it.
+    images.push(textBlock(`Page ${page.page}:`), {
+      type: 'image',
+      mimeType: 'image/png',
+      data: data.toString('base64'),
+    });
     if (region === undefined) appendVisualRegions(lines, page, input.source);
   }
 

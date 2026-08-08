@@ -24,7 +24,14 @@ export function resolveLocalPdfPath(input: string, options: ResolveLocalPdfOptio
   let stats: ReturnType<typeof statSync>;
   try {
     stats = statSync(filePath);
-  } catch {
+  } catch (error) {
+    // "File not found" points at the wrong fix for a permission error or
+    // a symlink loop — the caller would go looking for a typo in a path
+    // that is right. Only ENOENT is a missing file.
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== undefined && code !== 'ENOENT' && code !== 'ENOTDIR') {
+      throw new Error(`Cannot read ${filePath}: ${code}`);
+    }
     throw new Error(`File not found: ${filePath}`);
   }
   // A directory passes an access check but fails much later inside pdf.js

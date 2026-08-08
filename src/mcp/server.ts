@@ -35,6 +35,7 @@ const readSchema = z.object({
   pages: z.string().optional().describe(`${PAGES} Omit for the document map, or the whole body when it fits.`),
   ocr: z
     .string()
+    .min(1)
     .optional()
     .describe(
       'Tesseract language code(s) to OCR the selected pages with, primary language first — "eng", "jpn+eng". Omit to use the PDF\'s own text layer. Slow, and limited to 5 pages per call; reach for it when quality reports empty or garbled native text.',

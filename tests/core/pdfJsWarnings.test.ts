@@ -71,6 +71,23 @@ describe('capturePdfJsWarnings', () => {
     expect(open).toEqual(['Warning: later']);
   });
 
+  it('keeps collecting into an array two captures share', () => {
+    // Nothing stops overlapping captures from passing the same array.
+    // Keyed by identity alone, the first release removed it and the
+    // still-open capture silently stopped collecting.
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const shared: string[] = [];
+    const releaseFirst = capturePdfJsWarnings(shared);
+    const releaseSecond = capturePdfJsWarnings(shared);
+
+    releaseFirst();
+    console.warn('Warning: still open');
+    releaseSecond();
+    console.warn('Warning: after both');
+
+    expect(shared).toEqual(['Warning: still open']);
+  });
+
   it('tolerates a double release without dropping another sink', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const other: string[] = [];

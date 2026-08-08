@@ -1727,6 +1727,31 @@ describe('omitEmptySections', () => {
     expect(output).not.toContain('formFields: 0');
     expect(output).not.toContain('links: 0');
     expect(output).not.toContain('annotations: 0');
+    // `visualRegions` kept its own unconditional check and went on
+    // emitting the counter this option exists to remove.
+    expect(output).not.toContain('visualRegions: 0');
+  });
+
+  it('keeps a non-zero visualRegions counter', () => {
+    const result = emptyPasses();
+    const page = result.pages[0];
+    if (page) {
+      page.visualRegions = [
+        {
+          kind: 'raster',
+          x: 1,
+          y: 2,
+          width: 3,
+          height: 4,
+          areaRatio: 0.01,
+          sourceCount: 1,
+          sources: [{ type: 'imageBox', index: 0 }],
+          reason: 'raster image',
+        },
+      ];
+    }
+    const output = formatMarkdown(result, { omitEmptySections: true });
+    expect(output).toContain('visualRegions: 1');
   });
 
   it('still renders a pass that found something', () => {

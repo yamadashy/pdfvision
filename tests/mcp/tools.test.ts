@@ -139,8 +139,19 @@ describe('render_pdf', () => {
     // earlier search silently resolves to the newer result. Echoing the
     // origin is what lets the caller notice.
     await searchPdf({ source: SAMPLE, query: 'pdfvision' });
+    // A second search re-issues `p1m1` for a different hit. The ref the
+    // caller is holding now points at the newer one, so the response has
+    // to name which search it came from.
+    await searchPdf({ source: SAMPLE, query: 'Hello' });
     const body = text(await renderPdf({ source: SAMPLE, ref: 'p1m1' }));
-    expect(body).toContain('Ref `p1m1` → search hit for pdfvision');
+    expect(body).toContain('Ref `p1m1` → search hit for Hello');
+    expect(body).not.toContain('search hit for pdfvision');
+  });
+
+  it('resolves a ref whose source is spelled with stray whitespace', async () => {
+    await searchPdf({ source: SAMPLE, query: 'pdfvision' });
+    const body = text(await renderPdf({ source: ` ${SAMPLE} `, ref: 'p1m1' }));
+    expect(body).toContain('rendered region');
   });
 
   it('reports the pages it rendered, not the range it was asked for', async () => {
@@ -167,7 +178,27 @@ describe('render_pdf', () => {
   });
 
   it('rejects a malformed region', async () => {
-    await expect(renderPdf({ source: SAMPLE, pages: '1', region: [0, 0, 100] })).rejects.toThrow(/must be \[x, y/);
+    await expect(renderPdf({ source: SAMPLE, pages: '1', region: [0, 0, 100] })).rejects.toThrow(/four finite numbers/);
+  });
+
+  it('rejects a region with a non-finite or non-positive extent', async () => {
+    // `region` is typed `number[]`, so a `typeof` check never fired and
+    // these reached the rasteriser, which failed without naming the
+    // argument that caused it.
+    await expect(renderPdf({ source: SAMPLE, pages: '1', region: [0, 0, Number.NaN, 10] })).rejects.toThrow(
+      /four finite numbers/,
+    );
+    await expect(
+      renderPdf({ source: SAMPLE, pages: '1', region: [0, 0, Number.POSITIVE_INFINITY, 10] }),
+    ).rejects.toThrow(/four finite numbers/);
+    await expect(renderPdf({ source: SAMPLE, pages: '1', region: [0, 0, 0, 10] })).rejects.toThrow(/positive `width`/);
+    await expect(renderPdf({ source: SAMPLE, pages: '1', region: [-1, 0, 10, 10] })).rejects.toThrow(/non-negative/);
+  });
+
+  it('labels each rendered image with its page', async () => {
+    const result = await renderPdf({ source: SAMPLE, pages: '1' });
+    const blocks = result.content.filter((block): block is TextBlock => block.type === 'text');
+    expect(blocks.some((block) => block.text === 'Page 1:')).toBe(true);
   });
 
   it('keeps the rendered image within the vision-model pixel budget', async () => {

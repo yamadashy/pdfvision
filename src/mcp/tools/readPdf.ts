@@ -32,7 +32,7 @@ function detailOptions(base: ProcessDocumentOptions): ProcessDocumentOptions {
   return { ...base, layout: true, formFields: true, links: true, annotations: true };
 }
 
-function bodyFor(result: DocumentResult): string {
+function bodyFor(result: DocumentResult, input: ReadPdfInput): string {
   const { header, pages } = formatMarkdownSections(result, {
     layout: true,
     stripRepeated: true,
@@ -40,8 +40,14 @@ function bodyFor(result: DocumentResult): string {
   });
   // The hint deliberately omits `source`: the model already has it, and
   // echoing a long absolute path back on every truncation is pure noise.
+  // `ocr` is carried, though — dropping it turns the follow-up into a
+  // native-text read that silently answers a different question. The
+  // password is only named, never echoed, so the response stays safe to
+  // log while still saying the call needs it.
+  const ocr = input.ocr !== undefined ? `, ocr: "${input.ocr}"` : '';
+  const password = input.password !== undefined ? ' (with the same `password`)' : '';
   return truncateBody(header, pages, {
-    continuationHint: (dropped) => `read_pdf(pages: "${formatPageRange(dropped)}")`,
+    continuationHint: (dropped) => `read_pdf(pages: "${formatPageRange(dropped)}"${ocr})${password}`,
   });
 }
 
@@ -95,7 +101,7 @@ export async function readPdf(input: ReadPdfInput): Promise<ToolResult> {
       );
     }
     const result = await processDocument(resolved.filePath, detailOptions({ ...base, pages: input.pages }));
-    return toolResult(bodyFor(result));
+    return toolResult(bodyFor(result, input));
   }
 
   const probe = await processDocument(resolved.filePath, probeOptions);
@@ -107,7 +113,7 @@ export async function readPdf(input: ReadPdfInput): Promise<ToolResult> {
 
   if (probe.totalPages <= UNSCOPED_FULL_READ_PAGE_LIMIT) {
     const result = await processDocument(resolved.filePath, detailOptions(base));
-    return toolResult(bodyFor(result));
+    return toolResult(bodyFor(result, input));
   }
 
   // Summary mode runs the cheap pass on purpose: layout, form, link, and

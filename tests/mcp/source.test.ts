@@ -1,3 +1,5 @@
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { assertRoutableUrl, resolveSource, SourceError } from '../../src/mcp/source.js';
@@ -28,6 +30,26 @@ describe('resolveSource', () => {
   it('rejects a directory', async () => {
     await expect(resolveSource(join(import.meta.dirname, '..', 'fixtures'))).rejects.toThrow(/Not a file/);
   });
+
+  // chmod does not deny reads on Windows, and root ignores the bits.
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'reports a permission failure as such, not as a missing file',
+    async () => {
+      // "File not found" sends the caller looking for a typo in a path
+      // that is correct. The owner can still `stat` their own mode-000
+      // file, so the barrier has to be the directory.
+      const dir = mkdtempSync(join(tmpdir(), 'pdfvision-denied-'));
+      const denied = join(dir, 'a.pdf');
+      writeFileSync(denied, 'x');
+      chmodSync(dir, 0o000);
+      try {
+        await expect(resolveSource(denied)).rejects.toThrow(/Cannot read .*EACCES/);
+      } finally {
+        chmodSync(dir, 0o700);
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  );
 });
 
 describe('assertRoutableUrl', () => {
@@ -51,6 +73,8 @@ describe('assertRoutableUrl', () => {
     ['IPv6 link-local', 'http://[fe80::1]/a.pdf'],
     ['IPv6 site-local', 'http://[fec0::1]/a.pdf'],
     ['IPv4-mapped IPv6', 'http://[::ffff:10.0.0.1]/a.pdf'],
+    ['IPv4-compatible IPv6', 'http://[::169.254.169.254]/latest/meta-data'],
+    ['NAT64 well-known prefix', 'http://[64:ff9b::a9fe:a9fe]/latest/meta-data'],
   ])('refuses %s', async (_label, url) => {
     await expect(assertRoutableUrl(url)).rejects.toThrow(/private, loopback, or link-local/);
   });

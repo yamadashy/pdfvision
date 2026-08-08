@@ -15,17 +15,20 @@
  * for both; over-reporting is the safe direction for a signal whose
  * absence is explicitly not a guarantee of correctness.
  */
-const sinks = new Set<string[]>();
+// Counted rather than a plain Set: nothing stops two overlapping
+// captures from sharing one array, and dropping it on the first release
+// would silently stop collecting for the one still open.
+const sinks = new Map<string[], number>();
 let uninstall: (() => void) | undefined;
 
 export function capturePdfJsWarnings(out: string[]): () => void {
-  sinks.add(out);
+  sinks.set(out, (sinks.get(out) ?? 0) + 1);
   if (!uninstall) {
     const originalWarn = console.warn;
     console.warn = (...args: unknown[]) => {
       const msg = args.map(String).join(' ');
       if (msg.startsWith('Warning:')) {
-        for (const sink of sinks) sink.push(msg);
+        for (const sink of sinks.keys()) sink.push(msg);
       }
       originalWarn(...args);
     };
@@ -40,7 +43,9 @@ export function capturePdfJsWarnings(out: string[]): () => void {
     // Releasing twice must not drop a sink a later caller registered.
     if (released) return;
     released = true;
-    sinks.delete(out);
+    const remaining = (sinks.get(out) ?? 1) - 1;
+    if (remaining > 0) sinks.set(out, remaining);
+    else sinks.delete(out);
     if (sinks.size === 0) uninstall?.();
   };
 }

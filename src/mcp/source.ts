@@ -45,10 +45,13 @@ function isPrivateIPv4(address: string): boolean {
 
 function isPrivateIPv6(address: string): boolean {
   const normalized = address.toLowerCase().split('%')[0] ?? '';
-  // IPv4-mapped reaches the same hosts as the bare v4 form. WHATWG URL
+  // NAT64 embeds an IPv4 destination the checks below would never see.
+  if (normalized.startsWith('64:ff9b:')) return true; // 64:ff9b::/96 and 64:ff9b:1::/48
+  // IPv4-mapped (`::ffff:*`) and the deprecated IPv4-compatible (`::a.b.c.d`)
+  // forms both reach the same hosts as the bare v4 address. WHATWG URL
   // parsing rewrites `::ffff:10.0.0.1` into the hex form `::ffff:a00:1`,
-  // so both spellings have to be decoded back to the v4 address.
-  const mapped = /^::ffff:(.+)$/.exec(normalized);
+  // so every spelling has to be decoded back to the v4 address.
+  const mapped = /^::(?:ffff:)?([\da-f.:]+)$/.exec(normalized);
   if (mapped?.[1]) {
     const tail = mapped[1];
     if (/^\d+\.\d+\.\d+\.\d+$/.test(tail)) return isPrivateIPv4(tail);
