@@ -4,7 +4,7 @@ import { hasUnreliableNativeText } from '../../core/quality/pageQuality.js';
 import { cropRegionForBox } from '../../core/search/boxes.js';
 import { formatBox } from '../../output/markdown/helpers.js';
 import type { PageResult } from '../../types/index.js';
-import { MATCH_CONTEXT_CHAR_CAP, MAX_MATCHES } from '../limits.js';
+import { MATCH_CONTEXT_CHAR_CAP, MAX_MATCHES, MAX_SEARCH_WARNINGS } from '../limits.js';
 import { matchRef, rememberRef } from '../refs.js';
 import { type ToolResult, toolResult } from '../result.js';
 import { resolveSource } from '../source.js';
@@ -40,12 +40,14 @@ function appendUnsearchable(lines: string[], pages: readonly PageResult[]): void
 
 export async function searchPdf(input: SearchPdfInput): Promise<ToolResult> {
   const resolved = await resolveSource(input.source);
+  const warnings: string[] = [];
   const result = await processDocument(resolved.filePath, {
     sourceData: resolved.sourceData,
     password: input.password,
     pages: input.pages,
     search: input.query,
     searchRegex: input.regex ?? false,
+    onWarning: (message) => warnings.push(message),
   });
 
   const hits = result.pages.flatMap((page) => (page.matches ?? []).map((match, index) => ({ page, match, index })));
@@ -55,6 +57,18 @@ export async function searchPdf(input: SearchPdfInput): Promise<ToolResult> {
   lines.push(
     `${hits.length} match${hits.length === 1 ? '' : 'es'} on ${matchedPages.size} of ${result.pages.length} searched page(s); document has ${result.totalPages}.`,
   );
+
+  // Core search warnings are what keep a zero honest here: a regex that
+  // blew the per-page time budget produces the same "0 matches" as a
+  // term that is genuinely absent, and the model choosing the pattern
+  // has no stderr to see.
+  if (warnings.length > 0) {
+    lines.push('');
+    for (const message of warnings.slice(0, MAX_SEARCH_WARNINGS)) lines.push(`> [pdfvision] ${message}`);
+    if (warnings.length > MAX_SEARCH_WARNINGS) {
+      lines.push(`> [pdfvision] ${warnings.length - MAX_SEARCH_WARNINGS} further warning(s) omitted.`);
+    }
+  }
 
   if (hits.length > 0) {
     lines.push('', 'Each hit carries a `ref` — pass it straight to `render_pdf` instead of copying coordinates.', '');

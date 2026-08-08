@@ -37,13 +37,28 @@ async function buildLongPdf(pageCount: number): Promise<Uint8Array> {
   return new Uint8Array(Buffer.concat(chunks));
 }
 
+async function buildSinglePagePdf(line: string): Promise<Uint8Array> {
+  const chunks: Buffer[] = [];
+  const doc = new PDFDocument({ size: [612, 792], margin: 40, autoFirstPage: false });
+  doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+  const done = new Promise<void>((resolve) => doc.on('end', resolve));
+  doc.addPage();
+  doc.fontSize(12).text(line, 40, 60);
+  doc.end();
+  await done;
+  return new Uint8Array(Buffer.concat(chunks));
+}
+
 let workdir: string;
 let longPdf: string;
+let backtrackPdf: string;
 
 beforeAll(async () => {
   workdir = mkdtempSync(join(tmpdir(), 'pdfvision-mcp-tools-'));
   longPdf = join(workdir, 'long.pdf');
   writeFileSync(longPdf, await buildLongPdf(25));
+  backtrackPdf = join(workdir, 'backtrack.pdf');
+  writeFileSync(backtrackPdf, await buildSinglePagePdf(`${'a'.repeat(40)}b`));
 });
 
 afterAll(() => {
@@ -174,6 +189,15 @@ describe('search_pdf', () => {
     const body = text(await searchPdf({ source: longPdf, query: 'Section', pages: '2-3' }));
     expect(body).toContain('of 2 searched page(s)');
   });
+
+  it('surfaces the regex time-limit warning instead of a silent zero', async () => {
+    // A catastrophic pattern that hits the per-page budget produces the
+    // same "0 matches" as a term that is absent. The model choosing the
+    // pattern has no stderr, so the warning must ride the response.
+    const body = text(await searchPdf({ source: backtrackPdf, query: '(a+)+$', regex: true }));
+    expect(body).toContain('0 matches');
+    expect(body).toContain('regex time limit');
+  }, 20_000);
 });
 
 describe('render_pdf', () => {

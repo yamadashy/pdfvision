@@ -48,3 +48,5 @@ For an intranet document store, set `PDFVISION_MCP_ALLOW_PRIVATE_NETWORK=1`. Kno
 ## Errors
 
 Tool failures come back as in-band error results with a recovery instruction, not as protocol errors — an out-of-range page selector, an OCR request over the 5-page budget, an unknown ref, or a malformed `region` all tell the caller what to do instead. Read the message; it names the next call.
+
+`search_pdf` also relays core search warnings in the response body: a regex that exceeds the ~1s per-page time budget drops that page's results and says so, which is what keeps its "0 matches" from reading as evidence of absence.

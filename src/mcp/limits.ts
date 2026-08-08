@@ -28,6 +28,9 @@ export const SUMMARY_MAX_DETAIL_ROWS = 40;
 /** Matches emitted by one `search_pdf` call. */
 export const MAX_MATCHES = 100;
 
+/** Core warnings relayed in one `search_pdf` response; each names its page, so a degenerate query cannot flood the body. */
+export const MAX_SEARCH_WARNINGS = 5;
+
 /** Characters of surrounding-line context kept per match. */
 export const MATCH_CONTEXT_CHAR_CAP = 200;
 
