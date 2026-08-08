@@ -99,6 +99,11 @@ export async function readPdf(input: ReadPdfInput): Promise<ToolResult> {
       password: input.password,
     });
     if (!found.found) {
+      if (found.matchedName !== undefined) {
+        throw new Error(
+          `Attachment "${found.matchedName}" is listed by this document, but its bytes are referenced rather than embedded, so there is nothing to read.`,
+        );
+      }
       const list = found.available
         .map((entry, index) => `${index + 1}. ${entry.name} (${entry.size} bytes)`)
         .join('; ');

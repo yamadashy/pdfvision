@@ -42,7 +42,7 @@ export function buildAttachments(
   const usedFilenames = new Set<string>();
   return Object.entries(attachments)
     .map(([key, value], index) => buildAttachment(key, value as PdfAttachment, index + 1, usedFilenames, options))
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => a.name.localeCompare(b.name, 'en-US'));
 }
 
 /**
@@ -65,12 +65,13 @@ export function buildAttachmentsWithContent(
   return Object.entries(attachments)
     .map(([key, value], index) => {
       const attachment = value as PdfAttachment;
+      const content = bytes(attachment.content);
       return {
-        ...buildAttachment(key, attachment, index + 1, usedFilenames, options),
-        ...(bytes(attachment.content) !== undefined && { content: bytes(attachment.content) }),
+        ...buildAttachment(key, attachment, index + 1, usedFilenames, options, content),
+        ...(content !== undefined && { content }),
       };
     })
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => a.name.localeCompare(b.name, 'en-US'));
 }
 
 export function mergeAttachmentRecords(
@@ -101,11 +102,14 @@ function buildAttachment(
   index: number,
   usedFilenames: Set<string>,
   options: BuildAttachmentsOptions,
+  // Defaulted so callers that already converted the bytes (Buffer.from
+  // copies a Uint8Array) can hand them in instead of paying for a
+  // second copy per attachment.
+  content: Buffer | undefined = bytes(attachment.content),
 ): DocumentAttachment {
   const name = textValue(attachment.filename, options.normalizeText) ?? textValue(key, options.normalizeText) ?? key;
   const rawName = textValue(attachment.rawFilename, options.normalizeText);
   const description = textValue(attachment.description, options.normalizeText);
-  const content = bytes(attachment.content);
   const path =
     options.outputDir && content
       ? writeAttachment(options.outputDir, safeAttachmentFilename(name, index, usedFilenames), content)
