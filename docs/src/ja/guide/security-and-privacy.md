@@ -73,7 +73,7 @@ viewer permissions は document metadata として報告されます。PDF が r
 
 既定の検索は query を literal text として扱います。`--search-regex` は各 query を JavaScript regular expression としてコンパイルし、native text、form-field text、clickable link targets、visible FreeText annotations、OCR 有効時の OCR text に対して実行します。
 
-regex mode は信頼できる pattern にだけ使ってください。pdfvision は query、page、source ごとの出力 match 数を制限しますが、JavaScript regular expression は結果を出す前に catastrophic backtracking で長時間かかる可能性があります。untrusted user に regex search を公開するアプリケーションでは、独自の timeout や worker isolation を使ってください。
+pdfvision は各ページの regex 検索を約 1 秒の wall-clock 時間で打ち切ります（V8 レベルの割り込みで強制）。catastrophic backtracking する pattern が extraction を止めることはなく、該当ページの結果は warning とともに破棄され、中断された検索結果はキャッシュされません。query、page、source ごとの出力 match 数の上限も引き続き適用されます。この budget は被害を bounded にするもので、なくすものではありません — 悪意ある pattern は検索対象ページごとに最大約 1 秒を消費できるため、untrusted user に regex search を大規模に公開するアプリケーションでは、独自の rate limit の適用も検討してください。
 
 ## 共有前の確認
 

@@ -80,11 +80,15 @@ export function compileSearch(
     }
   }
   const normalize = options.normalize !== false;
+  // One coercion for both the compile branch and the timeout-guard flag:
+  // deciding them separately (truthy here, `=== true` there) let a
+  // type-breaking caller compile a verbatim pattern without the guard.
+  const regexMode = Boolean(options.regex);
   const isMulti = queries.length > 1;
   const flags = options.caseSensitive ? 'g' : 'gi';
   const matchers = queries.map((rawQuery, i) => {
     let pattern: string;
-    if (options.regex) {
+    if (regexMode) {
       // Verbatim — let JS RegExp surface invalid-pattern errors with
       // their own messages. Crucially we do NOT NFKC-normalize regex
       // queries: NFKC can turn compatibility punctuation into regex
@@ -114,5 +118,5 @@ export function compileSearch(
     }
     return { query: rawQuery, regex, ...(isMulti && { queryIndex: i }) };
   });
-  return { matchers, normalize, regexMode: options.regex === true };
+  return { matchers, normalize, regexMode };
 }

@@ -190,14 +190,19 @@ describe('search_pdf', () => {
     expect(body).toContain('of 2 searched page(s)');
   });
 
-  it('surfaces the regex time-limit warning instead of a silent zero', async () => {
+  it('surfaces the regex time-limit warning instead of a silent zero, even on a repeat call', async () => {
     // A catastrophic pattern that hits the per-page budget produces the
     // same "0 matches" as a term that is absent. The model choosing the
     // pattern has no stderr, so the warning must ride the response.
     const body = text(await searchPdf({ source: backtrackPdf, query: '(a+)+$', regex: true }));
     expect(body).toContain('0 matches');
     expect(body).toContain('regex time limit');
-  }, 20_000);
+    // The interrupted result must not be cached: a repeat of the same
+    // call has to re-run the search and warn again, not serve a cached
+    // silent zero.
+    const again = text(await searchPdf({ source: backtrackPdf, query: '(a+)+$', regex: true }));
+    expect(again).toContain('regex time limit');
+  }, 40_000);
 });
 
 describe('render_pdf', () => {

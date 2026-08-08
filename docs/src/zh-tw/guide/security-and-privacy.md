@@ -73,7 +73,7 @@ Viewer permissions 會作為 document metadata 報告。它們描述 PDF 希望 
 
 預設搜尋把 query 當作 literal text。`--search-regex` 會把每個 query 編譯為 JavaScript regular expression，並在 native text、form-field text、clickable link targets、visible FreeText annotations，以及啟用 OCR 時的 OCR text 上執行。
 
-只對可信 pattern 啟用 regex mode。pdfvision 會限制每個 query、page、source 輸出的 match 數，但 JavaScript regular expressions 仍可能在單次 catastrophic-backtracking match 中消耗過多時間。向 untrusted users 暴露 regex search 的應用應自行使用 timeout 或 worker isolation。
+pdfvision 會把每頁的 regex 搜尋限制在約 1 秒的 wall-clock 時間內（透過 V8 層面的中斷強制執行），因此 catastrophic-backtracking pattern 無法卡住 extraction：受影響頁面的結果會連同 warning 一起被捨棄，被中斷的搜尋結果也不會寫入快取。每個 query、page、source 輸出的 match 數上限仍然適用。這個 budget 是限制損害而不是消除損害 — 惡意 pattern 仍可在每個被搜尋的頁面上消耗最多約 1 秒，因此向 untrusted users 大規模暴露 regex search 的應用仍應自行施加 rate limit。
 
 ## 分享前檢查
 

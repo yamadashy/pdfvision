@@ -173,14 +173,37 @@ export function searchPageWithMatchCap(
     return runWithRegexTimeout(run, regexTimeoutMs);
   } catch (error) {
     if (!isRegexTimeout(error)) throw error;
-    // Granularity is the whole page pass, not the offending query: the
-    // guard cannot tell which matcher was mid-exec when V8 terminated
-    // it, so every query in this call loses this page.
-    onWarning?.(
-      `regex search on page ${pageNum} exceeded the ${regexTimeoutMs}ms per-page regex time limit; all results for this page were dropped, including any other queries in the same search. Catastrophic backtracking in the pattern is the likely cause.`,
-    );
+    // Granularity is the whole call, not the offending query: the guard
+    // cannot tell which matcher was mid-exec when V8 terminated it, so
+    // every query in this call loses this page. The processor's OCR
+    // supplement pass runs under its own budget, so a page searched with
+    // OCR is bounded at 2× the limit — bounded is what matters.
+    onWarning?.(regexTimeoutWarning(pageNum, regexTimeoutMs, spans === undefined && ocr !== undefined));
     return [];
   }
+}
+
+const REGEX_TIMEOUT_WARNING_PREFIX = 'regex search on page';
+
+/**
+ * The OCR-supplement pass (no spans, OCR text only) gets its own wording:
+ * claiming "results for this page were dropped" there would be false —
+ * matches from the native pass are already on the page and are kept.
+ */
+function regexTimeoutWarning(pageNum: number, timeoutMs: number, ocrSupplement: boolean): string {
+  const scope = ocrSupplement
+    ? ' while searching OCR text; OCR-derived results for this page were dropped for every query (matches from the page’s other text sources are kept)'
+    : '; results for this page were dropped for every query in this search';
+  return `${REGEX_TIMEOUT_WARNING_PREFIX} ${pageNum} exceeded the ${timeoutMs}ms per-page regex time limit${scope}. Catastrophic backtracking in the pattern is the likely cause.`;
+}
+
+/**
+ * True for warnings emitted when a regex-mode page search hit the time
+ * budget. The processor uses this to keep an interrupted — and therefore
+ * incomplete — result out of the cache.
+ */
+export function isRegexTimeoutWarning(message: string): boolean {
+  return message.startsWith(REGEX_TIMEOUT_WARNING_PREFIX);
 }
 
 function collectPageMatches(

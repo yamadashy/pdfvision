@@ -38,7 +38,7 @@ import { applyVisualRegionPostProcessing } from './processor/visualRegionPostPro
 import { createWidgetAppearanceCaptionLoader } from './processor/widgetAppearanceCaptions.js';
 import { derivePageQuality } from './quality/pageQuality.js';
 import { runParallel } from './runtime/parallel.js';
-import { type CompiledSearch, compileSearch, searchOcrPage } from './search/index.js';
+import { type CompiledSearch, compileSearch, isRegexTimeoutWarning, searchOcrPage } from './search/index.js';
 import type { BuildVisualRegionsInput } from './visualRegions/index.js';
 import { detectPageWarnings } from './warnings/index.js';
 import { buildXfaFormWarning } from './warnings/xfaForm.js';
@@ -110,6 +110,17 @@ export async function processDocument(filePath: string, options: ProcessDocument
     attachmentOutputDir,
   });
   if (cachedResult) return cachedResult;
+
+  // A regex-mode search interrupted by the per-page time budget produced
+  // an incomplete result. Caching it would serve that silent zero on
+  // every later identical call — with no warning, since warnings only
+  // fire while actually searching — so track the interruption and skip
+  // the cache write below.
+  let searchInterrupted = false;
+  const onSearchWarning = (message: string): void => {
+    if (isRegexTimeoutWarning(message)) searchInterrupted = true;
+    options.onWarning?.(message);
+  };
 
   // pdfjs-dist is multiple MB and dominates startup time; only pull it in
   // once we've confirmed there's no cache hit and we actually need to parse.
@@ -251,7 +262,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
         renderRatio: renderRatios[i],
         hasVisibleAnnotationAppearance: annotationAppearanceByPage.get(pageNum) ?? false,
         compiledSearch,
-        onWarning: options.onWarning,
+        onWarning: onSearchWarning,
       });
     });
 
@@ -342,15 +353,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     if (compiledSearch && ocrEnabled) {
       for (const p of pages) {
         if (!p.ocr) continue;
-        const ocrMatches = searchOcrPage(
-          p.ocr,
-          p.page,
-          p.width,
-          p.height,
-          compiledSearch,
-          p.matches,
-          options.onWarning,
-        );
+        const ocrMatches = searchOcrPage(p.ocr, p.page, p.width, p.height, compiledSearch, p.matches, onSearchWarning);
         p.matches = (p.matches ?? []).concat(ocrMatches);
       }
     }
@@ -374,7 +377,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       pages,
     };
 
-    writeCachedResult(cacheDir, cacheKey, result);
+    if (!searchInterrupted) writeCachedResult(cacheDir, cacheKey, result);
 
     return result;
   } finally {
