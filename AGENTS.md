@@ -107,7 +107,7 @@ The bundled agent skill lives under `skills/pdfvision/`: `SKILL.md` is the alway
 
 - **New training-loop knowledge goes into `references/*`**, not `SKILL.md`. Warning-code interpretation and raw density-signal thresholds → `references/warnings.md`; per-flag caveats → `references/flags.md`; JSON/XML schema → `references/structured-output.md`; OCR specifics → `references/ocr.md`.
 - **`SKILL.md` changes only when the decision flow itself changes** — a new/removed flag in the compact table, a new `quality` status, or an update to the typical agent flow. Prose caveats and edge cases do not belong here.
-- **`SKILL.md` has a 12 KB (12288-byte) ceiling, enforced by review.** It is a backstop against re-bloat, not a target: do not trim prose to sit under it, and do not treat remaining headroom as a reason to leave a real decision undocumented. What belongs in `SKILL.md` is settled by the two rules above; the size only catches the case where those rules were quietly ignored for long enough to matter. Verify with `wc -c skills/pdfvision/SKILL.md`.
+- **`SKILL.md` has a 12 KB (12288-byte) ceiling, enforced by review.** It is a backstop against re-bloat, not a target: do not trim prose to sit under it, and do not treat remaining headroom as a reason to leave a real decision undocumented. What belongs in `SKILL.md` is settled by the two rules above; the size only catches the case where those rules were quietly ignored for long enough to matter. **Do not measure it while editing** — an editor who has just run `wc -c` starts compressing to fit, which is the behaviour this ceiling is meant to prevent, one wall further out. Check it when reviewing, not when writing.
 
 ## Error Handling
 
