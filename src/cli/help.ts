@@ -151,7 +151,9 @@ Options
                           match warns on stderr; it and later matches for that combination
                           are dropped.
       --search-regex      Treat each --search query as a JavaScript regular expression
-                          (default: literal substring).
+                          (default: literal substring). Each page's regex search is
+                          bounded at 1s; a pattern that exceeds it drops that page's
+                          results and warns on stderr (usually catastrophic backtracking).
       --search-case-sensitive
                           Match case exactly (default: insensitive).
       --matches-only      Emit a focused search report: the file, total page/match counts, and

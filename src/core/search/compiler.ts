@@ -21,6 +21,11 @@ export interface CompiledSearch {
    *  When `--no-normalize` is on, this is false and the document
    *  side stays raw too. */
   normalize: boolean;
+  /** Whether the caller asked for regex mode. Every query in one
+   *  compile shares the mode, so one flag covers all matchers. Search
+   *  uses it to decide whether the page pass needs the backtracking
+   *  timeout guard — escaped literal patterns cannot stall. */
+  regexMode: boolean;
 }
 
 /**
@@ -109,5 +114,5 @@ export function compileSearch(
     }
     return { query: rawQuery, regex, ...(isMulti && { queryIndex: i }) };
   });
-  return { matchers, normalize };
+  return { matchers, normalize, regexMode: options.regex === true };
 }

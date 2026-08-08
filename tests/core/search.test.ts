@@ -1845,4 +1845,58 @@ describe('processDocument search', () => {
       rmSync(cacheRoot, { recursive: true, force: true });
     }
   });
+
+  it('records whether the compiled search is in regex mode', () => {
+    expect(compileSearch('(a+)+$', { regex: true })?.regexMode).toBe(true);
+    expect(compileSearch('(a+)+$', {})?.regexMode).toBe(false);
+    expect(compileSearch('(a+)+$', { regex: false })?.regexMode).toBe(false);
+  });
+
+  it('drops a page whose regex-mode search exceeds the backtracking time limit', () => {
+    // `(a+)+$` against a run of `a` ending in `b` is the textbook
+    // catastrophic-backtracking case: it stalls inside a single
+    // `regex.exec(...)`, so the emitted-match cap never gets a chance
+    // to fire. The vm guard interrupts it instead.
+    const compiled = compileSearch('(a+)+$', { regex: true });
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const span = { text: `${'a'.repeat(40)}b`, x: 0, y: 0, width: 100, height: 12, fontSize: 12 };
+    const warnings: string[] = [];
+    const started = Date.now();
+    const matches = searchPageWithMatchCap(
+      [span],
+      undefined,
+      3,
+      612,
+      792,
+      compiled,
+      10000,
+      (message) => warnings.push(message),
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      100,
+    );
+    const elapsed = Date.now() - started;
+
+    expect(matches).toEqual([]);
+    expect(warnings).toEqual([
+      'regex search on page 3 exceeded the 100ms per-page regex time limit; all results for this page were dropped, including any other queries in the same search. Catastrophic backtracking in the pattern is the likely cause.',
+    ]);
+    expect(elapsed).toBeLessThan(5000);
+  });
+
+  it('runs a literal query for the same evil-looking string without the guard', () => {
+    // Literal mode escapes the pattern, so it cannot backtrack and
+    // never enters the vm — the query matches its own text verbatim.
+    const compiled = compileSearch('(a+)+$', {});
+    if (!compiled) throw new Error('compileSearch returned undefined for a non-undefined query');
+    const span = { text: `prefix (a+)+$ ${'a'.repeat(40)}b`, x: 0, y: 0, width: 100, height: 12, fontSize: 12 };
+    const warnings: string[] = [];
+    const matches = searchPage([span], undefined, 1, 612, 792, compiled, (message) => warnings.push(message));
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0].text).toBe('(a+)+$');
+    expect(warnings).toEqual([]);
+  });
 });

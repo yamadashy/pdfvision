@@ -3,6 +3,7 @@ import { contributingBoxes, round2, unionBoxes } from './boxes.js';
 import { type CompiledSearch, nfkc } from './compiler.js';
 import { buildPreciseDuplicateBudget, duplicateKey } from './duplicates.js';
 import { buildOcrSearchLines, buildSearchLines } from './lines.js';
+import { isRegexTimeout, runWithRegexTimeout } from './regexTimeout.js';
 import { appendAnnotationMatches, appendFormFieldMatches, appendLinkMatches } from './sourceMatches.js';
 import type { SearchLine } from './types.js';
 
@@ -14,19 +15,33 @@ export { suppressDuplicateOcrMatches } from './duplicates.js';
  * as a defence-in-depth against a degenerate regex (e.g. `.` against a
  * 100KB OCR page produces 100k hits) and a soft brake on user typos.
  *
- * NOT a full ReDoS mitigation — the cap counts emitted matches, so a
- * catastrophic-backtracking pattern on a single string can still stall
- * inside one `regex.exec(...)` call before any match would have been
- * pushed. pdfvision's threat model is "the user is matching against
- * their own input", so the cost of safe-regex / worker / RE2 is
- * deliberately not paid. Library consumers exposing pdfvision to
- * untrusted regex input should wrap the call in their own timeout.
+ * The cap counts *emitted* matches, so on its own it cannot stop a
+ * catastrophic-backtracking pattern: that stalls inside a single
+ * `regex.exec(...)` before any match would have been pushed. The vm
+ * timeout below covers that case; the cap stays as defence-in-depth
+ * for what happens after matches start flowing.
  *
  * The threshold leaves room for legitimate high-hit-count searches while
  * bounding how expensive a degenerate pattern can become after it starts
  * emitting matches.
  */
 const MAX_MATCHES_PER_QUERY_PER_PAGE = 10000;
+
+/**
+ * Wall-clock budget for one page's regex-mode search.
+ *
+ * "The user is matching against their own input" stopped being the whole
+ * threat model when `search_pdf` started letting a *model* pick the
+ * pattern over MCP, so regex input is now semi-untrusted. The budget is
+ * generous enough that no honest pattern on a realistic page approaches
+ * it, and small enough that a catastrophic one costs a bounded slice of
+ * a second per page instead of hanging the process.
+ *
+ * Literal-mode searches never enter the guard: escaped patterns cannot
+ * backtrack catastrophically, and the common path stays free of the vm
+ * setup cost.
+ */
+const REGEX_SEARCH_TIMEOUT_MS = 1000;
 
 /**
  * Find occurrences of every compiled query in the given page's native
@@ -62,6 +77,10 @@ const MAX_MATCHES_PER_QUERY_PER_PAGE = 10000;
  *
  * Link targets are included when the processor supplies links. They use
  * the clickable link bbox and are marked `source: 'link'`.
+ *
+ * In regex mode the whole page pass is bounded at
+ * {@link REGEX_SEARCH_TIMEOUT_MS}; exceeding it warns and returns no
+ * matches for that page.
  */
 export function searchPage(
   spans: readonly TextSpan[] | undefined,
@@ -115,8 +134,56 @@ export function searchOcrPage(
   );
 }
 
-/** @internal Exported for boundary-focused tests with a small cap. */
+/**
+ * @internal Exported for boundary-focused tests with a small cap, and
+ * with a shortened regex timeout so timeout coverage stays fast.
+ */
 export function searchPageWithMatchCap(
+  spans: readonly TextSpan[] | undefined,
+  ocr: PageOcr | undefined,
+  pageNum: number,
+  pageWidth: number,
+  pageHeight: number,
+  compiled: CompiledSearch,
+  matchCap: number,
+  onWarning?: (message: string) => void,
+  formFields?: readonly FormField[],
+  annotations?: readonly PageAnnotation[],
+  links?: readonly PageLink[],
+  ocrDuplicateMatches?: readonly SearchMatch[],
+  regexTimeoutMs: number = REGEX_SEARCH_TIMEOUT_MS,
+): SearchMatch[] {
+  const run = () =>
+    collectPageMatches(
+      spans,
+      ocr,
+      pageNum,
+      pageWidth,
+      pageHeight,
+      compiled,
+      matchCap,
+      onWarning,
+      formFields,
+      annotations,
+      links,
+      ocrDuplicateMatches,
+    );
+  if (!compiled.regexMode) return run();
+  try {
+    return runWithRegexTimeout(run, regexTimeoutMs);
+  } catch (error) {
+    if (!isRegexTimeout(error)) throw error;
+    // Granularity is the whole page pass, not the offending query: the
+    // guard cannot tell which matcher was mid-exec when V8 terminated
+    // it, so every query in this call loses this page.
+    onWarning?.(
+      `regex search on page ${pageNum} exceeded the ${regexTimeoutMs}ms per-page regex time limit; all results for this page were dropped, including any other queries in the same search. Catastrophic backtracking in the pattern is the likely cause.`,
+    );
+    return [];
+  }
+}
+
+function collectPageMatches(
   spans: readonly TextSpan[] | undefined,
   ocr: PageOcr | undefined,
   pageNum: number,
