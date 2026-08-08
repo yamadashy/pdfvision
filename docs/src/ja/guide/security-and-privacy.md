@@ -33,6 +33,8 @@ pdfvision --remote https://example.com/document.pdf --format json
 
 リモートサーバーには、ランタイムが既定で付与するヘッダーを含むリクエストが送信されます。1 回限りのプライベート URL や期限付き URL には `--remote --no-cache` を使い、ダウンロードした PDF をリモート PDF キャッシュに残さないようにしてください。
 
+[MCP サーバー](./mcp-server.md)は `--remote` より厳しいポリシーを適用します。あちらでは URL を選ぶのがモデルだからです: private、loopback、link-local、CGNAT、NAT64 アドレスに解決される URL を拒否し、リダイレクトの各ホップも再検証します。
+
 ## パスワード
 
 PDF パスワードは pdf.js の復号にのみ使われ、出力には含まれません。

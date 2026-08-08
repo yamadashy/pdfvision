@@ -35,6 +35,8 @@ Do not pass untrusted URLs directly to pdfvision in such integrations. Use a fet
 
 The remote server still sees the request, including headers your runtime sends by default. Use `--remote --no-cache` for one-off private or expiring URLs so the downloaded PDF bytes are not written to the remote-PDF cache.
 
+The [MCP server](./mcp-server.md) applies a stricter policy than `--remote`, because there the model chooses the URL: it refuses URLs that resolve to private, loopback, link-local, CGNAT, or NAT64 addresses, and re-validates every redirect hop.
+
 ## Passwords
 
 PDF passwords are used only for pdf.js decryption and are never emitted in output.

@@ -39,6 +39,7 @@ type LocaleLabels = {
   renderingAndOcr: string;
   searchAndRegionZoom: string;
   agentSkill: string;
+  mcpServer: string;
   promptExamples: string;
   libraryApi: string;
   securityAndPrivacy: string;
@@ -62,6 +63,7 @@ const labelsEn: LocaleLabels = {
   renderingAndOcr: 'Rendering and OCR',
   searchAndRegionZoom: 'Search and Region Zoom',
   agentSkill: 'Agent Skills',
+  mcpServer: 'MCP Server',
   promptExamples: 'Prompt Examples',
   libraryApi: 'Library API',
   securityAndPrivacy: 'Security and Privacy',
@@ -85,6 +87,7 @@ const labelsJa: LocaleLabels = {
   renderingAndOcr: 'レンダリングと OCR',
   searchAndRegionZoom: '検索と領域ズーム',
   agentSkill: 'Agent Skills',
+  mcpServer: 'MCP サーバー',
   promptExamples: 'プロンプト例',
   libraryApi: 'ライブラリ API',
   securityAndPrivacy: 'セキュリティとプライバシー',
@@ -108,6 +111,7 @@ const labelsZhCn: LocaleLabels = {
   renderingAndOcr: '渲染与 OCR',
   searchAndRegionZoom: '搜索与区域放大',
   agentSkill: 'Agent Skills',
+  mcpServer: 'MCP 服务器',
   promptExamples: '提示词示例',
   libraryApi: '库 API',
   securityAndPrivacy: '安全与隐私',
@@ -131,6 +135,7 @@ const labelsZhTw: LocaleLabels = {
   renderingAndOcr: '渲染與 OCR',
   searchAndRegionZoom: '搜尋與區域放大',
   agentSkill: 'Agent Skills',
+  mcpServer: 'MCP 伺服器',
   promptExamples: '提示詞範例',
   libraryApi: '函式庫 API',
   securityAndPrivacy: '安全與隱私',
@@ -169,6 +174,7 @@ const guideSidebar = (prefix: string, labels: LocaleLabels): DefaultTheme.Sideba
       text: labels.agentsAndDevelopers,
       items: [
         { text: labels.agentSkill, link: withPrefix(prefix, '/guide/agent-skill') },
+        { text: labels.mcpServer, link: withPrefix(prefix, '/guide/mcp-server') },
         { text: labels.promptExamples, link: withPrefix(prefix, '/guide/prompt-examples') },
         { text: labels.libraryApi, link: withPrefix(prefix, '/guide/library-api') },
       ],
@@ -234,6 +240,7 @@ const jsonLd = {
         'JSON, XML, Markdown, and TOON output formats',
         'Local and remote PDF extraction with cache support',
         'Bundled Agent Skills for Claude Code, Codex, and Cursor workflows',
+        'MCP server for shell-less hosts such as Claude Desktop and Cursor',
       ],
     },
   ],

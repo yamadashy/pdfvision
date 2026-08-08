@@ -33,6 +33,8 @@ pdfvision --remote https://example.com/document.pdf --format json
 
 远程服务器仍然会看到这次请求，包括运行时默认发送的请求头。对一次性的私有或临时 URL，使用 `--remote --no-cache`，这样下载的 PDF 字节就不会写入远程 PDF 缓存。
 
+[MCP 服务器](./mcp-server.md)采用比 `--remote` 更严格的策略，因为在那里选择 URL 的是模型：它会拒绝解析到私有地址、环回地址、链路本地地址、CGNAT 地址或 NAT64 地址的 URL，并重新验证每一跳重定向。
+
 ## 密码
 
 PDF 密码只用于 pdf.js 解密，不会出现在输出中。
