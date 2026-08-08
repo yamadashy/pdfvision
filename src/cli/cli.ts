@@ -24,12 +24,15 @@ function formatEstimatedTokens(bytes: number): string {
   return rounded >= 1_000 ? `${Math.round(rounded / 1_000)}k` : String(rounded);
 }
 
-function emitOutputSizeNote(result: string): void {
+function emitOutputSizeNote(result: string, options: { mapped?: boolean } = {}): void {
   const bytes = Buffer.byteLength(result, 'utf8');
   if (bytes <= OUTPUT_SIZE_NOTE_THRESHOLD_BYTES) return;
 
+  // Telling a caller who just ran --map to consider --map is worse than
+  // saying nothing: it reads as though the flag did not take effect.
+  const mapAdvice = options.mapped ? '' : '--map for page counts, outline, and per-page quality without any bodies, ';
   process.stderr.write(
-    `pdfvision: note: output is ${formatOutputSize(bytes)} (~${formatEstimatedTokens(bytes)} tokens); consider -p <range> to page through, --search <query> --matches-only to locate content, or --outline -p 1 for navigation (--outline alone still emits every page)\n`,
+    `pdfvision: note: output is ${formatOutputSize(bytes)} (~${formatEstimatedTokens(bytes)} tokens); consider ${mapAdvice}-p <range> to page through, --search <query> --matches-only to locate content, or --outline -p 1 for navigation (--outline alone still emits every page)\n`,
   );
 }
 
@@ -96,6 +99,7 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
         viewer: { type: 'boolean' },
         layers: { type: 'boolean' },
         'strip-repeated': { type: 'boolean' },
+        map: { type: 'boolean' },
         remote: { type: 'string' },
         'clear-cache': { type: 'boolean' },
         ocr: { type: 'boolean' },
@@ -227,6 +231,48 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
     exitWithError('--matches-only requires --search');
   }
 
+  // --map answers "what is this document" before anything is read: page
+  // count, outline, and per-page quality / warning codes folded into page
+  // ranges, with no page bodies. It is the cheap first move on a long PDF,
+  // where the alternative is either dumping hundreds of pages or guessing
+  // at `-p`.
+  const map = (values.map as boolean | undefined) ?? false;
+  if (map && format !== 'markdown') {
+    // The map is an aggregation built for reading, not a projection of
+    // DocumentResult — there is no JSON/XML/TOON form of it to emit.
+    // Fail rather than quietly hand back the ordinary structured payload
+    // the user did not ask for.
+    exitWithError(`--map only applies to markdown output (got --format ${format})`);
+  }
+  if (map) {
+    // A map has no page bodies, images, or match lists, so nothing these
+    // flags produce can appear in it. Note rather than error, matching
+    // --geometry above: a composed flag set still gets its map.
+    const ignored = [
+      'render',
+      'geometry',
+      'layout',
+      'image-boxes',
+      'vector-boxes',
+      'visual-regions',
+      'render-visual-regions',
+      'form-fields',
+      'links',
+      'annotations',
+      'structure',
+      'page-labels',
+      'viewer',
+      'layers',
+      'attachments',
+      'strip-repeated',
+      'ocr',
+      'search',
+    ].filter((flag) => values[flag as keyof typeof values] !== undefined);
+    if (ignored.length > 0) {
+      console.error(`note: --map shows no page bodies; ignoring ${ignored.map((f) => `--${f}`).join(', ')}`);
+    }
+  }
+
   const noCache = (values['no-cache'] as boolean | undefined) ?? false;
   const passwordFromArg = values.password as string | undefined;
   const passwordStdin = (values['password-stdin'] as boolean | undefined) ?? false;
@@ -241,6 +287,36 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
     hasPositionalInput ? [positionalInput] : [],
     noCache,
   );
+
+  if (map) {
+    try {
+      const { processDocument } = await import('../core/processor.js');
+      const { formatDocumentMap } = await import('../output/documentMap.js');
+      const result = await processDocument(filePath, {
+        pages: values.pages as string | undefined,
+        sourceData,
+        password,
+        noCache,
+        // A map carries no page bodies, but it does carry metadata and
+        // outline titles — both of which normalization rewrites, so the
+        // flag is not a no-op here.
+        normalize: !((values['no-normalize'] as boolean | undefined) ?? false),
+        // The outline is the one detail pass that survives aggregation,
+        // and it is a single cheap pdf.js call whether or not the
+        // document has one.
+        outline: true,
+        onWarning: (msg) => {
+          process.stderr.write(`pdfvision: warning: ${msg}\n`);
+        },
+      });
+      const rendered = formatDocumentMap(result);
+      emitOutputSizeNote(rendered, { mapped: true });
+      console.log(rendered);
+      return;
+    } catch (error) {
+      exitWithError(formatCliErrorMessage(error));
+    }
+  }
 
   try {
     // Lazy-load the processor (and the heavy pdfjs-dist + optional

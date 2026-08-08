@@ -224,6 +224,11 @@ Options
                           LLM readers don't have to wade through the same footer N times.
                           Markdown only; JSON/TOON preserve block `repeated: true`, while XML
                           uses `<block repeated="true">`. Requires --layout.
+      --map               Emit a map of the document instead of its contents: page count,
+                          metadata, outline, and per-page native-text quality plus warning
+                          codes folded into page ranges. No page bodies. The cheap first
+                          move on a long PDF — a 120-page report maps in ~300 bytes where
+                          the full body is ~290 KB. Markdown only.
       --ocr               Run OCR on each selected page and attach `pages[].ocr`
                           (text + confidence + lang). Slow; opt-in. Requires the
                           optional `tesseract.js` dependency. `pages[].text` is
@@ -306,6 +311,7 @@ Output formats
 
 Examples
   pdfvision document.pdf                                                       # markdown to stdout
+  pdfvision report.pdf --map                                                   # what the document is, no page bodies (first move on a long PDF)
   pdfvision document.pdf --json                                                # JSON shortcut
   pdfvision document.pdf -p 1-3 --json                                         # specific pages, JSON
   pdfvision document.pdf -r --render-output ./images                           # render PNGs to ./images

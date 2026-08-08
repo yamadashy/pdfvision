@@ -9,6 +9,8 @@ import { run } from '../../src/cli/cli.js';
 
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
 const SAMPLE_JA_PDF = resolve(__dirname, '../fixtures/sample-ja.pdf');
+/** Title is fullwidth `Ｃｏｍｐａｔ ２０２６`, which NFKC folds to `Compat 2026`. */
+const SAMPLE_COMPAT_PDF = resolve(__dirname, '../fixtures/sample-compat.pdf');
 
 interface CliCapture {
   stdout: string[];
@@ -380,7 +382,7 @@ describe('cli', () => {
       expect(r.exitCode).toBeNull();
       expect(Buffer.byteLength(stdout, 'utf8')).toBeGreaterThan(262_144);
       expect(r.stderr.join('\n')).toMatch(
-        /pdfvision: note: output is \d+ KB \(~\d+k tokens\); consider -p <range> to page through/,
+        /pdfvision: note: output is \d+ KB \(~\d+k tokens\); consider --map .*, -p <range> to page through/,
       );
       expect(stdout).not.toContain('pdfvision: note:');
       const parsed = JSON.parse(stdout);
@@ -979,5 +981,103 @@ describe('cli cache root safety', () => {
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toEqual([]);
     expect(result.stderr.join('\n')).toMatch(/Invalid PDFVISION_CACHE_DIR.*absolute path/);
+  });
+});
+
+describe('cli --map', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('emits the document map instead of the page bodies', async () => {
+    const result = await captureRun([SAMPLE_JA_PDF, '--map', '--no-cache']);
+    expect(result.exitCode).toBeNull();
+    const out = result.stdout.join('\n');
+    expect(out).toContain('- **Pages:** 3');
+    expect(out).toContain('_Document map: page bodies are omitted._');
+    expect(out).toContain('## Native text quality');
+    // The body text of the fixture must not appear — that is the point.
+    expect(out).not.toContain('これは pdfvision のテスト用 PDF です');
+  });
+
+  it('costs a fraction of the full body', async () => {
+    const map = (await captureRun([SAMPLE_JA_PDF, '--map', '--no-cache'])).stdout.join('\n');
+    const full = (await captureRun([SAMPLE_JA_PDF, '--no-cache'])).stdout.join('\n');
+    // Assert the map is real before comparing: a rejected --map produces
+    // empty stdout, which would satisfy a bare `less than` for the wrong
+    // reason.
+    expect(map).toContain('_Document map: page bodies are omitted._');
+    expect(map.length).toBeLessThan(full.length);
+  });
+
+  it('keeps --no-normalize meaningful, since metadata and outline titles pass through it', async () => {
+    // A map has no page bodies, so the only way to see normalization is
+    // the metadata it does carry. Asserting the raw fullwidth title
+    // survives is what makes this fail if the flag stops being passed
+    // through to processDocument.
+    const normalized = (await captureRun([SAMPLE_COMPAT_PDF, '--map', '--no-cache'])).stdout.join('\n');
+    expect(normalized).toContain('- **Title:** Compat 2026');
+
+    const raw = await captureRun([SAMPLE_COMPAT_PDF, '--map', '--no-normalize', '--no-cache']);
+    expect(raw.exitCode).toBeNull();
+    expect(raw.stdout.join('\n')).toContain('- **Title:** Ｃｏｍｐａｔ ２０２６');
+    expect(raw.stderr.join('\n')).not.toMatch(/ignoring.*no-normalize/);
+  });
+
+  it('names --render-visual-regions among the flags it cannot show', async () => {
+    const result = await captureRun([SAMPLE_JA_PDF, '--map', '--render-visual-regions', '--no-cache']);
+    expect(result.stderr.join('\n')).toMatch(/ignoring --render-visual-regions/);
+  });
+
+  it('scopes the quality table to --pages while still reporting the document total', async () => {
+    const out = (await captureRun([SAMPLE_JA_PDF, '--map', '-p', '1-2', '--no-cache'])).stdout.join('\n');
+    expect(out).toContain('- **Pages:** 3');
+    expect(out).toMatch(/\| `ok` \| 2 \| 1-2 \|/);
+  });
+
+  it('refuses a structured format rather than emitting the ordinary payload', async () => {
+    const result = await captureRun([SAMPLE_JA_PDF, '--map', '-f', 'json', '--no-cache']);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toEqual([]);
+    expect(result.stderr.join('\n')).toMatch(/--map only applies to markdown output/);
+  });
+
+  it('notes the flags it cannot show, and still emits the map', async () => {
+    const result = await captureRun([SAMPLE_JA_PDF, '--map', '--layout', '--links', '--no-cache']);
+    expect(result.exitCode).toBeNull();
+    expect(result.stderr.join('\n')).toMatch(/--map shows no page bodies; ignoring --layout, --links/);
+    expect(result.stdout.join('\n')).toContain('_Document map: page bodies are omitted._');
+  });
+
+  it('reports a missing file through the normal CLI error path', async () => {
+    const result = await captureRun(['/nope/missing.pdf', '--map']);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr.join('\n')).toMatch(/File not found/);
+  });
+
+  it('does not tell a caller who already ran --map to consider --map', async () => {
+    // A map is small by design, but nothing guarantees it — the size
+    // note still fires on a pathological one, and its usual first
+    // suggestion would then read as though the flag had not taken effect.
+    const dir = mkdtempSync(join(tmpdir(), 'pdfvision-bigmap-'));
+    const file = join(dir, 'big-title.pdf');
+    try {
+      const chunks: Buffer[] = [];
+      const doc = new PDFDocument({ info: { Title: 'T'.repeat(300_000) } });
+      doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+      const done = new Promise<void>((resolve) => doc.on('end', () => resolve()));
+      doc.text('x');
+      doc.end();
+      await done;
+      writeFileSync(file, Buffer.concat(chunks));
+
+      const result = await captureRun([file, '--map', '--no-cache']);
+      const stderr = result.stderr.join('\n');
+      expect(stderr).toMatch(/pdfvision: note: output is/);
+      expect(stderr).not.toContain('consider --map');
+      expect(stderr).toContain('consider -p <range> to page through');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
