@@ -126,6 +126,6 @@ For each relevant match:
 
 - Use JSON for tools and agents that need exact fields.
 - Use XML when the consumer or prompt is built around explicit tags.
-- Consider TOON when arrays of objects with identical scalar fields dominate; arrays with nested values or entries with differing fields stay in list form, so compare formats in the target model context.
+- Consider TOON when arrays of objects with identical fields dominate (uniform nested objects fold into the tabular header); arrays whose entries have differing fields stay in list form, so compare formats in the target model context.
 - Use Markdown for a human-readable first pass.
 - Use rendered crops when a claim depends on the visual page, not only the text layer.

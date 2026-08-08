@@ -62,9 +62,9 @@ Use XML when a consumer or prompt is built around explicit `<page>`, `<text>`, `
 pdfvision document.pdf --format toon
 ```
 
-Every emitted TOON payload decodes to exactly the JSON data model (`JSON.parse(formatJson(result))`), including omission of unset `undefined` fields. TOON's string grammar cannot losslessly represent an unpaired UTF-16 surrogate across a UTF-8 wire boundary, so pdfvision rejects that edge case and directs callers to JSON rather than silently replacing it. Valid surrogate pairs and literal `\uD800` text are preserved. Arrays of objects with identical scalar fields can use a tabular form that declares field names once and reduces repeated-key overhead.
+Every emitted TOON payload decodes to exactly the JSON data model (`JSON.parse(formatJson(result))`), including omission of unset `undefined` fields. TOON's string grammar cannot losslessly represent an unpaired UTF-16 surrogate across a UTF-8 wire boundary, so pdfvision rejects that edge case and directs callers to JSON rather than silently replacing it. Valid surrogate pairs and literal `\uD800` text are preserved. Arrays of objects with identical fields can use a tabular form that declares field names once and reduces repeated-key overhead; a uniformly-shaped nested object folds into the header (for example `quality{nativeTextStatus}` in `overview[]`).
 
-Arrays with nested values or entries with differing fields remain in list form.
+Arrays whose entries have differing fields, array-valued fields, or nested objects with differing shapes remain in list form.
 
 Consider TOON when eligible uniform arrays dominate the result. Compare the formats on your own documents and in the target model context before choosing one for token-sensitive workflows.
 

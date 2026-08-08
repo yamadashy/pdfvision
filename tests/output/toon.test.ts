@@ -221,7 +221,7 @@ describe('formatToon', () => {
     expect(out).toContain('there,40,20,50,12,12,g_d0_f1');
   });
 
-  it('keeps overview list-form when entries contain nested quality', () => {
+  it('folds uniform nested quality into the overview tabular header', () => {
     const out = formatToon(
       makeResult({
         totalPages: 2,
@@ -254,8 +254,13 @@ describe('formatToon', () => {
         pages: [makePage({ page: 1, charCount: 10 }), makePage({ page: 2, imageCount: 5 })],
       }),
     );
-    expect(out).toContain('overview[2]:');
-    expect(out).not.toContain('overview[2]{');
+    // TOON v4 folds a uniformly-shaped nested object into the tabular
+    // header instead of forcing the whole array back to list form.
+    expect(out).toContain(
+      'overview[2]{page,charCount,imageCount,vectorCount,textCoverage,nonPrintableRatio,nonPrintableCount,quality{nativeTextStatus},width,height}:',
+    );
+    expect(out).toContain('1,10,0,0,0.1,0,0,ok,612,792');
+    expect(out).toContain('2,0,5,2,0.02,0,0,empty_but_visual_content,612,792');
   });
 
   it('round-trips document and page labels through the TOON data model', () => {
