@@ -29,6 +29,7 @@ pdfvision/
 │   │   ├── source.ts         # Path-or-URL dispatch and SSRF guard
 │   │   ├── limits.ts         # Response budgets
 │   │   ├── refs.ts           # Short region handles (`p47m1`) for follow-up renders
+│   │   ├── attachments.ts    # Embedded-file classification: inline text, image blocks, refuse the rest
 │   │   ├── truncate.ts       # Page-boundary clipping with recovery guidance
 │   │   └── result.ts         # Content blocks and the untrusted-data banner
 │   ├── core/

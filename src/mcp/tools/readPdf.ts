@@ -1,9 +1,11 @@
+import { readAttachment } from '../../core/document/attachmentContent.js';
 import { formatPageRange, parsePageRange } from '../../core/options/pageRange.js';
 import { processDocument } from '../../core/processor.js';
 import { unreliableNativeTextPages } from '../../core/quality/pageQuality.js';
 import { formatDocumentMap } from '../../output/documentMap.js';
 import { formatMarkdownSections } from '../../output/markdown.js';
 import type { DocumentResult, ProcessDocumentOptions } from '../../types/index.js';
+import { attachmentResult } from '../attachments.js';
 import { MAX_OCR_PAGES, UNSCOPED_FULL_READ_PAGE_LIMIT } from '../limits.js';
 import { type ToolResult, toolResult } from '../result.js';
 import { resolveSource } from '../source.js';
@@ -13,6 +15,7 @@ export interface ReadPdfInput {
   source: string;
   pages?: string;
   ocr?: string;
+  attachment?: string;
   password?: string;
 }
 
@@ -37,6 +40,11 @@ function bodyFor(result: DocumentResult, input: ReadPdfInput): string {
     layout: true,
     stripRepeated: true,
     omitEmptySections: true,
+    // The defaults name CLI flags, which a shell-less caller cannot run.
+    // Attachments have an MCP equivalent; document JavaScript does not,
+    // so that bullet reports presence and stops there.
+    attachmentHint: 'read_pdf(attachment: "1") to open one',
+    javascriptHint: '',
   });
   // The hint deliberately omits `source`: the model already has it, and
   // echoing a long absolute path back on every truncation is pure noise.
@@ -82,6 +90,27 @@ function withNextSteps(map: string, result: DocumentResult): string {
 
 export async function readPdf(input: ReadPdfInput): Promise<ToolResult> {
   const resolved = await resolveSource(input.source);
+
+  if (input.attachment !== undefined) {
+    // An attachment request is about the embedded file, not the pages,
+    // so it skips extraction entirely — one document load, no page work.
+    const found = await readAttachment(resolved.filePath, input.attachment, {
+      sourceData: resolved.sourceData,
+      password: input.password,
+    });
+    if (!found.found) {
+      const list = found.available
+        .map((entry, index) => `${index + 1}. ${entry.name} (${entry.size} bytes)`)
+        .join('; ');
+      throw new Error(
+        found.available.length === 0
+          ? `No attachment "${input.attachment}": this document has no embedded files.`
+          : `No attachment "${input.attachment}". This document has ${found.available.length}: ${list}. Pass a name or a 1-based index.`,
+      );
+    }
+    return attachmentResult(found.attachment);
+  }
+
   const base: ProcessDocumentOptions = {
     sourceData: resolved.sourceData,
     password: input.password,

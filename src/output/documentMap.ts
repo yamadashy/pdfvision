@@ -83,7 +83,14 @@ export function formatDocumentMap(result: DocumentResult): string {
   if (result.metadata.author) lines.push(`- **Author:** ${escapeInline(result.metadata.author)}`);
   if (result.metadata.subject) lines.push(`- **Subject:** ${escapeInline(result.metadata.subject)}`);
   if (result.outlineCount) lines.push(`- **Outline:** ${result.outlineCount} top-level entries`);
-  if (result.attachmentCount) lines.push(`- **Attachments:** ${result.attachmentCount} embedded file(s)`);
+  // Naming the count without naming a way to open it is the one dead end
+  // this map used to create — and in an e-invoice the embedded file is
+  // the authoritative data, not a supplement.
+  if (result.attachmentCount) {
+    lines.push(
+      `- **Attachments:** ${result.attachmentCount} embedded file(s) — open one by name or index (\`read_pdf(attachment: "1")\`, or \`--attachments\` from the CLI)`,
+    );
+  }
   if (result.javascriptActionCount) {
     lines.push(`- **JavaScript:** ${result.javascriptActionCount} document-level action(s)`);
   }

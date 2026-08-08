@@ -18,7 +18,7 @@ The server is a subcommand of the main binary, not a separate package:
 
 | Tool | Returns |
 |---|---|
-| `read_pdf` | Text as Markdown. Parameters: `source`, `pages`, `ocr`, `password`. |
+| `read_pdf` | Text as Markdown. Parameters: `source`, `pages`, `ocr`, `attachment`, `password`. |
 | `search_pdf` | Flat hit list — page, origin, context, region, and a short `ref` per match. Parameters: `source`, `query`, `pages`, `regex`, `password`. |
 | `render_pdf` | Page or region PNGs as image blocks, each preceded by a `Page N:` label. Parameters: `source`, `pages`, `ref`, `region`, `password`. |
 
@@ -32,6 +32,12 @@ The server is a subcommand of the main binary, not a separate package:
 - **Refs replace coordinates.** `search_pdf` and a full-page `render_pdf` hand back short handles (`p47m1`, `p5r2`). Pass one straight back as `render_pdf(ref: "p47m1")` instead of transcribing a bbox. Refs are renumbered from `p1m1` by *every* call, so one held over from an earlier search now points at the newer result — `render_pdf` echoes what the ref resolved to (`Ref \`p1m1\` → search hit for …`) so a stale one is visible. When in doubt, re-run the search.
 - **No scale knob.** Renders are fitted to 1568 px on the longest edge, past which vision models downsample anyway. If a render is too small to read, the fix is a smaller `region`, not a bigger raster.
 - **Every result carries an untrusted-data banner.** MCP hosts have no equivalent of this skill, so the trust boundary travels with the payload.
+
+## Embedded files
+
+`read_pdf(attachment: "invoice.xml")` — or a 1-based index — returns the embedded file instead of the pages. It matters because in e-invoices and regulatory filings (Factur-X, ZUGFeRD, XBRL) **the attachment is the authoritative data and the pages are only its rendering**; answering from the pages there is answering from a picture of the truth. Any response that reports attachments names this call.
+
+Text attachments come back inline, images as image blocks. Anything else — spreadsheets, archives — is refused with a pointer to `--attachments --attachment-output <dir>`, because delivering those bytes into a context window accomplishes nothing. That is the one place the MCP surface genuinely needs the CLI.
 
 ## Remote input is guarded
 

@@ -45,6 +45,34 @@ export function buildAttachments(
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/**
+ * Same list as {@link buildAttachments}, in the same order, but carrying
+ * the embedded bytes.
+ *
+ * Kept out of `DocumentAttachment` on purpose: `DocumentResult` is
+ * `JSON.stringify`-ed whole by the JSON formatter, so a `Uint8Array`
+ * anywhere inside it would serialise as `{"0":80,"1":75,...}`. Callers
+ * that need the bytes ask for them here and never through the document
+ * result.
+ */
+export function buildAttachmentsWithContent(
+  attachments: Record<string, unknown> | null | undefined,
+  options: BuildAttachmentsOptions = {},
+): (DocumentAttachment & { content?: Buffer })[] {
+  if (!attachments) return [];
+
+  const usedFilenames = new Set<string>();
+  return Object.entries(attachments)
+    .map(([key, value], index) => {
+      const attachment = value as PdfAttachment;
+      return {
+        ...buildAttachment(key, attachment, index + 1, usedFilenames, options),
+        ...(bytes(attachment.content) !== undefined && { content: bytes(attachment.content) }),
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export function mergeAttachmentRecords(
   ...records: (Record<string, unknown> | null | undefined)[]
 ): Record<string, unknown> | null {
