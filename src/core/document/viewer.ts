@@ -9,11 +9,6 @@ import type {
 } from '../../types/index.js';
 import { destinationTarget, resolveDestinationPage } from './destinations.js';
 
-interface PdfOpenAction {
-  dest?: unknown;
-  action?: unknown;
-}
-
 interface PdfMarkInfo {
   Marked?: unknown;
   UserProperties?: unknown;
@@ -84,7 +79,7 @@ async function openActionValue(
   doc: PDFDocumentProxy,
   options: BuildViewerStateOptions,
 ): Promise<Pick<DocumentViewerState, 'openAction'> | undefined> {
-  const action = value as PdfOpenAction | null | undefined;
+  const action = dictValue(value);
   const dest = Array.isArray(value) ? value : action?.dest;
   if (dest !== undefined) {
     const openAction: DocumentOpenAction = { type: 'destination' };
@@ -160,10 +155,26 @@ function normalizeTarget(target: string, options: BuildViewerStateOptions): stri
   return options.normalizeText ? options.normalizeText(target) : target;
 }
 
-function jsonObject(value: unknown, options: BuildViewerStateOptions): Record<string, JsonValue> | undefined {
+// pdf.js 6.2 changed getViewerPreferences / getOpenAction to return their
+// dictionary data in a Map ([api-minor] mozilla/pdf.js#21607, #21621); older
+// versions return plain objects. Accept both shapes.
+function dictValue(value: unknown): Record<string, unknown> | undefined {
+  if (value instanceof Map) {
+    const entries: [string, unknown][] = [];
+    for (const [key, raw] of value) {
+      if (typeof key === 'string') entries.push([key, raw]);
+    }
+    return Object.fromEntries(entries);
+  }
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  return value as Record<string, unknown>;
+}
+
+function jsonObject(value: unknown, options: BuildViewerStateOptions): Record<string, JsonValue> | undefined {
+  const dict = dictValue(value);
+  if (!dict) return undefined;
   const entries: [string, JsonValue][] = [];
-  for (const [key, raw] of Object.entries(value)) {
+  for (const [key, raw] of Object.entries(dict)) {
     const json = jsonValue(raw, options);
     if (json !== undefined) entries.push([key, json]);
   }
