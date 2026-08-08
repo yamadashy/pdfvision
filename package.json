@@ -76,20 +76,20 @@
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.4",
+    "@biomejs/biome": "^2.5.5",
     "@expo-google-fonts/noto-sans-jp": "^0.4.3",
-    "@secretlint/secretlint-rule-preset-recommend": "^13.0.2",
+    "@secretlint/secretlint-rule-preset-recommend": "^13.0.4",
     "@types/node": "^25.9.5",
     "@types/pdfkit": "^0.17.6",
     "@vitest/coverage-v8": "^4.1.10",
-    "oxlint": "^1.74.0",
+    "oxlint": "^1.75.0",
     "pdfkit": "^0.19.1",
-    "secretlint": "^13.0.2",
-    "tsdown": "^0.22.9",
+    "secretlint": "^13.0.4",
+    "tsdown": "^0.22.14",
     "typescript": "^7.0.2",
     "vitepress": "^1.6.4",
     "vitepress-plugin-llms": "^1.13.3",
     "vitest": "^4.1.10",
-    "wrangler": "^4.112.0"
+    "wrangler": "^4.114.0"
   }
 }
