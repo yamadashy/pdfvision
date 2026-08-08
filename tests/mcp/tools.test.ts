@@ -8,7 +8,7 @@ import { clearRefs } from '../../src/mcp/refs.js';
 import type { ImageBlock, TextBlock } from '../../src/mcp/result.js';
 import { readPdf } from '../../src/mcp/tools/readPdf.js';
 import { renderPdf } from '../../src/mcp/tools/renderPdf.js';
-import { searchPdf } from '../../src/mcp/tools/searchPdf.js';
+import { searchPdf, searchWarningCollector } from '../../src/mcp/tools/searchPdf.js';
 
 const SAMPLE = join(import.meta.dirname, '..', 'fixtures', 'sample.pdf');
 
@@ -37,13 +37,28 @@ async function buildLongPdf(pageCount: number): Promise<Uint8Array> {
   return new Uint8Array(Buffer.concat(chunks));
 }
 
+async function buildSinglePagePdf(line: string): Promise<Uint8Array> {
+  const chunks: Buffer[] = [];
+  const doc = new PDFDocument({ size: [612, 792], margin: 40, autoFirstPage: false });
+  doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+  const done = new Promise<void>((resolve) => doc.on('end', resolve));
+  doc.addPage();
+  doc.fontSize(12).text(line, 40, 60);
+  doc.end();
+  await done;
+  return new Uint8Array(Buffer.concat(chunks));
+}
+
 let workdir: string;
 let longPdf: string;
+let backtrackPdf: string;
 
 beforeAll(async () => {
   workdir = mkdtempSync(join(tmpdir(), 'pdfvision-mcp-tools-'));
   longPdf = join(workdir, 'long.pdf');
   writeFileSync(longPdf, await buildLongPdf(25));
+  backtrackPdf = join(workdir, 'backtrack.pdf');
+  writeFileSync(backtrackPdf, await buildSinglePagePdf(`${'a'.repeat(40)}b`));
 });
 
 afterAll(() => {
@@ -173,6 +188,52 @@ describe('search_pdf', () => {
   it('scopes the search to a page range', async () => {
     const body = text(await searchPdf({ source: longPdf, query: 'Section', pages: '2-3' }));
     expect(body).toContain('of 2 searched page(s)');
+  });
+
+  it('surfaces the regex time-limit warning instead of a silent zero, even on a repeat call', async () => {
+    // A catastrophic pattern that hits the per-page budget produces the
+    // same "0 matches" as a term that is absent. The model choosing the
+    // pattern has no stderr, so the warning must ride the response.
+    const body = text(await searchPdf({ source: backtrackPdf, query: '(a+)+$', regex: true }));
+    expect(body).toContain('0 matches');
+    expect(body).toContain('regex time limit');
+    // The interrupted result must not be cached: a repeat of the same
+    // call has to re-run the search and warn again, not serve a cached
+    // silent zero.
+    const again = text(await searchPdf({ source: backtrackPdf, query: '(a+)+$', regex: true }));
+    expect(again).toContain('regex time limit');
+  }, 40_000);
+});
+
+describe('searchWarningCollector', () => {
+  const timeout = (page: number) => `regex search on page ${page} exceeded the 1000ms per-page regex time limit`;
+  const cap = (page: number) => `search query "x" exceeded the per-page native match cap on page ${page}`;
+
+  it('keeps timeout warnings ahead of the cap when other warnings came first', () => {
+    // Six match-cap warnings before the timeout would have sliced the
+    // one warning that keeps "0 matches" honest right out of the
+    // response.
+    const log = searchWarningCollector();
+    for (let page = 1; page <= 6; page++) log.onWarning(cap(page));
+    log.onWarning(timeout(7));
+    const lines = log.lines();
+
+    expect(lines[1]).toBe(`> [pdfvision] ${timeout(7)}`);
+    expect(lines.filter((line) => line.includes('[pdfvision]'))).toHaveLength(6);
+    expect(lines.at(-1)).toBe('> [pdfvision] 2 further warning(s) omitted.');
+  });
+
+  it('bounds retention per class while still counting every warning', () => {
+    const log = searchWarningCollector();
+    for (let page = 1; page <= 1000; page++) log.onWarning(timeout(page));
+    const lines = log.lines();
+
+    expect(lines.filter((line) => line.includes('exceeded'))).toHaveLength(5);
+    expect(lines.at(-1)).toBe('> [pdfvision] 995 further warning(s) omitted.');
+  });
+
+  it('emits nothing when there were no warnings', () => {
+    expect(searchWarningCollector().lines()).toEqual([]);
   });
 });
 

@@ -122,20 +122,19 @@ export interface ProcessDocumentOptions {
    *  `(`, `[`, `?`, etc.
    *
    *  **ReDoS caveat**: pdfvision compiles the user pattern straight to
-   *  a JavaScript RegExp and runs `.exec(...)` over every span/OCR
-   *  haystack. A catastrophic-backtracking pattern (`(a+)+b` against
-   *  `"aaa...!"`) can stall extraction on a single string. There is a
-   *  per-page, per-query, per-source emission cap (10,000 matches)
-   *  that brakes degenerate patterns producing too many hits, surfaced
-   *  via `onWarning` when a valid match would exceed the cap — but the cap
-   *  counts
-   *  emissions, not exec time, so it cannot interrupt an in-flight
-   *  exponential match. Library consumers exposing pdfvision to
-   *  untrusted regex input should wrap the call in their own timeout
-   *  (e.g. via `worker_threads` or `AbortSignal.timeout`). The
-   *  threat model assumed here is "user matching against their own
-   *  input" — a heavy mitigation (safe-regex dep, RE2 backend) would
-   *  cost more than it's worth for that use. */
+   *  a JavaScript RegExp, but each page's regex search runs under a
+   *  ~1s wall-clock budget enforced with a `vm`-level interrupt, so a
+   *  catastrophic-backtracking pattern (`(a+)+b` against `"aaa...!"`)
+   *  cannot stall extraction: it is terminated mid-`exec`, that page's
+   *  results are dropped with an {@link onWarning} message, and the
+   *  interrupted (incomplete) result is kept out of the cache.
+   *  Separately, a per-page, per-query, per-source emission cap
+   *  (10,000 matches) brakes degenerate patterns that produce too many
+   *  hits. The budget bounds damage rather than eliminating it — a
+   *  hostile pattern still costs up to ~1s per searched page (2s with
+   *  OCR, whose supplement pass has its own budget), so callers
+   *  exposing regex search to untrusted input at scale should still
+   *  apply their own rate limits. */
   searchRegex?: boolean;
   /** Match case exactly. Off by default — recall-oriented agents
    *  typically want `"Sales"` / `"sales"` / `"SALES"` matches

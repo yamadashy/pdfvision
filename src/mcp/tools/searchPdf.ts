@@ -2,9 +2,10 @@ import { formatPageRange } from '../../core/options/pageRange.js';
 import { processDocument } from '../../core/processor.js';
 import { hasUnreliableNativeText } from '../../core/quality/pageQuality.js';
 import { cropRegionForBox } from '../../core/search/boxes.js';
+import { isRegexTimeoutWarning } from '../../core/search/index.js';
 import { formatBox } from '../../output/markdown/helpers.js';
 import type { PageResult } from '../../types/index.js';
-import { MATCH_CONTEXT_CHAR_CAP, MAX_MATCHES } from '../limits.js';
+import { MATCH_CONTEXT_CHAR_CAP, MAX_MATCHES, MAX_SEARCH_WARNINGS } from '../limits.js';
 import { matchRef, rememberRef } from '../refs.js';
 import { type ToolResult, toolResult } from '../result.js';
 import { resolveSource } from '../source.js';
@@ -38,14 +39,49 @@ function appendUnsearchable(lines: string[], pages: readonly PageResult[]): void
   );
 }
 
+/**
+ * Core search warnings are what keep a zero honest here: a regex that
+ * blew the per-page time budget produces the same "0 matches" as a term
+ * that is genuinely absent, and the model choosing the pattern has no
+ * stderr to see. Relayed warnings are capped at MAX_SEARCH_WARNINGS,
+ * and regex-timeout warnings outrank the rest — they are the one class
+ * whose loss turns a zero into false evidence of absence, and a
+ * document that warns on many early pages would otherwise push them
+ * past the cap. Retention is bounded per class too, so a degenerate
+ * thousand-page search cannot accumulate a thousand strings just to
+ * report five.
+ */
+export function searchWarningCollector(): { onWarning: (message: string) => void; lines: () => string[] } {
+  const timeouts: string[] = [];
+  const others: string[] = [];
+  let total = 0;
+  return {
+    onWarning(message: string): void {
+      total++;
+      const bucket = isRegexTimeoutWarning(message) ? timeouts : others;
+      if (bucket.length < MAX_SEARCH_WARNINGS) bucket.push(message);
+    },
+    lines(): string[] {
+      if (total === 0) return [];
+      const shown = [...timeouts, ...others].slice(0, MAX_SEARCH_WARNINGS);
+      const out = ['', ...shown.map((message) => `> [pdfvision] ${message}`)];
+      const omitted = total - shown.length;
+      if (omitted > 0) out.push(`> [pdfvision] ${omitted} further warning(s) omitted.`);
+      return out;
+    },
+  };
+}
+
 export async function searchPdf(input: SearchPdfInput): Promise<ToolResult> {
   const resolved = await resolveSource(input.source);
+  const warningLog = searchWarningCollector();
   const result = await processDocument(resolved.filePath, {
     sourceData: resolved.sourceData,
     password: input.password,
     pages: input.pages,
     search: input.query,
     searchRegex: input.regex ?? false,
+    onWarning: warningLog.onWarning,
   });
 
   const hits = result.pages.flatMap((page) => (page.matches ?? []).map((match, index) => ({ page, match, index })));
@@ -55,6 +91,8 @@ export async function searchPdf(input: SearchPdfInput): Promise<ToolResult> {
   lines.push(
     `${hits.length} match${hits.length === 1 ? '' : 'es'} on ${matchedPages.size} of ${result.pages.length} searched page(s); document has ${result.totalPages}.`,
   );
+
+  lines.push(...warningLog.lines());
 
   if (hits.length > 0) {
     lines.push('', 'Each hit carries a `ref` — pass it straight to `render_pdf` instead of copying coordinates.', '');

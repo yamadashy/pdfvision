@@ -21,6 +21,11 @@ export interface CompiledSearch {
    *  When `--no-normalize` is on, this is false and the document
    *  side stays raw too. */
   normalize: boolean;
+  /** Whether the caller asked for regex mode. Every query in one
+   *  compile shares the mode, so one flag covers all matchers. Search
+   *  uses it to decide whether the page pass needs the backtracking
+   *  timeout guard — escaped literal patterns cannot stall. */
+  regexMode: boolean;
 }
 
 /**
@@ -75,11 +80,15 @@ export function compileSearch(
     }
   }
   const normalize = options.normalize !== false;
+  // One coercion for both the compile branch and the timeout-guard flag:
+  // deciding them separately (truthy here, `=== true` there) let a
+  // type-breaking caller compile a verbatim pattern without the guard.
+  const regexMode = Boolean(options.regex);
   const isMulti = queries.length > 1;
   const flags = options.caseSensitive ? 'g' : 'gi';
   const matchers = queries.map((rawQuery, i) => {
     let pattern: string;
-    if (options.regex) {
+    if (regexMode) {
       // Verbatim — let JS RegExp surface invalid-pattern errors with
       // their own messages. Crucially we do NOT NFKC-normalize regex
       // queries: NFKC can turn compatibility punctuation into regex
@@ -109,5 +118,5 @@ export function compileSearch(
     }
     return { query: rawQuery, regex, ...(isMulti && { queryIndex: i }) };
   });
-  return { matchers, normalize };
+  return { matchers, normalize, regexMode };
 }
