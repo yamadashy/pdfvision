@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { derivePageQuality } from '../../src/core/quality/pageQuality.js';
-import type { PageResult } from '../../src/types/index.js';
+import {
+  derivePageQuality,
+  hasUnreliableNativeText,
+  unreliableNativeTextPages,
+} from '../../src/core/quality/pageQuality.js';
+import type { PageQuality, PageResult } from '../../src/types/index.js';
 
 function makePage(overrides: Partial<PageResult> = {}): PageResult {
   return {
@@ -320,5 +324,45 @@ describe('derivePageQuality', () => {
       nativeTextStatus: 'ok',
       visualStatus: 'ok',
     });
+  });
+});
+
+describe('unreliableNativeTextPages', () => {
+  const page = (number: number, status: PageQuality['nativeTextStatus']): PageResult => ({
+    page: number,
+    text: '',
+    charCount: 0,
+    imageCount: 0,
+    vectorCount: 0,
+    textCoverage: 0,
+    nonPrintableRatio: 0,
+    nonPrintableCount: 0,
+    width: 612,
+    height: 792,
+    quality: { nativeTextStatus: status },
+  });
+
+  it('selects the statuses where native text cannot be trusted', () => {
+    const pages = [
+      page(1, 'ok'),
+      page(2, 'empty_but_visual_content'),
+      page(3, 'unusable_glyph_indices'),
+      page(4, 'mixed_glyph_indices'),
+      page(5, 'sparse_text_with_visual_content'),
+    ];
+    expect(unreliableNativeTextPages(pages)).toEqual([2, 3, 4, 5]);
+  });
+
+  it('leaves out a genuinely empty page — there is nothing to recover', () => {
+    expect(unreliableNativeTextPages([page(1, 'empty')])).toEqual([]);
+  });
+
+  it('leaves out sparse text on a blank render — OCR has nothing to read either', () => {
+    expect(unreliableNativeTextPages([page(1, 'sparse_text_on_blank_visual')])).toEqual([]);
+  });
+
+  it('agrees with the single-page predicate', () => {
+    expect(hasUnreliableNativeText(page(1, 'mixed_glyph_indices'))).toBe(true);
+    expect(hasUnreliableNativeText(page(1, 'ok'))).toBe(false);
   });
 });

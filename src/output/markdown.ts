@@ -28,6 +28,12 @@ export interface MarkdownOptions {
    *  per-page `### Layout tables` blocks and the Overview `Blocks` /
    *  `Tables` columns — stay gated behind this flag. Defaults to false. */
   layout?: boolean;
+  /** Drop the "we ran this pass and found nothing" sections and their
+   *  zero-valued density counters. The CLI leaves this off: a user who
+   *  typed `--form-fields` needs to see that the page genuinely had none.
+   *  Callers that request every page-level pass on the user's behalf —
+   *  the MCP server does — turn it on so a clean page costs nothing. */
+  omitEmptySections?: boolean;
 }
 
 function layoutBody(page: PageResult, filterRepeated: boolean): string {
@@ -73,6 +79,33 @@ function pageBody(page: PageResult, options: MarkdownOptions): string {
  * the text.
  */
 export function formatMarkdown(result: DocumentResult, options: MarkdownOptions = {}): string {
+  const { header, pages } = formatMarkdownSections(result, options);
+  return header + pages.map((section) => section.text).join('');
+}
+
+/** One `## Page N` section, with the separator that precedes it. */
+export interface MarkdownPageSection {
+  page: number;
+  text: string;
+}
+
+/**
+ * The same Markdown as {@link formatMarkdown}, but with the document
+ * header and each page section addressable rather than pre-joined.
+ *
+ * Concatenating `header` with every `pages[].text` reproduces
+ * `formatMarkdown` byte for byte. It exists so callers that have to fit
+ * the output into a budget — the MCP server has no pipe to redirect into
+ * — can drop whole pages at a real boundary instead of re-parsing the
+ * rendered Markdown for `## Page N` headings.
+ */
+export function formatMarkdownSections(
+  result: DocumentResult,
+  options: MarkdownOptions = {},
+): {
+  header: string;
+  pages: MarkdownPageSection[];
+} {
   const lines: string[] = [];
   lines.push(`# ${result.file}`);
   lines.push('');
@@ -142,8 +175,10 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
   }
 
   appendOverview(lines, result, { layout: options.layout ?? false });
+  const header = lines.join('\n');
 
-  for (const page of result.pages) {
+  const pages = result.pages.map((page) => {
+    const lines: string[] = [];
     const coveragePct = Math.round(page.textCoverage * 100);
     lines.push('');
     lines.push('---');
@@ -173,8 +208,12 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     // computed for the default body / warnings.
     const layoutTablesFragment =
       options.layout && (page.layout?.tables?.length ?? 0) > 0 ? ` · tables: ${page.layout?.tables?.length}` : '';
-    const visualRegionsFragment =
-      page.visualRegions !== undefined ? ` · visualRegions: ${page.visualRegions.length}` : '';
+    // A zero counter is meaningful when the user asked for the pass and
+    // noise when the caller asked on their behalf — same rule as the
+    // empty sections below.
+    const countFragment = (label: string, total: number | undefined): string =>
+      total === undefined || (options.omitEmptySections && total === 0) ? '' : ` · ${label}: ${total}`;
+    const visualRegionsFragment = countFragment('visualRegions', page.visualRegions?.length);
     // Fall back to the detailed-array lengths so library callers that
     // hand-build a DocumentResult (arrays without the scalar counts)
     // still get the fragments, and a flagged run with zero hits keeps
@@ -182,9 +221,9 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
     const formFieldTotal = page.formFieldCount ?? page.formFields?.length;
     const linkTotal = page.linkCount ?? page.links?.length;
     const annotationTotal = page.annotationCount ?? page.annotations?.length;
-    const formFieldsFragment = formFieldTotal !== undefined ? ` · formFields: ${formFieldTotal}` : '';
-    const linksFragment = linkTotal !== undefined ? ` · links: ${linkTotal}` : '';
-    const annotationsFragment = annotationTotal !== undefined ? ` · annotations: ${annotationTotal}` : '';
+    const formFieldsFragment = countFragment('formFields', formFieldTotal);
+    const linksFragment = countFragment('links', linkTotal);
+    const annotationsFragment = countFragment('annotations', annotationTotal);
     const structureFragment = page.structure !== undefined ? ` · structure: ${structureNodeCount(page.structure)}` : '';
     const jsActionsFragment = page.jsActions !== undefined ? ` · jsActions: ${jsActionCount(page.jsActions)}` : '';
     // Surface the derived quality classification when it's abnormal so
@@ -240,14 +279,20 @@ export function formatMarkdown(result: DocumentResult, options: MarkdownOptions 
         if (page.structureTables) appendStructureTables(lines, page.structureTables);
       }
     }
-    appendVisualRegions(lines, page);
-    appendFormFields(lines, page);
+    const omitEmpty = options.omitEmptySections ?? false;
+    appendVisualRegions(lines, page, omitEmpty);
+    appendFormFields(lines, page, omitEmpty);
     appendJavaScriptActions(lines, page);
-    appendLinks(lines, page);
-    appendAnnotations(lines, page);
+    appendLinks(lines, page, omitEmpty);
+    appendAnnotations(lines, page, omitEmpty);
     appendWarnings(lines, page);
     appendOcr(lines, page);
     appendPageImage(lines, page);
-  }
-  return lines.join('\n');
+    // The leading newline is the separator that `lines.join('\n')` used to
+    // supply between this section and whatever preceded it, so header +
+    // sections still concatenates to the original string.
+    return { page: page.page, text: `\n${lines.join('\n')}` };
+  });
+
+  return { header, pages };
 }

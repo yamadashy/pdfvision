@@ -89,3 +89,29 @@ export function parsePageRangeWithSkipped(
     skippedTruncated,
   };
 }
+
+/**
+ * Inverse of {@link parsePageRange}: collapse a page-number list back into
+ * the `1-3, 7, 12-40` selector syntax. Keeps a report about a 300-page
+ * document from spending hundreds of tokens listing page numbers, and the
+ * result can be handed straight back as a `--pages` / `pages` value.
+ */
+export function formatPageRange(pages: readonly number[]): string {
+  const sorted = [...new Set(pages)].sort((a, b) => a - b);
+  if (sorted.length === 0) return '';
+
+  const parts: string[] = [];
+  let start = sorted[0] as number;
+  let previous = start;
+  for (const page of sorted.slice(1)) {
+    if (page === previous + 1) {
+      previous = page;
+      continue;
+    }
+    parts.push(start === previous ? `${start}` : `${start}-${previous}`);
+    start = page;
+    previous = page;
+  }
+  parts.push(start === previous ? `${start}` : `${start}-${previous}`);
+  return parts.join(', ');
+}

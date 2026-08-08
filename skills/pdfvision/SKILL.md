@@ -99,3 +99,4 @@ Open a reference **only** in these cases — not always-on context, do not load 
 | `references/ocr.md` | **Escalation** for English-only; **mandatory** for non-English text (lang ordering matters), unexpectedly low confidence, or `tesseract.js` install / stderr issues. |
 | `references/warnings.md` | **Escalation** when a `warnings[]` code needs more than its inline message; also the raw density thresholds behind `quality`. |
 | `references/flags.md` | **Escalation** when choosing between overlapping structural flags for an unusual document; hard-won per-flag caveats. |
+| `references/mcp.md` | **Mandatory** before configuring `pdfvision mcp` for a shell-less host, or when calling the `read_pdf` / `search_pdf` / `render_pdf` tools instead of the CLI. Never needed for CLI work. |

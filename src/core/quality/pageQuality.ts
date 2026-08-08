@@ -101,3 +101,28 @@ export function derivePageQuality(p: PageResult, options: DerivePageQualityOptio
   if (visualStatus !== undefined) quality.visualStatus = visualStatus;
   return quality;
 }
+
+/**
+ * Native-text statuses that mean `pages[].text` is missing or cannot be
+ * trusted as the human-visible page: an exact search can miss words that
+ * are plainly there, and a summary built from the text can be wrong.
+ *
+ * `sparse_text_on_blank_visual` is deliberately absent — the render came
+ * out blank too, so neither OCR nor a look at the page has anything more
+ * to offer, and suggesting them would waste the caller's time.
+ */
+const UNRELIABLE_NATIVE_TEXT_STATUSES: ReadonlySet<PageQuality['nativeTextStatus']> = new Set([
+  'empty_but_visual_content',
+  'unusable_glyph_indices',
+  'mixed_glyph_indices',
+  'sparse_text_with_visual_content',
+]);
+
+export function hasUnreliableNativeText(page: Pick<PageResult, 'quality'>): boolean {
+  return UNRELIABLE_NATIVE_TEXT_STATUSES.has(page.quality.nativeTextStatus);
+}
+
+/** 1-based page numbers whose native text should not be taken at face value. */
+export function unreliableNativeTextPages(pages: readonly PageResult[]): number[] {
+  return pages.filter(hasUnreliableNativeText).map((page) => page.page);
+}

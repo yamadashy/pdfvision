@@ -75,6 +75,32 @@ npx skills add yamadashy/pdfvision -g
 
 The skill covers the daily extraction flow, the density-Overview-based silent-failure detection, and points at `references/structured-output.md` (full `DocumentResult` schema for programmatic consumers) and `references/ocr.md` (multi-language OCR, traineddata, troubleshooting) only when those specific cases apply.
 
+## 🔌 MCP Server
+
+For hosts that cannot run a shell — Claude Desktop, Cursor, Cline, Zed, n8n — pdfvision serves itself over MCP on stdio:
+
+```jsonc
+{
+  "mcpServers": {
+    "pdfvision": { "command": "npx", "args": ["-y", "pdfvision", "mcp"] }
+  }
+}
+```
+
+It exposes **three** tools, not a flag-per-parameter mapping of the CLI:
+
+| Tool | What it does |
+| --- | --- |
+| `read_pdf` | Text as Markdown. Without `pages` on a long document it returns a **document map** — page count, outline, per-page quality, warning codes by page range — so an unscoped first call can never blow up the context. `ocr: "jpn+eng"` switches the selected pages to OCR. |
+| `search_pdf` | Flat hit list with page, origin, context, region, and a short `ref`. Names the pages whose native text is unusable, so zero hits is never mistaken for absence. |
+| `render_pdf` | Page or region PNGs as image blocks. Takes a `ref` from an earlier response so you never transcribe coordinates; full-page renders come back with the page's detected visual regions and their refs. |
+
+Everything pdfvision can decide from the document itself is decided by the server: layout and repeated-chrome stripping are always on, and form-field / link / annotation tables appear only for pages that have them. There is no `format`, `include`, `scale`, or cache parameter.
+
+Responses are budgeted (30k chars of body, 100 matches, 4 images per call) and every truncation carries the exact follow-up call. Remote URLs are refused when they resolve to private, loopback, or link-local addresses; set `PDFVISION_MCP_ALLOW_PRIVATE_NETWORK=1` for an intranet document store.
+
+> **Using Claude Code, Codex, or another shell-capable agent?** Prefer the CLI plus the Agent Skill above. The skill loads on demand, while MCP tool schemas sit in context for the whole session.
+
 ## 📖 Usage
 
 <!-- usage:start -->
@@ -87,6 +113,7 @@ Usage:
   pdfvision <file.pdf> [options]
   pdfvision --remote <url> [options]
   pdfvision --clear-cache
+  pdfvision mcp
 
 Options
   -p, --pages <range>     Pages to extract: "1", "1-5", "1,3,5", "2-4,7". Default: all pages.
@@ -243,6 +270,16 @@ Options
                           checks are stronger; Windows replacement resistance is best effort.
   -v, --version           Show version
   -h, --help              Show this help
+
+Subcommands
+  mcp                     Serve pdfvision over the Model Context Protocol on stdio, for hosts
+                          that cannot run a shell (Claude Desktop, Cursor, Cline, Zed, n8n).
+                          Exposes three tools — read_pdf, search_pdf, render_pdf — rather than
+                          the flags above; see "pdfvision mcp --help". Prefer the CLI plus the
+                          bundled agent skill in shell-capable agents: MCP tool schemas stay in the
+                          host's context for the whole session, a skill loads on demand.
+                          Resolved before option parsing and takes no arguments, so a file
+                          actually named `mcp` must be passed as `./mcp`.
 
 Argument handling
   Option syntax is parsed first; an unknown option or missing option value exits 1 even
