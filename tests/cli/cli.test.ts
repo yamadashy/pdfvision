@@ -981,3 +981,52 @@ describe('cli cache root safety', () => {
     expect(result.stderr.join('\n')).toMatch(/Invalid PDFVISION_CACHE_DIR.*absolute path/);
   });
 });
+
+describe('cli --map', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('emits the document map instead of the page bodies', async () => {
+    const result = await captureRun([SAMPLE_JA_PDF, '--map', '--no-cache']);
+    expect(result.exitCode).toBeNull();
+    const out = result.stdout.join('\n');
+    expect(out).toContain('- **Pages:** 3');
+    expect(out).toContain('_Document map: page bodies are omitted._');
+    expect(out).toContain('## Native text quality');
+    // The body text of the fixture must not appear — that is the point.
+    expect(out).not.toContain('これは pdfvision のテスト用 PDF です');
+  });
+
+  it('costs a fraction of the full body', async () => {
+    const map = (await captureRun([SAMPLE_JA_PDF, '--map', '--no-cache'])).stdout.join('\n');
+    const full = (await captureRun([SAMPLE_JA_PDF, '--no-cache'])).stdout.join('\n');
+    expect(map.length).toBeLessThan(full.length);
+  });
+
+  it('scopes the quality table to --pages while still reporting the document total', async () => {
+    const out = (await captureRun([SAMPLE_JA_PDF, '--map', '-p', '1-2', '--no-cache'])).stdout.join('\n');
+    expect(out).toContain('- **Pages:** 3');
+    expect(out).toMatch(/\| `ok` \| 2 \| 1-2 \|/);
+  });
+
+  it('refuses a structured format rather than emitting the ordinary payload', async () => {
+    const result = await captureRun([SAMPLE_JA_PDF, '--map', '-f', 'json', '--no-cache']);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toEqual([]);
+    expect(result.stderr.join('\n')).toMatch(/--map only applies to markdown output/);
+  });
+
+  it('notes the flags it cannot show, and still emits the map', async () => {
+    const result = await captureRun([SAMPLE_JA_PDF, '--map', '--layout', '--links', '--no-cache']);
+    expect(result.exitCode).toBeNull();
+    expect(result.stderr.join('\n')).toMatch(/--map shows no page bodies; ignoring --layout, --links/);
+    expect(result.stdout.join('\n')).toContain('_Document map: page bodies are omitted._');
+  });
+
+  it('reports a missing file through the normal CLI error path', async () => {
+    const result = await captureRun(['/nope/missing.pdf', '--map']);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr.join('\n')).toMatch(/File not found/);
+  });
+});
