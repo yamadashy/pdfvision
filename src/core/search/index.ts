@@ -192,7 +192,7 @@ const REGEX_TIMEOUT_WARNING_PREFIX = 'regex search on page';
  */
 function regexTimeoutWarning(pageNum: number, timeoutMs: number, ocrSupplement: boolean): string {
   const scope = ocrSupplement
-    ? ' while searching OCR text; OCR-derived results for this page were dropped for every query (matches from the page’s other text sources are kept)'
+    ? ' while searching OCR text; OCR-derived results for this page were dropped for every query (matches from the page’s other text sources, if any, are kept)'
     : '; results for this page were dropped for every query in this search';
   return `${REGEX_TIMEOUT_WARNING_PREFIX} ${pageNum} exceeded the ${timeoutMs}ms per-page regex time limit${scope}. Catastrophic backtracking in the pattern is the likely cause.`;
 }

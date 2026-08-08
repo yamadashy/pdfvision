@@ -1915,7 +1915,7 @@ describe('processDocument search', () => {
     expect(matches).toEqual([]);
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toContain('while searching OCR text');
-    expect(warnings[0]).toContain('other text sources are kept');
+    expect(warnings[0]).toContain('other text sources, if any, are kept');
   });
 
   it('runs a literal query for the same evil-looking string without the guard', () => {

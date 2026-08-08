@@ -75,7 +75,7 @@ Viewer permissions are reported as document metadata. They describe what the PDF
 
 Default search treats queries as literal text. `--search-regex` compiles each query as a JavaScript regular expression and runs it against native text, form-field text, clickable link targets, visible FreeText annotations, and OCR text when OCR is enabled.
 
-pdfvision bounds each page's regex search at roughly one second of wall-clock time, enforced with a V8-level interrupt, so a catastrophic-backtracking pattern cannot hang extraction: the affected page's results are dropped with a warning, and an interrupted search result is never cached. Emitted matches stay capped per query, page, and source. The budget bounds damage rather than eliminating it — a hostile pattern still costs up to about a second per searched page — so applications exposing regex search to untrusted users at scale should still apply their own rate limits.
+pdfvision bounds each page's regex search at roughly one second of wall-clock time, enforced with a V8-level interrupt, so a catastrophic-backtracking pattern cannot hang extraction: the affected page's results are dropped with a warning, and an interrupted search result is never cached. Emitted matches stay capped per query, page, and source. The budget bounds damage rather than eliminating it — a hostile pattern still costs up to about a second per searched page (about two with OCR enabled, whose supplement pass carries its own budget) — so applications exposing regex search to untrusted users at scale should still apply their own rate limits.
 
 ## Review Before Sharing
 
