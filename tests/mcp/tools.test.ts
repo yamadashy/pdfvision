@@ -8,7 +8,7 @@ import { clearRefs } from '../../src/mcp/refs.js';
 import type { ImageBlock, TextBlock } from '../../src/mcp/result.js';
 import { readPdf } from '../../src/mcp/tools/readPdf.js';
 import { renderPdf } from '../../src/mcp/tools/renderPdf.js';
-import { searchPdf } from '../../src/mcp/tools/searchPdf.js';
+import { searchPdf, searchWarningCollector } from '../../src/mcp/tools/searchPdf.js';
 
 const SAMPLE = join(import.meta.dirname, '..', 'fixtures', 'sample.pdf');
 
@@ -203,6 +203,38 @@ describe('search_pdf', () => {
     const again = text(await searchPdf({ source: backtrackPdf, query: '(a+)+$', regex: true }));
     expect(again).toContain('regex time limit');
   }, 40_000);
+});
+
+describe('searchWarningCollector', () => {
+  const timeout = (page: number) => `regex search on page ${page} exceeded the 1000ms per-page regex time limit`;
+  const cap = (page: number) => `search query "x" exceeded the per-page native match cap on page ${page}`;
+
+  it('keeps timeout warnings ahead of the cap when other warnings came first', () => {
+    // Six match-cap warnings before the timeout would have sliced the
+    // one warning that keeps "0 matches" honest right out of the
+    // response.
+    const log = searchWarningCollector();
+    for (let page = 1; page <= 6; page++) log.onWarning(cap(page));
+    log.onWarning(timeout(7));
+    const lines = log.lines();
+
+    expect(lines[1]).toBe(`> [pdfvision] ${timeout(7)}`);
+    expect(lines.filter((line) => line.includes('[pdfvision]'))).toHaveLength(6);
+    expect(lines.at(-1)).toBe('> [pdfvision] 2 further warning(s) omitted.');
+  });
+
+  it('bounds retention per class while still counting every warning', () => {
+    const log = searchWarningCollector();
+    for (let page = 1; page <= 1000; page++) log.onWarning(timeout(page));
+    const lines = log.lines();
+
+    expect(lines.filter((line) => line.includes('exceeded'))).toHaveLength(5);
+    expect(lines.at(-1)).toBe('> [pdfvision] 995 further warning(s) omitted.');
+  });
+
+  it('emits nothing when there were no warnings', () => {
+    expect(searchWarningCollector().lines()).toEqual([]);
+  });
 });
 
 describe('render_pdf', () => {
