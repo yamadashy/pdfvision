@@ -9,6 +9,8 @@ import { run } from '../../src/cli/cli.js';
 
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
 const SAMPLE_JA_PDF = resolve(__dirname, '../fixtures/sample-ja.pdf');
+/** Title is fullwidth `Ｃｏｍｐａｔ ２０２６`, which NFKC folds to `Compat 2026`. */
+const SAMPLE_COMPAT_PDF = resolve(__dirname, '../fixtures/sample-compat.pdf');
 
 interface CliCapture {
   stdout: string[];
@@ -1009,12 +1011,17 @@ describe('cli --map', () => {
   });
 
   it('keeps --no-normalize meaningful, since metadata and outline titles pass through it', async () => {
-    const result = await captureRun([SAMPLE_JA_PDF, '--map', '--no-normalize', '--no-cache']);
-    expect(result.exitCode).toBeNull();
-    expect(result.stdout.join('\n')).toContain('_Document map: page bodies are omitted._');
-    // The flag reaches processDocument rather than being dropped, so it
-    // is not reported as one of the ignored ones either.
-    expect(result.stderr.join('\n')).not.toMatch(/ignoring.*no-normalize/);
+    // A map has no page bodies, so the only way to see normalization is
+    // the metadata it does carry. Asserting the raw fullwidth title
+    // survives is what makes this fail if the flag stops being passed
+    // through to processDocument.
+    const normalized = (await captureRun([SAMPLE_COMPAT_PDF, '--map', '--no-cache'])).stdout.join('\n');
+    expect(normalized).toContain('- **Title:** Compat 2026');
+
+    const raw = await captureRun([SAMPLE_COMPAT_PDF, '--map', '--no-normalize', '--no-cache']);
+    expect(raw.exitCode).toBeNull();
+    expect(raw.stdout.join('\n')).toContain('- **Title:** Ｃｏｍｐａｔ ２０２６');
+    expect(raw.stderr.join('\n')).not.toMatch(/ignoring.*no-normalize/);
   });
 
   it('names --render-visual-regions among the flags it cannot show', async () => {
@@ -1046,5 +1053,31 @@ describe('cli --map', () => {
     const result = await captureRun(['/nope/missing.pdf', '--map']);
     expect(result.exitCode).toBe(1);
     expect(result.stderr.join('\n')).toMatch(/File not found/);
+  });
+
+  it('does not tell a caller who already ran --map to consider --map', async () => {
+    // A map is small by design, but nothing guarantees it — the size
+    // note still fires on a pathological one, and its usual first
+    // suggestion would then read as though the flag had not taken effect.
+    const dir = mkdtempSync(join(tmpdir(), 'pdfvision-bigmap-'));
+    const file = join(dir, 'big-title.pdf');
+    try {
+      const chunks: Buffer[] = [];
+      const doc = new PDFDocument({ info: { Title: 'T'.repeat(300_000) } });
+      doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+      const done = new Promise<void>((resolve) => doc.on('end', () => resolve()));
+      doc.text('x');
+      doc.end();
+      await done;
+      writeFileSync(file, Buffer.concat(chunks));
+
+      const result = await captureRun([file, '--map', '--no-cache']);
+      const stderr = result.stderr.join('\n');
+      expect(stderr).toMatch(/pdfvision: note: output is/);
+      expect(stderr).not.toContain('consider --map');
+      expect(stderr).toContain('consider -p <range> to page through');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

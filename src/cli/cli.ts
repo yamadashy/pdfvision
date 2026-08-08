@@ -24,12 +24,15 @@ function formatEstimatedTokens(bytes: number): string {
   return rounded >= 1_000 ? `${Math.round(rounded / 1_000)}k` : String(rounded);
 }
 
-function emitOutputSizeNote(result: string): void {
+function emitOutputSizeNote(result: string, options: { mapped?: boolean } = {}): void {
   const bytes = Buffer.byteLength(result, 'utf8');
   if (bytes <= OUTPUT_SIZE_NOTE_THRESHOLD_BYTES) return;
 
+  // Telling a caller who just ran --map to consider --map is worse than
+  // saying nothing: it reads as though the flag did not take effect.
+  const mapAdvice = options.mapped ? '' : '--map for page counts, outline, and per-page quality without any bodies, ';
   process.stderr.write(
-    `pdfvision: note: output is ${formatOutputSize(bytes)} (~${formatEstimatedTokens(bytes)} tokens); consider --map for page counts, outline, and per-page quality without any bodies, -p <range> to page through, --search <query> --matches-only to locate content, or --outline -p 1 for navigation (--outline alone still emits every page)\n`,
+    `pdfvision: note: output is ${formatOutputSize(bytes)} (~${formatEstimatedTokens(bytes)} tokens); consider ${mapAdvice}-p <range> to page through, --search <query> --matches-only to locate content, or --outline -p 1 for navigation (--outline alone still emits every page)\n`,
   );
 }
 
@@ -307,7 +310,7 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
         },
       });
       const rendered = formatDocumentMap(result);
-      emitOutputSizeNote(rendered);
+      emitOutputSizeNote(rendered, { mapped: true });
       console.log(rendered);
       return;
     } catch (error) {
