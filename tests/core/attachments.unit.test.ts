@@ -136,9 +136,10 @@ describe('resolveAttachment', () => {
   const embedded = { name: 'invoice.xml', size: 3, content: Buffer.from('abc') };
   const referenced = { name: 'linked.dat', size: 0 };
 
-  it('resolves a 1-based index in listed order', () => {
-    const result = resolveAttachment([embedded, { name: 'stamp.png', size: 1, content: Buffer.from('x') }], '2');
-    expect(result).toMatchObject({ found: true, attachment: { name: 'stamp.png' } });
+  it('resolves a 1-based index in listed order, tolerating surrounding whitespace', () => {
+    const list = [embedded, { name: 'stamp.png', size: 1, content: Buffer.from('x') }];
+    expect(resolveAttachment(list, '2')).toMatchObject({ found: true, attachment: { name: 'stamp.png' } });
+    expect(resolveAttachment(list, ' 2 ')).toMatchObject({ found: true, attachment: { name: 'stamp.png' } });
   });
 
   it('matches names case-insensitively without host-locale surprises', () => {

@@ -67,7 +67,7 @@ export function buildAttachmentsWithContent(
       const attachment = value as PdfAttachment;
       const content = bytes(attachment.content);
       return {
-        ...buildAttachment(key, attachment, index + 1, usedFilenames, options),
+        ...buildAttachment(key, attachment, index + 1, usedFilenames, options, content),
         ...(content !== undefined && { content }),
       };
     })
@@ -102,11 +102,14 @@ function buildAttachment(
   index: number,
   usedFilenames: Set<string>,
   options: BuildAttachmentsOptions,
+  // Defaulted so callers that already converted the bytes (Buffer.from
+  // copies a Uint8Array) can hand them in instead of paying for a
+  // second copy per attachment.
+  content: Buffer | undefined = bytes(attachment.content),
 ): DocumentAttachment {
   const name = textValue(attachment.filename, options.normalizeText) ?? textValue(key, options.normalizeText) ?? key;
   const rawName = textValue(attachment.rawFilename, options.normalizeText);
   const description = textValue(attachment.description, options.normalizeText);
-  const content = bytes(attachment.content);
   const path =
     options.outputDir && content
       ? writeAttachment(options.outputDir, safeAttachmentFilename(name, index, usedFilenames), content)
