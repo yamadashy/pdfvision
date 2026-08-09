@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "pdfvision-dev": {
+      "command": "sh",
+      "args": ["-c", "npm run build >&2 && exec node dist/bin/pdfvision.mjs mcp"]
+    }
+  }
+}
