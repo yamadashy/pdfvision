@@ -4,6 +4,10 @@ Notable user-facing changes to pdfvision are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- Corrected the `--render-region` line in `--help`'s Common flows block, which omitted `-r` and therefore failed with `--render-region requires --render or --ocr` when typed as printed. That block exists to steer agents to the evidence chain, so a command that errors is worse than no example. ([#168](https://github.com/yamadashy/pdfvision/pull/168))
+
 ### Changed
 
 - Collapsed a blank form's field table to a count and a type breakdown on surfaces that request the pass on the caller's behalf (the MCP server), instead of a full-width row per empty widget. On the IRS W-9 that table was 37% of page 1 while the response budget pushed pages 4-6 out. Filled values, checked boxes, scripted widgets, and hidden/locked ones still get a row each; `--form-fields` on the CLI is unchanged. ([#162](https://github.com/yamadashy/pdfvision/issues/162))
