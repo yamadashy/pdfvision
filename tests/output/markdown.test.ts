@@ -1863,7 +1863,11 @@ describe('blank form collapse', () => {
     ];
     const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
     expect(out).toContain('country[0]');
+    // The whole mapping survives, not just the display labels.
     expect(out).toContain('Japan');
+    expect(out).toContain('JP');
+    expect(out).toContain('Germany');
+    expect(out).toContain('DE');
   });
 
   it('keeps every widget of a radio group once one of them is checked', () => {
@@ -1878,12 +1882,33 @@ describe('blank form collapse', () => {
     expect(out).not.toContain('none filled');
   });
 
-  it('still collapses a radio group with nothing selected', () => {
+  it('counts a collapsed radio group as one field, not one per widget', () => {
     const fields = [
       field({ name: 'veg', type: 'radio', checked: false, exportValue: 'Carrot' }),
       field({ name: 'veg', type: 'radio', checked: false, exportValue: 'Potato' }),
     ];
     const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
-    expect(out).toContain('_2 fillable fields on this page, none filled (2 radio)._');
+    expect(out).toContain('_1 fillable field on this page, none filled (1 radio)._');
+  });
+
+  it('keeps a sibling whose group was answered on another page', () => {
+    const fields = [
+      ...blank,
+      field({ name: 'fruit', type: 'radio', value: 'Banane', checked: false, exportValue: 'Cherry' }),
+    ];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('Cherry');
+  });
+
+  it('does not mistake the PDF spelling of "nothing selected" for an answer', () => {
+    const fields = [field({ name: 'veg', type: 'radio', value: 'Off', checked: false, exportValue: 'Carrot' })];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('none filled');
+  });
+
+  it('keeps a widget whose read-only state arrives as an annotation flag', () => {
+    const fields = [...blank, field({ name: 'locked_1[0]', type: 'text', flags: ['readOnly'] })];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('locked_1[0]');
   });
 });

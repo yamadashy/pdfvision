@@ -20,6 +20,11 @@ import {
  */
 const NOTEWORTHY_FLAGS = new Set(['hidden', 'noView', 'locked', 'readOnly']);
 
+/** `Off` is the PDF spelling of "no button in this group is selected". */
+function isAnsweredButtonValue(value: string | undefined): boolean {
+  return value !== undefined && value !== '' && value !== 'Off';
+}
+
 /**
  * Whether a field carries something a reader can act on: a value, a
  * checked box, the option set behind a choice, a widget-level action, or
@@ -35,11 +40,20 @@ function isNoteworthy(field: FormField): boolean {
   // unfilled. Say where it is and let the reader look.
   if (field.type === 'signature') return true;
   if (field.checked === true) return true;
+  // The extractor puts a button group's selected value on every widget in
+  // the group, so an unchecked sibling still says the group was answered
+  // — including when the checked widget sits on another page and this
+  // page's rows are all the reader gets.
+  if (field.checked === false) return isAnsweredButtonValue(field.value);
   // `fieldValue` renders an unchecked box as the literal "unchecked", so
   // only consult it for the field types that carry a value.
-  if (field.checked === undefined && fieldValue(field) !== '') return true;
+  if (fieldValue(field) !== '') return true;
   // An unselected dropdown still carries its permitted values and their
-  // export/display mapping, which is not something a count can replace.
+  // export/display mapping, which no count can replace and which the page
+  // body cannot show — a closed list is invisible until it is opened.
+  // Deliberately not extended to unselected checkboxes and radios: their
+  // `exportValue` is machine plumbing (`1`, `Off`), and the option text a
+  // human reads is printed next to the widget, already in the page body.
   if (fieldOptions(field) !== '') return true;
   if (field.actions || field.resetForm) return true;
   if (field.required || field.readOnly) return true;
@@ -69,6 +83,23 @@ function keepsRow(field: FormField, names: Set<string>): boolean {
   return field.name !== '' ? names.has(field.name) : isNoteworthy(field);
 }
 
+/**
+ * One entry per *field*, not per widget. A radio group is three widgets
+ * and one thing to fill in; counting widgets would report "3 fillable
+ * fields" for a single question. Widgets with no name cannot be grouped,
+ * so each stands alone.
+ */
+function logicalFields(fields: readonly FormField[]): FormField[] {
+  const seen = new Set<string>();
+  const out: FormField[] = [];
+  for (const field of fields) {
+    if (field.name !== '' && seen.has(field.name)) continue;
+    if (field.name !== '') seen.add(field.name);
+    out.push(field);
+  }
+  return out;
+}
+
 function typeBreakdown(fields: readonly FormField[]): string {
   const counts = new Map<string, number>();
   for (const field of fields) counts.set(field.type, (counts.get(field.type) ?? 0) + 1);
@@ -78,7 +109,8 @@ function typeBreakdown(fields: readonly FormField[]): string {
     .join(', ');
 }
 
-function unfilledSummary(omitted: readonly FormField[], anyShown: boolean): string {
+function unfilledSummary(omittedWidgets: readonly FormField[], anyShown: boolean): string {
+  const omitted = logicalFields(omittedWidgets);
   const noun = omitted.length === 1 ? 'field' : 'fields';
   const lead = anyShown ? `${omitted.length} further ${noun}` : `${omitted.length} fillable ${noun} on this page`;
   return `_${lead}, none filled (${typeBreakdown(omitted)})._`;
