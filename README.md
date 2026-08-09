@@ -122,8 +122,8 @@ Common flows
                                         Locate a term without reading the whole body; each match
                                         reports its page and bbox.
   pdfvision doc.pdf -p <page> --render-region <x,y,w,h>
-                                        Crop a reported bbox as image evidence (use the bbox a
-                                        match or layout block reported).
+                                        Crop a reported bbox as image evidence (use the bbox
+                                        reported for a match or layout block).
   pdfvision doc.pdf -p <pages> --ocr    Re-read scanned pages (quality: empty_but_visual_content).
 
 Options
