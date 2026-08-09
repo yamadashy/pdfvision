@@ -81,6 +81,11 @@ export async function searchPdf(input: SearchPdfInput): Promise<ToolResult> {
     pages: input.pages,
     search: input.query,
     searchRegex: input.regex ?? false,
+    // Not for the body — this tool never emits page text. Layout is what
+    // lets a hit's crop grow to the line or table row it sits in, which is
+    // the difference between `render_pdf(ref:)` showing a row's values and
+    // showing only its label. Measured at ~3% of a whole-document search.
+    layout: true,
     onWarning: warningLog.onWarning,
   });
 
