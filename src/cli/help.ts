@@ -14,6 +14,17 @@ Usage:
   pdfvision --clear-cache
   pdfvision mcp
 
+Common flows
+  pdfvision doc.pdf                     Read it. Per-page quality and warnings name the next flag
+                                        when the default pass is not enough.
+  pdfvision doc.pdf --search "term" --matches-only
+                                        Locate a term without reading the whole body; each match
+                                        reports its page and bbox.
+  pdfvision doc.pdf -p <page> --render-region <x,y,w,h>
+                                        Crop a reported bbox as image evidence (use the bbox
+                                        reported for a match or layout block).
+  pdfvision doc.pdf -p <pages> --ocr    Re-read scanned pages (quality: empty_but_visual_content).
+
 Options
   -p, --pages <range>     Pages to extract: "1", "1-5", "1,3,5", "2-4,7". Default: all pages.
   -f, --format <type>     Output format: markdown (default), json, xml, toon.
@@ -44,8 +55,9 @@ Options
                           when omitted); pixels = raw region × UserUnit × render scale. Single-page
                           only: --pages must resolve to exactly one
                           page (errors otherwise). Region must fit within the page bounds.
-                          Typical use: --layout to find a suspect block, then re-run with that
-                          block's bbox here to zoom in.
+                          Typical use: --search "term" --matches-only reports each match's
+                          bbox; re-run with that bbox here to zoom in (--layout for a
+                          block-level bbox when there is no term to search).
       --no-normalize      Disable Unicode NFKC normalization and C0-control cleanup. Default ON;
                           pre-normalization text is \`pages[].rawText\` in JSON/TOON and a sibling
                           \`<rawText>\` element in XML when normalization changed the string.
