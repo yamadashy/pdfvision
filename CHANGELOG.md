@@ -4,6 +4,10 @@ Notable user-facing changes to pdfvision are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- Collapsed a blank form's field table to a count and a type breakdown on surfaces that request the pass on the caller's behalf (the MCP server), instead of a full-width row per empty widget. On the IRS W-9 that table was 37% of page 1 while the response budget pushed pages 4-6 out. Filled values, checked boxes, scripted widgets, and hidden/locked ones still get a row each; `--form-fields` on the CLI is unchanged. ([#162](https://github.com/yamadashy/pdfvision/issues/162))
+
 ### Fixed
 
 - Grew a search hit's `render_pdf(ref: …)` crop to the table row or visual line it sits in, instead of padding the glyph bbox by a constant. On a financial table the old crop rendered the row label and none of its values, and a short CJK query produced an unreadable sliver. Hits the page's layout does not cover — OCR-sourced matches, pages with no reconstructed lines — keep the constant padding as the fallback. ([#159](https://github.com/yamadashy/pdfvision/issues/159))

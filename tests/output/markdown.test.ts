@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formatMarkdown, formatMarkdownSections } from '../../src/output/markdown.js';
-import type { DocumentResult, PageResult } from '../../src/types/index.js';
+import type { DocumentResult, FormField, PageResult } from '../../src/types/index.js';
 
 // US Letter dimensions in PDF points; the formatter doesn't read width/height
 // but the type now requires them, so the helper supplies a realistic default.
@@ -1761,5 +1761,72 @@ describe('omitEmptySections', () => {
     const output = formatMarkdown(result, { omitEmptySections: true });
     expect(output).toContain('### Links');
     expect(output).toContain('links: 1');
+  });
+});
+
+describe('blank form collapse', () => {
+  function field(overrides: Partial<FormField> & Pick<FormField, 'name' | 'type'>): FormField {
+    return { x: 10, y: 20, width: 100, height: 14, ...overrides };
+  }
+
+  function formPage(fields: FormField[]): PageResult {
+    return makePage({ page: 1, text: 'form body', charCount: 9, formFields: fields });
+  }
+
+  const blank = [
+    field({
+      name: 'f1_01[0]',
+      type: 'text',
+      label: { text: '1 Name', relation: 'above', x: 1, y: 2, width: 3, height: 4 },
+    }),
+    field({ name: 'f1_02[0]', type: 'text' }),
+    field({ name: 'c1_1[0]', type: 'checkbox', checked: false, exportValue: '1' }),
+  ];
+
+  it('collapses an all-unfilled page to a count and a type breakdown', () => {
+    const out = formatMarkdown(makeResult({ pages: [formPage(blank)] }), { omitEmptySections: true });
+    expect(out).toContain('_3 fillable fields on this page, none filled (2 text, 1 checkbox)._');
+    expect(out).not.toContain('| Type | Name |');
+    expect(out).not.toContain('f1_01[0]');
+  });
+
+  it('leaves the CLI table alone — a user who typed --form-fields asked for the rows', () => {
+    const out = formatMarkdown(makeResult({ pages: [formPage(blank)] }));
+    expect(out).toContain('| Type | Name |');
+    expect(out).toContain('f1_01[0]');
+    expect(out).not.toContain('none filled');
+  });
+
+  it('keeps filled fields verbose and summarises only the rest', () => {
+    const fields = [...blank, field({ name: 'f1_09[0]', type: 'text', value: 'ACME Inc.' })];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('ACME Inc.');
+    expect(out).toContain('_3 further fields, none filled (2 text, 1 checkbox)._');
+  });
+
+  it('keeps a checked box, since that is the answer someone gave', () => {
+    const fields = [...blank, field({ name: 'c1_7[0]', type: 'checkbox', checked: true, exportValue: '7' })];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('c1_7[0]');
+    expect(out).toContain('_3 further fields, none filled');
+  });
+
+  it('keeps an empty widget whose flags say it is not what it appears to be', () => {
+    const fields = [...blank, field({ name: 'hidden_1[0]', type: 'text', flags: ['hidden'] })];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('hidden_1[0]');
+  });
+
+  it('keeps an empty widget carrying a script', () => {
+    const fields = [...blank, field({ name: 'btn[0]', type: 'button', actions: { Action: ['app.alert(1)'] } })];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('btn[0]');
+  });
+
+  it('agrees with itself on the singular', () => {
+    const out = formatMarkdown(makeResult({ pages: [formPage([field({ name: 'sig', type: 'signature' })])] }), {
+      omitEmptySections: true,
+    });
+    expect(out).toContain('_1 fillable field on this page, none filled (1 signature)._');
   });
 });
