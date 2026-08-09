@@ -3,7 +3,14 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     include: ['tests/**/*.test.ts'],
-    testTimeout: 15000,
+    // Windows hosted runners repeatedly time out the same handful of tests
+    // — the ones whose first `processDocument` call in a worker pays for
+    // pdf.js worker startup plus the @napi-rs/canvas native load, several
+    // workers racing at once. Every occurrence has passed on re-run and
+    // passes locally, so 15s is a Linux/macOS-shaped number rather than a
+    // real budget. Re-running a red Windows job each time teaches everyone
+    // to ignore it, which is the actual cost.
+    testTimeout: process.platform === 'win32' ? 40000 : 15000,
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
