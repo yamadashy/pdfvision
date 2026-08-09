@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { READING_ORDER_REMEDY } from '../../src/core/warnings/readingOrder/remedy.js';
 import { formatMarkdown, formatMarkdownSections } from '../../src/output/markdown.js';
 import type { DocumentResult, FormField, PageResult } from '../../src/types/index.js';
 
@@ -1925,5 +1926,63 @@ describe('blank form collapse', () => {
     const fields = [...blank, field({ name: 'locked_1[0]', type: 'text', flags: ['readOnly'] })];
     const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
     expect(out).toContain('locked_1[0]');
+  });
+});
+
+describe('reading-order remedy', () => {
+  const divergence = {
+    code: 'reading_order_divergence' as const,
+    severity: 'warning' as const,
+    message: `layout line "b" appears after "a" visually but earlier in the native text stream — native line order diverges from what a human reads; ${READING_ORDER_REMEDY}`,
+  };
+
+  function divergentPage(): PageResult {
+    return makePage({
+      page: 1,
+      text: 'b\na',
+      charCount: 3,
+      layout: {
+        blocks: [
+          {
+            text: 'a\nb',
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 20,
+            lines: [
+              { text: 'a', x: 0, y: 0, width: 100, height: 10, fontSize: 10 },
+              { text: 'b', x: 0, y: 10, width: 100, height: 10, fontSize: 10 },
+            ],
+          },
+        ],
+      },
+      warnings: [divergence],
+    });
+  }
+
+  it('replaces the layout.blocks advice once the body is the rebuilt order', () => {
+    const out = formatMarkdown(makeResult({ pages: [divergentPage()] }));
+    expect(out).not.toContain(READING_ORDER_REMEDY);
+    expect(out).toContain('the body above is that reading order, rebuilt from the layout');
+  });
+
+  it('keeps the divergence itself — only the remedy clause changes', () => {
+    const out = formatMarkdown(makeResult({ pages: [divergentPage()] }));
+    expect(out).toContain('(reading_order_divergence)');
+    expect(out).toContain('native line order diverges from what a human reads');
+  });
+
+  it('keeps the layout.blocks advice when the body is the native stream', () => {
+    const page = divergentPage();
+    page.layout = undefined;
+    const out = formatMarkdown(makeResult({ pages: [page] }));
+    expect(out).toContain(READING_ORDER_REMEDY);
+  });
+
+  it('leaves other warning codes untouched', () => {
+    const page = divergentPage();
+    page.warnings = [{ code: 'xfa_form', severity: 'warning', message: `something; ${READING_ORDER_REMEDY}` }];
+    const out = formatMarkdown(makeResult({ pages: [page] }));
+    expect(out).toContain(READING_ORDER_REMEDY);
   });
 });

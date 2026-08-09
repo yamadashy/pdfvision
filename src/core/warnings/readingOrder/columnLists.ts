@@ -1,5 +1,6 @@
 import type { LayoutBlock, PageResult, PageWarning } from '../../../types/index.js';
 import { shortTextSample } from '../textSamples.js';
+import { READING_ORDER_REMEDY } from './remedy.js';
 
 const MIN_COLUMNAR_LIST_BLOCKS = 8;
 const MIN_COLUMNAR_LIST_COLUMNS = 3;
@@ -48,7 +49,7 @@ export function detectColumnListReadingOrderDivergence(
     code: 'reading_order_divergence',
     severity: 'warning',
     blockIndex: sample.previousIndex,
-    message: `native text glues numbered list items from separate visual columns near "${shortTextSample(sample.text)}" — native text order flattens a columnar list; prefer layout.blocks order when sequence matters`,
+    message: `native text glues numbered list items from separate visual columns near "${shortTextSample(sample.text)}" — native text order flattens a columnar list; ${READING_ORDER_REMEDY}`,
   });
   return true;
 }

@@ -1,5 +1,6 @@
 import type { LayoutBlock, PageResult, PageWarning } from '../../../types/index.js';
 import { shortTextSample } from '../textSamples.js';
+import { READING_ORDER_REMEDY } from './remedy.js';
 
 export function detectFormLabelReadingOrderDivergence(
   page: PageResult,
@@ -36,7 +37,7 @@ export function detectFormLabelReadingOrderDivergence(
       code: 'reading_order_divergence',
       severity: 'warning',
       blockIndex: probe.index,
-      message: `form label "${shortTextSample(probe.block.text)}" appears after "${shortTextSample(previous.block.text)}" visually but earlier in the native text stream — native form text order diverges from what a human reads; prefer layout.blocks order when sequence matters`,
+      message: `form label "${shortTextSample(probe.block.text)}" appears after "${shortTextSample(previous.block.text)}" visually but earlier in the native text stream — native form text order diverges from what a human reads; ${READING_ORDER_REMEDY}`,
     });
     return;
   }

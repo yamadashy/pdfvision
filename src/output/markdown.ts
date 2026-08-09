@@ -69,6 +69,14 @@ function layoutBody(page: PageResult, filterRepeated: boolean): string {
  *
  *  Falls back to `page.text` only when there is no usable layout (e.g. a
  *  scanned page with no native text layer), so nothing is ever lost. */
+/** Whether {@link pageBody} rebuilt this page from layout rather than
+ *  emitting the native stream — which is what makes the reading-order
+ *  warning's default remedy stale here. */
+function usesLayoutBody(page: PageResult, options: MarkdownOptions): boolean {
+  if (!page.layout) return false;
+  return options.stripRepeated || page.layout.blocks.length > 0;
+}
+
 function pageBody(page: PageResult, options: MarkdownOptions): string {
   if (options.stripRepeated) {
     if (!page.layout) {
@@ -300,7 +308,7 @@ export function formatMarkdownSections(
     appendJavaScriptActions(lines, page);
     appendLinks(lines, page, omitEmpty);
     appendAnnotations(lines, page, omitEmpty);
-    appendWarnings(lines, page);
+    appendWarnings(lines, page, usesLayoutBody(page, options));
     appendOcr(lines, page);
     appendPageImage(lines, page);
     // The leading newline is the separator that `lines.join('\n')` used to
