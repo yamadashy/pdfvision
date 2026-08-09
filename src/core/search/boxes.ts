@@ -1,3 +1,4 @@
+import type { PageLayout } from '../../types/index.js';
 import { padAndClamp } from '../visualRegions/geometry.js';
 import type { Box, SearchLine, SearchOwner } from './types.js';
 
@@ -130,6 +131,64 @@ const CROP_MIN_PAD_Y_PT = 12;
 const CROP_PAD_RATIO_X = 0.6;
 const CROP_PAD_RATIO_Y = 0.3;
 
+function centerOf(box: Box): { x: number; y: number } {
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+}
+
+function coversCenter(outer: Box, center: { x: number; y: number }): boolean {
+  return (
+    center.x >= outer.x &&
+    center.x <= outer.x + outer.width &&
+    center.y >= outer.y &&
+    center.y <= outer.y + outer.height
+  );
+}
+
+function containingTableRowBox(box: Box, layout: PageLayout): Box | undefined {
+  const center = centerOf(box);
+  let best: Box | undefined;
+  for (const table of layout.tables ?? []) {
+    for (const row of table.rows) {
+      if (row.cells.length === 0) continue;
+      const rowBox = unionBoxes(row.cells);
+      if (!coversCenter(rowBox, center)) continue;
+      if (!best || rowBox.width < best.width) best = rowBox;
+    }
+  }
+  return best;
+}
+
+function containingLineBox(box: Box, layout: PageLayout): Box | undefined {
+  const center = centerOf(box);
+  let best: Box | undefined;
+  for (const block of layout.blocks) {
+    if (!coversCenter(block, center)) continue;
+    for (const line of block.lines) {
+      if (!coversCenter(line, center)) continue;
+      const candidate = { x: line.x, y: line.y, width: line.width, height: line.height };
+      if (!best || candidate.width * candidate.height < best.width * best.height) best = candidate;
+    }
+  }
+  return best;
+}
+
+/**
+ * The structure a located box sits inside — the table row when the page
+ * has one, otherwise the visual line.
+ *
+ * A glyph bbox says nothing about the line, column, or row it belongs to,
+ * so padding it by a constant produces a crop whose width is unrelated to
+ * the thing worth reading. On a financial table that is not merely tight
+ * but wrong: a hit on `Total net sales` pads to ~180pt and renders the row
+ * label while every value sits 150pt further right. The row wins over the
+ * line because a table cell *is* a line, and the label alone is the case
+ * that fails.
+ */
+function containingStructureBox(box: Box, layout: PageLayout | undefined): Box | undefined {
+  if (!layout) return undefined;
+  return containingTableRowBox(box, layout) ?? containingLineBox(box, layout);
+}
+
 /**
  * Turn a located box — a search hit, a warning's block, a form widget —
  * into a crop-ready region for `renderRegion`.
@@ -140,9 +199,19 @@ const CROP_PAD_RATIO_Y = 0.3;
  * rejects out-of-bounds rectangles rather than clipping them, hence the
  * clamp. Shares `padAndClamp` with visual-region cropping so both produce
  * boxes in the same rounded, in-page form.
+ *
+ * When the caller supplies `layout`, the crop is grown to the containing
+ * line or table row first, so the region comes from the page's own
+ * structure. Padding stays derived from the located box rather than from
+ * the widened target: the structure already supplies the context, and
+ * padding proportional to a full-width row would just clamp to the page
+ * on every hit. Without layout the constant padding is all there is,
+ * which is the honest floor for OCR hits and layout-free callers.
  */
-export function cropRegionForBox(box: Box, page: { width: number; height: number }): Box {
-  const padded = padAndClamp(box, page.width, page.height, {
+export function cropRegionForBox(box: Box, page: { width: number; height: number; layout?: PageLayout }): Box {
+  const structure = containingStructureBox(box, page.layout);
+  const target = structure ? unionBoxes([box, structure]) : box;
+  const padded = padAndClamp(target, page.width, page.height, {
     x: Math.max(CROP_MIN_PAD_X_PT, box.width * CROP_PAD_RATIO_X),
     y: Math.max(CROP_MIN_PAD_Y_PT, box.height * CROP_PAD_RATIO_Y),
   });

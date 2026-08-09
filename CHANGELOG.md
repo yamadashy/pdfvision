@@ -4,6 +4,10 @@ Notable user-facing changes to pdfvision are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- Grew a search hit's `render_pdf(ref: …)` crop to the table row or visual line it sits in, instead of padding the glyph bbox by a constant. On a financial table the old crop rendered the row label and none of its values, and a short CJK query produced an unreadable sliver. ([#159](https://github.com/yamadashy/pdfvision/issues/159))
+
 ## [0.16.0] - 2026-08-09
 
 ### Added
