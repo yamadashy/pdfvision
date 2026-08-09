@@ -1906,6 +1906,21 @@ describe('blank form collapse', () => {
     expect(out).toContain('none filled');
   });
 
+  it('counts unnamed widgets one by one, since nothing groups them', () => {
+    const fields = [field({ name: '', type: 'text' }), field({ name: '', type: 'text' })];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('_2 fillable fields on this page, none filled (2 text)._');
+  });
+
+  it('does not merge a same-named checkbox into a radio group', () => {
+    const fields = [
+      field({ name: 'dup', type: 'radio', value: 'yes', checked: true, exportValue: 'yes' }),
+      field({ name: 'dup', type: 'checkbox', checked: false, exportValue: '1' }),
+    ];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('_1 further field, none filled (1 checkbox)._');
+  });
+
   it('keeps a widget whose read-only state arrives as an annotation flag', () => {
     const fields = [...blank, field({ name: 'locked_1[0]', type: 'text', flags: ['readOnly'] })];
     const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });

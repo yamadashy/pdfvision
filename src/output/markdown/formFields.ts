@@ -1,3 +1,4 @@
+import { isSelectedButtonValue } from '../../core/formFields/index.js';
 import type { FormField, PageResult } from '../../types/index.js';
 import {
   escapeTableCell,
@@ -20,11 +21,6 @@ import {
  */
 const NOTEWORTHY_FLAGS = new Set(['hidden', 'noView', 'locked', 'readOnly']);
 
-/** `Off` is the PDF spelling of "no button in this group is selected". */
-function isAnsweredButtonValue(value: string | undefined): boolean {
-  return value !== undefined && value !== '' && value !== 'Off';
-}
-
 /**
  * Whether a field carries something a reader can act on: a value, a
  * checked box, the option set behind a choice, a widget-level action, or
@@ -44,7 +40,7 @@ function isNoteworthy(field: FormField): boolean {
   // the group, so an unchecked sibling still says the group was answered
   // — including when the checked widget sits on another page and this
   // page's rows are all the reader gets.
-  if (field.checked === false) return isAnsweredButtonValue(field.value);
+  if (field.checked === false) return isSelectedButtonValue(field.value);
   // `fieldValue` renders an unchecked box as the literal "unchecked", so
   // only consult it for the field types that carry a value.
   if (fieldValue(field) !== '') return true;
@@ -61,26 +57,36 @@ function isNoteworthy(field: FormField): boolean {
 }
 
 /**
- * Widgets that must be shown, expanded from the noteworthy ones to every
- * widget sharing their field name.
- *
- * A radio group is one logical field spread over several widgets: the
- * extractor puts the group's value on all of them and the per-option
- * `exportValue` on each. Keeping only the checked widget would drop the
- * choice set — the reader would see that "Banane" was picked without
- * seeing that "ringo" and "Cherry" were the alternatives — and would
- * count the siblings as further unfilled fields, which they are not.
+ * Identity of the logical field a widget belongs to. Keyed by type as
+ * well as name: a well-formed AcroForm gives one field one type, so the
+ * type only matters for a malformed one, where merging a checkbox into a
+ * same-named radio group would be wrong in both directions — it would
+ * keep a row on someone else's evidence and undercount the remainder.
  */
-function shownNames(fields: readonly FormField[]): Set<string> {
-  const names = new Set<string>();
-  for (const field of fields) {
-    if (field.name !== '' && isNoteworthy(field)) names.add(field.name);
-  }
-  return names;
+function groupKey(field: FormField): string {
+  return `${field.type}\u0000${field.name}`;
 }
 
-function keepsRow(field: FormField, names: Set<string>): boolean {
-  return field.name !== '' ? names.has(field.name) : isNoteworthy(field);
+/**
+ * Groups that must be shown, expanded from the noteworthy widgets to
+ * every widget of the same logical field.
+ *
+ * A radio group is one field spread over several widgets: the extractor
+ * puts the group's value on all of them and the per-option `exportValue`
+ * on each. Keeping only the checked widget would drop the choice set —
+ * the reader would see that "Banane" was picked without seeing that
+ * "ringo" and "Cherry" were the alternatives.
+ */
+function shownGroups(fields: readonly FormField[]): Set<string> {
+  const keys = new Set<string>();
+  for (const field of fields) {
+    if (field.name !== '' && isNoteworthy(field)) keys.add(groupKey(field));
+  }
+  return keys;
+}
+
+function keepsRow(field: FormField, keys: Set<string>): boolean {
+  return field.name !== '' ? keys.has(groupKey(field)) : isNoteworthy(field);
 }
 
 /**
@@ -93,8 +99,9 @@ function logicalFields(fields: readonly FormField[]): FormField[] {
   const seen = new Set<string>();
   const out: FormField[] = [];
   for (const field of fields) {
-    if (field.name !== '' && seen.has(field.name)) continue;
-    if (field.name !== '') seen.add(field.name);
+    const key = groupKey(field);
+    if (field.name !== '' && seen.has(key)) continue;
+    if (field.name !== '') seen.add(key);
     out.push(field);
   }
   return out;
@@ -145,9 +152,9 @@ export function appendFormFields(lines: string[], page: PageResult, omitEmpty = 
     return;
   }
 
-  const names = omitEmpty ? shownNames(page.formFields) : new Set<string>();
-  const shown = omitEmpty ? page.formFields.filter((field) => keepsRow(field, names)) : page.formFields;
-  const omitted = omitEmpty ? page.formFields.filter((field) => !keepsRow(field, names)) : [];
+  const keys = omitEmpty ? shownGroups(page.formFields) : new Set<string>();
+  const shown = omitEmpty ? page.formFields.filter((field) => keepsRow(field, keys)) : page.formFields;
+  const omitted = omitEmpty ? page.formFields.filter((field) => !keepsRow(field, keys)) : [];
 
   lines.push('');
   if (shown.length === 0) {
