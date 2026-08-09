@@ -1,7 +1,7 @@
 import type { LayoutBlock, PageResult, PageWarning } from '../../types/index.js';
 import { horizontalOverlap } from '../warningTextOverlap/index.js';
 import { detectColumnListReadingOrderDivergence } from './readingOrder/columnLists.js';
-import { READING_ORDER_REMEDY } from './readingOrder/remedy.js';
+import { READING_ORDER_REMEDY, READING_ORDER_REMEDY_EXACT } from './readingOrder/remedy.js';
 import { shortTextSample } from './textSamples.js';
 
 export { detectFormLabelReadingOrderDivergence } from './readingOrder/formLabels.js';
@@ -345,7 +345,7 @@ function detectLocalMathReadingOrderDivergence(page: PageResult, blocks: LayoutB
     out.push({
       code: 'reading_order_divergence',
       severity: 'warning',
-      message: `layout block "${probe}" appears with reordered characters in the native text stream — superscripts, radicals, or inline math may read differently in pages[].text; ${READING_ORDER_REMEDY}`,
+      message: `layout block "${probe}" appears with reordered characters in the native text stream — superscripts, radicals, or inline math may read differently in pages[].text; ${READING_ORDER_REMEDY_EXACT}`,
       blockIndex: i,
     });
     return;

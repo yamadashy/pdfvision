@@ -1,4 +1,4 @@
-import { READING_ORDER_REMEDY } from '../../core/warnings/readingOrder/remedy.js';
+import { READING_ORDER_REMEDIES } from '../../core/warnings/readingOrder/remedy.js';
 import type { PageResult, PageWarning } from '../../types/index.js';
 import { escapeInline, formatJavaScriptActions } from './helpers.js';
 
@@ -26,8 +26,12 @@ const READING_ORDER_REMEDY_APPLIED =
 
 function warningMessage(warning: PageWarning, layoutRebuilt: boolean): string {
   if (!layoutRebuilt || warning.code !== 'reading_order_divergence') return warning.message;
-  if (!warning.message.endsWith(READING_ORDER_REMEDY)) return warning.message;
-  return `${warning.message.slice(0, -READING_ORDER_REMEDY.length)}${READING_ORDER_REMEDY_APPLIED}`;
+  for (const remedy of READING_ORDER_REMEDIES) {
+    if (warning.message.endsWith(remedy)) {
+      return `${warning.message.slice(0, -remedy.length)}${READING_ORDER_REMEDY_APPLIED}`;
+    }
+  }
+  return warning.message;
 }
 
 export function appendWarnings(lines: string[], page: PageResult, layoutRebuilt = false): void {
