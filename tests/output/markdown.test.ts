@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { READING_ORDER_REMEDY, READING_ORDER_REMEDY_EXACT } from '../../src/core/warnings/readingOrder/remedy.js';
+import { READING_ORDER_REMEDY } from '../../src/core/warnings/readingOrder/remedy.js';
 import { formatMarkdown, formatMarkdownSections } from '../../src/output/markdown.js';
 import type { DocumentResult, FormField, PageResult } from '../../src/types/index.js';
 
@@ -1978,11 +1978,15 @@ describe('reading-order remedy', () => {
       {
         code: 'reading_order_divergence',
         severity: 'warning',
-        message: `layout block "3x" appears with reordered characters in the native text stream — superscripts, radicals, or inline math may read differently in pages[].text; ${READING_ORDER_REMEDY_EXACT}`,
+        // Literal, not the constant: this stands in for a result an older
+        // pdfvision wrote to the content-addressed cache, whose wording the
+        // current constants are free to move away from.
+        message:
+          'layout block "3x" appears with reordered characters in the native text stream — superscripts, radicals, or inline math may read differently in pages[].text; prefer layout.blocks order when exact sequence matters',
       },
     ];
     const out = formatMarkdown(makeResult({ pages: [page] }));
-    expect(out).not.toContain(READING_ORDER_REMEDY_EXACT);
+    expect(out).not.toContain('prefer layout.blocks order when exact sequence matters');
     expect(out).toContain('the body above is that reading order, rebuilt from the layout');
   });
 

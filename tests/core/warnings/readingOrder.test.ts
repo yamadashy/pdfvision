@@ -406,6 +406,10 @@ describe('detectPageWarnings', () => {
       const divergence = out.find((w) => w.code === 'reading_order_divergence');
       expect(divergence).toMatchObject({ severity: 'warning', blockIndex: 2 });
       expect(divergence?.message).toContain('3√x + y');
+      // Pinned as a literal, not built from the constant: `message` is a
+      // public field that JSON, XML, and TOON serialize verbatim, so this
+      // is the guard against rewording it by accident.
+      expect(divergence?.message.endsWith('prefer layout.blocks order when exact sequence matters')).toBe(true);
     });
 
     it('does not flag compact math blocks when native and visual order agree', () => {
