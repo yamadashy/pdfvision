@@ -1,6 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 import { getVersion } from '../cli/version.js';
+import { formatMcpErrorMessage } from './errors.js';
 import { type ToolResult, toolError } from './result.js';
 import { readPdf } from './tools/readPdf.js';
 import { renderPdf } from './tools/renderPdf.js';
@@ -79,7 +80,7 @@ async function run(handler: () => Promise<ToolResult>): Promise<ToolResult> {
   try {
     return await handler();
   } catch (error) {
-    return toolError(error instanceof Error ? error.message : String(error));
+    return toolError(formatMcpErrorMessage(error));
   }
 }
 
