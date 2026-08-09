@@ -1,6 +1,7 @@
 import type { LayoutBlock, PageResult, PageWarning } from '../../types/index.js';
 import { horizontalOverlap } from '../warningTextOverlap/index.js';
 import { detectColumnListReadingOrderDivergence } from './readingOrder/columnLists.js';
+import { READING_ORDER_REMEDY, READING_ORDER_REMEDY_EXACT } from './readingOrder/remedy.js';
 import { shortTextSample } from './textSamples.js';
 
 export { detectFormLabelReadingOrderDivergence } from './readingOrder/formLabels.js';
@@ -86,7 +87,7 @@ function detectHeadingReadingOrderDivergence(page: PageResult, blocks: LayoutBlo
     out.push({
       code: 'reading_order_divergence',
       severity: 'warning',
-      message: `heading "${probe}" leads the visual reading order but only appears ${(nativePos * 100).toFixed(0)}% of the way through the native text stream — native text order diverges from what a human reads; prefer layout.blocks order when sequence matters`,
+      message: `heading "${probe}" leads the visual reading order but only appears ${(nativePos * 100).toFixed(0)}% of the way through the native text stream — native text order diverges from what a human reads; ${READING_ORDER_REMEDY}`,
       blockIndex: i,
     });
     return true;
@@ -113,7 +114,7 @@ function detectSlideTitleReadingOrderDivergence(page: PageResult, blocks: Layout
     code: 'reading_order_divergence',
     severity: 'warning',
     blockIndex: 0,
-    message: `visually-first title "${probe}" appears at the end of the native text stream despite leading the visual reading order — native text order diverges from what a human reads; prefer layout.blocks order when sequence matters`,
+    message: `visually-first title "${probe}" appears at the end of the native text stream despite leading the visual reading order — native text order diverges from what a human reads; ${READING_ORDER_REMEDY}`,
   });
   return true;
 }
@@ -198,7 +199,7 @@ function detectLateBlockStartsNativeText(page: PageResult, blocks: LayoutBlock[]
     out.push({
       code: 'reading_order_divergence',
       severity: 'warning',
-      message: `${regionLabel} "${label}" appears at the start of the native text stream despite sitting late in the visual reading order — native text order diverges from what a human reads; prefer layout.blocks order when sequence matters`,
+      message: `${regionLabel} "${label}" appears at the start of the native text stream despite sitting late in the visual reading order — native text order diverges from what a human reads; ${READING_ORDER_REMEDY}`,
       blockIndex: i,
     });
     return true;
@@ -243,7 +244,7 @@ function detectSequentialBlockReadingOrderDivergence(
           code: 'reading_order_divergence',
           severity: 'warning',
           blockIndex,
-          message: `layout block "${shortTextSample(probe)}" appears near the start of the native text stream despite following "${shortTextSample(previous.probe)}" visually — native block order diverges from what a human reads; prefer layout.blocks order when sequence matters`,
+          message: `layout block "${shortTextSample(probe)}" appears near the start of the native text stream despite following "${shortTextSample(previous.probe)}" visually — native block order diverges from what a human reads; ${READING_ORDER_REMEDY}`,
         });
         return true;
       }
@@ -308,7 +309,7 @@ function detectLineReadingOrderDivergence(page: PageResult, blocks: LayoutBlock[
         code: 'reading_order_divergence',
         severity: 'warning',
         blockIndex,
-        message: `layout line "${shortTextSample(item.probe)}" appears after "${shortTextSample(previous.probe)}" visually but earlier in the native text stream — native line order diverges from what a human reads; prefer layout.blocks order when sequence matters`,
+        message: `layout line "${shortTextSample(item.probe)}" appears after "${shortTextSample(previous.probe)}" visually but earlier in the native text stream — native line order diverges from what a human reads; ${READING_ORDER_REMEDY}`,
       });
       return true;
     }
@@ -344,7 +345,7 @@ function detectLocalMathReadingOrderDivergence(page: PageResult, blocks: LayoutB
     out.push({
       code: 'reading_order_divergence',
       severity: 'warning',
-      message: `layout block "${probe}" appears with reordered characters in the native text stream — superscripts, radicals, or inline math may read differently in pages[].text; prefer layout.blocks order when exact sequence matters`,
+      message: `layout block "${probe}" appears with reordered characters in the native text stream — superscripts, radicals, or inline math may read differently in pages[].text; ${READING_ORDER_REMEDY_EXACT}`,
       blockIndex: i,
     });
     return;

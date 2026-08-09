@@ -12,6 +12,7 @@ Notable user-facing changes to pdfvision are documented here.
 
 - Grew a search hit's `render_pdf(ref: …)` crop to the table row or visual line it sits in, instead of padding the glyph bbox by a constant. On a financial table the old crop rendered the row label and none of its values, and a short CJK query produced an unreadable sliver. Hits the page's layout does not cover — OCR-sourced matches, pages with no reconstructed lines — keep the constant padding as the fallback. ([#159](https://github.com/yamadashy/pdfvision/issues/159))
 - Mapped encrypted-PDF failures on the MCP surface to a message naming the `password` parameter, instead of relaying pdf.js's raw `No password given`. A missing password and a wrong one now read as different failures, since the recovery differs. ([#160](https://github.com/yamadashy/pdfvision/issues/160))
+- Stopped telling Markdown and MCP readers to "prefer layout.blocks order" on a `reading_order_divergence` warning, when that body is already the layout-rebuilt reading order and MCP has no way to request `layout.blocks` at all. The divergence is still reported; only the remedy clause changes, and JSON, XML, and TOON keep the original wording their consumers can act on. ([#161](https://github.com/yamadashy/pdfvision/issues/161))
 
 ## [0.16.0] - 2026-08-09
 
