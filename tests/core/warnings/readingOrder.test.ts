@@ -25,6 +25,10 @@ describe('detectPageWarnings', () => {
       expect(divergence).toBeDefined();
       expect(divergence?.blockIndex).toBe(0);
       expect(divergence?.message).toContain('Why Most Published Research Findings');
+      // Pinned as a literal, not built from the constant: `message` is a
+      // public field that JSON, XML, and TOON serialize verbatim, so this
+      // is the guard against rewording it by accident.
+      expect(divergence?.message.endsWith('prefer layout.blocks order when sequence matters')).toBe(true);
     });
 
     it('does not flag when native order matches the layout order', () => {
