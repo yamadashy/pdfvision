@@ -7,6 +7,7 @@ Notable user-facing changes to pdfvision are documented here.
 ### Fixed
 
 - Grew a search hit's `render_pdf(ref: …)` crop to the table row or visual line it sits in, instead of padding the glyph bbox by a constant. On a financial table the old crop rendered the row label and none of its values, and a short CJK query produced an unreadable sliver. Hits the page's layout does not cover — OCR-sourced matches, pages with no reconstructed lines — keep the constant padding as the fallback. ([#159](https://github.com/yamadashy/pdfvision/issues/159))
+- Mapped encrypted-PDF failures on the MCP surface to a message naming the `password` parameter, instead of relaying pdf.js's raw `No password given`. A missing password and a wrong one now read as different failures, since the recovery differs. ([#160](https://github.com/yamadashy/pdfvision/issues/160))
 
 ## [0.16.0] - 2026-08-09
 
