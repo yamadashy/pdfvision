@@ -19,7 +19,7 @@ import {
  * from "empty" — a computed or protected field is not one the reader
  * failed to fill.
  */
-const NOTEWORTHY_FLAGS = new Set(['hidden', 'noView', 'locked', 'readOnly']);
+const NOTEWORTHY_FLAGS = new Set(['hidden', 'noView', 'invisible', 'locked', 'readOnly']);
 
 /**
  * Whether a field carries something a reader can act on: a value, a
@@ -35,15 +35,7 @@ function isNoteworthy(field: FormField): boolean {
   // the document is signed, so pdfvision cannot claim a signature is
   // unfilled. Say where it is and let the reader look.
   if (field.type === 'signature') return true;
-  if (field.checked === true) return true;
-  // The extractor puts a button group's selected value on every widget in
-  // the group, so an unchecked sibling still says the group was answered
-  // — including when the checked widget sits on another page and this
-  // page's rows are all the reader gets.
-  if (field.checked === false) return isSelectedButtonValue(field.value);
-  // `fieldValue` renders an unchecked box as the literal "unchecked", so
-  // only consult it for the field types that carry a value.
-  if (fieldValue(field) !== '') return true;
+  if (hasAnswer(field)) return true;
   // An unselected dropdown still carries its permitted values and their
   // export/display mapping, which no count can replace and which the page
   // body cannot show — a closed list is invisible until it is opened.
@@ -54,6 +46,19 @@ function isNoteworthy(field: FormField): boolean {
   if (field.actions || field.resetForm) return true;
   if (field.required || field.readOnly) return true;
   return (field.flags ?? []).some((flag) => NOTEWORTHY_FLAGS.has(flag));
+}
+
+/** Whether the field itself carries an answer someone gave. */
+function hasAnswer(field: FormField): boolean {
+  if (field.checked === true) return true;
+  // The extractor puts a button group's selected value on every widget in
+  // the group, so an unchecked sibling still says the group was answered
+  // — including when the checked widget sits on another page and this
+  // page's rows are all the reader gets.
+  if (field.checked === false) return isSelectedButtonValue(field.value);
+  // `fieldValue` renders an unchecked box as the literal "unchecked", so
+  // only consult it for the field types that carry a value.
+  return fieldValue(field) !== '';
 }
 
 /**

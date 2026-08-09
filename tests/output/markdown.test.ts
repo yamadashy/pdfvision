@@ -1922,6 +1922,30 @@ describe('blank form collapse', () => {
     expect(out).toContain('_1 further field, none filled (1 checkbox)._');
   });
 
+  it('keeps an unchecked box that carries a script', () => {
+    const fields = [...blank, field({ name: 'cb[0]', type: 'checkbox', checked: false, actions: { Action: ['x'] } })];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('cb[0]');
+  });
+
+  it('keeps an unchecked box that is required', () => {
+    const fields = [...blank, field({ name: 'agree[0]', type: 'checkbox', checked: false, required: true })];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('agree[0]');
+  });
+
+  it('keeps an unchecked box the viewer never shows', () => {
+    const fields = [...blank, field({ name: 'ghost[0]', type: 'checkbox', checked: false, flags: ['hidden'] })];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('ghost[0]');
+  });
+
+  it('keeps a widget flagged invisible', () => {
+    const fields = [...blank, field({ name: 'inv[0]', type: 'text', flags: ['invisible'] })];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('inv[0]');
+  });
+
   it('keeps a widget whose read-only state arrives as an annotation flag', () => {
     const fields = [...blank, field({ name: 'locked_1[0]', type: 'text', flags: ['readOnly'] })];
     const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
