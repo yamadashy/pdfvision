@@ -4,10 +4,6 @@ Notable user-facing changes to pdfvision are documented here.
 
 ## [Unreleased]
 
-### Fixed
-
-- Corrected the `--render-region` line in `--help`'s Common flows block, which omitted `-r` and therefore failed with `--render-region requires --render or --ocr` when typed as printed. That block exists to steer agents to the evidence chain, so a command that errors is worse than no example. ([#168](https://github.com/yamadashy/pdfvision/pull/168))
-
 ### Changed
 
 - Collapsed a blank form's field table to a count and a type breakdown on surfaces that request the pass on the caller's behalf (the MCP server), instead of a full-width row per empty widget. On the IRS W-9 that table was 37% of page 1 while the response budget pushed pages 4-6 out. Filled values, checked boxes, scripted widgets, and hidden/locked ones still get a row each; `--form-fields` on the CLI is unchanged. ([#162](https://github.com/yamadashy/pdfvision/issues/162))
@@ -17,6 +13,8 @@ Notable user-facing changes to pdfvision are documented here.
 - Grew a search hit's `render_pdf(ref: …)` crop to the table row or visual line it sits in, instead of padding the glyph bbox by a constant. On a financial table the old crop rendered the row label and none of its values, and a short CJK query produced an unreadable sliver. Hits the page's layout does not cover — OCR-sourced matches, pages with no reconstructed lines — keep the constant padding as the fallback. ([#159](https://github.com/yamadashy/pdfvision/issues/159))
 - Mapped encrypted-PDF failures on the MCP surface to a message naming the `password` parameter, instead of relaying pdf.js's raw `No password given`. A missing password and a wrong one now read as different failures, since the recovery differs. ([#160](https://github.com/yamadashy/pdfvision/issues/160))
 - Stopped telling Markdown and MCP readers to "prefer layout.blocks order" on a `reading_order_divergence` warning, when that body is already the layout-rebuilt reading order and MCP has no way to request `layout.blocks` at all. The divergence is still reported; only the remedy clause changes, and JSON, XML, and TOON keep the original wording their consumers can act on. ([#161](https://github.com/yamadashy/pdfvision/issues/161))
+- Corrected the `--render-region` line in `--help`'s Common flows block, which omitted `-r` and therefore failed with `--render-region requires --render or --ocr` when typed as printed. That block exists to steer agents to the evidence chain, so a command that errors is worse than no example. ([#168](https://github.com/yamadashy/pdfvision/pull/168))
+- Kept an unchecked checkbox or radio widget's row when it carries a script, a ResetForm action, `required`, `readOnly`, or a hidden / invisible / noView / locked flag. The blank-form collapse returned early on any unchecked button, so those signals were folded into the count — contradicting the documented promise that hidden and locked widgets keep a row. `invisible` now counts alongside them. ([#169](https://github.com/yamadashy/pdfvision/pull/169))
 
 ## [0.16.0] - 2026-08-09
 
