@@ -197,13 +197,28 @@ function fieldExportValue(annotation: PdfAnnotation, type: FormFieldType): strin
   return undefined;
 }
 
+/**
+ * Whether a button field's `/V` names a selected appearance state.
+ * `Off` is the PDF spelling of "no button in this group is selected",
+ * and an empty state name selects nothing either.
+ *
+ * Exported because a consumer looking at one widget of a group needs the
+ * same test: the group's value is copied onto every widget, so this is
+ * how an unchecked sibling reports that the group was answered — the
+ * only evidence available when the checked widget is on another page.
+ * Sharing the definition keeps the two from drifting apart.
+ */
+export function isSelectedButtonValue(value: string | undefined): boolean {
+  return value !== undefined && value !== '' && value !== 'Off';
+}
+
 function fieldChecked(
   type: FormFieldType,
   value: string | undefined,
   exportValue: string | undefined,
 ): boolean | undefined {
   if (type !== 'checkbox' && type !== 'radio') return undefined;
-  const selected = value !== undefined && value !== 'Off';
+  const selected = isSelectedButtonValue(value);
   if (type === 'checkbox' || !selected) return selected;
   return exportValue === undefined ? selected : value === exportValue;
 }

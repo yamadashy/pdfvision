@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formatMarkdown, formatMarkdownSections } from '../../src/output/markdown.js';
-import type { DocumentResult, PageResult } from '../../src/types/index.js';
+import type { DocumentResult, FormField, PageResult } from '../../src/types/index.js';
 
 // US Letter dimensions in PDF points; the formatter doesn't read width/height
 // but the type now requires them, so the helper supplies a realistic default.
@@ -1761,5 +1761,169 @@ describe('omitEmptySections', () => {
     const output = formatMarkdown(result, { omitEmptySections: true });
     expect(output).toContain('### Links');
     expect(output).toContain('links: 1');
+  });
+});
+
+describe('blank form collapse', () => {
+  function field(overrides: Partial<FormField> & Pick<FormField, 'name' | 'type'>): FormField {
+    return { x: 10, y: 20, width: 100, height: 14, ...overrides };
+  }
+
+  function formPage(fields: FormField[]): PageResult {
+    return makePage({ page: 1, text: 'form body', charCount: 9, formFields: fields });
+  }
+
+  const blank = [
+    field({
+      name: 'f1_01[0]',
+      type: 'text',
+      label: { text: '1 Name', relation: 'above', x: 1, y: 2, width: 3, height: 4 },
+    }),
+    field({ name: 'f1_02[0]', type: 'text' }),
+    field({ name: 'c1_1[0]', type: 'checkbox', checked: false, exportValue: '1' }),
+  ];
+
+  it('collapses an all-unfilled page to a count and a type breakdown', () => {
+    const out = formatMarkdown(makeResult({ pages: [formPage(blank)] }), { omitEmptySections: true });
+    expect(out).toContain('_3 fillable fields on this page, none filled (2 text, 1 checkbox)._');
+    expect(out).not.toContain('| Type | Name |');
+    expect(out).not.toContain('f1_01[0]');
+  });
+
+  it('leaves the CLI table alone — a user who typed --form-fields asked for the rows', () => {
+    const out = formatMarkdown(makeResult({ pages: [formPage(blank)] }));
+    expect(out).toContain('| Type | Name |');
+    expect(out).toContain('f1_01[0]');
+    expect(out).not.toContain('none filled');
+  });
+
+  it('keeps filled fields verbose and summarises only the rest', () => {
+    const fields = [...blank, field({ name: 'f1_09[0]', type: 'text', value: 'ACME Inc.' })];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('ACME Inc.');
+    expect(out).toContain('_3 further fields, none filled (2 text, 1 checkbox)._');
+  });
+
+  it('keeps a checked box, since that is the answer someone gave', () => {
+    const fields = [...blank, field({ name: 'c1_7[0]', type: 'checkbox', checked: true, exportValue: '7' })];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('c1_7[0]');
+    expect(out).toContain('_3 further fields, none filled');
+  });
+
+  it('keeps an empty widget whose flags say it is not what it appears to be', () => {
+    const fields = [...blank, field({ name: 'hidden_1[0]', type: 'text', flags: ['hidden'] })];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('hidden_1[0]');
+  });
+
+  it('keeps an empty widget carrying a script', () => {
+    const fields = [...blank, field({ name: 'btn[0]', type: 'button', actions: { Action: ['app.alert(1)'] } })];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('btn[0]');
+  });
+
+  it('agrees with itself on the singular', () => {
+    const out = formatMarkdown(makeResult({ pages: [formPage([field({ name: 'solo', type: 'text' })])] }), {
+      omitEmptySections: true,
+    });
+    expect(out).toContain('_1 fillable field on this page, none filled (1 text)._');
+  });
+
+  it('never claims a signature is unfilled — pdf.js reports no value either way', () => {
+    const fields = [...blank, field({ name: 'sig', type: 'signature' })];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('sig');
+    expect(out).not.toContain('1 signature');
+  });
+
+  it('keeps an empty required field, which is the whole point of asking whether a form is complete', () => {
+    const fields = [...blank, field({ name: 'tin[0]', type: 'text', required: true })];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('tin[0]');
+  });
+
+  it('keeps an empty read-only field rather than reporting it as fillable', () => {
+    const fields = [...blank, field({ name: 'computed[0]', type: 'text', readOnly: true })];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('computed[0]');
+  });
+
+  it('keeps an unselected dropdown, whose option set a count cannot replace', () => {
+    const fields = [
+      ...blank,
+      field({
+        name: 'country[0]',
+        type: 'choice',
+        options: [
+          { exportValue: 'JP', displayValue: 'Japan' },
+          { exportValue: 'DE', displayValue: 'Germany' },
+        ],
+      }),
+    ];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('country[0]');
+    // The whole mapping survives, not just the display labels.
+    expect(out).toContain('Japan');
+    expect(out).toContain('JP');
+    expect(out).toContain('Germany');
+    expect(out).toContain('DE');
+  });
+
+  it('keeps every widget of a radio group once one of them is checked', () => {
+    const fields = [
+      field({ name: 'fruit', type: 'radio', value: 'Banane', checked: false, exportValue: 'ringo' }),
+      field({ name: 'fruit', type: 'radio', value: 'Banane', checked: true, exportValue: 'Banane' }),
+      field({ name: 'fruit', type: 'radio', value: 'Banane', checked: false, exportValue: 'Cherry' }),
+    ];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('ringo');
+    expect(out).toContain('Cherry');
+    expect(out).not.toContain('none filled');
+  });
+
+  it('counts a collapsed radio group as one field, not one per widget', () => {
+    const fields = [
+      field({ name: 'veg', type: 'radio', checked: false, exportValue: 'Carrot' }),
+      field({ name: 'veg', type: 'radio', checked: false, exportValue: 'Potato' }),
+    ];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('_1 fillable field on this page, none filled (1 radio)._');
+  });
+
+  it('keeps a sibling whose group was answered on another page', () => {
+    const fields = [
+      ...blank,
+      field({ name: 'fruit', type: 'radio', value: 'Banane', checked: false, exportValue: 'Cherry' }),
+    ];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('Cherry');
+  });
+
+  it('does not mistake the PDF spelling of "nothing selected" for an answer', () => {
+    const fields = [field({ name: 'veg', type: 'radio', value: 'Off', checked: false, exportValue: 'Carrot' })];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('none filled');
+  });
+
+  it('counts unnamed widgets one by one, since nothing groups them', () => {
+    const fields = [field({ name: '', type: 'text' }), field({ name: '', type: 'text' })];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('_2 fillable fields on this page, none filled (2 text)._');
+  });
+
+  it('does not merge a same-named checkbox into a radio group', () => {
+    const fields = [
+      field({ name: 'dup', type: 'radio', value: 'yes', checked: true, exportValue: 'yes' }),
+      field({ name: 'dup', type: 'checkbox', checked: false, exportValue: '1' }),
+    ];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('_1 further field, none filled (1 checkbox)._');
+  });
+
+  it('keeps a widget whose read-only state arrives as an annotation flag', () => {
+    const fields = [...blank, field({ name: 'locked_1[0]', type: 'text', flags: ['readOnly'] })];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('locked_1[0]');
   });
 });
