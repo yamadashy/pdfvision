@@ -1824,9 +1824,66 @@ describe('blank form collapse', () => {
   });
 
   it('agrees with itself on the singular', () => {
-    const out = formatMarkdown(makeResult({ pages: [formPage([field({ name: 'sig', type: 'signature' })])] }), {
+    const out = formatMarkdown(makeResult({ pages: [formPage([field({ name: 'solo', type: 'text' })])] }), {
       omitEmptySections: true,
     });
-    expect(out).toContain('_1 fillable field on this page, none filled (1 signature)._');
+    expect(out).toContain('_1 fillable field on this page, none filled (1 text)._');
+  });
+
+  it('never claims a signature is unfilled — pdf.js reports no value either way', () => {
+    const fields = [...blank, field({ name: 'sig', type: 'signature' })];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('sig');
+    expect(out).not.toContain('1 signature');
+  });
+
+  it('keeps an empty required field, which is the whole point of asking whether a form is complete', () => {
+    const fields = [...blank, field({ name: 'tin[0]', type: 'text', required: true })];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('tin[0]');
+  });
+
+  it('keeps an empty read-only field rather than reporting it as fillable', () => {
+    const fields = [...blank, field({ name: 'computed[0]', type: 'text', readOnly: true })];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('computed[0]');
+  });
+
+  it('keeps an unselected dropdown, whose option set a count cannot replace', () => {
+    const fields = [
+      ...blank,
+      field({
+        name: 'country[0]',
+        type: 'choice',
+        options: [
+          { exportValue: 'JP', displayValue: 'Japan' },
+          { exportValue: 'DE', displayValue: 'Germany' },
+        ],
+      }),
+    ];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('country[0]');
+    expect(out).toContain('Japan');
+  });
+
+  it('keeps every widget of a radio group once one of them is checked', () => {
+    const fields = [
+      field({ name: 'fruit', type: 'radio', value: 'Banane', checked: false, exportValue: 'ringo' }),
+      field({ name: 'fruit', type: 'radio', value: 'Banane', checked: true, exportValue: 'Banane' }),
+      field({ name: 'fruit', type: 'radio', value: 'Banane', checked: false, exportValue: 'Cherry' }),
+    ];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('ringo');
+    expect(out).toContain('Cherry');
+    expect(out).not.toContain('none filled');
+  });
+
+  it('still collapses a radio group with nothing selected', () => {
+    const fields = [
+      field({ name: 'veg', type: 'radio', checked: false, exportValue: 'Carrot' }),
+      field({ name: 'veg', type: 'radio', checked: false, exportValue: 'Potato' }),
+    ];
+    const out = formatMarkdown(makeResult({ pages: [formPage(fields)] }), { omitEmptySections: true });
+    expect(out).toContain('_2 fillable fields on this page, none filled (2 radio)._');
   });
 });

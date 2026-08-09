@@ -12,29 +12,61 @@ import {
 } from './helpers.js';
 
 /**
- * Flags that are honesty signals rather than form data. A hidden or
- * locked widget is worth a row even with nothing in it — that a field
+ * Flags that are honesty signals rather than form data. A widget that
  * exists but cannot be seen or edited is exactly the kind of thing this
- * tool exists to surface.
+ * tool exists to surface, and "read-only and empty" is a different fact
+ * from "empty" — a computed or protected field is not one the reader
+ * failed to fill.
  */
-const NOTEWORTHY_FLAGS = new Set(['hidden', 'noView', 'locked']);
+const NOTEWORTHY_FLAGS = new Set(['hidden', 'noView', 'locked', 'readOnly']);
 
 /**
  * Whether a field carries something a reader can act on: a value, a
- * checked box, a widget-level action, or a flag saying the widget is not
- * what it appears to be.
+ * checked box, the option set behind a choice, a widget-level action, or
+ * a flag saying the widget is not what it appears to be.
  *
  * Everything else is an empty row — an internal AcroForm name, a label
  * already printed verbatim in the page body a few lines above, and blank
  * `Value` / `Export` / `Options` cells.
  */
 function isNoteworthy(field: FormField): boolean {
+  // pdf.js reports no field value for a signature widget whether or not
+  // the document is signed, so pdfvision cannot claim a signature is
+  // unfilled. Say where it is and let the reader look.
+  if (field.type === 'signature') return true;
   if (field.checked === true) return true;
   // `fieldValue` renders an unchecked box as the literal "unchecked", so
   // only consult it for the field types that carry a value.
   if (field.checked === undefined && fieldValue(field) !== '') return true;
+  // An unselected dropdown still carries its permitted values and their
+  // export/display mapping, which is not something a count can replace.
+  if (fieldOptions(field) !== '') return true;
   if (field.actions || field.resetForm) return true;
+  if (field.required || field.readOnly) return true;
   return (field.flags ?? []).some((flag) => NOTEWORTHY_FLAGS.has(flag));
+}
+
+/**
+ * Widgets that must be shown, expanded from the noteworthy ones to every
+ * widget sharing their field name.
+ *
+ * A radio group is one logical field spread over several widgets: the
+ * extractor puts the group's value on all of them and the per-option
+ * `exportValue` on each. Keeping only the checked widget would drop the
+ * choice set — the reader would see that "Banane" was picked without
+ * seeing that "ringo" and "Cherry" were the alternatives — and would
+ * count the siblings as further unfilled fields, which they are not.
+ */
+function shownNames(fields: readonly FormField[]): Set<string> {
+  const names = new Set<string>();
+  for (const field of fields) {
+    if (field.name !== '' && isNoteworthy(field)) names.add(field.name);
+  }
+  return names;
+}
+
+function keepsRow(field: FormField, names: Set<string>): boolean {
+  return field.name !== '' ? names.has(field.name) : isNoteworthy(field);
 }
 
 function typeBreakdown(fields: readonly FormField[]): string {
@@ -81,8 +113,9 @@ export function appendFormFields(lines: string[], page: PageResult, omitEmpty = 
     return;
   }
 
-  const shown = omitEmpty ? page.formFields.filter(isNoteworthy) : page.formFields;
-  const omitted = omitEmpty ? page.formFields.filter((field) => !isNoteworthy(field)) : [];
+  const names = omitEmpty ? shownNames(page.formFields) : new Set<string>();
+  const shown = omitEmpty ? page.formFields.filter((field) => keepsRow(field, names)) : page.formFields;
+  const omitted = omitEmpty ? page.formFields.filter((field) => !keepsRow(field, names)) : [];
 
   lines.push('');
   if (shown.length === 0) {
