@@ -3,7 +3,7 @@ import { resolveClearCacheCommand } from './clearCacheCommand.js';
 import { renderTopicIndex, resolveDocsCommand } from './docsCommand.js';
 import { exitWithError, formatCliErrorMessage } from './errors.js';
 import { resolveOutputFormat } from './format.js';
-import { CLEAR_CACHE_HELP_TEXT, DOCS_HELP_TEXT, HELP_TEXT, MCP_HELP_TEXT } from './help.js';
+import { CLEAR_CACHE_HELP_TEXT, DOCS_HELP_TEXT, HELP_TEXT, MCP_HELP_TEXT, VERSION_DOCS_HINT } from './help.js';
 import { readPasswordFromStdin, resolveInputSource } from './input.js';
 import { resolveMcpCommand } from './mcpCommand.js';
 import { CLI_PARSE_OPTIONS } from './optionSpec.js';
@@ -39,6 +39,16 @@ function emitOutputSizeNote(result: string, options: { mapped?: boolean } = {}):
   );
 }
 
+/**
+ * The version alone on stdout, so `$(pdfvision --version)` stays a bare
+ * string; the documentation pointer on stderr, because that is the one
+ * output an agent which skipped `--help` reliably sees.
+ */
+function printVersion(): void {
+  console.log(getVersion());
+  console.error(VERSION_DOCS_HINT);
+}
+
 // Root ownership is verified before removal. Lazy-import so the heavy
 // node:fs surface stays out of the --help / --version paths.
 async function clearCache(): Promise<void> {
@@ -59,7 +69,7 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
   if (mcpCommand) {
     if (mcpCommand.kind === 'error') exitWithError(mcpCommand.message, 'pdfvision mcp --help');
     if (mcpCommand.kind === 'version') {
-      console.log(getVersion());
+      printVersion();
       return;
     }
     if (mcpCommand.kind === 'help') {
@@ -78,7 +88,7 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
   if (docsCommand) {
     if (docsCommand.kind === 'error') exitWithError(docsCommand.message, 'pdfvision docs');
     if (docsCommand.kind === 'version') {
-      console.log(getVersion());
+      printVersion();
       return;
     }
     if (docsCommand.kind === 'help') {
@@ -103,7 +113,7 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
       exitWithError(clearCacheCommand.message, 'pdfvision clear-cache --help');
     }
     if (clearCacheCommand.kind === 'version') {
-      console.log(getVersion());
+      printVersion();
       return;
     }
     if (clearCacheCommand.kind === 'help') {
@@ -132,7 +142,7 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
   }
 
   if (values.version) {
-    console.log(getVersion());
+    printVersion();
     return;
   }
 

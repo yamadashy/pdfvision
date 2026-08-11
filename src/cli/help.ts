@@ -101,6 +101,13 @@ Exit codes
      failure with a source; file, network, cache, or extraction failure (message on stderr)
   2  No input source was provided (usage printed on stderr)`;
 
+// Printed to stderr alongside `--version`. An agent that skips `--help` and
+// runs `--version` before its first real command reads nothing else we emit,
+// so this is the only place that reaches it. Kept off stdout so the version
+// stays a bare string a caller can parse.
+export const VERSION_DOCS_HINT =
+  'If you are a coding agent, run "pdfvision docs" for documentation that ships with this version.';
+
 // Shown by `pdfvision clear-cache --help`. Short for the same reason as
 // MCP_HELP_TEXT: the full removal semantics already sit in the main help,
 // and repeating them here would be two places to keep in sync.
