@@ -19,23 +19,35 @@ const SKILL = readFileSync(join(repoRoot, 'skills/pdfvision/SKILL.md'), 'utf8');
 const KNOWN = new Set(CLI_TOPIC_INDEX.map((topic) => topic.name));
 
 /**
- * Two shapes carry a topic name: prose (`pdfvision docs flags`) and the gate
- * table's first column, where the name stands alone in backticks. Collecting
- * only the prose form would miss the table, which is where the routing that
- * matters actually lives.
+ * Three shapes carry a topic name, and a collector that misses one is worse
+ * than no collector: it reports green over the routes it never looked at.
+ * Prose (`pdfvision docs flags`), the gate table's first column, and the
+ * closing paragraph that names the remaining topics as bare code spans.
  */
 function referencedTopics(): string[] {
   const found = new Set<string>();
   for (const [, name] of SKILL.matchAll(/pdfvision docs ([a-z][a-z0-9-]*)/g)) found.add(name);
-  const gateTable = /^\| `([a-z][a-z0-9-]*)` \| \*\*(?:Mandatory|Escalation)\*\*/gm;
-  for (const [, name] of SKILL.matchAll(gateTable)) found.add(name);
+  for (const [, name] of SKILL.matchAll(/^\| `([a-z][a-z0-9-]*)` \| \*\*(?:Mandatory|Escalation)\*\*/gm)) {
+    found.add(name);
+  }
+  // Bare code spans in the closing routing paragraph. Matched against the
+  // known set rather than by shape, because at this position a code span is
+  // as likely to be a field name as a topic.
+  const closing = /^`[a-z][a-z0-9-]*`.*Reach for one by name.*$/m.exec(SKILL)?.[0] ?? '';
+  for (const [, name] of closing.matchAll(/`([a-z][a-z0-9-]*)`/g)) {
+    if (KNOWN.has(name)) found.add(name);
+  }
   return [...found].sort();
 }
 
 describe('the skill routes to topics that exist', () => {
-  it('names at least the gate table and the inline pointers', () => {
-    // A regex that silently matched nothing would make the next test vacuous.
-    expect(referencedTopics().length).toBeGreaterThanOrEqual(7);
+  /**
+   * Every topic is routed today. Pinning that is what catches a new topic
+   * nobody told the skill about — and a topic deliberately left unrouted
+   * should be excluded here, in the same diff that decides it.
+   */
+  it('routes to every topic the CLI ships', () => {
+    expect(referencedTopics()).toEqual(CLI_TOPIC_INDEX.map((topic) => topic.name).sort());
   });
 
   it.each(referencedTopics())('resolves "pdfvision docs %s"', (name) => {
