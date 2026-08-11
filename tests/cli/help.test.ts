@@ -37,9 +37,10 @@ const MUST_STAY_IN_SHORT_HELP = [
 const SUBCOMMANDS = ['docs', 'clear-cache', 'mcp'];
 
 /**
- * Pinned rather than derived: the index and the bodies come from the same
- * generator, so deleting a topic and regenerating would shrink the expected
- * set alongside the actual one and every check would still pass.
+ * A literal, not a derived one. Anything derived would come from the same
+ * generator as the index and the bodies, so deleting a topic would shrink the
+ * expectation alongside the actual set and every check would still pass.
+ * Written out, a deletion has to be made here too, in the diff.
  */
 const EXPECTED_TOPICS = [
   'document-features',
