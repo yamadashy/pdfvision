@@ -56,6 +56,10 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
   const mcpCommand = resolveMcpCommand(argv);
   if (mcpCommand) {
     if (mcpCommand.kind === 'error') exitWithError(mcpCommand.message, 'pdfvision mcp --help');
+    if (mcpCommand.kind === 'version') {
+      console.log(getVersion());
+      return;
+    }
     if (mcpCommand.kind === 'help') {
       console.log(MCP_HELP_TEXT);
       return;
@@ -72,6 +76,10 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
   if (clearCacheCommand) {
     if (clearCacheCommand.kind === 'error') {
       exitWithError(clearCacheCommand.message, 'pdfvision clear-cache --help');
+    }
+    if (clearCacheCommand.kind === 'version') {
+      console.log(getVersion());
+      return;
     }
     if (clearCacheCommand.kind === 'help') {
       console.log(CLEAR_CACHE_HELP_TEXT);

@@ -335,9 +335,10 @@ Subcommands
 
 Argument handling
   A subcommand is recognized only as the first argument, before any option parsing, and
-  takes no options of its own beyond --help. A file actually named `mcp` or `clear-cache`
-  must therefore be passed as `./mcp` / `./clear-cache`; because clearing is destructive,
-  `clear-cache` refuses instead of guessing when such a file exists in the directory.
+  takes no options of its own beyond --help / --version. A file actually named `mcp` or
+  `clear-cache` must therefore be passed as `./mcp` / `./clear-cache`; because clearing is
+  destructive, `clear-cache` refuses instead of guessing when anything of that name exists
+  in the directory.
   Option syntax is parsed next; an unknown option or missing option value exits 1 even
   when --help is present. After successful parsing, terminal precedence is --version,
   then --help, then --clear-cache; these skip input and extraction-option semantic checks.

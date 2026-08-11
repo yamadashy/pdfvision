@@ -102,14 +102,14 @@ OCR never replaces `pages[].text`; it is added beside the native text so the age
 
 ## Subcommands
 
-Options describe how to read a PDF. Anything that does not read a PDF is a subcommand, recognized only as the first argument and taking no options of its own beyond `--help`. `--help` and `--version` are the usual exceptions and work anywhere.
+Options describe how to read a PDF. Anything that does not read a PDF is a subcommand, recognized only as the first argument and taking no options of its own. `--help` and `--version` are the usual exceptions and work anywhere, including after a subcommand.
 
 | Subcommand | Purpose |
 | --- | --- |
 | `clear-cache` | Clear the configured cache root only after verifying its pdfvision ownership marker, then exit. Unsafe, broad, unmarked custom, or otherwise unverified roots are refused. |
 | `mcp` | Serve pdfvision over the Model Context Protocol on stdio. See [MCP Server](./mcp-server.md). |
 
-A file actually named `mcp` or `clear-cache` must be passed as `./mcp` or `./clear-cache`. Because clearing is destructive, `clear-cache` refuses with exit code `1` instead of guessing when such a file exists in the working directory.
+A file actually named `mcp` or `clear-cache` must be passed as `./mcp` or `./clear-cache`. Because clearing is destructive, `clear-cache` refuses with exit code `1` instead of guessing when anything of that name exists in the working directory, including a symlink whose target is missing.
 
 ## Exit Codes
 

@@ -1,3 +1,5 @@
+import { resolveTerminalFlags } from './subcommandFlags.js';
+
 /**
  * Dispatch for the `pdfvision mcp` subcommand.
  *
@@ -6,7 +8,11 @@
  * to be rejected. Kept as a pure function so the dispatch is testable
  * without starting a server on stdio.
  */
-export type McpCommand = { kind: 'serve' } | { kind: 'help' } | { kind: 'error'; message: string };
+export type McpCommand =
+  | { kind: 'serve' }
+  | { kind: 'help' }
+  | { kind: 'version' }
+  | { kind: 'error'; message: string };
 
 export const MCP_SUBCOMMAND = 'mcp';
 
@@ -20,7 +26,8 @@ export function resolveMcpCommand(argv: readonly string[]): McpCommand | undefin
 
   const rest = argv.slice(1);
   if (rest.length === 0) return { kind: 'serve' };
-  if (rest.every((arg) => arg === '-h' || arg === '--help')) return { kind: 'help' };
+  const terminal = resolveTerminalFlags(rest);
+  if (terminal) return { kind: terminal };
   return {
     kind: 'error',
     // Fail loudly rather than ignoring the argument: silently starting a

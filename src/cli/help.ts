@@ -209,9 +209,10 @@ Subcommands
 
 Argument handling
   A subcommand is recognized only as the first argument, before any option parsing, and
-  takes no options of its own beyond --help. A file actually named \`mcp\` or \`clear-cache\`
-  must therefore be passed as \`./mcp\` / \`./clear-cache\`; because clearing is destructive,
-  \`clear-cache\` refuses instead of guessing when such a file exists in the directory.
+  takes no options of its own beyond --help / --version. A file actually named \`mcp\` or
+  \`clear-cache\` must therefore be passed as \`./mcp\` / \`./clear-cache\`; because clearing is
+  destructive, \`clear-cache\` refuses instead of guessing when anything of that name exists
+  in the directory.
   Option syntax is parsed next; an unknown option or missing option value exits 1 even
   when --help is present. After successful parsing, terminal precedence is --version,
   then --help, then --clear-cache; these skip input and extraction-option semantic checks.
@@ -276,16 +277,17 @@ Removes cached extractions, rendered PNGs, remote PDFs, and OCR support data.
 An ownership marker authorizes recursive clearing; broad, unmarked custom, or
 otherwise unverified roots are refused.
 
-A file actually named \`clear-cache\` in the current directory is refused rather
-than guessed at — pass \`./clear-cache\` to read that file.
+Anything named \`clear-cache\` in the current directory makes the invocation
+ambiguous and is refused rather than guessed at — pass \`./clear-cache\` to read
+that file, or clear the cache from another directory.
 
 Environment
   PDFVISION_CACHE_DIR
       Cache root override. Must be a nonblank absolute path to a dedicated directory.
 
 Exit codes
-  0  Cache cleared, or nothing to clear
-  1  Arguments were passed to the subcommand; an ambiguous \`clear-cache\` file exists;
+  0  Cache cleared, or nothing to clear, including --help and --version
+  1  Arguments were passed to the subcommand; an ambiguous \`clear-cache\` entry exists;
      cache verification or removal failed`;
 
 // Shown by `pdfvision mcp --help`. Deliberately short: the audience is a
@@ -326,5 +328,5 @@ Environment
       Same cache root override the CLI uses.
 
 Exit codes
-  0  Clean shutdown, including --help
+  0  Clean shutdown, including --help and --version
   1  Arguments were passed to the subcommand`;

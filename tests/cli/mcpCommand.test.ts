@@ -28,3 +28,20 @@ describe('resolveMcpCommand', () => {
     },
   );
 });
+
+describe('resolveMcpCommand terminal flags', () => {
+  it.each([['-v'], ['--version']])('honors the calling convention for `mcp %s`', (flag) => {
+    expect(resolveMcpCommand(['mcp', flag])).toEqual({ kind: 'version' });
+  });
+
+  it('gives --version precedence over --help, as the main CLI does', () => {
+    expect(resolveMcpCommand(['mcp', '--help', '--version'])).toEqual({ kind: 'version' });
+  });
+
+  it('still errors when a terminal flag is mixed with a real argument', () => {
+    expect(resolveMcpCommand(['mcp', '--version', '--json'])).toMatchObject({
+      kind: 'error',
+      message: expect.stringContaining('"--json"'),
+    });
+  });
+});

@@ -1,4 +1,20 @@
-import { existsSync } from 'node:fs';
+import { lstatSync } from 'node:fs';
+import { resolveTerminalFlags } from './subcommandFlags.js';
+
+/**
+ * Any `clear-cache` entry in the working directory makes the invocation
+ * ambiguous, including a symlink whose target is missing — `existsSync`
+ * would follow it and report nothing there. An unreadable entry counts as
+ * present too: refusing costs a re-run, guessing costs the cache.
+ */
+function pathExists(path: string): boolean {
+  try {
+    lstatSync(path);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code !== 'ENOENT';
+  }
+}
 
 /**
  * Dispatch for the `pdfvision clear-cache` subcommand.
@@ -8,7 +24,11 @@ import { existsSync } from 'node:fs';
  * it would be noise. The deprecated `--clear-cache` flag keeps working
  * through the normal option path until it is removed.
  */
-export type ClearCacheCommand = { kind: 'clear' } | { kind: 'help' } | { kind: 'error'; message: string };
+export type ClearCacheCommand =
+  | { kind: 'clear' }
+  | { kind: 'help' }
+  | { kind: 'version' }
+  | { kind: 'error'; message: string };
 
 export const CLEAR_CACHE_SUBCOMMAND = 'clear-cache';
 
@@ -23,24 +43,25 @@ export const CLEAR_CACHE_SUBCOMMAND = 'clear-cache';
  */
 export function resolveClearCacheCommand(
   argv: readonly string[],
-  fileExists: (path: string) => boolean = existsSync,
+  entryExists: (path: string) => boolean = pathExists,
 ): ClearCacheCommand | undefined {
   if (argv[0] !== CLEAR_CACHE_SUBCOMMAND) return undefined;
 
   const rest = argv.slice(1);
   if (rest.length > 0) {
-    if (rest.every((arg) => arg === '-h' || arg === '--help')) return { kind: 'help' };
+    const terminal = resolveTerminalFlags(rest);
+    if (terminal) return { kind: terminal };
     return {
       kind: 'error',
       message: `"pdfvision clear-cache" takes no arguments, got ${rest.map((arg) => `"${arg}"`).join(' ')}`,
     };
   }
 
-  if (fileExists(CLEAR_CACHE_SUBCOMMAND)) {
+  if (entryExists(CLEAR_CACHE_SUBCOMMAND)) {
     return {
       kind: 'error',
       message:
-        `"clear-cache" is a subcommand, but a file named "clear-cache" exists in this directory. ` +
+        `"clear-cache" is a subcommand, but "clear-cache" also exists in this directory. ` +
         `Pass "./clear-cache" to read that file, or clear the cache from another directory.`,
     };
   }

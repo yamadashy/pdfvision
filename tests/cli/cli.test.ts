@@ -1142,3 +1142,18 @@ describe('subcommand error hints', () => {
     expect(result.stderr.join('\n')).toContain('Run "pdfvision --help" for usage.');
   });
 });
+
+describe('subcommand calling convention', () => {
+  it.each([
+    ['clear-cache', '--version'],
+    ['clear-cache', '-v'],
+    ['mcp', '--version'],
+    ['mcp', '-v'],
+  ])('prints the version for `%s %s`', async (subcommand, flag) => {
+    const result = await captureRun([subcommand, flag]);
+    expect(result.exitCode).toBeNull();
+    expect(result.stdout).toHaveLength(1);
+    expect(result.stdout[0]).toMatch(/^\d+\.\d+\.\d+/);
+    expect(result.stderr).toEqual([]);
+  });
+});
