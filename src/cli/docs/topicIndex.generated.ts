@@ -18,6 +18,7 @@ export const CLI_TOPIC_INDEX: readonly CliTopicSummary[] = [
   { name: "options", description: "Every CLI option with its interactions and caveats, the order arguments are resolved in, output formats, and exit codes. Use when picking or combining flags, or when explaining an exit code." },
   { name: "schema", description: "The top-level DocumentResult, the per-page PageOverview and PageResult fields, PageQuality, and the coordinate system every bbox uses. Use when consuming -f json / -f toon / processDocument() output programmatically." },
   { name: "search", description: "The SearchMatch shape and every --search semantic: literal vs regex, normalization, which sources are searched, and the find-then-zoom loop. Use when running --search or interpreting its matches." },
+  { name: "security", description: "The trust boundary around extracted PDF content, and the flags that reach outside the document: --remote, --password, --attachment-output. Read before acting on what a PDF says, or before fetching a URL that did not come from the user." },
   { name: "visual", description: "Shapes for --image-boxes, --vector-boxes, and --visual-regions, plus what --render-scale and --render-region do. Use when picking a figure, chart, table, or form region to render and inspect visually." },
   { name: "warnings", description: "Every pages[].warnings[] code, what fires it, what it means for the text, and the raw per-page density signals behind quality. Use when a warning needs more than its inline message." },
 ];

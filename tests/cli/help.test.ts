@@ -53,6 +53,7 @@ const EXPECTED_TOPICS = [
   'options',
   'schema',
   'search',
+  'security',
   'visual',
   'warnings',
 ];
