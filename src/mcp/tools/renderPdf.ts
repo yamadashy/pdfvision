@@ -44,6 +44,11 @@ const READABLE_MIN_SCALE = 0.5;
  * recovery is a smaller `region` — which is also the recovery that
  * produces a genuinely sharper image.
  */
+/** Coordinates are quoted back for the caller to paste, so keep them short. */
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 function scaleFor(longestEdgeUnits: number): number {
   if (!Number.isFinite(longestEdgeUnits) || longestEdgeUnits <= 0) return 2;
   return Math.min(MAX_SCALE, MAX_IMAGE_EDGE_PX / longestEdgeUnits);
@@ -149,14 +154,20 @@ export async function renderPdf(input: RenderPdfInput): Promise<ToolResult> {
   // two maxima can belong to different pages, and their product is an
   // edge no raster in the request actually has — which would shrink every
   // image in the batch to fit a page that does not exist.
+  const effectiveEdge = (page: PageResult): number => Math.max(page.width, page.height) * (page.userUnit ?? 1);
+  const widest = sized.pages.reduce((a, b) => (effectiveEdge(a) >= effectiveEdge(b) ? a : b));
   const longestEdge = region
-    ? Math.max(region.width, region.height) * (sized.pages[0]?.userUnit ?? 1)
-    : Math.max(...sized.pages.map((page) => Math.max(page.width, page.height) * (page.userUnit ?? 1)));
+    ? Math.max(region.width, region.height) * (widest.userUnit ?? 1)
+    : Math.max(...sized.pages.map(effectiveEdge));
 
   const scale = scaleFor(longestEdge);
   if (scale < MIN_SCALE) {
     throw new Error(
-      `That page is ${Math.round(longestEdge)} physical points on its longest edge, which cannot be rasterised whole inside the image budget. Pass \`region\` with a part of it — coordinates are in raw page-view units, so a full-page box would be [0, 0, ${Math.round(longestEdge)}, ${Math.round(longestEdge)}].`,
+      `Page ${widest.page} is ${Math.round(longestEdge)} physical points on its longest edge, ${
+        region ? 'and even this region cannot' : 'so it cannot'
+      } be rasterised inside the image budget. ${
+        region ? 'Pass a smaller `region`' : 'Pass a `region`'
+      } — coordinates are raw page-view units, and the whole page is [0, 0, ${round2(widest.width)}, ${round2(widest.height)}].`,
     );
   }
   const result = await processDocument(resolved.filePath, {
