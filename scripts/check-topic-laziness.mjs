@@ -13,7 +13,7 @@
 import { init, parse } from 'es-module-lexer';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const distDir = resolve(repoRoot, 'dist');
@@ -36,17 +36,28 @@ function fail(message) {
  * `d === -1` marks a static import or re-export; a dynamic one carries the
  * offset of its `import(`.
  */
+function resolveSpecifier(file, specifier) {
+  // URL resolution rather than path joining, so a `?query` or `#fragment`
+  // suffix does not turn into a filename that exists nowhere and gets
+  // skipped — a silent skip is indistinguishable from "not imported".
+  const url = new URL(specifier, pathToFileURL(file));
+  url.search = '';
+  url.hash = '';
+  return fileURLToPath(url);
+}
+
 function staticallyReachable(entry) {
   const seen = new Set();
   const queue = [entry];
   while (queue.length > 0) {
     const file = queue.pop();
-    if (seen.has(file) || !existsSync(file)) continue;
+    if (seen.has(file)) continue;
+    if (!existsSync(file)) fail(`${file} is statically imported but does not exist`);
     seen.add(file);
     const [imports] = parse(readFileSync(file, 'utf8'), file);
     for (const record of imports) {
       if (record.d !== -1 || !record.n?.startsWith('.')) continue;
-      queue.push(resolve(dirname(file), record.n));
+      queue.push(resolveSpecifier(file, record.n));
     }
   }
   return seen;
