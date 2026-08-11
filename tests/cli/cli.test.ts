@@ -1137,9 +1137,9 @@ describe('subcommand error hints', () => {
     expect(result.stderr.join('\n')).toContain('Run "pdfvision mcp --help" for usage.');
   });
 
-  it('keeps the general usage hint for ordinary option errors', async () => {
+  it('names both the help and the documentation index for ordinary option errors', async () => {
     const result = await captureRun(['--not-an-option']);
-    expect(result.stderr.join('\n')).toContain('Run "pdfvision --help" for usage.');
+    expect(result.stderr.join('\n')).toContain('Run "pdfvision --help" for usage, or "pdfvision docs"');
   });
 });
 

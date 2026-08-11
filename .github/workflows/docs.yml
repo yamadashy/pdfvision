@@ -27,6 +27,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  topics:
+    name: CLI topics in sync with docs/cli-topics
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .tool-versions
+          cache: npm
+      - run: npm ci
+      # The generated modules are committed, and ci.yml ignores Markdown-only
+      # pushes, so this workflow is what catches a topic edited without
+      # regenerating.
+      - run: node scripts/build-cli-topics.mjs
+      - run: git diff --exit-code src/cli/docs
+
   build:
     name: Build VitePress site
     runs-on: ubuntu-latest

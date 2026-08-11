@@ -160,4 +160,9 @@ jobs:
       - run: npm run build
       - run: node dist/bin/pdfvision.mjs --version
       - run: node dist/bin/pdfvision.mjs --help
+      # The topics are embedded, so they have to work from the built bundle
+      # alone — the npm package ships no Markdown to fall back on.
+      - run: node dist/bin/pdfvision.mjs docs
+      - run: node dist/bin/pdfvision.mjs docs options
+      - run: node scripts/check-topic-laziness.mjs
       - run: node dist/bin/pdfvision.mjs tests/fixtures/sample.pdf --no-cache

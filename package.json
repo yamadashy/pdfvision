@@ -24,7 +24,7 @@
   ],
   "scripts": {
     "prepare": "node --run build",
-    "build": "tsdown",
+    "build": "node scripts/build-cli-topics.mjs && tsdown",
     "dev": "tsdown --watch",
     "pdfvision": "node scripts/run-local-cli.mjs",
     "build-fixtures": "node scripts/build-test-fixtures.mjs",

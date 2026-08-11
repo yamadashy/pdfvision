@@ -1,10 +1,12 @@
 import { parseArgs } from 'node:util';
 import { resolveClearCacheCommand } from './clearCacheCommand.js';
+import { renderTopicIndex, resolveDocsCommand } from './docsCommand.js';
 import { exitWithError, formatCliErrorMessage } from './errors.js';
 import { resolveOutputFormat } from './format.js';
-import { CLEAR_CACHE_HELP_TEXT, HELP_TEXT, MCP_HELP_TEXT } from './help.js';
+import { CLEAR_CACHE_HELP_TEXT, DOCS_HELP_TEXT, HELP_TEXT, MCP_HELP_TEXT } from './help.js';
 import { readPasswordFromStdin, resolveInputSource } from './input.js';
 import { resolveMcpCommand } from './mcpCommand.js';
+import { CLI_PARSE_OPTIONS } from './optionSpec.js';
 import { resolveRenderOptions } from './renderOptions.js';
 import type { ParsedCliValues, RunOptions } from './types.js';
 import { getVersion } from './version.js';
@@ -69,6 +71,29 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
     return;
   }
 
+  // Same pre-parse treatment as `mcp`. Topic bodies are imported only once
+  // a topic is actually asked for, so `--help`, `--version`, and every
+  // extraction run stay clear of the embedded documentation.
+  const docsCommand = resolveDocsCommand(argv);
+  if (docsCommand) {
+    if (docsCommand.kind === 'error') exitWithError(docsCommand.message, 'pdfvision docs');
+    if (docsCommand.kind === 'version') {
+      console.log(getVersion());
+      return;
+    }
+    if (docsCommand.kind === 'help') {
+      console.log(DOCS_HELP_TEXT);
+      return;
+    }
+    if (docsCommand.kind === 'index') {
+      console.log(renderTopicIndex(getVersion()));
+      return;
+    }
+    const { CLI_TOPIC_BODIES } = await import('./docs/topicBodies.generated.js');
+    console.log(CLI_TOPIC_BODIES[docsCommand.name]);
+    return;
+  }
+
   // Same pre-parse treatment as `mcp`: the subcommand takes no options,
   // and resolving it here keeps the deprecated `--clear-cache` flag on the
   // ordinary option path below without the two competing.
@@ -98,58 +123,7 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
     const parsed = parseArgs({
       args: argv,
       allowPositionals: true,
-      options: {
-        help: { type: 'boolean', short: 'h' },
-        version: { type: 'boolean', short: 'v' },
-        pages: { type: 'string', short: 'p' },
-        // Canonical format flag — `default` is intentionally NOT set
-        // here so we can tell "user typed -f X" apart from "no -f at
-        // all"; that distinction is needed when reconciling against
-        // the `--markdown` / `--json` / `--xml` shortcut flags below.
-        format: { type: 'string', short: 'f' },
-        markdown: { type: 'boolean' },
-        json: { type: 'boolean' },
-        xml: { type: 'boolean' },
-        toon: { type: 'boolean' },
-        render: { type: 'boolean', short: 'r' },
-        'render-output': { type: 'string' },
-        'render-scale': { type: 'string' },
-        'render-region': { type: 'string' },
-        'no-cache': { type: 'boolean' },
-        'no-normalize': { type: 'boolean' },
-        password: { type: 'string' },
-        'password-stdin': { type: 'boolean' },
-        geometry: { type: 'boolean' },
-        layout: { type: 'boolean' },
-        'image-boxes': { type: 'boolean' },
-        'vector-boxes': { type: 'boolean' },
-        'visual-regions': { type: 'boolean' },
-        'render-visual-regions': { type: 'boolean' },
-        'form-fields': { type: 'boolean' },
-        links: { type: 'boolean' },
-        annotations: { type: 'boolean' },
-        structure: { type: 'boolean' },
-        'page-labels': { type: 'boolean' },
-        attachments: { type: 'boolean' },
-        'attachment-output': { type: 'string' },
-        outline: { type: 'boolean' },
-        viewer: { type: 'boolean' },
-        layers: { type: 'boolean' },
-        'strip-repeated': { type: 'boolean' },
-        map: { type: 'boolean' },
-        remote: { type: 'string' },
-        'clear-cache': { type: 'boolean' },
-        ocr: { type: 'boolean' },
-        'ocr-lang': { type: 'string', default: 'eng' },
-        // --search is repeatable so `--search A --search B` works
-        // (multi-query AND-merge into pages[].matches[]). The bool
-        // companions modify ALL queries — case sensitivity / regex
-        // semantics per-query would invite confusion.
-        search: { type: 'string', multiple: true },
-        'search-regex': { type: 'boolean' },
-        'search-case-sensitive': { type: 'boolean' },
-        'matches-only': { type: 'boolean' },
-      },
+      options: CLI_PARSE_OPTIONS,
     });
     values = parsed.values as ParsedCliValues;
     positionals = parsed.positionals;

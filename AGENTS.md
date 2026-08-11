@@ -21,6 +21,11 @@ pdfvision/
 │   │   ├── cli.ts            # Argument parsing and dispatch
 │   │   ├── help.ts           # Help text (CLI + `pdfvision mcp`)
 │   │   ├── mcpCommand.ts     # `pdfvision mcp` subcommand dispatch, resolved before parseArgs
+│   │   ├── clearCacheCommand.ts # `pdfvision clear-cache` dispatch and its ambiguity guard
+│   │   ├── docsCommand.ts    # `pdfvision docs` dispatch and topic index rendering
+│   │   ├── docs/             # Generated topic index + bodies (see scripts/build-cli-topics.mjs)
+│   │   ├── optionSpec.ts     # The parseArgs option spec, exported so tests can walk it
+│   │   ├── subcommandFlags.ts # --help / --version handling shared by every subcommand
 │   │   └── version.ts        # Reads version from package.json
 │   ├── mcp/
 │   │   ├── serve.ts          # stdio bootstrap behind `pdfvision mcp`
@@ -62,6 +67,8 @@ pdfvision/
 │   ├── types/
 │   │   └── index.ts          # Shared types (DocumentResult, ProcessOptions, ...)
 │   └── index.ts              # Library API entry
+├── docs/
+│   └── cli-topics/           # Source of `pdfvision docs <topic>`; embedded at build time
 ├── tests/
 │   ├── core/                 # Unit and integration tests
 │   └── fixtures/sample.pdf   # Hand-crafted minimal PDF

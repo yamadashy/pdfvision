@@ -12,7 +12,8 @@
       "**/vitest.config.ts",
       "**/.secretlintrc.json",
       "!**/dist",
-      "!**/node_modules"
+      "!**/node_modules",
+      "!src/cli/docs/*.generated.ts"
     ]
   },
   "assist": { "actions": { "source": { "organizeImports": "on" } } },
