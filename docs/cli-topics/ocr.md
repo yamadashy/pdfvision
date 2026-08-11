@@ -144,10 +144,9 @@ Most likely the rasterise step produced a blank page, not an actual OCR failure.
 
 ```bash
 npx pdfvision doc.pdf -p <page> --render --render-output /tmp/dbg
-# Inspect /tmp/dbg/<contentFingerprint>/page-<n>.png — if it's blank, OCR has
-# nothing to chew on. (pdfvision namespaces the output by a per-PDF
-# fingerprint so two different PDFs sharing a --render-output dir don't
-# overwrite each other.)
+# Inspect /tmp/dbg/page-<n>.png — if it's blank, OCR has nothing to chew on.
+# (--render-output writes flat; a name another PDF already took in the same
+# dir gets a -2 suffix and a note on stderr.)
 ```
 
 This is a known limitation tracked separately from OCR. Workaround: source a different copy of the PDF, or pre-decode the JPX stream with a wasm decoder before invoking pdfvision.

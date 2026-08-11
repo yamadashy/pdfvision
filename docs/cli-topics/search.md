@@ -24,7 +24,7 @@ interface SearchMatch {
 
 Emitted only when `--search` is passed. Each emitted query occurrence becomes one match — three emitted hits of `"foo"` on page 5 yield three entries with `page: 5`. At most 10,000 matches are emitted per page, query, and source. The first additional valid match produces a warning (stderr in the CLI, `onWarning` in the library API); it and later matches for that combination are dropped.
 
-**One-pipeline find-then-zoom**: a match's `bbox` is in the same coord system as `--render-region`, so the agent loop is:
+**One-pipeline find-then-zoom**: every box pdfvision emits is already in `--render-region`'s coordinate system, so no conversion is needed. Prefer `--matches-only`, whose entries add a crop-ready `region` grown to the table row or visual line containing the hit; `bbox` crops to the matched glyphs alone, which on a financial table renders the row label and none of its values. The agent loop is:
 
 ```bash
 pdfvision doc.pdf --search "revenue" --json

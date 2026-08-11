@@ -15,7 +15,7 @@ interface ImageBox {
 }
 ```
 
-One entry per drawn instance — a tiled hero image yields multiple entries. Image-bearing tiling patterns painted through fill paths surface as the painted path bbox, so masked/pattern images still become crop targets. `imageCount === imageBoxes.length` is an invariant on every page. Form XObject CTM tracking ensures images drawn inside a form land at the correct page-space position.
+One entry per drawn instance — a tiled hero image yields multiple entries. Image-bearing tiling patterns painted through fill paths surface as the painted path bbox, so masked/pattern images still become crop targets. With `--image-boxes` requested, `imageCount === imageBoxes.length` on every page; without it, `imageCount` still reports the count and `imageBoxes` is absent. Form XObject CTM tracking ensures images drawn inside a form land at the correct page-space position.
 ## Vector boxes (`--vector-boxes`)
 
 ```ts

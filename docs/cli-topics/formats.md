@@ -73,7 +73,7 @@ Empty `<pageLabels/>`, `<attachments/>`, `<outline/>`, `<viewer/>`, `<layers/>`,
 
 `-f toon` encodes the JSON data model as [Token-Oriented Object Notation](https://toonformat.dev): YAML-style indentation for nested objects and lists, plus a CSV-like tabular form for arrays whose entries are objects with the same fields. Eligible arrays declare the fields once in a `[N]{fields}:` header and then stream one comma-delimited row per element; a uniformly-shaped nested object folds into the header as a `{parent{child}}` group. Arrays whose entries' fields differ because optional values are present on only some entries, contain array-valued fields, or nest objects with differing shapes stay in list form. Every emitted TOON payload decodes to exactly `JSON.parse(formatJson(result))`; optional `undefined` fields are absent rather than becoming `null`. An unpaired UTF-16 surrogate is rejected with a JSON-fallback error because TOON cannot represent it losslessly across UTF-8.
 
-```
+```text
 file: /path/doc.pdf
 totalPages: 14
 metadata:
