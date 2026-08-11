@@ -10,6 +10,7 @@
 // bodies, statically imported by the entry, would pass that. So this walks
 // the static import graph from each entry and asserts nothing reachable that
 // way carries them.
+import { init, parse } from 'es-module-lexer';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -23,16 +24,18 @@ const entries = [join(distDir, 'bin/pdfvision.mjs'), join(distDir, 'index.mjs')]
 const SENTINEL = 'Bbox overlay on rendered PNG';
 const BODIES_SOURCE = resolve(repoRoot, 'src/cli/docs/topicBodies.generated.ts');
 
-// `from '...'` covers static imports and re-exports; a dynamic `import('...')`
-// has no `from` and is therefore deliberately not matched.
-const STATIC_FROM = /(?:import|export)\b[^;]*?\bfrom\s*["']([^"']+)["']/g;
-const STATIC_BARE = /(?:^|[\n;])\s*import\s*["']([^"']+)["']/g;
-
 function fail(message) {
   console.error(`check-topic-laziness: ${message}`);
   process.exit(1);
 }
 
+/**
+ * Lexed rather than pattern-matched: the distinction that matters here is
+ * exactly the one a regex cannot make reliably, since a topic body is a
+ * string literal that can contain anything, including import syntax.
+ * `d === -1` marks a static import or re-export; a dynamic one carries the
+ * offset of its `import(`.
+ */
 function staticallyReachable(entry) {
   const seen = new Set();
   const queue = [entry];
@@ -40,15 +43,16 @@ function staticallyReachable(entry) {
     const file = queue.pop();
     if (seen.has(file) || !existsSync(file)) continue;
     seen.add(file);
-    const source = readFileSync(file, 'utf8');
-    for (const pattern of [STATIC_FROM, STATIC_BARE]) {
-      for (const [, specifier] of source.matchAll(pattern)) {
-        if (specifier.startsWith('.')) queue.push(resolve(dirname(file), specifier));
-      }
+    const [imports] = parse(readFileSync(file, 'utf8'), file);
+    for (const record of imports) {
+      if (record.d !== -1 || !record.n?.startsWith('.')) continue;
+      queue.push(resolve(dirname(file), record.n));
     }
   }
   return seen;
 }
+
+await init;
 
 if (!readFileSync(BODIES_SOURCE, 'utf8').includes(SENTINEL)) {
   fail(`the sentinel is stale: ${BODIES_SOURCE} no longer contains it`);

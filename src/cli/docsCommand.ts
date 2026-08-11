@@ -38,9 +38,14 @@ function editDistance(a: string, b: string): number {
  */
 function suggest(name: string, known: readonly string[]): string | undefined {
   // Substring alone misleads on short input: "f" is inside "document-features"
-  // before it is inside "flags". Only trust it when exactly one topic matches.
+  // before it is inside "flags". Prefer an unambiguous prefix, then an
+  // unambiguous substring, and offer nothing when several topics match — a
+  // confident wrong suggestion costs more than none.
+  const prefixed = known.filter((topic) => topic.startsWith(name));
+  if (prefixed.length === 1) return prefixed[0];
   const contains = known.filter((topic) => topic.includes(name) || name.includes(topic));
   if (contains.length === 1) return contains[0];
+  if (contains.length > 1) return undefined;
 
   let best: string | undefined;
   let bestDistance = Number.POSITIVE_INFINITY;

@@ -36,7 +36,7 @@ The server is a subcommand of the main binary, not a separate package:
 - **Responses are budgeted** (30,000 chars per body, 12,000 per page, 100 matches, 4 rendered pages, 5 OCR pages, 6 MB of images). Every truncation names the exact follow-up call, so a clipped result is recoverable, never silently complete.
 - **Refs replace coordinates.** `search_pdf` and a full-page `render_pdf` hand back short handles (`p47m1`, `p5r2`). Pass one straight back as `render_pdf(ref: "p47m1")` instead of transcribing a bbox. Refs are renumbered from `p1m1` by *every* call, so one held over from an earlier search now points at the newer result — `render_pdf` echoes what the ref resolved to (`Ref p1m1 → search hit for …`) so a stale one is visible. When in doubt, re-run the search. A match ref crops to the table row the hit sits in, or to its visual line when the page has no detected table, so a row's values are inside the image rather than just its label. Where the page's layout does not cover the hit — an OCR-sourced match, a scanned page with no reconstructed lines — the crop falls back to a fixed pad around the glyph box, which on a wide row can still be too narrow to read; pass an explicit `region` there.
 - **No scale knob.** Renders are fitted to 1568 px on the longest edge, past which vision models downsample anyway. If a render is too small to read, the fix is a smaller `region`, not a bigger raster.
-- **Every result carries an untrusted-data banner.** An MCP host has no place to put standing instructions, so the trust boundary travels with the payload.
+- **Every result carries an untrusted-data banner.** The server cannot assume its host carries equivalent standing instructions, so the trust boundary travels with the payload.
 
 ## Embedded files
 

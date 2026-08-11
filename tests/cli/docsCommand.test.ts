@@ -93,3 +93,20 @@ describe('terminal flags alongside a topic', () => {
     });
   });
 });
+
+describe('suggestion confidence', () => {
+  const REAL = ['document-features', 'flags', 'formats', 'layout', 'library', 'mcp', 'ocr', 'options', 'search'];
+
+  it('prefers an unambiguous prefix over a substring hit elsewhere', () => {
+    // "la" is inside "flags" and starts "layout"; the prefix is the real intent.
+    expect(resolveDocsCommand(['docs', 'la'], REAL)).toMatchObject({
+      message: expect.stringContaining('"layout"'),
+    });
+  });
+
+  it.each([['r'], ['a'], ['o']])('offers nothing for the ambiguous input `%s`', (input) => {
+    expect(resolveDocsCommand(['docs', input], REAL)).not.toMatchObject({
+      message: expect.stringContaining('Did you mean'),
+    });
+  });
+});

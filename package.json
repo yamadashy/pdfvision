@@ -82,6 +82,7 @@
     "@types/node": "^25.9.5",
     "@types/pdfkit": "^0.17.6",
     "@vitest/coverage-v8": "^4.1.10",
+    "es-module-lexer": "2.1.0",
     "oxlint": "^1.76.0",
     "pdfkit": "^0.19.1",
     "secretlint": "^13.0.4",

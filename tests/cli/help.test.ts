@@ -59,7 +59,8 @@ const EXPECTED_TOPICS = [
 
 /** `--render` is a prefix of `--render-output`; match the whole token. */
 function documentsOption(text: string, option: string): boolean {
-  return new RegExp(`${option.replace(/[.*+?^$()|[\]\\]/g, '\\$&')}(?![\\w-])`).test(text);
+  const escaped = option.replace(/[.*+?^$()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?:^|[^\\w-])${escaped}(?![\\w-])`, 'm').test(text);
 }
 
 async function capture(argv: string[]): Promise<{ stdout: string; stderr: string }> {
