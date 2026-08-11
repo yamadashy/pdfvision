@@ -5,7 +5,7 @@ import { formatBox } from '../../output/markdown/helpers.js';
 import { formatPhysicalSize } from '../../output/markdown/overview.js';
 import type { PageResult, RenderRegion } from '../../types/index.js';
 import { MAX_IMAGE_EDGE_PX, MAX_RENDER_PAGES, MAX_TOTAL_IMAGE_BYTES } from '../limits.js';
-import { lookupRef, regionRef, rememberRef } from '../refs.js';
+import { forgetRefs, lookupRef, regionRef, rememberRef } from '../refs.js';
 import { type ToolBlock, type ToolResult, textBlock, toolResult } from '../result.js';
 import { resolveSource } from '../source.js';
 
@@ -18,8 +18,16 @@ export interface RenderPdfInput {
 }
 
 /** pdfvision rejects a scale outside (0, 4]; 4x is its soft OOM ceiling. */
-const MIN_SCALE = 0.5;
+const MIN_SCALE = 0.05;
 const MAX_SCALE = 4;
+/**
+ * Below this the page is being shrunk so far that the text will not be
+ * legible. It is not a floor — a floor would let an oversized page blow
+ * the pixel budget, which is the thing the budget exists to prevent —
+ * but crossing it is worth saying out loud, because the recovery is a
+ * `region` rather than a bigger raster the server will not produce.
+ */
+const READABLE_MIN_SCALE = 0.5;
 
 /**
  * No `scale` parameter is exposed. Vision models downsample past roughly
@@ -125,21 +133,29 @@ export async function renderPdf(input: RenderPdfInput): Promise<ToolResult> {
 
   // Measure before rasterising: the scale that fits the pixel budget
   // depends on the page (or region) size, and pdfvision needs it up
-  // front. A region already carries its own size, so the measuring pass
-  // is skipped there rather than run and thrown away.
-  let longestEdge: number;
-  if (region) {
-    longestEdge = Math.max(region.width, region.height);
-  } else {
-    const sized = await processDocument(resolved.filePath, { ...base, pages });
-    longestEdge = Math.max(...sized.pages.map((page) => Math.max(page.width, page.height)));
-  }
+  // front. A region carries its own size but not its page's UserUnit, so
+  // the measuring pass runs either way — the extraction is cached, and
+  // guessing 1 here is how a `/UserUnit 10` page renders ten times over
+  // the budget. Rendered pixels are raw units x UserUnit x scale.
+  const sized = await processDocument(resolved.filePath, { ...base, pages });
+  const userUnit = Math.max(...sized.pages.map((page) => page.userUnit ?? 1));
+  const rawLongestEdge = region
+    ? Math.max(region.width, region.height)
+    : Math.max(...sized.pages.map((page) => Math.max(page.width, page.height)));
+  const longestEdge = rawLongestEdge * userUnit;
 
+  // Everything this response is about to hand out replaces the previous
+  // set for this source, which is what the ref contract promises. Done
+  // after the `ref` lookup above so a ref can still resolve on the call
+  // that consumes it.
+  forgetRefs(input.source);
+
+  const scale = scaleFor(longestEdge);
   const result = await processDocument(resolved.filePath, {
     ...base,
     pages,
     render: true,
-    renderScale: scaleFor(longestEdge),
+    renderScale: scale,
     renderRegion: region,
     // Only meaningful for a full page: a region render is already the
     // answer to "which part of this page", so re-listing crop targets
@@ -157,6 +173,12 @@ export async function renderPdf(input: RenderPdfInput): Promise<ToolResult> {
     lines.push(
       '',
       `_\`pages\` "${pages}" also named ${formatPageRange(skipped)}${skippedTruncated ? ' and beyond' : ''}, past the end of this ${probe.totalPages}-page document._`,
+    );
+  }
+  if (scale < READABLE_MIN_SCALE) {
+    lines.push(
+      '',
+      `_This page is ${Math.round(rawLongestEdge * userUnit)} units on its longest edge, so fitting the image budget shrank it ${(1 / scale).toFixed(1)}x below normal — text may be unreadable. Render a \`region\` of it instead._`,
     );
   }
   // Refs are renumbered from `p1m1` by every call, so one held over from

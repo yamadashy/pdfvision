@@ -1,5 +1,6 @@
-import { copyFileSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { getCacheDir } from '../../src/core/io/cache.js';
 import { processFile } from '../../src/core/processor.js';
@@ -174,6 +175,43 @@ describe('processFile', () => {
       expect(parsed.file).toBe(copyPath);
     } finally {
       rmSync(copyPath, { force: true });
+    }
+  });
+});
+
+describe('processFile warning replay', () => {
+  it("repeats a run's warnings on a cache hit, so the second call is as honest as the first", async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pdfvision-warning-replay-'));
+    try {
+      const copy = join(dir, 'sample.pdf');
+      copyFileSync(SAMPLE_PDF, copy);
+
+      const first: string[] = [];
+      await processFile(copy, {
+        format: 'json',
+        noCache: false,
+        pages: '1-9',
+        onWarning: (m) => {
+          first.push(m);
+        },
+      });
+      const second: string[] = [];
+      await processFile(copy, {
+        format: 'json',
+        noCache: false,
+        pages: '1-9',
+        onWarning: (m) => {
+          second.push(m);
+        },
+      });
+
+      // The first run reported that pages past the end were skipped. The
+      // second is served from cache — and used to report nothing, which
+      // reads as "all nine pages were extracted".
+      expect(first.some((m) => m.includes('past the end of the document'))).toBe(true);
+      expect(second).toEqual(first);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 });

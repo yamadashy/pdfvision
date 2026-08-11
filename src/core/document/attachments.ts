@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { closeSync, constants as fsConstants, lstatSync, mkdirSync, openSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { DocumentAttachment } from '../../types/index.js';
@@ -143,9 +144,24 @@ function bytes(value: unknown): Buffer | undefined {
   return undefined;
 }
 
+/**
+ * Identity used to drop the same embedded file when it reaches us from
+ * more than one place (the name tree and a FileAttachment annotation
+ * both list it).
+ *
+ * Name plus byte length is not enough: two genuinely different files can
+ * share a name and a size — two `report.csv` exports of the same shape —
+ * and dropping one of them loses data silently, which is worse than
+ * listing a duplicate. Hash the bytes when we have them and fall back to
+ * the length only when the content was not embedded.
+ */
 function attachmentIdentity(key: string, attachment: PdfAttachment): string {
   const name = rawText(attachment.filename) ?? rawText(attachment.rawFilename) ?? key;
-  return `${name}\u0000${byteLength(attachment.content)}`;
+  const content = bytes(attachment.content);
+  const fingerprint = content
+    ? createHash('sha256').update(content).digest('hex')
+    : `len:${byteLength(attachment.content)}`;
+  return `${name}\u0000${fingerprint}`;
 }
 
 function rawText(value: unknown): string | undefined {

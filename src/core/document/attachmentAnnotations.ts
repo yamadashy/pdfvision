@@ -21,7 +21,7 @@ export async function collectFileAttachmentAnnotations(doc: PDFDocumentProxy): P
     for (const rawAnnotation of annotations) {
       const annotation = rawAnnotation as PdfAnnotation;
       if (annotation.subtype !== 'FileAttachment' || !annotation.file) continue;
-      const key = fileAttachmentKey(annotation.file, pageNumber, index);
+      const key = uniqueKey(fileAttachmentKey(annotation.file, pageNumber, index), attachments);
       const content =
         typeof annotation.fileId === 'string' ? await doc.getAttachmentContent(annotation.fileId) : undefined;
       attachments[key] =
@@ -33,6 +33,20 @@ export async function collectFileAttachmentAnnotations(doc: PDFDocumentProxy): P
   }
 
   return Object.keys(attachments).length > 0 ? attachments : null;
+}
+
+/**
+ * Two FileAttachment annotations may legitimately carry the same
+ * filename — the same form attached twice, or one per page of a bundle.
+ * Keying the record on the filename alone dropped the second one before
+ * anything downstream could report it, so the record key gains a suffix
+ * while the attachment keeps its own `filename` for display.
+ */
+function uniqueKey(key: string, record: Record<string, unknown>): string {
+  if (!Object.hasOwn(record, key)) return key;
+  let suffix = 2;
+  while (Object.hasOwn(record, `${key}-${suffix}`)) suffix++;
+  return `${key}-${suffix}`;
 }
 
 function fileAttachmentKey(value: unknown, pageNumber: number, index: number): string {

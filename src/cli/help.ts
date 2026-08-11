@@ -56,7 +56,7 @@ Options
                           only: --pages must resolve to exactly one
                           page (errors otherwise). Region must fit within the page bounds.
                           Typical use: --search "term" --matches-only reports each match's
-                          bbox; re-run with that bbox here to zoom in (--layout for a
+                          region; re-run with that region here to zoom in (--layout for a
                           block-level bbox when there is no term to search).
       --no-normalize      Disable Unicode NFKC normalization and C0-control cleanup. Default ON;
                           pre-normalization text is \`pages[].rawText\` in JSON/TOON and a sibling
@@ -170,7 +170,11 @@ Options
                           Match case exactly (default: insensitive).
       --matches-only      Emit a focused search report: the file, total page/match counts, and
                           a flat list of emitted matches with page, query reference, source,
-                          text, optional context, and bbox. Non-default page UserUnits are retained
+                          text, optional context, bbox, and region. \`bbox\` hugs the matched
+                          glyphs; \`region\` is the crop-ready box grown to the containing table
+                          row or visual line — pass that one to --render-region, or a hit in a
+                          financial table renders the row label and none of its values.
+                          Non-default page UserUnits are retained
                           in compact pageUserUnits metadata. Requires --search. The full pages/body
                           payload is omitted; zero matches still exits 0 with a zero-match report.
                           Works in every format. Size grows with emitted matches and context.

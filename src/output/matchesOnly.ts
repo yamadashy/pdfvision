@@ -1,3 +1,4 @@
+import { cropRegionForBox } from '../core/search/boxes.js';
 import type { DocumentResult, OutputFormat, SearchMatch } from '../types/index.js';
 import { escapeTableCell, formatBox } from './markdown/helpers.js';
 import { encodeJsonModelAsToon } from './toon.js';
@@ -18,7 +19,11 @@ import { escapeAttr, escapeText } from './xml/helpers.js';
  * report metadata and match fields in their native representations:
  *   { file, totalPages, queries, totalMatches, pageUserUnits?:
  *     [{ page, userUnit }], matches: [{ page, queryIndex, source, text,
- *     context?, bbox: {x,y,width,height} }] }
+ *     context?, bbox: {x,y,width,height}, region: {x,y,width,height} }] }
+ * `bbox` hugs the matched glyphs; `region` is the crop-ready box grown to
+ * the containing table row or visual line, and is what --render-region
+ * wants. XML carries the same pair as x/y/width/height plus
+ * regionX/regionY/regionWidth/regionHeight on <match>.
  * `pageUserUnits` is omitted when every selected page uses the default value
  * 1. It keeps raw match boxes physically interpretable without restoring the
  * full pages[] payload; boxes still pass unchanged to renderRegion.
@@ -34,6 +39,13 @@ interface FlatMatch {
   text: string;
   context?: string;
   bbox: SearchMatch['bbox'];
+  /**
+   * Crop-ready box for `--render-region`, grown from `bbox` to the table
+   * row or visual line the hit sits in. `bbox` hugs the glyphs, so
+   * rendering it verbatim shows the row label and none of its values;
+   * this is the box the evidence chain is meant to use.
+   */
+  region: SearchMatch['bbox'];
 }
 
 interface MatchesOnlyModel {
@@ -60,6 +72,7 @@ function buildModel(result: DocumentResult, queries: string[]): MatchesOnlyModel
         text: m.text,
         ...(m.context !== undefined && { context: m.context }),
         bbox: m.bbox,
+        region: cropRegionForBox(m.bbox, page),
       });
     }
   }
@@ -86,6 +99,7 @@ function serializableEntry(m: FlatMatch) {
     text: m.text,
     ...(m.context !== undefined && { context: m.context }),
     bbox: m.bbox,
+    region: m.region,
   };
 }
 
@@ -124,11 +138,11 @@ function formatMarkdown(model: MatchesOnlyModel): string {
   if (model.totalMatches === 0) return lines.join('\n');
 
   lines.push('');
-  lines.push('| Page | Query | Source | Text | Context | BBox |');
-  lines.push('| ---: | --- | --- | --- | --- | --- |');
+  lines.push('| Page | Query | Source | Text | Context | BBox | Region |');
+  lines.push('| ---: | --- | --- | --- | --- | --- | --- |');
   for (const m of model.matches) {
     lines.push(
-      `| ${m.page} | ${escapeTableCell(m.query)} | ${m.source} | ${escapeTableCell(m.text)} | ${escapeTableCell(m.context ?? '')} | ${formatBox(m.bbox)} |`,
+      `| ${m.page} | ${escapeTableCell(m.query)} | ${m.source} | ${escapeTableCell(m.text)} | ${escapeTableCell(m.context ?? '')} | ${formatBox(m.bbox)} | ${formatBox(m.region)} |`,
     );
   }
   return lines.join('\n');
@@ -164,6 +178,10 @@ function formatXml(model: MatchesOnlyModel): string {
       `y="${m.bbox.y}"`,
       `width="${m.bbox.width}"`,
       `height="${m.bbox.height}"`,
+      `regionX="${m.region.x}"`,
+      `regionY="${m.region.y}"`,
+      `regionWidth="${m.region.width}"`,
+      `regionHeight="${m.region.height}"`,
     ];
     out.push(`<match ${attrs.join(' ')}>`);
     out.push(`<text>${escapeText(m.text)}</text>`);

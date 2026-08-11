@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { clearRefs, lookupRef, matchRef, regionRef, rememberRef } from '../../src/mcp/refs.js';
+import { clearRefs, forgetRefs, lookupRef, matchRef, regionRef, rememberRef } from '../../src/mcp/refs.js';
 
 const region = { x: 1, y: 2, width: 3, height: 4 };
 
@@ -62,5 +62,26 @@ describe('refs', () => {
     rememberRef('doc.pdf', 'extra', { page: 1, region, origin: 'bulk' });
     expect(lookupRef('doc.pdf', 'keep')?.origin).toBe('first');
     expect(lookupRef('doc.pdf', 'p1m0')).toBeUndefined();
+  });
+
+  it('drops a whole set of refs when a new response replaces it', () => {
+    rememberRef('a.pdf', 'p1m1', { page: 1, region, origin: 'search hit for old' });
+    rememberRef('a.pdf', 'p1m5', { page: 1, region, origin: 'search hit for old' });
+    rememberRef('b.pdf', 'p1m1', { page: 1, region, origin: 'other document' });
+
+    forgetRefs('a.pdf');
+    rememberRef('a.pdf', 'p1m1', { page: 1, region, origin: 'search hit for new' });
+
+    // The replacement is visible, the leftover from the wider previous
+    // set is gone, and another document's refs are untouched.
+    expect(lookupRef('a.pdf', 'p1m1')?.origin).toBe('search hit for new');
+    expect(lookupRef('a.pdf', 'p1m5')).toBeUndefined();
+    expect(lookupRef('b.pdf', 'p1m1')?.origin).toBe('other document');
+  });
+
+  it('matches the source spelling the way lookups do', () => {
+    rememberRef('./a.pdf', 'p1m1', { page: 1, region, origin: 'search hit' });
+    forgetRefs(' ./a.pdf ');
+    expect(lookupRef('./a.pdf', 'p1m1')).toBeUndefined();
   });
 });

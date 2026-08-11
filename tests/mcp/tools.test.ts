@@ -8,7 +8,7 @@ import { clearRefs } from '../../src/mcp/refs.js';
 import type { ImageBlock, TextBlock } from '../../src/mcp/result.js';
 import { readPdf } from '../../src/mcp/tools/readPdf.js';
 import { renderPdf } from '../../src/mcp/tools/renderPdf.js';
-import { searchPdf, searchWarningCollector } from '../../src/mcp/tools/searchPdf.js';
+import { appendPageWarnings, searchPdf, searchWarningCollector } from '../../src/mcp/tools/searchPdf.js';
 
 const SAMPLE = join(import.meta.dirname, '..', 'fixtures', 'sample.pdf');
 
@@ -203,6 +203,54 @@ describe('search_pdf', () => {
     const again = text(await searchPdf({ source: backtrackPdf, query: '(a+)+$', regex: true }));
     expect(again).toContain('regex time limit');
   }, 40_000);
+});
+
+describe('appendPageWarnings', () => {
+  const page = (no: number, codes: { code: string; severity: 'warning' | 'error' }[]) =>
+    ({
+      page: no,
+      text: '',
+      charCount: 0,
+      imageCount: 0,
+      vectorCount: 0,
+      textCoverage: 0,
+      nonPrintableRatio: 0,
+      nonPrintableCount: 0,
+      quality: { nativeTextStatus: 'ok' },
+      width: 612,
+      height: 792,
+      warnings: codes.map((c) => ({ ...c, message: `${c.code} happened` })),
+      // biome-ignore lint/suspicious/noExplicitAny: minimal PageResult stand-in
+    }) as any;
+
+  it('names the codes on pages a hit landed on, errors first', () => {
+    const lines: string[] = [];
+    appendPageWarnings(
+      lines,
+      [
+        page(1, [
+          { code: 'reading_order_divergence', severity: 'warning' },
+          { code: 'invisible_text', severity: 'error' },
+        ]),
+      ],
+      new Set([1]),
+    );
+    expect(lines.join('\n')).toContain('> - p.1: invisible_text, reading_order_divergence');
+  });
+
+  it('says nothing about a page no hit landed on', () => {
+    const lines: string[] = [];
+    appendPageWarnings(lines, [page(2, [{ code: 'invisible_text', severity: 'error' }])], new Set([1]));
+    expect(lines).toEqual([]);
+  });
+
+  it('caps the list and says how many pages it left out', () => {
+    const pages = Array.from({ length: 9 }, (_, i) => page(i + 1, [{ code: 'invisible_text', severity: 'error' }]));
+    const lines: string[] = [];
+    appendPageWarnings(lines, pages, new Set(pages.map((p) => p.page)));
+    expect(lines.filter((line) => line.startsWith('> - p.'))).toHaveLength(5);
+    expect(lines.join('\n')).toContain('4 further page(s) with warnings omitted');
+  });
 });
 
 describe('searchWarningCollector', () => {

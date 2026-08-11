@@ -109,7 +109,14 @@ export async function processDocument(filePath: string, options: ProcessDocument
     renderVisualRegions,
     attachmentOutputDir,
   });
-  if (cachedResult) return cachedResult;
+  if (cachedResult) {
+    // Warnings are part of the answer, not commentary on how it was
+    // produced: "matches on this page hit the cap" and "the range ran
+    // past the last page" describe the result itself. Replaying them
+    // keeps the second identical call as honest as the first.
+    for (const message of cachedResult.warnings) options.onWarning?.(message);
+    return cachedResult.result;
+  }
 
   // A regex-mode search interrupted by the per-page time budget produced
   // an incomplete result. Caching it would serve that silent zero on
@@ -117,9 +124,15 @@ export async function processDocument(filePath: string, options: ProcessDocument
   // fire while actually searching — so track the interruption and skip
   // the cache write below.
   let searchInterrupted = false;
+  const emittedWarnings: string[] = [];
+  const recordWarning = (message: string): void => {
+    if (emittedWarnings.length < MAX_CACHED_WARNINGS) emittedWarnings.push(message);
+    else if (emittedWarnings.length === MAX_CACHED_WARNINGS) emittedWarnings.push(CACHED_WARNINGS_TRUNCATED);
+    options.onWarning?.(message);
+  };
   const onSearchWarning = (message: string): void => {
     if (isRegexTimeoutWarning(message)) searchInterrupted = true;
-    options.onWarning?.(message);
+    recordWarning(message);
   };
 
   // pdfjs-dist is multiple MB and dominates startup time; only pull it in
@@ -146,7 +159,11 @@ export async function processDocument(filePath: string, options: ProcessDocument
   const restorePdfJsWarningCapture = capturePdfJsWarnings(pdfJsWarnings);
   try {
     const totalPages = doc.numPages;
-    const pageNumbers = await resolvePageNumbers({ doc, options, renderRegion });
+    const pageNumbers = await resolvePageNumbers({
+      doc,
+      options: { ...options, onWarning: recordWarning },
+      renderRegion,
+    });
 
     const {
       metadata,
@@ -186,7 +203,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       // same-named PNG there may belong to a different PDF).
       const pagesOptions = options.renderOutput
         ? {
-            outputPaths: resolveFlatRenderPaths(imagesDir as string, pageNumbers, renderRegion, options.onWarning),
+            outputPaths: resolveFlatRenderPaths(imagesDir as string, pageNumbers, renderRegion, recordWarning),
             reuse: false,
           }
         : undefined;
@@ -283,7 +300,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       imagesDir,
       flatImagesDir: options.renderOutput !== undefined,
       renderScale,
-      onWarning: options.onWarning,
+      onWarning: recordWarning,
     });
     // OCR runs after the main pass so it can attach to already-built
     // PageResults. The pdfjs-derived `text` stays untouched — agents that
@@ -377,7 +394,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       pages,
     };
 
-    if (!searchInterrupted) writeCachedResult(cacheDir, cacheKey, result);
+    if (!searchInterrupted) writeCachedResult(cacheDir, cacheKey, result, emittedWarnings);
 
     return result;
   } finally {
@@ -392,6 +409,15 @@ export async function processDocument(filePath: string, options: ProcessDocument
  * Returns a formatted Markdown, JSON, XML, or TOON string. Library callers
  * usually want `processDocument()` instead.
  */
+/**
+ * Warnings recorded for replay on a later cache hit. Bounded because the
+ * per-page ones (match cap, OCR notes) scale with the document, and the
+ * cache entry should not grow without limit to carry them. Past the cap
+ * the count is reported rather than silently dropped.
+ */
+const MAX_CACHED_WARNINGS = 50;
+const CACHED_WARNINGS_TRUNCATED = `more than ${MAX_CACHED_WARNINGS} warnings were emitted on the run this cached result came from; re-run with --no-cache (or MCP: a different page range) to see the rest`;
+
 export async function processFile(filePath: string, options: ProcessOptions): Promise<string> {
   validateProcessFileOptions(options);
   const result = await processDocument(filePath, buildProcessDocumentOptions(options));

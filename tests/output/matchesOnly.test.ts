@@ -68,15 +68,52 @@ describe('formatMatchesOnly', () => {
     expect(out).toMatch(/^# \/tmp\/attention\.pdf\n/);
     expect(out).toContain('- **Pages:** 15');
     expect(out).toContain('- **Matches:** 3 ("BLEU") on page 1');
-    expect(out).toContain('| Page | Query | Source | Text | Context | BBox |');
+    expect(out).toContain('| Page | Query | Source | Text | Context | BBox | Region |');
     expect(out).toContain(
-      '| 1 | BLEU | native | BLEU | less time to train. Our model achieves 28.4 BLEU on the WMT 2014 English- | 340.31,487.37,17.86,9.96 |',
+      '| 1 | BLEU | native | BLEU | less time to train. Our model achieves 28.4 BLEU on the WMT 2014 English- | 340.31,487.37,17.86,9.96 | 280.31,475.37,137.86,33.96 |',
     );
     // No per-page bodies, pages[] scaffolding, or Overview table.
     expect(out).not.toContain('## Page');
     expect(out).not.toContain('Overview');
     // Exactly one table header.
     expect(out.match(/\| Page \| Query \|/g)).toHaveLength(1);
+  });
+
+  it('reports a crop-ready region grown to the row the hit sits in', () => {
+    const hit = { x: 70, y: 179, width: 57, height: 9 };
+    const page = makePage({
+      page: 1,
+      matches: [match({ page: 1, query: 'Total net sales', text: 'Total net sales', bbox: hit, boxes: [hit] })],
+      layout: {
+        blocks: [],
+        tables: [
+          {
+            x: 52,
+            y: 100,
+            width: 510,
+            height: 644,
+            rowCount: 1,
+            columnCount: 2,
+            rows: [
+              {
+                y: 179,
+                height: 9,
+                cells: [
+                  { text: 'Total net sales (1)', x: 70, y: 179, width: 66, height: 9 },
+                  { text: '383,285', x: 526, y: 179, width: 35, height: 9 },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    });
+    const parsed = JSON.parse(formatMatchesOnly(makeResult([page]), 'json', ['Total net sales']));
+
+    // bbox hugs the label; region has to reach the value at x=526, or the
+    // CLI's own search -> --render-region flow crops the numbers away.
+    expect(parsed.matches[0].bbox).toEqual(hit);
+    expect(parsed.matches[0].region.x + parsed.matches[0].region.width).toBeGreaterThanOrEqual(561);
   });
 
   it('json: flat structure with no pages[] array', () => {
@@ -91,6 +128,7 @@ describe('formatMatchesOnly', () => {
       text: 'BLEU',
       context: 'less time to train. Our model achieves 28.4 BLEU on the WMT 2014 English-',
       bbox: { x: 340.31, y: 487.37, width: 17.86, height: 9.96 },
+      region: { x: 280.31, y: 475.37, width: 137.86, height: 33.96 },
     });
     // The query STRING is not repeated per entry — consumers key off
     // queryIndex against the top-level queries array.
@@ -103,7 +141,7 @@ describe('formatMatchesOnly', () => {
     expect(out).toContain('<queries>');
     expect(out).toContain('<query>BLEU</query>');
     expect(out).toContain(
-      '<match page="1" queryIndex="0" source="native" x="340.31" y="487.37" width="17.86" height="9.96">',
+      '<match page="1" queryIndex="0" source="native" x="340.31" y="487.37" width="17.86" height="9.96" regionX="280.31" regionY="475.37" regionWidth="137.86" regionHeight="33.96">',
     );
     expect(out).toContain('<text>BLEU</text>');
     expect(out).not.toContain('<page ');

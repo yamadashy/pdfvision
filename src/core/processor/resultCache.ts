@@ -11,6 +11,26 @@ interface ReadCachedResultOptions {
   attachmentOutputDir?: string;
 }
 
+/**
+ * What a cache hit has to reproduce.
+ *
+ * `result` alone is not the whole answer: some facts about a run only
+ * ever reached the caller through `onWarning` — a page whose matches hit
+ * the per-page cap, a page range that ran past the end of the document.
+ * Replaying the result without them turned an admittedly-partial answer
+ * into an apparently-complete one on every call after the first, which
+ * is the failure mode this tool exists to prevent.
+ */
+export interface CachedRun {
+  result: DocumentResult;
+  warnings: string[];
+}
+
+interface CachedPayload {
+  result: DocumentResult;
+  warnings?: string[];
+}
+
 export function readCachedResult({
   cacheDir,
   cacheKey,
@@ -18,13 +38,20 @@ export function readCachedResult({
   render,
   renderVisualRegions,
   attachmentOutputDir,
-}: ReadCachedResultOptions): DocumentResult | null {
+}: ReadCachedResultOptions): CachedRun | null {
   if (!cacheDir) return null;
   const cached = getCached(cacheDir, cacheKey);
   if (!cached) return null;
 
   try {
-    const result = JSON.parse(cached) as DocumentResult;
+    const payload = JSON.parse(cached) as CachedPayload;
+    const result = payload.result;
+    // A payload written by a version with a different shape is not
+    // recoverable field by field; treat it like a corrupt entry.
+    if (!result || !Array.isArray(result.pages)) {
+      dropCachedSafe(cacheDir, cacheKey);
+      return null;
+    }
     // For --render, ensure each referenced PNG is a regular non-empty
     // file (not a symlink, not a partial write left from a crash).
     const imagesUsable =
@@ -39,7 +66,7 @@ export function readCachedResult({
       // at a different path would otherwise return the original `file`
       // value. Patch in the current invocation's path before returning.
       result.file = filePath;
-      return result;
+      return { result, warnings: payload.warnings ?? [] };
     }
     dropCachedSafe(cacheDir, cacheKey);
   } catch {
@@ -50,7 +77,13 @@ export function readCachedResult({
   return null;
 }
 
-export function writeCachedResult(cacheDir: string | null, cacheKey: string, result: DocumentResult): void {
+export function writeCachedResult(
+  cacheDir: string | null,
+  cacheKey: string,
+  result: DocumentResult,
+  warnings: readonly string[] = [],
+): void {
   if (!cacheDir) return;
-  setCache(cacheDir, cacheKey, JSON.stringify(result));
+  const payload: CachedPayload = { result, ...(warnings.length > 0 && { warnings: [...warnings] }) };
+  setCache(cacheDir, cacheKey, JSON.stringify(payload));
 }
