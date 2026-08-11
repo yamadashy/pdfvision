@@ -278,8 +278,8 @@ An ownership marker authorizes recursive clearing; broad, unmarked custom, or
 otherwise unverified roots are refused.
 
 Anything named \`clear-cache\` in the current directory makes the invocation
-ambiguous and is refused rather than guessed at — pass \`./clear-cache\` to read
-that file, or clear the cache from another directory.
+ambiguous and is refused rather than guessed at — pass \`./clear-cache\` if that
+path is the input you meant, or clear the cache from another directory.
 
 Environment
   PDFVISION_CACHE_DIR

@@ -44,4 +44,16 @@ describe('resolveMcpCommand terminal flags', () => {
       message: expect.stringContaining('"--json"'),
     });
   });
+
+  it.each([
+    ['-vh', 'version'],
+    ['-hv', 'version'],
+    ['-hh', 'help'],
+  ])('reads the clustered short flags in `mcp %s` as %s', (flag, kind) => {
+    expect(resolveMcpCommand(['mcp', flag])).toEqual({ kind });
+  });
+
+  it.each([['-vj'], ['-x'], ['-']])('rejects `mcp %s`', (flag) => {
+    expect(resolveMcpCommand(['mcp', flag])?.kind).toBe('error');
+  });
 });

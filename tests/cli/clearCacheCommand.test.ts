@@ -28,6 +28,21 @@ describe('resolveClearCacheCommand', () => {
     expect(command).toMatchObject({ kind: 'error', message: expect.stringContaining('"--json"') });
   });
 
+  // parseArgs expands clustered short flags for the extraction CLI, so the
+  // subcommands have to read them the same way.
+  it.each([
+    ['-vh', 'version'],
+    ['-hv', 'version'],
+    ['-vv', 'version'],
+    ['-hh', 'help'],
+  ])('reads the clustered short flags in `clear-cache %s` as %s', (flag, kind) => {
+    expect(resolveClearCacheCommand(['clear-cache', flag], noFiles)).toEqual({ kind });
+  });
+
+  it.each([['-vj'], ['-x'], ['-']])('rejects `clear-cache %s`', (flag) => {
+    expect(resolveClearCacheCommand(['clear-cache', flag], noFiles)?.kind).toBe('error');
+  });
+
   it('answers --help without consulting the filesystem', () => {
     expect(resolveClearCacheCommand(['clear-cache', '--help'], () => true)).toEqual({ kind: 'help' });
   });

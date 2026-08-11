@@ -62,7 +62,7 @@ export function resolveClearCacheCommand(
       kind: 'error',
       message:
         `"clear-cache" is a subcommand, but "clear-cache" also exists in this directory. ` +
-        `Pass "./clear-cache" to read that file, or clear the cache from another directory.`,
+        `Pass "./clear-cache" if that path is the input you meant, or clear the cache from another directory.`,
     };
   }
 
