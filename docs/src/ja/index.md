@@ -5,7 +5,7 @@ titleTemplate: AI エージェント向け PDF 信号抽出
 hero:
   name: pdfvision
   text: AI エージェントに人間のような PDF 視覚を
-  tagline: PDF からテキスト、レイアウト、視覚領域、OCR、メタデータ、警告、レンダリング画像を抽出し、エージェントが単一の平坦なテキストではなく PDF 上の根拠を確認できるようにします。
+  tagline: PDF の抽出は静かに失敗します。空のスキャン、化けた字形、崩れた段組みは、どれも成功したかのように返ってきます。pdfvision はそれをページ単位で警告し、次に取るべき手段まで示します。
   image:
     src: /logo.svg
     alt: pdfvision
