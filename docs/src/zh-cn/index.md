@@ -5,7 +5,7 @@ titleTemplate: 面向 AI 智能体的 PDF 信号提取
 hero:
   name: pdfvision
   text: 让 AI 智能体具备类似人的 PDF 视觉
-  tagline: 从 PDF 中提取文本、布局、视觉区域、OCR、元数据、警告和页面渲染图像，让智能体能够检查 PDF 证据，而不是只依赖单一的扁平文本流。
+  tagline: PDF 提取会悄无声息地失败：空白扫描件、乱码字形、错乱的分栏，返回时都像是成功的结果。pdfvision 会逐页标记它们，并指出下一步该怎么做。
   image:
     src: /logo.svg
     alt: pdfvision

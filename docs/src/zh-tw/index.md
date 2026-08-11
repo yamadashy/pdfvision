@@ -5,7 +5,7 @@ titleTemplate: 面向 AI 代理的 PDF 訊號擷取
 hero:
   name: pdfvision
   text: 讓 AI 代理具備類似人的 PDF 視覺
-  tagline: 從 PDF 中擷取文字、版面、視覺區域、OCR、metadata、警告與頁面渲染影像，讓代理能檢查 PDF 證據，而不是只依賴單一扁平文字流。
+  tagline: PDF 擷取會悄無聲息地失敗：空白掃描件、亂碼字形、錯亂的分欄，回傳時都像是成功的結果。pdfvision 會逐頁標記它們，並指出下一步該怎麼做。
   image:
     src: /logo.svg
     alt: pdfvision

@@ -7,7 +7,7 @@ description: Start using pdfvision to extract PDF text, layout, rendered pages, 
 
 pdfvision is a CLI and library for reading PDFs the way an AI agent needs to read them: page by page, with text, layout, images, OCR, and warnings available together.
 
-It is designed around a simple rule: **the agent decides; pdfvision delivers the evidence.** Instead of returning only a flattened text stream, pdfvision exposes enough signals for the agent to notice when native extraction is incomplete and choose the next inspection step.
+It is designed around a simple rule: **when extraction goes wrong, say so, and say what to do next.** Every warning names the symptom and the remedy, so an agent can act on an incomplete extraction without knowing anything about font maps or content streams. pdfvision never silently substitutes OCR or rendered pixels for native text — it reports what it observed, and the agent decides.
 
 PDFs are not a single content type. A "PDF" can be a native text report, a scanned document, a PowerPoint export, a government form, a table-heavy financial statement, a paper with two-column reading order, a map, a brochure, or a mixture of all of those. pdfvision gives agents a way to adapt instead of forcing every file through one extraction strategy.
 
