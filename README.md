@@ -387,7 +387,7 @@ Exit codes
   0  Success, including --help, --version, and a successful clear-cache
   1  Option-syntax error; multiple positional arguments; semantic argument failure with
      a source; file, network, cache, or extraction failure (error message on stderr);
-     arguments passed to a subcommand
+     unsupported arguments passed to a subcommand
   2  With at most one positional argument, no non-empty positional input or nonblank
      --remote URL was provided (usage printed on stderr)
 ```
