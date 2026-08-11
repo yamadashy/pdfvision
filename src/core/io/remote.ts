@@ -249,7 +249,7 @@ export async function downloadRemoteData(rawUrl: string, options: DownloadRemote
  * resolves to the same on-disk file; subsequent calls without
  * `noCache: true` short-circuit and return the cached path. To pick up
  * an updated remote PDF, pass `noCache: true` or run
- * `pdfvision --clear-cache` to clear the verified pdfvision cache root.
+ * `pdfvision clear-cache` to clear the verified pdfvision cache root.
  *
  * Only `http:` and `https:` URLs are accepted — `file:`, `data:`,
  * `ftp:`, etc. are rejected up front so a stray scheme can't escape
@@ -306,7 +306,7 @@ async function downloadRemoteImpl(
   }
 
   const data = await fetchRemotePdfBytes(rawUrl, options);
-  // Defensive retry: another process running `--clear-cache` (or a
+  // Defensive retry: another process running `clear-cache` (or a
   // concurrent test worker rmSync-ing the cache root) can race the
   // directory setup above and remove the parent dir before we
   // write. Recreate the dirs and try once more on ENOENT before

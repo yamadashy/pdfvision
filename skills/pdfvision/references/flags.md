@@ -145,13 +145,15 @@ Full search schema and normalization rules are in `references/structured-output.
 
 **`--remote` places no restriction on where the URL points.** It follows redirects and will happily fetch `127.0.0.1`, RFC 1918 addresses, and `169.254.169.254` — pdfvision assumes a human typed the URL, so the network it can reach is theirs. That assumption breaks when the URL came from somewhere else: a link inside a PDF, a search result, another tool's output. Fetch those only after asking the user, because the request runs with whatever network position the process has. (The MCP server refuses private, loopback, link-local, CGNAT, and NAT64 destinations by default and re-validates every redirect hop — a deliberate difference, since there the *model* picks the URL. See `references/mcp.md`.)
 
-Option syntax is parsed first, so unknown options or missing values exit `1` even with `--help`. After parsing, terminal precedence is `--version`, then `--help`, then `--clear-cache`; these skip input and extraction-option semantic checks. Otherwise the URL is trimmed before source arbitration. Multiple positional arguments exit `1` before source presence is checked. With at most one positional argument, a nonblank remote URL cannot be combined with a non-empty positional input, while the absence of both prints usage to stderr and exits `2` before extraction, cache setup, or extraction-option semantics. With a usable source, semantic failures exit `1`; clear-cache failures also exit `1`.
+A subcommand (`clear-cache`, `mcp`) is recognized before any option parsing and only as the first argument; arguments passed to one exit `1`, and a real file of that name must be passed as `./clear-cache` / `./mcp`. Option syntax is parsed next, so unknown options or missing values exit `1` even with `--help`. After parsing, terminal precedence is `--version`, then `--help`, then `--clear-cache`; these skip input and extraction-option semantic checks. Otherwise the URL is trimmed before source arbitration. Multiple positional arguments exit `1` before source presence is checked. With at most one positional argument, a nonblank remote URL cannot be combined with a non-empty positional input, while the absence of both prints usage to stderr and exits `2` before extraction, cache setup, or extraction-option semantics. With a usable source, semantic failures exit `1`; clear-cache failures also exit `1`.
 
 ## `--no-cache` — skip the on-disk cache
 
 Forced re-extraction; remote PDF bytes also bypass their cache. OCR traineddata and worker support files still use the validated cache root, while renders without `--render-output` use separate OS-temporary paths. Default behaviour is cache-on.
 
-## `--clear-cache` — clear the verified cache root
+## `clear-cache` — clear the verified cache root
+
+A subcommand, not a flag (`--clear-cache` is a deprecated alias that warns and is removed in v1.0). Because clearing is destructive, it refuses instead of guessing when a file named `clear-cache` exists in the working directory.
 
 `PDFVISION_CACHE_DIR`, when set, must be a nonblank **absolute** path to a **dedicated** directory; anything else is refused at setup.
 

@@ -38,7 +38,7 @@ pdfvision --remote https://example.com/document.pdf --format json
 
 只对用户独立授权的目标使用 `--remote`。它验证响应，但不验证网络目标，也不会阻止私有地址或重定向目标。不要直接传入不可信 URL；应使用下载组件通过允许列表验证每个解析 IP 和重定向节点、固定连接目标，再把本地文件传给 pdfvision，或者把 pdfvision 的下载过程隔离在网络控制之后。详见[安全与隐私](./security-and-privacy.md#远程-pdf)。
 
-远程缓存按 URL 建立。如果一个稳定 URL 的内容会被原地更新，可用 `--no-cache` 做一次新鲜获取，或用 `--clear-cache` 删除缓存副本：
+远程缓存按 URL 建立。如果一个稳定 URL 的内容会被原地更新，可用 `--no-cache` 做一次新鲜获取，或用 `pdfvision clear-cache` 删除缓存副本：
 
 ```bash
 pdfvision --remote https://example.com/document.pdf --no-cache --format json
@@ -143,10 +143,10 @@ printf "your-password\n" | pdfvision encrypted.pdf --password-stdin --format jso
 
 ```bash
 pdfvision document.pdf --no-cache --json
-pdfvision --clear-cache
+pdfvision clear-cache
 ```
 
-pdfvision 会缓存提取结果、渲染图像、远程下载和 OCR 数据，让智能体重复读取同一 PDF 时更快。如果不希望缓存提取结果和远程 PDF 字节，请使用 `--no-cache`；用 `--clear-cache` 删除缓存数据。
+pdfvision 会缓存提取结果、渲染图像、远程下载和 OCR 数据，让智能体重复读取同一 PDF 时更快。如果不希望缓存提取结果和远程 PDF 字节，请使用 `--no-cache`；用 `clear-cache` 子命令删除缓存数据。旧的 `--clear-cache` 标志仍然可用并会发出警告；将在 v1.0 中移除。
 
 当应用需要把缓存放在已知位置时，请将 `PDFVISION_CACHE_DIR` 设为指向专用目录的非空绝对路径。相对路径、`~`、文件系统根目录、主目录、工作目录和共享临时目录都会被拒绝：
 
@@ -154,7 +154,7 @@ pdfvision 会缓存提取结果、渲染图像、远程下载和 OCR 数据，�
 PDFVISION_CACHE_DIR=/secure/pdfvision-cache pdfvision document.pdf --json
 ```
 
-经过所有者检查的 `.pdfvision-cache-root` 标记用于授权递归清理。`--clear-cache` 绝不会采用未标记的自定义根目录；未设置 `PDFVISION_CACHE_DIR` override 时，只能在权限加固前后确认旧版形状后采用当前历史默认根目录。正常使用时，所有未标记根目录都要经过相同扫描。在 POSIX 上，带有 group/other 写权限的未标记根目录会被拒绝；每个祖先还必须可读/open、由当前用户或 root 拥有，并且不可写或有安全的 sticky 保护。移入 quarantine 后，POSIX 清理会比较 `st_dev`，若不一致则拒绝递归删除；原路径此时已经移动，且同一 device 的 bind mount 无法检测。身份检查仅在传统 POSIX uid/mode/sticky semantics 下增强替换防护；不会检查 ACL 或网络文件系统权限，也无法排除最终检查后由 root 或同一 UID 发起的替换。Windows 只能提供 best-effort 防护。清理不与正在运行的 OCR 协调；请重试被中断的 OCR。
+经过所有者检查的 `.pdfvision-cache-root` 标记用于授权递归清理。`clear-cache` 绝不会采用未标记的自定义根目录；未设置 `PDFVISION_CACHE_DIR` override 时，只能在权限加固前后确认旧版形状后采用当前历史默认根目录。正常使用时，所有未标记根目录都要经过相同扫描。在 POSIX 上，带有 group/other 写权限的未标记根目录会被拒绝；每个祖先还必须可读/open、由当前用户或 root 拥有，并且不可写或有安全的 sticky 保护。移入 quarantine 后，POSIX 清理会比较 `st_dev`，若不一致则拒绝递归删除；原路径此时已经移动，且同一 device 的 bind mount 无法检测。身份检查仅在传统 POSIX uid/mode/sticky semantics 下增强替换防护；不会检查 ACL 或网络文件系统权限，也无法排除最终检查后由 root 或同一 UID 发起的替换。Windows 只能提供 best-effort 防护。清理不与正在运行的 OCR 协调；请重试被中断的 OCR。
 
 `--no-cache` 会跳过提取缓存和远程 PDF 缓存，但未指定 `--render-output` 的渲染 PNG 会使用单独的操作系统临时路径，显式渲染输出仍会写入指定位置。`--ocr` 仍会在经过验证的缓存根目录下持久保存 traineddata 和 worker support files。因此，即使设置了 `--no-cache`，无效的 `PDFVISION_CACHE_DIR` 仍会导致 OCR 运行失败。
 

@@ -134,10 +134,13 @@ Responses are budgeted (30k chars of body, 100 matches, 4 images per call) and e
 ```text
 pdfvision - Extract text, images, metadata, and layout from PDF files for AI agents
 
+Command shape: options are for reading a PDF; anything else is a subcommand.
+(--help and --version are the usual exceptions, and work anywhere.)
+
 Usage:
   pdfvision <file.pdf> [options]
   pdfvision --remote <url> [options]
-  pdfvision --clear-cache
+  pdfvision clear-cache
   pdfvision mcp
 
 Common flows
@@ -311,33 +314,37 @@ Options
                           whitespace is trimmed; a blank value does not count as an input source.
       --no-cache          Skip extraction and remote-PDF caches (re-download / re-extract).
                           OCR support files still use the validated on-disk cache root.
-      --clear-cache       Remove cached extractions, rendered PNGs, remote PDFs, and OCR
+      --clear-cache       Deprecated alias for the `clear-cache` subcommand; still works, still
+                          warns, removed in v1.0.
+  -v, --version           Show version
+  -h, --help              Show this help
+
+Subcommands
+  clear-cache             Remove cached extractions, rendered PNGs, remote PDFs, and OCR
                           support data, then exit. No file argument required. PDFVISION_CACHE_DIR,
                           when set, must be a nonblank absolute path to a dedicated directory.
                           An ownership marker authorizes recursive clearing; broad, unmarked custom,
                           or otherwise unverified roots are refused. POSIX ownership and no-follow
                           checks are stronger; Windows replacement resistance is best effort.
-  -v, --version           Show version
-  -h, --help              Show this help
-
-Subcommands
   mcp                     Serve pdfvision over the Model Context Protocol on stdio, for hosts
                           that cannot run a shell (Claude Desktop, Cursor, Cline, Zed, n8n).
                           Exposes three tools — read_pdf, search_pdf, render_pdf — rather than
                           the flags above; see "pdfvision mcp --help". Prefer the CLI plus the
                           bundled agent skill in shell-capable agents: MCP tool schemas stay in the
                           host's context for the whole session, a skill loads on demand.
-                          Resolved before option parsing and takes no arguments, so a file
-                          actually named `mcp` must be passed as `./mcp`.
 
 Argument handling
-  Option syntax is parsed first; an unknown option or missing option value exits 1 even
+  A subcommand is recognized only as the first argument, before any option parsing, and
+  takes no options of its own beyond --help. A file actually named `mcp` or `clear-cache`
+  must therefore be passed as `./mcp` / `./clear-cache`; because clearing is destructive,
+  `clear-cache` refuses instead of guessing when such a file exists in the directory.
+  Option syntax is parsed next; an unknown option or missing option value exits 1 even
   when --help is present. After successful parsing, terminal precedence is --version,
   then --help, then --clear-cache; these skip input and extraction-option semantic checks.
   Otherwise, multiple positional arguments exit 1 before source presence is checked.
   With at most one positional argument, the absence of both a non-empty positional input
   and a nonblank --remote URL prints usage to stderr and exits 2. With a source, semantic
-  and other handled failures exit 1; a --clear-cache failure also exits 1.
+  and other handled failures exit 1; a cache-clearing failure also exits 1.
 
 Output formats
   markdown (default)  Per-page sections, density Overview table, image links inline. For LLM context.
@@ -373,12 +380,13 @@ Examples
   pdfvision scan.pdf --ocr --json                                              # OCR a scanned PDF
   pdfvision scan-ja.pdf --ocr --ocr-lang jpn+eng --json                        # multi-lang OCR
   pdfvision --remote https://example.com/paper.pdf --json                      # fetch + extract JSON
-  pdfvision --clear-cache                                                      # clear the verified pdfvision cache
+  pdfvision clear-cache                                                        # clear the verified pdfvision cache
 
 Exit codes
-  0  Success, including --help, --version, and a successful --clear-cache
+  0  Success, including --help, --version, and a successful clear-cache
   1  Option-syntax error; multiple positional arguments; semantic argument failure with
-     a source; file, network, cache, or extraction failure (error message on stderr)
+     a source; file, network, cache, or extraction failure (error message on stderr);
+     arguments passed to a subcommand
   2  With at most one positional argument, no non-empty positional input or nonblank
      --remote URL was provided (usage printed on stderr)
 ```
@@ -459,7 +467,7 @@ Exports: `processDocument`, `processFile`, `parsePageRange`, plus full type defi
 
 Results land under `<os-tmp>/pdfvision/<sha256-prefix>/` keyed by file content. To override the location, set `PDFVISION_CACHE_DIR` to a nonblank absolute path naming a dedicated cache directory; relative paths, `~`, filesystem roots, home, the working directory, and shared temporary roots are refused. Dedicated descendants such as `/tmp/my-app/pdfvision` remain valid.
 
-Each initialized root contains an owned `.pdfvision-cache-root` marker that authorizes recursive clearing. `pdfvision --clear-cache` validates the canonical root and marker, moves that root to a randomized sibling quarantine, and revalidates it immediately before path-based recursive removal. Unmarked custom roots are never adopted by a clear. When no `PDFVISION_CACHE_DIR` override is set, the active historical default may be adopted only if every top-level entry matches a recognized legacy cache shape; normal cache use applies the same complete pre/post-hardening scan to every unmarked root. On POSIX, unmarked roots that are group/other writable are refused before mutation. Unknown entries, invalid markers, symlinks, and unverified roots are refused without being cleared.
+Each initialized root contains an owned `.pdfvision-cache-root` marker that authorizes recursive clearing. `pdfvision clear-cache` validates the canonical root and marker, moves that root to a randomized sibling quarantine, and revalidates it immediately before path-based recursive removal. Unmarked custom roots are never adopted by a clear. When no `PDFVISION_CACHE_DIR` override is set, the active historical default may be adopted only if every top-level entry matches a recognized legacy cache shape; normal cache use applies the same complete pre/post-hardening scan to every unmarked root. On POSIX, unmarked roots that are group/other writable are refused before mutation. Unknown entries, invalid markers, symlinks, and unverified roots are refused without being cleared.
 
 On POSIX, cache roots and markers are owner-checked with `0700` / `0600` permissions. Every path ancestor used for setup or clearing must be readable/openable by the process, owned by the current user or root, and non-group/other-writable unless sticky-directory semantics protect the owned child entry. These checks and immediate no-follow identity rechecks resist replacement under conventional POSIX ownership/mode/sticky semantics; extended ACLs and network-filesystem permission semantics are not inspected and can weaken that protection, and Node's path-based removal cannot exclude root or same-UID replacement after the final check. After the quarantine rename, POSIX clearing compares device identity (`st_dev`) throughout the tree and refuses recursive removal on a mismatch; the original pathname has already moved, and same-device bind mounts are not detected. Windows rejects drive/UNC roots and leaf links or junctions, validates the marker, and rechecks available identities, but replacement resistance is best effort. Cache clearing is not coordinated with active OCR; retry an OCR run if clearing interrupts it.
 

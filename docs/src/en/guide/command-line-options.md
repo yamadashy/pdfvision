@@ -17,7 +17,7 @@ This page groups the CLI flags by task. Run `pdfvision --help` for the exact hel
 | `--password <value>` | Open an encrypted PDF with a password. The password is not emitted in output. |
 | `--password-stdin` | Read the encrypted PDF password from piped stdin. Falls back to `--password` if stdin is empty. |
 
-CLI option syntax is parsed first: an unknown option or missing option value exits `1`, even when `--help` is present. After successful parsing, terminal precedence is `--version`, then `--help`, then `--clear-cache`; these skip input and extraction-option semantic checks. Otherwise, pdfvision trims `--remote`. Multiple positional arguments exit `1` before source presence is checked. With at most one positional argument, pdfvision checks for a non-empty positional input or nonblank `--remote` URL and—with neither—prints full usage to stderr and exits `2` before extraction, cache setup, or extraction-option semantic validation. With a usable source, semantic argument failures exit `1`; a `--clear-cache` failure also exits `1`.
+A subcommand is recognized first, before any option parsing, and only as the first argument; arguments passed to one exit `1`. CLI option syntax is parsed next: an unknown option or missing option value exits `1`, even when `--help` is present. After successful parsing, terminal precedence is `--version`, then `--help`, then `--clear-cache`; these skip input and extraction-option semantic checks. Otherwise, pdfvision trims `--remote`. Multiple positional arguments exit `1` before source presence is checked. With at most one positional argument, pdfvision checks for a non-empty positional input or nonblank `--remote` URL and—with neither—prints full usage to stderr and exits `2` before extraction, cache setup, or extraction-option semantic validation. With a usable source, semantic argument failures exit `1`; a cache-clearing failure also exits `1`.
 
 ## Output Format
 
@@ -96,14 +96,25 @@ OCR never replaces `pages[].text`; it is added beside the native text so the age
 | Option | Purpose |
 | --- | --- |
 | `--no-cache` | Skip extraction and remote-PDF caches. OCR support files still use the validated cache root; renders without `--render-output` use separate OS-temporary paths. |
-| `--clear-cache` | Clear the configured cache root only after verifying its pdfvision ownership marker, then exit. Unsafe, broad, unmarked custom, or otherwise unverified roots are refused. |
+| `--clear-cache` | Deprecated alias for the `clear-cache` subcommand. It still clears the cache and prints a warning; it is removed in v1.0. |
 | `-v, --version` | Print the pdfvision version. |
 | `-h, --help` | Print CLI help. |
+
+## Subcommands
+
+Options describe how to read a PDF. Anything that does not read a PDF is a subcommand, recognized only as the first argument and taking no options of its own beyond `--help`. `--help` and `--version` are the usual exceptions and work anywhere.
+
+| Subcommand | Purpose |
+| --- | --- |
+| `clear-cache` | Clear the configured cache root only after verifying its pdfvision ownership marker, then exit. Unsafe, broad, unmarked custom, or otherwise unverified roots are refused. |
+| `mcp` | Serve pdfvision over the Model Context Protocol on stdio. See [MCP Server](./mcp-server.md). |
+
+A file actually named `mcp` or `clear-cache` must be passed as `./mcp` or `./clear-cache`. Because clearing is destructive, `clear-cache` refuses with exit code `1` instead of guessing when such a file exists in the working directory.
 
 ## Exit Codes
 
 | Code | Meaning |
 | --- | --- |
-| `0` | Success, including `--help`, `--version`, and a successful `--clear-cache`. |
+| `0` | Success, including `--help`, `--version`, and a successful `clear-cache`. |
 | `1` | Option-syntax error; multiple positional arguments; semantic argument failure with a usable source; file, network, cache, clear-cache, or extraction failure. The error message is printed to stderr. |
 | `2` | With at most one positional argument, no non-empty positional input or nonblank `--remote` URL was provided. Full usage is printed to stderr. |

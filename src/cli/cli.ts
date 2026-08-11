@@ -1,7 +1,8 @@
 import { parseArgs } from 'node:util';
+import { resolveClearCacheCommand } from './clearCacheCommand.js';
 import { exitWithError, formatCliErrorMessage } from './errors.js';
 import { resolveOutputFormat } from './format.js';
-import { HELP_TEXT, MCP_HELP_TEXT } from './help.js';
+import { CLEAR_CACHE_HELP_TEXT, HELP_TEXT, MCP_HELP_TEXT } from './help.js';
 import { readPasswordFromStdin, resolveInputSource } from './input.js';
 import { resolveMcpCommand } from './mcpCommand.js';
 import { resolveRenderOptions } from './renderOptions.js';
@@ -36,19 +37,47 @@ function emitOutputSizeNote(result: string, options: { mapped?: boolean } = {}):
   );
 }
 
+// Root ownership is verified before removal. Lazy-import so the heavy
+// node:fs surface stays out of the --help / --version paths.
+async function clearCache(): Promise<void> {
+  try {
+    const { clearAllCache } = await import('../core/io/cache.js');
+    const { path, removed } = clearAllCache();
+    console.log(removed ? `Cleared pdfvision cache: ${path}` : `Nothing to clear: ${path} does not exist`);
+  } catch (error) {
+    exitWithError(formatCliErrorMessage(error));
+  }
+}
+
 export async function run(argv: string[] = process.argv.slice(2), options: RunOptions = {}): Promise<void> {
   // Resolved before parseArgs: `pdfvision mcp` starts a long-lived stdio
   // server with no CLI options of its own, and the MCP SDK is imported
   // lazily so a normal extraction run never pays for loading it.
   const mcpCommand = resolveMcpCommand(argv);
   if (mcpCommand) {
-    if (mcpCommand.kind === 'error') exitWithError(mcpCommand.message);
+    if (mcpCommand.kind === 'error') exitWithError(mcpCommand.message, 'pdfvision mcp --help');
     if (mcpCommand.kind === 'help') {
       console.log(MCP_HELP_TEXT);
       return;
     }
     const { serveMcpStdio } = await import('../mcp/serve.js');
     serveMcpStdio();
+    return;
+  }
+
+  // Same pre-parse treatment as `mcp`: the subcommand takes no options,
+  // and resolving it here keeps the deprecated `--clear-cache` flag on the
+  // ordinary option path below without the two competing.
+  const clearCacheCommand = resolveClearCacheCommand(argv);
+  if (clearCacheCommand) {
+    if (clearCacheCommand.kind === 'error') {
+      exitWithError(clearCacheCommand.message, 'pdfvision clear-cache --help');
+    }
+    if (clearCacheCommand.kind === 'help') {
+      console.log(CLEAR_CACHE_HELP_TEXT);
+      return;
+    }
+    await clearCache();
     return;
   }
 
@@ -135,17 +164,14 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
 
   if (values['clear-cache']) {
     // --clear-cache is a side-effect operation that ignores everything
-    // else: no extraction runs and no positional is needed. Root ownership
-    // is verified before removal. Lazy-import to keep the heavy node:fs
-    // surface out of --help / --version paths.
-    try {
-      const { clearAllCache } = await import('../core/io/cache.js');
-      const { path, removed } = clearAllCache();
-      console.log(removed ? `Cleared pdfvision cache: ${path}` : `Nothing to clear: ${path} does not exist`);
-      return;
-    } catch (error) {
-      exitWithError(formatCliErrorMessage(error));
-    }
+    // else: no extraction runs and no positional is needed. Reached only
+    // after --version / --help so a composed invocation cannot mutate
+    // cache state merely because the user also asked for help.
+    console.error(
+      'note: --clear-cache is deprecated; use "pdfvision clear-cache" instead (the flag is removed in v1.0)',
+    );
+    await clearCache();
+    return;
   }
 
   // Normalize before deciding which input source is present. A whitespace-

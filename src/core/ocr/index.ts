@@ -116,7 +116,7 @@ export function parseOcrLang(lang: string): string[] {
  * with an actionable message instead of crashing inside the import.
  *
  * The traineddata cache is parked under our own cache root so a
- * `pdfvision --clear-cache` wipes OCR state in the same step as
+ * `pdfvision clear-cache` wipes OCR state in the same step as
  * extraction state, and so the data lands under `0700` perms instead
  * of an arbitrary cwd.
  */
