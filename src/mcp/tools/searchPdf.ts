@@ -138,11 +138,14 @@ export async function searchPdf(input: SearchPdfInput): Promise<ToolResult> {
 
   lines.push(...warningLog.lines());
 
+  // This response replaces whatever the previous one filed for this
+  // source, which is what the ref contract promises: a handle from an
+  // older search must not still resolve. A search that found nothing
+  // replaces it too — that is exactly the case where a leftover ref
+  // would render evidence for a question no longer being asked.
+  forgetRefs(input.source);
+
   if (hits.length > 0) {
-    // This hit list replaces whatever the previous response filed for
-    // this source, which is what the ref contract promises: a handle
-    // from an older search must not still resolve.
-    forgetRefs(input.source);
     lines.push('', 'Each hit carries a `ref` — pass it straight to `render_pdf` instead of copying coordinates.', '');
     for (const { page, match, index } of hits.slice(0, MAX_MATCHES)) {
       const ref = matchRef(page.page, index);

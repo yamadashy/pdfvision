@@ -126,8 +126,10 @@ export async function processDocument(filePath: string, options: ProcessDocument
   let searchInterrupted = false;
   const emittedWarnings: string[] = [];
   const recordWarning = (message: string): void => {
-    if (emittedWarnings.length < MAX_CACHED_WARNINGS) emittedWarnings.push(message);
-    else if (emittedWarnings.length === MAX_CACHED_WARNINGS) emittedWarnings.push(CACHED_WARNINGS_TRUNCATED);
+    // The last retained slot becomes the overflow note rather than a
+    // 51st entry, so the stored list never exceeds the stated cap.
+    if (emittedWarnings.length < MAX_CACHED_WARNINGS - 1) emittedWarnings.push(message);
+    else if (emittedWarnings.length === MAX_CACHED_WARNINGS - 1) emittedWarnings.push(CACHED_WARNINGS_TRUNCATED);
     options.onWarning?.(message);
   };
   const onSearchWarning = (message: string): void => {

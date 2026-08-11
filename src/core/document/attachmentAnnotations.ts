@@ -12,7 +12,10 @@ interface PdfFileAttachment {
 }
 
 export async function collectFileAttachmentAnnotations(doc: PDFDocumentProxy): Promise<Record<string, unknown> | null> {
-  const attachments: Record<string, unknown> = {};
+  // Null-prototype: the record key is a PDF-supplied filename, and a file
+  // called `__proto__` assigned onto a plain object invokes the prototype
+  // setter instead of becoming an entry — the attachment would vanish.
+  const attachments: Record<string, unknown> = Object.create(null);
   let index = 1;
 
   for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber++) {

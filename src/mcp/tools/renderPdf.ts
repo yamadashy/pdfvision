@@ -138,17 +138,13 @@ export async function renderPdf(input: RenderPdfInput): Promise<ToolResult> {
   // guessing 1 here is how a `/UserUnit 10` page renders ten times over
   // the budget. Rendered pixels are raw units x UserUnit x scale.
   const sized = await processDocument(resolved.filePath, { ...base, pages });
-  const userUnit = Math.max(...sized.pages.map((page) => page.userUnit ?? 1));
-  const rawLongestEdge = region
-    ? Math.max(region.width, region.height)
-    : Math.max(...sized.pages.map((page) => Math.max(page.width, page.height)));
-  const longestEdge = rawLongestEdge * userUnit;
-
-  // Everything this response is about to hand out replaces the previous
-  // set for this source, which is what the ref contract promises. Done
-  // after the `ref` lookup above so a ref can still resolve on the call
-  // that consumes it.
-  forgetRefs(input.source);
+  // Per page, not the largest raw edge times the largest UserUnit: those
+  // two maxima can belong to different pages, and their product is an
+  // edge no raster in the request actually has — which would shrink every
+  // image in the batch to fit a page that does not exist.
+  const longestEdge = region
+    ? Math.max(region.width, region.height) * (sized.pages[0]?.userUnit ?? 1)
+    : Math.max(...sized.pages.map((page) => Math.max(page.width, page.height) * (page.userUnit ?? 1)));
 
   const scale = scaleFor(longestEdge);
   const result = await processDocument(resolved.filePath, {
@@ -162,6 +158,13 @@ export async function renderPdf(input: RenderPdfInput): Promise<ToolResult> {
     // inside it is noise.
     visualRegions: region === undefined,
   });
+
+  // Everything this response hands out replaces the previous set for this
+  // source, which is what the ref contract promises. Done after the render
+  // succeeded — a call that threw produced no refs, so the last successful
+  // response's refs must stay resolvable — and after the `ref` lookup
+  // above, so a ref still resolves on the call that consumes it.
+  forgetRefs(input.source);
 
   // Report what was rendered, not what was asked for: `pages: "1-2"` on a
   // one-page document silently drops page 2, and echoing the request back
@@ -178,7 +181,7 @@ export async function renderPdf(input: RenderPdfInput): Promise<ToolResult> {
   if (scale < READABLE_MIN_SCALE) {
     lines.push(
       '',
-      `_This page is ${Math.round(rawLongestEdge * userUnit)} units on its longest edge, so fitting the image budget shrank it ${(1 / scale).toFixed(1)}x below normal — text may be unreadable. Render a \`region\` of it instead._`,
+      `_This page is ${Math.round(longestEdge)} physical points on its longest edge, so fitting the image budget shrank it ${(1 / scale).toFixed(1)}x below normal — text may be unreadable. Render a \`region\` of it instead._`,
     );
   }
   // Refs are renumbered from `p1m1` by every call, so one held over from

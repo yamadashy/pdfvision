@@ -28,7 +28,20 @@ export interface CachedRun {
 
 interface CachedPayload {
   result: DocumentResult;
-  warnings?: string[];
+  warnings?: unknown;
+}
+
+/**
+ * A cache file is bytes on disk that another process, an editor, or an
+ * older version may have written. `warnings` is replayed by iterating it,
+ * and a string iterates character by character while a number throws — so
+ * anything but an array of strings is treated as a corrupt entry rather
+ * than trusted into the caller's warning stream.
+ */
+function cachedWarnings(value: unknown): string[] | null {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.some((entry) => typeof entry !== 'string')) return null;
+  return value as string[];
 }
 
 export function readCachedResult({
@@ -61,12 +74,13 @@ export function readCachedResult({
     // present and matches the embedded-file byte length before returning
     // a cached path instead of re-saving the attachment bytes.
     const attachmentsUsable = areUsableAttachments(result.attachments, attachmentOutputDir);
-    if (imagesUsable && attachmentsUsable) {
+    const warnings = cachedWarnings(payload.warnings);
+    if (imagesUsable && attachmentsUsable && warnings) {
       // The cached payload is keyed by content hash, so the same bytes
       // at a different path would otherwise return the original `file`
       // value. Patch in the current invocation's path before returning.
       result.file = filePath;
-      return { result, warnings: payload.warnings ?? [] };
+      return { result, warnings };
     }
     dropCachedSafe(cacheDir, cacheKey);
   } catch {

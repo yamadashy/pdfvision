@@ -215,3 +215,23 @@ describe('processFile warning replay', () => {
     }
   });
 });
+
+describe('processFile matchesOnly', () => {
+  it('reports a region built from layout, without the caller asking for layout', async () => {
+    const out = await processFile(SAMPLE_PDF, {
+      format: 'json',
+      noCache: true,
+      search: 'pdfvision',
+      matchesOnly: true,
+    });
+    const parsed = JSON.parse(out);
+    const [first] = parsed.matches;
+
+    // The option wiring is the point: without layout, cropRegionForBox
+    // falls back to constant padding and this region would equal the
+    // padded glyph box rather than the line the hit sits in.
+    expect(first.region).toBeDefined();
+    expect(first.region.width).toBeGreaterThan(first.bbox.width);
+    expect(first.region.x).toBeLessThanOrEqual(first.bbox.x);
+  });
+});

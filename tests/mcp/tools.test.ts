@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import PDFDocument from 'pdfkit';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { UNTRUSTED_BANNER } from '../../src/mcp/limits.js';
-import { clearRefs } from '../../src/mcp/refs.js';
+import { clearRefs, lookupRef } from '../../src/mcp/refs.js';
 import type { ImageBlock, TextBlock } from '../../src/mcp/result.js';
 import { readPdf } from '../../src/mcp/tools/readPdf.js';
 import { renderPdf } from '../../src/mcp/tools/renderPdf.js';
@@ -203,6 +203,19 @@ describe('search_pdf', () => {
     const again = text(await searchPdf({ source: backtrackPdf, query: '(a+)+$', regex: true }));
     expect(again).toContain('regex time limit');
   }, 40_000);
+});
+
+describe('search_pdf ref lifetime', () => {
+  it('a later search that finds nothing still retires the previous refs', async () => {
+    await searchPdf({ source: SAMPLE, query: 'pdfvision' });
+    expect(lookupRef(SAMPLE, 'p1m1')).toBeDefined();
+
+    await searchPdf({ source: SAMPLE, query: 'definitely-not-here' });
+
+    // The zero-hit search is the answer now; a ref from the previous one
+    // would render evidence for a question no longer being asked.
+    expect(lookupRef(SAMPLE, 'p1m1')).toBeUndefined();
+  });
 });
 
 describe('appendPageWarnings', () => {

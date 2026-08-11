@@ -78,7 +78,7 @@ export function buildAttachmentsWithContent(
 export function mergeAttachmentRecords(
   ...records: (Record<string, unknown> | null | undefined)[]
 ): Record<string, unknown> | null {
-  const merged: Record<string, unknown> = {};
+  const merged: Record<string, unknown> = Object.create(null);
   const seen = new Set<string>();
   let fallbackIndex = 1;
 

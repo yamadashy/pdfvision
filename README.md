@@ -27,7 +27,7 @@ pdfvision turns that silent failure into a recoverable one. When it detects a pr
 
 - **Check before trusting.** Every page carries text coverage and quality signals, not just text. `warnings` name the specific risk: glyph corruption, raster-backed text, flattened tables, reading-order divergence, or text hidden under an opaque fill.
 - **Spend context progressively.** Start with native text, narrow long documents with `-p`, use `--matches-only` for report metadata plus emitted matches without full page bodies, and use TOON when repeated structured rows would make JSON noisy.
-- **Search → zoom → render.** `--search` returns each match with its page and bbox; pass that bbox to `--render-region` to inspect only the evidence that matters.
+- **Search → zoom → render.** `--search` returns each match with its page, its `bbox`, and a crop-ready `region` grown to the table row or line containing it; pass the `region` to `--render-region` to inspect only the evidence that matters. (`bbox` crops to the matched glyphs alone — on a table that shows the row label without its values.)
 
 When the task depends on visual structure, opt into layout blocks, table hints, form fields, visual regions, or OCR without replacing the original native text.
 
@@ -145,10 +145,10 @@ Common flows
                                         when the default pass is not enough.
   pdfvision doc.pdf --search "term" --matches-only
                                         Locate a term without reading the whole body; each match
-                                        reports its page and bbox.
+                                        reports its page, bbox, and a crop-ready region.
   pdfvision doc.pdf -p <page> -r --render-region <x,y,w,h>
-                                        Crop a reported bbox as image evidence (use the bbox
-                                        reported for a match or layout block).
+                                        Crop that region as image evidence (a match's region, or
+                                        a layout block's bbox when there is no term to search).
   pdfvision doc.pdf -p <pages> --ocr    Re-read scanned pages (quality: empty_but_visual_content).
 
 Options
@@ -296,10 +296,11 @@ Options
                           Match case exactly (default: insensitive).
       --matches-only      Emit a focused search report: the file, total page/match counts, and
                           a flat list of emitted matches with page, query reference, source,
-                          text, optional context, bbox, and region. `bbox` hugs the matched
-                          glyphs; `region` is the crop-ready box grown to the containing table
-                          row or visual line — pass that one to --render-region, or a hit in a
-                          financial table renders the row label and none of its values.
+                          text, optional context, bbox, and region. Pass `region` to
+                          --render-region: it is the crop-ready box, grown from the match to
+                          the table row or visual line containing it. Passing `bbox` instead
+                          crops to the matched glyphs alone, which on a financial table renders
+                          the row label and none of its values.
                           Non-default page UserUnits are retained
                           in compact pageUserUnits metadata. Requires --search. The full pages/body
                           payload is omitted; zero matches still exits 0 with a zero-match report.
