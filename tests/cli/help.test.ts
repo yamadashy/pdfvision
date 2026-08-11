@@ -36,6 +36,32 @@ const MUST_STAY_IN_SHORT_HELP = [
 
 const SUBCOMMANDS = ['docs', 'clear-cache', 'mcp'];
 
+/**
+ * Pinned rather than derived: the index and the bodies come from the same
+ * generator, so deleting a topic and regenerating would shrink the expected
+ * set alongside the actual one and every check would still pass.
+ */
+const EXPECTED_TOPICS = [
+  'document-features',
+  'flags',
+  'formats',
+  'interactive',
+  'layout',
+  'library',
+  'mcp',
+  'ocr',
+  'options',
+  'schema',
+  'search',
+  'visual',
+  'warnings',
+];
+
+/** `--render` is a prefix of `--render-output`; match the whole token. */
+function documentsOption(text: string, option: string): boolean {
+  return new RegExp(`${option.replace(/[.*+?^$()|[\]\\]/g, '\\$&')}(?![\\w-])`).test(text);
+}
+
 async function capture(argv: string[]): Promise<{ stdout: string; stderr: string }> {
   const stdout: string[] = [];
   const stderr: string[] = [];
@@ -72,10 +98,13 @@ describe('--help stays one screen', () => {
     expect(Buffer.byteLength(stderr, 'utf8')).toBeLessThanOrEqual(USAGE_ERROR_BYTE_CAP);
   });
 
-  it.each(MUST_STAY_IN_SHORT_HELP)('still names %s', async (flag) => {
-    const { stdout } = await capture(['--help']);
-    expect(stdout).toContain(flag);
-  });
+  it.each(MUST_STAY_IN_SHORT_HELP)(
+    'still names %s itself, not just a longer flag that starts with it',
+    async (flag) => {
+      const { stdout } = await capture(['--help']);
+      expect(documentsOption(stdout, flag)).toBe(true);
+    },
+  );
 
   it.each(SUBCOMMANDS)('still names the %s subcommand', async (subcommand) => {
     const { stdout } = await capture(['--help']);
@@ -98,7 +127,8 @@ describe('--help stays one screen', () => {
 describe('every option is documented somewhere reachable', () => {
   it.each(Object.keys(CLI_PARSE_OPTIONS))('documents --%s', async (option) => {
     const { stdout } = await capture(['--help']);
-    const documented = stdout.includes(`--${option}`) || CLI_TOPIC_BODIES.options.includes(`--${option}`);
+    const documented =
+      documentsOption(stdout, `--${option}`) || documentsOption(CLI_TOPIC_BODIES.options, `--${option}`);
     expect(documented).toBe(true);
   });
 
@@ -108,6 +138,10 @@ describe('every option is documented somewhere reachable', () => {
 });
 
 describe('topics', () => {
+  it('ships exactly the topics it is supposed to', () => {
+    expect(CLI_TOPIC_INDEX.map((topic) => topic.name).sort()).toEqual(EXPECTED_TOPICS);
+  });
+
   it('has a body for every indexed topic and no orphan bodies', () => {
     expect(Object.keys(CLI_TOPIC_BODIES).sort()).toEqual(CLI_TOPIC_INDEX.map((topic) => topic.name).sort());
   });

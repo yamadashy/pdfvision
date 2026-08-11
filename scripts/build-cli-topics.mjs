@@ -42,7 +42,9 @@ function fail(message) {
  * no way to render.
  */
 function parseTopic(file) {
-  const raw = readFileSync(join(topicsDir, file), 'utf8');
+  // Normalize line endings first: a Windows worktree with core.autocrlf
+  // checks these out as CRLF, and `prepare` runs this on install.
+  const raw = readFileSync(join(topicsDir, file), 'utf8').replace(/\r\n?/g, '\n');
   if (!raw.startsWith('---\n')) fail(`${file} does not start with YAML frontmatter`);
   const end = raw.indexOf('\n---\n', 3);
   if (end === -1) fail(`${file} has an unterminated frontmatter block`);

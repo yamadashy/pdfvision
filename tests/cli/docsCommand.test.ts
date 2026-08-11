@@ -69,3 +69,27 @@ describe('renderTopicIndex', () => {
     expect(renderTopicIndex('1.2.3')).toContain('pdfvision docs <topic>');
   });
 });
+
+describe('terminal flags alongside a topic', () => {
+  it.each([
+    [['docs', 'options', '--help'], 'help'],
+    [['docs', '--help', 'options'], 'help'],
+    [['docs', 'options', '--version'], 'version'],
+  ])('resolves %j as %s, since both are promised to work anywhere', (argv, kind) => {
+    expect(resolveDocsCommand(argv, KNOWN)).toEqual({ kind });
+  });
+
+  it('still rejects an option that is not a terminal flag', () => {
+    expect(resolveDocsCommand(['docs', 'options', '--json'], KNOWN)).toMatchObject({
+      kind: 'error',
+      message: expect.stringContaining('"--json"'),
+    });
+  });
+
+  it('does not suggest an alphabetically earlier topic that merely contains a short input', () => {
+    const known = ['document-features', 'flags', 'mcp'];
+    expect(resolveDocsCommand(['docs', 'flag'], known)).toMatchObject({
+      message: expect.stringContaining('"flags"'),
+    });
+  });
+});

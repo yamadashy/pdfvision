@@ -37,8 +37,10 @@ function editDistance(a: string, b: string): number {
  * index back reads it as "this topic is empty" rather than "look again".
  */
 function suggest(name: string, known: readonly string[]): string | undefined {
-  const contains = known.find((topic) => topic.includes(name) || name.includes(topic));
-  if (contains) return contains;
+  // Substring alone misleads on short input: "f" is inside "document-features"
+  // before it is inside "flags". Only trust it when exactly one topic matches.
+  const contains = known.filter((topic) => topic.includes(name) || name.includes(topic));
+  if (contains.length === 1) return contains[0];
 
   let best: string | undefined;
   let bestDistance = Number.POSITIVE_INFINITY;
@@ -66,17 +68,27 @@ export function resolveDocsCommand(
   const rest = argv.slice(1);
   if (rest.length === 0) return { kind: 'index' };
 
-  const terminal = resolveTerminalFlags(rest);
+  // `--help` and `--version` are promised to work anywhere, so they win over
+  // a topic named alongside them rather than turning the pair into an error.
+  const flags = rest.filter((arg) => arg.startsWith('-'));
+  const terminal = flags.length > 0 ? resolveTerminalFlags(flags) : undefined;
   if (terminal) return { kind: terminal };
 
-  if (rest.length > 1) {
+  const topics = rest.filter((arg) => !arg.startsWith('-'));
+  if (flags.length > 0) {
     return {
       kind: 'error',
-      message: `"pdfvision docs" takes at most one topic, got ${rest.map((arg) => `"${arg}"`).join(' ')}`,
+      message: `"pdfvision docs" takes a topic, not options; got ${flags.map((arg) => `"${arg}"`).join(' ')}`,
+    };
+  }
+  if (topics.length > 1) {
+    return {
+      kind: 'error',
+      message: `"pdfvision docs" takes at most one topic, got ${topics.map((arg) => `"${arg}"`).join(' ')}`,
     };
   }
 
-  const name = rest[0];
+  const name = topics[0];
   if (known.includes(name)) return { kind: 'topic', name };
 
   const closest = suggest(name, known);

@@ -5,7 +5,7 @@ description: Every pages[].warnings[] code, what fires it, what it means for the
 
 # Warnings and raw density signals reference
 
-`pages[].warnings[]` carries page anomalies that deserve visual attention, and the density Overview carries the raw per-page signals that feed `quality`. JSON-style paths here are exact for JSON, decoded TOON, and `processDocument()`; XML uses the mappings in `pdfvision docs formats`. SKILL.md keeps the `quality.nativeTextStatus` / `quality.visualStatus` summary (that is what drives dispatch); this file is the lookup companion for **what each raw signal means** and **what to do when a specific warning code fires** beyond the self-explanatory inline `warning.message`.
+`pages[].warnings[]` carries page anomalies that deserve visual attention, and the density Overview carries the raw per-page signals that feed `quality`. JSON-style paths here are exact for JSON, decoded TOON, and `processDocument()`; XML uses the mappings in `pdfvision docs formats`. `pdfvision docs schema` carries the `quality.nativeTextStatus` / `quality.visualStatus` field summary; this topic is the lookup companion for **what each raw signal means** and **what to do when a specific warning code fires** beyond the self-explanatory inline `warning.message`.
 
 Read this only when a `warnings[]` code needs interpretation past its inline message, or when you want the raw signal thresholds behind a `quality` status.
 

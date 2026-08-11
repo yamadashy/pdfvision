@@ -7,7 +7,7 @@ description: OCR language codes and ordering, confidence, traineddata install an
 
 Detail on the `--ocr` flag — when to reach for it, multi-language behaviour, confidence semantics, install / cache requirements, and troubleshooting. Read this when running `--ocr` on non-English text, when the confidence comes back unexpectedly low, or when `tesseract.js` install needs diagnosing.
 
-For the basic flow ("page is image-flattened, run `--ocr -f json`"), the top-level SKILL.md is enough.
+For the basic flow ("page is image-flattened, run `--ocr -f json`"), `pdfvision --help` is enough.
 
 ## Shape
 
