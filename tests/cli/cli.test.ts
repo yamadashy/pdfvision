@@ -901,19 +901,63 @@ describe('cli cache root safety', () => {
   });
 
   it('reports a missing configured cache root as a successful no-op', async () => {
-    const result = await captureRun(['--clear-cache']);
+    const result = await captureRun(['clear-cache']);
     expect(result.exitCode).toBeNull();
     expect(result.stderr).toEqual([]);
     expect(result.stdout.join('\n')).toContain('Nothing to clear:');
     expect(existsSync(cacheRoot)).toBe(false);
   });
 
+  it('warns but still clears through the deprecated --clear-cache flag', async () => {
+    const result = await captureRun(['--clear-cache']);
+    expect(result.exitCode).toBeNull();
+    expect(result.stderr.join('\n')).toMatch(/--clear-cache is deprecated; use "pdfvision clear-cache"/);
+    expect(result.stdout.join('\n')).toContain('Nothing to clear:');
+    expect(existsSync(cacheRoot)).toBe(false);
+  });
+
+  it('keeps the clear-cache subcommand free of the deprecation warning', async () => {
+    const result = await captureRun(['clear-cache']);
+    expect(result.stderr.join('\n')).not.toContain('deprecated');
+  });
+
+  it('rejects arguments passed to the clear-cache subcommand', async () => {
+    mkdirSync(cacheRoot);
+    const sentinel = join(cacheRoot, 'sentinel');
+    writeFileSync(sentinel, 'keep');
+
+    const result = await captureRun(['clear-cache', '--json']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toEqual([]);
+    expect(result.stderr.join('\n')).toMatch(/takes no arguments/);
+    expect(readFileSync(sentinel, 'utf8')).toBe('keep');
+  });
+
+  it('shows subcommand help without touching the cache', async () => {
+    mkdirSync(cacheRoot);
+    const sentinel = join(cacheRoot, 'sentinel');
+    writeFileSync(sentinel, 'keep');
+
+    const result = await captureRun(['clear-cache', '--help']);
+
+    expect(result.exitCode).toBeNull();
+    expect(result.stdout.join('\n')).toContain('pdfvision clear-cache - Remove the verified pdfvision cache');
+    expect(result.stderr).toEqual([]);
+    expect(readFileSync(sentinel, 'utf8')).toBe('keep');
+  });
+
   it('honors --clear-cache before extraction-option semantic validation', async () => {
     const result = await captureRun(['--clear-cache', '--format', 'yaml']);
     expect(result.exitCode).toBeNull();
-    expect(result.stderr).toEqual([]);
     expect(result.stdout.join('\n')).toContain('Nothing to clear:');
     expect(existsSync(cacheRoot)).toBe(false);
+  });
+
+  it('resolves the clear-cache subcommand before option-syntax errors', async () => {
+    const result = await captureRun(['clear-cache', '--not-an-option']);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr.join('\n')).toMatch(/takes no arguments/);
   });
 
   it('keeps explicit --help side-effect free when --clear-cache is also present', async () => {
@@ -934,7 +978,7 @@ describe('cli cache root safety', () => {
     expect(extracted.exitCode).toBeNull();
     expect(existsSync(join(cacheRoot, '.pdfvision-cache-root'))).toBe(true);
 
-    const cleared = await captureRun(['--clear-cache']);
+    const cleared = await captureRun(['clear-cache']);
     expect(cleared.exitCode).toBeNull();
     expect(cleared.stderr).toEqual([]);
     expect(cleared.stdout.join('\n')).toContain('Cleared pdfvision cache:');
@@ -946,7 +990,7 @@ describe('cli cache root safety', () => {
     const sentinel = join(cacheRoot, 'sentinel');
     writeFileSync(sentinel, 'keep');
 
-    const result = await captureRun(['--clear-cache']);
+    const result = await captureRun(['clear-cache']);
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toEqual([]);
     expect(result.stderr.join('\n')).toMatch(/Error: Refusing to clear unverified cache root/);
@@ -975,9 +1019,9 @@ describe('cli cache root safety', () => {
     expect(result.stderr.join('\n')).toMatch(/Invalid PDFVISION_CACHE_DIR.*absolute path/);
   });
 
-  it('rejects the same invalid cache environment for --clear-cache', async () => {
+  it('rejects the same invalid cache environment for clear-cache', async () => {
     process.env.PDFVISION_CACHE_DIR = 'relative-cache-root';
-    const result = await captureRun(['--clear-cache']);
+    const result = await captureRun(['clear-cache']);
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toEqual([]);
     expect(result.stderr.join('\n')).toMatch(/Invalid PDFVISION_CACHE_DIR.*absolute path/);
@@ -1079,5 +1123,37 @@ describe('cli --map', () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('subcommand error hints', () => {
+  it('points a rejected clear-cache invocation at the subcommand help', async () => {
+    const result = await captureRun(['clear-cache', '--json']);
+    expect(result.stderr.join('\n')).toContain('Run "pdfvision clear-cache --help" for usage.');
+  });
+
+  it('points a rejected mcp invocation at the subcommand help', async () => {
+    const result = await captureRun(['mcp', '--json']);
+    expect(result.stderr.join('\n')).toContain('Run "pdfvision mcp --help" for usage.');
+  });
+
+  it('keeps the general usage hint for ordinary option errors', async () => {
+    const result = await captureRun(['--not-an-option']);
+    expect(result.stderr.join('\n')).toContain('Run "pdfvision --help" for usage.');
+  });
+});
+
+describe('subcommand calling convention', () => {
+  it.each([
+    ['clear-cache', '--version'],
+    ['clear-cache', '-v'],
+    ['mcp', '--version'],
+    ['mcp', '-v'],
+  ])('prints the version for `%s %s`', async (subcommand, flag) => {
+    const result = await captureRun([subcommand, flag]);
+    expect(result.exitCode).toBeNull();
+    expect(result.stdout).toHaveLength(1);
+    expect(result.stdout[0]).toMatch(/^\d+\.\d+\.\d+/);
+    expect(result.stderr).toEqual([]);
   });
 });

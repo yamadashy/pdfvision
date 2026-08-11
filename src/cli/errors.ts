@@ -11,8 +11,13 @@ export function formatCliErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export function exitWithError(message: string): never {
+/**
+ * `usageCommand` lets a subcommand point at its own help instead of the
+ * whole CLI's: after `pdfvision clear-cache --json`, the useful next read
+ * is that subcommand's usage, not the full option list.
+ */
+export function exitWithError(message: string, usageCommand = 'pdfvision --help'): never {
   console.error(`Error: ${message}`);
-  console.error('Run "pdfvision --help" for usage.');
+  console.error(`Run "${usageCommand}" for usage.`);
   process.exit(1);
 }

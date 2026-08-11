@@ -94,7 +94,7 @@ Tesseract downloads per-language `*.traineddata` files (~10–15 MB each) on fir
 pdfvision points tesseract.js at `<cache-root>/ocr-data/` (POSIX 0700) so:
 
 - The data lands under pdfvision's own cache hierarchy (consistent perms, single place)
-- `npx pdfvision --clear-cache` wipes traineddata alongside extraction caches
+- `npx pdfvision clear-cache` wipes traineddata alongside extraction caches
 - The download happens once per language; subsequent runs are offline
 
 First `--ocr` invocation against a new language takes a few extra seconds for the download. Subsequent invocations of the same language are instant on the boot step (still ~1–2 s for the worker init).

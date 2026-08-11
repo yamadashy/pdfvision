@@ -4,7 +4,7 @@
 //   - `getCacheDir` / `getCached` / `setCache` were re-exported in
 //     earlier versions but have no useful entry point for library
 //     consumers — they expect cache-internal arguments and can corrupt
-//     the on-disk cache if misused. Use `--clear-cache` (CLI) for
+//     the on-disk cache if misused. Use `pdfvision clear-cache` (CLI) for
 //     cache management.
 //   - `renderPage` / `renderPages` took a `PDFDocumentProxy` directly,
 //     which forced any caller to import `pdfjs-dist` themselves and

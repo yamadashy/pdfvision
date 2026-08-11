@@ -38,7 +38,7 @@ pdfvision --remote https://example.com/document.pdf --format json
 
 `--remote` は、ユーザーが別途許可した接続先にだけ使ってください。レスポンスは検証しますが、接続先そのものは検証せず、プライベートアドレスやリダイレクト先も遮断しません。信頼できない URL は直接渡さず、解決された各 IP とリダイレクト先を許可リストで検証して接続先を固定できる fetcher で取得し、ローカルファイルとして pdfvision に渡してください。または、pdfvision の取得処理をネットワーク制御の内側に隔離してください。詳しくは[セキュリティとプライバシー](./security-and-privacy.md#リモート-pdf)を参照してください。
 
-リモートキャッシュは URL ごとに管理されます。安定した URL の中身が差し替えられる場合は、1 回だけ新しく取得するなら `--no-cache`、キャッシュを消すなら `--clear-cache` を使います。
+リモートキャッシュは URL ごとに管理されます。安定した URL の中身が差し替えられる場合は、1 回だけ新しく取得するなら `--no-cache`、キャッシュを消すなら `pdfvision clear-cache` を使います。
 
 ```bash
 pdfvision --remote https://example.com/document.pdf --no-cache --format json
@@ -143,10 +143,10 @@ printf "your-password\n" | pdfvision encrypted.pdf --password-stdin --format jso
 
 ```bash
 pdfvision document.pdf --no-cache --json
-pdfvision --clear-cache
+pdfvision clear-cache
 ```
 
-pdfvision は抽出結果、レンダリング画像、リモートダウンロード、OCR データをキャッシュし、エージェントが同じ PDF を繰り返し読むときの待ち時間を減らします。抽出結果とリモート PDF のバイト列をキャッシュしたくない場合は `--no-cache`、キャッシュ削除には `--clear-cache` を使います。
+pdfvision は抽出結果、レンダリング画像、リモートダウンロード、OCR データをキャッシュし、エージェントが同じ PDF を繰り返し読むときの待ち時間を減らします。抽出結果とリモート PDF のバイト列をキャッシュしたくない場合は `--no-cache`、キャッシュ削除には `clear-cache` サブコマンドを使います。旧来の `--clear-cache` フラグも引き続き動作して警告を表示します。v1.0 で削除されます。
 
 アプリケーション側でキャッシュ場所を固定したい場合は、専用ディレクトリを指す空でない絶対パスを `PDFVISION_CACHE_DIR` に設定します。相対パス、`~`、ファイルシステムのルート、ホームディレクトリ、作業ディレクトリ、共有の一時ディレクトリは拒否されます。
 
@@ -154,7 +154,7 @@ pdfvision は抽出結果、レンダリング画像、リモートダウンロ�
 PDFVISION_CACHE_DIR=/secure/pdfvision-cache pdfvision document.pdf --json
 ```
 
-所有者確認済みの `.pdfvision-cache-root` マーカーが再帰削除を許可します。`--clear-cache` がマーカーのないカスタムルートを採用することはありません。`PDFVISION_CACHE_DIR` が未指定のときに使われる従来の既定ルートだけは、認識済みの旧形式形状を権限強化の前後に走査してから採用できます。通常利用でも、すべてのマーカーなしルートに同じ走査を行います。POSIX では、group/other が書き込めるマーカーなしルートを拒否し、すべての祖先が読み取り・open 可能で、現在のユーザーまたは root の所有かつ書き込み不可または安全な sticky 状態であることを求めます。quarantine への移動後は `st_dev` を比較し、不一致なら再帰削除を拒否しますが、元のパスはすでに移動しており、同一 device の bind mount は検出できません。同一性確認が置き換えに耐えられるのは通常の POSIX mode semantics の範囲です。ACL やネットワークファイルシステムの権限は検査せず、最終確認後の root または同一 UID による置き換えも排除できません。Windows の置き換え耐性は best effort です。キャッシュ削除は実行中の OCR と協調しないため、中断された OCR は再実行してください。
+所有者確認済みの `.pdfvision-cache-root` マーカーが再帰削除を許可します。`clear-cache` がマーカーのないカスタムルートを採用することはありません。`PDFVISION_CACHE_DIR` が未指定のときに使われる従来の既定ルートだけは、認識済みの旧形式形状を権限強化の前後に走査してから採用できます。通常利用でも、すべてのマーカーなしルートに同じ走査を行います。POSIX では、group/other が書き込めるマーカーなしルートを拒否し、すべての祖先が読み取り・open 可能で、現在のユーザーまたは root の所有かつ書き込み不可または安全な sticky 状態であることを求めます。quarantine への移動後は `st_dev` を比較し、不一致なら再帰削除を拒否しますが、元のパスはすでに移動しており、同一 device の bind mount は検出できません。同一性確認が置き換えに耐えられるのは通常の POSIX mode semantics の範囲です。ACL やネットワークファイルシステムの権限は検査せず、最終確認後の root または同一 UID による置き換えも排除できません。Windows の置き換え耐性は best effort です。キャッシュ削除は実行中の OCR と協調しないため、中断された OCR は再実行してください。
 
 `--no-cache` は抽出キャッシュとリモート PDF キャッシュをスキップしますが、`--render-output` を指定しないレンダリング PNG は OS の別の一時パスを使い、明示的な出力先は引き続き指定どおりに使われます。`--ocr` は検証済みキャッシュルート配下に traineddata と worker support files を永続化します。そのため、不正な `PDFVISION_CACHE_DIR` を指定した OCR 実行は、`--no-cache` を併用しても失敗します。
 

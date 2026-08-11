@@ -38,7 +38,7 @@ pdfvision --remote https://example.com/document.pdf --format json
 
 只對使用者獨立授權的目標使用 `--remote`。它驗證回應，但不驗證網路目標，也不會阻擋私有位址或重新導向目標。不要直接傳入不可信 URL；應使用下載元件透過允許清單驗證每個解析 IP 和重新導向節點、固定連線目標，再把本機檔案傳給 pdfvision，或把 pdfvision 的下載程序隔離在網路控制之後。詳見[安全與隱私](./security-and-privacy.md#遠端-pdf)。
 
-遠端快取按 URL 建立。如果一個穩定 URL 的內容會被原地更新，可用 `--no-cache` 做一次新鮮取得，或用 `--clear-cache` 刪除快取副本：
+遠端快取按 URL 建立。如果一個穩定 URL 的內容會被原地更新，可用 `--no-cache` 做一次新鮮取得，或用 `pdfvision clear-cache` 刪除快取副本：
 
 ```bash
 pdfvision --remote https://example.com/document.pdf --no-cache --format json
@@ -143,10 +143,10 @@ printf "your-password\n" | pdfvision encrypted.pdf --password-stdin --format jso
 
 ```bash
 pdfvision document.pdf --no-cache --json
-pdfvision --clear-cache
+pdfvision clear-cache
 ```
 
-pdfvision 會快取擷取結果、渲染影像、遠端下載和 OCR 資料，讓代理重複讀取同一 PDF 時更快。如果不希望快取擷取結果與遠端 PDF 位元組，請使用 `--no-cache`；用 `--clear-cache` 刪除快取資料。
+pdfvision 會快取擷取結果、渲染影像、遠端下載和 OCR 資料，讓代理重複讀取同一 PDF 時更快。如果不希望快取擷取結果與遠端 PDF 位元組，請使用 `--no-cache`；用 `clear-cache` 子命令刪除快取資料。舊的 `--clear-cache` 旗標仍可使用並會顯示警告；將在 v1.0 中移除。
 
 當應用需要把快取放在已知位置時，請將 `PDFVISION_CACHE_DIR` 設為指向專用目錄的非空絕對路徑。相對路徑、`~`、檔案系統根目錄、主目錄、工作目錄與共享暫存目錄都會被拒絕：
 
@@ -154,7 +154,7 @@ pdfvision 會快取擷取結果、渲染影像、遠端下載和 OCR 資料，�
 PDFVISION_CACHE_DIR=/secure/pdfvision-cache pdfvision document.pdf --json
 ```
 
-經過擁有者檢查的 `.pdfvision-cache-root` 標記用來授權遞迴清除。`--clear-cache` 絕不會採用未標記的自訂根目錄；未設定 `PDFVISION_CACHE_DIR` override 時，只能在權限強化前後確認舊版形狀後採用目前的歷史預設根目錄。正常使用時，所有未標記根目錄都要經過相同掃描。在 POSIX 上，具有 group/other 寫入權限的未標記根目錄會被拒絕；每個祖先也必須可讀/open、由目前使用者或 root 擁有，且不可寫或有安全的 sticky 保護。移入 quarantine 後，POSIX 清除會比較 `st_dev`，若不一致就拒絕遞迴刪除；原始路徑此時已經移動，且無法偵測同一 device 的 bind mount。身分檢查只在傳統 POSIX uid/mode/sticky semantics 下增強替換防護；不會檢查 ACL 或網路檔案系統權限，也無法排除最終檢查後由 root 或相同 UID 發起的替換。Windows 只能提供 best-effort 防護。清除不會與執行中的 OCR 協調；請重試被中斷的 OCR。
+經過擁有者檢查的 `.pdfvision-cache-root` 標記用來授權遞迴清除。`clear-cache` 絕不會採用未標記的自訂根目錄；未設定 `PDFVISION_CACHE_DIR` override 時，只能在權限強化前後確認舊版形狀後採用目前的歷史預設根目錄。正常使用時，所有未標記根目錄都要經過相同掃描。在 POSIX 上，具有 group/other 寫入權限的未標記根目錄會被拒絕；每個祖先也必須可讀/open、由目前使用者或 root 擁有，且不可寫或有安全的 sticky 保護。移入 quarantine 後，POSIX 清除會比較 `st_dev`，若不一致就拒絕遞迴刪除；原始路徑此時已經移動，且無法偵測同一 device 的 bind mount。身分檢查只在傳統 POSIX uid/mode/sticky semantics 下增強替換防護；不會檢查 ACL 或網路檔案系統權限，也無法排除最終檢查後由 root 或相同 UID 發起的替換。Windows 只能提供 best-effort 防護。清除不會與執行中的 OCR 協調；請重試被中斷的 OCR。
 
 `--no-cache` 會跳過擷取快取與遠端 PDF 快取，但未指定 `--render-output` 的渲染 PNG 會使用獨立的作業系統暫存路徑，明確的渲染輸出仍會寫入指定位置。`--ocr` 仍會在經過驗證的快取根目錄下持久保存 traineddata 與 worker support files。因此，即使設定了 `--no-cache`，無效的 `PDFVISION_CACHE_DIR` 仍會導致 OCR 執行失敗。
 

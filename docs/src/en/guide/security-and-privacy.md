@@ -14,7 +14,7 @@ For local files, extraction happens on your machine. Cached rendered images, OCR
 Use:
 
 ```bash
-pdfvision --clear-cache
+pdfvision clear-cache
 ```
 
 to remove cached extractions, renders, remote downloads, and OCR traineddata managed by pdfvision.
@@ -59,7 +59,7 @@ PDFVISION_CACHE_DIR=/secure/cache pdfvision document.pdf --format json
 
 The cache can contain extracted text, rendered PNGs, remote PDFs, OCR traineddata, and OCR output. Choose a cache directory with the same sensitivity level as the PDFs being processed.
 
-Each initialized cache root contains an owned `.pdfvision-cache-root` marker that authorizes recursive clearing. `--clear-cache` never adopts an unmarked custom root. When no `PDFVISION_CACHE_DIR` override is set, the active historical default may be adopted only if every top-level entry matches a recognized legacy cache shape. Normal cache use applies the same complete scan to every unmarked root before and after hardening. On POSIX, unmarked roots that are group/other writable are refused before mutation. Unknown entries, invalid markers, symlinks, and unverified roots are refused without being cleared.
+Each initialized cache root contains an owned `.pdfvision-cache-root` marker that authorizes recursive clearing. `clear-cache` never adopts an unmarked custom root. When no `PDFVISION_CACHE_DIR` override is set, the active historical default may be adopted only if every top-level entry matches a recognized legacy cache shape. Normal cache use applies the same complete scan to every unmarked root before and after hardening. On POSIX, unmarked roots that are group/other writable are refused before mutation. Unknown entries, invalid markers, symlinks, and unverified roots are refused without being cleared.
 
 On POSIX, pdfvision verifies ownership, uses `0700` / `0600` root and marker permissions, and requires every setup/clear ancestor to be readable/openable by the process, owned by the current user or root, and non-writable by group/other unless sticky semantics protect the owned child entry. Clearing moves the root to a sibling quarantine and immediately rechecks its identity, marker, and trusted ancestors before path-based recursive removal. It also compares device identity (`st_dev`) throughout the quarantined tree and refuses recursive removal on a mismatch; the original pathname has already moved, and same-device bind mounts are not detected. These checks resist replacement under conventional POSIX ownership/mode/sticky semantics, but extended ACLs and network-filesystem permission semantics are not inspected and can weaken that protection. Node's path-based removal cannot exclude root or same-UID replacement after the final check. Windows validates the marker and available identities, but replacement resistance is best effort. Cache clearing is not coordinated with active OCR; retry an OCR run if clearing interrupts it.
 

@@ -8,10 +8,13 @@
 // once is the fastest way for an agent to see what comes back.
 export const HELP_TEXT = `pdfvision - Extract text, images, metadata, and layout from PDF files for AI agents
 
+Command shape: options are for reading a PDF; anything else is a subcommand.
+(--help and --version are the usual exceptions, and work anywhere.)
+
 Usage:
   pdfvision <file.pdf> [options]
   pdfvision --remote <url> [options]
-  pdfvision --clear-cache
+  pdfvision clear-cache
   pdfvision mcp
 
 Common flows
@@ -185,33 +188,38 @@ Options
                           whitespace is trimmed; a blank value does not count as an input source.
       --no-cache          Skip extraction and remote-PDF caches (re-download / re-extract).
                           OCR support files still use the validated on-disk cache root.
-      --clear-cache       Remove cached extractions, rendered PNGs, remote PDFs, and OCR
+      --clear-cache       Deprecated alias for the \`clear-cache\` subcommand; still works, still
+                          warns, removed in v1.0.
+  -v, --version           Show version
+  -h, --help              Show this help
+
+Subcommands
+  clear-cache             Remove cached extractions, rendered PNGs, remote PDFs, and OCR
                           support data, then exit. No file argument required. PDFVISION_CACHE_DIR,
                           when set, must be a nonblank absolute path to a dedicated directory.
                           An ownership marker authorizes recursive clearing; broad, unmarked custom,
                           or otherwise unverified roots are refused. POSIX ownership and no-follow
                           checks are stronger; Windows replacement resistance is best effort.
-  -v, --version           Show version
-  -h, --help              Show this help
-
-Subcommands
   mcp                     Serve pdfvision over the Model Context Protocol on stdio, for hosts
                           that cannot run a shell (Claude Desktop, Cursor, Cline, Zed, n8n).
                           Exposes three tools — read_pdf, search_pdf, render_pdf — rather than
                           the flags above; see "pdfvision mcp --help". Prefer the CLI plus the
                           bundled agent skill in shell-capable agents: MCP tool schemas stay in the
                           host's context for the whole session, a skill loads on demand.
-                          Resolved before option parsing and takes no arguments, so a file
-                          actually named \`mcp\` must be passed as \`./mcp\`.
 
 Argument handling
-  Option syntax is parsed first; an unknown option or missing option value exits 1 even
+  A subcommand is recognized only as the first argument, before any option parsing, and
+  takes no options of its own beyond --help / --version. A file actually named \`mcp\` or
+  \`clear-cache\` must therefore be passed as \`./mcp\` / \`./clear-cache\`; because clearing is
+  destructive, \`clear-cache\` refuses instead of guessing when anything of that name exists
+  in the directory.
+  Option syntax is parsed next; an unknown option or missing option value exits 1 even
   when --help is present. After successful parsing, terminal precedence is --version,
   then --help, then --clear-cache; these skip input and extraction-option semantic checks.
   Otherwise, multiple positional arguments exit 1 before source presence is checked.
   With at most one positional argument, the absence of both a non-empty positional input
   and a nonblank --remote URL prints usage to stderr and exits 2. With a source, semantic
-  and other handled failures exit 1; a --clear-cache failure also exits 1.
+  and other handled failures exit 1; a cache-clearing failure also exits 1.
 
 Output formats
   markdown (default)  Per-page sections, density Overview table, image links inline. For LLM context.
@@ -247,14 +255,40 @@ Examples
   pdfvision scan.pdf --ocr --json                                              # OCR a scanned PDF
   pdfvision scan-ja.pdf --ocr --ocr-lang jpn+eng --json                        # multi-lang OCR
   pdfvision --remote https://example.com/paper.pdf --json                      # fetch + extract JSON
-  pdfvision --clear-cache                                                      # clear the verified pdfvision cache
+  pdfvision clear-cache                                                        # clear the verified pdfvision cache
 
 Exit codes
-  0  Success, including --help, --version, and a successful --clear-cache
+  0  Success, including --help, --version, and a successful clear-cache
   1  Option-syntax error; multiple positional arguments; semantic argument failure with
-     a source; file, network, cache, or extraction failure (error message on stderr)
+     a source; file, network, cache, or extraction failure (error message on stderr);
+     unsupported arguments passed to a subcommand
   2  With at most one positional argument, no non-empty positional input or nonblank
      --remote URL was provided (usage printed on stderr)`;
+
+// Shown by `pdfvision clear-cache --help`. Short for the same reason as
+// MCP_HELP_TEXT: the full removal semantics already sit in the main help,
+// and repeating them here would be two places to keep in sync.
+export const CLEAR_CACHE_HELP_TEXT = `pdfvision clear-cache - Remove the verified pdfvision cache
+
+Usage:
+  pdfvision clear-cache    Clear the cache, then exit. Takes no arguments.
+
+Removes cached extractions, rendered PNGs, remote PDFs, and OCR support data.
+An ownership marker authorizes recursive clearing; broad, unmarked custom, or
+otherwise unverified roots are refused.
+
+Anything named \`clear-cache\` in the current directory makes the invocation
+ambiguous and is refused rather than guessed at — pass \`./clear-cache\` if that
+path is the input you meant, or clear the cache from another directory.
+
+Environment
+  PDFVISION_CACHE_DIR
+      Cache root override. Must be a nonblank absolute path to a dedicated directory.
+
+Exit codes
+  0  Cache cleared, or nothing to clear, including --help and --version
+  1  Arguments were passed to the subcommand; an ambiguous \`clear-cache\` entry exists;
+     cache verification or removal failed`;
 
 // Shown by `pdfvision mcp --help`. Deliberately short: the audience is a
 // human wiring up an MCP host config, not an agent picking flags — the
@@ -294,5 +328,5 @@ Environment
       Same cache root override the CLI uses.
 
 Exit codes
-  0  Clean shutdown, including --help
+  0  Clean shutdown, including --help and --version
   1  Arguments were passed to the subcommand`;
