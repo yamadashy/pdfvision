@@ -22,7 +22,12 @@ export async function catalogAttachmentsToRecord(
 ): Promise<Record<string, unknown> | null> {
   if (!attachments || attachments.size === 0) return null;
 
-  const record: Record<string, unknown> = {};
+  // Null-prototype for the same reason as the merge below: the key is a
+  // PDF-supplied EmbeddedFiles name, and `__proto__` assigned onto a
+  // plain object sets the prototype instead of becoming an entry — the
+  // attachment would vanish from `Object.entries`, taking
+  // `attachmentCount` down with it.
+  const record: Record<string, unknown> = Object.create(null);
   for (const [id, value] of attachments) {
     const attachment = value as PdfAttachment;
     const content = attachment.content === undefined ? await getContent(id) : attachment.content;

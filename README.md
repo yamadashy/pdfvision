@@ -27,7 +27,7 @@ pdfvision turns that silent failure into a recoverable one. When it detects a pr
 
 - **Check before trusting.** Every page carries text coverage and quality signals, not just text. `warnings` name the specific risk: glyph corruption, raster-backed text, flattened tables, reading-order divergence, or text hidden under an opaque fill.
 - **Spend context progressively.** Start with native text, narrow long documents with `-p`, use `--matches-only` for report metadata plus emitted matches without full page bodies, and use TOON when repeated structured rows would make JSON noisy.
-- **Search → zoom → render.** `--search` returns each match with its page, its `bbox`, and a crop-ready `region` grown to the table row or line containing it; pass the `region` to `--render-region` to inspect only the evidence that matters. (`bbox` crops to the matched glyphs alone — on a table that shows the row label without its values.)
+- **Search → zoom → render.** `--search` returns each match with its page and `bbox`; add `--matches-only` and each match also carries a crop-ready `region`, grown to the table row or line containing it. Pass that `region` to `--render-region` to inspect only the evidence that matters — passing `bbox` crops to the matched glyphs alone, which on a table shows the row label without its values.
 
 When the task depends on visual structure, opt into layout blocks, table hints, form fields, visual regions, or OCR without replacing the original native text.
 

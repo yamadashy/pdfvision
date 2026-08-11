@@ -18,8 +18,15 @@ export interface RenderPdfInput {
 }
 
 /** pdfvision rejects a scale outside (0, 4]; 4x is its soft OOM ceiling. */
-const MIN_SCALE = 0.05;
 const MAX_SCALE = 4;
+/**
+ * Below this a full page cannot be rasterised into the image budget at
+ * all — 20x reduction already yields nothing a model can read, and the
+ * budget is the point: the byte cap runs after the PNG exists, so it
+ * cannot prevent the allocation. Such a page is refused with the call
+ * that does work instead.
+ */
+const MIN_SCALE = 0.05;
 /**
  * Below this the page is being shrunk so far that the text will not be
  * legible. It is not a floor — a floor would let an oversized page blow
@@ -39,7 +46,7 @@ const READABLE_MIN_SCALE = 0.5;
  */
 function scaleFor(longestEdgeUnits: number): number {
   if (!Number.isFinite(longestEdgeUnits) || longestEdgeUnits <= 0) return 2;
-  return Math.min(MAX_SCALE, Math.max(MIN_SCALE, MAX_IMAGE_EDGE_PX / longestEdgeUnits));
+  return Math.min(MAX_SCALE, MAX_IMAGE_EDGE_PX / longestEdgeUnits);
 }
 
 function toRegion(values: readonly number[]): RenderRegion {
@@ -147,6 +154,11 @@ export async function renderPdf(input: RenderPdfInput): Promise<ToolResult> {
     : Math.max(...sized.pages.map((page) => Math.max(page.width, page.height) * (page.userUnit ?? 1)));
 
   const scale = scaleFor(longestEdge);
+  if (scale < MIN_SCALE) {
+    throw new Error(
+      `That page is ${Math.round(longestEdge)} physical points on its longest edge, which cannot be rasterised whole inside the image budget. Pass \`region\` with a part of it — coordinates are in raw page-view units, so a full-page box would be [0, 0, ${Math.round(longestEdge)}, ${Math.round(longestEdge)}].`,
+    );
+  }
   const result = await processDocument(resolved.filePath, {
     ...base,
     pages,
@@ -158,13 +170,6 @@ export async function renderPdf(input: RenderPdfInput): Promise<ToolResult> {
     // inside it is noise.
     visualRegions: region === undefined,
   });
-
-  // Everything this response hands out replaces the previous set for this
-  // source, which is what the ref contract promises. Done after the render
-  // succeeded — a call that threw produced no refs, so the last successful
-  // response's refs must stay resolvable — and after the `ref` lookup
-  // above, so a ref still resolves on the call that consumes it.
-  forgetRefs(input.source);
 
   // Report what was rendered, not what was asked for: `pages: "1-2"` on a
   // one-page document silently drops page 2, and echoing the request back
@@ -191,13 +196,27 @@ export async function renderPdf(input: RenderPdfInput): Promise<ToolResult> {
   const images: ToolBlock[] = [];
   let bytesUsed = 0;
 
+  // Read every PNG before anything is emitted or any ref is filed: the
+  // reads are the last thing that can fail, and a failure after
+  // `forgetRefs` would take the previous response's still-valid refs
+  // with it while returning nothing in their place.
+  const rendered = new Map<number, Buffer>();
+  for (const page of result.pages) {
+    if (page.image) rendered.set(page.page, await readFile(page.image));
+  }
+
+  // Everything this response hands out replaces the previous set for this
+  // source, which is what the ref contract promises. After the `ref`
+  // lookup above, so a ref still resolves on the call that consumes it.
+  forgetRefs(input.source);
+
   for (const page of result.pages) {
     lines.push('', `## Page ${page.page}`, '', `_${describePage(page)}_`);
-    if (!page.image) {
+    const data = rendered.get(page.page);
+    if (!data) {
       lines.push('', '_Render produced no image for this page._');
       continue;
     }
-    const data = await readFile(page.image);
     if (bytesUsed + data.byteLength > MAX_TOTAL_IMAGE_BYTES) {
       lines.push(
         '',

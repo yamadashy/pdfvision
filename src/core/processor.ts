@@ -125,13 +125,19 @@ export async function processDocument(filePath: string, options: ProcessDocument
   // the cache write below.
   let searchInterrupted = false;
   const emittedWarnings: string[] = [];
+  let warningCount = 0;
   const recordWarning = (message: string): void => {
-    // The last retained slot becomes the overflow note rather than a
-    // 51st entry, so the stored list never exceeds the stated cap.
-    if (emittedWarnings.length < MAX_CACHED_WARNINGS - 1) emittedWarnings.push(message);
-    else if (emittedWarnings.length === MAX_CACHED_WARNINGS - 1) emittedWarnings.push(CACHED_WARNINGS_TRUNCATED);
+    warningCount++;
+    if (emittedWarnings.length < MAX_CACHED_WARNINGS) emittedWarnings.push(message);
     options.onWarning?.(message);
   };
+  // Exactly at the cap everything is kept; past it the last slot gives
+  // up its warning for a note carrying the real total, so the stored
+  // list never exceeds the cap and never overstates what it dropped.
+  const warningsToCache = (): string[] =>
+    warningCount <= MAX_CACHED_WARNINGS
+      ? emittedWarnings
+      : [...emittedWarnings.slice(0, MAX_CACHED_WARNINGS - 1), cachedWarningsTruncated(warningCount)];
   const onSearchWarning = (message: string): void => {
     if (isRegexTimeoutWarning(message)) searchInterrupted = true;
     recordWarning(message);
@@ -396,7 +402,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       pages,
     };
 
-    if (!searchInterrupted) writeCachedResult(cacheDir, cacheKey, result, emittedWarnings);
+    if (!searchInterrupted) writeCachedResult(cacheDir, cacheKey, result, warningsToCache());
 
     return result;
   } finally {
@@ -418,7 +424,8 @@ export async function processDocument(filePath: string, options: ProcessDocument
  * the count is reported rather than silently dropped.
  */
 const MAX_CACHED_WARNINGS = 50;
-const CACHED_WARNINGS_TRUNCATED = `more than ${MAX_CACHED_WARNINGS} warnings were emitted on the run this cached result came from; re-run with --no-cache (or MCP: a different page range) to see the rest`;
+const cachedWarningsTruncated = (total: number): string =>
+  `${total} warnings were emitted on the run this cached result came from; the first ${MAX_CACHED_WARNINGS - 1} are above — re-run with --no-cache (or MCP: a different page range) to see the rest`;
 
 export async function processFile(filePath: string, options: ProcessOptions): Promise<string> {
   validateProcessFileOptions(options);
