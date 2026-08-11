@@ -4,6 +4,8 @@ Notable user-facing changes to pdfvision are documented here.
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-08-11
+
 ### Changed
 
 - Added `pdfvision docs` — the topic list and, with a topic name, its body — and cut `--help` from 20 KB to under 5 KB. The help was the first thing every agent read and the thing every error pointed at, so its size was a tax on first contact; the detail it carried now lives in fourteen topics that cost nothing until asked for. The topics are embedded at build time, so they describe the version actually installed rather than whatever the web has, and they need no network access. An unknown topic names the closest match and exits 1 instead of falling back to the list, which would read as "this topic is empty".
@@ -59,5 +61,6 @@ Notable user-facing changes to pdfvision are documented here.
 - Preserved explicit word spaces and corrected common paired-bracket direction when reconstructing right-to-left text. ([#102](https://github.com/yamadashy/pdfvision/pull/102))
 - Reported `checked: true` only for the selected radio widget instead of every widget in its group. ([#104](https://github.com/yamadashy/pdfvision/pull/104))
 
-[Unreleased]: https://github.com/yamadashy/pdfvision/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/yamadashy/pdfvision/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/yamadashy/pdfvision/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/yamadashy/pdfvision/compare/v0.15.0...v0.16.0
