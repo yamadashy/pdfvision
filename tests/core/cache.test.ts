@@ -33,6 +33,7 @@ import {
   ensureCacheRootForTesting,
   isFilesystemRootPath,
 } from '../../src/core/io/cacheRoot.js';
+import { readCachedResult } from '../../src/core/processor/resultCache.js';
 
 describe('cache', () => {
   let tmpFile: string;
@@ -723,5 +724,68 @@ describe('clearAllCache', () => {
     expect(thrown?.message).toContain('entry remains');
     expect(existsSync(replacementPath)).toBe(true);
     expect(existsSync(originalMovedAside)).toBe(true);
+  });
+});
+
+describe('readCachedResult warnings', () => {
+  const base = {
+    file: '/tmp/x.pdf',
+    totalPages: 1,
+    metadata: { title: null, author: null, subject: null, creator: null },
+    pages: [],
+  };
+
+  function cacheWith(payload: unknown): { dir: string; key: string } {
+    const dir = mkdtempSync(join(tmpdir(), 'pdfvision-cached-warnings-'));
+    const key = 'k';
+    setCache(dir, key, JSON.stringify(payload));
+    return { dir, key };
+  }
+
+  const read = (dir: string, key: string) =>
+    readCachedResult({
+      cacheDir: dir,
+      cacheKey: key,
+      filePath: '/tmp/x.pdf',
+      render: false,
+      renderVisualRegions: false,
+    });
+
+  it('returns the recorded warnings', () => {
+    const { dir, key } = cacheWith({ result: base, warnings: ['a', 'b'] });
+    try {
+      expect(read(dir, key)?.warnings).toEqual(['a', 'b']);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('treats a non-array warnings value as a corrupt entry', () => {
+    // A string is iterable, so replaying it would emit one warning per
+    // character instead of failing loudly.
+    const { dir, key } = cacheWith({ result: base, warnings: 'oops' });
+    try {
+      expect(read(dir, key)).toBeNull();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('treats a non-string warning entry as a corrupt entry', () => {
+    const { dir, key } = cacheWith({ result: base, warnings: ['fine', 42] });
+    try {
+      expect(read(dir, key)).toBeNull();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('accepts an entry written before warnings were stored', () => {
+    const { dir, key } = cacheWith({ result: base });
+    try {
+      expect(read(dir, key)?.warnings).toEqual([]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

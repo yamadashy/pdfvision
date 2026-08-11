@@ -1,5 +1,6 @@
-import { copyFileSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { getCacheDir } from '../../src/core/io/cache.js';
 import { processFile } from '../../src/core/processor.js';
@@ -175,5 +176,62 @@ describe('processFile', () => {
     } finally {
       rmSync(copyPath, { force: true });
     }
+  });
+});
+
+describe('processFile warning replay', () => {
+  it("repeats a run's warnings on a cache hit, so the second call is as honest as the first", async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pdfvision-warning-replay-'));
+    try {
+      const copy = join(dir, 'sample.pdf');
+      copyFileSync(SAMPLE_PDF, copy);
+
+      const first: string[] = [];
+      await processFile(copy, {
+        format: 'json',
+        noCache: false,
+        pages: '1-9',
+        onWarning: (m) => {
+          first.push(m);
+        },
+      });
+      const second: string[] = [];
+      await processFile(copy, {
+        format: 'json',
+        noCache: false,
+        pages: '1-9',
+        onWarning: (m) => {
+          second.push(m);
+        },
+      });
+
+      // The first run reported that pages past the end were skipped. The
+      // second is served from cache — and used to report nothing, which
+      // reads as "all nine pages were extracted".
+      expect(first.some((m) => m.includes('past the end of the document'))).toBe(true);
+      expect(second).toEqual(first);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('processFile matchesOnly', () => {
+  it('reports a region built from layout, without the caller asking for layout', async () => {
+    const out = await processFile(SAMPLE_PDF, {
+      format: 'json',
+      noCache: true,
+      search: 'pdfvision',
+      matchesOnly: true,
+    });
+    const parsed = JSON.parse(out);
+    const [first] = parsed.matches;
+
+    // The option wiring is the point: without layout, cropRegionForBox
+    // falls back to constant padding and this region would equal the
+    // padded glyph box rather than the line the hit sits in.
+    expect(first.region).toBeDefined();
+    expect(first.region.width).toBeGreaterThan(first.bbox.width);
+    expect(first.region.x).toBeLessThanOrEqual(first.bbox.x);
   });
 });

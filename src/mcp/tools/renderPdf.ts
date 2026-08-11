@@ -5,7 +5,7 @@ import { formatBox } from '../../output/markdown/helpers.js';
 import { formatPhysicalSize } from '../../output/markdown/overview.js';
 import type { PageResult, RenderRegion } from '../../types/index.js';
 import { MAX_IMAGE_EDGE_PX, MAX_RENDER_PAGES, MAX_TOTAL_IMAGE_BYTES } from '../limits.js';
-import { lookupRef, regionRef, rememberRef } from '../refs.js';
+import { forgetRefs, lookupRef, regionRef, rememberRef } from '../refs.js';
 import { type ToolBlock, type ToolResult, textBlock, toolResult } from '../result.js';
 import { resolveSource } from '../source.js';
 
@@ -18,8 +18,23 @@ export interface RenderPdfInput {
 }
 
 /** pdfvision rejects a scale outside (0, 4]; 4x is its soft OOM ceiling. */
-const MIN_SCALE = 0.5;
 const MAX_SCALE = 4;
+/**
+ * Below this a full page cannot be rasterised into the image budget at
+ * all — 20x reduction already yields nothing a model can read, and the
+ * budget is the point: the byte cap runs after the PNG exists, so it
+ * cannot prevent the allocation. Such a page is refused with the call
+ * that does work instead.
+ */
+const MIN_SCALE = 0.05;
+/**
+ * Below this the page is being shrunk so far that the text will not be
+ * legible. It is not a floor — a floor would let an oversized page blow
+ * the pixel budget, which is the thing the budget exists to prevent —
+ * but crossing it is worth saying out loud, because the recovery is a
+ * `region` rather than a bigger raster the server will not produce.
+ */
+const READABLE_MIN_SCALE = 0.5;
 
 /**
  * No `scale` parameter is exposed. Vision models downsample past roughly
@@ -29,9 +44,14 @@ const MAX_SCALE = 4;
  * recovery is a smaller `region` — which is also the recovery that
  * produces a genuinely sharper image.
  */
+/** Coordinates are quoted back for the caller to paste, so keep them short. */
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 function scaleFor(longestEdgeUnits: number): number {
   if (!Number.isFinite(longestEdgeUnits) || longestEdgeUnits <= 0) return 2;
-  return Math.min(MAX_SCALE, Math.max(MIN_SCALE, MAX_IMAGE_EDGE_PX / longestEdgeUnits));
+  return Math.min(MAX_SCALE, MAX_IMAGE_EDGE_PX / longestEdgeUnits);
 }
 
 function toRegion(values: readonly number[]): RenderRegion {
@@ -125,21 +145,36 @@ export async function renderPdf(input: RenderPdfInput): Promise<ToolResult> {
 
   // Measure before rasterising: the scale that fits the pixel budget
   // depends on the page (or region) size, and pdfvision needs it up
-  // front. A region already carries its own size, so the measuring pass
-  // is skipped there rather than run and thrown away.
-  let longestEdge: number;
-  if (region) {
-    longestEdge = Math.max(region.width, region.height);
-  } else {
-    const sized = await processDocument(resolved.filePath, { ...base, pages });
-    longestEdge = Math.max(...sized.pages.map((page) => Math.max(page.width, page.height)));
-  }
+  // front. A region carries its own size but not its page's UserUnit, so
+  // the measuring pass runs either way — the extraction is cached, and
+  // guessing 1 here is how a `/UserUnit 10` page renders ten times over
+  // the budget. Rendered pixels are raw units x UserUnit x scale.
+  const sized = await processDocument(resolved.filePath, { ...base, pages });
+  // Per page, not the largest raw edge times the largest UserUnit: those
+  // two maxima can belong to different pages, and their product is an
+  // edge no raster in the request actually has — which would shrink every
+  // image in the batch to fit a page that does not exist.
+  const effectiveEdge = (page: PageResult): number => Math.max(page.width, page.height) * (page.userUnit ?? 1);
+  const widest = sized.pages.reduce((a, b) => (effectiveEdge(a) >= effectiveEdge(b) ? a : b));
+  const longestEdge = region
+    ? Math.max(region.width, region.height) * (widest.userUnit ?? 1)
+    : Math.max(...sized.pages.map(effectiveEdge));
 
+  const scale = scaleFor(longestEdge);
+  if (scale < MIN_SCALE) {
+    throw new Error(
+      `Page ${widest.page} is ${Math.round(longestEdge)} physical points on its longest edge, ${
+        region ? 'and even this region cannot' : 'so it cannot'
+      } be rasterised inside the image budget. ${
+        region ? 'Pass a smaller `region`' : 'Pass a `region`'
+      } — coordinates are raw page-view units, and the whole page is [0, 0, ${round2(widest.width)}, ${round2(widest.height)}].`,
+    );
+  }
   const result = await processDocument(resolved.filePath, {
     ...base,
     pages,
     render: true,
-    renderScale: scaleFor(longestEdge),
+    renderScale: scale,
     renderRegion: region,
     // Only meaningful for a full page: a region render is already the
     // answer to "which part of this page", so re-listing crop targets
@@ -159,6 +194,12 @@ export async function renderPdf(input: RenderPdfInput): Promise<ToolResult> {
       `_\`pages\` "${pages}" also named ${formatPageRange(skipped)}${skippedTruncated ? ' and beyond' : ''}, past the end of this ${probe.totalPages}-page document._`,
     );
   }
+  if (scale < READABLE_MIN_SCALE) {
+    lines.push(
+      '',
+      `_This page is ${Math.round(longestEdge)} physical points on its longest edge, so fitting the image budget shrank it ${(1 / scale).toFixed(1)}x below normal — text may be unreadable. Render a \`region\` of it instead._`,
+    );
+  }
   // Refs are renumbered from `p1m1` by every call, so one held over from
   // an earlier search now resolves to that call's result. Naming what it
   // resolved to is what lets the caller notice.
@@ -166,13 +207,27 @@ export async function renderPdf(input: RenderPdfInput): Promise<ToolResult> {
   const images: ToolBlock[] = [];
   let bytesUsed = 0;
 
+  // Read every PNG before anything is emitted or any ref is filed: the
+  // reads are the last thing that can fail, and a failure after
+  // `forgetRefs` would take the previous response's still-valid refs
+  // with it while returning nothing in their place.
+  const rendered = new Map<number, Buffer>();
+  for (const page of result.pages) {
+    if (page.image) rendered.set(page.page, await readFile(page.image));
+  }
+
+  // Everything this response hands out replaces the previous set for this
+  // source, which is what the ref contract promises. After the `ref`
+  // lookup above, so a ref still resolves on the call that consumes it.
+  forgetRefs(input.source);
+
   for (const page of result.pages) {
     lines.push('', `## Page ${page.page}`, '', `_${describePage(page)}_`);
-    if (!page.image) {
+    const data = rendered.get(page.page);
+    if (!data) {
       lines.push('', '_Render produced no image for this page._');
       continue;
     }
-    const data = await readFile(page.image);
     if (bytesUsed + data.byteLength > MAX_TOTAL_IMAGE_BYTES) {
       lines.push(
         '',

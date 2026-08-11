@@ -63,6 +63,17 @@ describe('buildAttachments', () => {
     ]);
   });
 
+  it('keeps two same-named attachments whose bytes differ, even at the same size', () => {
+    const merged = mergeAttachmentRecords(
+      { named: { filename: 'report.csv', content: new Uint8Array([65, 66, 67, 68]) } },
+      { annotated: { filename: 'report.csv', content: new Uint8Array([87, 88, 89, 90]) } },
+    );
+
+    // Same name and same byte length: identity has to look at the bytes,
+    // or the second file disappears from the listing entirely.
+    expect(buildAttachments(merged)).toHaveLength(2);
+  });
+
   it('writes attachment bytes to sanitized filenames when an output directory is provided', () => {
     const dir = mkdtempSync(join(tmpdir(), 'pdfvision-attachments-unit-'));
     try {

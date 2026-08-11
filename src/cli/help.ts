@@ -19,10 +19,10 @@ Common flows
                                         when the default pass is not enough.
   pdfvision doc.pdf --search "term" --matches-only
                                         Locate a term without reading the whole body; each match
-                                        reports its page and bbox.
+                                        reports its page, bbox, and a crop-ready region.
   pdfvision doc.pdf -p <page> -r --render-region <x,y,w,h>
-                                        Crop a reported bbox as image evidence (use the bbox
-                                        reported for a match or layout block).
+                                        Crop that region as image evidence (a match's region, or
+                                        a layout block's bbox when there is no term to search).
   pdfvision doc.pdf -p <pages> --ocr    Re-read scanned pages (quality: empty_but_visual_content).
 
 Options
@@ -56,7 +56,7 @@ Options
                           only: --pages must resolve to exactly one
                           page (errors otherwise). Region must fit within the page bounds.
                           Typical use: --search "term" --matches-only reports each match's
-                          bbox; re-run with that bbox here to zoom in (--layout for a
+                          region; re-run with that region here to zoom in (--layout for a
                           block-level bbox when there is no term to search).
       --no-normalize      Disable Unicode NFKC normalization and C0-control cleanup. Default ON;
                           pre-normalization text is \`pages[].rawText\` in JSON/TOON and a sibling
@@ -170,7 +170,12 @@ Options
                           Match case exactly (default: insensitive).
       --matches-only      Emit a focused search report: the file, total page/match counts, and
                           a flat list of emitted matches with page, query reference, source,
-                          text, optional context, and bbox. Non-default page UserUnits are retained
+                          text, optional context, bbox, and region. Pass \`region\` to
+                          --render-region: it is the crop-ready box, grown from the match to
+                          the table row or visual line containing it. Passing \`bbox\` instead
+                          crops to the matched glyphs alone, which on a financial table renders
+                          the row label and none of its values.
+                          Non-default page UserUnits are retained
                           in compact pageUserUnits metadata. Requires --search. The full pages/body
                           payload is omitted; zero matches still exits 0 with a zero-match report.
                           Works in every format. Size grows with emitted matches and context.

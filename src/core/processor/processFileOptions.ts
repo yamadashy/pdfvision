@@ -47,7 +47,11 @@ export function buildProcessDocumentOptions(options: ProcessOptions): ProcessDoc
     // text_overlap, ...). The structured `pages[].layout` sections stay
     // gated behind the user's explicit --layout (see formatMarkdown), and
     // json/xml/toon keep the original opt-in so their schema is unchanged.
-    layout: options.layout || options.format === 'markdown',
+    // matchesOnly reports a crop-ready `region` per match, which is
+    // grown from the containing table row or visual line — so the layout
+    // pass has to run even when the caller did not ask for layout
+    // output. Measured at ~3% of a whole-document search.
+    layout: options.layout || options.format === 'markdown' || !!options.matchesOnly,
     imageBoxes: options.imageBoxes,
     vectorBoxes: options.vectorBoxes,
     visualRegions: options.visualRegions,

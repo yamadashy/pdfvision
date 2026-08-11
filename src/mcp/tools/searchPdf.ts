@@ -6,7 +6,7 @@ import { isRegexTimeoutWarning } from '../../core/search/index.js';
 import { formatBox } from '../../output/markdown/helpers.js';
 import type { PageResult } from '../../types/index.js';
 import { MATCH_CONTEXT_CHAR_CAP, MAX_MATCHES, MAX_SEARCH_WARNINGS } from '../limits.js';
-import { matchRef, rememberRef } from '../refs.js';
+import { forgetRefs, matchRef, rememberRef } from '../refs.js';
 import { type ToolResult, toolResult } from '../result.js';
 import { resolveSource } from '../source.js';
 
@@ -37,6 +37,45 @@ function appendUnsearchable(lines: string[], pages: readonly PageResult[]): void
     '',
     `> ${suspect.length} of the searched pages have no usable native text (${formatPageRange(suspect.map((page) => page.page))}), so a miss there is not evidence of absence. Re-run \`read_pdf\` with \`ocr\` on those pages, or \`render_pdf\` to look at them.`,
   );
+}
+
+/**
+ * Page-level warnings for the pages a hit landed on.
+ *
+ * A match is a claim that the text says something, and these codes are
+ * the cases where the text is not what the page shows: glyphs that map
+ * to nothing, native text drawn invisibly, text sitting under an opaque
+ * fill, an OCR layer over a scan. `read_pdf` surfaces them inline with
+ * the body; a search response that omits them hands back the one line
+ * that matched with none of the reasons to distrust it — and the whole
+ * point of the ref is that the caller renders instead of re-reading.
+ *
+ * Codes only, not messages: the message is written for someone holding
+ * the page, and the recovery here is the same for all of them (render
+ * the ref). Errors first, then warnings, capped like the search
+ * warnings above.
+ */
+export function appendPageWarnings(lines: string[], pages: readonly PageResult[], matched: ReadonlySet<number>): void {
+  const noted = pages
+    .filter((page) => matched.has(page.page) && (page.warnings ?? []).length > 0)
+    .map((page) => ({
+      page: page.page,
+      codes: [
+        ...new Set(
+          [...(page.warnings ?? [])]
+            .sort((a, b) => (a.severity === b.severity ? 0 : a.severity === 'error' ? -1 : 1))
+            .map((warning) => warning.code),
+        ),
+      ],
+    }));
+  if (noted.length === 0) return;
+
+  const shown = noted.slice(0, MAX_SEARCH_WARNINGS);
+  const subject = noted.length === 1 ? 'A page carrying a hit also carries' : 'Pages carrying hits also carry';
+  lines.push('', `> ${subject} extraction warnings — render the ref before quoting the text:`);
+  for (const entry of shown) lines.push(`> - p.${entry.page}: ${entry.codes.join(', ')}`);
+  const omitted = noted.length - shown.length;
+  if (omitted > 0) lines.push(`> - ${omitted} further page(s) with warnings omitted.`);
 }
 
 /**
@@ -99,6 +138,13 @@ export async function searchPdf(input: SearchPdfInput): Promise<ToolResult> {
 
   lines.push(...warningLog.lines());
 
+  // This response replaces whatever the previous one filed for this
+  // source, which is what the ref contract promises: a handle from an
+  // older search must not still resolve. A search that found nothing
+  // replaces it too — that is exactly the case where a leftover ref
+  // would render evidence for a question no longer being asked.
+  forgetRefs(input.source);
+
   if (hits.length > 0) {
     lines.push('', 'Each hit carries a `ref` — pass it straight to `render_pdf` instead of copying coordinates.', '');
     for (const { page, match, index } of hits.slice(0, MAX_MATCHES)) {
@@ -130,6 +176,7 @@ export async function searchPdf(input: SearchPdfInput): Promise<ToolResult> {
   }
 
   appendUnsearchable(lines, result.pages);
+  appendPageWarnings(lines, result.pages, matchedPages);
 
   if (hits.length > 0) {
     const first = hits[0];

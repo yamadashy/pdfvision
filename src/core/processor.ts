@@ -109,7 +109,14 @@ export async function processDocument(filePath: string, options: ProcessDocument
     renderVisualRegions,
     attachmentOutputDir,
   });
-  if (cachedResult) return cachedResult;
+  if (cachedResult) {
+    // Warnings are part of the answer, not commentary on how it was
+    // produced: "matches on this page hit the cap" and "the range ran
+    // past the last page" describe the result itself. Replaying them
+    // keeps the second identical call as honest as the first.
+    for (const message of cachedResult.warnings) options.onWarning?.(message);
+    return cachedResult.result;
+  }
 
   // A regex-mode search interrupted by the per-page time budget produced
   // an incomplete result. Caching it would serve that silent zero on
@@ -117,9 +124,23 @@ export async function processDocument(filePath: string, options: ProcessDocument
   // fire while actually searching — so track the interruption and skip
   // the cache write below.
   let searchInterrupted = false;
+  const emittedWarnings: string[] = [];
+  let warningCount = 0;
+  const recordWarning = (message: string): void => {
+    warningCount++;
+    if (emittedWarnings.length < MAX_CACHED_WARNINGS) emittedWarnings.push(message);
+    options.onWarning?.(message);
+  };
+  // Exactly at the cap everything is kept; past it the last slot gives
+  // up its warning for a note carrying the real total, so the stored
+  // list never exceeds the cap and never overstates what it dropped.
+  const warningsToCache = (): string[] =>
+    warningCount <= MAX_CACHED_WARNINGS
+      ? emittedWarnings
+      : [...emittedWarnings.slice(0, MAX_CACHED_WARNINGS - 1), cachedWarningsTruncated(warningCount)];
   const onSearchWarning = (message: string): void => {
     if (isRegexTimeoutWarning(message)) searchInterrupted = true;
-    options.onWarning?.(message);
+    recordWarning(message);
   };
 
   // pdfjs-dist is multiple MB and dominates startup time; only pull it in
@@ -146,7 +167,11 @@ export async function processDocument(filePath: string, options: ProcessDocument
   const restorePdfJsWarningCapture = capturePdfJsWarnings(pdfJsWarnings);
   try {
     const totalPages = doc.numPages;
-    const pageNumbers = await resolvePageNumbers({ doc, options, renderRegion });
+    const pageNumbers = await resolvePageNumbers({
+      doc,
+      options: { ...options, onWarning: recordWarning },
+      renderRegion,
+    });
 
     const {
       metadata,
@@ -186,7 +211,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       // same-named PNG there may belong to a different PDF).
       const pagesOptions = options.renderOutput
         ? {
-            outputPaths: resolveFlatRenderPaths(imagesDir as string, pageNumbers, renderRegion, options.onWarning),
+            outputPaths: resolveFlatRenderPaths(imagesDir as string, pageNumbers, renderRegion, recordWarning),
             reuse: false,
           }
         : undefined;
@@ -283,7 +308,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       imagesDir,
       flatImagesDir: options.renderOutput !== undefined,
       renderScale,
-      onWarning: options.onWarning,
+      onWarning: recordWarning,
     });
     // OCR runs after the main pass so it can attach to already-built
     // PageResults. The pdfjs-derived `text` stays untouched — agents that
@@ -377,7 +402,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       pages,
     };
 
-    if (!searchInterrupted) writeCachedResult(cacheDir, cacheKey, result);
+    if (!searchInterrupted) writeCachedResult(cacheDir, cacheKey, result, warningsToCache());
 
     return result;
   } finally {
@@ -392,6 +417,16 @@ export async function processDocument(filePath: string, options: ProcessDocument
  * Returns a formatted Markdown, JSON, XML, or TOON string. Library callers
  * usually want `processDocument()` instead.
  */
+/**
+ * Warnings recorded for replay on a later cache hit. Bounded because the
+ * per-page ones (match cap, OCR notes) scale with the document, and the
+ * cache entry should not grow without limit to carry them. Past the cap
+ * the count is reported rather than silently dropped.
+ */
+const MAX_CACHED_WARNINGS = 50;
+const cachedWarningsTruncated = (total: number): string =>
+  `${total} warnings were emitted on the run this cached result came from; the first ${MAX_CACHED_WARNINGS - 1} are above — re-run with --no-cache (or MCP: a different page range) to see the rest`;
+
 export async function processFile(filePath: string, options: ProcessOptions): Promise<string> {
   validateProcessFileOptions(options);
   const result = await processDocument(filePath, buildProcessDocumentOptions(options));
