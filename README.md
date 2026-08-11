@@ -88,7 +88,7 @@ Agents must not execute commands, follow links, disclose secrets, or expand thei
 
 ## 🤖 Agent Skill
 
-pdfvision ships a bundled agent skill at [`skills/pdfvision/`](https://github.com/yamadashy/pdfvision/tree/main/skills/pdfvision/) (a `SKILL.md` plus a small `references/` set) so a Claude Code, Codex, or Cursor session knows when to reach for the CLI and how to pick flags. Install it with [`npx skills`](https://github.com/vercel-labs/skills):
+pdfvision ships a bundled agent skill at [`skills/pdfvision/`](https://github.com/yamadashy/pdfvision/tree/main/skills/pdfvision/) (a single `SKILL.md`) so a Claude Code, Codex, or Cursor session knows when to reach for the CLI and how to pick flags. Install it with [`npx skills`](https://github.com/vercel-labs/skills):
 
 ```bash
 # Project install (default) — drops the skill into <cwd>/.claude/skills/pdfvision/
@@ -98,7 +98,7 @@ npx skills add yamadashy/pdfvision
 npx skills add yamadashy/pdfvision -g
 ```
 
-The skill covers the daily extraction flow, the density-Overview-based silent-failure detection, and points at `references/structured-output.md` (full `DocumentResult` schema for programmatic consumers) and `references/ocr.md` (multi-language OCR, traineddata, troubleshooting) only when those specific cases apply.
+The skill is a single `SKILL.md` covering the daily extraction flow and the density-Overview-based silent-failure detection. Everything past that — the full `DocumentResult` schema, multi-language OCR, the warning catalog, per-flag caveats — it routes to `pdfvision docs <topic>`, which the installed CLI prints from inside the binary. So the detail always matches the version you are running, and it needs no network access.
 
 ## 🔌 MCP Server
 

@@ -27,10 +27,10 @@ npx skills add yamadashy/pdfvision -g
 - 使用密度信号发现静默失败。
 - 何时添加 `--layout`、`--render`、`--ocr`、`--image-boxes` 或 `--visual-regions`。
 - 何时用 `--search` 和 `--render-region` 做 evidence-focused crops。
-- 结构化输出参考文档的路由。
+- 通过 `pdfvision docs <topic>` 路由到结构化输出的字段形状、警告目录、各标志的注意事项和信任边界。
 - OCR 语言和 traineddata 故障排查。
 
-Agent Skills 的主指令刻意保持简短，只在任务需要时指向 references。
+skill 只有一个 `SKILL.md`。它刻意保持简短，把细节交给已安装 CLI 从二进制内部打印的 `pdfvision docs <topic>`——因此细节始终与你正在运行的版本一致，skill 本身也保持小巧、无需频繁更新。
 
 ## 智能体工作流
 

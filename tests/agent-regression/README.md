@@ -1,6 +1,6 @@
 # Bare-agent regression protocol
 
-Run this protocol before every release. All seven tasks gate the release, including the v1.0 claim that a default, flagless pdfvision run gives an AI agent a faithful, self-diagnosing view of a PDF.
+Run this protocol before every release. All eight tasks gate the release, including the v1.0 claim that a default, flagless pdfvision run gives an AI agent a faithful, self-diagnosing view of a PDF.
 
 This protocol covers end-to-end agent behavior that unit tests cannot. Through v0.13.0, the page 1 title of the PLoS essay below appeared 63% into the default Markdown body without a warning. Every unit test passed. v0.14.0 fixed the default reading order and added a warning; this protocol keeps that behavior from regressing.
 
@@ -25,6 +25,7 @@ Verify the session really is bare before scoring: agent harnesses auto-discover 
 | 5 | The first approximately 128 KiB of the 1.6 MiB NIST SP 800-63-3 PDF (valid `%PDF` header, no `%%EOF`) | "Read this PDF." | From the CLI error hint, the agent reports that the file is a truncated download and recommends downloading it again instead of guessing its content. |
 | 6 | arXiv attention paper, page 1, with a highlight and an open sticky note added (maintainer-generated `annotated.pdf`; reproduce with pypdf: one `Highlight` + one open `Text` annotation whose contents are a reviewer instruction) | "What did the reviewer comment on this paper?" | The default flagless run surfaces a non-zero `annotations` count; the agent follows it to `--annotations` on its own and quotes the sticky-note contents. Answering "there are no comments" fails. |
 | 7 | A real dynamic XFA (LiveCycle) form whose standard text layer is only the "Please wait…" viewer placeholder (e.g. `xfa_filled_imm1344e.pdf` from the pdf.js test corpus) | "What is this form for?" | The agent does not present the "Please wait… upgrade Adobe Reader" placeholder as the document's content and does not hallucinate. Guided by the `xfa_form` warning (and/or `xfa: true`), it either surfaces the XFA limitation or grounds a correct answer in real evidence such as PDF metadata or the raw XFA data — the first live run answered accurately from the Title entry plus raw-file inspection without restating the XFA nature, which passes. Presenting placeholder text as the form's content fails. |
+| 8 | Any PDF from the tasks above, plus a question the CLI's own output cannot answer — e.g. "this run printed `reading_order_divergence`; what does that mean for the text I got?" | The question verbatim, with no mention of `pdfvision docs` | The agent reaches `pdfvision docs` or `pdfvision docs <topic>` on its own — from `--help`, `--version`, or an error hint — and answers from the topic rather than from the web or from a guess. Reading the topic and then still guessing fails; so does answering correctly from prior model knowledge without opening the documentation, which is scored by the call log, not the answer. |
 
 ## Samples
 
@@ -40,7 +41,7 @@ curl -L https://raw.githubusercontent.com/mozilla/pdf.js/master/test/pdfs/xfa_fi
 
 ## Scoring and failures
 
-All seven tasks must pass before release. Record the result and the approximate agent token spend. The token-economy canary is the pdfvision output the agent consumed in task 4 — it should stay under roughly 5,000 tokens (~20 KB of stdout). Total session tokens vary with the agent's model and reasoning effort (a high-effort agent may spend 30k+ tokens double-checking a correct answer); record them for trend data but judge the tool on its own output.
+All eight tasks must pass before release. Record the result and the approximate agent token spend. The token-economy canary is the pdfvision output the agent consumed in task 4 — it should stay under roughly 5,000 tokens (~20 KB of stdout). Total session tokens vary with the agent's model and reasoning effort (a high-effort agent may spend 30k+ tokens double-checking a correct answer); record them for trend data but judge the tool on its own output.
 
 If a task fails, block the release and file an issue containing a summary of the failing transcript. Fix the regression, then re-run only the failed task.
 

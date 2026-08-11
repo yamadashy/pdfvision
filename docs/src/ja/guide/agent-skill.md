@@ -27,10 +27,10 @@ npx skills add yamadashy/pdfvision -g
 - 密度シグナルによるサイレント失敗の検出。
 - `--layout`, `--render`, `--ocr`, `--image-boxes`, `--visual-regions` を使う判断。
 - `--search` と `--render-region` を使った根拠中心の crop。
-- 構造化出力リファレンスへの導線。
+- 構造化出力のフィールド形状、警告カタログ、フラグ別の注意点、信頼境界への導線（`pdfvision docs <topic>`）。
 - OCR 言語と traineddata のトラブルシュート。
 
-Agent Skills の main instructions は意図的に短くし、必要なタスクのときだけ references に進む構成です。
+skill は `SKILL.md` 1ファイルです。指示は意図的に短く保ち、詳細はインストール済み CLI がバイナリ内から出力する `pdfvision docs <topic>` に委ねます。そのため詳細は実行中のバージョンと必ず一致し、skill 自体も更新頻度の低い小さなファイルのままで済みます。
 
 ## エージェントの流れ
 

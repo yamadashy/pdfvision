@@ -29,10 +29,10 @@ The Agent Skills cover:
 - density-signal checks for silent failures.
 - when to add `--layout`, `--render`, `--ocr`, `--image-boxes`, or `--visual-regions`.
 - when to use `--search` and `--render-region` for evidence-focused crops.
-- structured output reference routing.
+- routing to `pdfvision docs <topic>` for structured-output shapes, the warning catalog, per-flag caveats, and the trust boundary.
 - OCR language and traineddata troubleshooting.
 
-The Agent Skills intentionally keep their main instructions short and point to references only when the task needs them.
+The skill is a single `SKILL.md`. It intentionally keeps its instructions short and routes the detail to `pdfvision docs <topic>`, which the installed CLI prints from inside the binary — so the detail matches the version you are running, and the skill itself stays small enough to update rarely.
 
 ## Agent Workflow
 
