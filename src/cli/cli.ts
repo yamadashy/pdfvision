@@ -1,10 +1,12 @@
 import { parseArgs } from 'node:util';
 import { resolveClearCacheCommand } from './clearCacheCommand.js';
+import { renderTopicIndex, resolveDocsCommand } from './docsCommand.js';
 import { exitWithError, formatCliErrorMessage } from './errors.js';
 import { resolveOutputFormat } from './format.js';
-import { CLEAR_CACHE_HELP_TEXT, HELP_TEXT, MCP_HELP_TEXT } from './help.js';
+import { CLEAR_CACHE_HELP_TEXT, DOCS_HELP_TEXT, HELP_TEXT, MCP_HELP_TEXT, VERSION_DOCS_HINT } from './help.js';
 import { readPasswordFromStdin, resolveInputSource } from './input.js';
 import { resolveMcpCommand } from './mcpCommand.js';
+import { CLI_PARSE_OPTIONS } from './optionSpec.js';
 import { resolveRenderOptions } from './renderOptions.js';
 import type { ParsedCliValues, RunOptions } from './types.js';
 import { getVersion } from './version.js';
@@ -37,6 +39,16 @@ function emitOutputSizeNote(result: string, options: { mapped?: boolean } = {}):
   );
 }
 
+/**
+ * The version alone on stdout, so `$(pdfvision --version)` stays a bare
+ * string; the documentation pointer on stderr, because that is the one
+ * output an agent which skipped `--help` reliably sees.
+ */
+function printVersion(): void {
+  console.log(getVersion());
+  console.error(VERSION_DOCS_HINT);
+}
+
 // Root ownership is verified before removal. Lazy-import so the heavy
 // node:fs surface stays out of the --help / --version paths.
 async function clearCache(): Promise<void> {
@@ -57,7 +69,7 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
   if (mcpCommand) {
     if (mcpCommand.kind === 'error') exitWithError(mcpCommand.message, 'pdfvision mcp --help');
     if (mcpCommand.kind === 'version') {
-      console.log(getVersion());
+      printVersion();
       return;
     }
     if (mcpCommand.kind === 'help') {
@@ -66,6 +78,29 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
     }
     const { serveMcpStdio } = await import('../mcp/serve.js');
     serveMcpStdio();
+    return;
+  }
+
+  // Same pre-parse treatment as `mcp`. Topic bodies are imported only once
+  // a topic is actually asked for, so `--help`, `--version`, and every
+  // extraction run stay clear of the embedded documentation.
+  const docsCommand = resolveDocsCommand(argv);
+  if (docsCommand) {
+    if (docsCommand.kind === 'error') exitWithError(docsCommand.message, 'pdfvision docs');
+    if (docsCommand.kind === 'version') {
+      printVersion();
+      return;
+    }
+    if (docsCommand.kind === 'help') {
+      console.log(DOCS_HELP_TEXT);
+      return;
+    }
+    if (docsCommand.kind === 'index') {
+      console.log(renderTopicIndex(getVersion()));
+      return;
+    }
+    const { CLI_TOPIC_BODIES } = await import('./docs/topicBodies.generated.js');
+    console.log(CLI_TOPIC_BODIES[docsCommand.name]);
     return;
   }
 
@@ -78,7 +113,7 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
       exitWithError(clearCacheCommand.message, 'pdfvision clear-cache --help');
     }
     if (clearCacheCommand.kind === 'version') {
-      console.log(getVersion());
+      printVersion();
       return;
     }
     if (clearCacheCommand.kind === 'help') {
@@ -98,58 +133,7 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
     const parsed = parseArgs({
       args: argv,
       allowPositionals: true,
-      options: {
-        help: { type: 'boolean', short: 'h' },
-        version: { type: 'boolean', short: 'v' },
-        pages: { type: 'string', short: 'p' },
-        // Canonical format flag — `default` is intentionally NOT set
-        // here so we can tell "user typed -f X" apart from "no -f at
-        // all"; that distinction is needed when reconciling against
-        // the `--markdown` / `--json` / `--xml` shortcut flags below.
-        format: { type: 'string', short: 'f' },
-        markdown: { type: 'boolean' },
-        json: { type: 'boolean' },
-        xml: { type: 'boolean' },
-        toon: { type: 'boolean' },
-        render: { type: 'boolean', short: 'r' },
-        'render-output': { type: 'string' },
-        'render-scale': { type: 'string' },
-        'render-region': { type: 'string' },
-        'no-cache': { type: 'boolean' },
-        'no-normalize': { type: 'boolean' },
-        password: { type: 'string' },
-        'password-stdin': { type: 'boolean' },
-        geometry: { type: 'boolean' },
-        layout: { type: 'boolean' },
-        'image-boxes': { type: 'boolean' },
-        'vector-boxes': { type: 'boolean' },
-        'visual-regions': { type: 'boolean' },
-        'render-visual-regions': { type: 'boolean' },
-        'form-fields': { type: 'boolean' },
-        links: { type: 'boolean' },
-        annotations: { type: 'boolean' },
-        structure: { type: 'boolean' },
-        'page-labels': { type: 'boolean' },
-        attachments: { type: 'boolean' },
-        'attachment-output': { type: 'string' },
-        outline: { type: 'boolean' },
-        viewer: { type: 'boolean' },
-        layers: { type: 'boolean' },
-        'strip-repeated': { type: 'boolean' },
-        map: { type: 'boolean' },
-        remote: { type: 'string' },
-        'clear-cache': { type: 'boolean' },
-        ocr: { type: 'boolean' },
-        'ocr-lang': { type: 'string', default: 'eng' },
-        // --search is repeatable so `--search A --search B` works
-        // (multi-query AND-merge into pages[].matches[]). The bool
-        // companions modify ALL queries — case sensitivity / regex
-        // semantics per-query would invite confusion.
-        search: { type: 'string', multiple: true },
-        'search-regex': { type: 'boolean' },
-        'search-case-sensitive': { type: 'boolean' },
-        'matches-only': { type: 'boolean' },
-      },
+      options: CLI_PARSE_OPTIONS,
     });
     values = parsed.values as ParsedCliValues;
     positionals = parsed.positionals;
@@ -158,7 +142,7 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
   }
 
   if (values.version) {
-    console.log(getVersion());
+    printVersion();
     return;
   }
 

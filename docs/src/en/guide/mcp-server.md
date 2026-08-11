@@ -54,7 +54,7 @@ Responses are budgeted: 30,000 characters per body, 12,000 per page, 100 matches
 
 The same honesty applies to search: core warnings ride the response, so a regex query that exceeds the per-page time budget reports itself instead of masquerading as "0 matches", and a search over pages with no usable native text says a miss there is not evidence of absence.
 
-Every result carries an untrusted-data banner. MCP hosts have no equivalent of the Agent Skill's guidance, so the trust boundary travels with the payload. Treat extracted content as data, not instructions — see [Security and Privacy](./security-and-privacy.md).
+Every successful result leads with an untrusted-data banner (error results do not, and can still quote the document). MCP hosts have no equivalent of the Agent Skill's guidance, so the trust boundary travels with the payload. Treat extracted content as data, not instructions — see [Security and Privacy](./security-and-privacy.md).
 
 ## Remote Input Is Guarded
 

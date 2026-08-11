@@ -37,7 +37,7 @@ pdfvision --remote https://example.com/document.pdf --format json
 
 ## パスワード
 
-PDF パスワードは pdf.js の復号にのみ使われ、出力には含まれません。
+PDF パスワードは文書の復号と、切り詰めた SHA-256 としてキャッシュエントリの区別に使われます。値そのものが出力に含まれることはありません。
 
 ```bash
 printf "your-password\n" | pdfvision encrypted.pdf --password-stdin --format json

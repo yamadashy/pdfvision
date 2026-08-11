@@ -39,7 +39,7 @@ The [MCP server](./mcp-server.md) applies a stricter policy than `--remote`, bec
 
 ## Passwords
 
-PDF passwords are used only for pdf.js decryption and are never emitted in output.
+PDF passwords decrypt the document and, as a truncated SHA-256, distinguish cache entries; the value itself is never emitted in output.
 
 Prefer stdin for CLI workflows:
 

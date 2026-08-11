@@ -185,7 +185,7 @@ describe('cli', () => {
     expect(r.stdout).toHaveLength(1);
     expect(r.stdout[0]).toMatch(/^\d+\.\d+\.\d+/);
     expect(r.stdout[0]).not.toContain('Usage:');
-    expect(r.stderr).toEqual([]);
+    expect(r.stderr.join('\n')).toContain('pdfvision docs');
   });
 
   it('treats a whitespace-only --remote value as missing input before cache setup', async () => {
@@ -322,8 +322,20 @@ describe('cli', () => {
   it('prints version with --version', async () => {
     const r = await captureRun(['--version']);
     expect(r.stdout.join('\n')).toMatch(/\d+\.\d+\.\d+/);
-    expect(r.stderr).toEqual([]);
     expect(r.exitCode).toBeNull();
+  });
+
+  /**
+   * `$(pdfvision --version)` is a shape callers parse, so the documentation
+   * pointer has to stay on the other stream — the whole reason it is safe to
+   * add one at all.
+   */
+  it('keeps stdout a bare version and puts the documentation pointer on stderr', async () => {
+    const r = await captureRun(['--version']);
+    expect(r.stdout).toHaveLength(1);
+    expect(r.stdout[0]).toMatch(/^\d+\.\d+\.\d+/);
+    expect(r.stdout[0]).not.toContain('pdfvision docs');
+    expect(r.stderr.join('\n')).toContain('If you are a coding agent, run "pdfvision docs"');
   });
 
   it('exits with error on invalid --format', async () => {
@@ -1137,9 +1149,9 @@ describe('subcommand error hints', () => {
     expect(result.stderr.join('\n')).toContain('Run "pdfvision mcp --help" for usage.');
   });
 
-  it('keeps the general usage hint for ordinary option errors', async () => {
+  it('names both the help and the documentation index for ordinary option errors', async () => {
     const result = await captureRun(['--not-an-option']);
-    expect(result.stderr.join('\n')).toContain('Run "pdfvision --help" for usage.');
+    expect(result.stderr.join('\n')).toContain('Run "pdfvision --help" for usage, or "pdfvision docs"');
   });
 });
 
@@ -1154,6 +1166,6 @@ describe('subcommand calling convention', () => {
     expect(result.exitCode).toBeNull();
     expect(result.stdout).toHaveLength(1);
     expect(result.stdout[0]).toMatch(/^\d+\.\d+\.\d+/);
-    expect(result.stderr).toEqual([]);
+    expect(result.stderr.join('\n')).toContain('pdfvision docs');
   });
 });

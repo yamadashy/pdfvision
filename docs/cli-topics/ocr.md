@@ -1,8 +1,32 @@
+---
+name: ocr
+description: OCR language codes and ordering, confidence, traineddata install and cache, and troubleshooting. Mandatory for non-English OCR, where language order changes the result.
+---
+
 # OCR reference
 
 Detail on the `--ocr` flag — when to reach for it, multi-language behaviour, confidence semantics, install / cache requirements, and troubleshooting. Read this when running `--ocr` on non-English text, when the confidence comes back unexpectedly low, or when `tesseract.js` install needs diagnosing.
 
-For the basic flow ("page is image-flattened, run `--ocr -f json`"), the top-level SKILL.md is enough.
+For the basic flow ("page is image-flattened, run `--ocr -f json`"), `pdfvision --help` is enough.
+
+## Shape
+
+```ts
+interface PageOcr {
+  text: string;              // OCR-derived text, trimmed
+  confidence: number;        // 0..1 (rounded to 3dp). Tesseract reports 0..100 internally; pdfvision normalises.
+  lang: string;              // canonicalised lang spec — whitespace-trimmed, order preserved
+  words?: OcrWord[];         // OCR word boxes in page coordinates, when tesseract returns layout
+}
+
+interface OcrWord {
+  text: string;
+  confidence: number;        // 0..1 (rounded to 3dp)
+  x: number; y: number; width: number; height: number;
+}
+```
+
+`lang` echoes the caller's `--ocr-lang` after whitespace normalization but preserves token order. `eng+jpn` and `jpn+eng` produce different recognisers (tesseract treats the first language as primary) and therefore land in different cache slots and different `lang` echoes. `words[]` is optional because older cache entries or unusual tesseract output can lack block/line/word layout; when present, search can return OCR word-level bboxes. If word-level reconstruction misses one or more query occurrences that exist in full `ocr.text` (for example OCR line-boundary or spacing differences), search supplements from `ocr.text` with a page-level bbox.
 
 ## When to run OCR
 

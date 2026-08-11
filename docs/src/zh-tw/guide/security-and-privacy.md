@@ -37,7 +37,7 @@ pdfvision --remote https://example.com/document.pdf --format json
 
 ## 密碼
 
-PDF 密碼只用於 pdf.js 解密，不會出現在輸出中。
+PDF 密碼用於解密文件，並以截斷的 SHA-256 形式區分快取項目；密碼本身不會出現在輸出中。
 
 ```bash
 printf "your-password\n" | pdfvision encrypted.pdf --password-stdin --format json

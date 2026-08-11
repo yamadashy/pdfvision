@@ -15,9 +15,17 @@ export function formatCliErrorMessage(error: unknown): string {
  * `usageCommand` lets a subcommand point at its own help instead of the
  * whole CLI's: after `pdfvision clear-cache --json`, the useful next read
  * is that subcommand's usage, not the full option list.
+ *
+ * Without one, the hint also names the documentation index. Being stuck is
+ * exactly when knowing the topics exist is worth the line, and it is the
+ * only moment an agent that skipped `--help` reliably reads our output.
  */
-export function exitWithError(message: string, usageCommand = 'pdfvision --help'): never {
+export function exitWithError(message: string, usageCommand?: string): never {
   console.error(`Error: ${message}`);
-  console.error(`Run "${usageCommand}" for usage.`);
+  console.error(
+    usageCommand
+      ? `Run "${usageCommand}" for usage.`
+      : 'Run "pdfvision --help" for usage, or "pdfvision docs" for the documentation index.',
+  );
   process.exit(1);
 }

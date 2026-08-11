@@ -1,0 +1,151 @@
+---
+name: schema
+description: The top-level DocumentResult, the per-page PageOverview and PageResult fields, PageQuality, and the coordinate system every bbox uses. Use when consuming -f json / -f toon / processDocument() output programmatically.
+---
+
+# Structured output schema
+
+Reference for `-f json`, `-f xml`, and `-f toon` consumers. Read this when an agent or tooling consumes the structured payload programmatically and needs to know every field, its shape, and its coordinate convention.
+
+Encrypted PDFs require `--password <value>`, `--password-stdin`, or `processDocument(..., { password })` when pdf.js asks for a document password. The password is used only for decryption and is never emitted in JSON/XML/TOON/Markdown. Prefer `--password-stdin` for CLI workflows where argv or shell history exposure matters; `--password` can be supplied as an explicit fallback when stdin is empty.
+
+## DocumentResult (top level)
+
+```ts
+interface DocumentResult {
+  file: string;                // path/URL the CLI was invoked with
+  totalPages: number;          // total in the source PDF, not in the selection
+  metadata: DocumentMetadata;  // title / author / subject / creator (all string | null)
+  pageLabels?: string[];       // full 0-indexed viewer page-label array; present iff --page-labels
+  attachments?: DocumentAttachment[]; // embedded file metadata; present iff --attachments
+  attachmentCount?: number;    // document-level embedded files; always computed, omitted when zero
+  javascriptActionCount?: number; // document-level JavaScript scripts; always computed, omitted when zero
+  outlineCount?: number;       // top-level outline entries; always computed, omitted when zero
+  xfa?: boolean;               // true iff the PDF declares an XFA (LiveCycle) form; see xfa_form warning
+  outline?: DocumentOutlineItem[]; // document bookmarks; present iff --outline
+  viewer?: DocumentViewerState; // viewer settings; present iff --viewer
+  layers?: DocumentLayers;       // optional content groups; present iff --layers
+  overview?: PageOverview[];   // per-page density summary; present iff pages.length > 1
+  pages: PageResult[];         // one entry per selected page, in page-number order
+}
+```
+
+`file` is patched on cache hit to the current invocation's path or `--remote` URL, so a downstream consumer sees a meaningful input label even when the cached entry came from a different invocation that touched the same content hash.
+
+`javascriptActionCount` is an always-on presence signal. It counts the script entries returned by pdf.js at document level, including JavaScript catalog `OpenAction` entries and named JavaScript entries. Pass `--viewer` to expose their names and script source in `viewer.jsActions`; pdfvision reports the scripts as data and does not execute them.
+## PageOverview (density summary)
+
+```ts
+interface PageOverview {
+  page: number;
+  pageLabel?: string;             // viewer-visible page label; present iff --page-labels and labels exist
+  charCount: number;
+  imageCount: number;             // raster image draws (XObject + inline + mask + image-bearing patterns), per drawn instance
+  vectorCount: number;            // vector drawing ops (paths / shadings), e.g. form boxes, chart rules, slide shapes
+  textCoverage: number;           // 0..1, fraction of page area covered by text glyph bboxes
+  nonPrintableRatio: number;      // 0..1, pre-C0-strip NUL / control / noncharacter fraction
+  nonPrintableCount: number;      // raw count — stays discriminable when the 3dp ratio rounds to 0
+  renderContentRatio?: number;    // 0..1, fraction of pixels differing from the page's dominant background (present iff --render or --ocr)
+  rotation?: number;               // clockwise page rotation in degrees; present only for rotated pages
+  userUnit?: number;               // PDF /UserUnit; omitted when 1; physical points = raw page-view value * userUnit
+  quality: PageQuality;           // derived classification — see below
+  warningCount?: number;          // mirror of pages[N].warnings.length, omitted when no rule fired
+  matchCount?: number;            // mirror of pages[N].matches.length; present-with-0 means "search ran, no hit"
+  vectorBoxCount?: number;        // mirror of pages[N].vectorBoxes.length; present iff --vector-boxes
+  visualRegionCount?: number;     // mirror of pages[N].visualRegions.length; present iff --visual-regions
+  formFieldCount?: number;        // furniture presence count; automatic when non-zero, present-with-0 when the matching flag ran
+  linkCount?: number;             // furniture presence count; automatic when non-zero, present-with-0 when the matching flag ran
+  annotationCount?: number;       // furniture presence count; automatic when non-zero, present-with-0 when the matching flag ran
+  structureNodeCount?: number;    // count of tagged-PDF structure nodes; present iff --structure
+  width: number;                  // raw unrotated page-view units
+  height: number;
+}
+```
+
+`overview[]` is the first thing to inspect for silent-failure detection. The `quality` field gives a one-shot classification; the raw signals below let agents combine signals their own way:
+- `imageCount > 0 && textCoverage ≈ 0` → image-flattened page; the text stream is empty.
+- `imageCount > 0 || vectorCount > 0` plus very low `textCoverage` and a tiny `charCount` → the visible page is mostly outside native text (often just a page number over a slide/image). Maps to `quality.nativeTextStatus === 'sparse_text_with_visual_content'`.
+- Very low `charCount` plus dense vector structure can also map to `sparse_text_with_visual_content` even when `textCoverage` is not low, because one large watermark text item can cover much of the page while the visible form/table/chart content lives in vectors.
+- Any native text plus `quality.visualStatus === 'blank'` → native text is not visible on the rasterised page. Common cases: hidden OCR residue, invisible/broken-font text, or render/text-layer mismatches. Maps to `quality.nativeTextStatus === 'sparse_text_on_blank_visual'`.
+- `vectorCount > 0 && textCoverage is low` → visible non-raster structure exists even when `imageCount` is zero; forms, charts, diagrams, and slide shapes may require `--render`.
+- `0.05 <= nonPrintableRatio < 0.3` → one or more fonts lack a usable ToUnicode CMap; native text contains readable fragments mixed with raw glyph indices. Native text is incomplete even if some words look usable. Maps to `quality.nativeTextStatus === 'mixed_glyph_indices'`.
+- `nonPrintableRatio >= 0.3` → ToUnicode CMap missing for most of the page; the text stream is mostly raw glyph indices (NUL + control chars) even though `textCoverage` looks fine. Native text is unusable; fall back to `--render` or `--ocr`. Maps to `quality.nativeTextStatus === 'unusable_glyph_indices'`.
+- Normalized `pages[].text` strips non-visible C0 controls except tab / newline / carriage return, but `nonPrintableRatio` and `nonPrintableCount` still use the pre-strip text signal so sparse control-byte evidence remains visible.
+- Private Use Area glyph-code strings are intentionally excluded from `nonPrintableRatio`; icon fonts can use PUA legitimately. When the page text is PUA-dominant, `pages[].warnings[].code === 'glyph_garbage_text'` fires even if `quality.nativeTextStatus === 'ok'` and `nonPrintableRatio === 0`. When repeated PUA glyphs appear inside otherwise readable text, `localized_glyph_noise` fires so formulas or custom-symbol runs can be checked against the render.
+- `quality.visualStatus === 'sparse'` → rasterised page is not blank, but visible marks are sparse. This covers `0.001 < renderContentRatio <= 0.005`, tiny corroborated image/vector/annotation traces below the blank threshold, and text-only or annotation-only pages with nonzero visible ink below the blank threshold; inspect geometry or render a crop before calling it a render failure.
+- `quality.visualStatus === 'blank'` → rasterised page is effectively blank against its own dominant background (only meaningful when `--render` or `--ocr` was on). Background-aware so dark covers and beige scans don't false-trip it. Catches render-pipeline failures pdfvision can't otherwise surface: pdf.js + @napi-rs/canvas can't decode JPEG2000 image streams (common in Internet Archive scans), and PDFs whose fonts have no resolvable glyphs draw nothing. When OCR runs against this, `confidence: 0` is *not* an OCR miss — the input was a near-uniform image.
+## PageResult (per page)
+
+```ts
+interface PageResult {
+  page: number;
+  pageLabel?: string;           // viewer-visible label such as i, ii, A-1, 1; present iff --page-labels and labels exist
+  text: string;                  // NFKC-normalized and C0-cleaned unless --no-normalize
+  rawText?: string;              // pre-normalization text — present when normalization changed it
+  charCount: number;
+  imageCount: number;
+  vectorCount: number;
+  textCoverage: number;
+  nonPrintableRatio: number;     // pre-C0-strip NUL / control / noncharacter ratio
+  nonPrintableCount: number;     // pre-C0-strip raw count alongside the ratio
+  renderContentRatio?: number;   // pixel fraction differing from the page's dominant background (present iff --render or --ocr)
+  quality: PageQuality;          // derived per-page classification — agent-side dispatch lives on this field
+  rotation?: number;              // clockwise page rotation in degrees; present only for rotated pages
+  userUnit?: number;              // PDF /UserUnit; omitted when 1; mirrored in overview[]
+  width: number;
+  height: number;
+  image?: string;                // absolute PNG path — present iff --render
+  renderRegion?: { x, y, width, height }; // echoed back when --render-region was set; lets consumers tell crop vs full
+  spans?: TextSpan[];            // present iff --geometry
+  layout?: PageLayout;           // present iff --layout
+  imageBoxes?: ImageBox[];       // present iff --image-boxes
+  vectorBoxes?: VectorBox[];     // present iff --vector-boxes
+  visualRegions?: VisualRegion[]; // present iff --visual-regions
+  formFieldCount?: number;       // always computed; omitted when zero
+  formFields?: FormField[];      // present iff --form-fields
+  linkCount?: number;            // always computed; omitted when zero
+  links?: PageLink[];            // present iff --links
+  annotationCount?: number;      // always computed; omitted when zero
+  annotations?: PageAnnotation[]; // present iff --annotations
+  structure?: PageStructureNode | null; // present iff --structure; null means no page structure tree
+  structureTables?: PageStructureTable[]; // tagged tables; present iff --structure found Table nodes
+  jsActions?: Record<string, string[]>; // page-level JavaScript actions, present iff --viewer and the page defines them
+  ocr?: PageOcr;                 // present iff --ocr
+  warnings?: PageWarning[];      // omitted when no rule fired on the page
+  matches?: SearchMatch[];       // present iff --search; empty array means "search ran, no hit on this page"
+}
+
+interface PageQuality {
+  nativeTextStatus:
+    | 'ok'                       // usable native text that is not sparse relative to non-text visuals
+    | 'mixed_glyph_indices'      // 0.05 <= nonPrintableRatio < 0.3 — readable fragments mixed with glyph garbage
+    | 'unusable_glyph_indices'   // nonPrintableRatio >= 0.3 — fall back to --ocr / --render
+    | 'sparse_text_on_blank_visual' // native text exists but the rendered page is effectively blank
+    | 'sparse_text_with_visual_content' // native text exists but is too sparse for a visual page
+    | 'empty_but_visual_content' // no native text but the page has images / vectors / non-blank pixels / visible annotations not contradicted by a blank render
+    | 'empty';                   // no text, no detected visual content
+  visualStatus?:                 // present iff --render or --ocr triggered a raster
+    | 'ok'                       // renderContentRatio > 0.005 — renderer drew clearly populated content
+    | 'sparse'                   // sparse marks: 0.001 < ratio <= 0.005, or corroborated tiny visual traces
+    | 'blank';                   // effectively blank against the page's own background
+}
+```
+
+`text` is the pdfjs-derived text stream. Raw text items are deduplicated before normalization using the contract in `pdfvision docs layout`, so optional-content and overprint duplicates do not read as repeated words. Detected body-sized Japanese vertical columns are joined in source-stream order when that order matches the detected top-to-bottom column order; if a run disagrees, only that run falls back to the raw item join. Inline tatechuyoko digit groups in vertical Japanese columns, such as `10`, are kept in the column text when the source stream order matches the geometry. On Japanese and Chinese annotated-reading pages, furigana/ruby is attached inline as `base《ruby》` when pdfvision can associate the smaller kana or pinyin-shaped run with an unambiguous CJK base range, including adjacent half-size vertical ruby columns, smaller kana above horizontal base text, and pinyin-shaped Latin readings above horizontal CJK base text; ambiguous or unassociated ruby stays excluded, and search uses ruby-inclusive plus ruby-stripped lines so base-word queries still match. Short medium-size note-reference marks in the right gutter of a vertical body column are also excluded from reconstructed text/layout; `--geometry` still exposes their retained source text-item spans. `rawText`, when present, is the exact sibling field in JSON and successful TOON output, a sibling `<rawText>` element in XML (with XML-forbidden code units represented by the documented markers), and omitted from Markdown. `ocr.text` (when `--ocr` is on) is the OCR result alongside, **never overwriting `text`** — consumers diff or pick whichever signal looks better for the page.
+
+`quality` is pure observation, not recommendation: pdfvision tells the agent what it saw, the agent picks what to do next.
+## Coordinate system
+
+All coordinates (spans, layout blocks, image boxes, vector boxes, visual regions, form fields, `renderRegion`) use raw units from the unrotated pdf.js `page.view` visible box, with `(0, 0)` at its top-left and `y` growing downward. This box is CropBox ∩ MediaBox when a distinct valid CropBox applies, otherwise MediaBox. `pages[].userUnit` and `overview[].userUnit` expose a non-default PDF `/UserUnit` and are omitted when it is 1. Physical points = raw page-view value × UserUnit; rendered pixels = raw region × UserUnit × render scale before rotation swaps axes. `pages[].width` / `height` and `renderRegion` bounds are raw values relative to the visible box, and the same bbox passes unchanged to `--render-region`. JSON, decoded TOON, and the library retain clockwise rotation in `pages[].rotation` and `overview[].rotation`; XML keeps page-result rotation on `<pages><page rotation="...">` but currently omits overview rotation.
+
+Warning-detector thresholds and `pt` / `pt²` messages use a private physical-point view of the geometry already extracted, while public bboxes stay raw. This does not make the full extraction pipeline physically invariant: layout grouping, form-label reconstruction, vector-box shaping, and visual-region generation still include raw-unit heuristics and can produce different upstream signals for physically equivalent non-default-UserUnit PDFs.
+
+To map unrotated page coordinates onto an unrotated full-page PNG:
+
+```ts
+const sx = image.width / page.width;
+const sy = image.height / page.height;
+const pixelBox = { x: box.x * sx, y: box.y * sy, width: box.width * sx, height: box.height * sy };
+```
+
+This direct scale is valid for unrotated pages. For rotated pages, use `pages[].rotation` and the PDF viewport transform (or `--render-region`) because the full-page PNG width/height may be swapped relative to `page.width` / `page.height`.

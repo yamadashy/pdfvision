@@ -21,6 +21,11 @@ pdfvision/
 │   │   ├── cli.ts            # Argument parsing and dispatch
 │   │   ├── help.ts           # Help text (CLI + `pdfvision mcp`)
 │   │   ├── mcpCommand.ts     # `pdfvision mcp` subcommand dispatch, resolved before parseArgs
+│   │   ├── clearCacheCommand.ts # `pdfvision clear-cache` dispatch and its ambiguity guard
+│   │   ├── docsCommand.ts    # `pdfvision docs` dispatch and topic index rendering
+│   │   ├── docs/             # Generated topic index + bodies (see scripts/build-cli-topics.mjs)
+│   │   ├── optionSpec.ts     # The parseArgs option spec, exported so tests can walk it
+│   │   ├── subcommandFlags.ts # --help / --version handling shared by every subcommand
 │   │   └── version.ts        # Reads version from package.json
 │   ├── mcp/
 │   │   ├── serve.ts          # stdio bootstrap behind `pdfvision mcp`
@@ -62,6 +67,8 @@ pdfvision/
 │   ├── types/
 │   │   └── index.ts          # Shared types (DocumentResult, ProcessOptions, ...)
 │   └── index.ts              # Library API entry
+├── docs/
+│   └── cli-topics/           # Source of `pdfvision docs <topic>`; embedded at build time
 ├── tests/
 │   ├── core/                 # Unit and integration tests
 │   └── fixtures/sample.pdf   # Hand-crafted minimal PDF
@@ -102,7 +109,15 @@ pdfvision/
 - Treat roughly 250 lines as a signal to review a file's cohesion, not a mandate to split: split when the file mixes multiple responsibilities, but leave it as-is when the length comes from one cohesive concern (for example, large data or configuration tables). Test files are exempt from this guideline.
 - Add comments in English only when the **why** is non-obvious. Skip comments that describe what the code already shows.
 - New features come with tests.
-- When changing pdfvision behavior, CLI flags, output fields, quality signals, or recommended agent workflows, update the bundled agent skill under `skills/pdfvision/` in the same change. Keep `SKILL.md` and `references/structured-output.md` aligned with the public schema and README.
+- When changing pdfvision behavior, CLI flags, output fields, quality signals, or recommended agent workflows, update every documentation surface in the same change. They are separate files because they answer different questions, not because they may disagree:
+  - `src/cli/help.ts` — one line per flag, and the topic that carries the detail.
+  - `docs/cli-topics/*.md` — the `pdfvision docs <topic>` bodies. Re-run `node scripts/build-cli-topics.mjs` (the build does this too) and commit the regenerated modules under `src/cli/docs/`.
+  - `skills/pdfvision/` — see the write policy below.
+  - `docs/src/{en,ja,zh-cn,zh-tw}/` — the VitePress site, **all four locales**.
+  - `README.md` — the Usage block regenerates from `--help` via `node scripts/sync-readme-usage.mjs`; the prose around it is manual.
+  - `CHANGELOG.md` under `[Unreleased]`.
+
+  Know where the machine stops. Tests fail if a new `parseArgs` option appears in neither the short help nor the `options` topic, if a topic is added or deleted without updating the pinned list, or if a `pdfvision docs <topic>` cross-reference does not resolve; CI diffs the generated topic modules and the README Usage block. **Nothing checks the site, the skill, or whether any of this prose is true** — a wrong path or a stale field name survives every check we have.
 - Before declaring work done, run:
   ```bash
   npm run lint
