@@ -4,6 +4,10 @@ Notable user-facing changes to pdfvision are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- Cut the bundled agent skill to a single `SKILL.md` and routed its detail to `pdfvision docs <topic>`. The five `references/*.md` files were a second copy of what the CLI now prints from inside the binary, and they went stale independently — the skill was installed from GitHub while the CLI came from npm, so the two could disagree about the same flag. Routing by topic name does not make a rename backward-compatible — the skill still names a topic, and a renamed one has to be updated there too. What changes is how that failure presents: a reference file orphaned by a skill update kept being read as though it were current, while a stale topic name cannot be served at all — the command exits 1 and says the topic is unknown, naming the closest match when one is close enough and nothing when it is not. A test now catches the stale name before it reaches anyone.
+
 ## [0.17.0] - 2026-08-11
 
 ### Changed
