@@ -71,6 +71,7 @@ import { processFile } from 'pdfvision';
 const markdown = await processFile('./document.pdf', {
   format: 'markdown',
   pages: '1-2',
+  noCache: false,
 });
 ```
 

@@ -17,7 +17,7 @@ pdfvision document.pdf --layout --format json
 
 Layout output includes:
 
-- `pages[].layout.lines`: reconstructed text lines with geometry.
+- `pages[].layout.blocks[].lines`: reconstructed text lines with geometry.
 - `pages[].layout.blocks`: reading-order blocks with roles and bounding boxes.
 - `pages[].layout.tables`: numeric-table hints when rows and columns may be flattened in native text.
 - vertical CJK text recovery when text should be read as a vertical stack.

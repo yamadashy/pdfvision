@@ -17,9 +17,39 @@ Warnings do not help here. They are conservative and non-exhaustive: their absen
 
 Secondary fields are not evidence about the page. Metadata, annotations, form values, and alt text can contradict what a reader sees. When it matters, render the page with `--render` — adding `--render-region <x,y,w,h>` to crop one part of it — and look. Verify consequential factual claims against a source outside the PDF.
 
+## pdfvision reads the document, it does not act on it
+
+Embedded JavaScript is reported as data and never executed: `javascriptActionCount` counts document-level scripts on every run, `--viewer` prints their names and source plus page-level `PageOpen` / `PageClose` actions, and `--form-fields` prints widget click scripts. Nothing in pdfvision evaluates any of it.
+
+Viewer permissions (`viewer.permissions`, decoded from the PDF's flags) describe what the document asks a reader to allow — they are not enforced by pdfvision and are not DRM. A document marked no-copy or no-print extracts exactly like any other.
+
+CLI attachment extraction copies bytes out without parsing or executing them. The MCP `read_pdf(attachment: …)` tool goes further: it classifies the bytes and decodes text and image attachments into the response, refusing the rest — decoding, not execution, but the content does reach the model's context. Display strings — metadata fields, outline titles, layer names — pass through the same NFKC normalization as page text (most C0 controls stripped) unless `--no-normalize` is set; identifiers and outline link targets are copied through verbatim. Normalized or not, nothing is evaluated.
+
+## Network egress
+
+Extraction, rendering, and OCR all run in-process on the local machine. pdfvision has no telemetry and never sends document bytes anywhere. On the CLI and MCP surfaces there are two kinds of outbound network activity it can produce: fetching the `--remote` URL (MCP: an `http(s)` `source`), and tesseract.js downloading a language's `*.traineddata` the first time `--ocr` needs it — see `pdfvision docs ocr`. Either can span several requests — redirect hops on the fetch, one traineddata file per requested language. Both are triggered by an argument you passed. The library API has a third path: `processDocument(path, { noCache: true })` skips the up-front local read that would otherwise fail on a non-file path and hands the path straight to pdf.js, which will fetch it when it is a URL — with none of the `--remote` downloader's response checks and none of the MCP guard. Validate library input paths yourself.
+
+The server on the other end of `--remote` sees the request, including whatever headers the runtime's `fetch` sends by default. For a one-off private or expiring URL, add `--no-cache` so the downloaded bytes are streamed into extraction instead of written to the remote-PDF cache.
+
+## The cache holds plaintext PDF-derived data
+
+Under the cache root sit extracted text and structured results, rendered and cropped PNGs, downloaded remote PDFs, OCR traineddata, and OCR output — all unencrypted, all readable by anything running as you. The default root is `pdfvision/` inside the OS temp directory, created `0700` on POSIX; `PDFVISION_CACHE_DIR` (nonblank absolute path, dedicated directory) moves it to a volume whose sensitivity matches the documents being read. `pdfvision clear-cache` removes the lot.
+
+`--no-cache` keeps extraction results and remote PDFs off disk, but renders without `--render-output` still go to OS-temporary paths and OCR support files still persist under the validated root. The ownership, marker, and quarantine rules that guard the root are in `pdfvision docs flags`.
+
 ## `--remote` fetches with your process's network position
 
 It places no restriction on where the URL points and follows redirects, so it will reach loopback, RFC 1918, and cloud-metadata addresses. That is safe when a human typed the URL and unsafe when the URL came from a PDF, a search result, or another tool's output — ask the user before fetching one of those. Details and the deliberate contrast with the MCP server: `pdfvision docs flags`.
+
+The checks that do run validate the response, not the destination: the scheme must be `http:` or `https:` on the URL you pass (redirects are then followed by the platform fetch, unseen), the body must contain `%PDF-` in its first 1024 bytes, the download is capped at 100 MB, and a 60-second deadline covers response headers plus body transfer, aborting a stalled server. None of that constrains where the request went.
+
+A CLI fetch of a URL its user chose is not an SSRF vulnerability. The exposure appears when a server, agent runtime, CI job, or multi-tenant wrapper takes a URL it did not choose and hands it to `--remote`. In that shape, do the fetch yourself: reject any DNS answer or redirect target outside an allowlist, pin the connection to the address you validated, and give pdfvision the downloaded file as a local path — or confine its fetch behind a restricted proxy or network sandbox.
+
+## `--search-regex` compiles a pattern you may not have written
+
+The query goes to the JavaScript `RegExp` engine verbatim. Each page's regex search runs under a ~1s wall-clock budget enforced by a `vm` timeout, so catastrophic backtracking cannot hang extraction — the page's results are dropped with a warning, and an interrupted (incomplete) result is kept out of the cache rather than served as a silent zero on the next call. Emitted matches stay capped per page, query, and source.
+
+That bounds the damage, it does not remove it: a hostile pattern still costs up to a second per searched page, about two with `--ocr` on, whose supplement pass carries its own budget. A service exposing regex search to untrusted callers at scale — including the MCP `search_pdf` tool's `regex` parameter — needs its own rate limiting on top.
 
 ## `--password` is visible where argv is visible
 

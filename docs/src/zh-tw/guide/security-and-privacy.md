@@ -65,7 +65,7 @@ PDFVISION_CACHE_DIR=/secure/cache pdfvision document.pdf --format json
 
 `--attachments` 可以暴露嵌入檔案 metadata；使用 `--attachment-output` 時會把嵌入檔案寫入磁碟。請把擷取出的附件視為 untrusted files。
 
-附件檔名在寫入前會被 sanitize：路徑分隔符和控制字元會被替換，空名稱會獲得 fallback，重複名稱會 disambiguate。pdfvision 也拒絕把附件輸出寫入 symlinked output directory。這些檢查能降低 filesystem 風險，但不能讓嵌入檔案變得安全。
+附件檔名在寫入前會被 sanitize：路徑分隔符和控制字元會被替換，空名稱會獲得 fallback，重複名稱會 disambiguate。pdfvision 拒絕寫入它在 `--attachment-output` 下建立的內部 fingerprint directory（當該目錄是 symlink 時），但 `--attachment-output` 本身傳入的路徑會被解析並沿著 symlink 建立，不會被拒絕。這些檢查能降低 filesystem 風險，但不能讓嵌入檔案變得安全。
 
 `--viewer` 和 form-field actions 可能把 PDF JavaScript source 作為資料暴露。pdfvision 不會執行 PDF JavaScript。
 

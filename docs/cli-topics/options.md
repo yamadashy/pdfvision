@@ -34,7 +34,8 @@ The short `pdfvision --help` lists the flags reached for most often. This topic 
       --render-region <x,y,width,height>
                           Render a sub-rectangle in raw unrotated page-view units (top-left origin,
                           y grows downward). Physical points = raw value × pages[].userUnit (or 1
-                          when omitted); pixels = raw region × UserUnit × render scale. Single-page
+                          when omitted); pixels = raw region × UserUnit × render scale. Requires
+                          --render or --ocr — there is nothing to crop otherwise. Single-page
                           only: --pages must resolve to exactly one
                           page (errors otherwise). Region must fit within the page bounds.
                           Typical use: --search "term" --matches-only reports each match's
@@ -69,8 +70,9 @@ The short `pdfvision --help` lists the flags reached for most often. This topic 
                           such as map symbols, chart paths, clipped shading fills, table
                           rules, form boxes, and slide shapes. Only -f json / -f xml / -f toon.
       --visual-regions    Emit `pages[].visualRegions` — padded, crop-ready bboxes
-                          for important figures, charts, diagrams, tables, forms, and
-                          raster/vector clusters. Feed x,y,width,height directly into
+                          for important figures, charts, diagrams, tables, forms,
+                          visible annotation markup, and raster/vector clusters.
+                          Feed x,y,width,height directly into
                           --render-region for a visual zoom.
       --render-visual-regions
                           Render each visual region crop to PNG and attach
@@ -188,7 +190,8 @@ The short `pdfvision --help` lists the flags reached for most often. This topic 
                           or otherwise unverified roots are refused. POSIX ownership and no-follow
                           checks are stronger; Windows replacement resistance is best effort.
                           Because clearing is destructive, an entry named `clear-cache` in the
-                          working directory is refused rather than guessed at.
+                          working directory is refused rather than guessed at — including a
+                          symlink whose target is missing, and an entry that cannot be read.
   mcp                     Serve pdfvision over the Model Context Protocol on stdio, for hosts
                           that cannot run a shell (Claude Desktop, Cursor, Cline, Zed, n8n).
                           Exposes three tools — read_pdf, search_pdf, render_pdf — rather than

@@ -105,7 +105,7 @@ OCR 不会覆盖原生文本。使用方应比较 `page.text` 与 `page.ocr?.tex
 ## 按任务理解证据字段
 
 - 文本阅读：`pages[].text`、`rawText`、`quality`、`warnings`。
-- 布局敏感阅读：`layout.lines`、`layout.blocks`、`layout.tables`、`spans`。
+- 布局敏感阅读：`layout.blocks[].lines`、`layout.blocks`、`layout.tables`、`spans`。
 - 视觉检查：`image`、`renderContentRatio`、`imageBoxes`、`vectorBoxes`、`visualRegions`。
 - 扫描恢复：`ocr.text`、`ocr.confidence`、`ocr.words`、`quality.visualStatus`。
 - 证据搜索：`matches[].source`、`matches[].bbox`、`matches[].context`。
