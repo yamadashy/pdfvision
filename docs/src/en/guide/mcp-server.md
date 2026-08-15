@@ -42,7 +42,7 @@ An unscoped `read_pdf` on a document over 20 pages returns a **document map** in
 From there:
 
 - `read_pdf(pages: "12-18")` reads a range.
-- `search_pdf(query: "…")` locates a term. Same-source occurrences whose crops resolve to the same region — typically repeats within one line or table row — collapse into a single row marked `×N`, while the headline count still reports every occurrence. Each row carries a short `ref` like `p47m1` — pass it straight to `render_pdf(ref: "p47m1")` to see the match in place, instead of transcribing coordinates.
+- `search_pdf(query: "…")` locates a term. Same-source occurrences whose crops resolve to the same region — typically repeats within one line or table row — collapse into a single row marked `×N`, while the headline count still reports every occurrence. Each row carries a short `ref` like `p47m1` — pass it straight to `render_pdf(ref: "p47m1")` to see the match in place, instead of transcribing coordinates. A source's refs are whatever its last `search_pdf`, or its last full-page `render_pdf` that listed visual regions, filed; either of those replaces the whole previous set — a search that found nothing replaces it with an empty one. A `render_pdf` that mints no refs leaves the set alone — a region render, every `ref` call included, or a full page whose response lists no regions — so the hits of one search can be rendered one after another. `ref` cannot be combined with `pages` or `region`: the ref already names both, and the call is rejected rather than quietly answering for the ref's page.
 - `read_pdf(pages: "31", ocr: "jpn+eng")` re-reads scanned pages with OCR when quality reporting says the native text is unusable.
 - `read_pdf(attachment: "invoice.xml")` — or a 1-based index — returns an embedded file instead of the pages. In e-invoices and regulatory filings (Factur-X, ZUGFeRD, XBRL) the attachment is the authoritative data and the pages are only its rendering. Text attachments come back inline, images as image blocks; opaque binaries are refused with a pointer to the CLI's `--attachments --attachment-output`.
 
@@ -50,7 +50,9 @@ Renders are fitted to 1568 px on the longest edge, past which vision models down
 
 ## Budgets and Honesty
 
-Responses are budgeted: 30,000 characters per body, 12,000 per page, 100 match places, 4 rendered pages, 5 OCR pages, and 6 MB of images per call. Every truncation names the exact follow-up call, so a clipped result is recoverable rather than silently incomplete.
+Responses are budgeted: 30,000 characters per body, 12,000 per page, 100 match places, 4 rendered pages, 5 OCR pages, and 6 MB of images per call. Every truncation names what to do next, so a clipped result is recoverable rather than silently incomplete — a page call narrower than the one that produced it, even when the requested range is so wide that its per-page Overview table fills the budget on its own, or `search_pdf` guidance in the one case where no narrower page call exists because a single page cannot fit whole.
+
+The 20-page threshold decides map versus body, not whether the body fits: a document under it is read whole and then truncated like any other if it exceeds the character budget. What a truncation notice counts as omitted is page *bodies* — the Overview row for each of those pages is still in the response.
 
 The same honesty applies to search: core warnings ride the response, so a regex query that exceeds the per-page time budget reports itself instead of masquerading as "0 matches", and a search over pages with no usable native text says a miss there is not evidence of absence.
 

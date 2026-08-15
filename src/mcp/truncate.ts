@@ -30,6 +30,9 @@ export interface TruncateOptions {
    * than a first/last pair: a selector like `1,100,200,300` drops
    * non-adjacent pages, and turning those into `200-300` would make the
    * follow-up call re-extract a hundred pages nobody asked for.
+   *
+   * Not always every dropped page: when none fit, it is called with the
+   * first one alone, because the full set is the request that just failed.
    */
   continuationHint: (droppedPages: readonly number[]) => string;
   charCap?: number;
@@ -100,11 +103,30 @@ export function truncateBody(
     kept.length > 0
       ? `showing pages ${formatPageRange(kept.map((section) => section.page))}`
       : 'no page fits it whole, so nothing below is complete';
+  // "Bodies", not "pages": the header still carries an Overview row for
+  // every selected page, so a caller reading "756 pages omitted" next to
+  // 419 rows of per-page detail cannot tell what it was denied.
+  const omitted = `${dropped.length} page ${dropped.length === 1 ? 'body' : 'bodies'} omitted (${formatPageRange(dropped)})`;
+
+  // Never hand back the call that just failed. When nothing fit, the
+  // dropped pages *are* the requested pages, so `continuationHint(dropped)`
+  // reproduces the request byte for byte and an agent following it loops
+  // forever. The narrowest call that still makes progress is the first
+  // page on its own — and when that already is the whole request, no page
+  // selector is narrower, so the only way forward is to ask for something
+  // specific on that page rather than for the page.
+  const first = dropped[0];
+  const next =
+    kept.length > 0
+      ? `Continue with ${options.continuationHint(dropped)}, or narrow with search_pdf first.`
+      : dropped.length > 1
+        ? `This range cannot be served whole. Start with ${options.continuationHint([first as number])} and work forward, or narrow with search_pdf first.`
+        : `Page ${first} does not fit the budget on its own, so no narrower \`pages\` exists. Use search_pdf to locate what you need on it.`;
 
   const notice = [
     '',
-    `[pdfvision] Truncated at the ${charCap.toLocaleString('en-US')}-char response budget: ${shown}, ${dropped.length} page${dropped.length === 1 ? '' : 's'} omitted (${formatPageRange(dropped)}).`,
-    `Continue with ${options.continuationHint(dropped)}, or narrow with search_pdf first.`,
+    `[pdfvision] Truncated at the ${charCap.toLocaleString('en-US')}-char response budget: ${shown}, ${omitted}.`,
+    next,
     '',
   ].join('\n');
   return body + notice;
