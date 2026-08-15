@@ -16,6 +16,7 @@ export {
   REGEX_BUDGET_WARNING_PREFIX,
   REGEX_SEARCH_REQUEST_BUDGET_MS,
   type RegexSearchBudget,
+  resolveRegexSearchBudgetMs,
 } from './requestBudget.js';
 
 /**

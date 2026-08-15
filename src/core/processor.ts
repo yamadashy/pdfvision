@@ -43,6 +43,7 @@ import {
   compileSearch,
   createRegexSearchBudget,
   isRegexTimeoutWarning,
+  resolveRegexSearchBudgetMs,
   searchOcrPage,
 } from './search/index.js';
 import type { BuildVisualRegionsInput } from './visualRegions/index.js';
@@ -244,7 +245,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     // gives up before pdfvision does. Only time inside a search pass is
     // charged, so extraction and OCR cannot spend it.
     const searchBudget = compiledSearch?.regexMode
-      ? createRegexSearchBudget(pageNumbers.length, options.regexSearchBudgetMs)
+      ? createRegexSearchBudget(pageNumbers.length, resolveRegexSearchBudgetMs(options.regexSearchBudgetMs))
       : undefined;
     const ocrEnabled = !!options.ocr;
     const ocrLang = options.ocrLang ?? 'eng';

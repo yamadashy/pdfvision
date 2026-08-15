@@ -1,8 +1,14 @@
-import { resolve } from 'node:path';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { processDocument } from '../../src/core/processor.js';
 import { isRegexTimeoutWarning } from '../../src/core/search/index.js';
-import { createRegexSearchBudget, REGEX_SEARCH_REQUEST_BUDGET_MS } from '../../src/core/search/requestBudget.js';
+import {
+  createRegexSearchBudget,
+  REGEX_SEARCH_REQUEST_BUDGET_MS,
+  resolveRegexSearchBudgetMs,
+} from '../../src/core/search/requestBudget.js';
 
 const SAMPLE_JA_PDF = resolve(__dirname, '../fixtures/sample-ja.pdf');
 
@@ -149,6 +155,27 @@ describe('createRegexSearchBudget', () => {
   });
 });
 
+describe('resolveRegexSearchBudgetMs', () => {
+  it('accepts a value that tightens the bound', () => {
+    expect(resolveRegexSearchBudgetMs(0)).toBe(0);
+    expect(resolveRegexSearchBudgetMs(250)).toBe(250);
+    expect(resolveRegexSearchBudgetMs(REGEX_SEARCH_REQUEST_BUDGET_MS)).toBe(REGEX_SEARCH_REQUEST_BUDGET_MS);
+  });
+
+  it('refuses anything that would loosen or remove the bound', () => {
+    // The override rides on the public options object, so a library
+    // caller — or a wrapper forwarding its own caller's options — can
+    // reach it. None of these may switch the ReDoS bound off.
+    for (const override of [Number.POSITIVE_INFINITY, Number.NaN, -1, REGEX_SEARCH_REQUEST_BUDGET_MS + 1, 1e9]) {
+      expect(resolveRegexSearchBudgetMs(override)).toBe(REGEX_SEARCH_REQUEST_BUDGET_MS);
+    }
+  });
+
+  it('falls back to the default when unset', () => {
+    expect(resolveRegexSearchBudgetMs(undefined)).toBe(REGEX_SEARCH_REQUEST_BUDGET_MS);
+  });
+});
+
 describe('processDocument regex search budget', () => {
   it('searches every page under the default budget', async () => {
     const warnings: string[] = [];
@@ -204,18 +231,32 @@ describe('processDocument regex search budget', () => {
   it('keeps an interrupted search out of the cache', async () => {
     // The budget warning is classified as a regex-timeout warning, so the
     // partial (zero-match) result must not be served to the next caller.
-    await processDocument(SAMPLE_JA_PDF, {
-      search: 'ページ|pdfvision|テスト',
-      searchRegex: true,
-      regexSearchBudgetMs: 0,
-      noCache: false,
-    });
-    const second = await processDocument(SAMPLE_JA_PDF, {
-      search: 'ページ|pdfvision|テスト',
-      searchRegex: true,
-      noCache: false,
-    });
+    // Runs against its own cache root: an entry left by an earlier run
+    // would serve the first call complete results and pass this test
+    // without ever exercising the interrupted path.
+    const sandbox = mkdtempSync(join(tmpdir(), 'pdfvision-search-budget-cache-'));
+    const previousCacheRoot = process.env.PDFVISION_CACHE_DIR;
+    process.env.PDFVISION_CACHE_DIR = join(sandbox, 'cache');
+    try {
+      const first = await processDocument(SAMPLE_JA_PDF, {
+        search: 'ページ|pdfvision|テスト',
+        searchRegex: true,
+        regexSearchBudgetMs: 0,
+        noCache: false,
+      });
+      expect(first.pages.every((p) => p.matches?.length === 0)).toBe(true);
 
-    expect(second.pages.some((p) => (p.matches?.length ?? 0) > 0)).toBe(true);
+      const second = await processDocument(SAMPLE_JA_PDF, {
+        search: 'ページ|pdfvision|テスト',
+        searchRegex: true,
+        noCache: false,
+      });
+
+      expect(second.pages.some((p) => (p.matches?.length ?? 0) > 0)).toBe(true);
+    } finally {
+      if (previousCacheRoot === undefined) delete process.env.PDFVISION_CACHE_DIR;
+      else process.env.PDFVISION_CACHE_DIR = previousCacheRoot;
+      rmSync(sandbox, { recursive: true, force: true });
+    }
   });
 });

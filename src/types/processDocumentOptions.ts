@@ -145,6 +145,11 @@ export interface ProcessDocumentOptions {
    * Exists so tests can prove the early-stop path without burning the
    * real budget; not part of the CLI or MCP surface, and not part of the
    * cache key (an interrupted search is never cached anyway).
+   *
+   * It can only tighten the bound: values outside `[0, 12000]` — and
+   * `Infinity` / `NaN` in particular — are ignored in favour of the
+   * default, so nothing reachable from this option can switch the ReDoS
+   * bound off.
    */
   regexSearchBudgetMs?: number;
   /**

@@ -46,6 +46,26 @@ export function isRegexBudgetWarning(message: string): boolean {
   return message.startsWith(REGEX_BUDGET_WARNING_PREFIX);
 }
 
+/**
+ * Resolve a caller-supplied budget override to a value that still bounds
+ * the search.
+ *
+ * The override exists for tests, but it rides on the public
+ * `ProcessDocumentOptions`, so a library caller — or a wrapper that
+ * forwards its own caller's options wholesale — can reach it. Anything
+ * outside `[0, REGEX_SEARCH_REQUEST_BUDGET_MS]`, including `Infinity`
+ * and `NaN`, falls back to the default: the override may tighten the
+ * bound (which is all a test needs) but never loosen or remove it,
+ * because removing it is exactly the ReDoS exposure the budget exists
+ * to close.
+ */
+export function resolveRegexSearchBudgetMs(override: number | undefined): number {
+  if (override === undefined) return REGEX_SEARCH_REQUEST_BUDGET_MS;
+  if (!Number.isFinite(override)) return REGEX_SEARCH_REQUEST_BUDGET_MS;
+  if (override < 0 || override > REGEX_SEARCH_REQUEST_BUDGET_MS) return REGEX_SEARCH_REQUEST_BUDGET_MS;
+  return override;
+}
+
 export interface RegexSearchBudget {
   /**
    * Run one page's search pass, charging what it costs to the budget.

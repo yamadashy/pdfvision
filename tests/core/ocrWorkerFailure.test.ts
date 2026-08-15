@@ -1,3 +1,6 @@
+import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createOcrSession } from '../../src/core/ocr/index.js';
 
@@ -14,6 +17,7 @@ import { createOcrSession } from '../../src/core/ocr/index.js';
 interface FakeWorkerOptions {
   errorHandler?: (cause: unknown) => void;
   logger?: (arg: unknown) => void;
+  workerPath?: string;
 }
 
 const createWorker = vi.fn();
@@ -27,16 +31,27 @@ function pending<T>(): Promise<T> {
 
 let unhandled: unknown[];
 let onUnhandled: (reason: unknown) => void;
+let sandbox: string;
+let previousCacheRoot: string | undefined;
 
 beforeEach(() => {
   createWorker.mockReset();
   unhandled = [];
   onUnhandled = (reason: unknown) => unhandled.push(reason);
   process.on('unhandledRejection', onUnhandled);
+  // `createOcrSession` prepares its support files for real (only
+  // tesseract itself is mocked), so give it a cache root of its own
+  // instead of writing the quiet-worker script into the shared one.
+  sandbox = mkdtempSync(join(tmpdir(), 'pdfvision-ocr-failure-'));
+  previousCacheRoot = process.env.PDFVISION_CACHE_DIR;
+  process.env.PDFVISION_CACHE_DIR = join(sandbox, 'cache');
 });
 
 afterEach(() => {
   process.off('unhandledRejection', onUnhandled);
+  if (previousCacheRoot === undefined) delete process.env.PDFVISION_CACHE_DIR;
+  else process.env.PDFVISION_CACHE_DIR = previousCacheRoot;
+  rmSync(sandbox, { recursive: true, force: true });
 });
 
 /** Give any stray rejection a turn to be reported before asserting. */
@@ -69,6 +84,9 @@ describe('createOcrSession worker failures', () => {
     });
 
     await expect(createOcrSession('eng')).rejects.toThrow(/could not be downloaded/);
+    // The support files landed in this test's own cache root, not the
+    // shared one — the isolation in beforeEach is doing its job.
+    expect(createWorker.mock.calls[0][2].workerPath).toContain(realpathSync.native(sandbox));
     expect(createWorker).toHaveBeenCalledWith(['eng'], undefined, expect.any(Object));
     const options = createWorker.mock.calls[0][2] as FakeWorkerOptions;
     expect(options.errorHandler).toBeTypeOf('function');
