@@ -49,9 +49,9 @@ A CLI fetch of a URL its user chose is not an SSRF vulnerability. The exposure a
 
 The query goes to the JavaScript `RegExp` engine verbatim. Each page's regex search runs under a ~1s wall-clock budget enforced by a `vm` timeout, so catastrophic backtracking cannot hang extraction — the page's results are dropped with a warning, and an interrupted (incomplete) result is kept out of the cache rather than served as a silent zero on the next call. Emitted matches stay capped per page, query, and source.
 
-A second budget bounds the whole request at ~12s: once it is gone the remaining pages are left unsearched, the matches already found are returned, and a warning names how many pages were searched out of how many. Without it the per-page guard kept its promise while the call still cost pages × 1s — minutes on a long document, past the request timeout of every MCP host.
+A second budget bounds the regex time one request may spend at ~12s — time inside the search passes, not the call's wall clock, so extraction and OCR on a slow document cannot spend it. Once it is gone the remaining pages are left unsearched, the matches already found are returned, and a warning names how many pages were searched out of how many. Without it the per-page guard kept its promise while the call still cost pages × 1s — minutes on a long document, past the request timeout of every MCP host.
 
-That bounds the damage, it does not remove it: a hostile pattern still costs the full ~12s per call, plus the page already claimed when the deadline passes (one more per-page budget, two with `--ocr` on), and nothing bounds how many calls arrive. A service exposing regex search to untrusted callers at scale — including the MCP `search_pdf` tool's `regex` parameter — needs its own rate limiting on top.
+That bounds the damage, it does not remove it: a hostile pattern still costs the full ~12s per call, plus the page already running when the budget runs out (one more per-page budget, two with `--ocr` on), and nothing bounds how many calls arrive. A service exposing regex search to untrusted callers at scale — including the MCP `search_pdf` tool's `regex` parameter — needs its own rate limiting on top.
 
 ## `--password` is visible where argv is visible
 

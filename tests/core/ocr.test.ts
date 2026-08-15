@@ -72,6 +72,78 @@ describe('buildQuietTesseractWorkerScript', () => {
     expect(script).toContain('require("/tmp/worker path \\"quoted\\".js")');
   });
 
+  /**
+   * The self-termination hook, driven with a stand-in for tesseract's
+   * worker script: no network, no traineddata, but the same message
+   * shape and the same reject-then-keep-going behaviour the real one
+   * has. `createWorker`'s boot chain swallows a `loadLanguage`
+   * rejection, so without this the thread and its WASM heap would
+   * outlive every failed `--ocr` attempt.
+   */
+  async function runFakeTesseractWorker(action: string): Promise<{
+    messages: { status: string; data: string }[];
+    exited: boolean;
+    code?: number;
+  }> {
+    const sandbox = mkdtempSync(join(tmpdir(), 'pdfvision-ocr-boot-fail-'));
+    try {
+      const fakeTesseract = join(sandbox, 'fake-tesseract-worker.cjs');
+      writeFileSync(
+        fakeTesseract,
+        `"use strict";
+const { parentPort } = require("worker_threads");
+parentPort.on("message", (packet) => {
+  parentPort.postMessage({ workerId: "w", jobId: "j", action: packet.action, status: "reject", data: "boom" });
+  // The real worker keeps going after rejecting: initialize/loadLanguage
+  // both post a resolve afterwards, which the parent turns into a
+  // TypeError on an already-deleted promise entry.
+  parentPort.postMessage({ workerId: "w", jobId: "j", action: packet.action, status: "resolve", data: "late" });
+});`,
+      );
+      const quietWorker = join(sandbox, 'quiet-worker.cjs');
+      writeFileSync(quietWorker, buildQuietTesseractWorkerScript(fakeTesseract));
+
+      const { Worker } = await import('node:worker_threads');
+      const worker = new Worker(quietWorker);
+      const messages: { status: string; data: string }[] = [];
+      // No exit within the window means the worker survived the reject,
+      // which is the assertion for the post-boot case.
+      const outcome = await new Promise<{ exited: boolean; code?: number }>((resolve, reject) => {
+        const settle = setTimeout(() => resolve({ exited: false }), 500);
+        worker.on('message', (message: { status: string; data: string }) => messages.push(message));
+        worker.on('error', reject);
+        worker.on('exit', (code) => {
+          clearTimeout(settle);
+          resolve({ exited: true, code });
+        });
+        worker.postMessage({ workerId: 'w', jobId: 'j', action });
+      });
+      worker.removeAllListeners();
+      if (!outcome.exited) await worker.terminate();
+      return { messages, ...outcome };
+    } finally {
+      rmSync(sandbox, { recursive: true, force: true });
+    }
+  }
+
+  it('terminates the worker thread after a boot-phase rejection', async () => {
+    const { messages, exited, code } = await runFakeTesseractWorker('loadLanguage');
+
+    expect(exited).toBe(true);
+    expect(code).toBe(0);
+    // The rejection still reached the parent — postMessage transfers
+    // ownership before the exit — while the stray follow-up did not.
+    expect(messages.map((m) => m.status)).toEqual(['reject']);
+  });
+
+  it('leaves the worker alive when a page rejects after boot', async () => {
+    // `recognize` failures are per-page; the session reuses the worker.
+    const { messages, exited } = await runFakeTesseractWorker('recognize');
+
+    expect(exited).toBe(false);
+    expect(messages.map((m) => m.status)).toEqual(['reject', 'resolve']);
+  });
+
   it('atomically replaces a hard-linked worker path without mutating the external inode', async () => {
     const sandbox = mkdtempSync(join(tmpdir(), 'pdfvision-ocr-worker-test-'));
     try {

@@ -6,7 +6,7 @@ import { createRegexSearchBudget, REGEX_SEARCH_REQUEST_BUDGET_MS } from '../../s
 
 const SAMPLE_JA_PDF = resolve(__dirname, '../fixtures/sample-ja.pdf');
 
-/** Hand-cranked clock so deadline crossings are exact, not slept for. */
+/** Hand-cranked clock so spent time is exact, not slept for. */
 function clock(start = 1_000): { now: () => number; advance: (ms: number) => void } {
   let t = start;
   return {
@@ -18,33 +18,77 @@ function clock(start = 1_000): { now: () => number; advance: (ms: number) => voi
 }
 
 describe('createRegexSearchBudget', () => {
-  it('lets pages through until the deadline, then refuses the rest', () => {
+  /** A search pass that "costs" `ms` on the injected clock. */
+  const costing = (time: ReturnType<typeof clock>, ms: number, value = 'searched') => {
+    return () => {
+      time.advance(ms);
+      return value;
+    };
+  };
+
+  it('runs pages until the budget is spent, then refuses the rest', () => {
     const time = clock();
     const budget = createRegexSearchBudget(4, 1000, time.now);
 
-    expect(budget.claimPage(1)).toBe(true);
-    time.advance(999);
-    expect(budget.claimPage(2)).toBe(true);
-    time.advance(1);
-    expect(budget.claimPage(3)).toBe(false);
-    expect(budget.claimPage(4)).toBe(false);
+    expect(budget.run(1, costing(time, 400))).toBe('searched');
+    expect(budget.run(2, costing(time, 599))).toBe('searched');
+    // 999ms spent — still under, so this page runs and overshoots.
+    expect(budget.run(3, costing(time, 5000))).toBe('searched');
+    let ran = false;
+    expect(
+      budget.run(4, () => {
+        ran = true;
+        return 'searched';
+      }),
+    ).toBeUndefined();
+    expect(ran).toBe(false);
+  });
+
+  it('charges only the search itself, not time spent between pages', () => {
+    // Extraction, rasterisation, and OCR run between passes on a real
+    // document; a budget that counted them would cut off an honest regex
+    // on a long or scanned file and then blame the pattern.
+    const time = clock();
+    const budget = createRegexSearchBudget(3, 100, time.now);
+
+    budget.run(1, costing(time, 10));
+    time.advance(60_000);
+    budget.run(2, costing(time, 10));
+    time.advance(60_000);
+    expect(budget.run(3, costing(time, 10))).toBe('searched');
+
+    const warnings: string[] = [];
+    budget.report((message) => warnings.push(message));
+    expect(warnings).toEqual([]);
+  });
+
+  it('charges a pass that threw, and lets the error through', () => {
+    const time = clock();
+    const budget = createRegexSearchBudget(2, 100, time.now);
+
+    expect(() =>
+      budget.run(1, () => {
+        time.advance(100);
+        throw new Error('boom');
+      }),
+    ).toThrow('boom');
+    expect(budget.run(2, costing(time, 1))).toBeUndefined();
   });
 
   it('reports what was searched, what was left, and where to resume', () => {
     const time = clock();
     const budget = createRegexSearchBudget(5, 100, time.now);
-    budget.claimPage(1);
-    budget.claimPage(2);
-    time.advance(100);
-    budget.claimPage(3);
-    budget.claimPage(4);
-    budget.claimPage(5);
+    budget.run(1, costing(time, 50));
+    budget.run(2, costing(time, 50));
+    budget.run(3, costing(time, 1));
+    budget.run(4, costing(time, 1));
+    budget.run(5, costing(time, 1));
 
     const warnings: string[] = [];
     budget.report((message) => warnings.push(message));
 
     expect(warnings).toHaveLength(1);
-    expect(warnings[0]).toContain('100ms whole-request regex time budget');
+    expect(warnings[0]).toContain('100ms budget for regex search time across this request');
     expect(warnings[0]).toContain('after searching 2 of 5 selected page(s)');
     expect(warnings[0]).toContain('3 page(s) were not searched');
     expect(warnings[0]).toContain('pages "3-5"');
@@ -54,11 +98,28 @@ describe('createRegexSearchBudget', () => {
     expect(isRegexTimeoutWarning(warnings[0])).toBe(true);
   });
 
+  it('names non-contiguous unsearched pages instead of spanning them', () => {
+    // Pages complete out of order and a selection can have holes, so the
+    // unsearched set is not necessarily a contiguous run.
+    const time = clock();
+    const budget = createRegexSearchBudget(4, 100, time.now);
+    budget.run(1, costing(time, 1));
+    budget.run(3, costing(time, 99));
+    budget.run(5, costing(time, 1));
+    budget.run(7, costing(time, 1));
+    budget.run(8, costing(time, 1));
+
+    const warnings: string[] = [];
+    budget.report((message) => warnings.push(message));
+
+    expect(warnings[0]).toContain('pages "5, 7-8"');
+  });
+
   it('stays silent when every page was searched in time', () => {
     const time = clock();
     const budget = createRegexSearchBudget(2, 1000, time.now);
-    budget.claimPage(1);
-    budget.claimPage(2);
+    budget.run(1, costing(time, 1));
+    budget.run(2, costing(time, 1));
 
     const warnings: string[] = [];
     budget.report((message) => warnings.push(message));
@@ -71,10 +132,9 @@ describe('createRegexSearchBudget', () => {
     // was not searched in full, and searched + skipped must still add up.
     const time = clock();
     const budget = createRegexSearchBudget(2, 100, time.now);
-    budget.claimPage(1);
-    budget.claimPage(2);
-    time.advance(100);
-    expect(budget.claimPage(2)).toBe(false);
+    budget.run(1, costing(time, 1));
+    budget.run(2, costing(time, 99));
+    expect(budget.run(2, costing(time, 1))).toBeUndefined();
 
     const warnings: string[] = [];
     budget.report((message) => warnings.push(message));

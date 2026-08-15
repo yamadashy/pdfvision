@@ -75,7 +75,7 @@ viewer permissions は document metadata として報告されます。PDF が r
 
 既定の検索は query を literal text として扱います。`--search-regex` は各 query を JavaScript regular expression としてコンパイルし、native text、form-field text、clickable link targets、visible FreeText annotations、OCR 有効時の OCR text に対して実行します。
 
-pdfvision は各ページの regex 検索を約 1 秒の wall-clock 時間で打ち切ります（V8 レベルの割り込みで強制）。catastrophic backtracking する pattern が extraction を止めることはなく、該当ページの結果は warning とともに破棄され、中断された検索結果はキャッシュされません。query、page、source ごとの出力 match 数の上限も引き続き適用されます。regex request 全体には第二の budget があり、約 12 秒で打ち切られます — 尽きると、残りのページは検索されないまま残り、それまでに見つかった match が返され、warning には検索済みのページ数と全体のページ数、再開位置が示されます。この budget がなければ、全ページで per-page budget を使い切る pattern はページ数 × 1 秒かかることになり、長い文書では数分に達していました。この budget は被害を bounded にするもので、なくすものではありません — 悪意ある pattern は、deadline に達した時点で処理中だった 1 ページ分に加えて、request budget 全体を消費し得るため、untrusted user に regex search を大規模に公開するアプリケーションでは、独自の rate limit の適用も検討してください。
+pdfvision は各ページの regex 検索を約 1 秒の wall-clock 時間で打ち切ります（V8 レベルの割り込みで強制）。catastrophic backtracking する pattern が extraction を止めることはなく、該当ページの結果は warning とともに破棄され、中断された検索結果はキャッシュされません。query、page、source ごとの出力 match 数の上限も引き続き適用されます。regex request 全体では、regex マッチングに費やす時間そのものに第二の budget があり、約 12 秒に達すると打ち切られます — search time のみが対象で、extraction や OCR に費やす時間はこの budget を消費しません。尽きると、残りのページは検索されないまま残り、それまでに見つかった match が返され、warning には検索済みのページ数と全体のページ数、そして再実行すべきページが示されます。この budget がなければ、全ページで per-page budget を使い切る pattern はページ数 × 1 秒かかることになり、長い文書では数分に達していました。この budget は被害を bounded にするもので、なくすものではありません — 悪意ある pattern は、budget が尽きた時点で処理中だった 1 ページ分に加えて、request budget 全体を消費し得るため、untrusted user に regex search を大規模に公開するアプリケーションでは、独自の rate limit の適用も検討してください。
 
 ## 共有前の確認
 

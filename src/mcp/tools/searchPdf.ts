@@ -2,7 +2,7 @@ import { formatPageRange } from '../../core/options/pageRange.js';
 import { processDocument } from '../../core/processor.js';
 import { hasUnreliableNativeText } from '../../core/quality/pageQuality.js';
 import { cropRegionForBox } from '../../core/search/boxes.js';
-import { isRegexTimeoutWarning } from '../../core/search/index.js';
+import { isRegexBudgetWarning, isRegexTimeoutWarning } from '../../core/search/index.js';
 import { formatBox } from '../../output/markdown/helpers.js';
 import type { PageResult, RenderRegion, SearchMatch } from '../../types/index.js';
 import { MATCH_CONTEXT_CHAR_CAP, MAX_MATCH_TEXTS, MAX_MATCHES, MAX_SEARCH_WARNINGS } from '../limits.js';
@@ -171,20 +171,33 @@ export function appendPageWarnings(lines: string[], pages: readonly PageResult[]
  * past the cap. Retention is bounded per class too, so a degenerate
  * thousand-page search cannot accumulate a thousand strings just to
  * report five.
+ *
+ * The request-budget summary gets a reserved slot ahead of all of them.
+ * There is at most one per request and it is emitted last, after every
+ * page has had its chance to warn — so on the document that needs it
+ * most (many pages timing out, then the budget running out) it is
+ * exactly the warning a first-come cap would drop, while being the only
+ * one that says which pages went unsearched. It evicts a per-page
+ * timeout rather than widening the cap.
  */
 export function searchWarningCollector(): { onWarning: (message: string) => void; lines: () => string[] } {
+  let budgetSummary: string | undefined;
   const timeouts: string[] = [];
   const others: string[] = [];
   let total = 0;
   return {
     onWarning(message: string): void {
       total++;
+      if (isRegexBudgetWarning(message)) {
+        budgetSummary ??= message;
+        return;
+      }
       const bucket = isRegexTimeoutWarning(message) ? timeouts : others;
       if (bucket.length < MAX_SEARCH_WARNINGS) bucket.push(message);
     },
     lines(): string[] {
       if (total === 0) return [];
-      const shown = [...timeouts, ...others].slice(0, MAX_SEARCH_WARNINGS);
+      const shown = [...(budgetSummary ? [budgetSummary] : []), ...timeouts, ...others].slice(0, MAX_SEARCH_WARNINGS);
       const out = ['', ...shown.map((message) => `> [pdfvision] ${message}`)];
       const omitted = total - shown.length;
       if (omitted > 0) out.push(`> [pdfvision] ${omitted} further warning(s) omitted.`);

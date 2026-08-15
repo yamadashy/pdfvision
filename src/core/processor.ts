@@ -238,10 +238,11 @@ export async function processDocument(filePath: string, options: ProcessDocument
       visualRegions: wantsVisualRegions,
       hasSearch: compiledSearch !== undefined,
     });
-    // Whole-request deadline for regex-mode searches. The per-page guard
+    // Cumulative regex-time budget for the request. The per-page guard
     // bounds one page; without this a pathological pattern still costs
     // pages × the per-page budget and the caller (an MCP host especially)
-    // gives up before pdfvision does.
+    // gives up before pdfvision does. Only time inside a search pass is
+    // charged, so extraction and OCR cannot spend it.
     const searchBudget = compiledSearch?.regexMode
       ? createRegexSearchBudget(pageNumbers.length, options.regexSearchBudgetMs)
       : undefined;
@@ -392,9 +393,12 @@ export async function processDocument(filePath: string, options: ProcessDocument
     if (compiledSearch && ocrEnabled) {
       for (const p of pages) {
         if (!p.ocr) continue;
-        if (searchBudget?.claimPage(p.page) === false) continue;
-        const ocrMatches = searchOcrPage(p.ocr, p.page, p.width, p.height, compiledSearch, p.matches, onSearchWarning);
-        p.matches = (p.matches ?? []).concat(ocrMatches);
+        const ocr = p.ocr;
+        const search = () => searchOcrPage(ocr, p.page, p.width, p.height, compiledSearch, p.matches, onSearchWarning);
+        const ocrMatches = searchBudget ? searchBudget.run(p.page, search) : search();
+        // `undefined` means the request's regex budget was spent before
+        // this page's OCR pass; leave the native matches as they are.
+        if (ocrMatches) p.matches = (p.matches ?? []).concat(ocrMatches);
       }
     }
     // One summary warning for the whole request, after every pass that

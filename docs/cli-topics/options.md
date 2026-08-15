@@ -152,9 +152,10 @@ The short `pdfvision --help` lists the flags reached for most often. This topic 
                           (default: literal substring). Each page's regex search is
                           bounded at 1s; a pattern that exceeds it drops that page's
                           results and warns on stderr (usually catastrophic backtracking).
-                          The whole regex request is bounded at 12s: past that, matches
-                          found so far are kept, the remaining pages go unsearched, and a
-                          warning names the pages searched and where to resume.
+                          Regex time across one request is bounded at 12s (search time
+                          only, not extraction or OCR): past that, matches found so far
+                          are kept, the remaining pages go unsearched, and a warning names
+                          the pages searched and which pages to re-run.
       --search-case-sensitive
                           Match case exactly (default: insensitive).
       --matches-only      Emit a focused search report: the file, total page/match counts, and

@@ -12,6 +12,8 @@ export { type CompiledSearch, compileSearch } from './compiler.js';
 export { suppressDuplicateOcrMatches } from './duplicates.js';
 export {
   createRegexSearchBudget,
+  isRegexBudgetWarning,
+  REGEX_BUDGET_WARNING_PREFIX,
   REGEX_SEARCH_REQUEST_BUDGET_MS,
   type RegexSearchBudget,
 } from './requestBudget.js';

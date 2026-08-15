@@ -141,7 +141,7 @@ export interface ProcessDocumentOptions {
    *  regardless of the source PDF's casing. */
   searchCaseSensitive?: boolean;
   /**
-   * @internal Override the whole-request regex search deadline (ms).
+   * @internal Override the per-request budget for regex search time (ms).
    * Exists so tests can prove the early-stop path without burning the
    * real budget; not part of the CLI or MCP surface, and not part of the
    * cache key (an interrupted search is never cached anyway).

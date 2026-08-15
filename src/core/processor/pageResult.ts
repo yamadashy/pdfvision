@@ -12,7 +12,7 @@ interface BuildPageResultOptions {
   renderRatio?: number;
   hasVisibleAnnotationAppearance: boolean;
   compiledSearch?: CompiledSearch;
-  /** Whole-request regex deadline; set only for regex-mode searches. */
+  /** Per-request regex search time budget; set only for regex-mode searches. */
   searchBudget?: RegexSearchBudget;
   onWarning?: (message: string) => void;
 }
@@ -69,25 +69,24 @@ export function buildPageResult({
   page.quality = derivePageQuality(page, { hasVisibleAnnotationAppearance });
 
   if (compiledSearch) {
-    // A refused claim means the whole-request regex deadline has passed:
-    // leave `matches` empty for this page rather than spending another
-    // per-page budget on it. The single summary warning comes from the
-    // budget itself once every pass is done.
-    page.matches =
-      searchBudget?.claimPage(pageNum) === false
-        ? []
-        : searchPage(
-            data._internalSpans,
-            undefined,
-            pageNum,
-            data.width,
-            data.height,
-            compiledSearch,
-            onWarning,
-            data._internalFormFields,
-            data._internalAnnotations,
-            data._internalLinks,
-          );
+    const search = () =>
+      searchPage(
+        data._internalSpans,
+        undefined,
+        pageNum,
+        data.width,
+        data.height,
+        compiledSearch,
+        onWarning,
+        data._internalFormFields,
+        data._internalAnnotations,
+        data._internalLinks,
+      );
+    // The budget charges what this pass costs and refuses the page once
+    // the request has spent its regex time; `undefined` means the search
+    // never ran. The single summary warning comes from the budget itself
+    // once every pass is done.
+    page.matches = searchBudget ? (searchBudget.run(pageNum, search) ?? []) : search();
   }
 
   return page;
