@@ -1,0 +1,4 @@
+# Committed build outputs (see AGENTS.md): collapse them in diffs and keep
+# them out of language stats. CI regenerates and diffs them, so review reads
+# the source — docs/cli-topics/*.md — not these.
+src/cli/docs/*.generated.ts linguist-generated=true

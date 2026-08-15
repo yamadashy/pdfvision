@@ -27,9 +27,9 @@ Emitted only when `--search` is passed. Each emitted query occurrence becomes on
 **One-pipeline find-then-zoom**: every box pdfvision emits is already in `--render-region`'s coordinate system, so no conversion is needed. Prefer `--matches-only`, whose entries add a crop-ready `region` grown to the table row or visual line containing the hit; `bbox` crops to the matched glyphs alone, which on a financial table renders the row label and none of its values. `region` exists only in the `--matches-only` report — on the full report, pad `bbox` before rendering it, the way pdfvision itself does: `max(60, 0.6 × bbox.width)` on each side horizontally and `max(12, 0.3 × bbox.height)` vertically, in raw page-view units, clamped to the page box (`--render-region` rejects out-of-bounds rectangles rather than clipping them). The agent loop is:
 
 ```bash
-pdfvision doc.pdf --search "revenue" --json
-# pick a match m from pages[N].matches[*]
-pdfvision doc.pdf -p <m.page> --render --render-region <m.bbox.x>,<m.bbox.y>,<m.bbox.width>,<m.bbox.height>
+pdfvision doc.pdf --search "revenue" --matches-only --json
+# pick a match m from matches[*]
+pdfvision doc.pdf -p <m.page> --render --render-region <m.region.x>,<m.region.y>,<m.region.width>,<m.region.height>
 ```
 
 `--matches-only` keeps the flat report compact but preserves non-default physical scaling as optional `pageUserUnits: [{ page, userUnit }]` metadata in JSON/TOON, equivalent `<pageUserUnits>` entries in XML, and a `Page UserUnits` summary in Markdown. The field is omitted when every selected page uses UserUnit 1. Each match carries both `bbox` (raw page-view box hugging the matched glyphs) and `region` (the crop-ready box grown to the containing table row, or the visual line when the page has no detected table). XML exposes the pair as `x`/`y`/`width`/`height` plus `regionX`/`regionY`/`regionWidth`/`regionHeight` on `<match>`. Both are raw page-view values that pass unchanged to `--render-region`. Pass `region`: passing `bbox` there crops to the matched glyphs alone, which on a financial table renders the row label and none of its values.
