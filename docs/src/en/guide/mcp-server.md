@@ -54,7 +54,7 @@ Responses are budgeted: 30,000 characters per body, 12,000 per page, 100 match p
 
 The 20-page threshold decides map versus body, not whether the body fits: a document under it is read whole and then truncated like any other if it exceeds the character budget. What a truncation notice counts as omitted is page *bodies* — the Overview row for each of those pages is still in the response.
 
-The same honesty applies to search: core warnings ride the response, so a regex query that exceeds the per-page time budget reports itself instead of masquerading as "0 matches", and a search over pages with no usable native text says a miss there is not evidence of absence.
+The same honesty applies to search: core warnings ride the response, so a regex query that exceeds the per-page time budget reports itself instead of masquerading as "0 matches", and a search over pages with no usable native text says a miss there is not evidence of absence. A dynamic XFA (LiveCycle) form gets the same treatment one step further: when the pages that were searched are only the "Please wait..." viewer placeholder, every response says so — the zero-hit one included, which is the response most likely to be mistaken for absence — and points at Adobe Acrobat/Reader rather than at a render. A hybrid AcroForm+XFA form such as an IRS return extracts normally and is not flagged that way.
 
 Every successful result leads with an untrusted-data banner (error results do not, and can still quote the document). MCP hosts have no equivalent of the Agent Skill's guidance, so the trust boundary travels with the payload. Treat extracted content as data, not instructions — see [Security and Privacy](./security-and-privacy.md).
 

@@ -95,10 +95,20 @@ export function formatDocumentMap(result: DocumentResult): string {
     lines.push(`- **JavaScript:** ${result.javascriptActionCount} document-level action(s)`);
   }
 
+  // `xfa: true` says only that the document declares XFA, which is true of
+  // both a dynamic form that extracted nothing and an IRS form that
+  // extracted perfectly. The `xfa_form` warning is the one that means the
+  // pages below are a placeholder, so the loud banner follows it, not the
+  // bare declaration.
   if (result.xfa) {
+    const placeholderOnly = result.pages.some((page) =>
+      (page.warnings ?? []).some((warning) => warning.code === 'xfa_form'),
+    );
     lines.push(
       '',
-      '> **XFA (LiveCycle) form.** The real content lives in an XML stream that standard PDF extraction never sees, so the text below may be only a viewer placeholder. Do not answer from it — report that the document needs Adobe Acrobat/Reader.',
+      placeholderOnly
+        ? '> **Dynamic XFA (LiveCycle) form.** The pages below are only the viewer placeholder; the real content lives in an XML stream that standard PDF extraction never sees. Do not answer from it — report that the document needs Adobe Acrobat/Reader.'
+        : '> **XFA (LiveCycle) form with real static content.** The pages below extracted normally and can be read as-is; only values held solely in the XFA layer, which standard PDF extraction never sees, are missing.',
     );
   }
 

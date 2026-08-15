@@ -41,6 +41,10 @@ export interface PageData {
   _invisibleText?: InvisibleTextEvidence;
   _opaqueFillText?: OpaqueFillTextEvidence;
   layout?: PageLayout;
+  /** Layout built internally (independent of `flags.layout`) so a search
+   *  hit's context can quote the same reconstructed line the body text
+   *  shows, rather than a raw span join. */
+  _internalLayout?: PageLayout;
   imageBoxes?: ImageBox[];
   _warningImageBoxes?: ImageBox[];
   vectorBoxes?: VectorBox[];

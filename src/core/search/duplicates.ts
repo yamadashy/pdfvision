@@ -41,14 +41,22 @@ export function buildPreciseDuplicateBudget(
   return budget;
 }
 
+/**
+ * `sources` narrows which earlier matches can suppress this one. Callers
+ * that can tell apart "the same evidence reported twice" from "two
+ * different facts about one rectangle" pass it; the default counts every
+ * non-OCR source, which is the historical behaviour.
+ */
 export function hasPreciseDuplicateAtBox(
   preciseMatches: readonly SearchMatch[] | undefined,
   compiled: CompiledSearch,
   key: string,
   box: Box,
+  sources?: (source: SearchMatch['source']) => boolean,
 ): boolean {
   for (const match of preciseMatches ?? []) {
     if (match.source === 'ocr') continue;
+    if (sources && !sources(match.source)) continue;
     if (duplicateKeyForMatch(compiled, match) !== key) continue;
     if (boxOverlapRatio(match.bbox, box) >= PRECISE_DUPLICATE_MIN_OVERLAP_RATIO) return true;
   }

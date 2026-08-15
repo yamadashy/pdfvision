@@ -1,6 +1,8 @@
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { attachFormFieldTextAppearance } from '../../src/core/formFields/types.js';
+import { buildLayout } from '../../src/core/layout/index.js';
+import { markExplicitSpaceBefore } from '../../src/core/layout/spanMetadata.js';
 import { processDocument } from '../../src/core/processor.js';
 import { compileSearch, searchOcrPage, searchPage, searchPageWithMatchCap } from '../../src/core/search/index.js';
 import type { FormField, PageAnnotation, PageLink, TextSpan } from '../../src/types/index.js';
@@ -485,6 +487,100 @@ describe('processDocument search', () => {
     });
   });
 
+  it('matches checkbox and radio export values, which is the wording read_pdf shows for them', () => {
+    const fields: FormField[] = [
+      // A radio group: each widget carries its own option wording as the
+      // export value, and the group's `value` repeats on all of them.
+      {
+        name: 'fruit',
+        type: 'radio',
+        value: 'Banane',
+        checked: false,
+        exportValue: 'りんご',
+        x: 50,
+        y: 80,
+        width: 12,
+        height: 12,
+        label: { text: 'Choose a fruit', relation: 'above', x: 50, y: 60, width: 74.88, height: 12 },
+      },
+      {
+        name: 'fruit',
+        type: 'radio',
+        value: 'Banane',
+        checked: true,
+        exportValue: 'Banane',
+        x: 50,
+        y: 100,
+        width: 12,
+        height: 12,
+        label: { text: 'Choose a fruit', relation: 'above', x: 50, y: 60, width: 74.88, height: 12 },
+      },
+      {
+        name: 'news',
+        type: 'checkbox',
+        value: 'Off',
+        checked: false,
+        exportValue: 'Subscribe',
+        x: 50,
+        y: 130,
+        width: 12,
+        height: 12,
+      },
+      // Off is the "none of these" state name, not wording anyone reads.
+      {
+        name: 'blank',
+        type: 'checkbox',
+        value: 'Off',
+        checked: false,
+        exportValue: 'Off',
+        x: 50,
+        y: 150,
+        width: 12,
+        height: 12,
+      },
+      {
+        name: 'secret',
+        type: 'checkbox',
+        value: 'Off',
+        checked: false,
+        exportValue: 'Hidden',
+        flags: ['hidden', 'print'],
+        x: 50,
+        y: 170,
+        width: 12,
+        height: 12,
+      },
+    ];
+    const compiled = compileSearch(['りんご', 'Banane', 'Subscribe', 'Off', 'Hidden'], {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage([], undefined, 1, 612, 792, compiled, undefined, fields);
+
+    expect(matches).toHaveLength(3);
+    expect(matches[0]).toMatchObject({
+      query: 'りんご',
+      text: 'りんご',
+      source: 'formField',
+      page: 1,
+      bbox: { x: 50, y: 80, width: 12, height: 12 },
+      boxes: [{ x: 50, y: 80, width: 12, height: 12 }],
+      context: 'Choose a fruit: りんご',
+    });
+    // The selected option is reported once, from the widget that owns it —
+    // not once per widget of the group, which searching `value` would do.
+    expect(matches[1]).toMatchObject({
+      query: 'Banane',
+      text: 'Banane',
+      source: 'formField',
+      bbox: { x: 50, y: 100, width: 12, height: 12 },
+    });
+    expect(matches[2]).toMatchObject({
+      query: 'Subscribe',
+      source: 'formField',
+      bbox: { x: 50, y: 130, width: 12, height: 12 },
+    });
+  });
+
   it('matches link targets with clickable link bboxes', () => {
     const compiled = compileSearch('pdf_reference', {});
     if (!compiled) throw new Error('expected compiled search');
@@ -512,6 +608,160 @@ describe('processDocument search', () => {
       source: 'link',
       context: 'url link target: https://example.com/devnet/pdf/pdf_reference.html',
     });
+  });
+
+  it('quotes the reconstructed line as an RTL hit context, so search and the page body agree', () => {
+    // Same span set the layout tests use: pdf.js emits the inter-word
+    // spaces of shaped Arabic as separate whitespace items and draws
+    // brackets mirrored. Layout reconstruction restores both; the raw
+    // search join does neither, and the context used to show that.
+    const spans: TextSpan[] = [];
+    let pendingSpace = false;
+    for (const glyph of Array.from('[1] (حيضوت) رصم علاط')) {
+      if (glyph === ' ') {
+        pendingSpace = spans.length > 0;
+        continue;
+      }
+      const current: TextSpan = { text: glyph, x: spans.length * 10, y: 184, width: 10, height: 10, fontSize: 10 };
+      if (pendingSpace) markExplicitSpaceBefore(current);
+      pendingSpace = false;
+      spans.push(current);
+    }
+    const layout = buildLayout(spans, 595, 842);
+    const compiled = compileSearch('مصر', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const withLayout = searchPage(
+      spans,
+      undefined,
+      1,
+      595,
+      842,
+      compiled,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      layout,
+    );
+    expect(withLayout).toHaveLength(1);
+    expect(withLayout[0].context).toBe(layout.blocks[0].lines[0].text);
+    expect(withLayout[0].context).toBe('طالع مصر (توضيح) [1]');
+
+    // Without a layout the context is still the raw search line — the
+    // fallback, not a second, quietly different reconstruction.
+    const withoutLayout = searchPage(spans, undefined, 1, 595, 842, compiled);
+    expect(withoutLayout[0].context).toBe('طالعمصر)توضيح(]1[');
+  });
+
+  it('falls back to the search line when no reconstructed line covers the hit', () => {
+    const spans: TextSpan[] = [{ text: 'Total net sales', x: 72, y: 100, width: 80, height: 10, fontSize: 10 }];
+    const elsewhere = {
+      blocks: [
+        {
+          text: 'Unrelated line',
+          x: 72,
+          y: 400,
+          width: 80,
+          height: 10,
+          lines: [{ text: 'Unrelated line', x: 72, y: 400, width: 80, height: 10, fontSize: 10 }],
+        },
+      ],
+    };
+    const compiled = compileSearch('net', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(
+      spans,
+      undefined,
+      1,
+      612,
+      792,
+      compiled,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      elsewhere,
+    );
+
+    expect(matches[0].context).toBe('Total net sales');
+  });
+
+  it('keeps a link-target hit when the anchor is prose that merely shares a word with the target', () => {
+    // The sentence and the hidden URL are different evidence. Dropping
+    // the link hit loses the only report that the document links there.
+    const spans: TextSpan[] = [
+      { text: 'Download the full dataset here', x: 72, y: 100, width: 180, height: 10, fontSize: 10 },
+    ];
+    const links: PageLink[] = [
+      {
+        type: 'url',
+        target: 'https://example.com/datasets/q3-2026-full.csv',
+        text: 'Download the full dataset here',
+        x: 72,
+        y: 100,
+        width: 180,
+        height: 10,
+      },
+    ];
+    const compiled = compileSearch('dataset', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 612, 792, compiled, undefined, undefined, undefined, links);
+
+    expect(matches.map((match) => match.source)).toEqual(['native', 'link']);
+    expect(matches[1]).toMatchObject({
+      text: 'dataset',
+      source: 'link',
+      context: 'url link target: https://example.com/datasets/q3-2026-full.csv',
+    });
+  });
+
+  it('still drops a link-target hit when the anchor text is the URL itself', () => {
+    // Anchor and target say one thing twice, and the native hit already
+    // carries the precise glyph box, so the link row would be noise.
+    const spans: TextSpan[] = [
+      { text: 'https://example.com/datasets/q3-2026-full.csv', x: 72, y: 100, width: 180, height: 10, fontSize: 10 },
+    ];
+    const links: PageLink[] = [
+      {
+        type: 'url',
+        target: 'https://example.com/datasets/q3-2026-full.csv',
+        text: 'https://example.com/datasets/q3-2026-full.csv',
+        x: 72,
+        y: 100,
+        width: 180,
+        height: 10,
+      },
+    ];
+    const compiled = compileSearch('datasets', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 612, 792, compiled, undefined, undefined, undefined, links);
+
+    expect(matches.map((match) => match.source)).toEqual(['native']);
+  });
+
+  it('still drops a link-target hit when the anchor is a shortened rendering of the URL', () => {
+    const spans: TextSpan[] = [{ text: 'example.com', x: 72, y: 100, width: 60, height: 10, fontSize: 10 }];
+    const links: PageLink[] = [
+      {
+        type: 'url',
+        target: 'https://example.com/datasets/q3-2026-full.csv',
+        text: 'example.com',
+        x: 72,
+        y: 100,
+        width: 60,
+        height: 10,
+      },
+    ];
+    const compiled = compileSearch('example.com', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 612, 792, compiled, undefined, undefined, undefined, links);
+
+    expect(matches.map((match) => match.source)).toEqual(['native']);
   });
 
   it('narrows comb text form-field matches to the matched cells when appearance metadata is available', () => {

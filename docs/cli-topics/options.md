@@ -139,7 +139,8 @@ The short `pdfvision --help` lists the flags reached for most often. This topic 
                           (each match carries the source query). Literal substring
                           by default; case-insensitive; NFKC-aware (matches
                           compatibility codepoints like `ﬁ` (U+FB01 ligature) for
-                          `fi`). Also searches text/choice form field values
+                          `fi`). Also searches visible form field values, including
+                          checkbox/radio export values
                           (marked source:'formField'), clickable link targets
                           (source:'link'), visible FreeText annotations
                           (source:'annotation'), and OCR text when --ocr is on

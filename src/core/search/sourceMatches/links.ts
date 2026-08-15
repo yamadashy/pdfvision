@@ -19,6 +19,11 @@ export function appendLinkMatches(
     if (rawSearchValue === undefined) continue;
     const haystack = compiled.normalize ? nfkc(rawSearchValue) : rawSearchValue;
     if (haystack.length === 0) continue;
+    // A second link annotation stacked on the same rectangle with the
+    // same target is the same link reported twice whatever its anchor
+    // says, so those always suppress. Visible text at that rectangle is
+    // only a duplicate when the anchor restates the target.
+    const duplicateSources = anchorTextRestatesTarget(link, haystack, compiled.normalize) ? undefined : isLinkSource;
     for (let mi = 0; mi < compiled.matchers.length; mi++) {
       if (linkCapped.has(mi)) continue;
       const m = compiled.matchers[mi];
@@ -32,7 +37,7 @@ export function appendLinkMatches(
         }
         const hitKey = duplicateKey(m.queryIndex, m.query, hit[0], m.regex.ignoreCase);
         const box = roundedBox(link);
-        if (hasPreciseDuplicateAtBox(matches, compiled, hitKey, box)) continue;
+        if (hasPreciseDuplicateAtBox(matches, compiled, hitKey, box, duplicateSources)) continue;
         const count = linkCount.get(mi) ?? 0;
         if (count >= matchCap) {
           linkCapped.add(mi);
@@ -56,6 +61,48 @@ export function appendLinkMatches(
     }
     if (linkCapped.size === compiled.matchers.length) break;
   }
+}
+
+/**
+ * Whether a native hit inside the link rectangle would be reporting the
+ * same evidence as the link hit, rather than a second, different fact.
+ *
+ * The visible text is the whole difference. When the anchor *is* the
+ * target — `https://example.com/a.pdf` printed as itself, a truncated
+ * `example.com`, a table-of-contents row whose words are the destination
+ * name — the page and the target say one thing twice, and the native hit
+ * already carries the precise glyph box, so the link hit is noise. When
+ * the anchor is prose (`Download the full dataset here` →
+ * `…/datasets/q3-2026-full.csv`), the sentence and the hidden target are
+ * different evidence that happen to share a word, and dropping the link
+ * hit loses the only report that the document links there at all.
+ *
+ * The test is word coverage rather than equality, because a rendered URL
+ * is rarely byte-identical to its target: it is shortened, loses its
+ * scheme, gets an ellipsis, or mashes words together with hyphens and
+ * slashes. So: the anchor restates the target when every one of its
+ * words already occurs somewhere in the target string. Prose fails that
+ * as soon as it contributes a word of its own, which is nearly the
+ * definition of prose.
+ *
+ * An anchor pdfvision could not reconstruct is not treated as a
+ * restatement. Silence is not evidence of double-reporting, and this
+ * suppression is the one place in search where a match is dropped
+ * outright rather than counted.
+ */
+function anchorTextRestatesTarget(link: PageLink, target: string, normalize: boolean): boolean {
+  const anchor = link.text;
+  if (anchor === undefined || anchor.length === 0) return false;
+  const anchorWords = (normalize ? nfkc(anchor) : anchor).toLowerCase().match(ANCHOR_WORD_PATTERN);
+  if (!anchorWords || anchorWords.length === 0) return false;
+  const targetText = target.toLowerCase();
+  return anchorWords.every((word) => targetText.includes(word));
+}
+
+const ANCHOR_WORD_PATTERN = /[\p{Letter}\p{Number}]+/gu;
+
+function isLinkSource(source: SearchMatch['source']): boolean {
+  return source === 'link';
 }
 
 function linkSearchValue(link: PageLink): string | undefined {

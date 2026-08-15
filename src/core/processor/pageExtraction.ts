@@ -268,6 +268,7 @@ export async function extractPageData(
     ...(invisibleText !== undefined && { _invisibleText: invisibleText }),
     ...(opaqueFillText !== undefined && { _opaqueFillText: opaqueFillText }),
     ...(layout !== undefined && { layout }),
+    ...(flags.needSpansForSearch && internalLayout !== undefined && { _internalLayout: internalLayout }),
     ...(imageBoxes !== undefined && { imageBoxes }),
     _warningImageBoxes: allBoxes,
     ...(vectorBoxes !== undefined && { vectorBoxes }),

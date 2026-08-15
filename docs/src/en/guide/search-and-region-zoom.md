@@ -49,17 +49,19 @@ Good search targets include:
 Search can match:
 
 - native PDF text.
-- text and choice values from `--form-fields`.
+- text, choice, checkbox, and radio values from `--form-fields`.
 - clickable link targets from `--links`.
 - visible FreeText annotation contents from `--annotations`.
 - OCR text from `--ocr`, using OCR word boxes when available.
 
-OCR matches that duplicate native, form-field, link, or annotation matches are suppressed so agents do not see the same visible text twice.
+OCR matches that duplicate native, form-field, link, or annotation matches are suppressed so agents do not see the same visible text twice. A link hit is suppressed the same way only when its visible anchor text restates the target, such as a URL printed as itself; a prose anchor that merely shares a word with its target keeps both hits, because the sentence and the target are different evidence.
+
+A native hit's `context` quotes the line as the page body renders it, so a preview taken from a match and the text of the page cannot disagree — which matters most for right-to-left scripts, where the reconstruction supplies the word spacing and bracket direction that the raw match text lacks.
 
 The match `source` helps the agent decide how much to trust it:
 
 - `native`: text came from the PDF text layer.
-- `formField`: text came from a visible widget value or display value.
+- `formField`: text came from a visible widget value, display value, or checkbox/radio export value.
 - `link`: text came from a clickable link target.
 - `annotation`: text came from a visible FreeText annotation.
 - `ocr`: text came from page pixels and may need confidence review.

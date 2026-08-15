@@ -47,17 +47,19 @@ pdfvision report.pdf --search "PDF" --search-case-sensitive --json
 搜尋可以匹配：
 
 - PDF 原生文字。
-- `--form-fields` 的文字值和 choice 值。
+- `--form-fields` 的文字值、choice 值，以及 checkbox / radio 的 export value。
 - `--links` 的可點擊 link target。
 - `--annotations` 中可見的 FreeText 註解內容。
 - `--ocr` 的 OCR 文字，可用時使用 OCR word boxes。
 
-與原生文字、表單欄位、連結或註解重複的 OCR match 會被抑制，因此代理不容易看到同一可見文字的重複結果。
+與原生文字、表單欄位、連結或註解重複的 OCR match 會被抑制，因此代理不容易看到同一可見文字的重複結果。連結 hit 只有在可見錨點文字本身就是 target 的複述時（例如 URL 原樣印在頁面上）才會被同樣抑制；如果錨點文字只是與 target 共用一個詞的正文，兩個 hit 都會保留，因為句子和連結目標是不同的證據。
+
+原生 hit 的 `context` 引用的是頁面正文呈現出的同一行，因此從 match 取到的預覽不會與頁面文字互相矛盾——這一點對由右至左的文字尤其重要，重建會補上原始 match 文字缺少的詞間空格與括號方向。
 
 match 的 `source` 幫助代理判斷它應該被多大程度信任：
 
 - `native`：來自 PDF text layer。
-- `formField`：來自可見 widget value 或 display value。
+- `formField`：來自可見 widget value、display value 或 checkbox / radio 的 export value。
 - `link`：來自可點擊 link target。
 - `annotation`：來自可見 FreeText annotation。
 - `ocr`：來自頁面像素，可能需要檢查 confidence。

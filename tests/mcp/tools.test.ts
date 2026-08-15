@@ -10,6 +10,7 @@ import { readPdf } from '../../src/mcp/tools/readPdf.js';
 import { renderPdf } from '../../src/mcp/tools/renderPdf.js';
 import { appendPageWarnings, collapseHits, searchPdf, searchWarningCollector } from '../../src/mcp/tools/searchPdf.js';
 import type { PageResult, SearchMatch } from '../../src/types/index.js';
+import { buildXfaPlaceholderPdf } from '../helpers/xfaPdfs.js';
 
 const SAMPLE = join(import.meta.dirname, '..', 'fixtures', 'sample.pdf');
 
@@ -69,6 +70,7 @@ let sameLinePdf: string;
 let repeatedPdf: string;
 let manyPlacesPdf: string;
 let figurePdf: string;
+let xfaPlaceholderPdf: string;
 
 beforeAll(async () => {
   workdir = mkdtempSync(join(tmpdir(), 'pdfvision-mcp-tools-'));
@@ -90,6 +92,8 @@ beforeAll(async () => {
   );
   figurePdf = join(workdir, 'figure.pdf');
   writeFileSync(figurePdf, await buildFigurePdf());
+  xfaPlaceholderPdf = join(workdir, 'xfa-placeholder.pdf');
+  writeFileSync(xfaPlaceholderPdf, buildXfaPlaceholderPdf());
 });
 
 afterAll(() => {
@@ -289,6 +293,31 @@ describe('search_pdf', () => {
     expect(rows[1]?.region).toEqual(rows[0]?.region);
   });
 
+  it('collapses one place whose crops disagree in the last hundredths of a point', () => {
+    // The crop pads by a fraction of the *match* box, so two hits on one
+    // line produce regions that differ below any distinction a render
+    // could show. Exact-equality grouping emitted those as separate rows.
+    const page = { page: 1, width: 612, height: 792 } as PageResult;
+    const hit = (bbox: SearchMatch['bbox']) => ({
+      page,
+      match: { text: 'alpha', bbox, source: 'native' } as SearchMatch,
+    });
+    const jitter = collapseHits([
+      hit({ x: 100, y: 100, width: 100.2, height: 10 }),
+      hit({ x: 100.05, y: 100, width: 100.1, height: 10 }),
+    ]);
+    expect(jitter).toHaveLength(1);
+    expect(jitter[0]).toMatchObject({ count: 2 });
+
+    // Whole-point rounding must not swallow places that genuinely differ.
+    const apart = collapseHits([
+      hit({ x: 100, y: 100, width: 100.2, height: 10 }),
+      hit({ x: 102, y: 100, width: 100.2, height: 10 }),
+    ]);
+    expect(apart).toHaveLength(2);
+    expect(apart.map((row) => row.index)).toEqual([0, 1]);
+  });
+
   it('surfaces the regex time-limit warning instead of a silent zero, even on a repeat call', async () => {
     // A catastrophic pattern that hits the per-page budget produces the
     // same "0 matches" as a term that is absent. The model choosing the
@@ -368,6 +397,23 @@ describe('render_pdf ref lifetime', () => {
   });
 });
 
+describe('search_pdf on a document whose text is not the document', () => {
+  it('says so on a zero-hit response', async () => {
+    const body = text(await searchPdf({ source: xfaPlaceholderPdf, query: 'sponsor' }));
+    expect(body).toContain('0 matches');
+    expect(body).toContain("The text searched on p.1 is not that page's content (xfa_form)");
+    expect(body).toContain('neither a hit nor a miss there is evidence about this document');
+    expect(body).toContain('Adobe Acrobat/Reader');
+  });
+
+  it('says it once, not twice, when a hit lands on the placeholder', async () => {
+    const body = text(await searchPdf({ source: xfaPlaceholderPdf, query: 'Adobe' }));
+    expect(body).not.toContain('0 matches');
+    expect(body.match(/is not that page's content/g)).toHaveLength(1);
+    expect(body).not.toContain('> - p.1: xfa_form');
+  });
+});
+
 describe('appendPageWarnings', () => {
   const page = (no: number, codes: { code: string; severity: 'warning' | 'error' }[]) =>
     ({
@@ -405,6 +451,24 @@ describe('appendPageWarnings', () => {
     const lines: string[] = [];
     appendPageWarnings(lines, [page(2, [{ code: 'invisible_text', severity: 'error' }])], new Set([1]));
     expect(lines).toEqual([]);
+  });
+
+  it('leaves unreadable-source codes to the response-level note', () => {
+    const lines: string[] = [];
+    appendPageWarnings(
+      lines,
+      [
+        page(1, [{ code: 'xfa_form', severity: 'error' }]),
+        page(2, [
+          { code: 'xfa_form', severity: 'error' },
+          { code: 'invisible_text', severity: 'error' },
+        ]),
+      ],
+      new Set([1, 2]),
+    );
+    const body = lines.join('\n');
+    expect(body).not.toContain('p.1');
+    expect(body).toContain('> - p.2: invisible_text');
   });
 
   it('caps the list and says how many pages it left out', () => {

@@ -83,10 +83,24 @@ describe('formatDocumentMap', () => {
     expect(output).toContain('read_pdf(attachment:');
   });
 
-  it('flags an XFA form loudly', () => {
-    const output = formatDocumentMap(document([page(1, ok)], { xfa: true }));
-    expect(output).toContain('XFA (LiveCycle) form');
+  it('flags a placeholder-only XFA form loudly', () => {
+    const placeholder: PageWarning = { code: 'xfa_form', severity: 'error', message: 'placeholder only' };
+    const output = formatDocumentMap(document([page(1, ok, [placeholder])], { xfa: true }));
+    expect(output).toContain('Dynamic XFA (LiveCycle) form');
+    expect(output).toContain('Do not answer from it');
     expect(output).toContain('Adobe Acrobat/Reader');
+  });
+
+  it('does not tell the reader to distrust an XFA form whose static content is real', () => {
+    const softened: PageWarning = {
+      code: 'xfa_static_content',
+      severity: 'warning',
+      message: 'static content is real',
+    };
+    const output = formatDocumentMap(document([page(1, ok, [softened])], { xfa: true }));
+    expect(output).toContain('XFA (LiveCycle) form with real static content');
+    expect(output).toContain('extracted normally');
+    expect(output).not.toContain('Do not answer from it');
   });
 
   it('renders a two-level outline and drops deeper nesting', () => {

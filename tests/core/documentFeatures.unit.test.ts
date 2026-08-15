@@ -29,9 +29,23 @@ describe('extractDocumentFeatures presence signals', () => {
     expect(features.isXfaPresent).toBe(true);
   });
 
+  it('reports isAcroFormPresent separately, so the two XFA shapes stay distinguishable', async () => {
+    const hybrid = await extractDocumentFeatures(
+      stubDoc({ info: { IsXFAPresent: true, IsAcroFormPresent: true } }),
+      {},
+    );
+    expect(hybrid.isAcroFormPresent).toBe(true);
+    const dynamicXfa = await extractDocumentFeatures(
+      stubDoc({ info: { IsXFAPresent: true, IsAcroFormPresent: false } }),
+      {},
+    );
+    expect(dynamicXfa.isAcroFormPresent).toBe(false);
+  });
+
   it('stays false for ordinary documents', async () => {
     const features = await extractDocumentFeatures(stubDoc(), {});
     expect(features.isXfaPresent).toBe(false);
+    expect(features.isAcroFormPresent).toBe(false);
     expect(features.attachmentCount).toBeUndefined();
     expect(features.javascriptActionCount).toBeUndefined();
   });

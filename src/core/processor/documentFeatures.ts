@@ -26,6 +26,14 @@ export interface DocumentFeatures {
   layers?: DocumentLayers;
   hasHiddenOptionalContent: boolean;
   isXfaPresent: boolean;
+  /**
+   * pdf.js reports this when the AcroForm dictionary carries a non-empty
+   * `/Fields` array that is not signatures-only. Paired with
+   * `isXfaPresent` it separates a hybrid AcroForm+XFA form (fields live in
+   * the standard layer, extraction works) from a dynamic XFA one (nothing
+   * but the viewer placeholder is in the page tree).
+   */
+  isAcroFormPresent: boolean;
 }
 
 export async function extractDocumentFeatures(
@@ -97,6 +105,7 @@ export async function extractDocumentFeatures(
     ...(layers !== undefined && { layers }),
     hasHiddenOptionalContent: layerState.groups.some((group) => !group.visible),
     isXfaPresent: info?.IsXFAPresent === true,
+    isAcroFormPresent: info?.IsAcroFormPresent === true,
   };
 }
 

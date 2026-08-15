@@ -47,17 +47,19 @@ pdfvision report.pdf --search "PDF" --search-case-sensitive --json
 検索は次の信号を対象にできます。
 
 - PDF のネイティブテキスト。
-- `--form-fields` のテキスト値や choice 値。
+- `--form-fields` のテキスト値、choice 値、checkbox / radio の export value。
 - `--links` のクリック可能なリンク target。
 - `--annotations` の表示される FreeText 注釈。
 - `--ocr` の OCR テキスト。利用できる場合は OCR word box を使います。
 
-ネイティブ、フォーム、リンク、注釈の match と重複する OCR match は抑制されるため、同じ表示テキストが二重に出にくくなります。
+ネイティブ、フォーム、リンク、注釈の match と重複する OCR match は抑制されるため、同じ表示テキストが二重に出にくくなります。リンクの hit が同じように抑制されるのは、表示されるアンカーテキストが target を言い換えているとき（URL がそのまま印字されている場合など）だけです。target と単語をひとつ共有しているだけの文章アンカーでは、文とリンク先は別の根拠なので、両方の hit が残ります。
+
+ネイティブ match の `context` は、ページ本文と同じ再構成結果の行を引用します。したがって match から取ったプレビューとページのテキストが食い違うことはありません。これは特に右横書き（RTL）の文字体系で重要で、素の match テキストにはない語間スペースと括弧の向きを再構成が補います。
 
 match の `source` は、エージェントがどの程度信頼すべきかを判断する手がかりです。
 
 - `native`: PDF text layer 由来。
-- `formField`: 見える widget value または display value 由来。
+- `formField`: 見える widget value、display value、または checkbox / radio の export value 由来。
 - `link`: クリック可能な link target 由来。
 - `annotation`: 見える FreeText annotation 由来。
 - `ocr`: ページ pixels 由来で、confidence の確認が必要な場合があります。

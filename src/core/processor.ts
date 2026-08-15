@@ -48,7 +48,7 @@ import {
 } from './search/index.js';
 import type { BuildVisualRegionsInput } from './visualRegions/index.js';
 import { detectPageWarnings } from './warnings/index.js';
-import { buildXfaFormWarning } from './warnings/xfaForm.js';
+import { buildXfaFormWarning, classifyXfaStaticLayer } from './warnings/xfaForm.js';
 
 /**
  * Extract a structured representation of a PDF.
@@ -192,6 +192,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       layers,
       hasHiddenOptionalContent,
       isXfaPresent,
+      isAcroFormPresent,
     } = await extractDocumentFeatures(doc, options, attachmentOutputDir);
 
     let imagePaths: string[] | null = null;
@@ -381,9 +382,12 @@ export async function processDocument(filePath: string, options: ProcessDocument
 
     // XFA is a document-level fact, but agents scan per-page warnings, so
     // attach it once to the first extracted page. Placed after the per-page
-    // detector loop so that loop's "no warnings → delete" reset cannot drop it.
+    // detector loop so that loop's "no warnings → delete" reset cannot drop it,
+    // and after extraction because which of the two XFA shapes this is can
+    // only be decided from what the static layer actually yielded.
     if (isXfaPresent && pages.length > 0) {
-      pages[0].warnings = [buildXfaFormWarning(), ...(pages[0].warnings ?? [])];
+      const shape = classifyXfaStaticLayer({ isAcroFormPresent, pages });
+      pages[0].warnings = [buildXfaFormWarning(shape), ...(pages[0].warnings ?? [])];
     }
 
     // OCR search pass. The native pass ran in the per-page loop above

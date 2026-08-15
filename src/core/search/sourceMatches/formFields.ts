@@ -100,9 +100,17 @@ function formFieldMatchContext(field: FormField, value: string): string {
   return cleanContext(text, 160);
 }
 
+/**
+ * PDF's "none of these" state name for a checkbox or radio widget. It is
+ * plumbing rather than something a reader ever sees, so it never becomes
+ * a haystack — every other on-state name does, checked or not.
+ */
+const BUTTON_OFF_STATE = 'Off';
+
 function formFieldSearchValue(field: FormField): string | undefined {
   if (!isVisibleFormField(field)) return undefined;
   if (field.type === 'button') return field.caption && field.caption.length > 0 ? field.caption : undefined;
+  if (field.type === 'checkbox' || field.type === 'radio') return buttonStateSearchValue(field);
   if (field.type !== 'text' && field.type !== 'choice') return undefined;
   if (!field.value) return undefined;
   if (field.type === 'choice' && field.displayValue) return field.displayValue;
@@ -111,6 +119,26 @@ function formFieldSearchValue(field: FormField): string | undefined {
   const displayValues = selectedValues.map((value) => choiceDisplayValue(field, value));
   if (displayValues.length === 0) return field.value;
   return displayValues.join(', ');
+}
+
+/**
+ * The haystack for a checkbox or radio widget is its export value — the
+ * per-widget on-state name, which is what `read_pdf` shows in the Export
+ * column and often the only place an option's wording appears at all
+ * (`Opt[0] = りんご` on a radio whose page text never spells it out).
+ *
+ * `value` is deliberately not searched: for a button widget it is the
+ * *group's* current state, which every widget of a radio group repeats,
+ * so searching it would report one selection once per option; and
+ * `read_pdf` never prints it for these types — the Value column says
+ * `checked`/`unchecked`. Selection state is likewise not a filter here:
+ * an unchecked option is still an option the document offers, and it is
+ * displayed, so a caller who read it must be able to find it.
+ */
+function buttonStateSearchValue(field: FormField): string | undefined {
+  const exportValue = field.exportValue;
+  if (!exportValue || exportValue === BUTTON_OFF_STATE) return undefined;
+  return exportValue;
 }
 
 function choiceDisplayValue(field: FormField, value: string): string {
