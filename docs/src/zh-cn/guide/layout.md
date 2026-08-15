@@ -1,0 +1,92 @@
+---
+title: "Layout and Geometry"
+description: "The --layout block / line / table shapes, multi-column reading order, repeated chrome, heading levels, and the --geometry span contract. Use when reconstructing structure or reading order rather than reading flat text."
+sourceHash: d1f8f8095566
+---
+
+<!-- Translated from docs/src/en/guide/layout.md, which is generated from docs/cli-topics/layout.md.
+     Translate the prose, keep code, field names, flags, and warning codes verbatim, and update
+     `sourceHash` to the value reported by `node scripts/build-site-reference.mjs`. -->
+
+# Layout and span geometry
+
+Reference for `-f json`, `-f xml`, and `-f toon` consumers.
+
+## Layout (`--layout`)
+
+```ts
+interface PageLayout {
+  blocks: LayoutBlock[];     // in approximate reading order (multi-column aware)
+  tables?: LayoutTable[];    // row-major hints for aligned numeric tables
+}
+
+interface LayoutBlock {
+  text: string;              // line texts joined with \n
+  x: number; y: number; width: number; height: number;
+  lines: LayoutLine[];
+  writingMode?: 'vertical';  // present for detected CJK top-to-bottom glyph stacks, including body text
+  role?: 'heading';          // heuristic heading classification — see `level`
+  level?: 1 | 2 | 3;         // present iff role === 'heading': 1=title, 2=section, 3=subsection candidate
+  repeated?: boolean;        // chrome (running header / footer / page number / watermark), usually detected across pages
+}
+
+interface LayoutLine {
+  text: string;
+  x: number; y: number; width: number; height: number;
+  fontSize: number;          // most common fontSize across the spans in this line
+  writingMode?: 'vertical';  // present for top-to-bottom CJK glyph stacks, including body text
+}
+
+interface LayoutTable {
+  x: number; y: number; width: number; height: number;
+  rowCount: number;
+  columnCount: number;       // maximum cells in any row
+  rows: LayoutTableRow[];
+}
+
+interface LayoutTableRow {
+  y: number; height: number;
+  cells: LayoutTableCell[];  // sorted left-to-right
+}
+
+interface LayoutTableCell {
+  text: string;
+  x: number; y: number; width: number; height: number;
+}
+```
+
+`--layout` adds an alternate reading-order view with geometry and role hints; it never replaces native text. In JSON/XML/TOON, `pages[].layout` appears only with `--layout` while `pages[].text` stays the unchanged pdf.js stream, so blocks and raw text can be diffed against each other. Markdown is the exception: it always runs the layout pass internally, so its per-page body is the layout-rebuilt reading order whenever any block exists and falls back to `pages[].text` only when there is none; `--layout` there gates only the structural extras — the per-page layout table sections and the Overview `Blocks` / `Tables` columns. Note there is no `pages[].layout.lines` — lines live under `blocks[].lines`.
+
+Multi-column reading order: `blocks[]` reads top-to-bottom of the left column before the right column. The layout pass treats recurring narrow gutters and recurring right-side panel starts as column/table breaks, including landscape pages where a numeric side panel means the main body columns cover only part of the physical page width. It preserves tight Latin and Arabic word spaces when pdf.js emits words as separate spans, keeps short display-spaced CJK title rows on one line (for example `科 学`), keeps indented singleton lines attached to the nearest surviving column instead of turning them into page-wide separators, avoids letting tall drop caps absorb following paragraph lines, keeps narrow standalone numeric page labels separate from surrounding prose, and moves small bottom permission/footer notes after the main two-column body. It also detects body-sized one-glyph CJK vertical runs, compact display CJK glyph stacks, and tall CJK spans that are visually vertical, keeps tatechuyoko digit groups inline in the same vertical column when geometry and source order agree, joins each column top-to-bottom, groups adjacent body columns right-to-left with `\n` between columns, and marks those blocks/lines with `writingMode: "vertical"` so consumers do not mistake them for horizontal rows. Furigana/ruby attaches to layout text as `base《ruby》` when the adjacent vertical ruby column or above-line horizontal kana run maps to an unambiguous CJK base range; otherwise it remains excluded rather than becoming standalone layout noise. Short medium-size note-reference marks in the right gutter of a vertical body column are also excluded rather than becoming standalone layout blocks. `pages[].text` applies the same body-sized vertical-run detector only as a stream-order join: it joins a detected column when the source item order already matches top-to-bottom geometry, and falls back per run rather than reordering. Standalone level-1 / level-2 headings act as column separators; level-3 candidates stay inside their column so subsection breaks don't scramble reading order. Block clustering is still heuristic — table cells may merge into a single block.
+
+Repeated chrome detection runs after block clustering. When only one line inside a multi-line edge block is repeated page chrome, such as a slide footer glued to nearby body text, pdfvision splits that line into its own `repeated: true` block and leaves the adjacent body lines non-repeated. The exact field exists in JSON/TOON; XML uses `<block repeated="true">`, and Markdown omits the block only with `--strip-repeated`. Narrow vertical blocks at the left or right page edge also need corroboration before they become chrome: sentence-like text containing `。` or `、`, and vertical edge text longer than the short chrome ceiling, is never marked as `repeated`; in multi-page extraction the same normalized short edge text must recur on at least two selected pages; in single-page extraction only conservative short markers such as `第`, `章`, digits, or `第1章`-style labels can be marked. Short form control labels such as `Yes.`, `No.`, and `STOP` are not treated as page chrome even when they recur at the page edge in decision-tree instructions.
+
+`tables[]` is a conservative row-major hint for aligned numeric tables. It appears when multiple rows have several cells and at least two numeric cells, a common shape in financial statements and government statistical tables; compact two-column year/value tables are included when enough regular rows make the table shape clear. Treat it as a visual-structure aid, not a complete table parser: merged headers, continuation labels, and footnotes can still require `--render` / `--render-region`, but `rows[].cells[]` preserves the row/cell order that `blocks[]` often loses when a table is split into label and numeric columns. Dense recurring numeric gutters are split before table construction so adjacent values do not collapse into one cell when the visual grid is regular, including compact side tables with comma-formatted values or ratio cells such as `13.0x`. Dense rows with three or more numeric spans can also split narrow same-row numeric gutters, including financial statement rows where a trailing currency symbol visually marks the next value column. Wide tables with three or more recurring numeric columns can also keep short leading header rows and sparse first rows directly above the first fully populated row, including scientific notation cells such as `1.0 · 10^20` and score/percentile cells such as `298 / 400 (~90th)`, so the table bbox starts at the human-visible table top. Decorative dotted rule text from publisher table borders is ignored while grouping rows, so a tall dotted border does not absorb all cells into one row. Nearby label-only continuation rows are folded into the following row label unless they look like section headers. Irregular row spacing is still accepted when labelled rows have recurring numeric columns, so financial tables with multi-line labels, subtotal gaps, and long prose-like labels before recurring year columns remain visible instead of being trimmed as adjacent prose. Detached currency symbols are folded into the following numeric cell when their row position makes the relationship clear.
+
+### Heading levels (`role === 'heading'`)
+
+`role` is set when a block is classified as a heading; `level` ranks the visual hierarchy:
+
+- `level: 1` — paper / page title (fontSize ≥ 1.40× body median, or top-of-page document title in the ≥ 1.25× band).
+- `level: 2` — section heading (≥ 1.25× under the legacy rule, or ≥ 1.15× with structural support: short and either standalone or locally larger than neighbours). Catches the typical LaTeX 12pt-over-10pt section style.
+- `level: 3` — subsection candidate (≥ 1.08×, single short line, locally larger than same-column neighbours). Lower confidence; the kind of heading ResNet's `3.1.` and `3.4.` use.
+
+Pick a slice that matches the use case:
+- Title-only: `role === 'heading' && level === 1`.
+- High precision (sections only): `role === 'heading' && level <= 2`.
+- Recall-oriented (include subsections): all `role === 'heading'`.
+
+Repeated chrome wins over heading classification. When a heading-shaped running header/footer is marked `repeated: true`, pdfvision drops `role`, `level`, and `roleConfidence` so repeated page chrome does not appear in heading lists. When chunking body content, still filter `repeated: true` first.
+## Spans (`--geometry`)
+
+```ts
+interface TextSpan {
+  text: string;              // NFKC-normalized and C0-cleaned by default (disable with --no-normalize)
+  x: number; y: number;      // unrotated page view, top-left origin
+  width: number; height: number;
+  fontSize: number;          // largest finite non-zero text-matrix scale; otherwise reported/effective item height
+  fontName?: string;         // stable page-local alias e.g. "font1"
+}
+```
+
+Each public span corresponds to one retained positioned pdf.js text item, whose `text` may be one character, a word, or a longer string. Adjacent items are not merged or split in public `spans[]`; layout/search may reconstruct lines or slice match boxes without changing that granularity. The rounded bbox is the item's aggregate axis-aligned envelope, not individual glyph outlines. Deduplication runs before normalization. Its key uses raw `str`, raw `fontName` (or empty), width, effective height, and every transform component rounded to three decimals (`no-transform` when absent). Effective height is a positive reported height, otherwise the largest finite non-zero text-matrix scale, otherwise zero. `fontSize` uses that largest usable matrix scale first and falls back to the reported/effective item height only when both matrix scales are unusable. Matching keys keep the first item and OR `hasEOL`; the same raw text at different transforms remains distinct, while different raw items may normalize to identical public text. Items without a transform, likely prepress-production text, whitespace-only items, and items empty after normalization are omitted. `fontName` is a stable page-local alias. Geometry can substantially enlarge output.

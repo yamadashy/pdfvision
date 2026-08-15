@@ -92,6 +92,6 @@ npx pdfvision slides.pdf --render-visual-regions --render-output ./regions --jso
 - [使用情境](./guide/use-cases) 將常見 PDF 類型對應到 pdfvision 命令模式。
 - [CLI 選項](./guide/command-line-options) 依任務整理主要參數。
 - [結構化輸出](./guide/structured-output) 解釋代理和工具會使用的欄位。
-- [版面與警告](./guide/layout-and-warnings) 說明應從 README 簡短介紹中分離出來的視覺結構細節。
-- [渲染與 OCR](./guide/rendering-and-ocr) 涵蓋影像輸出、區域裁切與掃描文件。
+- [警告](./guide/warnings) 說明應從 README 簡短介紹中分離出來的視覺結構細節。
+- [視覺區域與渲染](./guide/visual) 涵蓋影像輸出與區域裁切，[OCR](./guide/ocr) 涵蓋掃描文件。
 - [搜尋與區域放大](./guide/search-and-region-zoom) 展示如何找到文字證據，並只渲染匹配區域。

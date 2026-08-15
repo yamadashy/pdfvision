@@ -122,5 +122,5 @@ Start narrow and add signals when the page asks for them:
 - [Installation](./installation.md) covers local and global setup.
 - [Usage](./usage.md) shows common workflows.
 - [Output Formats](./output.md) explains Markdown, JSON, XML, and TOON.
-- [Layout and Warnings](./layout-and-warnings.md) explains the signals that help agents verify visual structure.
+- [Warnings](./warnings.md) explains the signals that help agents verify visual structure.
 - [Search and Region Zoom](./search-and-region-zoom.md) shows evidence search and targeted crop rendering.

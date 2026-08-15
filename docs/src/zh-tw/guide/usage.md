@@ -36,7 +36,7 @@ pdfvision --remote https://example.com/document.pdf --format json
 
 `--remote` 的初始 URL 僅支援 HTTP(S)，並會跟隨重新導向。如果回應本文開頭附近沒有 PDF header，pdfvision 會拒絕該回應。預設限制為 100 MB 的本文上限，以及涵蓋等待回應標頭和傳輸本文的 60 秒截止時間。
 
-只對使用者獨立授權的目標使用 `--remote`。它驗證回應，但不驗證網路目標，也不會阻擋私有位址或重新導向目標。不要直接傳入不可信 URL；應使用下載元件透過允許清單驗證每個解析 IP 和重新導向節點、固定連線目標，再把本機檔案傳給 pdfvision，或把 pdfvision 的下載程序隔離在網路控制之後。詳見[安全與隱私](./security-and-privacy.md#遠端-pdf)。
+只對使用者獨立授權的目標使用 `--remote`。它驗證回應，但不驗證網路目標，也不會阻擋私有位址或重新導向目標。不要直接傳入不可信 URL；應使用下載元件透過允許清單驗證每個解析 IP 和重新導向節點、固定連線目標，再把本機檔案傳給 pdfvision，或把 pdfvision 的下載程序隔離在網路控制之後。詳見[安全與隱私](./security-and-privacy.md)。
 
 遠端快取按 URL 建立。如果一個穩定 URL 的內容會被原地更新，可用 `--no-cache` 做一次新鮮取得，或用 `pdfvision clear-cache` 刪除快取副本：
 

@@ -92,6 +92,6 @@ npx pdfvision slides.pdf --render-visual-regions --render-output ./regions --jso
 - [Use Cases](./guide/use-cases) maps common PDF types to pdfvision command patterns.
 - [Command Line Options](./guide/command-line-options) groups every important flag by task.
 - [Structured Output](./guide/structured-output) explains the fields that agents and tools consume.
-- [Layout and Warnings](./guide/layout-and-warnings) explains the visual-structure signals that should stay out of the short README pitch.
-- [Rendering and OCR](./guide/rendering-and-ocr) covers image output, visual crops, and scanned documents.
+- [Warnings](./guide/warnings) explains the visual-structure signals that should stay out of the short README pitch.
+- [Visual Regions and Rendering](./guide/visual) covers image output and visual crops; [OCR](./guide/ocr) covers scanned documents.
 - [Search and Region Zoom](./guide/search-and-region-zoom) shows how to find text evidence and render only the matching crop.

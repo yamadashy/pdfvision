@@ -122,5 +122,5 @@ npx pdfvision document.pdf --pages 3 --render --render-region 120,180,360,140 --
 - [安裝](./installation.md)
 - [使用方式](./usage.md)
 - [輸出格式](./output.md)
-- [版面與警告](./layout-and-warnings.md)
+- [警告](./warnings.md)
 - [搜尋與區域放大](./search-and-region-zoom.md)

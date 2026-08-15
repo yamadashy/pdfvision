@@ -36,7 +36,7 @@ pdfvision --remote https://example.com/document.pdf --format json
 
 `--remote` 的初始 URL 仅支持 HTTP(S)，并会跟随重定向。如果响应正文开头附近没有 PDF header，pdfvision 会拒绝该响应。默认限制为 100 MB 的正文上限，以及涵盖等待响应头和传输正文的 60 秒截止时间。
 
-只对用户独立授权的目标使用 `--remote`。它验证响应，但不验证网络目标，也不会阻止私有地址或重定向目标。不要直接传入不可信 URL；应使用下载组件通过允许列表验证每个解析 IP 和重定向节点、固定连接目标，再把本地文件传给 pdfvision，或者把 pdfvision 的下载过程隔离在网络控制之后。详见[安全与隐私](./security-and-privacy.md#远程-pdf)。
+只对用户独立授权的目标使用 `--remote`。它验证响应，但不验证网络目标，也不会阻止私有地址或重定向目标。不要直接传入不可信 URL；应使用下载组件通过允许列表验证每个解析 IP 和重定向节点、固定连接目标，再把本地文件传给 pdfvision，或者把 pdfvision 的下载过程隔离在网络控制之后。详见[安全与隐私](./security-and-privacy.md)。
 
 远程缓存按 URL 建立。如果一个稳定 URL 的内容会被原地更新，可用 `--no-cache` 做一次新鲜获取，或用 `pdfvision clear-cache` 删除缓存副本：
 

@@ -83,4 +83,4 @@ pdfvision --help
 pdfvision document.pdf --json
 ```
 
-PDF がスキャン、視覚的、または不自然に空に見える場合は、[レンダリングと OCR](./rendering-and-ocr.md) に進みます。
+PDF がスキャン、視覚的、または不自然に空に見える場合は、[OCR](./ocr.md) に進みます。

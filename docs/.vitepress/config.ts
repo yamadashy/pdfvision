@@ -26,26 +26,36 @@ const siteAuthor = {
 };
 const googleAnalyticsTag = 'G-DED5VQQ0JC';
 
+/**
+ * The reference entries mirror docs/cli-topics/*.md one for one: those topics
+ * generate the English pages (scripts/build-site-reference.mjs) and every
+ * locale carries a translation of each. A topic without a sidebar entry would
+ * be a page nobody can reach.
+ */
 type LocaleLabels = {
   guide: string;
   gettingStarted: string;
   installation: string;
   usage: string;
   useCases: string;
-  output: string;
-  commandLineOptions: string;
-  structuredOutput: string;
-  layoutAndWarnings: string;
-  renderingAndOcr: string;
-  searchAndRegionZoom: string;
+  faq: string;
   agentSkill: string;
-  mcpServer: string;
   promptExamples: string;
+  commandLineOptions: string;
+  flags: string;
+  output: string;
+  structuredOutput: string;
+  layout: string;
+  warnings: string;
+  visual: string;
+  ocr: string;
+  searchAndRegionZoom: string;
+  interactive: string;
+  documentFeatures: string;
+  mcpServer: string;
   libraryApi: string;
   securityAndPrivacy: string;
-  faq: string;
   introduction: string;
-  core: string;
   agentsAndDevelopers: string;
   reference: string;
 };
@@ -56,20 +66,24 @@ const labelsEn: LocaleLabels = {
   installation: 'Installation',
   usage: 'Usage',
   useCases: 'Use Cases',
-  output: 'Output Formats',
-  commandLineOptions: 'Command Line Options',
-  structuredOutput: 'Structured Output',
-  layoutAndWarnings: 'Layout and Warnings',
-  renderingAndOcr: 'Rendering and OCR',
-  searchAndRegionZoom: 'Search and Region Zoom',
+  faq: 'FAQ',
   agentSkill: 'Agent Skills',
-  mcpServer: 'MCP Server',
   promptExamples: 'Prompt Examples',
+  commandLineOptions: 'Command Line Options',
+  flags: 'Flag Selection',
+  output: 'Output Formats',
+  structuredOutput: 'Structured Output',
+  layout: 'Layout and Geometry',
+  warnings: 'Warnings',
+  visual: 'Visual Regions and Rendering',
+  ocr: 'OCR',
+  searchAndRegionZoom: 'Search and Region Zoom',
+  interactive: 'Forms, Links, and Annotations',
+  documentFeatures: 'Document Features',
+  mcpServer: 'MCP Server',
   libraryApi: 'Library API',
   securityAndPrivacy: 'Security and Privacy',
-  faq: 'FAQ',
   introduction: 'Introduction',
-  core: 'Core Concepts',
   agentsAndDevelopers: 'Agents and Developers',
   reference: 'Reference',
 };
@@ -80,20 +94,24 @@ const labelsJa: LocaleLabels = {
   installation: 'インストール',
   usage: '使い方',
   useCases: 'ユースケース',
-  output: '出力形式',
-  commandLineOptions: 'CLI オプション',
-  structuredOutput: '構造化出力',
-  layoutAndWarnings: 'レイアウトと警告',
-  renderingAndOcr: 'レンダリングと OCR',
-  searchAndRegionZoom: '検索と領域ズーム',
+  faq: 'FAQ',
   agentSkill: 'Agent Skills',
-  mcpServer: 'MCP サーバー',
   promptExamples: 'プロンプト例',
+  commandLineOptions: 'CLI オプション',
+  flags: 'フラグの選び方',
+  output: '出力形式',
+  structuredOutput: '構造化出力',
+  layout: 'レイアウトとジオメトリ',
+  warnings: '警告',
+  visual: '視覚領域とレンダリング',
+  ocr: 'OCR',
+  searchAndRegionZoom: '検索と領域ズーム',
+  interactive: 'フォーム・リンク・注釈',
+  documentFeatures: 'ドキュメント機能',
+  mcpServer: 'MCP サーバー',
   libraryApi: 'ライブラリ API',
   securityAndPrivacy: 'セキュリティとプライバシー',
-  faq: 'FAQ',
   introduction: '導入',
-  core: '主要機能',
   agentsAndDevelopers: 'エージェントと開発者',
   reference: 'リファレンス',
 };
@@ -104,20 +122,24 @@ const labelsZhCn: LocaleLabels = {
   installation: '安装',
   usage: '使用方法',
   useCases: '使用场景',
-  output: '输出格式',
-  commandLineOptions: 'CLI 选项',
-  structuredOutput: '结构化输出',
-  layoutAndWarnings: '布局与警告',
-  renderingAndOcr: '渲染与 OCR',
-  searchAndRegionZoom: '搜索与区域放大',
+  faq: 'FAQ',
   agentSkill: 'Agent Skills',
-  mcpServer: 'MCP 服务器',
   promptExamples: '提示词示例',
+  commandLineOptions: 'CLI 选项',
+  flags: '参数选择',
+  output: '输出格式',
+  structuredOutput: '结构化输出',
+  layout: '布局与几何',
+  warnings: '警告',
+  visual: '视觉区域与渲染',
+  ocr: 'OCR',
+  searchAndRegionZoom: '搜索与区域放大',
+  interactive: '表单、链接与注释',
+  documentFeatures: '文档特性',
+  mcpServer: 'MCP 服务器',
   libraryApi: '库 API',
   securityAndPrivacy: '安全与隐私',
-  faq: 'FAQ',
   introduction: '入门',
-  core: '核心概念',
   agentsAndDevelopers: '智能体与开发者',
   reference: '参考',
 };
@@ -128,20 +150,24 @@ const labelsZhTw: LocaleLabels = {
   installation: '安裝',
   usage: '使用方式',
   useCases: '使用情境',
-  output: '輸出格式',
-  commandLineOptions: 'CLI 選項',
-  structuredOutput: '結構化輸出',
-  layoutAndWarnings: '版面與警告',
-  renderingAndOcr: '渲染與 OCR',
-  searchAndRegionZoom: '搜尋與區域放大',
+  faq: 'FAQ',
   agentSkill: 'Agent Skills',
-  mcpServer: 'MCP 伺服器',
   promptExamples: '提示詞範例',
+  commandLineOptions: 'CLI 選項',
+  flags: '參數選擇',
+  output: '輸出格式',
+  structuredOutput: '結構化輸出',
+  layout: '版面與幾何',
+  warnings: '警告',
+  visual: '視覺區域與渲染',
+  ocr: 'OCR',
+  searchAndRegionZoom: '搜尋與區域放大',
+  interactive: '表單、連結與註解',
+  documentFeatures: '文件特性',
+  mcpServer: 'MCP 伺服器',
   libraryApi: '函式庫 API',
   securityAndPrivacy: '安全與隱私',
-  faq: 'FAQ',
   introduction: '入門',
-  core: '核心概念',
   agentsAndDevelopers: '代理與開發者',
   reference: '參考',
 };
@@ -157,33 +183,33 @@ const guideSidebar = (prefix: string, labels: LocaleLabels): DefaultTheme.Sideba
         { text: labels.installation, link: withPrefix(prefix, '/guide/installation') },
         { text: labels.usage, link: withPrefix(prefix, '/guide/usage') },
         { text: labels.useCases, link: withPrefix(prefix, '/guide/use-cases') },
-      ],
-    },
-    {
-      text: labels.core,
-      items: [
-        { text: labels.output, link: withPrefix(prefix, '/guide/output') },
-        { text: labels.commandLineOptions, link: withPrefix(prefix, '/guide/command-line-options') },
-        { text: labels.structuredOutput, link: withPrefix(prefix, '/guide/structured-output') },
-        { text: labels.layoutAndWarnings, link: withPrefix(prefix, '/guide/layout-and-warnings') },
-        { text: labels.renderingAndOcr, link: withPrefix(prefix, '/guide/rendering-and-ocr') },
-        { text: labels.searchAndRegionZoom, link: withPrefix(prefix, '/guide/search-and-region-zoom') },
+        { text: labels.faq, link: withPrefix(prefix, '/guide/faq') },
       ],
     },
     {
       text: labels.agentsAndDevelopers,
       items: [
         { text: labels.agentSkill, link: withPrefix(prefix, '/guide/agent-skill') },
-        { text: labels.mcpServer, link: withPrefix(prefix, '/guide/mcp-server') },
         { text: labels.promptExamples, link: withPrefix(prefix, '/guide/prompt-examples') },
-        { text: labels.libraryApi, link: withPrefix(prefix, '/guide/library-api') },
       ],
     },
     {
       text: labels.reference,
       items: [
+        { text: labels.commandLineOptions, link: withPrefix(prefix, '/guide/command-line-options') },
+        { text: labels.flags, link: withPrefix(prefix, '/guide/flags') },
+        { text: labels.output, link: withPrefix(prefix, '/guide/output') },
+        { text: labels.structuredOutput, link: withPrefix(prefix, '/guide/structured-output') },
+        { text: labels.layout, link: withPrefix(prefix, '/guide/layout') },
+        { text: labels.warnings, link: withPrefix(prefix, '/guide/warnings') },
+        { text: labels.visual, link: withPrefix(prefix, '/guide/visual') },
+        { text: labels.ocr, link: withPrefix(prefix, '/guide/ocr') },
+        { text: labels.searchAndRegionZoom, link: withPrefix(prefix, '/guide/search-and-region-zoom') },
+        { text: labels.interactive, link: withPrefix(prefix, '/guide/interactive') },
+        { text: labels.documentFeatures, link: withPrefix(prefix, '/guide/document-features') },
+        { text: labels.mcpServer, link: withPrefix(prefix, '/guide/mcp-server') },
+        { text: labels.libraryApi, link: withPrefix(prefix, '/guide/library-api') },
         { text: labels.securityAndPrivacy, link: withPrefix(prefix, '/guide/security-and-privacy') },
-        { text: labels.faq, link: withPrefix(prefix, '/guide/faq') },
       ],
     },
   ],

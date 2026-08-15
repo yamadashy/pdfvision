@@ -83,4 +83,4 @@ pdfvision --help
 pdfvision document.pdf --json
 ```
 
-如果 PDF 是扫描件、视觉型，或异常空白，请继续阅读 [渲染与 OCR](./rendering-and-ocr.md)。
+如果 PDF 是扫描件、视觉型，或异常空白，请继续阅读 [OCR](./ocr.md)。

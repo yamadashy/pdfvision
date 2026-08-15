@@ -85,4 +85,4 @@ Then run a small extraction:
 pdfvision document.pdf --json
 ```
 
-If the PDF is scanned, visual, or suspiciously empty, continue with [Rendering and OCR](./rendering-and-ocr.md).
+If the PDF is scanned, visual, or suspiciously empty, continue with [OCR](./ocr.md).

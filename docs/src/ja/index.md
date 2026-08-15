@@ -92,6 +92,6 @@ npx pdfvision slides.pdf --render-visual-regions --render-output ./regions --jso
 - [ユースケース](./guide/use-cases) は PDF 種別ごとの実行パターンを整理しています。
 - [CLI オプション](./guide/command-line-options) は用途別に主要フラグを整理しています。
 - [構造化出力](./guide/structured-output) はエージェントやツールが読むフィールドを説明します。
-- [レイアウトと警告](./guide/layout-and-warnings) は README の短い説明から分離すべき視覚構造の詳細です。
-- [レンダリングと OCR](./guide/rendering-and-ocr) は画像出力、領域クロップ、スキャン文書を扱います。
+- [警告](./guide/warnings) は README の短い説明から分離すべき視覚構造の詳細です。
+- [視覚領域とレンダリング](./guide/visual) は画像出力と領域クロップを、[OCR](./guide/ocr) はスキャン文書を扱います。
 - [検索と領域ズーム](./guide/search-and-region-zoom) はテキスト根拠を探し、一致領域だけをレンダリングする流れを説明します。

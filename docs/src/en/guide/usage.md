@@ -36,7 +36,7 @@ Remote downloads are cached and validated as PDFs before extraction. If a `.pdf`
 
 `--remote` accepts only initial HTTP(S) URLs, follows redirects, and rejects responses that do not contain a PDF header near the start of the body. The default guardrails are a 100 MB maximum body size and a 60-second deadline covering response headers and body transfer.
 
-Use `--remote` only for a destination the user independently authorized. It validates the response, not the network destination, and does not block private addresses or redirect targets. Do not pass untrusted URLs directly: use a fetcher that validates every resolved IP and redirect hop against an allowlist and pins the connection, then pass a local file—or isolate pdfvision's fetch behind network controls. See [Security and Privacy](./security-and-privacy.md#remote-pdfs).
+Use `--remote` only for a destination the user independently authorized. It validates the response, not the network destination, and does not block private addresses or redirect targets. Do not pass untrusted URLs directly: use a fetcher that validates every resolved IP and redirect hop against an allowlist and pins the connection, then pass a local file—or isolate pdfvision's fetch behind network controls. See [Security and Privacy](./security-and-privacy.md).
 
 Remote cache entries are keyed by URL. If a stable URL is updated in place, use `--no-cache` for a fresh one-off fetch or `pdfvision clear-cache` to remove the cached copy:
 
