@@ -42,7 +42,7 @@ description: 通过 Model Context Protocol，为没有 shell 的宿主——Clau
 由此往后：
 
 - `read_pdf(pages: "12-18")` 读取一个区间。
-- `search_pdf(query: "…")` 定位一个词。落在同一行或同一表格行内的多次出现会合并成一行，并用 `×N` 标出次数（标题处的计数仍然是出现次数）。每行都带一个像 `p47m1` 这样的短 `ref`——把它原样传给 `render_pdf(ref: "p47m1")`，就能就地查看匹配内容，不必抄写坐标。
+- `search_pdf(query: "…")` 定位一个词。来源相同且裁剪区域相同的多次出现（通常是同一行或同一表格行内的重复）会合并成一行，并用 `×N` 标出次数（标题处的计数仍然是出现次数）。每行都带一个像 `p47m1` 这样的短 `ref`——把它原样传给 `render_pdf(ref: "p47m1")`，就能就地查看匹配内容，不必抄写坐标。
 - 当 quality 报告说原生文本不可用时，用 `read_pdf(pages: "31", ocr: "jpn+eng")` 对扫描页重新做 OCR。
 - `read_pdf(attachment: "invoice.xml")`——或一个从 1 开始的索引——返回一个嵌入文件，而不是页面。在电子发票和监管申报文件（Factur-X、ZUGFeRD、XBRL）中，附件才是权威数据，页面只是它的渲染呈现。文本附件会内联返回，图像作为 image block 返回；不透明的二进制文件会被拒绝，并指向 CLI 的 `--attachments --attachment-output`。
 

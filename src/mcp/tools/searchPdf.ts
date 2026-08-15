@@ -43,8 +43,8 @@ export interface CollapsedHit {
   context?: string;
 }
 
-function regionKey(page: number, region: RenderRegion): string {
-  return `${page}:${region.x},${region.y},${region.width},${region.height}`;
+function groupKey(page: number, source: SearchMatch['source'], region: RenderRegion): string {
+  return `${page}:${source}:${region.x},${region.y},${region.width},${region.height}`;
 }
 
 /**
@@ -61,6 +61,11 @@ function regionKey(page: number, region: RenderRegion): string {
  * that can differ within a group — `the` / `The`, or, under a regex,
  * unrelated substrings — and dropping them would make the row claim
  * something the document does not say.
+ *
+ * The source is part of the key: a link or form-field match can resolve
+ * to the same crop as a native match on its line, but it stands for
+ * different evidence and carries a different context, so merging would
+ * label it with the first hit's source and drop what set it apart.
  */
 export function collapseHits(hits: readonly SearchHit[]): CollapsedHit[] {
   const groups = new Map<string, { collapsed: CollapsedHit; seen: Set<string> }>();
@@ -69,7 +74,7 @@ export function collapseHits(hits: readonly SearchHit[]): CollapsedHit[] {
 
   for (const { page, match } of hits) {
     const region = cropRegionForBox(match.bbox, page);
-    const key = regionKey(page.page, region);
+    const key = groupKey(page.page, match.source, region);
     const group = groups.get(key);
     if (group) {
       group.collapsed.count++;

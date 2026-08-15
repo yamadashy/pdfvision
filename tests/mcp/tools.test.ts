@@ -8,7 +8,8 @@ import { clearRefs, lookupRef } from '../../src/mcp/refs.js';
 import type { ImageBlock, TextBlock } from '../../src/mcp/result.js';
 import { readPdf } from '../../src/mcp/tools/readPdf.js';
 import { renderPdf } from '../../src/mcp/tools/renderPdf.js';
-import { appendPageWarnings, searchPdf, searchWarningCollector } from '../../src/mcp/tools/searchPdf.js';
+import { appendPageWarnings, collapseHits, searchPdf, searchWarningCollector } from '../../src/mcp/tools/searchPdf.js';
+import type { PageResult, SearchMatch } from '../../src/types/index.js';
 
 const SAMPLE = join(import.meta.dirname, '..', 'fixtures', 'sample.pdf');
 
@@ -250,6 +251,20 @@ describe('search_pdf', () => {
     expect(body).toContain('240 matches on 6 of 6 searched page(s)');
     expect(body.split('\n').filter((line) => line.startsWith('- `p'))).toHaveLength(100);
     expect(body).toContain('20 further place(s) omitted at the 100-place cap');
+  });
+
+  it('keeps hits from different sources apart even when their crops coincide', () => {
+    // A link match can resolve to the same crop as a native match on its
+    // line; merging them would label the row with the first hit's source
+    // and drop the context that set the link apart.
+    const page = { page: 1, width: 612, height: 792 } as PageResult;
+    const bbox = { x: 100, y: 100, width: 30, height: 12 };
+    const hit = (source: SearchMatch['source']) => ({ page, match: { text: 'alpha', bbox, source } as SearchMatch });
+    const rows = collapseHits([hit('native'), hit('native'), hit('link')]);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({ index: 0, count: 2, source: 'native' });
+    expect(rows[1]).toMatchObject({ index: 1, count: 1, source: 'link' });
+    expect(rows[1]?.region).toEqual(rows[0]?.region);
   });
 
   it('surfaces the regex time-limit warning instead of a silent zero, even on a repeat call', async () => {

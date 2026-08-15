@@ -42,7 +42,7 @@ An unscoped `read_pdf` on a document over 20 pages returns a **document map** in
 From there:
 
 - `read_pdf(pages: "12-18")` reads a range.
-- `search_pdf(query: "…")` locates a term. Occurrences that fall inside one line or table row collapse into a single row marked `×N`, while the headline count still reports every occurrence. Each row carries a short `ref` like `p47m1` — pass it straight to `render_pdf(ref: "p47m1")` to see the match in place, instead of transcribing coordinates.
+- `search_pdf(query: "…")` locates a term. Same-source occurrences whose crops resolve to the same region — typically repeats within one line or table row — collapse into a single row marked `×N`, while the headline count still reports every occurrence. Each row carries a short `ref` like `p47m1` — pass it straight to `render_pdf(ref: "p47m1")` to see the match in place, instead of transcribing coordinates.
 - `read_pdf(pages: "31", ocr: "jpn+eng")` re-reads scanned pages with OCR when quality reporting says the native text is unusable.
 - `read_pdf(attachment: "invoice.xml")` — or a 1-based index — returns an embedded file instead of the pages. In e-invoices and regulatory filings (Factur-X, ZUGFeRD, XBRL) the attachment is the authoritative data and the pages are only its rendering. Text attachments come back inline, images as image blocks; opaque binaries are refused with a pointer to the CLI's `--attachments --attachment-output`.
 
