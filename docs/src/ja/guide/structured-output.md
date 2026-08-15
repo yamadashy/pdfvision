@@ -107,7 +107,7 @@ OCR はネイティブテキストを上書きしません。利用側が `page.
 次の対応を目安にしてください。
 
 - テキスト読解: `pages[].text`, `rawText`, `quality`, `warnings`。
-- レイアウト依存の読解: `layout.lines`, `layout.blocks`, `layout.tables`, `spans`。
+- レイアウト依存の読解: `layout.blocks[].lines`, `layout.blocks`, `layout.tables`, `spans`。
 - 視覚確認: `image`, `renderContentRatio`, `imageBoxes`, `vectorBoxes`, `visualRegions`。
 - スキャン復元: `ocr.text`, `ocr.confidence`, `ocr.words`, `quality.visualStatus`。
 - 根拠検索: `matches[].source`, `matches[].bbox`, `matches[].context`。

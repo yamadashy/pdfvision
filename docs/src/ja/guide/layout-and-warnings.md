@@ -17,7 +17,7 @@ pdfvision document.pdf --layout --format json
 
 主な出力:
 
-- `pages[].layout.lines`: ジオメトリ付きの復元行。
+- `pages[].layout.blocks[].lines`: ジオメトリ付きの復元行。
 - `pages[].layout.blocks`: 読み順ブロック、役割、bbox。
 - `pages[].layout.tables`: ネイティブテキストで崩れやすい数値表のヒント。
 - 縦書き CJK テキストの復元。

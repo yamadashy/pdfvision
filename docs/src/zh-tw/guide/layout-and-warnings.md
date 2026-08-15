@@ -17,7 +17,7 @@ pdfvision document.pdf --layout --format json
 
 版面輸出包括：
 
-- `pages[].layout.lines`: 帶幾何資訊的重建文字行。
+- `pages[].layout.blocks[].lines`: 帶幾何資訊的重建文字行。
 - `pages[].layout.blocks`: 依閱讀順序排列的區塊、角色與 bbox。
 - `pages[].layout.tables`: 原生文字可能攤平行列關係時的數字表格提示。
 - 直排 CJK 文字復原。

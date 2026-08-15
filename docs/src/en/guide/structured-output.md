@@ -120,7 +120,7 @@ Coordinate-bearing fields include spans, layout blocks and lines, image boxes, v
 Use these fields as a mental map:
 
 - Text reading: `pages[].text`, `rawText`, `quality`, `warnings`.
-- Layout-sensitive reading: `layout.lines`, `layout.blocks`, `layout.tables`, `spans`.
+- Layout-sensitive reading: `layout.blocks[].lines`, `layout.blocks`, `layout.tables`, `spans`.
 - Visual inspection: `image`, `renderContentRatio`, `imageBoxes`, `vectorBoxes`, `visualRegions`.
 - Scan recovery: `ocr.text`, `ocr.confidence`, `ocr.words`, `quality.visualStatus`.
 - Evidence search: `matches[].source`, `matches[].bbox`, `matches[].context`.
