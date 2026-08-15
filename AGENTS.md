@@ -68,7 +68,13 @@ pdfvision/
 │   │   └── index.ts          # Shared types (DocumentResult, ProcessOptions, ...)
 │   └── index.ts              # Library API entry
 ├── docs/
-│   └── cli-topics/           # Source of `pdfvision docs <topic>`; embedded at build time
+│   ├── cli-topics/           # Source of `pdfvision docs <topic>` AND the en site reference
+│   └── src/{en,ja,zh-cn,zh-tw}/ # VitePress site; guide reference pages are generated
+├── scripts/
+│   ├── build-cli-topics.mjs  # cli-topics -> src/cli/docs/*.generated.ts
+│   ├── build-site-reference.mjs # cli-topics -> docs/src/en/guide/*.md
+│   ├── check-reference-translations.mjs # ja/zh reference pages vs their sourceHash
+│   └── site-reference.mjs    # Topic->page map and shared rendering for the two above
 ├── tests/
 │   ├── core/                 # Unit and integration tests
 │   └── fixtures/sample.pdf   # Hand-crafted minimal PDF
@@ -111,13 +117,13 @@ pdfvision/
 - New features come with tests.
 - When changing pdfvision behavior, CLI flags, output fields, quality signals, or recommended agent workflows, update every documentation surface in the same change. They are separate files because they answer different questions, not because they may disagree:
   - `src/cli/help.ts` — one line per flag, and the topic that carries the detail.
-  - `docs/cli-topics/*.md` — the `pdfvision docs <topic>` bodies. Re-run `node scripts/build-cli-topics.mjs` (the build does this too) and commit the regenerated modules under `src/cli/docs/`.
+  - `docs/cli-topics/*.md` — the `pdfvision docs <topic>` bodies, **and the source of the site's English reference pages**. Re-run `node scripts/build-cli-topics.mjs` (the build does this too) and commit the regenerated modules under `src/cli/docs/`; re-run `node scripts/build-site-reference.mjs` (`docs:build` does this too) and commit the regenerated pages under `docs/src/en/guide/`.
   - `skills/pdfvision/` — see the write policy below.
-  - `docs/src/{en,ja,zh-cn,zh-tw}/` — the VitePress site, **all four locales**.
+  - `docs/src/{en,ja,zh-cn,zh-tw}/` — the VitePress site, **all four locales**. The reference pages are not hand-written: the English ones are generated from the topics (a hand edit is reverted by the next build), and the ja / zh-cn / zh-tw ones are translations of those, each pinned to the English page it was made from by a `sourceHash` frontmatter field. Change a topic and you owe three translations. The narrative pages — `index`, `guide/index`, `installation`, `usage`, `use-cases`, `agent-skill`, `prompt-examples`, `faq` — stay hand-written and localized. The topic → page map lives in `scripts/site-reference.mjs`; a new topic needs an entry there and a sidebar entry in `docs/.vitepress/config.ts`, or it is a page nobody can reach.
   - `README.md` — the Usage block regenerates from `--help` via `node scripts/sync-readme-usage.mjs`; the prose around it is manual.
   - `CHANGELOG.md` under `[Unreleased]`.
 
-  Know where the machine stops. Tests fail if a new `parseArgs` option appears in neither the short help nor the `options` topic, if a topic is added or deleted without updating the pinned list, or if a `pdfvision docs <topic>` cross-reference does not resolve; CI diffs the generated topic modules and the README Usage block. **Nothing checks the site, the skill, or whether any of this prose is true** — a wrong path or a stale field name survives every check we have.
+  Know where the machine stops. Tests fail if a new `parseArgs` option appears in neither the short help nor the `options` topic, if a topic is added or deleted without updating the pinned list, or if a `pdfvision docs <topic>` cross-reference does not resolve. CI diffs the generated topic modules, the generated English pages, and the README Usage block; `scripts/check-reference-translations.mjs` fails on a translated reference page that is missing or was made from an older English page; `build-site-reference.mjs` fails on a topic with no page or a page with no topic; and the VitePress build fails on a dead internal link. **Nothing checks the skill, the narrative site pages, whether a translation says what its English source says, or whether any of this prose is true** — a stale field name survives every check we have, and now it survives in four languages at once.
 - Before declaring work done, run:
   ```bash
   npm run lint
