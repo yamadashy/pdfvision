@@ -40,7 +40,7 @@ description: pdfvision CLI 選項參考，涵蓋 PDF 輸入、輸出格式、渲
 | --- | --- |
 | `-r, --render` | 將每個選中頁面渲染為 PNG，並在頁面結果中附加影像路徑。 |
 | `--render-output <dir>` | 指定頁面 PNG 或視覺區域 PNG 的輸出目錄。需要 `--render` 或 `--render-visual-regions`。 |
-| `--render-scale <n>` | 設定 `--render`、`--render-visual-regions` 或 `--ocr` 的 rasterization 倍率。預設 `2`，範圍 `(0, 4]`。 |
+| `--render-scale <n>` | 設定 `--render`、`--render-visual-regions` 或 `--ocr` 的 rasterization 倍率。預設 `2`，範圍 `(0, 4]`。三個 flag 皆未指定時會報錯。 |
 | `--render-region <x,y,width,height>` | 以未旋轉的原始 page-view units 渲染一頁中的矩形。需要 `--render` 或 `--ocr`，且 `--pages` 必須剛好解析為一個頁面。 |
 
 座標使用左上原點：`x` 向右增加，`y` 向下增加。layout block、image box、vector box、search match 和 visual region 使用相同的原始 page-view units。物理點數 = 原始值 × `pages[].userUnit`（省略時按 1）；像素數 = 原始區域 × UserUnit × render scale。
