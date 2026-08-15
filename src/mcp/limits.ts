@@ -25,8 +25,15 @@ export const UNSCOPED_FULL_READ_PAGE_LIMIT = 20;
 /** Rows of per-page detail carried in summary mode before ranges take over. */
 export const SUMMARY_MAX_DETAIL_ROWS = 40;
 
-/** Matches emitted by one `search_pdf` call. */
+/** Distinct match places emitted by one `search_pdf` call; occurrences sharing a place collapse into one row. */
 export const MAX_MATCHES = 100;
+
+/**
+ * Distinct matched strings named on one collapsed row. A regex whose
+ * matches vary — `\w+` against a paragraph — would otherwise list every
+ * word of the line it collapsed to.
+ */
+export const MAX_MATCH_TEXTS = 4;
 
 /** Core warnings relayed in one `search_pdf` response; each names its page, so a degenerate query cannot flood the body. */
 export const MAX_SEARCH_WARNINGS = 5;
