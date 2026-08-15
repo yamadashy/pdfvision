@@ -161,11 +161,12 @@ export function appendPageWarnings(lines: string[], pages: readonly PageResult[]
 
 /**
  * Core search warnings are what keep a zero honest here: a regex that
- * blew the per-page time budget produces the same "0 matches" as a term
- * that is genuinely absent, and the model choosing the pattern has no
- * stderr to see. Relayed warnings are capped at MAX_SEARCH_WARNINGS,
- * and regex-timeout warnings outrank the rest — they are the one class
- * whose loss turns a zero into false evidence of absence, and a
+ * blew the per-page time budget — or the whole-request one, which leaves
+ * later pages unsearched entirely — produces the same "0 matches" as a
+ * term that is genuinely absent, and the model choosing the pattern has
+ * no stderr to see. Relayed warnings are capped at MAX_SEARCH_WARNINGS,
+ * and regex-timeout warnings (either budget) outrank the rest — they are
+ * the one class whose loss turns a zero into false evidence of absence, and a
  * document that warns on many early pages would otherwise push them
  * past the cap. Retention is bounded per class too, so a degenerate
  * thousand-page search cannot accumulate a thousand strings just to

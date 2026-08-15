@@ -38,7 +38,13 @@ import { applyVisualRegionPostProcessing } from './processor/visualRegionPostPro
 import { createWidgetAppearanceCaptionLoader } from './processor/widgetAppearanceCaptions.js';
 import { derivePageQuality } from './quality/pageQuality.js';
 import { runParallel } from './runtime/parallel.js';
-import { type CompiledSearch, compileSearch, isRegexTimeoutWarning, searchOcrPage } from './search/index.js';
+import {
+  type CompiledSearch,
+  compileSearch,
+  createRegexSearchBudget,
+  isRegexTimeoutWarning,
+  searchOcrPage,
+} from './search/index.js';
 import type { BuildVisualRegionsInput } from './visualRegions/index.js';
 import { detectPageWarnings } from './warnings/index.js';
 import { buildXfaFormWarning } from './warnings/xfaForm.js';
@@ -232,6 +238,13 @@ export async function processDocument(filePath: string, options: ProcessDocument
       visualRegions: wantsVisualRegions,
       hasSearch: compiledSearch !== undefined,
     });
+    // Whole-request deadline for regex-mode searches. The per-page guard
+    // bounds one page; without this a pathological pattern still costs
+    // pages × the per-page budget and the caller (an MCP host especially)
+    // gives up before pdfvision does.
+    const searchBudget = compiledSearch?.regexMode
+      ? createRegexSearchBudget(pageNumbers.length, options.regexSearchBudgetMs)
+      : undefined;
     const ocrEnabled = !!options.ocr;
     const ocrLang = options.ocrLang ?? 'eng';
     const rasterBackedTextLayerByPage = new Map<number, boolean>();
@@ -287,6 +300,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
         renderRatio: renderRatios[i],
         hasVisibleAnnotationAppearance: annotationAppearanceByPage.get(pageNum) ?? false,
         compiledSearch,
+        searchBudget,
         onWarning: onSearchWarning,
       });
     });
@@ -378,10 +392,15 @@ export async function processDocument(filePath: string, options: ProcessDocument
     if (compiledSearch && ocrEnabled) {
       for (const p of pages) {
         if (!p.ocr) continue;
+        if (searchBudget?.claimPage(p.page) === false) continue;
         const ocrMatches = searchOcrPage(p.ocr, p.page, p.width, p.height, compiledSearch, p.matches, onSearchWarning);
         p.matches = (p.matches ?? []).concat(ocrMatches);
       }
     }
+    // One summary warning for the whole request, after every pass that
+    // could have been cut short. Classified as a regex-timeout warning,
+    // so it also keeps this partial result out of the cache.
+    searchBudget?.report(onSearchWarning);
 
     const overview = buildOverview(pages, { includeSearchMatches: compiledSearch !== undefined });
 

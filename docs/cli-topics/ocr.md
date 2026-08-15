@@ -138,6 +138,15 @@ Failed loading language ''
 
 These are **harmless pre-load probes** from tesseract.js's internal boot sequence, not fatal errors. The recogniser then honors the `--ocr-lang` you actually passed. Confirm by checking `pages[].ocr.confidence` in the JSON output — if it's `> 0` and `pages[].ocr.text` is populated, OCR succeeded. Do not interpret these stderr lines as a reason to abort.
 
+### "OCR language data for … could not be downloaded"
+
+Traineddata is fetched on first use, so this is the one OCR failure that depends on the network rather than on the PDF. The call fails with that message — the CLI exits 1 with it on stderr, MCP returns it as an ordinary tool error and keeps serving — and it names the language it tried to fetch.
+
+- **The message mentions a 404**: the code is almost certainly not one tesseract publishes. `--ocr-lang` takes tesseract codes, not IETF tags: `eng`, `jpn`, `chi_sim`, `chi_tra`, `kor`, `deu`, `fra`, `spa`, `rus`, `ara`. `en`, `ja`, and `zh` are not valid.
+- **Anything else** (DNS failure, refused connection, timeout): the machine cannot reach the traineddata CDN. An offline machine, a corporate proxy, or a CDN blip all land here. The language is fine; retry when the network is, and note that a language already downloaded once needs no network at all.
+
+Later pages in the same run fail with the same message rather than hanging on a worker that will never answer.
+
 ### "OCR ran but `text` is empty and `confidence: 0`"
 
 Most likely the rasterise step produced a blank page, not an actual OCR failure. Common cause: the PDF uses an image format pdfjs + `@napi-rs/canvas` can't decode (notably JPEG2000 / JPX, common in Internet Archive scans). First check `pages[].quality.visualStatus`: `blank` means OCR had a near-uniform input, while `sparse` means there are tiny visible marks worth inspecting with geometry or a crop. Verify by:
