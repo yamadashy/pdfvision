@@ -4,8 +4,8 @@ import { hasUnreliableNativeText } from '../../core/quality/pageQuality.js';
 import { cropRegionForBox } from '../../core/search/boxes.js';
 import { isRegexTimeoutWarning } from '../../core/search/index.js';
 import { formatBox } from '../../output/markdown/helpers.js';
-import type { PageResult } from '../../types/index.js';
-import { MATCH_CONTEXT_CHAR_CAP, MAX_MATCHES, MAX_SEARCH_WARNINGS } from '../limits.js';
+import type { PageResult, RenderRegion, SearchMatch } from '../../types/index.js';
+import { MATCH_CONTEXT_CHAR_CAP, MAX_MATCH_TEXTS, MAX_MATCHES, MAX_SEARCH_WARNINGS } from '../limits.js';
 import { forgetRefs, matchRef, rememberRef } from '../refs.js';
 import { type ToolResult, toolResult } from '../result.js';
 import { resolveSource } from '../source.js';
@@ -21,6 +21,87 @@ export interface SearchPdfInput {
 function condense(text: string, cap: number): string {
   const flat = text.replace(/\s+/g, ' ').trim();
   return flat.length <= cap ? flat : `${flat.slice(0, cap)}…`;
+}
+
+export interface SearchHit {
+  page: PageResult;
+  match: SearchMatch;
+}
+
+export interface CollapsedHit {
+  page: PageResult;
+  region: RenderRegion;
+  /** 0-based position among the collapsed hits of this page, so refs stay dense. */
+  index: number;
+  /** Occurrences this row stands for. */
+  count: number;
+  /** Distinct matched strings in first-appearance order, capped. */
+  texts: string[];
+  /** More distinct strings were found than `texts` carries. */
+  moreTexts: boolean;
+  source: SearchMatch['source'];
+  context?: string;
+}
+
+function groupKey(page: number, source: SearchMatch['source'], region: RenderRegion): string {
+  return `${page}:${source}:${region.x},${region.y},${region.width},${region.height}`;
+}
+
+/**
+ * One row per place, not per occurrence.
+ *
+ * A hit's crop grows to the line or table row it sits in, so two hits on
+ * one line resolve to the same region and used to emit two rows that
+ * differed only in their ref — three copies of one handle, since both
+ * render the same image. Grouping on `(page, region)` is exact rather
+ * than approximate: the regions come from the same computation over the
+ * same structure, so equal places produce equal numbers.
+ *
+ * The matched strings are kept per row because they are the one thing
+ * that can differ within a group — `the` / `The`, or, under a regex,
+ * unrelated substrings — and dropping them would make the row claim
+ * something the document does not say.
+ *
+ * The source is part of the key: a link or form-field match can resolve
+ * to the same crop as a native match on its line, but it stands for
+ * different evidence and carries a different context, so merging would
+ * label it with the first hit's source and drop what set it apart.
+ */
+export function collapseHits(hits: readonly SearchHit[]): CollapsedHit[] {
+  const groups = new Map<string, { collapsed: CollapsedHit; seen: Set<string> }>();
+  const perPageCount = new Map<number, number>();
+  const out: CollapsedHit[] = [];
+
+  for (const { page, match } of hits) {
+    const region = cropRegionForBox(match.bbox, page);
+    const key = groupKey(page.page, match.source, region);
+    const group = groups.get(key);
+    if (group) {
+      group.collapsed.count++;
+      if (!group.seen.has(match.text)) {
+        group.seen.add(match.text);
+        if (group.collapsed.texts.length < MAX_MATCH_TEXTS) group.collapsed.texts.push(match.text);
+        else group.collapsed.moreTexts = true;
+      }
+      continue;
+    }
+    const index = perPageCount.get(page.page) ?? 0;
+    perPageCount.set(page.page, index + 1);
+    const collapsed: CollapsedHit = {
+      page,
+      region,
+      index,
+      count: 1,
+      texts: [match.text],
+      moreTexts: false,
+      source: match.source,
+      context: match.context,
+    };
+    groups.set(key, { collapsed, seen: new Set([match.text]) });
+    out.push(collapsed);
+  }
+
+  return out;
 }
 
 /**
@@ -128,8 +209,9 @@ export async function searchPdf(input: SearchPdfInput): Promise<ToolResult> {
     onWarning: warningLog.onWarning,
   });
 
-  const hits = result.pages.flatMap((page) => (page.matches ?? []).map((match, index) => ({ page, match, index })));
+  const hits = result.pages.flatMap((page) => (page.matches ?? []).map((match) => ({ page, match })));
   const matchedPages = new Set(hits.map((hit) => hit.page.page));
+  const collapsed = collapseHits(hits);
 
   const lines: string[] = [`# ${result.file} — search ${JSON.stringify(input.query)}`, ''];
   lines.push(
@@ -145,21 +227,30 @@ export async function searchPdf(input: SearchPdfInput): Promise<ToolResult> {
   // would render evidence for a question no longer being asked.
   forgetRefs(input.source);
 
-  if (hits.length > 0) {
-    lines.push('', 'Each hit carries a `ref` — pass it straight to `render_pdf` instead of copying coordinates.', '');
-    for (const { page, match, index } of hits.slice(0, MAX_MATCHES)) {
-      const ref = matchRef(page.page, index);
-      const region = cropRegionForBox(match.bbox, page);
-      rememberRef(input.source, ref, { page: page.page, region, origin: `search hit for ${input.query}` });
-      const context = match.context ? ` — "${condense(match.context, MATCH_CONTEXT_CHAR_CAP)}"` : '';
+  if (collapsed.length > 0) {
+    lines.push(
+      '',
+      "One row per distinct place; `×N` counts the occurrences it covers. Pass a row's `ref` straight to `render_pdf` instead of copying coordinates.",
+      '',
+    );
+    for (const hit of collapsed.slice(0, MAX_MATCHES)) {
+      const ref = matchRef(hit.page.page, hit.index);
+      rememberRef(input.source, ref, {
+        page: hit.page.page,
+        region: hit.region,
+        origin: `search hit for ${input.query}`,
+      });
+      const texts = hit.texts.map((value) => `\`${condense(value, 80)}\``).join(' / ') + (hit.moreTexts ? ' / …' : '');
+      const multiplicity = hit.count > 1 ? ` ×${hit.count}` : '';
+      const context = hit.context ? ` — "${condense(hit.context, MATCH_CONTEXT_CHAR_CAP)}"` : '';
       lines.push(
-        `- \`${ref}\` p.${page.page} ${match.source} · \`${condense(match.text, 80)}\`${context} · region ${formatBox(region)}`,
+        `- \`${ref}\` p.${hit.page.page} ${hit.source} · ${texts}${multiplicity}${context} · region ${formatBox(hit.region)}`,
       );
     }
-    if (hits.length > MAX_MATCHES) {
-      // Naming every remaining page can be longer than the matches it
+    if (collapsed.length > MAX_MATCHES) {
+      // Naming every remaining page can be longer than the rows it
       // replaces, so report the span plus the few densest pages instead.
-      const remaining = hits.slice(MAX_MATCHES);
+      const remaining = collapsed.slice(MAX_MATCHES);
       const perPage = new Map<number, number>();
       for (const hit of remaining) perPage.set(hit.page.page, (perPage.get(hit.page.page) ?? 0) + 1);
       const densest = [...perPage.entries()]
@@ -170,7 +261,7 @@ export async function searchPdf(input: SearchPdfInput): Promise<ToolResult> {
       const pageNumbers = [...perPage.keys()].sort((a, b) => a - b);
       lines.push(
         '',
-        `[pdfvision] ${remaining.length} further match(es) omitted at the ${MAX_MATCHES}-match cap, spread over ${perPage.size} page(s) from ${pageNumbers[0]} to ${pageNumbers[pageNumbers.length - 1]}; densest ${densest}. Narrow with \`pages\`, or search a longer phrase.`,
+        `[pdfvision] ${remaining.length} further place(s) omitted at the ${MAX_MATCHES}-place cap, spread over ${perPage.size} page(s) from ${pageNumbers[0]} to ${pageNumbers[pageNumbers.length - 1]}; densest by place ${densest}. Narrow with \`pages\`, or search a longer phrase.`,
       );
     }
   }
@@ -178,8 +269,8 @@ export async function searchPdf(input: SearchPdfInput): Promise<ToolResult> {
   appendUnsearchable(lines, result.pages);
   appendPageWarnings(lines, result.pages, matchedPages);
 
-  if (hits.length > 0) {
-    const first = hits[0];
+  if (collapsed.length > 0) {
+    const first = collapsed[0];
     lines.push(
       '',
       '## Next step',

@@ -117,12 +117,12 @@ It exposes **three** tools, not a flag-per-parameter mapping of the CLI:
 | Tool | What it does |
 | --- | --- |
 | `read_pdf` | Text as Markdown. Without `pages` on a long document it returns a **document map** — page count, outline, per-page quality, warning codes by page range — so an unscoped first call can never blow up the context. `ocr: "jpn+eng"` switches the selected pages to OCR. |
-| `search_pdf` | Flat hit list with page, origin, context, region, and a short `ref`. Names the pages whose native text is unusable, so zero hits is never mistaken for absence. |
+| `search_pdf` | One row per distinct place a hit lands — page, origin, optional context, region, and a short `ref` — with same-source occurrences whose crops resolve to one region — typically repeats within a line or table row — collapsed into a single `×N` row. Names the pages whose native text is unusable, so zero hits is never mistaken for absence. |
 | `render_pdf` | Page or region PNGs as image blocks. Takes a `ref` from an earlier response so you never transcribe coordinates; full-page renders come back with the page's detected visual regions and their refs. |
 
 Everything pdfvision can decide from the document itself is decided by the server: layout and repeated-chrome stripping are always on, and form-field / link / annotation tables appear only for pages that have them. There is no `format`, `include`, `scale`, or cache parameter.
 
-Responses are budgeted (30k chars of body, 100 matches, 4 images per call) and every truncation carries the exact follow-up call. Remote URLs are refused when they resolve to private, loopback, or link-local addresses; set `PDFVISION_MCP_ALLOW_PRIVATE_NETWORK=1` for an intranet document store.
+Responses are budgeted (30k chars of body, 100 match places, 4 images per call) and every truncation carries the exact follow-up call. Remote URLs are refused when they resolve to private, loopback, or link-local addresses; set `PDFVISION_MCP_ALLOW_PRIVATE_NETWORK=1` for an intranet document store.
 
 > **Using Claude Code, Codex, or another shell-capable agent?** Prefer the CLI plus the Agent Skill above. The skill loads on demand, while MCP tool schemas sit in context for the whole session.
 

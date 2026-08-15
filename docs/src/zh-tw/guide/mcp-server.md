@@ -28,7 +28,7 @@ description: 透過 Model Context Protocol，為沒有 shell 的宿主——Clau
 | Tool | 回傳內容 | 參數 |
 |---|---|---|
 | `read_pdf` | Markdown 格式的文字 | `source`、`pages`、`ocr`、`attachment`、`password` |
-| `search_pdf` | 每個 match 都帶一個短 `ref` 的扁平命中清單 | `source`、`query`、`pages`、`regex`、`password` |
+| `search_pdf` | 依命中位置合併的清單，每列帶一個短 `ref` | `source`、`query`、`pages`、`regex`、`password` |
 | `render_pdf` | 頁面或區域 PNG（image block） | `source`、`pages`、`ref`、`region`、`password` |
 
 `source` 接受本機路徑或 `http(s)` URL——沒有獨立的遠端參數。
@@ -42,7 +42,7 @@ description: 透過 Model Context Protocol，為沒有 shell 的宿主——Clau
 由此往後：
 
 - `read_pdf(pages: "12-18")` 讀取一個區間。
-- `search_pdf(query: "…")` 定位一個詞。每個命中項都帶一個像 `p47m1` 這樣的短 `ref`——把它原樣傳給 `render_pdf(ref: "p47m1")`，就能就地查看匹配內容，不必抄寫座標。
+- `search_pdf(query: "…")` 定位一個詞。來源相同且裁切區域相同的多次出現（通常是同一列或同一表格列內的重複）會合併成一列，並用 `×N` 標出次數（標題處的計數仍然是出現次數）。每列都帶一個像 `p47m1` 這樣的短 `ref`——把它原樣傳給 `render_pdf(ref: "p47m1")`，就能就地查看匹配內容，不必抄寫座標。
 - 當 quality 報告說原生文字不可用時，用 `read_pdf(pages: "31", ocr: "jpn+eng")` 對掃描頁重新做 OCR。
 - `read_pdf(attachment: "invoice.xml")`——或一個從 1 開始的索引——回傳一個嵌入檔案，而不是頁面。在電子發票和監管申報文件（Factur-X、ZUGFeRD、XBRL）中，附件才是權威資料，頁面只是它的渲染呈現。文字附件會內嵌回傳，影像作為 image block 回傳；不透明的二進位檔案會被拒絕，並指向 CLI 的 `--attachments --attachment-output`。
 
@@ -50,7 +50,7 @@ description: 透過 Model Context Protocol，為沒有 shell 的宿主——Clau
 
 ## Budget 與誠實
 
-回應是有 budget 的：本文 30,000 字元、每頁 12,000 字元、100 個 match、4 個渲染頁面、5 個 OCR 頁面，以及每次呼叫 6 MB 的影像。每次截斷都會指明確切的後續呼叫，因此被截斷的結果是可復原的，而不是悄悄地不完整。
+回應是有 budget 的：本文 30,000 字元、每頁 12,000 字元、100 個 match 位置、4 個渲染頁面、5 個 OCR 頁面，以及每次呼叫 6 MB 的影像。每次截斷都會指明確切的後續呼叫，因此被截斷的結果是可復原的，而不是悄悄地不完整。
 
 同樣的誠實也適用於搜尋：core warning 會隨回應一起傳回，因此當一個 regex query 超出單頁時間 budget 時，它會如實回報，而不是偽裝成「0 matches」；對沒有可用原生文字的頁面搜尋時，也會說明該處的落空並不代表證據缺失。
 

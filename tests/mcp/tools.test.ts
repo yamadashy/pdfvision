@@ -8,7 +8,8 @@ import { clearRefs, lookupRef } from '../../src/mcp/refs.js';
 import type { ImageBlock, TextBlock } from '../../src/mcp/result.js';
 import { readPdf } from '../../src/mcp/tools/readPdf.js';
 import { renderPdf } from '../../src/mcp/tools/renderPdf.js';
-import { appendPageWarnings, searchPdf, searchWarningCollector } from '../../src/mcp/tools/searchPdf.js';
+import { appendPageWarnings, collapseHits, searchPdf, searchWarningCollector } from '../../src/mcp/tools/searchPdf.js';
+import type { PageResult, SearchMatch } from '../../src/types/index.js';
 
 const SAMPLE = join(import.meta.dirname, '..', 'fixtures', 'sample.pdf');
 
@@ -23,42 +24,50 @@ function images(result: { content: (TextBlock | ImageBlock)[] }): ImageBlock[] {
   return result.content.filter((block): block is ImageBlock => block.type === 'image');
 }
 
-async function buildLongPdf(pageCount: number): Promise<Uint8Array> {
+/** One page per entry, one drawn line per string. */
+async function buildPdf(pages: readonly (readonly string[])[]): Promise<Uint8Array> {
   const chunks: Buffer[] = [];
   const doc = new PDFDocument({ size: [612, 792], margin: 40, autoFirstPage: false });
   doc.on('data', (chunk: Buffer) => chunks.push(chunk));
   const done = new Promise<void>((resolve) => doc.on('end', resolve));
-  for (let index = 1; index <= pageCount; index += 1) {
+  for (const lines of pages) {
     doc.addPage();
-    doc.fontSize(12).text(`Section ${index}: quarterly notes for page ${index}.`, 40, 60);
+    lines.forEach((line, index) => {
+      doc.fontSize(12).text(line, 40, 60 + index * 30);
+    });
   }
   doc.end();
   await done;
   return new Uint8Array(Buffer.concat(chunks));
 }
 
-async function buildSinglePagePdf(line: string): Promise<Uint8Array> {
-  const chunks: Buffer[] = [];
-  const doc = new PDFDocument({ size: [612, 792], margin: 40, autoFirstPage: false });
-  doc.on('data', (chunk: Buffer) => chunks.push(chunk));
-  const done = new Promise<void>((resolve) => doc.on('end', resolve));
-  doc.addPage();
-  doc.fontSize(12).text(line, 40, 60);
-  doc.end();
-  await done;
-  return new Uint8Array(Buffer.concat(chunks));
-}
+const SAME_LINE_PAGE = ['The theory covers the thing.', 'Another line about the topic and the rest.'];
 
 let workdir: string;
 let longPdf: string;
 let backtrackPdf: string;
+let sameLinePdf: string;
+let repeatedPdf: string;
+let manyPlacesPdf: string;
 
 beforeAll(async () => {
   workdir = mkdtempSync(join(tmpdir(), 'pdfvision-mcp-tools-'));
   longPdf = join(workdir, 'long.pdf');
-  writeFileSync(longPdf, await buildLongPdf(25));
+  writeFileSync(
+    longPdf,
+    await buildPdf(Array.from({ length: 25 }, (_, i) => [`Section ${i + 1}: quarterly notes for page ${i + 1}.`])),
+  );
   backtrackPdf = join(workdir, 'backtrack.pdf');
-  writeFileSync(backtrackPdf, await buildSinglePagePdf(`${'a'.repeat(40)}b`));
+  writeFileSync(backtrackPdf, await buildPdf([[`${'a'.repeat(40)}b`]]));
+  sameLinePdf = join(workdir, 'same-line.pdf');
+  writeFileSync(sameLinePdf, await buildPdf([SAME_LINE_PAGE]));
+  repeatedPdf = join(workdir, 'repeated.pdf');
+  writeFileSync(repeatedPdf, await buildPdf(Array.from({ length: 55 }, () => ['alpha and alpha again'])));
+  manyPlacesPdf = join(workdir, 'many-places.pdf');
+  writeFileSync(
+    manyPlacesPdf,
+    await buildPdf(Array.from({ length: 6 }, () => Array.from({ length: 20 }, () => 'alpha and alpha again'))),
+  );
 });
 
 afterAll(() => {
@@ -188,6 +197,74 @@ describe('search_pdf', () => {
   it('scopes the search to a page range', async () => {
     const body = text(await searchPdf({ source: longPdf, query: 'Section', pages: '2-3' }));
     expect(body).toContain('of 2 searched page(s)');
+  });
+
+  it('collapses occurrences that share a line into one row, while the headline still counts them', async () => {
+    // The crop grows to the containing line, so hits on one line resolve
+    // to one region — a row per hit would be the same handle twice.
+    const body = text(await searchPdf({ source: SAMPLE, query: 'l' }));
+    expect(body).toContain('2 matches on 1 of 1 searched page(s)');
+    expect(body.split('\n').filter((line) => line.startsWith('- `p'))).toHaveLength(1);
+    expect(body).toMatch(/`p1m1` p\.1 native · `l` ×2/);
+  });
+
+  it('numbers refs densely over the collapsed rows, each resolving to its own line', async () => {
+    const body = text(await searchPdf({ source: sameLinePdf, query: 'the' }));
+    expect(body).toContain('6 matches');
+    expect(body).toMatch(/`p1m1`.*×3/);
+    expect(body).toMatch(/`p1m2`.*×3/);
+    expect(body).not.toContain('`p1m3`');
+
+    const first = lookupRef(sameLinePdf, 'p1m1');
+    const second = lookupRef(sameLinePdf, 'p1m2');
+    expect(first?.region).toBeDefined();
+    // Second line sits lower on the page, so the two refs are not aliases.
+    expect(second?.region.y ?? 0).toBeGreaterThan(first?.region.y ?? 0);
+    expect(images(await renderPdf({ source: sameLinePdf, ref: 'p1m2' }))).toHaveLength(1);
+  });
+
+  it('keeps the distinct strings a collapsed row stands for', async () => {
+    const body = text(await searchPdf({ source: sameLinePdf, query: 'the' }));
+    expect(body).toMatch(/`p1m1` p\.1 native · `The` \/ `the` ×3/);
+  });
+
+  it('bounds how many distinct strings one row names', async () => {
+    const body = text(await searchPdf({ source: sameLinePdf, query: '[a-z]{4,}', regex: true }));
+    const row = body.split('\n').find((line) => line.startsWith('- `p1m2`')) ?? '';
+    expect(row.match(/`[A-Za-z]+`/g)).toHaveLength(4);
+    expect(row).toContain('/ … ×5');
+  });
+
+  it('spends the match cap on places rather than occurrences', async () => {
+    // 110 occurrences over 55 lines: capping the raw hits would have
+    // dropped ten pages and advised narrowing a search with room left.
+    const body = text(await searchPdf({ source: repeatedPdf, query: 'alpha' }));
+    expect(body).toContain('110 matches on 55 of 55 searched page(s)');
+    expect(body.split('\n').filter((line) => line.startsWith('- `p'))).toHaveLength(55);
+    expect(body).not.toContain('omitted at the');
+  });
+
+  it('reports the overflow past the cap in places, not occurrences', async () => {
+    // 240 occurrences over 120 places: the notice must speak in the same
+    // unit the cap was spent in, or it doubles what was actually omitted.
+    const body = text(await searchPdf({ source: manyPlacesPdf, query: 'alpha' }));
+    expect(body).toContain('240 matches on 6 of 6 searched page(s)');
+    expect(body.split('\n').filter((line) => line.startsWith('- `p'))).toHaveLength(100);
+    expect(body).toContain('20 further place(s) omitted at the 100-place cap');
+  });
+
+  it('keeps hits from different sources apart even when their crops coincide', () => {
+    // A link match can resolve to the same crop as a native match on its
+    // line; merging them would label the row with the first hit's source
+    // and drop the context that set the link apart.
+    const page = { page: 1, width: 612, height: 792 } as PageResult;
+    const bbox = { x: 100, y: 100, width: 30, height: 12 };
+    const hit = (source: SearchMatch['source']) => ({ page, match: { text: 'alpha', bbox, source } as SearchMatch });
+    const rows = collapseHits([hit('native'), hit('native'), hit('link')]);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({ index: 0, count: 2, source: 'native' });
+    expect(rows[1]).toMatchObject({ index: 1, count: 1, source: 'link' });
+    expect(rows[1]?.region).toEqual(rows[0]?.region);
   });
 
   it('surfaces the regex time-limit warning instead of a silent zero, even on a repeat call', async () => {

@@ -28,7 +28,7 @@ description: シェルを持たないホスト（Claude Desktop、Cursor、Cline
 | Tool | 返すもの | パラメータ |
 |---|---|---|
 | `read_pdf` | Markdown のテキスト | `source`、`pages`、`ocr`、`attachment`、`password` |
-| `search_pdf` | match ごとに短い `ref` の付いたヒット一覧 | `source`、`query`、`pages`、`regex`、`password` |
+| `search_pdf` | ヒットを箇所ごとにまとめ、短い `ref` を付けた一覧 | `source`、`query`、`pages`、`regex`、`password` |
 | `render_pdf` | ページまたは領域の PNG（image block） | `source`、`pages`、`ref`、`region`、`password` |
 
 `source` はローカルパスまたは `http(s)` URL を受け付けます — remote 用の別パラメータはありません。
@@ -42,7 +42,7 @@ description: シェルを持たないホスト（Claude Desktop、Cursor、Cline
 そこからは:
 
 - `read_pdf(pages: "12-18")` でレンジを読む。
-- `search_pdf(query: "…")` で語句を探す。各ヒットには `p47m1` のような短い `ref` が付くので、座標を書き写す代わりに `render_pdf(ref: "p47m1")` へそのまま渡してヒット箇所を目視できます。
+- `search_pdf(query: "…")` で語句を探す。ソースが同じで、クロップも同じ領域に解決される出現 — 典型的には同じ行や表の行内での繰り返し — は 1 行にまとめられ、`×N` で件数が示されます（見出しの件数は出現数のままです）。各行には `p47m1` のような短い `ref` が付くので、座標を書き写す代わりに `render_pdf(ref: "p47m1")` へそのまま渡してヒット箇所を目視できます。
 - 品質レポートが native text は使えないと言っているページは `read_pdf(pages: "31", ocr: "jpn+eng")` で OCR 再読。
 - `read_pdf(attachment: "invoice.xml")` — または 1 始まりの番号 — はページの代わりに埋め込みファイルを返します。電子請求書や規制関連の提出書類（Factur-X、ZUGFeRD、XBRL）では**添付こそが正本のデータで、ページはその印刷像にすぎません**。テキスト添付はインラインで、画像は image block で返り、不透明なバイナリは CLI の `--attachments --attachment-output` を案内して拒否されます。
 
@@ -50,7 +50,7 @@ description: シェルを持たないホスト（Claude Desktop、Cursor、Cline
 
 ## バジェットと正直さ
 
-レスポンスにはバジェットがあります: 本文 30,000 文字、ページあたり 12,000 文字、match 100 件、レンダリング 4 ページ、OCR 5 ページ、画像 6 MB（いずれも 1 呼び出しあたり）。すべての切り詰めは正確なフォローアップ呼び出しを名指しするため、切られた結果は回復可能で、黙って不完全なままになることはありません。
+レスポンスにはバジェットがあります: 本文 30,000 文字、ページあたり 12,000 文字、match の箇所 100 件、レンダリング 4 ページ、OCR 5 ページ、画像 6 MB（いずれも 1 呼び出しあたり）。すべての切り詰めは正確なフォローアップ呼び出しを名指しするため、切られた結果は回復可能で、黙って不完全なままになることはありません。
 
 同じ正直さは検索にも適用されます: core の warning はレスポンスに同乗するため、ページあたりの時間バジェットを超えた regex クエリは「0 matches」を装わずに自己申告し、使える native text のないページへの検索は「そこでのミスは不在の証拠ではない」と明言します。
 

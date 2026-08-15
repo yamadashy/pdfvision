@@ -28,7 +28,7 @@ The server is a subcommand of the main binary, not a separate package:
 | Tool | Returns | Parameters |
 |---|---|---|
 | `read_pdf` | Text as Markdown | `source`, `pages`, `ocr`, `attachment`, `password` |
-| `search_pdf` | Flat hit list with a short `ref` per match | `source`, `query`, `pages`, `regex`, `password` |
+| `search_pdf` | One row per distinct place a hit lands, each with a short `ref` | `source`, `query`, `pages`, `regex`, `password` |
 | `render_pdf` | Page or region PNGs as image blocks | `source`, `pages`, `ref`, `region`, `password` |
 
 `source` takes a local path or an `http(s)` URL — there is no separate remote parameter.
@@ -42,7 +42,7 @@ An unscoped `read_pdf` on a document over 20 pages returns a **document map** in
 From there:
 
 - `read_pdf(pages: "12-18")` reads a range.
-- `search_pdf(query: "…")` locates a term. Each hit carries a short `ref` like `p47m1` — pass it straight to `render_pdf(ref: "p47m1")` to see the match in place, instead of transcribing coordinates.
+- `search_pdf(query: "…")` locates a term. Same-source occurrences whose crops resolve to the same region — typically repeats within one line or table row — collapse into a single row marked `×N`, while the headline count still reports every occurrence. Each row carries a short `ref` like `p47m1` — pass it straight to `render_pdf(ref: "p47m1")` to see the match in place, instead of transcribing coordinates.
 - `read_pdf(pages: "31", ocr: "jpn+eng")` re-reads scanned pages with OCR when quality reporting says the native text is unusable.
 - `read_pdf(attachment: "invoice.xml")` — or a 1-based index — returns an embedded file instead of the pages. In e-invoices and regulatory filings (Factur-X, ZUGFeRD, XBRL) the attachment is the authoritative data and the pages are only its rendering. Text attachments come back inline, images as image blocks; opaque binaries are refused with a pointer to the CLI's `--attachments --attachment-output`.
 
@@ -50,7 +50,7 @@ Renders are fitted to 1568 px on the longest edge, past which vision models down
 
 ## Budgets and Honesty
 
-Responses are budgeted: 30,000 characters per body, 12,000 per page, 100 matches, 4 rendered pages, 5 OCR pages, and 6 MB of images per call. Every truncation names the exact follow-up call, so a clipped result is recoverable rather than silently incomplete.
+Responses are budgeted: 30,000 characters per body, 12,000 per page, 100 match places, 4 rendered pages, 5 OCR pages, and 6 MB of images per call. Every truncation names the exact follow-up call, so a clipped result is recoverable rather than silently incomplete.
 
 The same honesty applies to search: core warnings ride the response, so a regex query that exceeds the per-page time budget reports itself instead of masquerading as "0 matches", and a search over pages with no usable native text says a miss there is not evidence of absence.
 
