@@ -20,9 +20,12 @@ import { formatPageRange } from '../options/pageRange.js';
  * search normally takes: an honest regex over a large document runs in
  * well under a second in total, so nothing legitimate approaches this,
  * while a pattern that burns the full per-page budget gives up after ~12
- * pages instead of grinding through hundreds. It also leaves the call
- * inside the request timeout of the MCP hosts we know of, so the partial
- * result and its warning actually reach the caller.
+ * pages instead of grinding through hundreds. It also caps what a
+ * pathological pattern can add on top of the document's own processing
+ * time at ~13s (the budget plus the page in flight when it runs out) —
+ * small enough that on documents whose extraction fits an MCP host's
+ * request timeout, the partial result and its warning still reach the
+ * caller.
  *
  * Only regex searches are metered. Literal-mode matching has no
  * pathological case — it never enters the per-page guard either — so
