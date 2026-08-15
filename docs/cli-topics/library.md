@@ -44,7 +44,7 @@ const result = await processDocument('document.pdf', { sourceData: bytes, layout
 
 ## Warnings
 
-`onWarning(message)` is called once per non-fatal warning (page range past the end of the document, match cap hit, regex budget exceeded, render-output path collisions). It defaults to `undefined`, which is silent — a library caller gets nothing on stderr, unlike the CLI. Page-specific warnings are also structured on `pages[].warnings`; `onWarning` is the only way to see the document-level ones. Warnings are recorded with the cached result and replayed on a later identical call, capped at 50 with the last slot reporting the real total.
+`onWarning(message)` is called once per non-fatal document-level warning (page range past the end of the document, match cap hit, regex budget exceeded, render-output path collisions). It defaults to `undefined`, which is silent — a library caller gets nothing on stderr, unlike the CLI. Page-specific warnings (invisible text, glyph garbage, text under opaque fills, …) appear only structured on `pages[].warnings` and never go through `onWarning` (document-wide XFA detection also lands there, on the first page); conversely, the processor-level warnings listed above appear nowhere in the result object — `onWarning` is the only place they surface. Warnings are recorded with the cached result and replayed on a later identical call, capped at 50 with the last slot reporting the real total.
 
 ## Conditional second pass
 
