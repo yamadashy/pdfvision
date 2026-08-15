@@ -41,7 +41,7 @@ async function buildPdf(pages: readonly (readonly string[])[]): Promise<Uint8Arr
   return new Uint8Array(Buffer.concat(chunks));
 }
 
-/** A page carrying a figure, so a full-page render has regions to mint refs for. */
+/** Two figures on a page, so a full-page render mints a set of refs, not one. */
 async function buildFigurePdf(): Promise<Uint8Array> {
   const chunks: Buffer[] = [];
   const doc = new PDFDocument({ size: [612, 792], margin: 0 });
@@ -53,6 +53,8 @@ async function buildFigurePdf(): Promise<Uint8Array> {
   );
   doc.fontSize(12).text('The figure below shows the theory.', 72, 48);
   doc.image(png, 72, 120, { width: 240, height: 180 });
+  doc.fontSize(12).text('The second figure follows.', 72, 360);
+  doc.image(png, 72, 420, { width: 240, height: 180 });
   doc.end();
   await done;
   return new Uint8Array(Buffer.concat(chunks));
@@ -341,6 +343,19 @@ describe('render_pdf ref lifetime', () => {
     expect(lookupRef(figurePdf, 'p1m1')).toBeUndefined();
   });
 
+  it('keeps a page render sibling regions alive after one of them is rendered', async () => {
+    // The same guarantee as a search's hits, for the refs a full-page
+    // render mints: zooming the first figure must not retire the second.
+    const body = text(await renderPdf({ source: figurePdf, pages: '1' }));
+    expect(body).toContain('`p1r1`');
+    expect(body).toContain('`p1r2`');
+
+    expect(images(await renderPdf({ source: figurePdf, ref: 'p1r1' }))).toHaveLength(1);
+    expect(lookupRef(figurePdf, 'p1r2')).toBeDefined();
+    expect(images(await renderPdf({ source: figurePdf, ref: 'p1r2' }))).toHaveLength(1);
+    expect(lookupRef(figurePdf, 'p1r1')).toBeDefined();
+  });
+
   it('leaves the previous set alone when a full-page render finds no visual region', async () => {
     // Forgetting here would file nothing in place of what it dropped —
     // the same failure as the region-render case, one page further on.
@@ -484,9 +499,9 @@ describe('render_pdf', () => {
   });
 
   it('names what a ref resolved to, so a stale one is visible', async () => {
-    // Every call renumbers refs from `p1m1`, so a ref held over from an
-    // earlier search silently resolves to the newer result. Echoing the
-    // origin is what lets the caller notice.
+    // Every call that files a set renumbers from `p1m1`, so a ref held
+    // over from an *earlier* such call silently resolves to the newer
+    // result. Echoing the origin is what lets the caller notice.
     await searchPdf({ source: SAMPLE, query: 'pdfvision' });
     // A second search re-issues `p1m1` for a different hit. The ref the
     // caller is holding now points at the newer one, so the response has
@@ -525,6 +540,15 @@ describe('render_pdf', () => {
     await searchPdf({ source: SAMPLE, query: 'pdfvision' });
     await expect(renderPdf({ source: SAMPLE, ref: 'p1m1', region: [0, 0, 100, 100] })).rejects.toThrow(
       /`ref` already names its own page and region, so `region` cannot also apply/,
+    );
+  });
+
+  it('rejects the conflict before resolving the source', async () => {
+    // Resolving first would download a remote PDF only to refuse the
+    // call, and a fetch failure would report itself in place of the
+    // argument error that actually caused it.
+    await expect(renderPdf({ source: join(workdir, 'no-such-file.pdf'), ref: 'p1m1', pages: '1' })).rejects.toThrow(
+      /`ref` already names its own page and region/,
     );
   });
 

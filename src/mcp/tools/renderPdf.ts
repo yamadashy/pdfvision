@@ -117,17 +117,13 @@ function describePage(page: PageResult): string {
 }
 
 export async function renderPdf(input: RenderPdfInput): Promise<ToolResult> {
-  const resolved = await resolveSource(input.source);
-  const base = { sourceData: resolved.sourceData, password: input.password };
-
-  let pages = input.pages;
-  let region: RenderRegion | undefined;
-  let refOrigin: string | undefined;
-
+  // Before `resolveSource`: a ref already carries a page and a region, so
+  // anything alongside it was going to be dropped in silence — and a
+  // leftover `ref` in a reused call template then answers for a page the
+  // caller never asked about. Checking it first also keeps a malformed
+  // call from downloading a remote PDF only to reject itself, and keeps a
+  // fetch failure from masking the argument error that caused it.
   if (input.ref !== undefined) {
-    // A ref already carries a page and a region, so anything alongside it
-    // was going to be dropped in silence — and a leftover `ref` in a reused
-    // call template then answers for a page the caller never asked about.
     const ignored = [
       ...(input.pages !== undefined ? ['`pages`'] : []),
       ...(input.region !== undefined ? ['`region`'] : []),
@@ -137,10 +133,20 @@ export async function renderPdf(input: RenderPdfInput): Promise<ToolResult> {
         `\`ref\` already names its own page and region, so ${ignored.join(' and ')} cannot also apply. Drop ${ignored.join(' and ')} to render the ref, or drop \`ref\` to render ${ignored.join(' and ')} as given.`,
       );
     }
+  }
+
+  const resolved = await resolveSource(input.source);
+  const base = { sourceData: resolved.sourceData, password: input.password };
+
+  let pages = input.pages;
+  let region: RenderRegion | undefined;
+  let refOrigin: string | undefined;
+
+  if (input.ref !== undefined) {
     const target = lookupRef(input.source, input.ref);
     if (!target) {
       throw new Error(
-        `Unknown ref "${input.ref}" for this source. Its refs come from the last search_pdf or full-page render_pdf for it, and a later one of those replaces them — re-run that call, or pass \`pages\` and \`region\` directly.`,
+        `Unknown ref "${input.ref}" for this source. Its refs come from the last search_pdf, or the last full-page render_pdf that found visual regions — either replaces them all. Re-run that call, or pass \`pages\` and \`region\` directly.`,
       );
     }
     pages = String(target.page);
