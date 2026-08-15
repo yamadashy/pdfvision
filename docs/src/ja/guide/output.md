@@ -1,6 +1,6 @@
 ---
-title: "Output Formats"
-description: "How -f json, -f toon, and -f xml differ as contracts, the XML tag projection with its escaping markers, and the TOON encoding. Use when parsing XML or TOON instead of JSON."
+title: "出力形式"
+description: "`-f json`、`-f toon`、`-f xml` が契約としてどう異なるか、エスケープマーカーを伴う XML タグへの投影、TOON のエンコーディングについて説明します。JSON の代わりに XML や TOON をパースするときに使います。"
 sourceHash: 095d3b21d633
 ---
 
@@ -8,18 +8,18 @@ sourceHash: 095d3b21d633
      Translate the prose, keep code, field names, flags, and warning codes verbatim, and update
      `sourceHash` to the value reported by `node scripts/build-site-reference.mjs`. -->
 
-# XML and TOON output shapes
+# XML と TOON の出力形状
 
-Format contracts differ:
+フォーマットごとの契約は異なります。
 
-- `-f json` serializes the exported `DocumentResult`. JSON-style paths in this reference are exact for JSON and `processDocument()`.
-- Every emitted `-f toon` payload decodes with `@toon-format/toon` to exactly `JSON.parse(formatJson(result))`; unset `undefined` fields stay absent. The same JSON-style paths are exact after decoding. TOON's grammar cannot losslessly represent an unpaired UTF-16 surrogate across UTF-8, so pdfvision rejects that edge case and directs callers to `-f json`. Valid surrogate pairs and literal `\uD800` text are unaffected.
-- `-f xml` is a tag-shaped near-parity **presentation projection**, not a reversible `DocumentResult` serialization. It maps names, nesting, and presence as documented under "XML output shape". XML-1.0-forbidden code units become `[[pdfvision:U+XXXX]]`; a literal `[[pdfvision:` prefix becomes `[[pdfvision:literal:` so markers never collide with source text. To recover the source string after XML parsing, make one left-to-right pass: emit a literal prefix for `[[pdfvision:literal:` without scanning that emitted prefix again, and decode each generated `[[pdfvision:U+XXXX]]` marker to its UTF-16 code unit.
-- Markdown is a reading presentation with deliberate transformations and omissions; it is not a structured-schema carrier. `rawText` is never emitted, so Markdown carries only the normalized string; `--strip-repeated` additionally drops `repeated` layout blocks from the body, while JSON/TOON keep `repeated: true` and XML keeps `<block repeated="true">`.
+- `-f json` はエクスポートされた `DocumentResult` をシリアライズします。このリファレンスにある JSON 形式のパスは、JSON と `processDocument()` に対して正確です。
+- 出力される `-f toon` のペイロードはすべて、`@toon-format/toon` でデコードするとちょうど `JSON.parse(formatJson(result))` になります。未設定の `undefined` フィールドは省略されたままです。同じ JSON 形式のパスは、デコード後も正確です。TOON の文法は、対になっていない UTF-16 サロゲートを UTF-8 上でロスレスに表現できないため、pdfvision はそのエッジケースを拒否し、呼び出し側に `-f json` を使うよう案内します。正しいサロゲートペアやリテラルの `\uD800` テキストは影響を受けません。
+- `-f xml` はタグ形状のほぼ等価な **プレゼンテーション投影** であり、可逆な `DocumentResult` のシリアライズではありません。名前、ネスト、存在有無は「XML の出力形状」に記載の通りにマッピングされます。XML 1.0 で禁止されているコード単位は `[[pdfvision:U+XXXX]]` になります。リテラルの `[[pdfvision:` プレフィックスは `[[pdfvision:literal:` としてエスケープされるため、マーカーが元のテキストと衝突することはありません。XML をパースした後に元の文字列を復元するには、左から右へ 1 パス処理します ── `[[pdfvision:literal:` に対してはリテラルのプレフィックスを出力し、その出力済みプレフィックスを再スキャンせず、生成された各 `[[pdfvision:U+XXXX]]` マーカーはその UTF-16 コード単位にデコードします。
+- Markdown は、意図的な変換と省略を伴う閲覧用のプレゼンテーションであり、構造化スキーマの運び手ではありません。`rawText` は決して出力されないため、Markdown は正規化済みの文字列だけを運びます。`--strip-repeated` を指定すると、さらに本文から `repeated` なレイアウト block が取り除かれます。一方 JSON/TOON は `repeated: true` を、XML は `<block repeated="true">` を保持します。
 
-## XML output shape
+## XML の出力形状
 
-`-f xml` is a tag-shaped near-parity projection. Key mappings are `page` → `no`, `pageLabel` → `label`, and nested `quality.nativeTextStatus` / `quality.visualStatus` → flattened page attributes. Page-result `rotation` is a `<pages><page rotation="...">` attribute; overview rotation is currently omitted. `rawText` is a sibling `<rawText>` element, a repeated layout marker is `<block repeated="true">`, and top-level JSON/TOON `xfa: true` becomes `<document xfa="true">`. Empty values can be omitted or represented by self-closing tags, so XML field presence is not identical to JSON/TOON. In every text node and string attribute, an XML-1.0-forbidden UTF-16 code unit is represented as `[[pdfvision:U+XXXX]]`; an original `[[pdfvision:` prefix is escaped as `[[pdfvision:literal:`. This keeps the XML well-formed and the marker representation non-colliding.
+`-f xml` はタグ形状のほぼ等価な投影です。主なマッピングは `page` → `no`、`pageLabel` → `label`、そしてネストされた `quality.nativeTextStatus` / `quality.visualStatus` → フラット化されたページ属性です。ページ結果の `rotation` は `<pages><page rotation="...">` の属性で、overview の rotation は現時点では省略されます。`rawText` は兄弟要素の `<rawText>` になり、繰り返しレイアウトのマーカーは `<block repeated="true">` になり、トップレベルの JSON/TOON の `xfa: true` は `<document xfa="true">` になります。空の値は省略されるか自己終了タグで表現されることがあるため、XML でのフィールドの有無は JSON/TOON と同一ではありません。すべてのテキストノードと文字列属性において、XML 1.0 で禁止されている UTF-16 コード単位は `[[pdfvision:U+XXXX]]` として表現されます。元の `[[pdfvision:` プレフィックスは `[[pdfvision:literal:` としてエスケープされます。これにより、XML は well-formed に保たれ、マーカーの表現が衝突することもありません。
 
 ```xml
 <document file="..." totalPages="14" javascriptActionCount="..." outlineCount="..." xfa="true">
@@ -73,10 +73,10 @@ Format contracts differ:
 </document>
 ```
 
-Empty `<pageLabels/>`, `<attachments/>`, `<outline/>`, `<viewer/>`, `<layers/>`, `<layout/>`, `<imageBoxes/>`, `<vectorBoxes/>`, `<visualRegions/>`, `<formFields/>`, `<links/>`, `<annotations/>`, `<structure/>`, and `<ocr/>` (self-closing) mean "the pass ran and found nothing", which is distinct from the tag being absent (the pass wasn't requested).
-## TOON output shape
+空の `<pageLabels/>`、`<attachments/>`、`<outline/>`、`<viewer/>`、`<layers/>`、`<layout/>`、`<imageBoxes/>`、`<vectorBoxes/>`、`<visualRegions/>`、`<formFields/>`、`<links/>`、`<annotations/>`、`<structure/>`、`<ocr/>`（自己終了タグ）は「そのパスは実行されたが何も見つからなかった」ことを意味し、タグが存在しないこと（そのパスが要求されなかったこと）とは区別されます。
+## TOON の出力形状
 
-`-f toon` encodes the JSON data model as [Token-Oriented Object Notation](https://toonformat.dev): YAML-style indentation for nested objects and lists, plus a CSV-like tabular form for arrays whose entries are objects with the same fields. Eligible arrays declare the fields once in a `[N]{fields}:` header and then stream one comma-delimited row per element; a uniformly-shaped nested object folds into the header as a `{parent{child}}` group. Arrays whose entries' fields differ because optional values are present on only some entries, contain array-valued fields, or nest objects with differing shapes stay in list form. Every emitted TOON payload decodes to exactly `JSON.parse(formatJson(result))`; optional `undefined` fields are absent rather than becoming `null`. An unpaired UTF-16 surrogate is rejected with a JSON-fallback error because TOON cannot represent it losslessly across UTF-8.
+`-f toon` は、JSON のデータモデルを [Token-Oriented Object Notation](https://toonformat.dev) としてエンコードします ── ネストされたオブジェクトやリストには YAML スタイルのインデントを使い、同じフィールドを持つオブジェクトの配列には CSV ライクな表形式を使います。対象となる配列は、フィールドを `[N]{fields}:` ヘッダーで一度だけ宣言し、その後、要素ごとにカンマ区切りの行を 1 行ずつ流します。均一な形のネストされたオブジェクトは `{parent{child}}` グループとしてヘッダーに畳み込まれます。一部のエントリにだけオプションの値が存在する、配列値のフィールドを含む、あるいは形の異なるオブジェクトをネストしているといった理由でフィールドが揃わない配列は、リスト形式のままになります。出力される TOON のペイロードはすべて、ちょうど `JSON.parse(formatJson(result))` にデコードされます。オプションの `undefined` フィールドは `null` になるのではなく省略されます。対になっていない UTF-16 サロゲートは、TOON が UTF-8 上でロスレスに表現できないため、JSON フォールバックのエラーとして拒否されます。
 
 ```text
 file: /path/doc.pdf
@@ -106,4 +106,4 @@ pages[2]:
             ...
 ```
 
-Decode with the `@toon-format/toon` package (`decode(toonString)`). Normal `overview[]` tabularizes with its nested `quality` folded into the header (`quality{nativeTextStatus}`). Arrays such as `spans[]` or per-block `lines[]` can tabularize only when every entry has the same fields; differing optional fields keep the array in list form. Free text bodies do not compress through tabularization. The benefit depends on each document's structure and selected options, so compare formats on your own documents.
+デコードには `@toon-format/toon` パッケージ（`decode(toonString)`）を使います。通常の `overview[]` は、ネストされた `quality` がヘッダーに畳み込まれた形（`quality{nativeTextStatus}`）で表形式化されます。`spans[]` やブロックごとの `lines[]` のような配列は、すべてのエントリが同じフィールドを持つ場合にのみ表形式化できます。オプションフィールドが異なる場合は、配列はリスト形式のままになります。自由記述のテキスト本文は、表形式化によって圧縮されることはありません。効果は文書の構造や選択したオプションによって変わるため、手元の文書でフォーマットを比較してください。

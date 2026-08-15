@@ -1,6 +1,6 @@
 ---
-title: "Command Line Options"
-description: "Every CLI option with its interactions and caveats, the order arguments are resolved in, output formats, and exit codes. Use when picking or combining flags, or when explaining an exit code."
+title: "コマンドラインオプション"
+description: "すべての CLI オプションと、その相互作用・注意点、引数が解決される順序、出力形式、終了コードについて説明します。フラグを選んだり組み合わせたりするとき、または終了コードを説明するときに参照してください。"
 sourceHash: 93d2b5374527
 ---
 
@@ -8,9 +8,9 @@ sourceHash: 93d2b5374527
      Translate the prose, keep code, field names, flags, and warning codes verbatim, and update
      `sourceHash` to the value reported by `node scripts/build-site-reference.mjs`. -->
 
-# Options
+# オプション
 
-The short `pdfvision --help` lists the flags reached for most often. This topic is the complete set, in the same layout, plus the rules that decide what happens when they are combined.
+短い `pdfvision --help` には、よく使われるフラグが一覧されています。このトピックは、同じレイアウトで全フラグを網羅し、それらを組み合わせたときにどうなるかを決めるルールも含みます。
 
 ```text
   -p, --pages <range>     Pages to extract: "1", "1-5", "1,3,5", "2-4,7". Default: all pages.
@@ -181,7 +181,7 @@ The short `pdfvision --help` lists the flags reached for most often. This topic 
 
 ```
 
-## Subcommands
+## サブコマンド
 
 ```text
   docs [topic]            Print the documentation for the installed version. Bare `docs` lists
@@ -205,11 +205,11 @@ The short `pdfvision --help` lists the flags reached for most often. This topic 
                           host's context for the whole session, a skill loads on demand.
 ```
 
-A subcommand is recognized only as the first argument and takes no options of its own; `--help`
-and `--version` are the usual exceptions and work after one. A file actually named `docs`, `mcp`,
-or `clear-cache` must be passed as `./docs`, `./mcp`, or `./clear-cache`.
+サブコマンドは最初の引数としてのみ認識され、それ自体は独自のオプションを取りません。`--help`
+と `--version` は通常の例外で、サブコマンドの後でも機能します。実際に `docs`、`mcp`、
+`clear-cache` という名前のファイルは、`./docs`、`./mcp`、`./clear-cache` として渡す必要があります。
 
-## Argument handling
+## 引数の扱い
 
 ```text
   A subcommand is recognized only as the first argument, before any option parsing, and
@@ -227,7 +227,7 @@ or `clear-cache` must be passed as `./docs`, `./mcp`, or `./clear-cache`.
 
 ```
 
-## Output formats
+## 出力形式
 
 ```text
   markdown (default)  Per-page sections, density Overview table, image links inline. For LLM context.
@@ -245,7 +245,7 @@ or `clear-cache` must be passed as `./docs`, `./mcp`, or `./clear-cache`.
 
 ```
 
-## Examples
+## 例
 
 ```text
   pdfvision document.pdf                                                       # markdown to stdout
@@ -273,7 +273,7 @@ or `clear-cache` must be passed as `./docs`, `./mcp`, or `./clear-cache`.
 
 ```
 
-## Exit codes
+## 終了コード
 
 ```text
   0  Success, including --help, --version, a printed docs topic or index, and a

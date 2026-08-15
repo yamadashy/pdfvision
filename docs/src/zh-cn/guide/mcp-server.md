@@ -1,6 +1,6 @@
 ---
-title: "MCP Server"
-description: "Configuring and calling the MCP server: the three tools, response budgets, refs, and how it differs from the CLI. Only needed for shell-less hosts."
+title: "MCP 服务器"
+description: "配置和调用 MCP 服务器：三个工具、响应预算、ref，以及它与 CLI 的区别。仅在没有 shell 的宿主环境中才需要。"
 sourceHash: 09ac8a401dcc
 ---
 
@@ -8,55 +8,55 @@ sourceHash: 09ac8a401dcc
      Translate the prose, keep code, field names, flags, and warning codes verbatim, and update
      `sourceHash` to the value reported by `node scripts/build-site-reference.mjs`. -->
 
-# MCP server reference
+# MCP 服务器参考
 
-`pdfvision mcp` serves the same extraction over the Model Context Protocol on stdio. Read this only when you are asked to **set pdfvision up for another host**, or when you are yourself operating through the MCP tools rather than a shell.
+`pdfvision mcp` 通过 stdio 上的 Model Context Protocol 提供与 CLI 相同的提取能力。仅在被要求**为另一个宿主环境搭建 pdfvision**，或者你自己正是通过 MCP 工具而非 shell 操作时，才需要阅读本文。
 
-**If you have a shell, use the CLI.** Everything below is a narrower surface over the same `core/` code, and MCP tool schemas sit in the host's context for the whole session — the CLI plus this skill costs nothing until it is used. This file exists because "install pdfvision into Claude Desktop / Cursor / Cline / Zed / n8n" is a task you may be handed, not because MCP is the better path for you.
+**如果你有 shell，请使用 CLI。** 下文的一切都只是同一套 `core/` 代码之上的一个更窄的接口，而 MCP 工具的 schema 会在整个会话期间占用宿主的上下文——CLI 加上这个 skill，在未被使用时不占用任何成本。本文件存在的原因是，"把 pdfvision 安装进 Claude Desktop / Cursor / Cline / Zed / n8n" 是一项可能交给你的任务，而不是因为 MCP 对你来说是更好的路径。
 
-## Setup
+## 设置
 
-The server is a subcommand of the main binary, not a separate package:
+服务器是主二进制文件的一个子命令，而不是一个独立的包：
 
 ```json
 { "mcpServers": { "pdfvision": { "command": "npx", "args": ["-y", "pdfvision", "mcp"] } } }
 ```
 
-`pdfvision mcp` takes no arguments. It speaks JSON-RPC on stdout, so anything the process would otherwise log is redirected to stderr.
+`pdfvision mcp` 不接受任何参数。它在 stdout 上使用 JSON-RPC 通信，因此进程原本会打印的任何日志都会被重定向到 stderr。
 
-## The three tools
+## 三个工具
 
-| Tool | Returns |
+| 工具 | 返回内容 |
 |---|---|
-| `read_pdf` | Text as Markdown. Parameters: `source`, `pages`, `ocr`, `attachment`, `password`. |
-| `search_pdf` | Flat hit list — page, origin, context, region, and a short `ref` per match. Parameters: `source`, `query`, `pages`, `regex`, `password`. |
-| `render_pdf` | Page or region PNGs as image blocks, each preceded by a `Page N:` label. Parameters: `source`, `pages`, `ref`, `region`, `password`. |
+| `read_pdf` | Markdown 格式的文本。参数：`source`、`pages`、`ocr`、`attachment`、`password`。 |
+| `search_pdf` | 扁平的命中列表——每条匹配的页码、来源、上下文、区域，以及一个简短的 `ref`。参数：`source`、`query`、`pages`、`regex`、`password`。 |
+| `render_pdf` | 以图像块形式返回的整页或区域 PNG，每个图像块前面都带有一个 `Page N:` 标签。参数：`source`、`pages`、`ref`、`region`、`password`。 |
 
-`source` takes a local path **or** an `http(s)` URL — there is no separate remote parameter. `ocr` is a Tesseract language string with the primary language first (`"eng"`, `"jpn+eng"`), not a boolean; omit it to use the PDF's own text layer, and reach for it on the pages the document map or a quality report calls empty or garbled — `read_pdf(pages: "31", ocr: "jpn+eng")`.
+`source` 既可以是本地路径，**也**可以是 `http(s)` URL——没有单独的 remote 参数。`ocr` 是一个 Tesseract 语言字符串，主语言排在前面（`"eng"`、`"jpn+eng"`），而不是布尔值；省略它则使用 PDF 自身的文本层，在 document map 或质量报告将某页标记为空或乱码时才用它——例如 `read_pdf(pages: "31", ocr: "jpn+eng")`。
 
-## Differences from the CLI that will surprise you
+## 会让你意外的、与 CLI 的区别
 
-- **No format, include, scale, or cache parameter.** Anything pdfvision can decide from the document, the server decides. `read_pdf` always runs layout, form fields, links, and annotations, and simply omits the sections that found nothing. On a blank form the field table collapses to a count and a type breakdown (`_23 fillable fields on this page, none filled (15 text, 8 checkbox)._`) — filled values, checked boxes, scripted widgets, and hidden/locked ones still get a row each. Do not look for a flag equivalent; there is not one.
-- **`read_pdf` without `pages` on a document over 20 pages returns a document map, not the body** — page count, outline, per-page native-text quality and warning codes collapsed into page ranges, plus the specific calls to make next. This is the normal first call on an unknown document.
-- **Responses are budgeted** (30,000 chars per body, 12,000 per page, 100 matches, 4 rendered pages, 5 OCR pages, 6 MB of images). Every truncation names the exact follow-up call, so a clipped result is recoverable, never silently complete.
-- **Refs replace coordinates.** `search_pdf` and a full-page `render_pdf` hand back short handles (`p47m1`, `p5r2`). Pass one straight back as `render_pdf(ref: "p47m1")` instead of transcribing a bbox. Refs are renumbered from `p1m1` by *every* call, so one held over from an earlier search now points at the newer result — `render_pdf` echoes what the ref resolved to (`Ref p1m1 → search hit for …`) so a stale one is visible. When in doubt, re-run the search. A match ref crops to the table row the hit sits in, or to its visual line when the page has no detected table, so a row's values are inside the image rather than just its label. Where the page's layout does not cover the hit — an OCR-sourced match, a scanned page with no reconstructed lines — the crop falls back to a fixed pad around the glyph box, which on a wide row can still be too narrow to read; pass an explicit `region` there.
-- **No scale knob.** Renders are fitted to 1568 px on the longest edge, past which vision models downsample anyway. If a render is too small to read, the fix is a smaller `region`, not a bigger raster.
-- **Every successful result leads with an untrusted-data banner.** The server cannot assume its host carries equivalent standing instructions, so the trust boundary travels with the payload. Error results do not carry it and can still quote the document — see [`pdfvision docs security`](./security-and-privacy.md).
+- **没有 format、include、scale 或 cache 参数。** 凡是 pdfvision 能从文档本身判断出来的事情，都由服务器决定。`read_pdf` 始终会运行 layout、form fields、links 和 annotations，只是省略掉没有找到内容的部分。在空白表单上，字段表格会坍缩为一个计数和类型细分（`_23 fillable fields on this page, none filled (15 text, 8 checkbox)._`）——已填写的值、已勾选的框、带脚本的 widget，以及隐藏/锁定的字段仍各占一行。不要去找与之等价的 flag；根本没有。
+- **在超过 20 页的文档上，不带 `pages` 调用 `read_pdf` 会返回一份 document map，而不是正文**——页数、目录、按页折叠成页码范围的原生文本质量和警告代码，外加接下来应该发起的具体调用。这是面对未知文档时的常规第一次调用。
+- **响应有预算限制**（每个 body 30,000 字符，每页 12,000 字符，100 条匹配，4 个渲染页，5 个 OCR 页，6 MB 的图像）。每次截断都会指明确切的后续调用，因此被裁剪的结果是可恢复的，绝不会被悄悄当作完整结果。
+- **ref 取代了坐标。** `search_pdf` 和整页的 `render_pdf` 会返回简短的句柄（`p47m1`、`p5r2`）。直接把它传回，如 `render_pdf(ref: "p47m1")`，而不是转录一个 bbox。*每次*调用都会把 ref 从 `p1m1` 重新编号，因此从更早的搜索中保留下来的 ref 现在会指向新的结果——`render_pdf` 会回显该 ref 解析到的内容（`Ref p1m1 → search hit for …`），从而让过期的 ref 变得可见。拿不准时，重新运行搜索。匹配 ref 会裁剪到该命中所在的表格行，如果页面没有检测到表格，则裁剪到其所在的视觉行，因此一行的值会包含在图像内，而不只是其标签。当页面的布局没有覆盖该命中时——例如 OCR 来源的匹配、没有重建出行结构的扫描页——裁剪会回退到围绕字形框的固定内边距，这在较宽的行上仍可能窄到难以阅读；此时应传入显式的 `region`。
+- **没有 scale 旋钮。** 渲染图会被适配到最长边 1568 px，超过这个尺寸视觉模型反正也会做下采样。如果渲染图小到难以阅读，正确的做法是缩小 `region`，而不是放大栅格图。
+- **每个成功的结果都以一条不可信数据的横幅开头。** 服务器不能假定其宿主携带等效的常设指令，因此信任边界会随负载一起传递。错误结果不带有该横幅，且仍可以引用文档内容——见 [`pdfvision docs security`](./security-and-privacy.md)。
 
-## Embedded files
+## 内嵌文件
 
-`read_pdf(attachment: "invoice.xml")` — or a 1-based index — returns the embedded file instead of the pages. It matters because in e-invoices and regulatory filings (Factur-X, ZUGFeRD, XBRL) **the attachment is the authoritative data and the pages are only its rendering**; answering from the pages there is answering from a picture of the truth. Any response that reports attachments names this call.
+`read_pdf(attachment: "invoice.xml")`——或一个从 1 开始的索引——会返回内嵌文件而不是页面内容。这一点很重要，因为在电子发票和监管申报文件（Factur-X、ZUGFeRD、XBRL）中，**附件才是权威数据，页面只是它的一种渲染呈现**；只根据页面来回答问题，等于是在根据真相的一张图片来回答问题。任何报告了附件的响应都会指明这次调用。
 
-Text attachments come back inline, images as image blocks. Anything else — spreadsheets, archives — is refused with a pointer to `--attachments --attachment-output <dir>`, because delivering those bytes into a context window accomplishes nothing. That is the one place the MCP surface genuinely needs the CLI.
+文本附件以内联形式返回，图像以图像块形式返回。其他类型——电子表格、压缩包——会被拒绝，并指向 `--attachments --attachment-output <dir>`，因为把这些字节送进上下文窗口毫无意义。这是 MCP 接口真正需要依赖 CLI 的唯一场景。
 
-## Remote input is guarded
+## 远程输入受到限制
 
-Unlike the CLI's `--remote`, the MCP server refuses URLs that resolve to private, loopback, link-local, CGNAT, NAT64, or IPv4-mapped/-compatible addresses, and re-validates every redirect hop. The reason is that the *model* chooses the URL here, which would otherwise make the server an SSRF pivot into whatever network it runs on.
+与 CLI 的 `--remote` 不同，MCP 服务器会拒绝解析到私有、回环、link-local、CGNAT、NAT64 或 IPv4 映射/兼容地址的 URL，并对每一跳重定向重新验证。原因是这里选择 URL 的是*模型*本身，否则服务器就会变成一个 SSRF 跳板，可以进入它所运行的任何网络。
 
-For an intranet document store, set `PDFVISION_MCP_ALLOW_PRIVATE_NETWORK=1`. Known limitation, documented at the call site: the address validated is not pinned for the fetch, so a DNS answer that changes between validation and connection is not covered.
+对于内网文档存储，可设置 `PDFVISION_MCP_ALLOW_PRIVATE_NETWORK=1`。有一个已知限制，已在调用处记录：被验证的地址并没有在抓取时被固定，因此在验证与连接之间发生变化的 DNS 应答不在覆盖范围内。
 
-## Errors
+## 错误
 
-Tool failures come back as in-band error results with a recovery instruction, not as protocol errors — an out-of-range page selector, an OCR request over the 5-page budget, an unknown ref, a malformed `region`, or an encrypted PDF all tell the caller what to do instead. Read the message; it names the next call. Encryption is reported as two distinct failures because the recovery differs: no password given (retry with `password`) versus a wrong one (retry with a different value).
+工具失败会以带内错误结果的形式返回，并附带恢复说明，而不是作为协议错误——页码选择器越界、OCR 请求超过 5 页预算、未知的 ref、格式错误的 `region`，或者加密的 PDF，都会告诉调用方接下来该怎么做。阅读该消息；它会指明下一步该调用什么。加密会被报告为两种不同的失败，因为恢复方式不同：未提供密码（用 `password` 重试）和密码错误（用另一个值重试）。
 
-`search_pdf` also relays core search warnings in the response body: a regex that exceeds the ~1s per-page time budget drops that page's results and says so, which is what keeps its "0 matches" from reading as evidence of absence. The same response names any searched pages whose native text is missing or corrupted — a miss there is not evidence of absence either, and the note points at `read_pdf` with `ocr` or `render_pdf` for those pages.
+`search_pdf` 也会在响应体中转达 core 层的搜索警告：超过每页约 1 秒时间预算的正则会丢弃该页的结果并说明原因，这样它的 "0 matches" 就不会被误读为不存在证据。同一响应还会指明任何被搜索、但原生文本缺失或损坏的页面——那里的未命中同样不是不存在的证据，该提示会指向对这些页面使用带 `ocr` 的 `read_pdf` 或使用 `render_pdf`。

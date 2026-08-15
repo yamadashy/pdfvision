@@ -1,6 +1,6 @@
 ---
-title: "Library API"
-description: "The processDocument() / processFile() Node.js API and the full list of exported types. Use when calling pdfvision from a Node process instead of shelling out to the CLI."
+title: "库 API"
+description: "processDocument() / processFile() Node.js API 以及完整的导出类型列表。适用于从 Node 进程中直接调用 pdfvision，而不是通过 shell 调用 CLI 的场景。"
 sourceHash: b120aaaf49ec
 ---
 
@@ -8,11 +8,11 @@ sourceHash: b120aaaf49ec
      Translate the prose, keep code, field names, flags, and warning codes verbatim, and update
      `sourceHash` to the value reported by `node scripts/build-site-reference.mjs`. -->
 
-# Library API
+# 库 API
 
-## Library API (Node.js consumers)
+## 库 API（Node.js 调用方）
 
-If the consumer is itself a Node.js process, prefer the library API over invoking the CLI:
+如果调用方本身就是一个 Node.js 进程，优先使用库 API，而不是调用 CLI：
 
 ```ts
 import { processDocument } from 'pdfvision';
@@ -31,29 +31,29 @@ for (const page of result.pages) {
 }
 ```
 
-`processFile()` returns the formatted string output (`markdown` / `json` / `xml` / `toon`) — the same string the CLI prints for those options (the CLI only adds a trailing newline). `processDocument()` returns the structured object directly.
+`processFile()` 返回格式化后的字符串输出（`markdown` / `json` / `xml` / `toon`）——与 CLI 在这些选项下打印的字符串完全相同（CLI 只是多加了一个结尾换行符）。`processDocument()` 直接返回结构化对象。
 
-## Picking one
+## 如何选择
 
-`processDocument(filePath, options?)` → `Promise<DocumentResult>`; `processFile(filePath, options)` → `Promise<string>`. Options are the same set except that `ProcessOptions` requires `format` and `noCache`, and adds the two formatter-only fields `matchesOnly` and `stripRepeated`; `ProcessDocumentOptions` is entirely optional.
+`processDocument(filePath, options?)` → `Promise<DocumentResult>`；`processFile(filePath, options)` → `Promise<string>`。两者的 options 是同一组字段，区别在于 `ProcessOptions` 要求提供 `format` 和 `noCache`，并额外增加了两个仅用于格式化的字段 `matchesOnly` 和 `stripRepeated`；`ProcessDocumentOptions` 则完全是可选的。
 
-Prefer `processDocument()` when the caller reads fields: routing pages on `overview[]` / `quality`, handing `pages[].image` or a visual-region crop to a vision model, feeding a `matches[].bbox` into a follow-up crop, diffing `pages[].text` against `pages[].ocr.text`, persisting `pages[].warnings` alongside the extracted data. Prefer `processFile()` when the formatted text itself is the integration boundary — Markdown / XML / TOON going straight into a model's context window.
+当调用方需要读取字段时，优先使用 `processDocument()`：根据 `overview[]` / `quality` 对页面做路由、把 `pages[].image` 或视觉区域裁剪图交给视觉模型、把 `matches[].bbox` 送入后续裁剪、对比 `pages[].text` 与 `pages[].ocr.text` 的差异、把 `pages[].warnings` 和提取出的数据一起持久化。当格式化后的文本本身就是集成边界时，优先使用 `processFile()`——例如把 Markdown / XML / TOON 直接送进模型的上下文窗口。
 
-## Bytes already in memory
+## 已经在内存中的字节
 
-`sourceData` (a `Uint8Array`) makes pdfvision parse those bytes instead of reading from disk. `filePath` stays a label and comes back unchanged as `result.file`, so pass something meaningful — a URL, an upload id, the original name.
+`sourceData`（一个 `Uint8Array`）会让 pdfvision 解析这些字节，而不是从磁盘读取。`filePath` 仍只是一个标签，会原样作为 `result.file` 返回，因此传入一些有意义的内容——比如 URL、上传 ID、原始文件名。
 
 ```ts
 const result = await processDocument('document.pdf', { sourceData: bytes, layout: true });
 ```
 
-## Warnings
+## 警告
 
-`onWarning(message)` is called once per non-fatal warning (page range past the end of the document, match cap hit, regex budget exceeded, render-output path collisions). It defaults to `undefined`, which is silent — a library caller gets nothing on stderr, unlike the CLI. Page-specific warnings are also structured on `pages[].warnings`; `onWarning` is the only way to see the document-level ones. Warnings are recorded with the cached result and replayed on a later identical call, capped at 50 with the last slot reporting the real total.
+`onWarning(message)` 对每条非致命警告调用一次（页码范围超出文档末尾、命中匹配数上限、正则预算超时、render-output 路径冲突）。它默认是 `undefined`，也就是静默的——与 CLI 不同，库调用方在 stderr 上什么都得不到。页面相关的警告也会结构化地记录在 `pages[].warnings` 上；`onWarning` 是查看文档级警告的唯一方式。警告会随缓存结果一起记录，并在之后相同的调用中被重放，上限为 50 条，最后一条会报告真实的总数。
 
-## Conditional second pass
+## 条件式二次处理
 
-The library shape of the usual agent loop: one cheap pass decides which pages earn an expensive observation.
+常见智能体循环在库层面的形态：一次低成本的处理决定哪些页面值得做一次昂贵的观察。
 
 ```ts
 const first = await processDocument('./report.pdf', { search: ['revenue'], layout: true });
@@ -65,10 +65,10 @@ for (const page of first.pages) {
 }
 ```
 
-Any bbox from `matches[]`, `layout.blocks[]`, `imageBoxes[]`, `vectorBoxes[]`, or `visualRegions[]` passes unchanged into `renderRegion` (`{ x, y, width, height }`); `matches[].page` carries the page number even when the match was plucked out of a flattened list. `renderRegion` throws unless `render: true` or `ocr: true` is also set, and unless `pages` resolves to exactly one page.
+来自 `matches[]`、`layout.blocks[]`、`imageBoxes[]`、`vectorBoxes[]` 或 `visualRegions[]` 的任何 bbox 都可以原样传入 `renderRegion`（`{ x, y, width, height }`）；即使某条匹配是从一个扁平化列表中取出的，`matches[].page` 仍携带其页码。除非同时设置了 `render: true` 或 `ocr: true`，且 `pages` 恰好解析为一个页面，否则 `renderRegion` 会抛出异常。
 
-## Exports
+## 导出
 
-The whole runtime surface is three functions: `processDocument`, `processFile`, and `parsePageRange(range, totalPages)`. Cache internals and the pdf.js-level renderers are deliberately not exported — use `pdfvision clear-cache` and `processDocument({ render: true })`.
+整个运行时接口只有三个函数：`processDocument`、`processFile` 和 `parsePageRange(range, totalPages)`。缓存内部实现和 pdf.js 级别的渲染器有意不予导出——请改用 `pdfvision clear-cache` 和 `processDocument({ render: true })`。
 
-Exported types: `DocumentResult`, `DocumentMetadata`, `DocumentAttachment`, `DocumentLayerGroup`, `DocumentLayerOrderItem`, `DocumentLayers`, `DocumentLayerUsage`, `DocumentOutlineItem`, `DocumentOutlineTargetType`, `DocumentViewerState`, `DocumentOpenAction`, `DocumentPermissions`, `DocumentPermission`, `DocumentMarkInfo`, `JsonScalar`, `JsonValue`, `PageOverview`, `PageResult`, `PageQuality`, `PageWarning`, `SearchMatch`, `LayoutBlock`, `LayoutLine`, `LayoutTable`, `LayoutTableRow`, `LayoutTableCell`, `PageLayout`, `ImageBox`, `VectorBox`, `PageLink`, `PageLinkTarget`, `PageLinkType`, `FormField`, `FormFieldChoiceOption`, `FormFieldLabel`, `FormFieldLabelRelation`, `FormFieldResetFormAction`, `FormFieldType`, `PageAnnotation`, `PageAnnotationBorder`, `PageAnnotationBox`, `PageAnnotationFileAttachment`, `PageAnnotationFlag`, `PageAnnotationLine`, `PageAnnotationPoint`, `PageStructureContent`, `PageStructureItem`, `PageStructureNode`, `PageStructureTable`, `PageStructureTableRow`, `PageStructureTableCell`, `VisualRegion`, `VisualRegionAssociatedText`, `VisualRegionAssociatedTextRelation`, `VisualRegionKind`, `VisualRegionSource`, `VisualRegionSourceType`, `RenderRegion`, `RenderedContentBox`, `TextSpan`, `PageOcr`, `OcrWord`, `OutputFormat`, `ProcessDocumentOptions`, `ProcessOptions`.
+导出的类型：`DocumentResult`、`DocumentMetadata`、`DocumentAttachment`、`DocumentLayerGroup`、`DocumentLayerOrderItem`、`DocumentLayers`、`DocumentLayerUsage`、`DocumentOutlineItem`、`DocumentOutlineTargetType`、`DocumentViewerState`、`DocumentOpenAction`、`DocumentPermissions`、`DocumentPermission`、`DocumentMarkInfo`、`JsonScalar`、`JsonValue`、`PageOverview`、`PageResult`、`PageQuality`、`PageWarning`、`SearchMatch`、`LayoutBlock`、`LayoutLine`、`LayoutTable`、`LayoutTableRow`、`LayoutTableCell`、`PageLayout`、`ImageBox`、`VectorBox`、`PageLink`、`PageLinkTarget`、`PageLinkType`、`FormField`、`FormFieldChoiceOption`、`FormFieldLabel`、`FormFieldLabelRelation`、`FormFieldResetFormAction`、`FormFieldType`、`PageAnnotation`、`PageAnnotationBorder`、`PageAnnotationBox`、`PageAnnotationFileAttachment`、`PageAnnotationFlag`、`PageAnnotationLine`、`PageAnnotationPoint`、`PageStructureContent`、`PageStructureItem`、`PageStructureNode`、`PageStructureTable`、`PageStructureTableRow`、`PageStructureTableCell`、`VisualRegion`、`VisualRegionAssociatedText`、`VisualRegionAssociatedTextRelation`、`VisualRegionKind`、`VisualRegionSource`、`VisualRegionSourceType`、`RenderRegion`、`RenderedContentBox`、`TextSpan`、`PageOcr`、`OcrWord`、`OutputFormat`、`ProcessDocumentOptions`、`ProcessOptions`。

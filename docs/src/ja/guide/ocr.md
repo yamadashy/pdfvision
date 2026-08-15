@@ -1,6 +1,6 @@
 ---
 title: "OCR"
-description: "OCR language codes and ordering, confidence, traineddata install and cache, and troubleshooting. Mandatory for non-English OCR, where language order changes the result."
+description: "OCR の言語コードと順序、信頼度、traineddata のインストールとキャッシュ、トラブルシューティングについて説明します。言語の順序が結果を左右する英語以外の言語での OCR では必読です。"
 sourceHash: bfac4068046b
 ---
 
@@ -8,13 +8,13 @@ sourceHash: bfac4068046b
      Translate the prose, keep code, field names, flags, and warning codes verbatim, and update
      `sourceHash` to the value reported by `node scripts/build-site-reference.mjs`. -->
 
-# OCR reference
+# OCR リファレンス
 
-Detail on the `--ocr` flag — when to reach for it, multi-language behaviour, confidence semantics, install / cache requirements, and troubleshooting. Read this when running `--ocr` on non-English text, when the confidence comes back unexpectedly low, or when `tesseract.js` install needs diagnosing.
+`--ocr` フラグの詳細です。いつ使うべきか、複数言語での挙動、信頼度の意味、インストール/キャッシュの要件、トラブルシューティングを扱います。英語以外のテキストで `--ocr` を実行するとき、信頼度が予想外に低く返ってきたとき、`tesseract.js` のインストールを診断する必要があるときに読んでください。
 
-For the basic flow ("page is image-flattened, run `--ocr -f json`"), `pdfvision --help` is enough.
+基本的な流れ（「ページが画像化されているので `--ocr -f json` を実行する」）だけであれば、`pdfvision --help` で十分です。
 
-## Shape
+## 形状
 
 ```ts
 interface PageOcr {
@@ -31,21 +31,21 @@ interface OcrWord {
 }
 ```
 
-`lang` echoes the caller's `--ocr-lang` after whitespace normalization but preserves token order. `eng+jpn` and `jpn+eng` produce different recognisers (tesseract treats the first language as primary) and therefore land in different cache slots and different `lang` echoes. `words[]` is optional because older cache entries or unusual tesseract output can lack block/line/word layout; when present, search can return OCR word-level bboxes. If word-level reconstruction misses one or more query occurrences that exist in full `ocr.text` (for example OCR line-boundary or spacing differences), search supplements from `ocr.text` with a page-level bbox.
+`lang` は、呼び出し側の `--ocr-lang` を空白の正規化後にそのまま反映しますが、トークンの順序は保持します。`eng+jpn` と `jpn+eng` は異なる認識器を生成し（tesseract は最初の言語を主要言語として扱います）、そのため異なるキャッシュスロットと異なる `lang` の反映結果になります。`words[]` は任意です。古いキャッシュエントリや特殊な tesseract の出力では block/line/word のレイアウトを欠くことがあるためです。存在する場合、検索は OCR の単語レベル bbox を返せます。単語レベルの再構成が、完全な `ocr.text` には存在するクエリの出現箇所を 1 つ以上見落とす場合（たとえば OCR の行境界や空白の違いにより）、検索はページレベルの bbox を伴う `ocr.text` から補完します。
 
-## When to run OCR
+## OCR を実行すべきタイミング
 
-The trigger is the density Overview, not the page content itself. Look for:
+判断のトリガーは、ページの内容そのものではなく density Overview です。次を確認してください。
 
-- `coverage: 0%` (or near-zero) with `imageCount > 0` — page body is rasterised
-- `text` is empty or garbled (a few stray characters like `r rv`) — PDF font tables are broken
-- The whole document looks fine but one page comes back empty — likely a slide / figure / scan
+- `coverage: 0%`（またはそれに近い値）で `imageCount > 0` — ページ本文がラスタライズされている
+- `text` が空または文字化けしている（`r rv` のような少数の乱れた文字）— PDF のフォントテーブルが壊れている
+- 文書全体は問題なさそうなのに 1 ページだけ空で返ってくる — スライド/図/スキャンの可能性が高い
 
-`pdfvision` never auto-triggers OCR. The agent decides per page after reading the density signal. OCR cost is ~0.5–2 s per page (CPU-bound) plus a one-time worker boot of a few seconds; running it on every page of a 100-page paper is rarely worth it.
+`pdfvision` が OCR を自動的にトリガーすることはありません。density シグナルを読んだ上で、ページごとにエージェントが判断します。OCR のコストは 1 ページあたり約 0.5〜2 秒（CPU バウンド）に加え、初回のみワーカー起動に数秒かかります。100 ページの論文の全ページで実行する価値がある場面はまれです。
 
-## Lang codes and ordering
+## 言語コードと順序
 
-`--ocr-lang` takes the tesseract.js plus-separated form: one or more 3-letter (or `chi_sim` style) codes joined with `+`.
+`--ocr-lang` は tesseract.js の `+` 区切り形式を取ります。3 文字（または `chi_sim` のような形式）のコードを 1 つ以上、`+` で結合します。
 
 ```bash
 npx pdfvision doc.pdf --ocr --ocr-lang eng         # English only (default)
@@ -54,31 +54,31 @@ npx pdfvision doc.pdf --ocr --ocr-lang chi_sim     # Simplified Chinese
 npx pdfvision doc.pdf --ocr --ocr-lang eng+chi_sim+chi_tra
 ```
 
-**Order matters.** [Tesseract documents](https://tesseract-ocr.github.io/tessdoc/Command-Line-Usage.html#order-of-multiple-languages) the first language as primary and notes that language order can change OCR output and runtime. Put the dominant language first:
+**順序が重要です。** [Tesseract のドキュメント](https://tesseract-ocr.github.io/tessdoc/Command-Line-Usage.html#order-of-multiple-languages)は最初の言語を主要言語として扱うとし、言語の順序が OCR の出力と実行時間を変えうると述べています。優勢な言語を先頭に置いてください。
 
-- For mostly-Japanese slides with English headers / labels: `jpn+eng`
-- For English documentation with sparse Japanese terms: `eng+jpn`
-- When unsure, run both and compare `confidence` and `text`
+- 英語の見出し/ラベルが付いた、大部分が日本語のスライド: `jpn+eng`
+- まれに日本語の用語が出てくる英語のドキュメント: `eng+jpn`
+- 迷ったら両方実行し、`confidence` と `text` を比較する
 
-pdfvision normalises whitespace in the lang string before keying the cache (` eng + jpn ` and `eng+jpn` share a slot) but **preserves order** — `eng+jpn` and `jpn+eng` are genuinely different recognisers and intentionally land in different cache slots.
+pdfvision はキャッシュキーを決める前に lang 文字列の空白を正規化します（` eng + jpn ` と `eng+jpn` は同じスロットを共有します）が、**順序は保持します** — `eng+jpn` と `jpn+eng` は本質的に異なる認識器であり、意図的に異なるキャッシュスロットに入ります。
 
-The echoed `pages[].ocr.lang` returns the whitespace-normalised, order-preserved form (`'eng+jpn'`, not `' eng + jpn '`).
+反映される `pages[].ocr.lang` は、空白正規化済み・順序保持済みの形式（`' eng + jpn '` ではなく `'eng+jpn'`）を返します。
 
-## Confidence semantics
+## 信頼度の意味
 
-`pages[].ocr.confidence` is `0..1` (rounded to 3dp). Tesseract reports `0..100` internally; pdfvision divides by 100 to match the existing `textCoverage` convention.
+`pages[].ocr.confidence` は `0..1`（小数点以下 3 桁に丸め）です。Tesseract は内部的に `0..100` で報告しますが、pdfvision は既存の `textCoverage` の慣習に合わせるため 100 で割ります。
 
-Rough interpretation, treat as heuristic:
+大まかな目安であり、ヒューリスティックとして扱ってください。
 
-- `>= 0.8` — high confidence, OCR text is usable as-is for most agent purposes
-- `0.5–0.8` — usable but verify on important entities (numbers, names, code identifiers)
-- `< 0.5` — partial recognition. Either wrong `--ocr-lang`, low-resolution scan, or stylised typography. On scan-like pages where native extraction is empty, sparse, glyph-corrupted, or riding on a raster-backed text layer, this also appears as `pages[].warnings[].code === 'ocr_low_confidence'`. Compare with the rendered PNG via `--render` before trusting the text.
+- `>= 0.8` — 高信頼度。ほとんどのエージェント用途で OCR テキストをそのまま使えます
+- `0.5〜0.8` — 使用可能だが、重要なエンティティ（数値、名前、コード識別子）は検証してください
+- `< 0.5` — 部分的な認識。`--ocr-lang` の指定違い、低解像度のスキャン、装飾的な書体のいずれかが原因です。ネイティブ抽出が空、疎、glyph-corrupted、またはラスターに乗ったテキストレイヤーであるスキャン風のページでは、これは `pages[].warnings[].code === 'ocr_low_confidence'` としても現れます。テキストを信頼する前に、`--render` でレンダリングした PNG と比較してください。
 
-High confidence can also expose native-text-layer quality problems. On raster-backed scan pages, `pages[].warnings[].code === 'ocr_native_text_mismatch'` means OCR found high-confidence words whose nearest native tokens are different, so exact native search may miss visible words. `pages[].warnings[].code === 'ocr_native_spacing_loss'` means OCR and native text contain comparable characters, but the native text has lost many word boundaries. Prefer comparing `ocr.text` with the render before using exact wording from `pages[].text`.
+信頼度が高くても、ネイティブテキストレイヤーの品質問題が露呈することがあります。ラスターに乗ったスキャンページでは、`pages[].warnings[].code === 'ocr_native_text_mismatch'` は、OCR が高信頼度で見つけた単語の最も近いネイティブトークンが異なることを意味し、正確なネイティブ検索が可視の単語を見落とす可能性があります。`pages[].warnings[].code === 'ocr_native_spacing_loss'` は、OCR とネイティブテキストの文字自体は同程度であるものの、ネイティブテキストで多くの単語境界が失われていることを意味します。`pages[].text` から正確な語句を使う前に、`ocr.text` をレンダリングと比較することを優先してください。
 
-A `confidence: 0` with an empty `ocr.text` usually means the rasterise step produced a blank page (see "Troubleshooting" below) rather than OCR genuinely finding nothing. **Check `pages[].quality.visualStatus` first**: when it is `blank`, the render came out blank and OCR had nothing to work with; when it is `sparse`, the page has tiny visible marks and should be inspected with geometry or a crop before reporting "no text".
+`confidence: 0` で `ocr.text` が空の場合、通常は OCR が本当に何も見つけられなかったのではなく、ラスタライズ処理が空白のページを生成したことを意味します（後述の「トラブルシューティング」を参照）。**まず `pages[].quality.visualStatus` を確認してください**。`blank` の場合はレンダリングが空白になり OCR には処理対象がなかったことを意味し、`sparse` の場合はページにごく小さい可視のマークがあるので、「テキストなし」と報告する前に geometry かクロップで確認してください。
 
-## Output shape
+## 出力形状
 
 ```ts
 interface PageOcr {
@@ -95,57 +95,57 @@ interface OcrWord {
 }
 ```
 
-`pages[].text` (pdfjs-derived) is **never overwritten** by OCR — both signals coexist on the same page object so the agent can diff and decide. A scanned PDF typically shows empty `text` with populated `ocr.text`; a mixed-content PDF shows native text in `text` and an alternative OCR-derived reading in `ocr.text` (useful sanity check for ambiguous glyphs). `ocr.words[]` is optional because tesseract may occasionally omit layout blocks, but when present it lets `--search` return OCR word-level bboxes. If word-level reconstruction misses a query that exists in full `ocr.text` (for example OCR line-boundary or spacing differences), search falls back to `ocr.text` with a page-level bbox instead of dropping the hit.
+`pages[].text`（pdfjs 由来）は OCR によって**決して上書きされません** — 両方のシグナルが同じページオブジェクト上に共存するため、エージェントが差分を取って判断できます。スキャンされた PDF では通常 `text` が空で `ocr.text` に値が入ります。混在コンテンツの PDF では `text` にネイティブテキストが、`ocr.text` に OCR による代替の読み取り結果が入ります（曖昧なグリフの妥当性確認に有用です）。`ocr.words[]` は任意です。tesseract がレイアウトブロックを省略することがあるためですが、存在する場合は `--search` が OCR の単語レベル bbox を返せます。単語レベルの再構成が、完全な `ocr.text` には存在するクエリを見落とす場合（たとえば OCR の行境界や空白の違いにより）、検索はヒットを取りこぼす代わりに、ページレベルの bbox を伴う `ocr.text` にフォールバックします。
 
-In XML output, OCR without word boxes surfaces as `<ocr lang="..." confidence="...">...</ocr>`. When word boxes are present, the OCR element contains `<text>` and `<words><word .../></words>` children. Self-closing `<ocr lang="..." confidence="0"/>` means OCR ran and produced no text — distinct from the tag being absent (OCR wasn't requested).
+XML 出力では、単語ボックスのない OCR は `<ocr lang="..." confidence="...">...</ocr>` として表れます。単語ボックスが存在する場合、OCR 要素は `<text>` と `<words><word .../></words>` の子要素を持ちます。自己終了タグの `<ocr lang="..." confidence="0"/>` は、OCR が実行されテキストが得られなかったことを意味し、タグ自体が存在しない場合（OCR が要求されなかった）とは区別されます。
 
-## Install requirements
+## インストール要件
 
-`tesseract.js` is declared in `optionalDependencies`. Default `npm install pdfvision` pulls it in (~30 MB worker bundle); `npm install --omit=optional` skips it.
+`tesseract.js` は `optionalDependencies` として宣言されています。既定の `npm install pdfvision` はこれを取り込みます（ワーカーバンドル約 30 MB）。`npm install --omit=optional` はこれをスキップします。
 
-When `--ocr` is requested without `tesseract.js` installed, pdfvision throws:
+`tesseract.js` がインストールされていない状態で `--ocr` が要求されると、pdfvision は次を throw します。
 
 ```text
 --ocr requires the optional dependency "tesseract.js" (not installed).
 Install it with: npm install tesseract.js
 ```
 
-Other import-time errors (broken native binding, transitive syntax error) surface the real error message, not the install hint — so the agent can diagnose without false leads.
+その他のインポート時エラー（壊れたネイティブバインディング、間接的な構文エラーなど）は、インストールのヒントではなく実際のエラーメッセージを表面化します。これにより、エージェントは誤った手がかりに惑わされずに診断できます。
 
-## Traineddata cache
+## traineddata のキャッシュ
 
-Tesseract downloads per-language `*.traineddata` files (~10–15 MB each) on first use:
+Tesseract は初回使用時に、言語ごとの `*.traineddata` ファイル（それぞれ約 10〜15 MB）をダウンロードします。
 
 - `eng.traineddata` ≈ 10 MB
 - `jpn.traineddata` ≈ 13 MB
 - `chi_sim.traineddata` ≈ 16 MB
 
-pdfvision points tesseract.js at `<cache-root>/ocr-data/` (POSIX 0700) so:
+pdfvision は tesseract.js に `<cache-root>/ocr-data/`（POSIX 0700）を指定します。これにより次が成り立ちます。
 
-- The data lands under pdfvision's own cache hierarchy (consistent perms, single place)
-- `npx pdfvision clear-cache` wipes traineddata alongside extraction caches
-- The download happens once per language; subsequent runs are offline
+- データは pdfvision 自身のキャッシュ階層下に置かれます（権限が一貫しており、置き場所が 1 か所です）
+- `npx pdfvision clear-cache` は抽出キャッシュと同時に traineddata も削除します
+- ダウンロードは言語ごとに 1 回だけ発生し、以降の実行はオフラインで済みます
 
-First `--ocr` invocation against a new language takes a few extra seconds for the download. Subsequent invocations of the same language are instant on the boot step (still ~1–2 s for the worker init).
+新しい言語に対する最初の `--ocr` 呼び出しは、ダウンロードのぶん数秒余分にかかります。同じ言語への以降の呼び出しは、起動ステップが即座に完了します（ワーカー初期化には引き続き約 1〜2 秒かかります）。
 
-`--no-cache` does not disable these OCR support files: OCR still validates the configured root and persists traineddata and its worker helper there.
+`--no-cache` はこれらの OCR サポートファイルを無効化しません。OCR は設定されたルートを引き続き検証し、そこに traineddata とそのワーカーヘルパーを永続化します。
 
-## Troubleshooting
+## トラブルシューティング
 
-### Benign stderr noise on the first --ocr run
+### 初回の --ocr 実行時に出る無害な stderr ノイズ
 
-When `--ocr` boots tesseract.js for the first time in a session, you may see stderr lines like:
+`--ocr` がセッション内で初めて tesseract.js を起動するとき、次のような stderr の行が表示されることがあります。
 
 ```text
 Error opening data file ./.traineddata
 Failed loading language ''
 ```
 
-These are **harmless pre-load probes** from tesseract.js's internal boot sequence, not fatal errors. The recogniser then honors the `--ocr-lang` you actually passed. Confirm by checking `pages[].ocr.confidence` in the JSON output — if it's `> 0` and `pages[].ocr.text` is populated, OCR succeeded. Do not interpret these stderr lines as a reason to abort.
+これらは tesseract.js の内部起動シーケンスによる**無害な事前読み込みプローブ**であり、致命的なエラーではありません。認識器はその後、実際に渡した `--ocr-lang` に従います。JSON 出力で `pages[].ocr.confidence` を確認して裏付けてください。`> 0` で `pages[].ocr.text` に値が入っていれば OCR は成功しています。これらの stderr 行を中止の理由と解釈しないでください。
 
-### "OCR ran but `text` is empty and `confidence: 0`"
+### 「OCR は実行されたが `text` が空で `confidence: 0`」
 
-Most likely the rasterise step produced a blank page, not an actual OCR failure. Common cause: the PDF uses an image format pdfjs + `@napi-rs/canvas` can't decode (notably JPEG2000 / JPX, common in Internet Archive scans). First check `pages[].quality.visualStatus`: `blank` means OCR had a near-uniform input, while `sparse` means there are tiny visible marks worth inspecting with geometry or a crop. Verify by:
+多くの場合、実際の OCR 失敗ではなく、ラスタライズ処理が空白のページを生成しています。よくある原因は、PDF が pdfjs + `@napi-rs/canvas` でデコードできない画像形式を使っていることです（特に JPEG2000 / JPX。Internet Archive のスキャンによく見られます）。まず `pages[].quality.visualStatus` を確認してください。`blank` は OCR への入力がほぼ均一だったことを意味し、`sparse` は geometry やクロップで確認する価値のあるごく小さな可視マークがあることを意味します。次で検証します。
 
 ```bash
 npx pdfvision doc.pdf -p <page> --render --render-output /tmp/dbg
@@ -154,31 +154,31 @@ npx pdfvision doc.pdf -p <page> --render --render-output /tmp/dbg
 # dir gets a -2 suffix and a note on stderr.)
 ```
 
-This is a known limitation tracked separately from OCR. Workaround: source a different copy of the PDF, or pre-decode the JPX stream with a wasm decoder before invoking pdfvision.
+これは OCR とは別に追跡されている既知の制約です。回避策: PDF の別のコピーを入手するか、pdfvision を呼び出す前に wasm デコーダーで JPX ストリームを事前デコードしてください。
 
-### "Confidence is moderate but text has obvious garbage"
+### 「信頼度は中程度だが、テキストに明らかなゴミが混じっている」
 
-One possibility is a `--ocr-lang` mismatch — the page contains a language not listed in the spec, or the dominant language is not first (for example, a Japanese-dominant page run with `eng+jpn` instead of `jpn+eng`). Try the alternative ordering and compare.
+1 つの可能性は `--ocr-lang` の指定違いです。ページに指定にない言語が含まれているか、優勢な言語が先頭になっていない（たとえば日本語優勢のページを `jpn+eng` ではなく `eng+jpn` で実行した）場合です。順序を入れ替えて比較してみてください。
 
-Another possibility is low resolution. pdfvision rasterises OCR input at 2× and treats that as a floor: `--render-scale 1` shrinks `--render` PNGs but leaves the OCR raster at 2×, so only values above 2 change what tesseract sees. For genuinely fine print, try `--ocr --render-scale 3` first (supported range `(0, 4]`). If that is still insufficient, render a higher-resolution PNG separately and pass it to tesseract.js directly.
+もう 1 つの可能性は解像度不足です。pdfvision は OCR 入力を 2× でラスタライズし、それを下限として扱います。`--render-scale 1` は `--render` の PNG を縮小しますが、OCR 用のラスターは 2× のままなので、2 を超える値だけが tesseract に見える内容を変えます。本当に細かい印字の場合は、まず `--ocr --render-scale 3` を試してください（対応範囲は `(0, 4]`）。それでも不十分な場合は、高解像度の PNG を別途レンダリングして tesseract.js に直接渡してください。
 
-### "OCR is slow — N pages × M seconds is unbearable"
+### 「OCR が遅い — N ページ × M 秒は耐えられない」
 
-- Restrict the page range: `-p <range>` to OCR only the pages that need it (use the density Overview to pick).
-- The single worker is reused across pages within one invocation, so a 10-page OCR run pays the boot cost once and per-page cost N times. Splitting across invocations would re-pay the boot cost on each.
-- pdfvision's page-level parallelism does **not** apply to OCR (single worker by design). Spawning multiple workers would multiply memory by ~30 MB / language without a meaningful win.
+- ページ範囲を絞る: `-p <range>` を使い、必要なページだけ OCR する（どのページか選ぶには density Overview を使う）。
+- 単一のワーカーは 1 回の呼び出し内でページをまたいで再利用されるため、10 ページの OCR 実行では起動コストを 1 回、ページごとのコストを N 回支払います。呼び出しを分割すると、それぞれで起動コストを再度支払うことになります。
+- pdfvision のページレベルの並列処理は OCR には適用され**ません**（設計上、単一ワーカーです）。複数のワーカーを起動すると、意味のある効果もなくメモリを言語ごとに約 30 MB 分増やすことになります。
 
-### "I want OCR to overwrite `text` so my downstream consumer doesn't have to choose"
+### 「ダウンストリームの利用側が選択せずに済むよう、OCR に `text` を上書きしてほしい」
 
-By design, no. The agent / downstream is the one to decide which signal to use. If a consumer wants a single field, it can pick at consumption time:
+設計上、それは行いません。どちらのシグナルを使うかを決めるのはエージェント/ダウンストリーム側です。単一のフィールドが欲しい利用側は、消費時に選択できます。
 
 ```ts
 const effectiveText = page.text || page.ocr?.text || '';
 ```
 
-Keeping both signals available means a sanity check (compare native vs OCR for ambiguity) is always possible.
+両方のシグナルを利用可能な状態に保つことで、妥当性確認（曖昧さがあればネイティブと OCR を比較する）が常に可能になります。
 
-## Examples
+## 例
 
 ```bash
 # Japanese-dominant slide deck with English titles

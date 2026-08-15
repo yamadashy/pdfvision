@@ -1,6 +1,6 @@
 ---
-title: "Flag Selection"
-description: "Per-flag caveats and how to choose between overlapping structural flags for an unusual document. Use when the default extraction is not enough and more than one flag could apply."
+title: "Flag 選擇"
+description: "各 flag 的注意事項，以及在多個結構性 flag 都可能適用時，如何為不尋常的文件做選擇。當預設擷取不夠用、且不只一個 flag 可能適用時使用本頁。"
 sourceHash: c1c2d8470b22
 ---
 
@@ -8,169 +8,169 @@ sourceHash: c1c2d8470b22
      Translate the prose, keep code, field names, flags, and warning codes verbatim, and update
      `sourceHash` to the value reported by `node scripts/build-site-reference.mjs`. -->
 
-# Flag selection reference
+# Flag 選擇參考
 
-`pdfvision --help` carries the one-line-per-flag list for picking a flag fast. This topic holds the hard-won per-flag caveats — the edge cases that decide whether a flag is the right one for an unusual document. Read it only when choosing between overlapping structural flags (`--layout` vs `--visual-regions` vs `--image-boxes` vs `--form-fields`, etc.) for a document that does not behave like the common case.
+`pdfvision --help` 提供每個 flag 一行的清單，方便快速挑選。本主題收錄的是經驗累積出來的各 flag 注意事項——也就是在不尋常的文件上，決定哪個 flag 才是正確選擇的邊界情況。只有在需要為一份行為不同於常見情況的文件，於多個重疊的結構性 flag（`--layout` 對 `--visual-regions` 對 `--image-boxes` 對 `--form-fields` 等）之間做選擇時，才需要閱讀本頁。
 
-The default extraction is enough for most native-text PDFs (papers, exports from Word / Pages / Markdown tooling). It automatically surfaces non-zero form-field, link, annotation, top-level outline, attachment, and document JavaScript presence counts; use the corresponding opt-in flag when a count shows furniture that the task needs. Output field shapes live in [`pdfvision docs schema`](./structured-output.md) (document and page level), `layout`, `interactive`, `document-features`, `visual`, and `search`; OCR specifics in [`pdfvision docs ocr`](./ocr.md); warning-code interpretation in [`pdfvision docs warnings`](./warnings.md).
+對大多數原生文字 PDF（論文、由 Word / Pages / Markdown 工具匯出的文件）而言，預設擷取已經足夠。它會自動呈現非零的表單欄位、連結、註解、頂層目錄、附件與文件 JavaScript 存在數量；當某個計數顯示出任務所需的內容時，再使用對應的選用 flag。輸出欄位形狀請見 [`pdfvision docs schema`](./structured-output.md)（文件與頁面層級）、`layout`、`interactive`、`document-features`、`visual` 與 `search`；OCR 細節請見 [`pdfvision docs ocr`](./ocr.md)；警告代碼的解讀請見 [`pdfvision docs warnings`](./warnings.md)。
 
-## `--layout` — reconstruct reading order, headings, table rows
+## `--layout` — 重建閱讀順序、標題、表格列
 
-Reach for it on multi-column papers, including dense journal layouts with narrow repeated gutters or drop caps. Japanese vertical-writing slides/docs surface display and body-sized CJK stacks as `writingMode: "vertical"`, keep tatechuyoko ASCII digit groups inline in their vertical column, and expose display-spaced CJK title rows such as `科 学`. Short corroborated page-edge vertical chrome is marked `repeated` without dropping sentence-like margin text. Use it on slides where the agent must process blocks in order.
+適用於多欄論文，包含裝訂間隙窄且重複、或有首字放大（drop cap）的密集期刊版面。日文直式書寫的投影片/文件，會把顯示級與內文級的 CJK 文字堆疊呈現為 `writingMode: "vertical"`，會把直式書寫中的縱中橫（tatechuyoko）阿拉伯數字群組保留在其直式欄位中，並揭露如 `科 学` 這類有間距的 CJK 標題列。經過相互印證的短小頁緣直式裝飾文字會被標記為 `repeated`，同時不會誤刪類似句子的邊欄文字。在代理必須依序處理區塊的投影片上使用它。
 
-For table-heavy financial/government PDFs, `layout.tables[]` row-major hints preserve numeric row/cell relationships better than raw blocks — including compact two-column year/value tables, dense recurring numeric gutters or narrow same-row numeric gutters that would otherwise merge several values into one line, trailing currency markers in financial statement rows, long financial row labels before recurring year columns, and leading header/sparse rows above wide recurring numeric tables with score/percentile cells.
+對於表格密集的財務/政府 PDF，`layout.tables[]` 的列優先線索比原始區塊更能保留數字的列/儲存格關係——包括緊湊的兩欄年份/數值表格、密集重複的數字間隙或狹窄同列數字間隙（否則會把多個數值合併成一行）、財務報表列中的貨幣符號後綴、在重複年份欄之前的長財務列標籤，以及在含分數/百分位儲存格、重複數字表格上方的表頭/稀疏列。
 
-## `--image-boxes` — where raster images sit
+## `--image-boxes` — 點陣影像的所在位置
 
-Bbox overlay on rendered PNG, figure detection, masked/pattern image fills.
+在渲染後的 PNG 上疊加 bbox、圖形偵測、遮罩/圖樣影像填色。
 
-## `--vector-boxes` — where vector marks sit
+## `--vector-boxes` — 向量標記的所在位置
 
-Maps, symbol tables, diagrams, chart paths, clipped shading/gradient panels, form boxes, table rules, slide shapes, and PDFs where visible structure is vector-drawn rather than raster images.
+地圖、符號表、圖表、圖表路徑、被裁切的漸層/著色面板、表單框線、表格線、投影片形狀，以及可見結構是以向量繪製而非點陣影像呈現的 PDF。
 
-## `--visual-regions` — crop-ready visual regions
+## `--visual-regions` — 可直接裁切的視覺區域
 
-Figure/chart/diagram/table/form/annotation pages where an agent should use suggested `--render-region` bboxes, instead of manually clustering raw image/vector/layout/form/annotation coordinates. Captures nearby captions/form labels when found (`Figure`, `Table`, `Plate`, `図`, `表`, `図表`), nearby panel titles such as `(a) ...`, short directly-below image labels, short in-region chart titles, nearby or in-region headings for large unlabeled regions, and short table lead-ins such as "The following table..." or "... as follows:".
+圖片/圖表/示意圖/表格/表單/註解頁面，代理應使用建議的 `--render-region` bbox，而不是手動整理原始影像/向量/版面/表單/註解座標。當找到附近的圖說/表單標籤（`Figure`、`Table`、`Plate`、`図`、`表`、`図表`）、附近的面板標題如 `(a) ...`、緊接在影像下方的短標籤、區域內的短圖表標題、大型未標記區域附近或區域內的標題，以及如「The following table...」或「... as follows:」這類的短表格導言時，都會一併擷取。
 
-Caption attachment rules:
+圖說附加規則：
 
-- Page-level `Plate` captions can attach as metadata to distant panel crops without expanding every crop to include the caption block.
-- Multi-panel figure captions with `A,B:` / `C,D:` cues can group disconnected vector chart fragments into one crop with the full caption block.
-- Bare or tiny in-region references like `Fig.4` are **not** attached as captions unless they have descriptive caption text at readable size.
-- Repeated header/footer text is **not** attached as a caption when multi-page evidence is available.
+- 頁面層級的 `Plate` 圖說可以作為中繼資料附加到較遠的面板裁切上，而不必把每個裁切都擴大到包含圖說區塊。
+- 帶有 `A,B:` / `C,D:` 提示的多面板圖表圖說，可以把不相連的向量圖表片段群組成一個包含完整圖說區塊的裁切。
+- 像 `Fig.4` 這種孤立或極小的區域內參照，除非有可讀大小的描述性圖說文字，否則**不會**被當成圖說附加。
+- 當有多頁證據可用時，重複的頁首/頁尾文字**不會**被當成圖說附加。
 
-Suppression rules:
+抑制規則：
 
-- Page-sized background boxes are suppressed when more specific foreground geometry or dense vector-grid structure exists.
-- Broad vector backplanes that span multiple substantial raster panels are suppressed so individual panels remain crop targets.
-- Corroborated narrow page-edge chrome is suppressed so marginal ribbons, side URLs, small raster logo/text strips inside header/footer rule bands, and header/footer bands do not become vision targets; full-page covers/scans still emit renderable regions when only small logos or edge chrome compete with them.
-- If full-page render evidence (including a rendered full-page visual-region crop) says the page is blank, visual regions are suppressed.
+- 當存在更具體的前景幾何或密集向量網格結構時，頁面大小的背景框會被抑制。
+- 橫跨多個實質點陣面板的大型向量背板會被抑制，讓個別面板保持為可裁切目標。
+- 經過印證的窄頁緣裝飾會被抑制，讓邊緣色帶、側邊 URL、頁首/頁尾規則帶內的小型點陣標誌/文字條，以及頁首/頁尾帶不會成為視覺目標；當只有小型標誌或頁緣裝飾與整頁封面/掃描件競爭時，整頁封面/掃描件仍會產生可渲染區域。
+- 若整頁渲染證據（包含已渲染的整頁視覺區域裁切）顯示該頁為空白，視覺區域會被抑制。
 
-Density and form rules:
+密度與表單規則：
 
-- Dense vector grids can produce fallback regions for table-like structures.
-- Dense small vector marker fields are clustered into separate dense visual-region crops when disconnected.
-- Dense forms produce section/row-sized crops instead of one page-sized crop.
-- Hidden/invisible/noView form fields and annotations are not used as visual crop seeds.
-- FreeText annotations without appearance streams stay available through annotations/search but are not used as crop seeds.
-- Unpositioned widget-appearance vector boxes are skipped when form-field bboxes provide the real page positions.
+- 密集的向量網格可能為表格狀結構產生備援區域。
+- 密集的小型向量標記欄位，若彼此不相連，會被分別群組成獨立的密集視覺區域裁切。
+- 密集表單會產生區段/列大小的裁切，而不是一個整頁大小的裁切。
+- 隱藏/不可見/noView 的表單欄位與註解不會被用作視覺裁切的種子。
+- 沒有外觀串流的 FreeText 註解，仍可透過註解/搜尋取得，但不會被用作裁切種子。
+- 當表單欄位 bbox 已提供實際頁面位置時，未定位的 widget 外觀向量框會被略過。
 
-## `--render-visual-regions` — render the suggested crops
+## `--render-visual-regions` — 渲染建議的裁切
 
-Same cases as `--visual-regions`, when the next step is a vision-model pass and the agent wants `visualRegions[].image` crops with associated captions/form labels, nearby panel titles, short table lead-ins, short image labels, short in-region chart titles, nearby headings, and `renderedContentBox` hints for sparse/transparent crops — without rendering every full page.
+適用情境與 `--visual-regions` 相同，用於下一步是視覺模型推論、且代理想要 `visualRegions[].image` 裁切（附帶圖說/表單標籤、附近的面板標題、短表格導言、短影像標籤、區域內的短圖表標題、附近標題，以及供稀疏/透明裁切使用的 `renderedContentBox` 提示）——而不必渲染每一整頁的情況。
 
-## `--form-fields` — form controls and blank fields
+## `--form-fields` — 表單控制項與空白欄位
 
-Government forms, applications, tax forms, questionnaires, and any PDF where checkboxes, radio buttons, signatures, text boxes, choice widgets, buttons, or their nearby visible labels are part of the meaning.
+政府表單、申請書、稅務表單、問卷，以及任何核取方塊、單選按鈕、簽名欄、文字方塊、選項 widget、按鈕或其附近可見標籤屬於文件含義一部分的 PDF。
 
-- Widget annotation flags such as `hidden`, `print`, or `noView` are exposed so agents can detect print-only or screen-hidden fields.
-- Checkbox/radio export values, widget JavaScript actions, and non-JavaScript ResetForm button behavior are exposed when present, so agents can see submitted values, button click scripts, reset-all buttons, and selective reset buttons.
-- Choice widgets keep submitted/exported selections in `value`, include selected viewer labels in `displayValue` when those differ, and include exported/display option values when the PDF exposes them, plus combo/list and multi-select flags.
-- Push buttons include viewer-visible `caption` text when pdfvision can recover it from widget appearance characteristics, and `--search` can return those captions as form-field matches.
+- 會揭露 widget 註解 flag，例如 `hidden`、`print` 或 `noView`，讓代理能偵測僅供列印或螢幕隱藏的欄位。
+- 若存在核取方塊/單選按鈕的匯出值、widget JavaScript action，以及非 JavaScript 的 ResetForm 按鈕行為，都會被揭露，讓代理能看到已送出的值、按鈕點擊腳本、全部重設按鈕，以及選擇性重設按鈕。
+- 選項 widget 會在 `value` 中保留已送出/匯出的選取項，當檢視器顯示標籤與其不同時，會在 `displayValue` 中包含已選取的檢視器標籤，並在 PDF 有提供時包含匯出/顯示的選項值，以及下拉/清單與多選 flag。
+- 當 pdfvision 能從 widget 外觀特徵還原按鈕文字時，按鈕會包含檢視器可見的 `caption` 文字，`--search` 也能把這些按鈕文字當成表單欄位比對結果回傳。
 
-Label association (the fiddly part):
+標籤關聯（比較細瑣的部分）：
 
-- Stacked above/below label lines are merged when they form one visible prompt; checkbox/radio labels stay on their own option row when adjacent options are stacked.
-- Right-edge checkbox/radio prompts can keep wrapped instruction text that finishes on the widget row while dropping dotted leader filler, line-number gutters, and following caution/instruction paragraphs with their own row prefix.
-- Left-side checkbox/radio prompts can merge directly preceding continuation lines, so labels like "check this box..." keep their setup text.
-- Narrow inline text fields can keep left-side instruction labels such as tax-classification prompts with dotted leader filler trimmed; tall multiline text fields can keep short left-side labels across wider form gutters.
-- Right-edge amount boxes with dotted leaders can expand compact markers like "1 $" or "4(a) $" back to the visible multi-line prompt.
-- Fine-grained spans are considered so adjacent same-row prompts such as "Middle Initial" and "Other Last Names Used" do not collapse onto both fields; semantically named fields avoid unrelated nearby text when no credible label is found.
+- 當上下堆疊的標籤行構成一個可見提示時會被合併；當相鄰選項是堆疊排列時，核取方塊/單選按鈕的標籤會保留在各自的選項列上。
+- 右側的核取方塊/單選按鈕提示可以保留在 widget 列上結束的換行說明文字，同時捨棄點狀引導線填充、行號欄，以及有自己列前綴的後續注意/說明段落。
+- 左側的核取方塊/單選按鈕提示可以合併緊接在前的延續行，因此像「check this box...」這類標籤能保留其鋪陳文字。
+- 窄的行內文字欄位可以保留左側說明標籤（例如已修剪點狀引導線填充的稅務分類提示）；高的多行文字欄位可以在較寬的表單間隙中保留短的左側標籤。
+- 帶有點狀引導線的右側金額框，可以把「1 $」或「4(a) $」這類緊湊標記還原回可見的多行提示。
+- 會考量更細緻的 span，讓同列相鄰的提示（例如「Middle Initial」與「Other Last Names Used」）不會同時併入兩個欄位；當找不到可信標籤時，語意命名的欄位會避開不相關的鄰近文字。
 
-## `--links` — clickable navigation
+## `--links` — 可點擊的導覽連結
 
-Papers and manuals with citation links, table-of-contents jumps, cross-references, and external URLs whose clickable regions matter to a human PDF reader. Internal links include the resolved physical target page and visible link text when available, including narrow inline links over tokens inside a wider text line.
+含有引用連結、目錄跳轉、交叉參照，以及對人類 PDF 讀者而言其可點擊區域很重要的外部 URL 的論文與手冊。內部連結會包含解析後的實體目標頁面，以及可用時的可見連結文字，包括較寬文字行中某個 token 上方的窄行內連結。
 
-## `--annotations` — comments and markup
+## `--annotations` — 註解與標記
 
-Reviewed PDFs, annotated drafts, PDFs with sticky notes, highlights, underlines, strikeouts, stamps, file-attachment icons, shape markup, ink, or other non-link annotation markup. Annotation flags such as `hidden`, `print`, or `noView` are exposed so agents can tell when markup may be print-only or not visible in a normal screen render. File-attachment annotations expose filename, description, and byte size metadata without embedding bytes in context. Shape annotations expose icon/name, border, line endpoint, polygon/polyline vertex, and ink path metadata when pdf.js provides it.
+已審閱的 PDF、已標註的草稿、含有便利貼、螢光標記、底線、刪除線、圖章、檔案附件圖示、形狀標記、手繪墨跡，或其他非連結類註解標記的 PDF。註解 flag 如 `hidden`、`print` 或 `noView` 會被揭露，讓代理能判斷標記是否僅供列印或在一般螢幕渲染中不可見。檔案附件註解會揭露檔名、描述與位元組大小中繼資料，而不會把位元組內容嵌入內容中。當 pdf.js 有提供時，形狀註解會揭露圖示/名稱、邊框、線段端點、多邊形/折線頂點與墨跡路徑中繼資料。
 
-## `--structure` — tagged-PDF accessibility structure
+## `--structure` — 已標記 PDF 的無障礙結構
 
-Accessible PDFs, government forms/reports, manuals, and any PDF where figure alt text, role hierarchy, language hints, structure bboxes, or tagged tables may explain content that native text and rendered pixels alone do not label. Tagged `Table` structures are also reconstructed as row-major `structureTables[]` grids and GFM tables. Structure bboxes use the same unrotated page-view top-left coordinates as spans/layout/image boxes. Stray control bytes in structure strings are removed.
+無障礙 PDF、政府表單/報告、手冊，以及任何圖片替代文字、角色階層、語言提示、結構 bbox 或已標記表格能說明原生文字與渲染像素單獨無法標示之內容的 PDF。已標記的 `Table` 結構也會被重建為列優先的 `structureTables[]` 格網與 GFM 表格。結構 bbox 使用與 spans/layout/影像框相同的未旋轉頁面視角、左上為原點的座標系統。結構字串中的雜散控制位元組會被移除。
 
-## Document-level feature probes
+## 文件層級功能探查
 
-For the initial `-p 1 --page-labels --outline --viewer --layers` probe, `-p 1` limits page extraction/output, not whole-document loading, parsing, or runtime; document-level fields still return. Page JavaScript stays selected-page scoped, so rerun `--viewer` with the relevant range when it matters. Use `--structure` separately for page-level tagged trees.
+對於初始的 `-p 1 --page-labels --outline --viewer --layers` 探查，`-p 1` 只限制頁面擷取/輸出，不限制整份文件的載入、解析或執行時間；文件層級欄位仍會回傳。頁面 JavaScript 仍只限於選取頁面，因此當這很重要時，請用相關頁碼範圍重新執行 `--viewer`。若要取得頁面層級的已標記結構樹，請另外使用 `--structure`。
 
-## `--page-labels` — viewer page labels
+## `--page-labels` — 檢視器頁碼標籤
 
-Long reports, specs, books, and papers where the PDF viewer shows roman front matter, section prefixes, or restarted page numbering that differs from physical page numbers.
+長篇報告、規格書、書籍與論文，其中 PDF 檢視器顯示的羅馬數字前置頁碼、章節前綴，或與實體頁碼不同、重新開始計數的頁碼編號。
 
-## `--attachments` (+ `--attachment-output <dir>`) — embedded file attachments
+## `--attachments`（+ `--attachment-output <dir>`）— 內嵌檔案附件
 
-PDFs whose viewer attachment pane or page file-attachment icons expose supplemental files; emits names, descriptions, byte sizes, and optional saved paths without dumping attachment bytes into context.
+PDF 檢視器附件面板或頁面檔案附件圖示揭露了補充檔案；會輸出檔名、描述、位元組大小與選用的儲存路徑，而不會把附件位元組內容傾印到內容中。
 
-## `--outline` — document sidebar navigation
+## `--outline` — 文件側邊欄導覽
 
-Long reports, manuals, specifications, and papers where a human PDF reader would use bookmarks / outline entries to jump between sections, external URLs, or named viewer actions such as NextPage.
+長篇報告、手冊、規格書與論文，其中人類 PDF 讀者會使用書籤/目錄項目在章節、外部 URL，或如 NextPage 這類具名檢視器動作之間跳轉。
 
-## `--viewer` — initial viewer state
+## `--viewer` — 初始檢視器狀態
 
-PDFs whose opening mode, page layout, viewer preferences, OpenAction, document/page JavaScript actions, permissions, or tagged-PDF MarkInfo affects how a human reader sees or navigates the document. A flagless run already reports non-zero document JavaScript presence through `javascriptActionCount`; use `--viewer` to expose document action names and script source, plus page-level actions.
+其開啟模式、頁面版面、檢視器偏好設定、OpenAction、文件/頁面 JavaScript 動作、權限，或已標記 PDF 的 MarkInfo 會影響人類讀者觀看或導覽文件方式的 PDF。未加任何 flag 執行時，已經會透過 `javascriptActionCount` 回報非零的文件 JavaScript 存在情況；使用 `--viewer` 可揭露文件動作名稱與腳本原始碼，以及頁面層級動作。
 
-## `--layers` — viewer layer panels
+## `--layers` — 檢視器圖層面板
 
-Maps, CAD/design PDFs, multilingual/variant documents, or any file where a human PDF reader can toggle optional content groups that may hide visible labels, overlays, or design alternatives.
+地圖、CAD/設計類 PDF、多語言/多版本文件，或任何人類 PDF 讀者可以切換 optional content group、而這些群組可能隱藏可見標籤、疊加內容或設計替代方案的檔案。
 
-## `--password <value>` / `--password-stdin` — encrypted PDFs
+## `--password <value>` / `--password-stdin` — 加密 PDF
 
-Password-protected PDFs when the user explicitly provides the document password. The password is only used for pdf.js decryption and is never emitted in output. Prefer `--password-stdin` when shell history or process argv exposure matters; `--password` can be supplied as an explicit fallback when stdin is empty. Do not guess or store passwords.
+當使用者明確提供文件密碼時，用於密碼保護的 PDF。密碼只用於 pdf.js 解密，絕不會出現在輸出中。當 shell 歷史或程序 argv 曝露是個顧慮時，優先使用 `--password-stdin`；當 stdin 為空時，可用 `--password` 作為明確的備援。不要猜測或儲存密碼。
 
-## `--geometry` — per-text-item bbox + fontSize
+## `--geometry` — 逐文字項目的 bbox + fontSize
 
-Heading detection by font-size, custom layout heuristics. Each span represents one retained positioned pdf.js text item, which may contain one character, a word, or a longer string; its bbox is the rounded aggregate axis-aligned envelope, not individual glyph outlines. Note: `--geometry` has no effect with markdown output; use `-f json` / `-f xml` / `-f toon` to see the spans. See [`pdfvision docs layout`](./layout.md) for filtering details.
+以字型大小偵測標題、自訂版面啟發式規則。每個 span 代表一個被保留的、已定位的 pdf.js 文字項目，可能包含一個字元、一個單字，或一段較長字串；其 bbox 是四捨五入後的聚合軸對齊外框，而非個別字形輪廓。注意：`--geometry` 對 markdown 輸出沒有作用；請用 `-f json` / `-f xml` / `-f toon` 才能看到 spans。篩選細節請見 [`pdfvision docs layout`](./layout.md)。
 
-## `--ocr` + `--ocr-lang` — text from pixels
+## `--ocr` + `--ocr-lang` — 從像素中取得文字
 
-Reach for it on `coverage: 0%` in the Overview, or `nonPrintableRatio >= 0.05` (native text includes glyph-index garbage). For non-English text, language order matters — primary language goes first (`jpn+eng` for Japanese-dominant, `eng+jpn` for English-dominant). Full lang combinations, confidence semantics, install/cache, and troubleshooting live in [`pdfvision docs ocr`](./ocr.md).
+適用於 Overview 中出現 `coverage: 0%`，或 `nonPrintableRatio >= 0.05`（原生文字包含字形索引亂碼）的情況。對於非英文文字，語言順序很重要——主要語言排在前面（日文為主時用 `jpn+eng`，英文為主時用 `eng+jpn`）。完整語言組合、信心分數語意、安裝/快取與疑難排解，請見 [`pdfvision docs ocr`](./ocr.md)。
 
-## `--render` + `--render-output <dir>` — hand the page to a vision model
+## `--render` + `--render-output <dir>` — 把頁面交給視覺模型
 
-Multimodal flows, typically after the density Overview already flagged the page as low-text.
+多模態流程，通常是在密度 Overview 已經把該頁標記為低文字之後使用。
 
-## `--render-scale <n>` (default 2, bounds `(0, 4]`) — shrink / enlarge the PNG
+## `--render-scale <n>`（預設 2，範圍 `(0, 4]`）— 縮小/放大 PNG
 
-1×: half-size render payload, fine for most agentic-vision dispatch; OCR still rasterises at least scale 2 for recognition quality. 3×+ captures chart / fine-print detail, and pays on a **cropped** region, on OCR input, and on PNGs a human or another tool will open. It rarely pays on a full page bound for a vision model: most downscale to roughly 1568px on the longest edge, which a scale-2 render of a standard page already reaches, so the extra pixels are discarded after they were paid for. When a full page reads too small, narrow `--render-region` and leave the scale alone — the same pixel budget then covers less area. (The MCP `render_pdf` tool enforces that ceiling itself; on the CLI the scale is yours to pick.)
+1×：一半大小的渲染輸出，對大多數代理視覺呼叫已經足夠；OCR 仍會以至少 scale 2 進行點陣化以維持辨識品質。3× 以上能捕捉圖表/小字細節，且在**裁切**區域、OCR 輸入，以及人類或其他工具會開啟的 PNG 上是值得的。但對整頁渲染交給視覺模型而言，通常不划算：大多數模型會把影像下採樣到最長邊約 1568px，標準頁面以 scale 2 渲染就已經達到這個大小，因此額外的像素在付出成本後就被丟棄了。當整頁看起來太小時，請縮小 `--render-region` 範圍，而不要調整 scale——這樣同樣的像素預算就能涵蓋更小的區域。（MCP 的 `render_pdf` 工具會自行強制這個上限；在 CLI 上，scale 由你自行選擇。）
 
-## `--render-region <x,y,w,h>` — zoom into a sub-rectangle of one page
+## `--render-region <x,y,w,h>` — 放大單一頁面的某個子矩形
 
-Use when the agent already saw a suspect block via `--layout` / `warnings[]` and only wants visual confirmation of that bbox, not the whole page. Coordinates use raw unrotated page-view units with a top-left origin; single-page only. Physical points = raw value × `pages[].userUnit` (or 1 when omitted), while pixels = raw region × UserUnit × render scale. The bbox passes unchanged. On rotated pages, pdfvision maps it through the rotated viewport, so the cropped PNG's visible width/height may be swapped.
+當代理已經透過 `--layout` / `warnings[]` 看到一個可疑區塊，只想對該 bbox 做視覺確認，而不是整頁時使用。座標使用原始未旋轉頁面視角單位，原點在左上角；僅限單一頁面。實體點數 = 原始值 × `pages[].userUnit`（省略時為 1），而像素 = 原始區域 × UserUnit × 渲染 scale。bbox 會原封不動傳遞。在旋轉頁面上，pdfvision 會透過旋轉後的 viewport 映射，因此裁切後 PNG 的可見寬/高可能會互換。
 
-## `--search <query>` — find occurrences with bbox
+## `--search <query>` — 尋找出現位置並取得 bbox
 
-Repeatable; modifiers `--search-regex` / `--search-case-sensitive`. Answers the agent's "where does this term appear?" question and returns `pages[N].matches[*]` with span/word/widget/link/annotation-level bbox so the bbox feeds straight into `--render-region` for a follow-up visual zoom — one-pipeline find-then-zoom, no second pass. At most 10,000 matches are emitted per page, query, and source. The first additional valid match produces a warning (stderr in the CLI, `onWarning` in the library API); it and later matches for that combination are dropped. Pair with `--matches-only` (v0.13.0+) for a focused report containing the file, total page/match counts, and a flat emitted-match list. It omits the full pages/body payload, but its size still grows with emitted matches and context. Markdown renders a per-page `Search matches` table only on pages that actually matched — a page where search ran and found nothing carries `matches: 0` on its density line instead. Use JSON/XML/TOON when a downstream tool needs to consume coordinates directly.
+可重複使用；修飾詞有 `--search-regex` / `--search-case-sensitive`。用於回答代理「這個詞出現在哪裡？」的問題，並回傳 `pages[N].matches[*]`，附帶 span/單字/widget/連結/註解層級的 bbox，因此該 bbox 可以直接餵給 `--render-region` 做後續的視覺放大——一次流程就能完成先找再放大，不需要第二次處理。每個頁面、查詢與來源最多輸出 10,000 個匹配。第一個超出上限的有效匹配會產生一次警告（CLI 中輸出到 stderr，函式庫 API 中則是 `onWarning`）；該次匹配以及該組合之後的匹配都會被捨棄。可搭配 `--matches-only`（v0.13.0+）取得聚焦報告，內容包含檔案、頁面/匹配總數，以及一份平面的已輸出匹配清單。它會省略完整的頁面/內文資料，但其大小仍會隨已輸出的匹配數與上下文成長。Markdown 只會在實際有匹配的頁面上渲染逐頁的 `Search matches` 表格——搜尋有執行但沒找到結果的頁面，會在其密度行上顯示 `matches: 0`。當下游工具需要直接消費座標時，請使用 JSON/XML/TOON。
 
-Match semantics:
+比對語意：
 
-- Literal substring by default, case-insensitive, NFKC-aware and C0-cleaned (so `"fi"` matches the U+FB01 ligature, and literal search matches `pages[].text` cleanup), and CJK-aware enough that `科学` can match display-spaced `科 学`.
-- Detected Japanese vertical body columns are searched top-to-bottom and right-to-left, including phrases that cross inline tatechuyoko digit fragments; `pages[].text` also joins those columns when the source stream already matches the detected top-to-bottom order, falling back per run when it does not.
-- Compact table-header rows can match phrase queries across adjacent column labels while keeping broad prose columns separated.
-- `--search-regex` runs the pattern verbatim, but each page's regex search is bounded at ~1s of regex time. A pattern that blows the budget drops that page's results — every query in the same run, not just the offending one — and warns (stderr in the CLI, `onWarning` in the library API). Catastrophic backtracking (nested quantifiers such as `(a+)+$`) is the usual cause; rewrite the pattern rather than retrying it. Literal searches are unaffected.
-- Also searches visible text/choice form field values (`source: 'formField'`; comb text widgets narrow to matching cells when available), clickable link targets (`source: 'link'`), visible FreeText annotation contents (`source: 'annotation'`), and OCR text when `--ocr` is on (`source: 'ocr'`, using OCR word boxes when present and supplementing from full `ocr.text` when word reconstruction misses one or more occurrences); duplicate OCR hits already covered by non-OCR matches are suppressed.
+- 預設為字面子字串比對、不分大小寫、支援 NFKC 並經過 C0 清理（因此 `"fi"` 能比對到 U+FB01 連字，字面搜尋也能比對到 `pages[].text` 清理後的結果），並且具備足夠的 CJK 感知能力，讓 `科学` 能比對到有間距的 `科 学`。
+- 偵測到的日文直式內文欄會由上到下、由右到左搜尋，包括跨越行內縱中橫數字片段的詞組；當來源串流已經符合偵測到的由上到下順序時，`pages[].text` 也會將這些欄合併，若不符合則會逐段個別回退處理。
+- 緊湊的表頭列可以在跨相鄰欄標籤時比對詞組查詢，同時仍將寬鬆的內文欄分開處理。
+- `--search-regex` 會逐字執行該模式，但每個頁面的正規表示式搜尋上限約為 1 秒的正規表示式時間。超出預算的模式會捨棄該頁面的結果——是同一次執行中的每個查詢都受影響，而不只是造成問題的那一個——並發出警告（CLI 中輸出到 stderr，函式庫 API 中則是 `onWarning`）。災難性回溯（例如巢狀量詞 `(a+)+$`）是常見原因；請重寫該模式，而不要重試。字面搜尋不受影響。
+- 也會搜尋可見的文字/選項表單欄位值（`source: 'formField'`；comb 文字 widget 在可用時會縮小到相符的儲存格）、可點擊連結目標（`source: 'link'`）、可見 FreeText 註解內容（`source: 'annotation'`），以及在啟用 `--ocr` 時的 OCR 文字（`source: 'ocr'`，優先使用 OCR 單字框，並在單字重建漏掉一次或多次出現時，補充使用完整的 `ocr.text`）；已被非 OCR 匹配涵蓋的重複 OCR 匹配會被抑制。
 
-Full search schema and normalization rules are in [`pdfvision docs search`](./search-and-region-zoom.md).
+完整的搜尋 schema 與正規化規則請見 [`pdfvision docs search`](./search-and-region-zoom.md)。
 
-## `--remote <url>` — use a remote PDF as the input
+## `--remote <url>` — 使用遠端 PDF 作為輸入
 
-**`--remote` places no restriction on where the URL points.** It follows redirects and will happily fetch `127.0.0.1`, RFC 1918 addresses, and `169.254.169.254` — pdfvision assumes a human typed the URL, so the network it can reach is theirs. That assumption breaks when the URL came from somewhere else: a link inside a PDF, a search result, another tool's output. Fetch those only after asking the user, because the request runs with whatever network position the process has. (The MCP server refuses private, loopback, link-local, CGNAT, and NAT64 destinations by default and re-validates every redirect hop — a deliberate difference, since there the *model* picks the URL. See [`pdfvision docs mcp`](./mcp-server.md).)
+**`--remote` 對 URL 指向的位置沒有任何限制。**它會跟隨重新導向，並且會直接嘗試存取 `127.0.0.1`、RFC 1918 位址與 `169.254.169.254`——pdfvision 假設 URL 是人類自己輸入的，因此它能觸及的網路就是那個人自己的網路。當 URL 來自別處時（PDF 內的連結、搜尋結果、另一個工具的輸出），這個假設就不成立了。在向使用者確認之前，不要擷取這類 URL，因為請求會以該程序當下所在的網路位置執行。（MCP 伺服器預設會拒絕私有、loopback、link-local、CGNAT 與 NAT64 目標，並在每一次重新導向跳轉時重新驗證——這是刻意的差異，因為在那裡是*模型*在選擇 URL。詳見 [`pdfvision docs mcp`](./mcp-server.md)。）
 
-A subcommand (`docs`, `clear-cache`, `mcp`) is recognized before any option parsing and only as the first argument; unsupported arguments passed to one exit `1` (`--help` and `--version` are still honored there), and a real file of that name must be passed as `./docs` / `./clear-cache` / `./mcp`. Option syntax is parsed next, so unknown options or missing values exit `1` even with `--help`. After parsing, terminal precedence is `--version`, then `--help`, then `--clear-cache`; these skip input and extraction-option semantic checks. Otherwise the URL is trimmed before source arbitration. Multiple positional arguments exit `1` before source presence is checked. With at most one positional argument, a nonblank remote URL cannot be combined with a non-empty positional input, while the absence of both prints usage to stderr and exits `2` before extraction, cache setup, or extraction-option semantics. With a usable source, semantic failures exit `1`; clear-cache failures also exit `1`.
+子命令（`docs`、`clear-cache`、`mcp`）只有在作為第一個參數時，才會在任何選項解析之前被辨識；傳給其中一個子命令的不支援參數會以結束碼 `1` 退出（`--help` 與 `--version` 在那裡仍然有效），若確實存在同名的實際檔案，必須以 `./docs` / `./clear-cache` / `./mcp` 傳入。接下來會解析選項語法，因此未知選項或缺少值即使搭配 `--help` 也會以結束碼 `1` 退出。解析完成後，優先順序為 `--version`、其次 `--help`、再來是 `--clear-cache`；這些會跳過輸入與擷取選項的語意檢查。否則 URL 會在來源判定之前先被去除空白。多個位置參數會在檢查來源是否存在之前以結束碼 `1` 退出。在最多一個位置參數的情況下，非空白的遠端 URL 不能與非空的位置輸入同時提供，而兩者都缺席時，會在擷取、快取設定或擷取選項語意檢查之前，把用法說明印到 stderr 並以結束碼 `2` 退出。在有可用來源的情況下，語意失敗會以結束碼 `1` 退出；clear-cache 失敗同樣以結束碼 `1` 退出。
 
-## `--no-cache` — skip the on-disk cache
+## `--no-cache` — 略過磁碟快取
 
-Forced re-extraction; remote PDF bytes also bypass their cache. OCR traineddata and worker support files still use the validated cache root, while renders without `--render-output` use separate OS-temporary paths. Default behaviour is cache-on.
+強制重新擷取；遠端 PDF 位元組也會略過其快取。OCR 的 traineddata 與 worker 支援檔案仍會使用經過驗證的快取根目錄，而未指定 `--render-output` 的渲染則會使用獨立的作業系統暫存路徑。預設行為是啟用快取。
 
-## `clear-cache` — clear the verified cache root
+## `clear-cache` — 清除經過驗證的快取根目錄
 
-A subcommand, not a flag (`--clear-cache` is a deprecated alias that warns and is removed in v1.0). Because clearing is destructive, it refuses instead of guessing when a file named `clear-cache` exists in the working directory.
+這是一個子命令，不是 flag（`--clear-cache` 是已淘汰的別名，會顯示警告，並將在 v1.0 中移除）。由於清除操作具破壞性，當工作目錄中存在名為 `clear-cache` 的檔案時，會拒絕執行而不是自行猜測。
 
-`PDFVISION_CACHE_DIR`, when set, must be a nonblank **absolute** path to a **dedicated** directory; anything else is refused at setup.
+當設定了 `PDFVISION_CACHE_DIR` 時，它必須是指向**專用**目錄的非空白**絕對**路徑；其他情況都會在設定階段被拒絕。
 
-Recursive clearing requires the owned `.pdfvision-cache-root` marker. It never adopts an unmarked custom root. The active historical default may be adopted only when no `PDFVISION_CACHE_DIR` override is set and every top-level entry matches a recognized legacy cache shape, with a second scan after hardening. On POSIX, unmarked group/other-writable roots are refused, and setup/clear requires ancestors to be readable/openable by the process, current-user/root-owned, and non-group/other-writable unless sticky semantics protect the owned child.
+遞迴清除需要擁有者身分的 `.pdfvision-cache-root` 標記。它絕不會採用未標記的自訂根目錄。只有在未設定 `PDFVISION_CACHE_DIR` override、且每個頂層項目都符合已知的舊版快取形狀時，才可能採用目前的歷史預設根目錄，並在權限強化後再做第二次掃描。在 POSIX 上，未標記且具有 group/other 寫入權限的根目錄會被拒絕；設定/清除操作要求所有祖先目錄必須可被程序讀取/開啟、由目前使用者或 root 擁有，且非 group/other 可寫，除非有 sticky 語意保護該擁有的子項目。
 
-Clear first renames the root to a sibling quarantine. On POSIX it then refuses recursive removal if any descendant has a different device identity (`st_dev`); the original pathname has already moved, and same-device bind mounts are not detectable by this check. Immediate identity rechecks resist replacement under conventional POSIX uid/mode/sticky semantics, but extended ACLs or network-filesystem permissions are not inspected, and root or same-UID replacement after the final check cannot be excluded. Windows marker and identity checks are best effort. Clear is not coordinated with active OCR; an interrupted OCR run may need to be retried.
+清除操作會先把根目錄改名為同層的 quarantine 目錄。在 POSIX 上，若任何子項目的裝置識別（`st_dev`）不同，接下來就會拒絕遞迴移除；此時原始路徑名稱已經被移動，而同裝置的 bind mount 無法被此檢查偵測到。即時的身分重新檢查能在傳統 POSIX uid/mode/sticky 語意下抵禦替換攻擊，但不會檢查擴充 ACL 或網路檔案系統權限，也無法排除最終檢查之後由 root 或相同 UID 進行替換的可能性。Windows 上的標記與身分檢查僅為 best effort。清除操作不會與執行中的 OCR 協調；被中斷的 OCR 執行可能需要重試。
 
-## Furigana / ruby handling (automatic, no flag)
+## 振假名/注音標示處理（自動，無需 flag）
 
-On Japanese and Chinese annotated-reading pages, furigana/ruby is attached inline as `base《ruby》` when pdfvision can associate the smaller kana or pinyin-shaped run with an unambiguous CJK base range. This covers adjacent half-size ruby columns in vertical body text, smaller kana above horizontal CJK base text, and pinyin-shaped Latin readings above horizontal CJK base text. Ambiguous or unassociated ruby stays excluded so the body flow remains readable rather than guessed, and search uses both ruby-inclusive and ruby-stripped text so base-word queries still match through `《...》` annotations. Short medium-size note-reference marks in the right gutter of a vertical body column are also excluded from reconstructed body text/layout so they do not split the column. Context-supported short body-sized vertical runs with ellipsis leaders are joined with the surrounding vertical body flow. Inline tatechuyoko digit groups such as `10` are kept inside the surrounding vertical column when the source stream order agrees with the top-to-bottom geometry. `--geometry` still exposes the retained source text-item spans for inspection.
+在附有注音/振假名的日文與中文頁面上，當 pdfvision 能把較小的假名或拼音形狀的文字段落，關聯到一個明確的 CJK 基底範圍時，會以 `base《ruby》` 的形式將其內嵌附加。這涵蓋了直式內文中相鄰的半形注音欄、橫式 CJK 基底文字上方的較小假名，以及橫式 CJK 基底文字上方拼音形狀的拉丁文注音。含糊或無法關聯的注音會被排除在外，讓內文流保持可讀，而不是用猜測的方式處理；搜尋同時使用含注音與去除注音兩種文字，因此基底詞查詢仍能比對到 `《...》` 標註的內容。直式內文欄右側邊欄中，中等大小的短註釋參照標記也會被排除在重建的內文/版面之外，以免打斷該欄。有周圍內容支撐、帶省略號引導線的內文級短直式段落，會與周圍的直式內文流合併。當來源串流順序與由上到下的幾何一致時，像 `10` 這類行內縱中橫數字群組會保留在周圍的直式欄內。`--geometry` 仍會揭露被保留的來源文字項目 span 供檢查。

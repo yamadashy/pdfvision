@@ -1,6 +1,6 @@
 ---
-title: "Output Formats"
-description: "How -f json, -f toon, and -f xml differ as contracts, the XML tag projection with its escaping markers, and the TOON encoding. Use when parsing XML or TOON instead of JSON."
+title: "输出格式"
+description: "-f json、-f toon 和 -f xml 作为契约有何不同、带转义标记的 XML 标签映射，以及 TOON 编码方式。在解析 XML 或 TOON 而非 JSON 时使用。"
 sourceHash: 095d3b21d633
 ---
 
@@ -8,18 +8,18 @@ sourceHash: 095d3b21d633
      Translate the prose, keep code, field names, flags, and warning codes verbatim, and update
      `sourceHash` to the value reported by `node scripts/build-site-reference.mjs`. -->
 
-# XML and TOON output shapes
+# XML 与 TOON 输出结构
 
-Format contracts differ:
+不同格式的契约并不相同：
 
-- `-f json` serializes the exported `DocumentResult`. JSON-style paths in this reference are exact for JSON and `processDocument()`.
-- Every emitted `-f toon` payload decodes with `@toon-format/toon` to exactly `JSON.parse(formatJson(result))`; unset `undefined` fields stay absent. The same JSON-style paths are exact after decoding. TOON's grammar cannot losslessly represent an unpaired UTF-16 surrogate across UTF-8, so pdfvision rejects that edge case and directs callers to `-f json`. Valid surrogate pairs and literal `\uD800` text are unaffected.
-- `-f xml` is a tag-shaped near-parity **presentation projection**, not a reversible `DocumentResult` serialization. It maps names, nesting, and presence as documented under "XML output shape". XML-1.0-forbidden code units become `[[pdfvision:U+XXXX]]`; a literal `[[pdfvision:` prefix becomes `[[pdfvision:literal:` so markers never collide with source text. To recover the source string after XML parsing, make one left-to-right pass: emit a literal prefix for `[[pdfvision:literal:` without scanning that emitted prefix again, and decode each generated `[[pdfvision:U+XXXX]]` marker to its UTF-16 code unit.
-- Markdown is a reading presentation with deliberate transformations and omissions; it is not a structured-schema carrier. `rawText` is never emitted, so Markdown carries only the normalized string; `--strip-repeated` additionally drops `repeated` layout blocks from the body, while JSON/TOON keep `repeated: true` and XML keeps `<block repeated="true">`.
+- `-f json` 序列化导出的 `DocumentResult`。本参考文档中的 JSON 风格路径，对 JSON 和 `processDocument()` 都是精确的。
+- 每一份 `-f toon` 输出都可以用 `@toon-format/toon` 解码，得到与 `JSON.parse(formatJson(result))` 完全一致的结果；未设置的 `undefined` 字段保持缺失。解码后同样的 JSON 风格路径依然精确。TOON 的语法无法在 UTF-8 中无损表示未配对的 UTF-16 代理项，因此 pdfvision 会拒绝这种边界情况，并引导调用方改用 `-f json`。合法的代理对和字面量 `\uD800` 文本不受影响。
+- `-f xml` 是一种标签形式的近似映射**呈现投影**，而不是可逆的 `DocumentResult` 序列化。它按照下面“XML 输出结构”一节所记录的方式映射名称、嵌套关系和字段存在性。XML 1.0 中禁止的码位会变成 `[[pdfvision:U+XXXX]]`；字面量前缀 `[[pdfvision:` 会被转义为 `[[pdfvision:literal:`，这样标记就不会与源文本冲突。要在 XML 解析后还原源字符串，需做一次从左到右的扫描：遇到 `[[pdfvision:literal:` 时输出字面量前缀本身、且不再重复扫描这段已输出的前缀，并把每个生成的 `[[pdfvision:U+XXXX]]` 标记解码为对应的 UTF-16 码元。
+- Markdown 是一种带有刻意转换与省略的阅读呈现形式，不是结构化 schema 的载体。`rawText` 永远不会被输出，因此 Markdown 只携带归一化后的字符串；`--strip-repeated` 还会把 `repeated` 布局块从正文中移除，而 JSON/TOON 会保留 `repeated: true`，XML 则保留 `<block repeated="true">`。
 
-## XML output shape
+## XML 输出结构
 
-`-f xml` is a tag-shaped near-parity projection. Key mappings are `page` → `no`, `pageLabel` → `label`, and nested `quality.nativeTextStatus` / `quality.visualStatus` → flattened page attributes. Page-result `rotation` is a `<pages><page rotation="...">` attribute; overview rotation is currently omitted. `rawText` is a sibling `<rawText>` element, a repeated layout marker is `<block repeated="true">`, and top-level JSON/TOON `xfa: true` becomes `<document xfa="true">`. Empty values can be omitted or represented by self-closing tags, so XML field presence is not identical to JSON/TOON. In every text node and string attribute, an XML-1.0-forbidden UTF-16 code unit is represented as `[[pdfvision:U+XXXX]]`; an original `[[pdfvision:` prefix is escaped as `[[pdfvision:literal:`. This keeps the XML well-formed and the marker representation non-colliding.
+`-f xml` 是一种标签形式的近似映射投影。关键映射包括 `page` → `no`、`pageLabel` → `label`，以及嵌套的 `quality.nativeTextStatus` / `quality.visualStatus` → 展平后的页面属性。页面结果的 `rotation` 是 `<pages><page rotation="...">` 属性；overview 中的 rotation 目前会被省略。`rawText` 是一个同级的 `<rawText>` 元素，重复布局标记是 `<block repeated="true">`，顶层 JSON/TOON 中的 `xfa: true` 会变成 `<document xfa="true">`。空值可以被省略，也可以用自闭合标签表示，因此 XML 中字段的存在性与 JSON/TOON 并不完全一致。在每个文本节点和字符串属性中，XML 1.0 禁止的 UTF-16 码元会表示为 `[[pdfvision:U+XXXX]]`；原本就存在的 `[[pdfvision:` 前缀会被转义为 `[[pdfvision:literal:`。这样既能保持 XML 良构，又能避免标记与源文本冲突。
 
 ```xml
 <document file="..." totalPages="14" javascriptActionCount="..." outlineCount="..." xfa="true">
@@ -73,10 +73,10 @@ Format contracts differ:
 </document>
 ```
 
-Empty `<pageLabels/>`, `<attachments/>`, `<outline/>`, `<viewer/>`, `<layers/>`, `<layout/>`, `<imageBoxes/>`, `<vectorBoxes/>`, `<visualRegions/>`, `<formFields/>`, `<links/>`, `<annotations/>`, `<structure/>`, and `<ocr/>` (self-closing) mean "the pass ran and found nothing", which is distinct from the tag being absent (the pass wasn't requested).
-## TOON output shape
+空的 `<pageLabels/>`、`<attachments/>`、`<outline/>`、`<viewer/>`、`<layers/>`、`<layout/>`、`<imageBoxes/>`、`<vectorBoxes/>`、`<visualRegions/>`、`<formFields/>`、`<links/>`、`<annotations/>`、`<structure/>` 和 `<ocr/>`（自闭合）表示“该处理流程运行过但没有发现任何内容”，这与标签整个缺失（表示该处理流程未被请求）是两回事。
+## TOON 输出结构
 
-`-f toon` encodes the JSON data model as [Token-Oriented Object Notation](https://toonformat.dev): YAML-style indentation for nested objects and lists, plus a CSV-like tabular form for arrays whose entries are objects with the same fields. Eligible arrays declare the fields once in a `[N]{fields}:` header and then stream one comma-delimited row per element; a uniformly-shaped nested object folds into the header as a `{parent{child}}` group. Arrays whose entries' fields differ because optional values are present on only some entries, contain array-valued fields, or nest objects with differing shapes stay in list form. Every emitted TOON payload decodes to exactly `JSON.parse(formatJson(result))`; optional `undefined` fields are absent rather than becoming `null`. An unpaired UTF-16 surrogate is rejected with a JSON-fallback error because TOON cannot represent it losslessly across UTF-8.
+`-f toon` 将 JSON 数据模型编码为 [Token-Oriented Object Notation](https://toonformat.dev)：嵌套对象和列表使用类似 YAML 的缩进，而条目字段相同的对象数组则使用类似 CSV 的表格形式。符合条件的数组会在一个 `[N]{fields}:` 表头中声明一次字段，随后逐个元素以逗号分隔的行流式输出；形状一致的嵌套对象会折叠进表头，形成 `{parent{child}}` 这样的分组。如果数组条目的字段因为只有部分条目存在可选值、包含数组类型字段，或嵌套了形状不同的对象而彼此不同，就会保持列表形式。每一份输出的 TOON payload 都能解码为与 `JSON.parse(formatJson(result))` 完全一致的结果；可选的 `undefined` 字段会缺失，而不会变成 `null`。未配对的 UTF-16 代理项会被拒绝并回退为 JSON 报错，因为 TOON 无法在 UTF-8 中无损表示它。
 
 ```text
 file: /path/doc.pdf
@@ -106,4 +106,4 @@ pages[2]:
             ...
 ```
 
-Decode with the `@toon-format/toon` package (`decode(toonString)`). Normal `overview[]` tabularizes with its nested `quality` folded into the header (`quality{nativeTextStatus}`). Arrays such as `spans[]` or per-block `lines[]` can tabularize only when every entry has the same fields; differing optional fields keep the array in list form. Free text bodies do not compress through tabularization. The benefit depends on each document's structure and selected options, so compare formats on your own documents.
+使用 `@toon-format/toon` 包解码（`decode(toonString)`）。常规的 `overview[]` 会被表格化，其嵌套的 `quality` 会折叠进表头（`quality{nativeTextStatus}`）。像 `spans[]` 或逐块的 `lines[]` 这样的数组，只有当每个条目字段都相同时才能表格化；可选字段不一致时，数组会保持列表形式。自由文本正文不会因表格化而被压缩。收益大小取决于每份文档的结构和所选选项，因此请在自己的文档上比较各格式的效果。

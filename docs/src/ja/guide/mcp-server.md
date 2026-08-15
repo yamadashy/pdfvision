@@ -1,6 +1,6 @@
 ---
-title: "MCP Server"
-description: "Configuring and calling the MCP server: the three tools, response budgets, refs, and how it differs from the CLI. Only needed for shell-less hosts."
+title: "MCP サーバー"
+description: "MCP サーバーの設定と呼び出し方: 3 つのツール、レスポンス予算、ref、CLI との違いについて説明します。シェルを持たないホストでのみ必要です。"
 sourceHash: 09ac8a401dcc
 ---
 
@@ -8,55 +8,55 @@ sourceHash: 09ac8a401dcc
      Translate the prose, keep code, field names, flags, and warning codes verbatim, and update
      `sourceHash` to the value reported by `node scripts/build-site-reference.mjs`. -->
 
-# MCP server reference
+# MCP サーバーリファレンス
 
-`pdfvision mcp` serves the same extraction over the Model Context Protocol on stdio. Read this only when you are asked to **set pdfvision up for another host**, or when you are yourself operating through the MCP tools rather than a shell.
+`pdfvision mcp` は、同じ抽出処理を Model Context Protocol 経由で stdio 上に提供します。**pdfvision を別のホストにセットアップする**よう頼まれたとき、またはシェルではなく MCP ツールを通じて自分自身が操作するときにだけ読んでください。
 
-**If you have a shell, use the CLI.** Everything below is a narrower surface over the same `core/` code, and MCP tool schemas sit in the host's context for the whole session — the CLI plus this skill costs nothing until it is used. This file exists because "install pdfvision into Claude Desktop / Cursor / Cline / Zed / n8n" is a task you may be handed, not because MCP is the better path for you.
+**シェルがあるなら CLI を使ってください。** 以下の内容はすべて、同じ `core/` のコードに対するより狭いサーフェスであり、MCP ツールのスキーマはセッションを通じてホストのコンテキストに常駐します。CLI とこのスキルは、使われるまでコストがかかりません。このファイルが存在するのは、「pdfvision を Claude Desktop / Cursor / Cline / Zed / n8n にインストールする」というタスクを任される場合があるからであって、MCP があなたにとってより良い経路だからではありません。
 
-## Setup
+## セットアップ
 
-The server is a subcommand of the main binary, not a separate package:
+サーバーは独立したパッケージではなく、メインバイナリのサブコマンドです。
 
 ```json
 { "mcpServers": { "pdfvision": { "command": "npx", "args": ["-y", "pdfvision", "mcp"] } } }
 ```
 
-`pdfvision mcp` takes no arguments. It speaks JSON-RPC on stdout, so anything the process would otherwise log is redirected to stderr.
+`pdfvision mcp` は引数を取りません。stdout 上で JSON-RPC を話すため、本来ならログに出力される内容はすべて stderr にリダイレクトされます。
 
-## The three tools
+## 3 つのツール
 
-| Tool | Returns |
+| ツール | 返すもの |
 |---|---|
-| `read_pdf` | Text as Markdown. Parameters: `source`, `pages`, `ocr`, `attachment`, `password`. |
-| `search_pdf` | Flat hit list — page, origin, context, region, and a short `ref` per match. Parameters: `source`, `query`, `pages`, `regex`, `password`. |
-| `render_pdf` | Page or region PNGs as image blocks, each preceded by a `Page N:` label. Parameters: `source`, `pages`, `ref`, `region`, `password`. |
+| `read_pdf` | Markdown 形式のテキスト。パラメータ: `source`、`pages`、`ocr`、`attachment`、`password`。 |
+| `search_pdf` | フラットな一致リスト — 一致ごとに、ページ、origin、context、region、短い `ref`。パラメータ: `source`、`query`、`pages`、`regex`、`password`。 |
+| `render_pdf` | ページまたは領域の PNG を画像ブロックとして返し、それぞれの前に `Page N:` ラベルが付く。パラメータ: `source`、`pages`、`ref`、`region`、`password`。 |
 
-`source` takes a local path **or** an `http(s)` URL — there is no separate remote parameter. `ocr` is a Tesseract language string with the primary language first (`"eng"`, `"jpn+eng"`), not a boolean; omit it to use the PDF's own text layer, and reach for it on the pages the document map or a quality report calls empty or garbled — `read_pdf(pages: "31", ocr: "jpn+eng")`.
+`source` はローカルパス**または** `http(s)` の URL を取ります。別のリモート用パラメータはありません。`ocr` は真偽値ではなく、主要言語を先頭に置いた Tesseract の言語文字列です（`"eng"`、`"jpn+eng"`）。省略すると PDF 自身のテキストレイヤーを使い、document map や品質レポートが空または文字化けと判定したページで使います。例: `read_pdf(pages: "31", ocr: "jpn+eng")`。
 
-## Differences from the CLI that will surprise you
+## 意外に思うかもしれない CLI との違い
 
-- **No format, include, scale, or cache parameter.** Anything pdfvision can decide from the document, the server decides. `read_pdf` always runs layout, form fields, links, and annotations, and simply omits the sections that found nothing. On a blank form the field table collapses to a count and a type breakdown (`_23 fillable fields on this page, none filled (15 text, 8 checkbox)._`) — filled values, checked boxes, scripted widgets, and hidden/locked ones still get a row each. Do not look for a flag equivalent; there is not one.
-- **`read_pdf` without `pages` on a document over 20 pages returns a document map, not the body** — page count, outline, per-page native-text quality and warning codes collapsed into page ranges, plus the specific calls to make next. This is the normal first call on an unknown document.
-- **Responses are budgeted** (30,000 chars per body, 12,000 per page, 100 matches, 4 rendered pages, 5 OCR pages, 6 MB of images). Every truncation names the exact follow-up call, so a clipped result is recoverable, never silently complete.
-- **Refs replace coordinates.** `search_pdf` and a full-page `render_pdf` hand back short handles (`p47m1`, `p5r2`). Pass one straight back as `render_pdf(ref: "p47m1")` instead of transcribing a bbox. Refs are renumbered from `p1m1` by *every* call, so one held over from an earlier search now points at the newer result — `render_pdf` echoes what the ref resolved to (`Ref p1m1 → search hit for …`) so a stale one is visible. When in doubt, re-run the search. A match ref crops to the table row the hit sits in, or to its visual line when the page has no detected table, so a row's values are inside the image rather than just its label. Where the page's layout does not cover the hit — an OCR-sourced match, a scanned page with no reconstructed lines — the crop falls back to a fixed pad around the glyph box, which on a wide row can still be too narrow to read; pass an explicit `region` there.
-- **No scale knob.** Renders are fitted to 1568 px on the longest edge, past which vision models downsample anyway. If a render is too small to read, the fix is a smaller `region`, not a bigger raster.
-- **Every successful result leads with an untrusted-data banner.** The server cannot assume its host carries equivalent standing instructions, so the trust boundary travels with the payload. Error results do not carry it and can still quote the document — see [`pdfvision docs security`](./security-and-privacy.md).
+- **format、include、scale、cache に相当するパラメータはありません。** pdfvision が文書から判断できることは、すべてサーバー側が判断します。`read_pdf` は常に layout、form fields、links、annotations を実行し、何も見つからなかったセクションは単に省略します。空のフォームでは、フィールドテーブルは件数と種別の内訳（`_23 fillable fields on this page, none filled (15 text, 8 checkbox)._`）に折り畳まれます — 値が入ったもの、チェック済みのもの、スクリプト付きウィジェット、隠れている/ロックされているものは、それぞれ引き続き 1 行ずつ表示されます。フラグの相当品を探さないでください。存在しません。
+- **20 ページを超える文書に対して `pages` なしで `read_pdf` を呼ぶと、本文ではなく document map が返ります** — ページ数、outline、ページごとのネイティブテキスト品質と警告コードをページ範囲にまとめたもの、そして次に行うべき具体的な呼び出しです。これは、未知の文書に対する最初の呼び出しとして通常想定されるものです。
+- **レスポンスには予算があります**（本文あたり 30,000 文字、ページあたり 12,000 文字、一致 100 件、レンダリングページ 4 枚、OCR ページ 5 枚、画像 6 MB）。切り詰めが発生した場合は、必ず次に行うべき正確な呼び出しが名指しされるため、切り詰められた結果であっても回復可能で、静かに「完全」を装うことはありません。
+- **座標の代わりに ref を使います。** `search_pdf` と、ページ全体を対象にした `render_pdf` は、短いハンドル（`p47m1`、`p5r2`）を返します。bbox を書き写す代わりに、それをそのまま `render_pdf(ref: "p47m1")` として渡してください。ref は*どの*呼び出しでも `p1m1` から採番し直されるため、以前の検索から持ち越した ref は新しい結果を指すようになります — `render_pdf` はその ref が何に解決されたかを反映する（`Ref p1m1 → search hit for …`）ため、古い ref であることが見て取れます。迷ったら検索をやり直してください。一致の ref は、そのヒットが属する表の行にクロップされ、ページに検出された表がない場合はその視覚的な行にクロップされます。そのため、行の値はラベルだけでなく画像内に収まります。ページのレイアウトがヒットをカバーしていない場合 — OCR 由来の一致や、再構成された行のないスキャンページなど — クロップはグリフボックス周囲の固定パディングにフォールバックし、幅の広い行では読み取るには狭すぎることがあります。その場合は明示的に `region` を渡してください。
+- **scale のつまみはありません。** レンダリングは長辺 1568 px に合わせて調整されます。これを超えても、どのみち vision model がダウンサンプルするためです。レンダリングが読み取るには小さすぎる場合、直すべきは `region` を小さくすることであって、ラスターを大きくすることではありません。
+- **成功したすべての結果は、信頼できないデータであることを示すバナーで始まります。** サーバーは、ホスト側が同等の常設指示を持っていると仮定できないため、信頼境界がペイロードとともに移動します。エラー結果にはこのバナーは付きませんが、それでも文書を引用することがあります — [`pdfvision docs security`](./security-and-privacy.md) を参照してください。
 
-## Embedded files
+## 添付ファイル
 
-`read_pdf(attachment: "invoice.xml")` — or a 1-based index — returns the embedded file instead of the pages. It matters because in e-invoices and regulatory filings (Factur-X, ZUGFeRD, XBRL) **the attachment is the authoritative data and the pages are only its rendering**; answering from the pages there is answering from a picture of the truth. Any response that reports attachments names this call.
+`read_pdf(attachment: "invoice.xml")` — または 1 始まりのインデックス — は、ページの代わりに埋め込みファイルを返します。これが重要なのは、電子インボイスや規制上の申告書類（Factur-X、ZUGFeRD、XBRL）では、**添付ファイルこそが正式なデータであり、ページはその表示にすぎない**ためです。そこでページから答えるのは、真実を写した絵から答えるようなものです。添付ファイルについて報告する応答は、必ずこの呼び出しを名指しします。
 
-Text attachments come back inline, images as image blocks. Anything else — spreadsheets, archives — is refused with a pointer to `--attachments --attachment-output <dir>`, because delivering those bytes into a context window accomplishes nothing. That is the one place the MCP surface genuinely needs the CLI.
+テキストの添付ファイルはインラインで返り、画像は画像ブロックとして返ります。それ以外 — スプレッドシートやアーカイブなど — は、`--attachments --attachment-output <dir>` へのポインタとともに拒否されます。そのバイト列をコンテキストウィンドウに届けても何も達成しないためです。ここが、MCP サーフェスが本当に CLI を必要とする唯一の場所です。
 
-## Remote input is guarded
+## リモート入力は保護されています
 
-Unlike the CLI's `--remote`, the MCP server refuses URLs that resolve to private, loopback, link-local, CGNAT, NAT64, or IPv4-mapped/-compatible addresses, and re-validates every redirect hop. The reason is that the *model* chooses the URL here, which would otherwise make the server an SSRF pivot into whatever network it runs on.
+CLI の `--remote` とは異なり、MCP サーバーは private、loopback、link-local、CGNAT、NAT64、または IPv4-mapped/-compatible アドレスに解決される URL を拒否し、すべてのリダイレクトホップを再検証します。理由は、ここでは URL を選ぶのが*モデル*であり、そうでなければサーバーが、それが動作しているどんなネットワークへの SSRF の踏み台にもなりかねないからです。
 
-For an intranet document store, set `PDFVISION_MCP_ALLOW_PRIVATE_NETWORK=1`. Known limitation, documented at the call site: the address validated is not pinned for the fetch, so a DNS answer that changes between validation and connection is not covered.
+イントラネットの文書ストアには、`PDFVISION_MCP_ALLOW_PRIVATE_NETWORK=1` を設定してください。既知の制約として、呼び出し箇所に文書化されているとおり、検証されたアドレスは fetch のために固定されないため、検証と接続の間で DNS の応答が変わるケースはカバーされません。
 
-## Errors
+## エラー
 
-Tool failures come back as in-band error results with a recovery instruction, not as protocol errors — an out-of-range page selector, an OCR request over the 5-page budget, an unknown ref, a malformed `region`, or an encrypted PDF all tell the caller what to do instead. Read the message; it names the next call. Encryption is reported as two distinct failures because the recovery differs: no password given (retry with `password`) versus a wrong one (retry with a different value).
+ツールの失敗は、プロトコルエラーとしてではなく、回復手順を伴うインバンドのエラー結果として返ります。範囲外のページ指定、5 ページの予算を超える OCR リクエスト、未知の ref、不正な `region`、暗号化された PDF はいずれも、代わりに何をすべきかを呼び出し側に伝えます。メッセージを読めば、次に行うべき呼び出しが名指しされています。暗号化については、回復方法が異なるため 2 つの別々の失敗として報告されます。パスワードが与えられていない場合（`password` を付けて再試行）と、誤ったパスワードの場合（別の値で再試行）です。
 
-`search_pdf` also relays core search warnings in the response body: a regex that exceeds the ~1s per-page time budget drops that page's results and says so, which is what keeps its "0 matches" from reading as evidence of absence. The same response names any searched pages whose native text is missing or corrupted — a miss there is not evidence of absence either, and the note points at `read_pdf` with `ocr` or `render_pdf` for those pages.
+`search_pdf` は、コアの検索警告もレスポンス本文で伝えます。ページあたり約 1 秒の時間予算を超える正規表現は、そのページの結果を破棄してその旨を伝えます。これにより、「0 件の一致」が不在の証拠であるかのように読めてしまうことを防いでいます。同じレスポンスは、ネイティブテキストが欠落または壊れている検索対象ページも名指しします。そこでの見落としもまた不在の証拠ではなく、注記はそれらのページについて `ocr` 付きの `read_pdf` または `render_pdf` を指し示します。

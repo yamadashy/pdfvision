@@ -1,6 +1,6 @@
 ---
-title: "Document Features"
-description: "Document-level output shapes: --structure tagged trees and tables, --page-labels, --attachments, --outline, --viewer state, and --layers. Use when navigation, accessibility tags, embedded files, or optional content matter."
+title: "文件功能"
+description: "文件層級輸出格式：--structure 標記樹與表格、--page-labels、--attachments、--outline、--viewer 狀態，以及 --layers。當導覽、無障礙標記、嵌入檔案或選用內容有影響時使用。"
 sourceHash: d215b9d959bd
 ---
 
@@ -8,11 +8,11 @@ sourceHash: d215b9d959bd
      Translate the prose, keep code, field names, flags, and warning codes verbatim, and update
      `sourceHash` to the value reported by `node scripts/build-site-reference.mjs`. -->
 
-# Document-level features
+# 文件層級功能
 
-Reference for `-f json`, `-f xml`, and `-f toon` consumers.
+供 `-f json`、`-f xml` 與 `-f toon` 使用者參考。
 
-## Structure (`--structure`)
+## 結構（`--structure`）
 
 ```ts
 interface PageStructureNode {
@@ -41,13 +41,13 @@ interface PageStructureTableCell {
 }
 ```
 
-`pages[].structure` surfaces the tagged-PDF structure tree a human reader may reach through a PDF viewer's accessibility layer. This is especially useful for accessible government PDFs, manuals, reports, and forms where figure `alt` text describes a visual region better than native text extraction. IRS instructions, for example, can expose a cover figure's full human-written description through `alt` even though the native text stream only lists fragments. Structure `bbox` values use `[x, y, width, height]` in the same unrotated page-view top-left system as `spans`, `layout.blocks`, and `imageBoxes`. Stray control bytes in structure strings are removed before output so malformed `alt` / `lang` values do not leak NUL bytes into JSON, XML, Markdown, or TOON. `structure: null` means the pass ran and pdf.js found no page structure tree; absent `structure` means `--structure` was not requested. `overview[].structureNodeCount` mirrors the number of structure nodes so multi-page consumers can find tagged pages before walking every tree.
+`pages[].structure` 會呈現標記式 PDF（tagged-PDF）結構樹，也就是人類讀者可透過 PDF 檢視器的無障礙功能層存取的結構。這對於具備無障礙標記的政府 PDF、手冊、報告與表單特別有用，因為圖片的 `alt` 文字往往比原生文字擷取更能描述視覺區域。舉例來說，IRS（美國國稅局）的說明文件可以透過 `alt` 呈現封面圖片完整的人工撰寫描述，即使原生文字串流只列出片段內容。結構的 `bbox` 值採用 `[x, y, width, height]`，座標系統與 `spans`、`layout.blocks`、`imageBoxes` 相同，都是未旋轉的頁面檢視、左上角原點系統。結構字串中的雜散控制位元組（control bytes）會在輸出前移除，避免格式不良的 `alt` / `lang` 值把 NUL 位元組洩漏進 JSON、XML、Markdown 或 TOON。`structure: null` 代表這個處理階段已執行，但 pdf.js 沒有找到頁面結構樹；`structure` 欄位不存在則代表未要求 `--structure`。`overview[].structureNodeCount` 會鏡射結構節點數量，讓處理多頁文件的使用者可以在走訪每一棵樹之前，先找出有標記的頁面。
 
-`pages[].structureTables` reconstructs `Table` roles by correlating structure content ids with marked-content ids from the already-loaded text stream. It supports `THead` / `TBody` / `TFoot` wrappers and direct `TR` children. A `TH` in `TBody` is a row header; other wrapped `TH` cells are column headers. For bare rows, `TH` cells are row headers unless the first row is entirely `TH`, in which case that row is classified as column headers. Empty tagged cells remain empty strings. Paragraphs inside a cell join with `<br>`, while nested tables are flattened into the parent cell text. pdf.js does not expose table spans or explicit `/Scope`, so `RowSpan` / `ColSpan` cannot be represented and header direction is heuristic. Tables split across pages are not merged. The field is absent when no tagged `Table` exists; it is independent of geometry-derived `layout.tables[]`, so requesting both `--layout` and `--structure` can show the same visible table twice.
-## Page labels (`--page-labels`)
+`pages[].structureTables` 會透過比對結構內容 id 與已載入文字串流中的標記內容（marked-content）id，重建 `Table` 角色。它支援 `THead` / `TBody` / `TFoot` 包裝元素，也支援直接作為子節點的 `TR`。位於 `TBody` 中的 `TH` 是列標頭（row header）；其他被包裝的 `TH` 儲存格則是欄標頭（column header）。對於沒有包裝的列，`TH` 儲存格預設視為列標頭，除非整列都是 `TH`，這時該列會被歸類為欄標頭。空的標記儲存格會保留為空字串。同一儲存格內的多個段落以 `<br>` 連接，巢狀表格則會被攤平併入父儲存格文字。pdf.js 並未提供表格的合併範圍（span）或明確的 `/Scope`，因此無法表示 `RowSpan` / `ColSpan`，標頭方向的判斷屬於啟發式推測。跨頁分割的表格不會被合併。當文件中沒有標記的 `Table` 時，此欄位會不存在；它與依幾何位置推導的 `layout.tables[]` 彼此獨立，因此同時要求 `--layout` 與 `--structure` 可能會讓同一個可見表格出現兩次。
+## 頁碼標籤（`--page-labels`）
 
-`pageLabels[]` is the full viewer page-label array for the source PDF, indexed from physical page 1 at array index 0. `pages[].pageLabel` and `overview[].pageLabel` mirror the selected page's entry when the PDF defines labels. Use this when a PDF viewer shows front matter as `i`, `ii`, ... and restarts body numbering at `1`, or when sections use prefixes such as `A-1`. The CLI page selector still uses physical page numbers; `pageLabel` tells the agent what a human sees in the viewer chrome.
-## Attachments (`--attachments`)
+`pageLabels[]` 是來源 PDF 完整的檢視器頁碼標籤陣列，索引從實體第 1 頁對應到陣列索引 0。當 PDF 定義了頁碼標籤時，`pages[].pageLabel` 與 `overview[].pageLabel` 會鏡射所選頁面對應的項目。適用於 PDF 檢視器把前置內容顯示為 `i`、`ii`……並在正文重新從 `1` 開始編號，或章節使用 `A-1` 這類前綴的情況。CLI 的頁面選擇器仍然使用實體頁碼；`pageLabel` 則是告訴代理人類在檢視器介面上實際看到的頁碼。
+## 附件（`--attachments`）
 
 ```ts
 interface DocumentAttachment {
@@ -59,8 +59,8 @@ interface DocumentAttachment {
 }
 ```
 
-`attachments[]` surfaces embedded file attachments that a human PDF viewer exposes in its attachment pane or as page file-attachment icons. The attachment bytes are intentionally not included in JSON/XML/Markdown/TOON output; use the metadata as a signal that the PDF contains supplemental files without flooding agent context with arbitrary binary content. Pass `--attachment-output <dir>` with `--attachments` when the agent needs actual files on disk; pdfvision writes them under a per-PDF fingerprint subdirectory and fills `attachments[].path`.
-## Outline (`--outline`)
+`attachments[]` 會呈現內嵌檔案附件，也就是人類 PDF 檢視器在附件面板或頁面檔案附件圖示中顯示的內容。附件的位元組資料刻意不包含在 JSON/XML/Markdown/TOON 輸出中；請把中繼資料當作「這份 PDF 含有補充檔案」的訊號，而不會用任意二進位內容塞爆代理的 context。當代理需要磁碟上的實際檔案時，搭配 `--attachments` 傳入 `--attachment-output <dir>`；pdfvision 會把檔案寫入依每份 PDF 指紋建立的子目錄下，並填入 `attachments[].path`。
+## 目錄（`--outline`）
 
 ```ts
 interface DocumentOutlineItem {
@@ -72,8 +72,8 @@ interface DocumentOutlineItem {
 }
 ```
 
-`outline[]` surfaces the document outline / bookmarks shown in a human PDF viewer sidebar. It preserves nesting, external URLs, named viewer actions such as `NextPage`, and resolves named or explicit PDF destinations to 1-based page numbers when possible. Empty `outline: []` means the pass ran and the PDF has no outline; absent `outline` means `--outline` was not requested.
-## Viewer state (`--viewer`)
+`outline[]` 會呈現文件目錄／書籤，也就是人類 PDF 檢視器側邊欄顯示的內容。它會保留巢狀層級、外部 URL、像 `NextPage` 這類具名檢視器 action，並在可能的情況下把具名或明確的 PDF 目的地（destination）解析成從 1 開始的頁碼。`outline: []` 為空陣列代表這個處理階段已執行，但這份 PDF 沒有目錄；`outline` 欄位不存在則代表未要求 `--outline`。
+## 檢視器狀態（`--viewer`）
 
 ```ts
 interface DocumentViewerState {
@@ -99,8 +99,8 @@ interface DocumentViewerState {
 }
 ```
 
-`viewer` surfaces document-level state a human PDF viewer uses before reading page text: sidebar/page mode, page layout, preferences such as `DisplayDocTitle`, catalog `OpenAction`, document JavaScript actions such as auto-print scripts, permission flags, and tagged-PDF `MarkInfo`. Document JavaScript presence is always available through `javascriptActionCount`; `--viewer` expands it into action names and script source under `viewer.jsActions`. The same `--viewer` pass also emits page-level JavaScript actions such as `PageOpen` / `PageClose` on `pages[].jsActions` when a page defines them. Markdown shortens very long JavaScript action summaries for readability; JSON, XML, and TOON keep the full structured values. Use it on specs, manuals, papers, forms, and long reports where opening position, bookmark/sidebar mode, JavaScript-triggered viewer behavior, copy/print permissions, or tagged-PDF structure affects navigation or accessibility. Empty `viewer: {}` means the pass ran and no viewer-level settings were present; absent `viewer` means `--viewer` was not requested.
-## Layers (`--layers`)
+`viewer` 會呈現人類 PDF 檢視器在讀取頁面文字之前使用的文件層級狀態：側邊欄／頁面模式、頁面版面（layout）、像 `DisplayDocTitle` 這類偏好設定、目錄的 `OpenAction`、像自動列印指令碼這類文件 JavaScript action，以及權限旗標與標記式 PDF 的 `MarkInfo`。文件是否含有 JavaScript 一律可透過 `javascriptActionCount` 得知；`--viewer` 則會把它展開成 action 名稱與指令碼原始碼，放在 `viewer.jsActions` 底下。同一次 `--viewer` 處理也會在頁面定義了 `PageOpen` / `PageClose` 這類頁面層級 JavaScript action 時，把它們輸出到 `pages[].jsActions`。為了可讀性，Markdown 會縮短過長的 JavaScript action 摘要；JSON、XML 與 TOON 則保留完整的結構化值。適用於開啟位置、書籤／側邊欄模式、JavaScript 觸發的檢視器行為、複製／列印權限，或標記式 PDF 結構會影響導覽或無障礙體驗的規格書、手冊、論文、表單與長篇報告。`viewer: {}` 為空物件代表這個處理階段已執行，但沒有檢視器層級的設定；`viewer` 欄位不存在則代表未要求 `--viewer`。
+## 圖層（`--layers`）
 
 ```ts
 interface DocumentLayers {
@@ -125,4 +125,4 @@ interface DocumentLayerGroup {
 }
 ```
 
-`layers` surfaces PDF optional content groups, the layer panel a human PDF viewer can expose for maps, CAD/design files, multilingual variants, and overlay-heavy documents. Use it when visible content may depend on a toggled layer or when a map/design page looks incomplete from text, vectors, and images alone. `groups[].visible` reflects pdf.js display-intent visibility after the document's default optional-content configuration is applied. pdf.js text extraction can include optional-content marked text from groups that are hidden in the default viewer state; when `pages[].warnings[].code === "optional_content_text_may_include_hidden_layers"`, compare `pages[].text` against `--render` and inspect `--layers` before treating the text as exactly human-visible. Empty `layers: { groups: [] }` means the pass ran and the PDF has no optional content groups; absent `layers` means `--layers` was not requested.
+`layers` 會呈現 PDF 的選用內容群組（optional content group），也就是人類 PDF 檢視器針對地圖、CAD／設計檔案、多語言版本與大量疊層文件所提供的圖層面板。當可見內容可能取決於某個被切換的圖層，或地圖／設計頁面光看文字、向量與影像顯得不完整時，可使用此選項。`groups[].visible` 反映的是套用文件預設選用內容設定之後，pdf.js 判斷的顯示意圖可見性。pdf.js 的文字擷取可能會包含在預設檢視器狀態下被隱藏的選用內容群組所標記的文字；當 `pages[].warnings[].code === "optional_content_text_may_include_hidden_layers"` 時，請先用 `--render` 比對 `pages[].text` 並檢查 `--layers`，再判斷該文字是否確實等同人眼可見內容。`layers: { groups: [] }` 為空群組陣列代表這個處理階段已執行，但這份 PDF 沒有選用內容群組；`layers` 欄位不存在則代表未要求 `--layers`。

@@ -1,6 +1,6 @@
 ---
-title: "Flag Selection"
-description: "Per-flag caveats and how to choose between overlapping structural flags for an unusual document. Use when the default extraction is not enough and more than one flag could apply."
+title: "フラグ選択"
+description: "フラグごとの注意点と、通常と異なる文書で重複する構造系フラグをどう使い分けるか。デフォルトの抽出だけでは不十分で、複数のフラグが候補になる場合に参照します。"
 sourceHash: c1c2d8470b22
 ---
 
@@ -8,169 +8,169 @@ sourceHash: c1c2d8470b22
      Translate the prose, keep code, field names, flags, and warning codes verbatim, and update
      `sourceHash` to the value reported by `node scripts/build-site-reference.mjs`. -->
 
-# Flag selection reference
+# フラグ選択リファレンス
 
-`pdfvision --help` carries the one-line-per-flag list for picking a flag fast. This topic holds the hard-won per-flag caveats — the edge cases that decide whether a flag is the right one for an unusual document. Read it only when choosing between overlapping structural flags (`--layout` vs `--visual-regions` vs `--image-boxes` vs `--form-fields`, etc.) for a document that does not behave like the common case.
+`pdfvision --help` には、フラグをすばやく選べるよう 1 行ずつの説明が載っています。このトピックには、フラグごとの実地で得た注意点——通常と異なる文書でどのフラグが適切かを左右するエッジケース——をまとめています。典型的な挙動をしない文書で、重複する構造系フラグ（`--layout` と `--visual-regions` と `--image-boxes` と `--form-fields` など）のどれを選ぶか迷ったときにだけ読んでください。
 
-The default extraction is enough for most native-text PDFs (papers, exports from Word / Pages / Markdown tooling). It automatically surfaces non-zero form-field, link, annotation, top-level outline, attachment, and document JavaScript presence counts; use the corresponding opt-in flag when a count shows furniture that the task needs. Output field shapes live in [`pdfvision docs schema`](./structured-output.md) (document and page level), `layout`, `interactive`, `document-features`, `visual`, and `search`; OCR specifics in [`pdfvision docs ocr`](./ocr.md); warning-code interpretation in [`pdfvision docs warnings`](./warnings.md).
+デフォルトの抽出は、ほとんどのネイティブテキスト PDF（論文、Word / Pages / Markdown ツール由来の書き出しなど）には十分です。フォームフィールド、リンク、注釈、トップレベルのアウトライン、添付ファイル、文書 JavaScript の件数はゼロでなければ自動的に表示されるので、その件数がタスクに必要な要素の存在を示している場合は、対応するオプトインフラグを使ってください。出力フィールドの形は [`pdfvision docs schema`](./structured-output.md)（文書レベルとページレベル）、`layout`、`interactive`、`document-features`、`visual`、`search` に、OCR の詳細は [`pdfvision docs ocr`](./ocr.md) に、警告コードの解釈は [`pdfvision docs warnings`](./warnings.md) にあります。
 
-## `--layout` — reconstruct reading order, headings, table rows
+## `--layout` — 読み順、見出し、表の行を復元する
 
-Reach for it on multi-column papers, including dense journal layouts with narrow repeated gutters or drop caps. Japanese vertical-writing slides/docs surface display and body-sized CJK stacks as `writingMode: "vertical"`, keep tatechuyoko ASCII digit groups inline in their vertical column, and expose display-spaced CJK title rows such as `科 学`. Short corroborated page-edge vertical chrome is marked `repeated` without dropping sentence-like margin text. Use it on slides where the agent must process blocks in order.
+多段組みの論文（余白の狭い繰り返しガター段組みやドロップキャップを含む、密度の高い学術誌レイアウト）で活用してください。縦書きの日本語スライドや文書では、見出しサイズ・本文サイズの CJK の縦積みを `writingMode: "vertical"` として表し、tatechuyoko の ASCII 数字グループはその縦の列に沿ってインラインで保持し、`科 学` のような文字間隔の空いた CJK タイトル行も表現します。複数ページで裏付けの取れた短いページ端の縦書き chrome は、文のような余白テキストを取りこぼすことなく `repeated` としてマークされます。エージェントがブロックを順番に処理する必要があるスライドでも使ってください。
 
-For table-heavy financial/government PDFs, `layout.tables[]` row-major hints preserve numeric row/cell relationships better than raw blocks — including compact two-column year/value tables, dense recurring numeric gutters or narrow same-row numeric gutters that would otherwise merge several values into one line, trailing currency markers in financial statement rows, long financial row labels before recurring year columns, and leading header/sparse rows above wide recurring numeric tables with score/percentile cells.
+表が多い財務・行政文書向けの PDF では、`layout.tables[]` の行優先ヒントが、生のブロックよりも数値の行/セル関係をうまく保持します。対象には、コンパクトな 2 列の年/値テーブル、放っておくと複数の値が 1 行にまとまってしまう密な繰り返し数値ガターや同じ行内の狭い数値ガター、財務諸表の行末に付く通貨マーカー、繰り返す年列の前にある長い財務行ラベル、スコアやパーセンタイルのセルを持つ幅広の繰り返し数値テーブルの上にある先頭ヘッダー/疎な行、などが含まれます。
 
-## `--image-boxes` — where raster images sit
+## `--image-boxes` — ラスター画像の位置
 
-Bbox overlay on rendered PNG, figure detection, masked/pattern image fills.
+レンダリングした PNG への bbox オーバーレイ、図の検出、マスク/パターン画像の塗りつぶし。
 
-## `--vector-boxes` — where vector marks sit
+## `--vector-boxes` — ベクター描画の位置
 
-Maps, symbol tables, diagrams, chart paths, clipped shading/gradient panels, form boxes, table rules, slide shapes, and PDFs where visible structure is vector-drawn rather than raster images.
+地図、記号表、ダイアグラム、チャートのパス、クリップされたシェーディング/グラデーションパネル、フォームの枠、表の罫線、スライドの図形など、目に見える構造がラスター画像ではなくベクターで描画されている PDF に使います。
 
-## `--visual-regions` — crop-ready visual regions
+## `--visual-regions` — クロップ可能な視覚領域
 
-Figure/chart/diagram/table/form/annotation pages where an agent should use suggested `--render-region` bboxes, instead of manually clustering raw image/vector/layout/form/annotation coordinates. Captures nearby captions/form labels when found (`Figure`, `Table`, `Plate`, `図`, `表`, `図表`), nearby panel titles such as `(a) ...`, short directly-below image labels, short in-region chart titles, nearby or in-region headings for large unlabeled regions, and short table lead-ins such as "The following table..." or "... as follows:".
+図・チャート・ダイアグラム・表・フォーム・注釈のあるページで、生の画像/ベクター/レイアウト/フォーム/注釈の座標を手作業でクラスタリングする代わりに、エージェントが提案された `--render-region` の bbox を使うべきときに使います。見つかった場合は近くのキャプション/フォームラベル（`Figure`、`Table`、`Plate`、`図`、`表`、`図表`）、`(a) ...` のような近くのパネルタイトル、画像直下の短いラベル、領域内の短いチャートタイトル、ラベルのない大きな領域に対する近傍または領域内の見出し、"The following table..." や "... as follows:" のような短い表のリード文もキャプチャします。
 
-Caption attachment rules:
+キャプションの紐付けルール:
 
-- Page-level `Plate` captions can attach as metadata to distant panel crops without expanding every crop to include the caption block.
-- Multi-panel figure captions with `A,B:` / `C,D:` cues can group disconnected vector chart fragments into one crop with the full caption block.
-- Bare or tiny in-region references like `Fig.4` are **not** attached as captions unless they have descriptive caption text at readable size.
-- Repeated header/footer text is **not** attached as a caption when multi-page evidence is available.
+- ページレベルの `Plate` キャプションは、すべてのクロップにキャプションブロックを含めるよう拡張することなく、離れた位置のパネルクロップにメタデータとして紐付けられる場合があります。
+- `A,B:` / `C,D:` の手がかりを持つ複数パネルの図キャプションは、離れたベクターチャートの断片を、キャプションブロック全体を含む 1 つのクロップにまとめられる場合があります。
+- `Fig.4` のような単体または極小の領域内参照は、読める大きさの説明的なキャプションテキストを伴わない限り、キャプションとして紐付けられ**ません**。
+- 複数ページにわたる根拠がある場合、繰り返されるヘッダー/フッターのテキストはキャプションとして紐付けられ**ません**。
 
-Suppression rules:
+抑制ルール:
 
-- Page-sized background boxes are suppressed when more specific foreground geometry or dense vector-grid structure exists.
-- Broad vector backplanes that span multiple substantial raster panels are suppressed so individual panels remain crop targets.
-- Corroborated narrow page-edge chrome is suppressed so marginal ribbons, side URLs, small raster logo/text strips inside header/footer rule bands, and header/footer bands do not become vision targets; full-page covers/scans still emit renderable regions when only small logos or edge chrome compete with them.
-- If full-page render evidence (including a rendered full-page visual-region crop) says the page is blank, visual regions are suppressed.
+- より具体的な前景のジオメトリや密なベクターグリッド構造が存在する場合、ページサイズの背景ボックスは抑制されます。
+- 複数の実質的なラスターパネルにまたがる広いベクターの背景板は、個々のパネルがクロップ対象として残るように抑制されます。
+- 裏付けの取れた狭いページ端の chrome は抑制され、余白のリボン、サイドの URL、ヘッダー/フッターの罫線帯の中にある小さなラスターロゴ/テキスト帯、ヘッダー/フッター帯が vision の対象にならないようにします。小さなロゴや端の chrome としか競合しない場合、全ページの表紙/スキャンは引き続きレンダリング可能な領域を生成します。
+- 全ページのレンダリング根拠（レンダリング済みの全ページ visual-region クロップを含む）がそのページを空白だと示している場合、視覚領域は抑制されます。
 
-Density and form rules:
+密度とフォームのルール:
 
-- Dense vector grids can produce fallback regions for table-like structures.
-- Dense small vector marker fields are clustered into separate dense visual-region crops when disconnected.
-- Dense forms produce section/row-sized crops instead of one page-sized crop.
-- Hidden/invisible/noView form fields and annotations are not used as visual crop seeds.
-- FreeText annotations without appearance streams stay available through annotations/search but are not used as crop seeds.
-- Unpositioned widget-appearance vector boxes are skipped when form-field bboxes provide the real page positions.
+- 密なベクターグリッドは、表のような構造に対してフォールバック領域を生成することがあります。
+- 密で小さなベクターマーカーのフィールドは、接続していない場合、別々の密な visual-region クロップにクラスタリングされます。
+- 密なフォームは、ページサイズの 1 つのクロップではなく、セクション/行サイズのクロップを生成します。
+- 非表示/不可視/noView のフォームフィールドと注釈は、視覚クロップの種として使われません。
+- appearance stream を持たない FreeText 注釈は、注釈/検索経由では引き続き利用できますが、クロップの種としては使われません。
+- フォームフィールドの bbox が実際のページ位置を提供している場合、位置情報のないウィジェット appearance のベクターボックスはスキップされます。
 
-## `--render-visual-regions` — render the suggested crops
+## `--render-visual-regions` — 提案されたクロップをレンダリングする
 
-Same cases as `--visual-regions`, when the next step is a vision-model pass and the agent wants `visualRegions[].image` crops with associated captions/form labels, nearby panel titles, short table lead-ins, short image labels, short in-region chart titles, nearby headings, and `renderedContentBox` hints for sparse/transparent crops — without rendering every full page.
+`--visual-regions` と同じケースで、次のステップが vision model へのパスであり、エージェントがすべての全ページをレンダリングすることなく、関連するキャプション/フォームラベル、近くのパネルタイトル、短い表のリード文、短い画像ラベル、領域内の短いチャートタイトル、近くの見出し、疎/透明なクロップ向けの `renderedContentBox` ヒントを伴った `visualRegions[].image` クロップを求めているときに使います。
 
-## `--form-fields` — form controls and blank fields
+## `--form-fields` — フォームコントロールと空欄
 
-Government forms, applications, tax forms, questionnaires, and any PDF where checkboxes, radio buttons, signatures, text boxes, choice widgets, buttons, or their nearby visible labels are part of the meaning.
+行政のフォーム、申請書、税務書類、アンケート、そしてチェックボックス、ラジオボタン、署名、テキストボックス、選択ウィジェット、ボタン、あるいはそれらの近くにある表示ラベルが意味の一部を成す PDF に使います。
 
-- Widget annotation flags such as `hidden`, `print`, or `noView` are exposed so agents can detect print-only or screen-hidden fields.
-- Checkbox/radio export values, widget JavaScript actions, and non-JavaScript ResetForm button behavior are exposed when present, so agents can see submitted values, button click scripts, reset-all buttons, and selective reset buttons.
-- Choice widgets keep submitted/exported selections in `value`, include selected viewer labels in `displayValue` when those differ, and include exported/display option values when the PDF exposes them, plus combo/list and multi-select flags.
-- Push buttons include viewer-visible `caption` text when pdfvision can recover it from widget appearance characteristics, and `--search` can return those captions as form-field matches.
+- `hidden`、`print`、`noView` といったウィジェット注釈フラグが公開されるため、エージェントは印刷専用または画面非表示のフィールドを検出できます。
+- チェックボックス/ラジオのエクスポート値、ウィジェットの JavaScript action、非 JavaScript の ResetForm ボタンの挙動は、存在する場合は公開されるため、エージェントは送信値、ボタンのクリックスクリプト、全項目リセットボタン、選択的リセットボタンを確認できます。
+- 選択ウィジェットは、送信/エクスポートされた選択内容を `value` に保持し、viewer 上のラベルが異なる場合は選択済みラベルを `displayValue` に含め、PDF がエクスポート/表示用のオプション値を公開している場合はそれも含めます。加えて、コンボ/リストや複数選択のフラグも扱います。
+- プッシュボタンは、pdfvision がウィジェットの appearance の特性から復元できる場合、viewer 上に見える `caption` テキストを含みます。`--search` はこれらのキャプションをフォームフィールドの一致として返せます。
 
-Label association (the fiddly part):
+ラベルの紐付け（細かい部分）:
 
-- Stacked above/below label lines are merged when they form one visible prompt; checkbox/radio labels stay on their own option row when adjacent options are stacked.
-- Right-edge checkbox/radio prompts can keep wrapped instruction text that finishes on the widget row while dropping dotted leader filler, line-number gutters, and following caution/instruction paragraphs with their own row prefix.
-- Left-side checkbox/radio prompts can merge directly preceding continuation lines, so labels like "check this box..." keep their setup text.
-- Narrow inline text fields can keep left-side instruction labels such as tax-classification prompts with dotted leader filler trimmed; tall multiline text fields can keep short left-side labels across wider form gutters.
-- Right-edge amount boxes with dotted leaders can expand compact markers like "1 $" or "4(a) $" back to the visible multi-line prompt.
-- Fine-grained spans are considered so adjacent same-row prompts such as "Middle Initial" and "Other Last Names Used" do not collapse onto both fields; semantically named fields avoid unrelated nearby text when no credible label is found.
+- 上下に積み重なったラベル行は、1 つの表示上の指示文を形成している場合は結合されます。チェックボックス/ラジオのラベルは、隣接する選択肢が積み重なっている場合、それぞれの選択肢の行にとどまります。
+- 右端のチェックボックス/ラジオの指示文は、ウィジェットの行で終わる折り返しの説明テキストを保持しつつ、ドットのリーダー装飾、行番号ガター、独自の行プレフィックスを持つ後続の注意/説明段落は除外できます。
+- 左側のチェックボックス/ラジオの指示文は、直前の継続行と結合できるため、「check this box...」のようなラベルはその前提となるテキストを保持します。
+- 幅の狭いインラインテキストフィールドは、ドットのリーダー装飾を除いた、税区分の指示文のような左側の説明ラベルを保持できます。縦に長い複数行テキストフィールドは、より広いフォームガターをまたいでも短い左側ラベルを保持できます。
+- ドットのリーダーを持つ右端の金額ボックスは、「1 $」や「4(a) $」のようなコンパクトなマーカーを、表示上の複数行の指示文に展開し直せます。
+- 「Middle Initial」と「Other Last Names Used」のような同じ行に隣接する指示文が両方のフィールドにまとめて紐付いてしまわないよう、細かい粒度の span が考慮されます。信頼できるラベルが見つからない場合、意味的に名前が付けられたフィールドは無関係な近くのテキストを避けます。
 
-## `--links` — clickable navigation
+## `--links` — クリック可能なナビゲーション
 
-Papers and manuals with citation links, table-of-contents jumps, cross-references, and external URLs whose clickable regions matter to a human PDF reader. Internal links include the resolved physical target page and visible link text when available, including narrow inline links over tokens inside a wider text line.
+引用リンク、目次からのジャンプ、相互参照、外部 URL があり、クリック可能な領域が人間の PDF 読者にとって重要な論文やマニュアルに使います。内部リンクには、解決済みの物理的な遷移先ページと、利用可能であれば表示上のリンクテキストが含まれます。これには、より広いテキスト行の中のトークンに対する狭いインラインリンクも含まれます。
 
-## `--annotations` — comments and markup
+## `--annotations` — コメントとマークアップ
 
-Reviewed PDFs, annotated drafts, PDFs with sticky notes, highlights, underlines, strikeouts, stamps, file-attachment icons, shape markup, ink, or other non-link annotation markup. Annotation flags such as `hidden`, `print`, or `noView` are exposed so agents can tell when markup may be print-only or not visible in a normal screen render. File-attachment annotations expose filename, description, and byte size metadata without embedding bytes in context. Shape annotations expose icon/name, border, line endpoint, polygon/polyline vertex, and ink path metadata when pdf.js provides it.
+レビュー済みの PDF、注釈付きの草稿、付箋、ハイライト、下線、取り消し線、スタンプ、ファイル添付アイコン、図形マークアップ、インク、その他のリンク以外の注釈マークアップを含む PDF に使います。`hidden`、`print`、`noView` といった注釈フラグが公開されるため、エージェントはマークアップが印刷専用か、通常の画面レンダリングでは見えないものかを判断できます。ファイル添付注釈は、バイト列をコンテキストに埋め込むことなく、ファイル名、説明、バイトサイズのメタデータを公開します。図形注釈は、pdf.js が提供している場合、アイコン/名前、境界線、線の端点、多角形/折れ線の頂点、インクパスのメタデータを公開します。
 
-## `--structure` — tagged-PDF accessibility structure
+## `--structure` — タグ付き PDF のアクセシビリティ構造
 
-Accessible PDFs, government forms/reports, manuals, and any PDF where figure alt text, role hierarchy, language hints, structure bboxes, or tagged tables may explain content that native text and rendered pixels alone do not label. Tagged `Table` structures are also reconstructed as row-major `structureTables[]` grids and GFM tables. Structure bboxes use the same unrotated page-view top-left coordinates as spans/layout/image boxes. Stray control bytes in structure strings are removed.
+アクセシブルな PDF、行政のフォーム/レポート、マニュアル、そして図の代替テキスト、役割の階層、言語のヒント、構造の bbox、タグ付きテーブルが、ネイティブテキストとレンダリング済みピクセルだけではラベル付けされない内容を説明しうる PDF に使います。タグ付きの `Table` 構造は、行優先の `structureTables[]` グリッドと GFM テーブルとしても再構成されます。構造の bbox は、span/layout/image box と同じ、回転前のページビューの左上原点座標系を使います。構造の文字列中の迷い込んだ制御バイトは除去されます。
 
-## Document-level feature probes
+## 文書レベルの機能プローブ
 
-For the initial `-p 1 --page-labels --outline --viewer --layers` probe, `-p 1` limits page extraction/output, not whole-document loading, parsing, or runtime; document-level fields still return. Page JavaScript stays selected-page scoped, so rerun `--viewer` with the relevant range when it matters. Use `--structure` separately for page-level tagged trees.
+最初に `-p 1 --page-labels --outline --viewer --layers` で試す場合、`-p 1` が制限するのはページの抽出/出力だけであり、文書全体の読み込み、解析、実行時間は制限されません。文書レベルのフィールドは引き続き返されます。ページの JavaScript は選択したページの範囲に限定されるため、必要な場合は該当する範囲を指定して `--viewer` を再実行してください。ページレベルのタグ付きツリーには、別途 `--structure` を使ってください。
 
-## `--page-labels` — viewer page labels
+## `--page-labels` — viewer のページラベル
 
-Long reports, specs, books, and papers where the PDF viewer shows roman front matter, section prefixes, or restarted page numbering that differs from physical page numbers.
+PDF viewer がローマ数字の前付け、セクションの接頭辞、または物理ページ番号とは異なる再開されたページ番号を表示する、長いレポート、仕様書、書籍、論文に使います。
 
-## `--attachments` (+ `--attachment-output <dir>`) — embedded file attachments
+## `--attachments` (+ `--attachment-output <dir>`) — 埋め込みファイルの添付
 
-PDFs whose viewer attachment pane or page file-attachment icons expose supplemental files; emits names, descriptions, byte sizes, and optional saved paths without dumping attachment bytes into context.
+viewer の添付ファイルパネルやページ上のファイル添付アイコンが補足ファイルを公開している PDF に使います。添付ファイルのバイト列をコンテキストに書き出すことなく、名前、説明、バイトサイズ、および任意の保存パスを出力します。
 
-## `--outline` — document sidebar navigation
+## `--outline` — 文書サイドバーのナビゲーション
 
-Long reports, manuals, specifications, and papers where a human PDF reader would use bookmarks / outline entries to jump between sections, external URLs, or named viewer actions such as NextPage.
+人間の PDF 読者が、セクション間や外部 URL、あるいは NextPage のような名前付き viewer action へジャンプするためにしおり/アウトライン項目を使うような、長いレポート、マニュアル、仕様書、論文に使います。
 
-## `--viewer` — initial viewer state
+## `--viewer` — 初期の viewer 状態
 
-PDFs whose opening mode, page layout, viewer preferences, OpenAction, document/page JavaScript actions, permissions, or tagged-PDF MarkInfo affects how a human reader sees or navigates the document. A flagless run already reports non-zero document JavaScript presence through `javascriptActionCount`; use `--viewer` to expose document action names and script source, plus page-level actions.
+開き方のモード、ページレイアウト、viewer preference、OpenAction、文書/ページの JavaScript action、権限、またはタグ付き PDF の MarkInfo が、人間の読者による文書の見え方や操作方法に影響する PDF に使います。フラグなしの実行でも、`javascriptActionCount` によって文書 JavaScript の存在（ゼロでない場合）はすでに報告されています。文書 action の名前とスクリプトのソース、およびページレベルの action を公開するには `--viewer` を使ってください。
 
-## `--layers` — viewer layer panels
+## `--layers` — viewer のレイヤーパネル
 
-Maps, CAD/design PDFs, multilingual/variant documents, or any file where a human PDF reader can toggle optional content groups that may hide visible labels, overlays, or design alternatives.
+地図、CAD/デザイン PDF、多言語/バリエーション文書、あるいは人間の PDF 読者が、表示ラベル、オーバーレイ、デザインの代替案を隠しうる optional content layer を切り替えられるファイルに使います。
 
-## `--password <value>` / `--password-stdin` — encrypted PDFs
+## `--password <value>` / `--password-stdin` — 暗号化 PDF
 
-Password-protected PDFs when the user explicitly provides the document password. The password is only used for pdf.js decryption and is never emitted in output. Prefer `--password-stdin` when shell history or process argv exposure matters; `--password` can be supplied as an explicit fallback when stdin is empty. Do not guess or store passwords.
+ユーザーが文書のパスワードを明示的に指定した、パスワード保護された PDF に使います。パスワードは pdf.js の復号にのみ使われ、出力に現れることはありません。シェル履歴やプロセス argv への露出が気になる場合は `--password-stdin` を優先してください。`--password` は、stdin が空のときの明示的なフォールバックとして指定できます。パスワードを推測したり保存したりしないでください。
 
-## `--geometry` — per-text-item bbox + fontSize
+## `--geometry` — テキストアイテムごとの bbox + フォントサイズ
 
-Heading detection by font-size, custom layout heuristics. Each span represents one retained positioned pdf.js text item, which may contain one character, a word, or a longer string; its bbox is the rounded aggregate axis-aligned envelope, not individual glyph outlines. Note: `--geometry` has no effect with markdown output; use `-f json` / `-f xml` / `-f toon` to see the spans. See [`pdfvision docs layout`](./layout.md) for filtering details.
+フォントサイズによる見出し検出や、独自のレイアウトヒューリスティックに使います。各 span は、保持された 1 つの位置情報付き pdf.js テキストアイテムを表し、1 文字、1 単語、あるいはより長い文字列を含むことがあります。その bbox は、個々のグリフの輪郭ではなく、丸め処理された集約の軸並行境界です。注: `--geometry` は markdown 出力では効果がありません。span を見るには `-f json` / `-f xml` / `-f toon` を使ってください。フィルタリングの詳細は [`pdfvision docs layout`](./layout.md) を参照してください。
 
-## `--ocr` + `--ocr-lang` — text from pixels
+## `--ocr` + `--ocr-lang` — ピクセルからテキストを得る
 
-Reach for it on `coverage: 0%` in the Overview, or `nonPrintableRatio >= 0.05` (native text includes glyph-index garbage). For non-English text, language order matters — primary language goes first (`jpn+eng` for Japanese-dominant, `eng+jpn` for English-dominant). Full lang combinations, confidence semantics, install/cache, and troubleshooting live in [`pdfvision docs ocr`](./ocr.md).
+Overview の `coverage: 0%`、または `nonPrintableRatio >= 0.05`（ネイティブテキストに glyph-index のゴミが含まれる）の場合に使ってください。英語以外のテキストでは言語の順序が重要で、主要な言語を先に指定します（日本語が主体なら `jpn+eng`、英語が主体なら `eng+jpn`）。言語の組み合わせ全体、信頼度の意味、インストール/キャッシュ、トラブルシューティングは [`pdfvision docs ocr`](./ocr.md) にあります。
 
-## `--render` + `--render-output <dir>` — hand the page to a vision model
+## `--render` + `--render-output <dir>` — ページを vision model に渡す
 
-Multimodal flows, typically after the density Overview already flagged the page as low-text.
+マルチモーダルなフローに使います。通常は、密度の Overview がそのページをテキスト量の少ないページとしてすでにフラグ付けした後に使います。
 
-## `--render-scale <n>` (default 2, bounds `(0, 4]`) — shrink / enlarge the PNG
+## `--render-scale <n>`（デフォルト 2、範囲 `(0, 4]`）— PNG を縮小/拡大する
 
-1×: half-size render payload, fine for most agentic-vision dispatch; OCR still rasterises at least scale 2 for recognition quality. 3×+ captures chart / fine-print detail, and pays on a **cropped** region, on OCR input, and on PNGs a human or another tool will open. It rarely pays on a full page bound for a vision model: most downscale to roughly 1568px on the longest edge, which a scale-2 render of a standard page already reaches, so the extra pixels are discarded after they were paid for. When a full page reads too small, narrow `--render-region` and leave the scale alone — the same pixel budget then covers less area. (The MCP `render_pdf` tool enforces that ceiling itself; on the CLI the scale is yours to pick.)
+1×: レンダリングペイロードが半分のサイズになり、ほとんどの agentic-vision の用途には十分です。OCR は認識品質のために引き続き最低でも scale 2 でラスタライズします。3× 以上はチャートや細かい印字の詳細を捉えられ、**クロップした**領域、OCR の入力、人間や他のツールが開く PNG では見合います。vision model 向けの全ページには、ほとんど見合いません。多くは長辺でおよそ 1568px にダウンスケールされ、標準的なページの scale-2 レンダリングですでにそこに達しているため、余分なピクセルはコストを払った後に捨てられます。全ページが小さすぎて読めない場合は、scale はそのままにして `--render-region` で範囲を絞ってください。同じピクセル予算がより狭い範囲をカバーすることになります。（MCP の `render_pdf` ツールはこの上限を自身で強制しますが、CLI では scale を自由に選べます。）
 
-## `--render-region <x,y,w,h>` — zoom into a sub-rectangle of one page
+## `--render-region <x,y,w,h>` — 1 ページ内の部分矩形にズームする
 
-Use when the agent already saw a suspect block via `--layout` / `warnings[]` and only wants visual confirmation of that bbox, not the whole page. Coordinates use raw unrotated page-view units with a top-left origin; single-page only. Physical points = raw value × `pages[].userUnit` (or 1 when omitted), while pixels = raw region × UserUnit × render scale. The bbox passes unchanged. On rotated pages, pdfvision maps it through the rotated viewport, so the cropped PNG's visible width/height may be swapped.
+エージェントが `--layout` や `warnings[]` によってすでに疑わしいブロックを把握していて、ページ全体ではなくその bbox の視覚的な確認だけを求めているときに使います。座標は、左上原点の、回転前の生のページビュー単位を使い、1 ページのみに対応します。物理ポイント = 生の値 × `pages[].userUnit`（省略時は 1）であり、ピクセル = 生の領域 × UserUnit × render scale です。bbox はそのまま渡されます。回転したページでは、pdfvision は回転済みの viewport を通してマッピングするため、クロップされた PNG の見た目の幅/高さは入れ替わることがあります。
 
-## `--search <query>` — find occurrences with bbox
+## `--search <query>` — bbox 付きで一致箇所を見つける
 
-Repeatable; modifiers `--search-regex` / `--search-case-sensitive`. Answers the agent's "where does this term appear?" question and returns `pages[N].matches[*]` with span/word/widget/link/annotation-level bbox so the bbox feeds straight into `--render-region` for a follow-up visual zoom — one-pipeline find-then-zoom, no second pass. At most 10,000 matches are emitted per page, query, and source. The first additional valid match produces a warning (stderr in the CLI, `onWarning` in the library API); it and later matches for that combination are dropped. Pair with `--matches-only` (v0.13.0+) for a focused report containing the file, total page/match counts, and a flat emitted-match list. It omits the full pages/body payload, but its size still grows with emitted matches and context. Markdown renders a per-page `Search matches` table only on pages that actually matched — a page where search ran and found nothing carries `matches: 0` on its density line instead. Use JSON/XML/TOON when a downstream tool needs to consume coordinates directly.
+繰り返し指定可能で、`--search-regex` / `--search-case-sensitive` で修飾できます。エージェントの「この語はどこに出てくるか」という問いに答え、span/word/widget/link/annotation レベルの bbox を伴う `pages[N].matches[*]` を返すため、その bbox をそのまま `--render-region` に渡して後続の視覚的ズームができます——2 回目のパスを挟まない、検索してズームする 1 本のパイプラインです。ページ、クエリ、ソースごとに最大 10,000 件の一致が出力されます。それを超える最初の有効な一致は警告になり（CLI では stderr、ライブラリ API では `onWarning`）、その組み合わせに対するそれ以降の一致は破棄されます。ファイル名、ページ/一致の合計件数、出力された一致のフラットなリストだけを含む的を絞ったレポートには `--matches-only`（v0.13.0 以降）を組み合わせてください。ページ本体全体のペイロードは省かれますが、サイズは出力された一致とコンテキストに応じて増えます。Markdown は、実際に一致したページにのみページごとの `Search matches` テーブルをレンダリングします。検索は実行されたが何も見つからなかったページは、代わりに密度の行に `matches: 0` を載せます。下流のツールが座標を直接扱う必要がある場合は JSON/XML/TOON を使ってください。
 
-Match semantics:
+一致の意味:
 
-- Literal substring by default, case-insensitive, NFKC-aware and C0-cleaned (so `"fi"` matches the U+FB01 ligature, and literal search matches `pages[].text` cleanup), and CJK-aware enough that `科学` can match display-spaced `科 学`.
-- Detected Japanese vertical body columns are searched top-to-bottom and right-to-left, including phrases that cross inline tatechuyoko digit fragments; `pages[].text` also joins those columns when the source stream already matches the detected top-to-bottom order, falling back per run when it does not.
-- Compact table-header rows can match phrase queries across adjacent column labels while keeping broad prose columns separated.
-- `--search-regex` runs the pattern verbatim, but each page's regex search is bounded at ~1s of regex time. A pattern that blows the budget drops that page's results — every query in the same run, not just the offending one — and warns (stderr in the CLI, `onWarning` in the library API). Catastrophic backtracking (nested quantifiers such as `(a+)+$`) is the usual cause; rewrite the pattern rather than retrying it. Literal searches are unaffected.
-- Also searches visible text/choice form field values (`source: 'formField'`; comb text widgets narrow to matching cells when available), clickable link targets (`source: 'link'`), visible FreeText annotation contents (`source: 'annotation'`), and OCR text when `--ocr` is on (`source: 'ocr'`, using OCR word boxes when present and supplementing from full `ocr.text` when word reconstruction misses one or more occurrences); duplicate OCR hits already covered by non-OCR matches are suppressed.
+- デフォルトではリテラルな部分文字列一致で、大文字小文字を区別せず、NFKC を考慮し C0 制御文字はクリーンアップ済みです（そのため `"fi"` は U+FB01 の合字にも一致し、リテラル検索は `pages[].text` のクリーンアップと一致します）。また CJK にも配慮しており、`科学` は文字間隔の空いた `科 学` にも一致します。
+- 検出された日本語の縦書き本文の列は、上から下、右から左の順に検索され、インラインの tatechuyoko 数字断片をまたぐフレーズも対象になります。ソースストリームがすでに検出された上から下への順序と一致している場合、`pages[].text` もそれらの列を結合します。一致しない場合は run 単位でフォールバックします。
+- コンパクトな表のヘッダー行は、幅広の地の文の列は区切ったまま、隣接する列ラベルをまたいだフレーズクエリに一致することがあります。
+- `--search-regex` はパターンをそのまま実行しますが、ページごとの正規表現検索は約 1 秒の実行時間に制限されています。この予算を超えたパターンは、そのページの結果を——原因となったクエリだけでなく、同じ実行内のすべてのクエリを——落とし、警告を出します（CLI では stderr、ライブラリ API では `onWarning`）。通常の原因は破滅的バックトラッキング（`(a+)+$` のようなネストした量指定子）です。再試行するのではなく、パターンを書き直してください。リテラル検索は影響を受けません。
+- 表示されているテキスト/選択式フォームフィールドの値（`source: 'formField'`。comb テキストウィジェットは、利用可能であれば一致するセルに絞られます）、クリック可能なリンクの遷移先（`source: 'link'`）、表示されている FreeText 注釈の内容（`source: 'annotation'`）、そして `--ocr` が有効なときは OCR テキスト（`source: 'ocr'`。OCR の word box があればそれを使い、word の再構成が 1 件以上の出現を見落としている場合は完全な `ocr.text` から補います）も検索対象です。非 OCR の一致ですでにカバーされている重複した OCR の一致は抑制されます。
 
-Full search schema and normalization rules are in [`pdfvision docs search`](./search-and-region-zoom.md).
+検索スキーマと正規化ルールの全体は [`pdfvision docs search`](./search-and-region-zoom.md) にあります。
 
-## `--remote <url>` — use a remote PDF as the input
+## `--remote <url>` — リモート PDF を入力として使う
 
-**`--remote` places no restriction on where the URL points.** It follows redirects and will happily fetch `127.0.0.1`, RFC 1918 addresses, and `169.254.169.254` — pdfvision assumes a human typed the URL, so the network it can reach is theirs. That assumption breaks when the URL came from somewhere else: a link inside a PDF, a search result, another tool's output. Fetch those only after asking the user, because the request runs with whatever network position the process has. (The MCP server refuses private, loopback, link-local, CGNAT, and NAT64 destinations by default and re-validates every redirect hop — a deliberate difference, since there the *model* picks the URL. See [`pdfvision docs mcp`](./mcp-server.md).)
+**`--remote` は URL の接続先に一切の制限を設けません。** リダイレクトを追跡し、`127.0.0.1`、RFC 1918 のアドレス、`169.254.169.254` も気にせず取得します——pdfvision は、URL を人間が入力したものと想定しているため、到達できるネットワークはその人間のものだという前提です。この前提は、URL が別の場所——PDF 内部のリンク、検索結果、別のツールの出力——から来た場合に崩れます。そうした URL は、必ずユーザーに確認してから取得してください。リクエストは、プロセスが持つネットワーク上の立ち位置のまま実行されるためです。（MCP サーバーは、デフォルトで private、loopback、link-local、CGNAT、NAT64 の接続先を拒否し、すべてのリダイレクトのホップを再検証します——これは意図的な違いで、MCP では *モデル* が URL を選ぶためです。[`pdfvision docs mcp`](./mcp-server.md) を参照してください。）
 
-A subcommand (`docs`, `clear-cache`, `mcp`) is recognized before any option parsing and only as the first argument; unsupported arguments passed to one exit `1` (`--help` and `--version` are still honored there), and a real file of that name must be passed as `./docs` / `./clear-cache` / `./mcp`. Option syntax is parsed next, so unknown options or missing values exit `1` even with `--help`. After parsing, terminal precedence is `--version`, then `--help`, then `--clear-cache`; these skip input and extraction-option semantic checks. Otherwise the URL is trimmed before source arbitration. Multiple positional arguments exit `1` before source presence is checked. With at most one positional argument, a nonblank remote URL cannot be combined with a non-empty positional input, while the absence of both prints usage to stderr and exits `2` before extraction, cache setup, or extraction-option semantics. With a usable source, semantic failures exit `1`; clear-cache failures also exit `1`.
+サブコマンド（`docs`、`clear-cache`、`mcp`）は、オプション解析よりも前に、かつ最初の引数としてのみ認識されます。サブコマンドに渡されたサポート外の引数は終了コード `1` になります（`--help` と `--version` はそこでも尊重されます）。その名前の実ファイルを指定する場合は `./docs` / `./clear-cache` / `./mcp` のように渡す必要があります。続いてオプション構文が解析されるため、未知のオプションや値の欠落は、`--help` が指定されていても終了コード `1` になります。解析後の優先順位は `--version`、次に `--help`、次に `--clear-cache` の順で、これらは入力および抽出オプションの意味検査をスキップします。それ以外の場合、URL はソースの判定より前にトリムされます。複数の位置引数は、ソースの有無が確認される前に終了コード `1` になります。位置引数が高々 1 つの場合、空でないリモート URL は空でない位置引数の入力と組み合わせることはできません。両方とも指定がない場合は、抽出、キャッシュのセットアップ、抽出オプションの意味検査より前に、使い方を stderr に表示して終了コード `2` になります。使用可能なソースがある場合、意味検査の失敗は終了コード `1` になり、clear-cache の失敗も終了コード `1` になります。
 
-## `--no-cache` — skip the on-disk cache
+## `--no-cache` — ディスク上のキャッシュをスキップする
 
-Forced re-extraction; remote PDF bytes also bypass their cache. OCR traineddata and worker support files still use the validated cache root, while renders without `--render-output` use separate OS-temporary paths. Default behaviour is cache-on.
+強制的な再抽出です。リモート PDF のバイト列もキャッシュを経由しません。OCR の traineddata と worker support files は、検証済みのキャッシュルートを引き続き使う一方、`--render-output` を指定しないレンダリングは別の OS の一時パスを使います。デフォルトの挙動はキャッシュ有効です。
 
-## `clear-cache` — clear the verified cache root
+## `clear-cache` — 検証済みのキャッシュルートを削除する
 
-A subcommand, not a flag (`--clear-cache` is a deprecated alias that warns and is removed in v1.0). Because clearing is destructive, it refuses instead of guessing when a file named `clear-cache` exists in the working directory.
+フラグではなくサブコマンドです（`--clear-cache` は非推奨のエイリアスで、警告を出し、v1.0 で削除されます）。削除は破壊的な操作であるため、作業ディレクトリに `clear-cache` という名前のファイルが存在する場合は、推測で処理せず拒否します。
 
-`PDFVISION_CACHE_DIR`, when set, must be a nonblank **absolute** path to a **dedicated** directory; anything else is refused at setup.
+`PDFVISION_CACHE_DIR` を設定する場合、空でない**絶対**パスで、**専用**のディレクトリを指す必要があります。それ以外はセットアップ時に拒否されます。
 
-Recursive clearing requires the owned `.pdfvision-cache-root` marker. It never adopts an unmarked custom root. The active historical default may be adopted only when no `PDFVISION_CACHE_DIR` override is set and every top-level entry matches a recognized legacy cache shape, with a second scan after hardening. On POSIX, unmarked group/other-writable roots are refused, and setup/clear requires ancestors to be readable/openable by the process, current-user/root-owned, and non-group/other-writable unless sticky semantics protect the owned child.
+再帰的な削除には、所有権のある `.pdfvision-cache-root` マーカーが必要です。マーカーのないカスタムルートが採用されることはありません。現在使われている旧来のデフォルトルートは、`PDFVISION_CACHE_DIR` による上書きが設定されておらず、かつすべてのトップレベルのエントリが認識済みの旧形式のキャッシュ形状に一致する場合にのみ、権限強化後の 2 回目の走査を経て採用されることがあります。POSIX では、マーカーのない group/other 書き込み可能なルートは拒否され、セットアップ/削除には、すべての祖先がプロセスから読み取り・open 可能であること、現在のユーザーまたは root の所有であること、そして sticky 属性が所有される子を保護している場合を除き group/other 書き込み不可であることが必要です。
 
-Clear first renames the root to a sibling quarantine. On POSIX it then refuses recursive removal if any descendant has a different device identity (`st_dev`); the original pathname has already moved, and same-device bind mounts are not detectable by this check. Immediate identity rechecks resist replacement under conventional POSIX uid/mode/sticky semantics, but extended ACLs or network-filesystem permissions are not inspected, and root or same-UID replacement after the final check cannot be excluded. Windows marker and identity checks are best effort. Clear is not coordinated with active OCR; an interrupted OCR run may need to be retried.
+削除処理はまず、ルートを隣接する quarantine にリネームします。POSIX では、その後いずれかの子孫が異なるデバイス識別子（`st_dev`）を持つ場合、再帰的な削除を拒否します。元のパス名はすでに移動済みであり、同一デバイスの bind mount はこのチェックでは検出できません。直後の同一性再確認は、従来の POSIX の uid/mode/sticky セマンティクスの範囲では置き換えに耐えますが、拡張 ACL やネットワークファイルシステムの権限は検査されず、最終確認後の root または同一 UID による置き換えを排除することはできません。Windows のマーカーと同一性チェックは best effort です。削除処理は実行中の OCR とは協調しないため、中断された OCR 実行は再実行が必要になる場合があります。
 
-## Furigana / ruby handling (automatic, no flag)
+## ふりがな/ruby の処理（自動、フラグ不要）
 
-On Japanese and Chinese annotated-reading pages, furigana/ruby is attached inline as `base《ruby》` when pdfvision can associate the smaller kana or pinyin-shaped run with an unambiguous CJK base range. This covers adjacent half-size ruby columns in vertical body text, smaller kana above horizontal CJK base text, and pinyin-shaped Latin readings above horizontal CJK base text. Ambiguous or unassociated ruby stays excluded so the body flow remains readable rather than guessed, and search uses both ruby-inclusive and ruby-stripped text so base-word queries still match through `《...》` annotations. Short medium-size note-reference marks in the right gutter of a vertical body column are also excluded from reconstructed body text/layout so they do not split the column. Context-supported short body-sized vertical runs with ellipsis leaders are joined with the surrounding vertical body flow. Inline tatechuyoko digit groups such as `10` are kept inside the surrounding vertical column when the source stream order agrees with the top-to-bottom geometry. `--geometry` still exposes the retained source text-item spans for inspection.
+日本語や中国語のふりがな付きページでは、pdfvision が小さいかな、またはピンイン形の run を、あいまいさのない CJK のベース範囲に対応付けられる場合、ふりがな/ruby は `base《ruby》` としてインラインで付与されます。これは、縦書き本文中の隣接する半角サイズの ruby 列、横書き CJK ベーステキストの上にある小さいかな、横書き CJK ベーステキストの上にあるピンイン形のラテン文字表記をカバーします。あいまい、または対応付けできない ruby は、推測せずに本文の流れを読みやすいまま保つため除外されます。検索は ruby を含むテキストと ruby を除いたテキストの両方を使うため、ベースとなる語のクエリは `《...》` の注釈越しでも引き続き一致します。縦書き本文の列の右側ガターにある短い中サイズの脚注参照マークも、列を分断しないよう、再構成された本文テキスト/レイアウトから除外されます。省略記号のリーダーを伴う、コンテキストから裏付けられる短い本文サイズの縦書き run は、周囲の縦書き本文の流れに結合されます。`10` のようなインラインの tatechuyoko 数字グループは、ソースストリームの順序が上から下へのジオメトリと一致する場合、周囲の縦書きの列の中に保持されます。`--geometry` は、検査用に保持されたソースのテキストアイテム span を引き続き公開します。

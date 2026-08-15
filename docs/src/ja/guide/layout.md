@@ -1,6 +1,6 @@
 ---
-title: "Layout and Geometry"
-description: "The --layout block / line / table shapes, multi-column reading order, repeated chrome, heading levels, and the --geometry span contract. Use when reconstructing structure or reading order rather than reading flat text."
+title: "レイアウトとジオメトリ"
+description: "`--layout` の block / line / table 形状、複数段の読み順、繰り返し要素（chrome）、見出しレベル、`--geometry` の span 契約について説明します。フラットなテキストではなく、構造や読み順を復元したいときに使います。"
 sourceHash: d1f8f8095566
 ---
 
@@ -8,11 +8,11 @@ sourceHash: d1f8f8095566
      Translate the prose, keep code, field names, flags, and warning codes verbatim, and update
      `sourceHash` to the value reported by `node scripts/build-site-reference.mjs`. -->
 
-# Layout and span geometry
+# レイアウトと span のジオメトリ
 
-Reference for `-f json`, `-f xml`, and `-f toon` consumers.
+`-f json`、`-f xml`、`-f toon` を使う場合のリファレンスです。
 
-## Layout (`--layout`)
+## レイアウト（`--layout`）
 
 ```ts
 interface PageLayout {
@@ -55,29 +55,29 @@ interface LayoutTableCell {
 }
 ```
 
-`--layout` adds an alternate reading-order view with geometry and role hints; it never replaces native text. In JSON/XML/TOON, `pages[].layout` appears only with `--layout` while `pages[].text` stays the unchanged pdf.js stream, so blocks and raw text can be diffed against each other. Markdown is the exception: it always runs the layout pass internally, so its per-page body is the layout-rebuilt reading order whenever any block exists and falls back to `pages[].text` only when there is none; `--layout` there gates only the structural extras — the per-page layout table sections and the Overview `Blocks` / `Tables` columns. Note there is no `pages[].layout.lines` — lines live under `blocks[].lines`.
+`--layout` は、ジオメトリと role のヒントを伴う代替の読み順ビューを追加します。ネイティブテキストを置き換えることはありません。JSON/XML/TOON では、`pages[].layout` は `--layout` を指定したときにだけ現れ、`pages[].text` は変更されない pdf.js のストリームのままなので、block と raw text を突き合わせて比較できます。Markdown は例外で、常に内部でレイアウトパスを実行するため、block が 1 つでもあればページごとの本文はレイアウトで再構築された読み順になり、block が無いときだけ `pages[].text` にフォールバックします。Markdown での `--layout` が制御するのは構造的な追加要素だけです ── ページごとのレイアウト table セクションと、Overview の `Blocks` / `Tables` 列です。なお `pages[].layout.lines` というフィールドは存在しません ── line は `blocks[].lines` の下にあります。
 
-Multi-column reading order: `blocks[]` reads top-to-bottom of the left column before the right column. The layout pass treats recurring narrow gutters and recurring right-side panel starts as column/table breaks, including landscape pages where a numeric side panel means the main body columns cover only part of the physical page width. It preserves tight Latin and Arabic word spaces when pdf.js emits words as separate spans, keeps short display-spaced CJK title rows on one line (for example `科 学`), keeps indented singleton lines attached to the nearest surviving column instead of turning them into page-wide separators, avoids letting tall drop caps absorb following paragraph lines, keeps narrow standalone numeric page labels separate from surrounding prose, and moves small bottom permission/footer notes after the main two-column body. It also detects body-sized one-glyph CJK vertical runs, compact display CJK glyph stacks, and tall CJK spans that are visually vertical, keeps tatechuyoko digit groups inline in the same vertical column when geometry and source order agree, joins each column top-to-bottom, groups adjacent body columns right-to-left with `\n` between columns, and marks those blocks/lines with `writingMode: "vertical"` so consumers do not mistake them for horizontal rows. Furigana/ruby attaches to layout text as `base《ruby》` when the adjacent vertical ruby column or above-line horizontal kana run maps to an unambiguous CJK base range; otherwise it remains excluded rather than becoming standalone layout noise. Short medium-size note-reference marks in the right gutter of a vertical body column are also excluded rather than becoming standalone layout blocks. `pages[].text` applies the same body-sized vertical-run detector only as a stream-order join: it joins a detected column when the source item order already matches top-to-bottom geometry, and falls back per run rather than reordering. Standalone level-1 / level-2 headings act as column separators; level-3 candidates stay inside their column so subsection breaks don't scramble reading order. Block clustering is still heuristic — table cells may merge into a single block.
+複数段の読み順: `blocks[]` は右側の段より先に、左側の段を上から下まで読みます。レイアウトパスは、繰り返し現れる細い gutter（段間の余白）や、繰り返し現れる右側パネルの開始位置を、段組みや表の区切りとして扱います。これには、数値のサイドパネルがあるために本文の段が物理ページ幅の一部しか占めない横向きページも含まれます。pdf.js が単語を別々の span として出力する場合でも、Latin/Arabic 文字の詰まった単語間スペースを保持し、字間を空けた短い CJK のタイトル行（例: `科 学`）は 1 行にまとめ、インデントされた単独行はページ全体を分断するセパレータにせず最も近い残存する段に付属させ、大きなドロップキャップが後続の段落行を飲み込まないようにし、周囲の本文から独立した細い数字だけのページラベルは本文と切り離し、下部の小さな許諾表示やフッター注記は 2 段組み本文の後ろに移動します。また、本文サイズの 1 グリフずつの CJK 縦書きの連なり、コンパクトな見出し用 CJK グリフの積み重ね、視覚的に縦書きと分かる縦長の CJK span も検出します。ジオメトリとソース順が一致する場合は、縦中横（tatechuyoko）の数字グループを同じ縦の段の中でインラインのまま保持し、各段を上から下へ結合し、隣接する本文の段を右から左へまとめて段間を `\n` でつなぎ、それらの block / line には `writingMode: "vertical"` を付与するので、利用側が横書きの行と誤認しません。ふりがな/ルビは、隣接する縦のルビ列や行上の横書きかな連なりが曖昧さのない CJK ベース範囲に対応付けられる場合、レイアウトテキストに `base《ruby》` として付与されます。それ以外の場合は、単独のレイアウトノイズになるくらいなら除外されたままになります。縦書き本文の段の右側 gutter にある短い中サイズの注記参照マークも、単独のレイアウト block になるくらいなら除外されます。`pages[].text` は、同じ本文サイズの縦書き連なり検出器を、ストリーム順での結合としてのみ適用します。ソースの item 順がすでに上から下へのジオメトリと一致している場合にだけ検出した段を結合し、並べ替えはせず連なりごとにフォールバックします。単独の level-1 / level-2 見出しは段の区切りとして働きます。level-3 候補はその段の中に留まるため、subsection の区切りが読み順を混乱させることはありません。block のクラスタリングは依然としてヒューリスティックであり、表のセルが 1 つの block にマージされることがあります。
 
-Repeated chrome detection runs after block clustering. When only one line inside a multi-line edge block is repeated page chrome, such as a slide footer glued to nearby body text, pdfvision splits that line into its own `repeated: true` block and leaves the adjacent body lines non-repeated. The exact field exists in JSON/TOON; XML uses `<block repeated="true">`, and Markdown omits the block only with `--strip-repeated`. Narrow vertical blocks at the left or right page edge also need corroboration before they become chrome: sentence-like text containing `。` or `、`, and vertical edge text longer than the short chrome ceiling, is never marked as `repeated`; in multi-page extraction the same normalized short edge text must recur on at least two selected pages; in single-page extraction only conservative short markers such as `第`, `章`, digits, or `第1章`-style labels can be marked. Short form control labels such as `Yes.`, `No.`, and `STOP` are not treated as page chrome even when they recur at the page edge in decision-tree instructions.
+繰り返し chrome の検出は、block のクラスタリングの後に実行されます。複数行からなる端の block のうち 1 行だけが、近くの本文にくっついたスライドのフッターのような繰り返しページ chrome である場合、pdfvision はその行を独立した `repeated: true` の block に分割し、隣接する本文の行は repeated ではないままにします。このフィールドは JSON/TOON にそのまま存在します。XML では `<block repeated="true">` を使い、Markdown は `--strip-repeated` を指定したときだけその block を省略します。ページの左右端にある細い縦の block も、chrome と判定される前に裏付けが必要です。`。` や `、` を含む文らしいテキスト、および chrome とみなす短さの上限を超える縦書きの端テキストは、決して `repeated` とマークされません。複数ページ抽出では、同じ正規化された短い端テキストが選択された少なくとも 2 ページで繰り返されている必要があります。単一ページ抽出では、`第`、`章`、数字、`第1章` のようなラベルなど、保守的な短いマーカーだけがマークされます。`Yes.`、`No.`、`STOP` のような短いフォームコントロールのラベルは、決定木形式の指示でページ端に繰り返し現れても、ページ chrome としては扱われません。
 
-`tables[]` is a conservative row-major hint for aligned numeric tables. It appears when multiple rows have several cells and at least two numeric cells, a common shape in financial statements and government statistical tables; compact two-column year/value tables are included when enough regular rows make the table shape clear. Treat it as a visual-structure aid, not a complete table parser: merged headers, continuation labels, and footnotes can still require `--render` / `--render-region`, but `rows[].cells[]` preserves the row/cell order that `blocks[]` often loses when a table is split into label and numeric columns. Dense recurring numeric gutters are split before table construction so adjacent values do not collapse into one cell when the visual grid is regular, including compact side tables with comma-formatted values or ratio cells such as `13.0x`. Dense rows with three or more numeric spans can also split narrow same-row numeric gutters, including financial statement rows where a trailing currency symbol visually marks the next value column. Wide tables with three or more recurring numeric columns can also keep short leading header rows and sparse first rows directly above the first fully populated row, including scientific notation cells such as `1.0 · 10^20` and score/percentile cells such as `298 / 400 (~90th)`, so the table bbox starts at the human-visible table top. Decorative dotted rule text from publisher table borders is ignored while grouping rows, so a tall dotted border does not absorb all cells into one row. Nearby label-only continuation rows are folded into the following row label unless they look like section headers. Irregular row spacing is still accepted when labelled rows have recurring numeric columns, so financial tables with multi-line labels, subtotal gaps, and long prose-like labels before recurring year columns remain visible instead of being trimmed as adjacent prose. Detached currency symbols are folded into the following numeric cell when their row position makes the relationship clear.
+`tables[]` は、整列した数値の表に対する保守的な行優先（row-major）のヒントです。複数の行に複数セルがあり、かつ数値セルが 2 つ以上ある場合に現れます。これは財務諸表や政府の統計表によく見られる形です。コンパクトな 2 列の年/値の表も、規則的な行が十分にあって表の形が明確な場合は含まれます。完全な表パーサーではなく、視覚的な構造を補助するものとして扱ってください。結合されたヘッダー、続きのラベル、脚注については、依然として `--render` / `--render-region` が必要になることがあります。ただし `rows[].cells[]` は、表がラベル列と数値列に分かれることで `blocks[]` がしばしば失ってしまう行/セルの順序を保持します。密で繰り返し現れる数値の gutter は、表を構築する前に分割されます。視覚的なグリッドが規則的な場合に隣接する値が 1 つのセルに潰れないようにするためで、カンマ区切りの値や `13.0x` のような比率セルを含むコンパクトなサイドテーブルにも適用されます。数値 span が 3 つ以上ある密な行では、同じ行内の細い数値 gutter も分割されることがあります。末尾の通貨記号が視覚的に次の値の列を示している財務諸表の行も含みます。繰り返し現れる数値列が 3 つ以上ある幅広の表では、最初にすべてのセルが埋まる行の直前にある短い先頭ヘッダー行やまばらな最初の行も保持されます。`1.0 · 10^20` のような科学的記数法のセルや `298 / 400 (~90th)` のようなスコア/パーセンタイルのセルも含み、表の bbox は人間の目に見える表の一番上から始まります。行をグルーピングする際、出版社の表罫線に由来する装飾的な点線ルールのテキストは無視されるため、縦に長い点線の罫線がすべてのセルを 1 行に飲み込むことはありません。近くにあるラベルのみの続き行は、セクションヘッダーのように見えない限り、次の行のラベルに畳み込まれます。ラベル付きの行に繰り返し現れる数値列がある場合、行間隔が不規則でも受け入れられます。そのため、複数行のラベル、小計の隙間、繰り返し現れる年の列の前にある長い文章調のラベルを持つ財務表は、隣接する本文として切り詰められることなく表示され続けます。分離した通貨記号は、行内の位置から関係が明確な場合、後続の数値セルに畳み込まれます。
 
-### Heading levels (`role === 'heading'`)
+### 見出しレベル（`role === 'heading'`）
 
-`role` is set when a block is classified as a heading; `level` ranks the visual hierarchy:
+`role` は、block が見出しとして分類されたときに設定されます。`level` は視覚的な階層をランク付けします。
 
-- `level: 1` — paper / page title (fontSize ≥ 1.40× body median, or top-of-page document title in the ≥ 1.25× band).
-- `level: 2` — section heading (≥ 1.25× under the legacy rule, or ≥ 1.15× with structural support: short and either standalone or locally larger than neighbours). Catches the typical LaTeX 12pt-over-10pt section style.
-- `level: 3` — subsection candidate (≥ 1.08×, single short line, locally larger than same-column neighbours). Lower confidence; the kind of heading ResNet's `3.1.` and `3.4.` use.
+- `level: 1` — 論文/ページのタイトル（fontSize が本文中央値の 1.40 倍以上、または 1.25 倍以上帯にあるページ上部の文書タイトル）。
+- `level: 2` — セクション見出し（旧ルールでは 1.25 倍以上、構造的な裏付けがあれば 1.15 倍以上: 短く、単独であるか近傍より局所的に大きいこと）。典型的な LaTeX の 12pt-over-10pt のセクションスタイルを捉えます。
+- `level: 3` — subsection 候補（1.08 倍以上、単独の短い行、同じ段内の近傍より局所的に大きいこと）。信頼度は低めで、ResNet 論文の `3.1.` や `3.4.` のような見出しです。
 
-Pick a slice that matches the use case:
-- Title-only: `role === 'heading' && level === 1`.
-- High precision (sections only): `role === 'heading' && level <= 2`.
-- Recall-oriented (include subsections): all `role === 'heading'`.
+ユースケースに合わせて範囲を選んでください。
+- タイトルのみ: `role === 'heading' && level === 1`。
+- 高精度（セクションのみ）: `role === 'heading' && level <= 2`。
+- 再現率重視（subsection を含む）: `role === 'heading'` すべて。
 
-Repeated chrome wins over heading classification. When a heading-shaped running header/footer is marked `repeated: true`, pdfvision drops `role`, `level`, and `roleConfidence` so repeated page chrome does not appear in heading lists. When chunking body content, still filter `repeated: true` first.
-## Spans (`--geometry`)
+繰り返し chrome は見出し分類より優先されます。見出しの形をしたランニングヘッダー/フッターが `repeated: true` とマークされた場合、pdfvision は `role`、`level`、`roleConfidence` を落とすため、繰り返しページ chrome が見出し一覧に現れることはありません。本文をチャンク分割する際も、まず `repeated: true` でフィルタしてください。
+## Span（`--geometry`）
 
 ```ts
 interface TextSpan {
@@ -89,4 +89,4 @@ interface TextSpan {
 }
 ```
 
-Each public span corresponds to one retained positioned pdf.js text item, whose `text` may be one character, a word, or a longer string. Adjacent items are not merged or split in public `spans[]`; layout/search may reconstruct lines or slice match boxes without changing that granularity. The rounded bbox is the item's aggregate axis-aligned envelope, not individual glyph outlines. Deduplication runs before normalization. Its key uses raw `str`, raw `fontName` (or empty), width, effective height, and every transform component rounded to three decimals (`no-transform` when absent). Effective height is a positive reported height, otherwise the largest finite non-zero text-matrix scale, otherwise zero. `fontSize` uses that largest usable matrix scale first and falls back to the reported/effective item height only when both matrix scales are unusable. Matching keys keep the first item and OR `hasEOL`; the same raw text at different transforms remains distinct, while different raw items may normalize to identical public text. Items without a transform, likely prepress-production text, whitespace-only items, and items empty after normalization are omitted. `fontName` is a stable page-local alias. Geometry can substantially enlarge output.
+公開される span はそれぞれ、保持された位置情報付き pdf.js テキスト item 1 つに対応します。その `text` は 1 文字、1 単語、あるいはもっと長い文字列の場合があります。隣接する item は、公開される `spans[]` の中でマージされたり分割されたりしません。レイアウトや検索は、その粒度を変えずに行を再構築したり一致 box を切り出したりすることがあります。丸められた bbox は item の集約された軸並行の外接矩形であり、個々のグリフの輪郭ではありません。重複排除は正規化の前に実行されます。そのキーは、raw の `str`、raw の `fontName`（無ければ空）、width、有効な height、そして小数第 3 位に丸めたすべての transform 成分（無ければ `no-transform`）を使います。有効な height は、正の報告済み height があればそれを使い、無ければ有限かつ非ゼロの text-matrix スケールのうち最大のもの、それも無ければゼロになります。`fontSize` はまずその最大の利用可能な matrix スケールを使い、両方の matrix スケールが利用不能な場合にのみ、報告済み/有効な item の height にフォールバックします。キーが一致する場合は最初の item を残し、`hasEOL` は OR で結合されます。同じ raw テキストでも transform が異なれば別物として扱われる一方、異なる raw item が正規化後に同一の公開テキストになることもあります。transform を持たない item（prepress 制作用テキストである可能性が高いもの）、空白のみの item、正規化後に空になる item は省略されます。`fontName` はページ内で安定したエイリアスです。ジオメトリを含めると出力が大幅に大きくなることがあります。

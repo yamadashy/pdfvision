@@ -1,6 +1,6 @@
 ---
-title: "Document Features"
-description: "Document-level output shapes: --structure tagged trees and tables, --page-labels, --attachments, --outline, --viewer state, and --layers. Use when navigation, accessibility tags, embedded files, or optional content matter."
+title: "文書機能"
+description: "文書レベルの出力形状: --structure のタグ付きツリーと表、--page-labels、--attachments、--outline、--viewer の状態、--layers。ナビゲーション、アクセシビリティタグ、埋め込みファイル、optional content が関わるときに参照してください。"
 sourceHash: d215b9d959bd
 ---
 
@@ -8,11 +8,11 @@ sourceHash: d215b9d959bd
      Translate the prose, keep code, field names, flags, and warning codes verbatim, and update
      `sourceHash` to the value reported by `node scripts/build-site-reference.mjs`. -->
 
-# Document-level features
+# 文書レベルの機能
 
-Reference for `-f json`, `-f xml`, and `-f toon` consumers.
+`-f json`、`-f xml`、`-f toon` を利用する側向けのリファレンスです。
 
-## Structure (`--structure`)
+## 構造 (`--structure`)
 
 ```ts
 interface PageStructureNode {
@@ -41,13 +41,13 @@ interface PageStructureTableCell {
 }
 ```
 
-`pages[].structure` surfaces the tagged-PDF structure tree a human reader may reach through a PDF viewer's accessibility layer. This is especially useful for accessible government PDFs, manuals, reports, and forms where figure `alt` text describes a visual region better than native text extraction. IRS instructions, for example, can expose a cover figure's full human-written description through `alt` even though the native text stream only lists fragments. Structure `bbox` values use `[x, y, width, height]` in the same unrotated page-view top-left system as `spans`, `layout.blocks`, and `imageBoxes`. Stray control bytes in structure strings are removed before output so malformed `alt` / `lang` values do not leak NUL bytes into JSON, XML, Markdown, or TOON. `structure: null` means the pass ran and pdf.js found no page structure tree; absent `structure` means `--structure` was not requested. `overview[].structureNodeCount` mirrors the number of structure nodes so multi-page consumers can find tagged pages before walking every tree.
+`pages[].structure` は、人間の読者が PDF viewer のアクセシビリティレイヤーを通じて到達できるタグ付き PDF の構造ツリーを公開します。これは特に、アクセシブルな政府系 PDF、マニュアル、レポート、フォームで有用です。こうした文書では、図の `alt` テキストがネイティブテキスト抽出よりも視覚的な領域をよく表していることがあります。たとえば IRS の記入案内書では、ネイティブテキストストリームには断片しか並んでいなくても、表紙の図の完全な人手記述を `alt` 経由で得られる場合があります。構造の `bbox` 値は、`spans`、`layout.blocks`、`imageBoxes` と同じ、回転前のページビュー top-left 座標系で `[x, y, width, height]` を使います。構造文字列中の迷い込んだ制御バイトは出力前に取り除かれるため、壊れた `alt` / `lang` 値が JSON、XML、Markdown、TOON に NUL バイトとして漏れることはありません。`structure: null` は、このパスが実行され pdf.js がページ構造ツリーを見つけられなかったことを意味します。`structure` フィールド自体が無い場合は、`--structure` が要求されなかったことを意味します。`overview[].structureNodeCount` は構造ノード数を反映するため、複数ページを扱う側は各ツリーを走査せずにタグ付きページを見つけられます。
 
-`pages[].structureTables` reconstructs `Table` roles by correlating structure content ids with marked-content ids from the already-loaded text stream. It supports `THead` / `TBody` / `TFoot` wrappers and direct `TR` children. A `TH` in `TBody` is a row header; other wrapped `TH` cells are column headers. For bare rows, `TH` cells are row headers unless the first row is entirely `TH`, in which case that row is classified as column headers. Empty tagged cells remain empty strings. Paragraphs inside a cell join with `<br>`, while nested tables are flattened into the parent cell text. pdf.js does not expose table spans or explicit `/Scope`, so `RowSpan` / `ColSpan` cannot be represented and header direction is heuristic. Tables split across pages are not merged. The field is absent when no tagged `Table` exists; it is independent of geometry-derived `layout.tables[]`, so requesting both `--layout` and `--structure` can show the same visible table twice.
-## Page labels (`--page-labels`)
+`pages[].structureTables` は、すでに読み込まれているテキストストリームの marked-content id と構造コンテンツ id を突き合わせることで `Table` ロールを再構成します。`THead` / `TBody` / `TFoot` のラッパーと、直接の `TR` 子要素の両方をサポートします。`TBody` 内の `TH` は行ヘッダーとして扱われ、それ以外のラップされた `TH` セルは列ヘッダーとして扱われます。ラップされていない行では、最初の行がすべて `TH` である場合を除き、`TH` セルは行ヘッダーとして扱われます(この場合はその行が列ヘッダーとして分類されます)。空のタグ付きセルは空文字列のままです。セル内の段落は `<br>` で連結され、ネストされた表は親セルのテキストにフラット化されます。pdf.js は表のスパンや明示的な `/Scope` を公開しないため、`RowSpan` / `ColSpan` は表現できず、ヘッダーの方向はヒューリスティックに判定されます。ページをまたぐ表は結合されません。このフィールドはタグ付きの `Table` が存在しない場合には現れません。ジオメトリから導出される `layout.tables[]` とは独立しているため、`--layout` と `--structure` の両方を要求すると、同じ目に見える表が 2 回表示されることがあります。
+## ページラベル (`--page-labels`)
 
-`pageLabels[]` is the full viewer page-label array for the source PDF, indexed from physical page 1 at array index 0. `pages[].pageLabel` and `overview[].pageLabel` mirror the selected page's entry when the PDF defines labels. Use this when a PDF viewer shows front matter as `i`, `ii`, ... and restarts body numbering at `1`, or when sections use prefixes such as `A-1`. The CLI page selector still uses physical page numbers; `pageLabel` tells the agent what a human sees in the viewer chrome.
-## Attachments (`--attachments`)
+`pageLabels[]` は、元の PDF が持つ viewer 用ページラベル配列全体で、物理ページ 1 を配列インデックス 0 として並びます。`pages[].pageLabel` と `overview[].pageLabel` は、PDF がラベルを定義している場合に、選択したページのエントリを反映します。PDF viewer が前付けを `i`、`ii`、... と表示し、本文の番号付けを `1` から再スタートする場合や、セクションが `A-1` のような接頭辞を使う場合に活用してください。CLI のページ選択には引き続き物理ページ番号を使いますが、`pageLabel` はエージェントに、人間が viewer の chrome 上で何を見ているかを伝えます。
+## 添付ファイル (`--attachments`)
 
 ```ts
 interface DocumentAttachment {
@@ -59,8 +59,8 @@ interface DocumentAttachment {
 }
 ```
 
-`attachments[]` surfaces embedded file attachments that a human PDF viewer exposes in its attachment pane or as page file-attachment icons. The attachment bytes are intentionally not included in JSON/XML/Markdown/TOON output; use the metadata as a signal that the PDF contains supplemental files without flooding agent context with arbitrary binary content. Pass `--attachment-output <dir>` with `--attachments` when the agent needs actual files on disk; pdfvision writes them under a per-PDF fingerprint subdirectory and fills `attachments[].path`.
-## Outline (`--outline`)
+`attachments[]` は、人間の PDF viewer が添付ファイルペインやページ上のファイル添付アイコンとして公開している埋め込みファイル添付を表示します。添付ファイルのバイト列は意図的に JSON/XML/Markdown/TOON 出力に含めていません。任意のバイナリコンテンツでエージェントのコンテキストを埋め尽くすことなく、PDF に補足資料が含まれているというシグナルとしてメタデータを使ってください。エージェントが実ファイルをディスク上に必要とする場合は、`--attachments` と一緒に `--attachment-output <dir>` を渡してください。pdfvision は PDF ごとのフィンガープリントサブディレクトリ配下にファイルを書き込み、`attachments[].path` を埋めます。
+## アウトライン (`--outline`)
 
 ```ts
 interface DocumentOutlineItem {
@@ -72,8 +72,8 @@ interface DocumentOutlineItem {
 }
 ```
 
-`outline[]` surfaces the document outline / bookmarks shown in a human PDF viewer sidebar. It preserves nesting, external URLs, named viewer actions such as `NextPage`, and resolves named or explicit PDF destinations to 1-based page numbers when possible. Empty `outline: []` means the pass ran and the PDF has no outline; absent `outline` means `--outline` was not requested.
-## Viewer state (`--viewer`)
+`outline[]` は、人間の PDF viewer のサイドバーに表示される文書アウトライン/しおりを表示します。ネストを保持し、外部 URL、`NextPage` のような名前付き viewer アクションも扱い、可能な場合は名前付き/明示的な PDF destination を 1-based のページ番号に解決します。空の `outline: []` は、このパスが実行され PDF にアウトラインが無かったことを意味します。`outline` フィールド自体が無い場合は、`--outline` が要求されなかったことを意味します。
+## Viewer の状態 (`--viewer`)
 
 ```ts
 interface DocumentViewerState {
@@ -99,8 +99,8 @@ interface DocumentViewerState {
 }
 ```
 
-`viewer` surfaces document-level state a human PDF viewer uses before reading page text: sidebar/page mode, page layout, preferences such as `DisplayDocTitle`, catalog `OpenAction`, document JavaScript actions such as auto-print scripts, permission flags, and tagged-PDF `MarkInfo`. Document JavaScript presence is always available through `javascriptActionCount`; `--viewer` expands it into action names and script source under `viewer.jsActions`. The same `--viewer` pass also emits page-level JavaScript actions such as `PageOpen` / `PageClose` on `pages[].jsActions` when a page defines them. Markdown shortens very long JavaScript action summaries for readability; JSON, XML, and TOON keep the full structured values. Use it on specs, manuals, papers, forms, and long reports where opening position, bookmark/sidebar mode, JavaScript-triggered viewer behavior, copy/print permissions, or tagged-PDF structure affects navigation or accessibility. Empty `viewer: {}` means the pass ran and no viewer-level settings were present; absent `viewer` means `--viewer` was not requested.
-## Layers (`--layers`)
+`viewer` は、人間の PDF viewer がページテキストを読む前に使う文書レベルの状態を表示します。サイドバー/ページモード、ページレイアウト、`DisplayDocTitle` のような preference、カタログの `OpenAction`、自動印刷スクリプトのような文書 JavaScript action、権限フラグ、タグ付き PDF の `MarkInfo` が含まれます。文書 JavaScript の有無は `javascriptActionCount` で常に取得できます。`--viewer` はそれをアクション名とスクリプトソースとして `viewer.jsActions` に展開します。同じ `--viewer` パスは、ページが定義していれば `PageOpen` / `PageClose` のようなページレベルの JavaScript action も `pages[].jsActions` として出力します。Markdown は非常に長い JavaScript action のサマリーを読みやすさのために短縮しますが、JSON、XML、TOON は完全な構造化された値を保持します。開始位置、しおり/サイドバーのモード、JavaScript がトリガーする viewer の振る舞い、コピー/印刷権限、タグ付き PDF の構造がナビゲーションやアクセシビリティに影響する、仕様書、マニュアル、論文、フォーム、長いレポートで使ってください。空の `viewer: {}` は、このパスが実行され viewer レベルの設定が存在しなかったことを意味します。`viewer` フィールド自体が無い場合は、`--viewer` が要求されなかったことを意味します。
+## レイヤー (`--layers`)
 
 ```ts
 interface DocumentLayers {
@@ -125,4 +125,4 @@ interface DocumentLayerGroup {
 }
 ```
 
-`layers` surfaces PDF optional content groups, the layer panel a human PDF viewer can expose for maps, CAD/design files, multilingual variants, and overlay-heavy documents. Use it when visible content may depend on a toggled layer or when a map/design page looks incomplete from text, vectors, and images alone. `groups[].visible` reflects pdf.js display-intent visibility after the document's default optional-content configuration is applied. pdf.js text extraction can include optional-content marked text from groups that are hidden in the default viewer state; when `pages[].warnings[].code === "optional_content_text_may_include_hidden_layers"`, compare `pages[].text` against `--render` and inspect `--layers` before treating the text as exactly human-visible. Empty `layers: { groups: [] }` means the pass ran and the PDF has no optional content groups; absent `layers` means `--layers` was not requested.
+`layers` は、PDF の optional content group を表示します。これは、地図、CAD/デザインファイル、多言語バリアント、オーバーレイの多い文書に対して、人間の PDF viewer が公開できるレイヤーパネルです。表示されるコンテンツがトグルされたレイヤーに依存しうる場合や、地図/デザインのページがテキスト・ベクター・画像だけでは不完全に見える場合に使ってください。`groups[].visible` は、文書の既定の optional content 設定が適用された後の pdf.js の display-intent の可視性を反映します。pdf.js のテキスト抽出は、既定の viewer 状態では非表示になっているグループの optional content マークテキストを含むことがあります。`pages[].warnings[].code === "optional_content_text_may_include_hidden_layers"` のときは、テキストが人間に見えているものと厳密に一致すると見なす前に、`pages[].text` を `--render` の結果と比較し、`--layers` を確認してください。空の `layers: { groups: [] }` は、このパスが実行され PDF に optional content group が無かったことを意味します。`layers` フィールド自体が無い場合は、`--layers` が要求されなかったことを意味します。

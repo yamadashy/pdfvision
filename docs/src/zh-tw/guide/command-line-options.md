@@ -1,6 +1,6 @@
 ---
-title: "Command Line Options"
-description: "Every CLI option with its interactions and caveats, the order arguments are resolved in, output formats, and exit codes. Use when picking or combining flags, or when explaining an exit code."
+title: "命令列選項"
+description: "所有 CLI 選項及其互動方式與注意事項、參數解析順序、輸出格式與結束代碼。在挑選或組合旗標，或說明結束代碼時使用。"
 sourceHash: 93d2b5374527
 ---
 
@@ -8,9 +8,9 @@ sourceHash: 93d2b5374527
      Translate the prose, keep code, field names, flags, and warning codes verbatim, and update
      `sourceHash` to the value reported by `node scripts/build-site-reference.mjs`. -->
 
-# Options
+# 選項
 
-The short `pdfvision --help` lists the flags reached for most often. This topic is the complete set, in the same layout, plus the rules that decide what happens when they are combined.
+簡短的 `pdfvision --help` 列出最常用到的旗標。本主題是完整清單，採用相同版面，並加上決定旗標組合時行為的規則。
 
 ```text
   -p, --pages <range>     Pages to extract: "1", "1-5", "1,3,5", "2-4,7". Default: all pages.
@@ -181,7 +181,7 @@ The short `pdfvision --help` lists the flags reached for most often. This topic 
 
 ```
 
-## Subcommands
+## 子命令
 
 ```text
   docs [topic]            Print the documentation for the installed version. Bare `docs` lists
@@ -205,11 +205,11 @@ The short `pdfvision --help` lists the flags reached for most often. This topic 
                           host's context for the whole session, a skill loads on demand.
 ```
 
-A subcommand is recognized only as the first argument and takes no options of its own; `--help`
-and `--version` are the usual exceptions and work after one. A file actually named `docs`, `mcp`,
-or `clear-cache` must be passed as `./docs`, `./mcp`, or `./clear-cache`.
+子命令只有作為第一個參數時才會被辨識，且本身不接受任何選項；`--help`
+與 `--version` 是常見例外，可以接在子命令之後使用。若檔案本身就叫做 `docs`、`mcp`
+或 `clear-cache`，必須以 `./docs`、`./mcp` 或 `./clear-cache` 的形式傳入。
 
-## Argument handling
+## 參數處理
 
 ```text
   A subcommand is recognized only as the first argument, before any option parsing, and
@@ -227,7 +227,7 @@ or `clear-cache` must be passed as `./docs`, `./mcp`, or `./clear-cache`.
 
 ```
 
-## Output formats
+## 輸出格式
 
 ```text
   markdown (default)  Per-page sections, density Overview table, image links inline. For LLM context.
@@ -245,7 +245,7 @@ or `clear-cache` must be passed as `./docs`, `./mcp`, or `./clear-cache`.
 
 ```
 
-## Examples
+## 範例
 
 ```text
   pdfvision document.pdf                                                       # markdown to stdout
@@ -273,7 +273,7 @@ or `clear-cache` must be passed as `./docs`, `./mcp`, or `./clear-cache`.
 
 ```
 
-## Exit codes
+## 結束代碼
 
 ```text
   0  Success, including --help, --version, a printed docs topic or index, and a
