@@ -47,6 +47,7 @@ Options
   -r, --render            Render each selected page to a PNG and report its path.
       --render-output <dir>   Where the PNGs land. Requires --render or --render-visual-regions.
       --render-scale <n>      Rasterisation multiplier, default 2 (≈144 DPI); bounds (0, 4].
+                              Requires --render, --render-visual-regions, or --ocr.
       --render-region <x,y,width,height>
                           Crop one page in raw page-view units. Single-page only.
       --map               A map of the document instead of its contents: pages, metadata,

@@ -61,7 +61,7 @@ interface VisualRegionAssociatedText {
 On vector-only empty-text pages, a single page-sized vector box is emitted when it is the only nonblank visual evidence, so path-drawn symbol sheets and vector-only diagrams still produce a crop-ready region.
 ## Rendering: `--render-scale` and `--render-region`
 
-Both flags only have effect when `--render` (or `--ocr`, which internally rasterises) is on.
+Prerequisites differ: `--render-scale` requires `--render`, `--render-visual-regions`, or `--ocr` (which internally rasterises); `--render-region` requires `--render` or `--ocr`. Either errors rather than silently doing nothing.
 
 - **`--render-scale <n>`**: rasterisation scale multiplier. Default `2` (≈144 DPI). Bounds `(0, 4]`. Smaller values shrink the vision-model payload; larger values capture finer detail.
 - **`--render-region <x,y,w,h>`**: render one page sub-rectangle in the same raw unrotated page-view top-left system as `imageBoxes` / `layout.blocks`; the bbox passes unchanged. Pixel dimensions equal raw region × UserUnit × render scale. Rotated pages can swap output pixel width/height because the crop is mapped through the human-visible viewport. It is single-page only and rejects out-of-bounds regions. The tuple is in the cache key and filename, and is echoed in `PageResult.renderRegion`.

@@ -31,6 +31,8 @@ The short `pdfvision --help` lists the flags reached for most often. This topic 
                           (and vision-model payload); OCR keeps at least scale 2 for recognition
                           quality; larger values capture more detail.
                           Accepts decimals; bounds (0, 4].
+                          Errors when none of the three flags is present, rather than
+                          silently doing nothing — same contract as --render-output.
       --render-region <x,y,width,height>
                           Render a sub-rectangle in raw unrotated page-view units (top-left origin,
                           y grows downward). Physical points = raw value × pages[].userUnit (or 1
