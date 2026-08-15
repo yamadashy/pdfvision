@@ -50,7 +50,7 @@ Renders are fitted to 1568 px on the longest edge, past which vision models down
 
 ## Budgets and Honesty
 
-Responses are budgeted: 30,000 characters per body, 12,000 per page, 100 match places, 4 rendered pages, 5 OCR pages, and 6 MB of images per call. Every truncation names the exact follow-up call, so a clipped result is recoverable rather than silently incomplete — and the follow-up is always narrower than the call that produced it, including when the requested range is so wide that its per-page Overview table fills the budget on its own and no page body fits.
+Responses are budgeted: 30,000 characters per body, 12,000 per page, 100 match places, 4 rendered pages, 5 OCR pages, and 6 MB of images per call. Every truncation names what to do next, so a clipped result is recoverable rather than silently incomplete — a page call narrower than the one that produced it, even when the requested range is so wide that its per-page Overview table fills the budget on its own, or `search_pdf` guidance in the one case where no narrower page call exists because a single page cannot fit whole.
 
 The 20-page threshold decides map versus body, not whether the body fits: a document under it is read whole and then truncated like any other if it exceeds the character budget. What a truncation notice counts as omitted is page *bodies* — the Overview row for each of those pages is still in the response.
 
