@@ -1,6 +1,6 @@
 import type { PageResult, RenderRegion } from '../../types/index.js';
 import { derivePageQuality } from '../quality/pageQuality.js';
-import { type CompiledSearch, searchPage } from '../search/index.js';
+import { type CompiledSearch, type RegexSearchBudget, searchPage } from '../search/index.js';
 import type { PageData } from './pageData.js';
 
 interface BuildPageResultOptions {
@@ -12,6 +12,8 @@ interface BuildPageResultOptions {
   renderRatio?: number;
   hasVisibleAnnotationAppearance: boolean;
   compiledSearch?: CompiledSearch;
+  /** Per-request regex search time budget; set only for regex-mode searches. */
+  searchBudget?: RegexSearchBudget;
   onWarning?: (message: string) => void;
 }
 
@@ -24,6 +26,7 @@ export function buildPageResult({
   renderRatio,
   hasVisibleAnnotationAppearance,
   compiledSearch,
+  searchBudget,
   onWarning,
 }: BuildPageResultOptions): PageResult {
   const page: PageResult = {
@@ -66,18 +69,24 @@ export function buildPageResult({
   page.quality = derivePageQuality(page, { hasVisibleAnnotationAppearance });
 
   if (compiledSearch) {
-    page.matches = searchPage(
-      data._internalSpans,
-      undefined,
-      pageNum,
-      data.width,
-      data.height,
-      compiledSearch,
-      onWarning,
-      data._internalFormFields,
-      data._internalAnnotations,
-      data._internalLinks,
-    );
+    const search = () =>
+      searchPage(
+        data._internalSpans,
+        undefined,
+        pageNum,
+        data.width,
+        data.height,
+        compiledSearch,
+        onWarning,
+        data._internalFormFields,
+        data._internalAnnotations,
+        data._internalLinks,
+      );
+    // The budget charges what this pass costs and refuses the page once
+    // the request has spent its regex time; `undefined` means the search
+    // never ran. The single summary warning comes from the budget itself
+    // once every pass is done.
+    page.matches = searchBudget ? (searchBudget.run(pageNum, search) ?? []) : search();
   }
 
   return page;

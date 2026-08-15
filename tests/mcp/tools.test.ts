@@ -346,6 +346,9 @@ describe('appendPageWarnings', () => {
 describe('searchWarningCollector', () => {
   const timeout = (page: number) => `regex search on page ${page} exceeded the 1000ms per-page regex time limit`;
   const cap = (page: number) => `search query "x" exceeded the per-page native match cap on page ${page}`;
+  const summary =
+    'regex search stopped: the 12000ms budget for regex search time across this request was exhausted after searching 8 of 40 selected page(s). ' +
+    'Matches found so far are kept; 32 page(s) were not searched, so a zero result here is not evidence of absence.';
 
   it('keeps timeout warnings ahead of the cap when other warnings came first', () => {
     // Six match-cap warnings before the timeout would have sliced the
@@ -372,6 +375,33 @@ describe('searchWarningCollector', () => {
 
   it('emits nothing when there were no warnings', () => {
     expect(searchWarningCollector().lines()).toEqual([]);
+  });
+
+  it('keeps the request-budget summary even behind a full cap of per-page timeouts', () => {
+    // The summary is emitted last, after every page has warned, and it is
+    // the only warning that says which pages went unsearched — a
+    // first-come cap would drop it on exactly the document that needs it.
+    const log = searchWarningCollector();
+    for (let page = 1; page <= 8; page++) log.onWarning(timeout(page));
+    log.onWarning(summary);
+    const lines = log.lines();
+
+    expect(lines[1]).toBe(`> [pdfvision] ${summary}`);
+    expect(lines.filter((line) => line.includes('[pdfvision]'))).toHaveLength(6);
+    // It evicts a per-page timeout rather than widening the cap.
+    expect(lines.filter((line) => line.includes('per-page regex time limit'))).toHaveLength(4);
+    expect(lines.at(-1)).toBe('> [pdfvision] 4 further warning(s) omitted.');
+  });
+
+  it('counts the summary once and keeps the first when repeated', () => {
+    const log = searchWarningCollector();
+    log.onWarning(summary);
+    log.onWarning(`${summary} (second)`);
+    const lines = log.lines();
+
+    expect(lines.filter((line) => line.includes('[pdfvision]'))).toHaveLength(2);
+    expect(lines[1]).toBe(`> [pdfvision] ${summary}`);
+    expect(lines.at(-1)).toBe('> [pdfvision] 1 further warning(s) omitted.');
   });
 });
 

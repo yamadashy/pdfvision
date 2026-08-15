@@ -75,7 +75,7 @@ Viewer permissions 會作為 document metadata 報告。它們描述 PDF 希望 
 
 預設搜尋把 query 當作 literal text。`--search-regex` 會把每個 query 編譯為 JavaScript regular expression，並在 native text、form-field text、clickable link targets、visible FreeText annotations，以及啟用 OCR 時的 OCR text 上執行。
 
-pdfvision 會把每頁的 regex 搜尋限制在約 1 秒的 wall-clock 時間內（透過 V8 層面的中斷強制執行），因此 catastrophic-backtracking pattern 無法卡住 extraction：受影響頁面的結果會連同 warning 一起被捨棄；搜尋被中斷後，其結果也不會寫入快取。每個 query、page、source 輸出的 match 數上限仍然適用。這個 budget 是限制損害而不是消除損害 — 惡意 pattern 仍可在每個被搜尋的頁面上消耗最多約 1 秒（啟用 OCR 時，OCR supplement pass 有獨立的 budget，最多約 2 秒），因此向 untrusted users 大規模暴露 regex search 的應用仍應自行施加 rate limit。
+pdfvision 會把每頁的 regex 搜尋限制在約 1 秒的 wall-clock 時間內（透過 V8 層面的中斷強制執行），因此 catastrophic-backtracking pattern 無法卡住 extraction：受影響頁面的結果會連同 warning 一起被捨棄；搜尋被中斷後，其結果也不會寫入快取。每個 query、page、source 輸出的 match 數上限仍然適用。regex request 整體還有第二個 budget，約束的是花在 regex matching 上的時間本身，約為 12 秒 — 只計入 search time，extraction 和 OCR 耗費的時間不會計入這個 budget。一旦用盡，剩餘頁面就不再被搜尋，已經找到的 match 會被回傳，warning 會說明已搜尋了多少頁面、總共多少頁面，以及哪些頁面需要重新搜尋 — 如果沒有這個 budget，一個在每個頁面上都耗盡 per-page budget 的 pattern 仍需花費頁面數 × 1 秒，在長文件上就是幾分鐘。這個 budget 是限制損害而不是消除損害 — 惡意 pattern 仍可能耗盡整個 request budget，外加 budget 用盡時正在處理的那一頁，因此向 untrusted users 大規模暴露 regex search 的應用仍應自行施加 rate limit。
 
 ## 分享前檢查
 

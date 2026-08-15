@@ -4,11 +4,20 @@ import { type CompiledSearch, nfkc } from './compiler.js';
 import { buildPreciseDuplicateBudget, duplicateKey } from './duplicates.js';
 import { buildOcrSearchLines, buildSearchLines } from './lines.js';
 import { isRegexTimeout, runWithRegexTimeout } from './regexTimeout.js';
+import { REGEX_BUDGET_WARNING_PREFIX } from './requestBudget.js';
 import { appendAnnotationMatches, appendFormFieldMatches, appendLinkMatches } from './sourceMatches.js';
 import type { SearchLine } from './types.js';
 
 export { type CompiledSearch, compileSearch } from './compiler.js';
 export { suppressDuplicateOcrMatches } from './duplicates.js';
+export {
+  createRegexSearchBudget,
+  isRegexBudgetWarning,
+  REGEX_BUDGET_WARNING_PREFIX,
+  REGEX_SEARCH_REQUEST_BUDGET_MS,
+  type RegexSearchBudget,
+  resolveRegexSearchBudgetMs,
+} from './requestBudget.js';
 
 /**
  * Per-(query, page, source) cap on the number of emitted matches. Acts
@@ -198,12 +207,16 @@ function regexTimeoutWarning(pageNum: number, timeoutMs: number, ocrSupplement: 
 }
 
 /**
- * True for warnings emitted when a regex-mode page search hit the time
- * budget. The processor uses this to keep an interrupted — and therefore
- * incomplete — result out of the cache.
+ * True for warnings emitted when a regex-mode search hit a time budget —
+ * the per-page one or the whole-request one. The processor uses this to
+ * keep an interrupted — and therefore incomplete — result out of the
+ * cache; the MCP `search_pdf` collector uses it to rank these warnings
+ * above the rest. Both reasons apply identically to the whole-request
+ * budget: pages went unsearched, so the result is partial and a zero is
+ * not evidence of absence.
  */
 export function isRegexTimeoutWarning(message: string): boolean {
-  return message.startsWith(REGEX_TIMEOUT_WARNING_PREFIX);
+  return message.startsWith(REGEX_TIMEOUT_WARNING_PREFIX) || message.startsWith(REGEX_BUDGET_WARNING_PREFIX);
 }
 
 function collectPageMatches(
