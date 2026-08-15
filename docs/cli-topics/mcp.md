@@ -27,7 +27,7 @@ The server is a subcommand of the main binary, not a separate package:
 | `search_pdf` | Flat hit list — page, origin, context, region, and a short `ref` per match. Parameters: `source`, `query`, `pages`, `regex`, `password`. |
 | `render_pdf` | Page or region PNGs as image blocks, each preceded by a `Page N:` label. Parameters: `source`, `pages`, `ref`, `region`, `password`. |
 
-`source` takes a local path **or** an `http(s)` URL — there is no separate remote parameter.
+`source` takes a local path **or** an `http(s)` URL — there is no separate remote parameter. `ocr` is a Tesseract language string with the primary language first (`"eng"`, `"jpn+eng"`), not a boolean; omit it to use the PDF's own text layer, and reach for it on the pages the document map or a quality report calls empty or garbled — `read_pdf(pages: "31", ocr: "jpn+eng")`.
 
 ## Differences from the CLI that will surprise you
 
@@ -54,4 +54,4 @@ For an intranet document store, set `PDFVISION_MCP_ALLOW_PRIVATE_NETWORK=1`. Kno
 
 Tool failures come back as in-band error results with a recovery instruction, not as protocol errors — an out-of-range page selector, an OCR request over the 5-page budget, an unknown ref, a malformed `region`, or an encrypted PDF all tell the caller what to do instead. Read the message; it names the next call. Encryption is reported as two distinct failures because the recovery differs: no password given (retry with `password`) versus a wrong one (retry with a different value).
 
-`search_pdf` also relays core search warnings in the response body: a regex that exceeds the ~1s per-page time budget drops that page's results and says so, which is what keeps its "0 matches" from reading as evidence of absence.
+`search_pdf` also relays core search warnings in the response body: a regex that exceeds the ~1s per-page time budget drops that page's results and says so, which is what keeps its "0 matches" from reading as evidence of absence. The same response names any searched pages whose native text is missing or corrupted — a miss there is not evidence of absence either, and the note points at `read_pdf` with `ocr` or `render_pdf` for those pages.

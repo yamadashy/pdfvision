@@ -10,7 +10,7 @@ Format contracts differ:
 - `-f json` serializes the exported `DocumentResult`. JSON-style paths in this reference are exact for JSON and `processDocument()`.
 - Every emitted `-f toon` payload decodes with `@toon-format/toon` to exactly `JSON.parse(formatJson(result))`; unset `undefined` fields stay absent. The same JSON-style paths are exact after decoding. TOON's grammar cannot losslessly represent an unpaired UTF-16 surrogate across UTF-8, so pdfvision rejects that edge case and directs callers to `-f json`. Valid surrogate pairs and literal `\uD800` text are unaffected.
 - `-f xml` is a tag-shaped near-parity **presentation projection**, not a reversible `DocumentResult` serialization. It maps names, nesting, and presence as documented under "XML output shape". XML-1.0-forbidden code units become `[[pdfvision:U+XXXX]]`; a literal `[[pdfvision:` prefix becomes `[[pdfvision:literal:` so markers never collide with source text. To recover the source string after XML parsing, make one left-to-right pass: emit a literal prefix for `[[pdfvision:literal:` without scanning that emitted prefix again, and decode each generated `[[pdfvision:U+XXXX]]` marker to its UTF-16 code unit.
-- Markdown is a reading presentation with deliberate transformations and omissions; it is not a structured-schema carrier.
+- Markdown is a reading presentation with deliberate transformations and omissions; it is not a structured-schema carrier. `rawText` is never emitted, so Markdown carries only the normalized string; `--strip-repeated` additionally drops `repeated` layout blocks from the body, while JSON/TOON keep `repeated: true` and XML keeps `<block repeated="true">`.
 
 ## XML output shape
 
