@@ -92,7 +92,7 @@ export function createServer(): McpServer {
     {
       title: 'Read PDF text',
       description:
-        'Read a PDF as Markdown. Start here. Without `pages` on a long document you get a document map — page count, outline, per-page text quality, warning codes by page range — not the body, so an unscoped first call is always safe; short documents come back whole. With `pages` you get those pages in visual reading order, repeated headers/footers dropped, plus form-field, link, and annotation tables for the pages that have them. Extraction problems surface inline: glyph garbage, invisible text, text hidden under an opaque fill, OCR layers over scans, reading-order divergence, XFA forms.',
+        'Read a PDF as Markdown. Start here. Without `pages` on a long document you get a document map — page count, outline, per-page text quality, warning codes by page range — not the body, so an unscoped first call is always safe. A shorter document is read whole, and truncated with a continuation hint if it exceeds the response budget. With `pages` you get those pages in visual reading order, repeated headers/footers dropped, plus form-field, link, and annotation tables for the pages that have them. Extraction problems surface inline: glyph garbage, invisible text, text hidden under an opaque fill, OCR layers over scans, reading-order divergence, XFA forms.',
       inputSchema: readSchema,
       annotations: ANNOTATIONS,
     },

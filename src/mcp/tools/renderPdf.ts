@@ -5,7 +5,7 @@ import { formatBox } from '../../output/markdown/helpers.js';
 import { formatPhysicalSize } from '../../output/markdown/overview.js';
 import type { PageResult, RenderRegion } from '../../types/index.js';
 import { MAX_IMAGE_EDGE_PX, MAX_RENDER_PAGES, MAX_TOTAL_IMAGE_BYTES } from '../limits.js';
-import { forgetRefs, lookupRef, regionRef, rememberRef } from '../refs.js';
+import { forgetRefs, lookupRef, type RefTarget, regionRef, rememberRef } from '../refs.js';
 import { type ToolBlock, type ToolResult, textBlock, toolResult } from '../result.js';
 import { resolveSource } from '../source.js';
 
@@ -70,14 +70,24 @@ function toRegion(values: readonly number[]): RenderRegion {
   return { x: rx, y: ry, width: rw, height: rh };
 }
 
-function appendVisualRegions(lines: string[], page: PageResult, source: string): void {
+interface PendingRef {
+  ref: string;
+  target: RefTarget;
+}
+
+/**
+ * Collects rather than files: the ref set for a source is replaced in one
+ * step once the whole response is known to be deliverable, so a render
+ * that mints nothing cannot retire the handles it was called with.
+ */
+function appendVisualRegions(lines: string[], page: PageResult, pending: PendingRef[]): void {
   const regions = page.visualRegions ?? [];
   if (regions.length === 0) return;
   lines.push('', `Visual regions on page ${page.page} — pass a ref back to zoom:`);
   for (const [index, region] of regions.entries()) {
     const ref = regionRef(page.page, index);
     const bbox = { x: region.x, y: region.y, width: region.width, height: region.height };
-    rememberRef(source, ref, { page: page.page, region: bbox, origin: `${region.kind} region` });
+    pending.push({ ref, target: { page: page.page, region: bbox, origin: `${region.kind} region` } });
     const caption = region.associatedText?.[0]?.text;
     lines.push(
       `- \`${ref}\` ${region.kind}${caption ? ` — "${caption.replace(/\s+/g, ' ').trim().slice(0, 100)}"` : ''} · region ${formatBox(bbox)}`,
@@ -115,10 +125,22 @@ export async function renderPdf(input: RenderPdfInput): Promise<ToolResult> {
   let refOrigin: string | undefined;
 
   if (input.ref !== undefined) {
+    // A ref already carries a page and a region, so anything alongside it
+    // was going to be dropped in silence — and a leftover `ref` in a reused
+    // call template then answers for a page the caller never asked about.
+    const ignored = [
+      ...(input.pages !== undefined ? ['`pages`'] : []),
+      ...(input.region !== undefined ? ['`region`'] : []),
+    ];
+    if (ignored.length > 0) {
+      throw new Error(
+        `\`ref\` already names its own page and region, so ${ignored.join(' and ')} cannot also apply. Drop ${ignored.join(' and ')} to render the ref, or drop \`ref\` to render ${ignored.join(' and ')} as given.`,
+      );
+    }
     const target = lookupRef(input.source, input.ref);
     if (!target) {
       throw new Error(
-        `Unknown ref "${input.ref}" for this source. Refs come from the most recent search_pdf / render_pdf response in this session — re-run that call, or pass \`pages\` and \`region\` directly.`,
+        `Unknown ref "${input.ref}" for this source. Its refs come from the last search_pdf or full-page render_pdf for it, and a later one of those replaces them — re-run that call, or pass \`pages\` and \`region\` directly.`,
       );
     }
     pages = String(target.page);
@@ -200,26 +222,22 @@ export async function renderPdf(input: RenderPdfInput): Promise<ToolResult> {
       `_This page is ${Math.round(longestEdge)} physical points on its longest edge, so fitting the image budget shrank it ${(1 / scale).toFixed(1)}x below normal — text may be unreadable. Render a \`region\` of it instead._`,
     );
   }
-  // Refs are renumbered from `p1m1` by every call, so one held over from
-  // an earlier search now resolves to that call's result. Naming what it
-  // resolved to is what lets the caller notice.
+  // Refs are renumbered from `p1m1` by every call that files a new set, so
+  // one held over from an earlier search can resolve to a later call's
+  // result. Naming what it resolved to is what lets the caller notice.
   if (refOrigin) lines.push('', `_Ref \`${input.ref}\` → ${refOrigin}._`);
   const images: ToolBlock[] = [];
+  const pending: PendingRef[] = [];
   let bytesUsed = 0;
 
   // Read every PNG before anything is emitted or any ref is filed: the
-  // reads are the last thing that can fail, and a failure after
-  // `forgetRefs` would take the previous response's still-valid refs
+  // reads are the last thing that can fail, and a failure after the ref
+  // set was replaced would take the previous response's still-valid refs
   // with it while returning nothing in their place.
   const rendered = new Map<number, Buffer>();
   for (const page of result.pages) {
     if (page.image) rendered.set(page.page, await readFile(page.image));
   }
-
-  // Everything this response hands out replaces the previous set for this
-  // source, which is what the ref contract promises. After the `ref`
-  // lookup above, so a ref still resolves on the call that consumes it.
-  forgetRefs(input.source);
 
   for (const page of result.pages) {
     lines.push('', `## Page ${page.page}`, '', `_${describePage(page)}_`);
@@ -245,7 +263,20 @@ export async function renderPdf(input: RenderPdfInput): Promise<ToolResult> {
       mimeType: 'image/png',
       data: data.toString('base64'),
     });
-    if (region === undefined) appendVisualRegions(lines, page, input.source);
+    if (region === undefined) appendVisualRegions(lines, page, pending);
+  }
+
+  // A response replaces this source's ref set only when it files a new one.
+  // A full-page render mints visual-region refs and genuinely supersedes
+  // what came before; a region render mints nothing — and every
+  // `ref`-driven render is one, since a ref carries a region — so the set
+  // it was drawn from stays live. Otherwise rendering the first of N
+  // search hits would destroy the other N-1. Forgetting and remembering
+  // together also keeps a full page that happens to have no detected
+  // visual region from clearing the set and filing nothing in its place.
+  if (pending.length > 0) {
+    forgetRefs(input.source);
+    for (const { ref, target } of pending) rememberRef(input.source, ref, target);
   }
 
   return toolResult(lines.join('\n'), images.length > 0 ? [textBlock('Rendered page images follow.'), ...images] : []);

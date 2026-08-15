@@ -26,7 +26,7 @@ describe('truncateBody', () => {
     const output = truncateBody(HEADER, buildSections(10, 400), { continuationHint: hint, charCap: 1000 });
     expect(output).toContain('## Page 1');
     expect(output).not.toContain('## Page 2');
-    expect(output).toContain('9 pages omitted (2-10)');
+    expect(output).toContain('9 page bodies omitted (2-10)');
   });
 
   it('embeds the exact follow-up call rather than a bare marker', () => {
@@ -41,7 +41,7 @@ describe('truncateBody', () => {
     const output = truncateBody(HEADER, buildSections(4, 900), { continuationHint: hint, charCap: 100 });
     expect(output).toContain('## Page 1');
     expect(output).toContain('no page fits it whole');
-    expect(output).toContain('4 pages omitted (1-4)');
+    expect(output).toContain('4 page bodies omitted (1-4)');
   });
 
   it('clips an oversized single page and points at search instead', () => {
@@ -53,7 +53,7 @@ describe('truncateBody', () => {
   it('reports a single omitted page in the singular', () => {
     const output = truncateBody(HEADER, buildSections(2, 900), { continuationHint: hint, charCap: 1400 });
     expect(output).toContain('showing pages 1');
-    expect(output).toContain('1 page omitted (2)');
+    expect(output).toContain('1 page body omitted (2)');
   });
 
   it('returns just the header for a document with no pages', () => {
@@ -99,14 +99,15 @@ describe('truncateBody', () => {
     expect(output).not.toContain('## Page 1');
     expect(output).not.toContain('showing pages');
     expect(output).toContain('no page fits it whole');
-    expect(output).toContain('2 pages omitted (1-2)');
-    expect(output).toContain('Continue with read_pdf(pages: "1-2")');
+    expect(output).toContain('2 page bodies omitted (1-2)');
+    expect(output).toContain('Start with read_pdf(pages: "1")');
+    expect(output).not.toContain('read_pdf(pages: "1-2")');
   });
 
   it('claims no page when the budget leaves room for none, however small the cap', () => {
     const output = truncateBody('', buildSections(2, 100), { continuationHint: hint, charCap: 10 });
     expect(output).not.toContain('showing pages');
-    expect(output).toContain('2 pages omitted (1-2)');
+    expect(output).toContain('2 page bodies omitted (1-2)');
   });
 
   it('keeps every page it claims to be showing intact', () => {
@@ -129,6 +130,68 @@ describe('truncateBody', () => {
     const output = truncateBody(HEADER, sections, { continuationHint: hint });
     expect(output.length).toBeLessThanOrEqual(BODY_CHAR_CAP);
     expect(output).toContain('omitted');
+  });
+
+  it('never suggests the range that just failed when no page fits', () => {
+    // `pages: "1-756"` used to come back advising `pages: "1-756"` — the
+    // identical call, which an agent following the hint repeats forever.
+    const hugeHeader = `# doc.pdf\n${'| 1 | 0 | 0 | 0% |\n'.repeat(400)}`;
+    const sections = buildSections(756, 400);
+    const output = truncateBody(hugeHeader, sections, { continuationHint: hint, charCap: 5_000 });
+    expect(output).toContain('no page fits it whole');
+    expect(output).toContain('756 page bodies omitted (1-756)');
+    expect(output).toContain('This range cannot be served whole. Start with read_pdf(pages: "1")');
+    expect(output).not.toContain('read_pdf(pages: "1-756")');
+  });
+
+  it('starts from the first requested page, not from page 1', () => {
+    const hugeHeader = `# doc.pdf\n${'| 1 | 0 | 0 | 0% |\n'.repeat(400)}`;
+    const sections = buildSections(20, 400).map((section, index) => ({ ...section, page: index + 400 }));
+    const output = truncateBody(hugeHeader, sections, { continuationHint: hint, charCap: 5_000 });
+    expect(output).toContain('Start with read_pdf(pages: "400")');
+  });
+
+  it('points at search when a single page is already the narrowest call', () => {
+    // Nothing narrower than one page exists, so restating `pages: "7"`
+    // would be the same loop by another route.
+    const sections = [{ page: 7, text: `\n\n---\n\n## Page 7\n\n${'x'.repeat(900)}\n` }];
+    const output = truncateBody(HEADER, sections, { continuationHint: hint, charCap: 200 });
+    expect(output).toContain('Page 7 does not fit the budget on its own');
+    expect(output).toContain('Use search_pdf');
+    expect(output).not.toContain('read_pdf(pages: "7")');
+  });
+
+  it('advances monotonically until the whole selection has been served', () => {
+    // Following the hint has to reach the end in finitely many calls: each
+    // response must ask for strictly fewer pages than it was given.
+    const all = buildSections(40, 400);
+    let remaining = all;
+    const served: number[] = [];
+    let calls = 0;
+    while (remaining.length > 0 && calls < 60) {
+      calls += 1;
+      let asked: readonly number[] = [];
+      const output = truncateBody(HEADER, remaining, {
+        charCap: 3_000,
+        continuationHint: (dropped) => {
+          asked = dropped;
+          return `read_pdf(pages: "${formatPageRange(dropped)}")`;
+        },
+      });
+      if (!output.includes('omitted')) {
+        served.push(...remaining.map((section) => section.page));
+        remaining = [];
+        break;
+      }
+      expect(output).toContain('showing pages');
+      const next = new Set(asked);
+      served.push(...remaining.filter((section) => !next.has(section.page)).map((section) => section.page));
+      const advanced = remaining.filter((section) => next.has(section.page));
+      expect(advanced.length).toBeLessThan(remaining.length);
+      remaining = advanced;
+    }
+    expect(remaining).toHaveLength(0);
+    expect(served).toEqual(all.map((section) => section.page));
   });
 
   it('leaves a response that fits well alone', () => {
