@@ -24,7 +24,7 @@ The server is a subcommand of the main binary, not a separate package:
 | Tool | Returns |
 |---|---|
 | `read_pdf` | Text as Markdown. Parameters: `source`, `pages`, `ocr`, `attachment`, `password`. |
-| `search_pdf` | One row per distinct place — page, origin, matched string(s), context, region, and a short `ref`. Occurrences sharing a place collapse into one row marked `×N`, while the headline count keeps reporting occurrences. Parameters: `source`, `query`, `pages`, `regex`, `password`. |
+| `search_pdf` | One row per distinct place — page, origin, matched string(s), optional context, region, and a short `ref`. Occurrences sharing a place collapse into one row marked `×N`, while the headline count keeps reporting occurrences. Parameters: `source`, `query`, `pages`, `regex`, `password`. |
 | `render_pdf` | Page or region PNGs as image blocks, each preceded by a `Page N:` label. Parameters: `source`, `pages`, `ref`, `region`, `password`. |
 
 `source` takes a local path **or** an `http(s)` URL — there is no separate remote parameter. `ocr` is a Tesseract language string with the primary language first (`"eng"`, `"jpn+eng"`), not a boolean; omit it to use the PDF's own text layer, and reach for it on the pages the document map or a quality report calls empty or garbled — `read_pdf(pages: "31", ocr: "jpn+eng")`.
