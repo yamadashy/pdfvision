@@ -68,22 +68,22 @@
   "dependencies": {
     "@modelcontextprotocol/server": "^2.0.0",
     "@napi-rs/canvas": "^1.0.0",
-    "@toon-format/toon": "^4.1.0",
-    "pdfjs-dist": "^6.1.200",
+    "@toon-format/toon": "^4.1.1",
+    "pdfjs-dist": "^6.2.108",
     "zod": "^4.4.3"
   },
   "optionalDependencies": {
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.6",
+    "@biomejs/biome": "^2.5.7",
     "@expo-google-fonts/noto-sans-jp": "^0.4.3",
     "@secretlint/secretlint-rule-preset-recommend": "^13.0.4",
     "@types/node": "^25.9.5",
     "@types/pdfkit": "^0.17.6",
     "@vitest/coverage-v8": "^4.1.10",
-    "es-module-lexer": "2.1.0",
-    "oxlint": "^1.76.0",
+    "es-module-lexer": "2.3.1",
+    "oxlint": "^1.77.0",
     "pdfkit": "^0.19.1",
     "secretlint": "^13.0.4",
     "tsdown": "^0.22.14",
@@ -91,6 +91,6 @@
     "vitepress": "^1.6.4",
     "vitepress-plugin-llms": "^1.13.4",
     "vitest": "^4.1.10",
-    "wrangler": "^4.118.0"
+    "wrangler": "^4.120.0"
   }
 }
