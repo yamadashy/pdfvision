@@ -23,9 +23,9 @@ import { formatPageRange } from '../options/pageRange.js';
  * pages instead of grinding through hundreds. It also caps what a
  * pathological pattern can add on top of the document's own processing
  * time at ~13s (the budget plus the page in flight when it runs out) —
- * small enough that on documents whose extraction fits an MCP host's
- * request timeout, the partial result and its warning still reach the
- * caller.
+ * small enough that when a document's extraction fits an MCP host's
+ * request timeout with that much headroom, the partial result and its
+ * warning still reach the caller.
  *
  * Only regex searches are metered. Literal-mode matching has no
  * pathological case — it never enters the per-page guard either — so
