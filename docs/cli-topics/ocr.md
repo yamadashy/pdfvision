@@ -1,5 +1,6 @@
 ---
 name: ocr
+title: OCR
 description: OCR language codes and ordering, confidence, traineddata install and cache, and troubleshooting. Mandatory for non-English OCR, where language order changes the result.
 ---
 
@@ -155,7 +156,7 @@ This is a known limitation tracked separately from OCR. Workaround: source a dif
 
 One possibility is a `--ocr-lang` mismatch — the page contains a language not listed in the spec, or the dominant language is not first (for example, a Japanese-dominant page run with `eng+jpn` instead of `jpn+eng`). Try the alternative ordering and compare.
 
-Another possibility is low resolution. pdfvision renders OCR at 2× by default. For genuinely fine print, try `--ocr --render-scale 3` first (supported range `(0, 4]`). If that is still insufficient, render a higher-resolution PNG separately and pass it to tesseract.js directly.
+Another possibility is low resolution. pdfvision rasterises OCR input at 2× and treats that as a floor: `--render-scale 1` shrinks `--render` PNGs but leaves the OCR raster at 2×, so only values above 2 change what tesseract sees. For genuinely fine print, try `--ocr --render-scale 3` first (supported range `(0, 4]`). If that is still insufficient, render a higher-resolution PNG separately and pass it to tesseract.js directly.
 
 ### "OCR is slow — N pages × M seconds is unbearable"
 

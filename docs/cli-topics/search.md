@@ -1,5 +1,6 @@
 ---
 name: search
+title: Search and Region Zoom
 description: The SearchMatch shape and every --search semantic: literal vs regex, normalization, which sources are searched, and the find-then-zoom loop. Use when running --search or interpreting its matches.
 ---
 
@@ -24,7 +25,7 @@ interface SearchMatch {
 
 Emitted only when `--search` is passed. Each emitted query occurrence becomes one match — three emitted hits of `"foo"` on page 5 yield three entries with `page: 5`. At most 10,000 matches are emitted per page, query, and source. The first additional valid match produces a warning (stderr in the CLI, `onWarning` in the library API); it and later matches for that combination are dropped.
 
-**One-pipeline find-then-zoom**: every box pdfvision emits is already in `--render-region`'s coordinate system, so no conversion is needed. Prefer `--matches-only`, whose entries add a crop-ready `region` grown to the table row or visual line containing the hit; `bbox` crops to the matched glyphs alone, which on a financial table renders the row label and none of its values. The agent loop is:
+**One-pipeline find-then-zoom**: every box pdfvision emits is already in `--render-region`'s coordinate system, so no conversion is needed. Prefer `--matches-only`, whose entries add a crop-ready `region` grown to the table row or visual line containing the hit; `bbox` crops to the matched glyphs alone, which on a financial table renders the row label and none of its values. `region` exists only in the `--matches-only` report — on the full report, pad `bbox` before rendering it, the way pdfvision itself does: `max(60, 0.6 × bbox.width)` on each side horizontally and `max(12, 0.3 × bbox.height)` vertically, in raw page-view units, clamped to the page box (`--render-region` rejects out-of-bounds rectangles rather than clipping them). The agent loop is:
 
 ```bash
 pdfvision doc.pdf --search "revenue" --json

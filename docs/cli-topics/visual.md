@@ -1,5 +1,6 @@
 ---
 name: visual
+title: Visual Regions and Rendering
 description: Shapes for --image-boxes, --vector-boxes, and --visual-regions, plus what --render-scale and --render-region do. Use when picking a figure, chart, table, or form region to render and inspect visually.
 ---
 

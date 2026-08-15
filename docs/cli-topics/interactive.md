@@ -1,5 +1,6 @@
 ---
 name: interactive
+title: Forms, Links, and Annotations
 description: Field shapes for --form-fields, --links, and --annotations: widget types and labels, link targets, annotation flags and markup geometry. Use when a PDF's fillable boxes, clickable targets, or comments matter.
 ---
 

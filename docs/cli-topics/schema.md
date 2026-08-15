@@ -1,11 +1,14 @@
 ---
 name: schema
+title: Structured Output
 description: The top-level DocumentResult, the per-page PageOverview and PageResult fields, PageQuality, and the coordinate system every bbox uses. Use when consuming -f json / -f toon / processDocument() output programmatically.
 ---
 
 # Structured output schema
 
 Reference for `-f json`, `-f xml`, and `-f toon` consumers. Read this when an agent or tooling consumes the structured payload programmatically and needs to know every field, its shape, and its coordinate convention.
+
+The JSON-style field paths below are exact for `-f json`, decoded `-f toon`, and `processDocument()`. `-f xml` is a presentation projection that renames and flattens some of them (`page` → `no`, `pageLabel` → `label`, `quality.*` → page attributes) and its empty-field presence can differ; `-f markdown` deliberately transforms or omits fields. The per-format contracts are in `pdfvision docs formats`, and the exported TypeScript type names are listed in `pdfvision docs library`.
 
 Encrypted PDFs require `--password <value>`, `--password-stdin`, or `processDocument(..., { password })` when pdf.js asks for a document password. The password is used only for decryption and is never emitted in JSON/XML/TOON/Markdown. Prefer `--password-stdin` for CLI workflows where argv or shell history exposure matters; `--password` can be supplied as an explicit fallback when stdin is empty.
 
@@ -134,6 +137,9 @@ interface PageQuality {
 `text` is the pdfjs-derived text stream. Raw text items are deduplicated before normalization using the contract in `pdfvision docs layout`, so optional-content and overprint duplicates do not read as repeated words. Detected body-sized Japanese vertical columns are joined in source-stream order when that order matches the detected top-to-bottom column order; if a run disagrees, only that run falls back to the raw item join. Inline tatechuyoko digit groups in vertical Japanese columns, such as `10`, are kept in the column text when the source stream order matches the geometry. On Japanese and Chinese annotated-reading pages, furigana/ruby is attached inline as `base《ruby》` when pdfvision can associate the smaller kana or pinyin-shaped run with an unambiguous CJK base range, including adjacent half-size vertical ruby columns, smaller kana above horizontal base text, and pinyin-shaped Latin readings above horizontal CJK base text; ambiguous or unassociated ruby stays excluded, and search uses ruby-inclusive plus ruby-stripped lines so base-word queries still match. Short medium-size note-reference marks in the right gutter of a vertical body column are also excluded from reconstructed text/layout; `--geometry` still exposes their retained source text-item spans. `rawText`, when present, is the exact sibling field in JSON and successful TOON output, a sibling `<rawText>` element in XML (with XML-forbidden code units represented by the documented markers), and omitted from Markdown. `ocr.text` (when `--ocr` is on) is the OCR result alongside, **never overwriting `text`** — consumers diff or pick whichever signal looks better for the page.
 
 `quality` is pure observation, not recommendation: pdfvision tells the agent what it saw, the agent picks what to do next.
+
+Feature payloads are opt-in, so a result from `--layout --form-fields` is a different shape from one where those flags were not passed; only the furniture presence counts above are automatic. A flag that ran and found nothing still emits its field: `--form-fields`, `--links`, `--annotations`, and `--search` produce `[]` on a page with no items, and `--structure` produces `null`, so a consumer can tell "not requested" from "requested and absent".
+
 ## Coordinate system
 
 All coordinates (spans, layout blocks, image boxes, vector boxes, visual regions, form fields, `renderRegion`) use raw units from the unrotated pdf.js `page.view` visible box, with `(0, 0)` at its top-left and `y` growing downward. This box is CropBox ∩ MediaBox when a distinct valid CropBox applies, otherwise MediaBox. `pages[].userUnit` and `overview[].userUnit` expose a non-default PDF `/UserUnit` and are omitted when it is 1. Physical points = raw page-view value × UserUnit; rendered pixels = raw region × UserUnit × render scale before rotation swaps axes. `pages[].width` / `height` and `renderRegion` bounds are raw values relative to the visible box, and the same bbox passes unchanged to `--render-region`. JSON, decoded TOON, and the library retain clockwise rotation in `pages[].rotation` and `overview[].rotation`; XML keeps page-result rotation on `<pages><page rotation="...">` but currently omits overview rotation.
@@ -149,3 +155,20 @@ const pixelBox = { x: box.x * sx, y: box.y * sy, width: box.width * sx, height: 
 ```
 
 This direct scale is valid for unrotated pages. For rotated pages, use `pages[].rotation` and the PDF viewport transform (or `--render-region`) because the full-page PNG width/height may be swapped relative to `page.width` / `page.height`.
+
+Every coordinate-bearing field — spans, layout blocks and lines, image boxes, vector boxes, visual regions, form fields, link and annotation boxes, structure node bboxes, OCR words, search matches — uses this one system, so moving from a structured field to a visual crop never requires inventing a second one.
+
+## Fields by task
+
+Which fields answer which question, and the topic that documents them in full:
+
+- Text reading — `pages[].text`, `rawText`, `quality`, `warnings[]` (`pdfvision docs warnings`).
+- Layout-sensitive reading — `layout.blocks[]`, `layout.blocks[].lines[]`, `layout.tables[]`, `spans[]` (`pdfvision docs layout`).
+- Visual inspection — `image`, `renderContentRatio`, `imageBoxes[]`, `vectorBoxes[]`, `visualRegions[]` (`pdfvision docs visual`).
+- Scan recovery — `ocr.text`, `ocr.confidence`, `ocr.words`, `quality.visualStatus` (`pdfvision docs ocr`).
+- Evidence search — `matches[].source`, `matches[].bbox`, `matches[].context` (`pdfvision docs search`).
+- Form analysis — `formFields[]`: `value`, `checked`, `flags`, `actions`, `label`, plus the widget bbox (`pdfvision docs interactive`).
+- Navigation and document features — `pageLabels`, `outline`, `links[]`, `viewer`, `layers`, `structure` (`pdfvision docs document-features`).
+- File inventory — `attachments[]` metadata, plus `attachments[].path` once `--attachment-output` wrote the bytes (`pdfvision docs document-features`).
+
+When a conclusion rests on one of these, keep the page number and the bbox that produced it; that pair is what a follow-up `--render-region` crop needs to show the evidence.

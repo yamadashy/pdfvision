@@ -1,5 +1,6 @@
 ---
 name: document-features
+title: Document Features
 description: Document-level output shapes: --structure tagged trees and tables, --page-labels, --attachments, --outline, --viewer state, and --layers. Use when navigation, accessibility tags, embedded files, or optional content matter.
 ---
 

@@ -1,5 +1,6 @@
 ---
 name: warnings
+title: Warnings
 description: Every pages[].warnings[] code, what fires it, what it means for the text, and the raw per-page density signals behind quality. Use when a warning needs more than its inline message.
 ---
 
