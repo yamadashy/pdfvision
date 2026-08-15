@@ -35,8 +35,8 @@
     "lint-secretlint": "secretlint \"**/*\" --secretlintignore .gitignore",
     "test": "vitest run",
     "test-coverage": "vitest run --coverage",
-    "docs:dev": "vitepress dev docs",
-    "docs:build": "vitepress build docs",
+    "docs:dev": "node scripts/build-site-reference.mjs && vitepress dev docs",
+    "docs:build": "node scripts/build-site-reference.mjs && vitepress build docs",
     "docs:preview": "vitepress preview docs"
   },
   "keywords": [

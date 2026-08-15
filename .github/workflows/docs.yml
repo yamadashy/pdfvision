@@ -5,6 +5,10 @@ on:
     branches: [main]
     paths:
       - 'docs/**'
+      - 'scripts/build-cli-topics.mjs'
+      - 'scripts/build-site-reference.mjs'
+      - 'scripts/check-reference-translations.mjs'
+      - 'scripts/site-reference.mjs'
       - 'package.json'
       - 'package-lock.json'
       - '.tool-versions'
@@ -13,6 +17,10 @@ on:
     branches: [main]
     paths:
       - 'docs/**'
+      - 'scripts/build-cli-topics.mjs'
+      - 'scripts/build-site-reference.mjs'
+      - 'scripts/check-reference-translations.mjs'
+      - 'scripts/site-reference.mjs'
       - 'package.json'
       - 'package-lock.json'
       - '.tool-versions'
@@ -28,7 +36,7 @@ concurrency:
 
 jobs:
   topics:
-    name: CLI topics in sync with docs/cli-topics
+    name: Generated docs in sync with docs/cli-topics
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -45,6 +53,14 @@ jobs:
       # regenerating.
       - run: node scripts/build-cli-topics.mjs
       - run: git diff --exit-code src/cli/docs
+      # The same topics generate the English site reference. A hand-edited page
+      # under docs/src/en/guide shows up here as a diff.
+      - run: node scripts/build-site-reference.mjs
+      - run: git diff --exit-code docs/src/en
+      # Translations cannot be regenerated, so they carry the hash of the
+      # English page they were made from; this is what catches a topic edit
+      # that left ja/zh-cn/zh-tw describing the old behaviour.
+      - run: node scripts/check-reference-translations.mjs
 
   build:
     name: Build VitePress site
