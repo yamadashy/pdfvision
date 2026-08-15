@@ -146,7 +146,7 @@ export async function renderPdf(input: RenderPdfInput): Promise<ToolResult> {
     const target = lookupRef(input.source, input.ref);
     if (!target) {
       throw new Error(
-        `Unknown ref "${input.ref}" for this source. Its refs come from the last search_pdf, or the last full-page render_pdf that found visual regions — either replaces them all. Re-run that call, or pass \`pages\` and \`region\` directly.`,
+        `Unknown ref "${input.ref}" for this source. Its refs come from the last search_pdf, or the last full-page render_pdf that listed visual regions — either replaces them all. Re-run that call, or pass \`pages\` and \`region\` directly.`,
       );
     }
     pages = String(target.page);
