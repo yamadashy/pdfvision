@@ -2,7 +2,7 @@ import type { FormField, SearchMatch } from '../../../types/index.js';
 import { getFormFieldTextAppearance } from '../../formFields/types.js';
 import { round2 } from '../boxes.js';
 import { type CompiledSearch, nfkc } from '../compiler.js';
-import { duplicateKey, hasPreciseDuplicateAtBox } from '../duplicates.js';
+import { duplicateKey, hasPreciseDuplicateAtBox, markMatchNotDrawnOnPage } from '../duplicates.js';
 import { cleanContext } from './shared.js';
 
 export function appendFormFieldMatches(
@@ -21,6 +21,12 @@ export function appendFormFieldMatches(
     if (rawSearchValue === undefined) continue;
     const haystack = compiled.normalize ? nfkc(rawSearchValue) : rawSearchValue;
     if (haystack.length === 0) continue;
+    // A text or choice value and a button caption are drawn inside the
+    // widget; a checkbox or radio export value is the option's name in
+    // the form data, which the artwork usually spells out only in a
+    // separate label, if at all. The OCR duplicate budget cares about
+    // the difference.
+    const drawnOnPage = !isButtonStateField(field);
     for (let mi = 0; mi < compiled.matchers.length; mi++) {
       if (formFieldCapped.has(mi)) continue;
       const m = compiled.matchers[mi];
@@ -43,7 +49,7 @@ export function appendFormFieldMatches(
           );
           break;
         }
-        matches.push({
+        const match: SearchMatch = {
           page: pageNum,
           query: m.query,
           ...(m.queryIndex !== undefined && { queryIndex: m.queryIndex }),
@@ -52,7 +58,9 @@ export function appendFormFieldMatches(
           text: hit[0],
           source: 'formField',
           context: formFieldMatchContext(field, haystack),
-        });
+        };
+        if (!drawnOnPage) markMatchNotDrawnOnPage(match);
+        matches.push(match);
         formFieldCount.set(mi, count + 1);
       }
     }
@@ -107,10 +115,14 @@ function formFieldMatchContext(field: FormField, value: string): string {
  */
 const BUTTON_OFF_STATE = 'Off';
 
+function isButtonStateField(field: FormField): boolean {
+  return field.type === 'checkbox' || field.type === 'radio';
+}
+
 function formFieldSearchValue(field: FormField): string | undefined {
   if (!isVisibleFormField(field)) return undefined;
   if (field.type === 'button') return field.caption && field.caption.length > 0 ? field.caption : undefined;
-  if (field.type === 'checkbox' || field.type === 'radio') return buttonStateSearchValue(field);
+  if (isButtonStateField(field)) return buttonStateSearchValue(field);
   if (field.type !== 'text' && field.type !== 'choice') return undefined;
   if (!field.value) return undefined;
   if (field.type === 'choice' && field.displayValue) return field.displayValue;

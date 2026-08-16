@@ -81,9 +81,19 @@ export function appendLinkMatches(
  * is rarely byte-identical to its target: it is shortened, loses its
  * scheme, gets an ellipsis, or mashes words together with hyphens and
  * slashes. So: the anchor restates the target when every one of its
- * words already occurs somewhere in the target string. Prose fails that
- * as soon as it contributes a word of its own, which is nearly the
- * definition of prose.
+ * words is also a word of the target. Prose fails that as soon as it
+ * contributes a word of its own, which is nearly the definition of
+ * prose. Both sides are tokenised the same way and compared whole —
+ * substring containment would read `press` as covered by `wordpress`
+ * and suppress an anchor that shares no word with its target at all.
+ *
+ * One-word anchors get a second condition: the word must look like part
+ * of a URL, carrying a dot, slash, or colon. `example.com` does and is a
+ * shortened rendering of the target; `Download` over `…/download/…` does
+ * not, and it is the operational label a URL is most often hung on — the
+ * case where the visible word and the link are least likely to be one
+ * fact stated twice. A single common word is too little evidence to drop
+ * a match on.
  *
  * An anchor pdfvision could not reconstruct is not treated as a
  * restatement. Silence is not evidence of double-reporting, and this
@@ -93,13 +103,18 @@ export function appendLinkMatches(
 function anchorTextRestatesTarget(link: PageLink, target: string, normalize: boolean): boolean {
   const anchor = link.text;
   if (anchor === undefined || anchor.length === 0) return false;
-  const anchorWords = (normalize ? nfkc(anchor) : anchor).toLowerCase().match(ANCHOR_WORD_PATTERN);
+  const anchorText = (normalize ? nfkc(anchor) : anchor).toLowerCase();
+  const anchorWords = anchorText.match(ANCHOR_WORD_PATTERN);
   if (!anchorWords || anchorWords.length === 0) return false;
-  const targetText = target.toLowerCase();
-  return anchorWords.every((word) => targetText.includes(word));
+  if (anchorWords.length === 1 && !URL_PUNCTUATION_PATTERN.test(anchorText)) return false;
+  const targetWords = new Set(target.toLowerCase().match(ANCHOR_WORD_PATTERN) ?? []);
+  return anchorWords.every((word) => targetWords.has(word));
 }
 
 const ANCHOR_WORD_PATTERN = /[\p{Letter}\p{Number}]+/gu;
+
+/** Punctuation that makes a lone anchor word read as a URL fragment. */
+const URL_PUNCTUATION_PATTERN = /[./:]/u;
 
 function isLinkSource(source: SearchMatch['source']): boolean {
   return source === 'link';

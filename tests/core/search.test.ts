@@ -718,6 +718,52 @@ describe('processDocument search', () => {
     });
   });
 
+  it('keeps a link-target hit when an anchor word is only a substring of a target word', () => {
+    // `press` inside `wordpress` is not the anchor restating the target;
+    // both sides are tokenised and compared whole.
+    const spans: TextSpan[] = [{ text: 'press kit', x: 72, y: 100, width: 60, height: 10, fontSize: 10 }];
+    const links: PageLink[] = [
+      {
+        type: 'url',
+        target: 'https://wordpress.example.com/kit',
+        text: 'press kit',
+        x: 72,
+        y: 100,
+        width: 60,
+        height: 10,
+      },
+    ];
+    const compiled = compileSearch('press', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 612, 792, compiled, undefined, undefined, undefined, links);
+
+    expect(matches.map((match) => match.source)).toEqual(['native', 'link']);
+  });
+
+  it('keeps a link-target hit when a one-word anchor is an operational label rather than a URL', () => {
+    // `Download` over `…/download/report.pdf` is the label a URL is most
+    // often hung on; one common word is too little to drop a match on.
+    const spans: TextSpan[] = [{ text: 'download', x: 72, y: 100, width: 50, height: 10, fontSize: 10 }];
+    const links: PageLink[] = [
+      {
+        type: 'url',
+        target: 'https://example.com/download/report.pdf',
+        text: 'download',
+        x: 72,
+        y: 100,
+        width: 50,
+        height: 10,
+      },
+    ];
+    const compiled = compileSearch('download', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 612, 792, compiled, undefined, undefined, undefined, links);
+
+    expect(matches.map((match) => match.source)).toEqual(['native', 'link']);
+  });
+
   it('still drops a link-target hit when the anchor text is the URL itself', () => {
     // Anchor and target say one thing twice, and the native hit already
     // carries the precise glyph box, so the link row would be noise.
@@ -1779,6 +1825,92 @@ describe('processDocument search', () => {
       source: 'ocr',
       context: 'HelloWorld',
     });
+  });
+
+  it('does not spend the OCR duplicate budget on a checkbox export value', () => {
+    // The export value is form metadata, not artwork: OCR never read it,
+    // so it cannot stand for the occurrence OCR found further down the
+    // page. Charging it there loses a real hit with no warning.
+    const fields: FormField[] = [
+      {
+        name: 'news',
+        type: 'checkbox',
+        value: 'Off',
+        checked: false,
+        exportValue: 'Subscribe',
+        x: 50,
+        y: 130,
+        width: 12,
+        height: 12,
+      },
+    ];
+    const compiled = compileSearch('Subscribe', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(
+      [],
+      {
+        text: 'Subscribe',
+        confidence: 0.93,
+        lang: 'eng',
+        words: [{ text: 'Subscribe', confidence: 0.93, x: 60, y: 300, width: 60, height: 12 }],
+      },
+      1,
+      612,
+      792,
+      compiled,
+      undefined,
+      fields,
+    );
+
+    expect(matches.map((match) => match.source)).toEqual(['formField', 'ocr']);
+    expect(matches[1].bbox).toMatchObject({ x: 60, y: 300 });
+  });
+
+  it('does not spend the OCR duplicate budget on a link target', () => {
+    // The prose anchor keeps both a native and a link hit, but only the
+    // native one is text OCR can re-read; if the link hit funded the
+    // budget too, the second, OCR-only occurrence would vanish.
+    const spans: TextSpan[] = [{ text: 'dataset notes', x: 72, y: 100, width: 70, height: 10, fontSize: 10 }];
+    const links: PageLink[] = [
+      {
+        type: 'url',
+        target: 'https://example.com/datasets/q3.csv',
+        text: 'dataset notes',
+        x: 72,
+        y: 100,
+        width: 70,
+        height: 10,
+      },
+    ];
+    const compiled = compileSearch('dataset', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(
+      spans,
+      {
+        text: 'dataset notes dataset appendix',
+        confidence: 0.93,
+        lang: 'eng',
+        words: [
+          { text: 'dataset', confidence: 0.93, x: 72, y: 100, width: 40, height: 10 },
+          { text: 'dataset', confidence: 0.93, x: 72, y: 400, width: 40, height: 10 },
+        ],
+      },
+      1,
+      612,
+      792,
+      compiled,
+      undefined,
+      undefined,
+      undefined,
+      links,
+    );
+
+    // One OCR occurrence is charged against the native hit; the other is
+    // a place nothing else reported.
+    expect(matches.map((match) => match.source)).toEqual(['native', 'link', 'ocr']);
+    expect(matches[2].bbox).toMatchObject({ x: 72, y: 400 });
   });
 
   it('keeps raw OCR fallback hits when word-level reconstruction only covers some occurrences', async () => {
