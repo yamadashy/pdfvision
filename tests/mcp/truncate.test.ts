@@ -7,6 +7,17 @@ import type { MarkdownPageSection } from '../../src/output/markdown.js';
 const hint = (dropped: readonly number[]) => `read_pdf(pages: "${formatPageRange(dropped)}")`;
 const HEADER = '# doc.pdf\n\n- **Pages:** 10\n';
 
+/** A header shaped like a real Overview: one `| page | chars |` row per page. */
+function buildOverviewHeader(firstPage: number, pageCount: number): string {
+  const rows = Array.from({ length: pageCount }, (_unused, index) => `| ${firstPage + index} | 1234 |\n`).join('');
+  return `# doc.pdf\n\n## Overview\n\n| Page | Chars |\n| ---: | ---: |\n${rows}`;
+}
+
+function tableLines(output: string): string[] {
+  const body = output.slice(0, output.indexOf('[pdfvision] Response clipped'));
+  return body.split('\n').filter((line) => line.startsWith('|'));
+}
+
 function buildSections(pageCount: number, bodyChars: number): MarkdownPageSection[] {
   return Array.from({ length: pageCount }, (_unused, index) => ({
     page: index + 1,
@@ -192,6 +203,54 @@ describe('truncateBody', () => {
     }
     expect(remaining).toHaveLength(0);
     expect(served).toEqual(all.map((section) => section.page));
+  });
+
+  it('says the Overview was clipped and names the last row that survived', () => {
+    // The count of omitted *bodies* reads as "you still have a row per
+    // page" — which is false exactly here, where the Overview itself is
+    // what overflowed. The notice has to say where the table stops.
+    const sections = buildSections(300, 400).map((section, index) => ({ ...section, page: index + 100 }));
+    const output = truncateBody(buildOverviewHeader(100, 300), sections, {
+      continuationHint: hint,
+      charCap: 2_000,
+    });
+    const named = /Overview clipped after page (\d+)/.exec(output)?.[1];
+    expect(named).toBe('201');
+    expect(output).toContain(`| ${named} | 1234 |`);
+    expect(output).not.toContain(`| ${Number(named) + 1} | 1234 |`);
+    expect(output).toContain('300 page bodies omitted (100-399)');
+    // The recovery guidance stays intact.
+    expect(output).toContain('This range cannot be served whole. Start with read_pdf(pages: "100")');
+    expect(output).toContain('narrow with search_pdf first');
+  });
+
+  it('cuts the Overview on a row boundary, never mid-row', () => {
+    const sections = buildSections(300, 400).map((section, index) => ({ ...section, page: index + 100 }));
+    const output = truncateBody(buildOverviewHeader(100, 300), sections, {
+      continuationHint: hint,
+      charCap: 2_000,
+    });
+    const rows = tableLines(output);
+    expect(rows.length).toBeGreaterThan(1);
+    for (const row of rows) expect(row.endsWith('|')).toBe(true);
+  });
+
+  it('cuts a page-less header on a row boundary too', () => {
+    const output = truncateBody(buildOverviewHeader(1, 300), [], { continuationHint: hint, charCap: 2_000 });
+    expect(output).toContain('Response clipped at');
+    for (const row of tableLines(output)) expect(row.endsWith('|')).toBe(true);
+  });
+
+  it('keeps counting bodies alone while the Overview survives whole', () => {
+    const output = truncateBody(buildOverviewHeader(1, 10), buildSections(10, 400), {
+      continuationHint: hint,
+      charCap: 2_000,
+    });
+    expect(output).not.toContain('Overview clipped');
+    expect(output).toContain('showing pages 1-3');
+    expect(output).toContain('7 page bodies omitted (4-10)');
+    // Every Overview row is still there, which is what makes the count readable.
+    for (let page = 1; page <= 10; page += 1) expect(output).toContain(`| ${page} | 1234 |`);
   });
 
   it('leaves a response that fits well alone', () => {
