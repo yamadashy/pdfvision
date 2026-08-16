@@ -57,25 +57,59 @@ function clipNote(charCap: number): string {
 }
 
 /**
+ * How much content a clipped response may keep.
+ *
+ * The clip note is charged to the allowance rather than added on top of
+ * it: it is emitted below the cut, so leaving it out spends part of the
+ * reserve the structured notice still has to fit in — a few characters
+ * of slack that the Overview clause has since used up. Below a cap that
+ * cannot hold the note itself the charge is dropped, because nothing
+ * fits there in any arrangement and content is what a caller can use.
+ */
+function clipRoom(limit: number, note: string): number {
+  return limit > note.length ? limit - note.length : Math.max(0, limit);
+}
+
+/**
  * Last-resort clip, for the one case page selection cannot cover: not
  * even the first page fits, so the response is cut mid-content and has
  * to say where.
  */
 function clampBody(body: string, limit: number, charCap: number): string {
   if (body.length <= limit) return body;
-  return body.slice(0, Math.max(0, limit)) + clipNote(charCap);
+  const note = clipNote(charCap);
+  return body.slice(0, clipRoom(limit, note)) + note;
 }
+
+/** The Overview section heading, exactly as `formatMarkdownSections` emits it. */
+const OVERVIEW_HEADING = '## Overview';
 
 /** An Overview row: `| 419 | 3203 | … |`, one page per line. */
 const OVERVIEW_ROW = /^\|\s*(\d+)\s*\|.*\|\s*$/;
 
+/**
+ * The last page whose Overview row survived, or undefined when the cut
+ * landed before the table had rows.
+ *
+ * Only the table the header ends in counts, and only if the Overview
+ * heading is what introduces it. Everything above that is
+ * document-controlled — a multi-line title, an outline entry, or an
+ * attachment name reading `| 999 | … |` — and would otherwise put a page
+ * number in the notice that the response never carried a row for.
+ */
 function lastOverviewRowPage(header: string): number | undefined {
   const lines = header.split('\n');
-  for (let index = lines.length - 1; index >= 0; index -= 1) {
-    const page = OVERVIEW_ROW.exec(lines[index] ?? '')?.[1];
-    if (page !== undefined) return Number(page);
+  let index = lines.length - 1;
+  while (index >= 0 && (lines[index] ?? '') === '') index -= 1;
+  let page: number | undefined;
+  while (index >= 0 && (lines[index] ?? '').startsWith('|')) {
+    const row = page === undefined ? OVERVIEW_ROW.exec(lines[index] ?? '')?.[1] : undefined;
+    if (row !== undefined) page = Number(row);
+    index -= 1;
   }
-  return undefined;
+  if (page === undefined) return undefined;
+  while (index >= 0 && (lines[index] ?? '') === '') index -= 1;
+  return lines[index] === OVERVIEW_HEADING ? page : undefined;
 }
 
 interface ClampedHeader {
@@ -94,9 +128,10 @@ interface ClampedHeader {
  * already settled by the time this runs, so no body can move in behind it.
  */
 function clampHeader(header: string, limit: number, charCap: number): ClampedHeader {
-  const cut = header.slice(0, Math.max(0, limit));
+  const note = clipNote(charCap);
+  const cut = header.slice(0, clipRoom(limit, note));
   const aligned = cut.endsWith('\n') ? cut : cut.slice(0, cut.lastIndexOf('\n') + 1);
-  return { text: aligned + clipNote(charCap), lastOverviewPage: lastOverviewRowPage(aligned) };
+  return { text: aligned + note, lastOverviewPage: lastOverviewRowPage(aligned) };
 }
 
 export function truncateBody(

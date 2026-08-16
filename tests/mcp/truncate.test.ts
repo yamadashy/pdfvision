@@ -215,7 +215,7 @@ describe('truncateBody', () => {
       charCap: 2_000,
     });
     const named = /Overview clipped after page (\d+)/.exec(output)?.[1];
-    expect(named).toBe('201');
+    expect(named).toBe('193');
     expect(output).toContain(`| ${named} | 1234 |`);
     expect(output).not.toContain(`| ${Number(named) + 1} | 1234 |`);
     expect(output).toContain('300 page bodies omitted (100-399)');
@@ -239,6 +239,45 @@ describe('truncateBody', () => {
     const output = truncateBody(buildOverviewHeader(1, 300), [], { continuationHint: hint, charCap: 2_000 });
     expect(output).toContain('Response clipped at');
     for (const row of tableLines(output)) expect(row.endsWith('|')).toBe(true);
+  });
+
+  it('stays inside the budget when the Overview alone overflows it', () => {
+    // The clip note sits below the cut and the structured notice below
+    // that, so both have to come out of the budget rather than on top of
+    // it — page-boundary truncation never reaches this response.
+    const sections = buildSections(5_000, 400);
+    const output = truncateBody(buildOverviewHeader(1, 5_000), sections, { continuationHint: hint });
+    expect(output).toContain('Overview clipped after page');
+    expect(output.length).toBeLessThanOrEqual(BODY_CHAR_CAP);
+    const small = truncateBody(buildOverviewHeader(1, 300), buildSections(300, 400), {
+      continuationHint: hint,
+      charCap: 2_000,
+    });
+    expect(small.length).toBeLessThanOrEqual(2_000);
+  });
+
+  it('reads Overview rows only from the Overview, not from document-controlled text above it', () => {
+    // A multi-line title, an outline entry, or an attachment name can
+    // contain anything, `| 999 | fake |` included. Naming a page from
+    // one would put a row in the notice the response never carried.
+    const spoof = `# doc.pdf\n\n- **Title:** untitled\n${'| 999 | fake |\n'.repeat(300)}`;
+    const output = truncateBody(`${spoof}${buildOverviewHeader(1, 300)}`, buildSections(300, 400), {
+      continuationHint: hint,
+      charCap: 2_000,
+    });
+    expect(output).toContain('| 999 | fake |');
+    expect(output).not.toContain('Overview clipped after page');
+    expect(output).toContain('Overview clipped before any page row');
+  });
+
+  it('says so when the cut lands before the Overview has any row', () => {
+    const preamble = `# doc.pdf\n\n${'- **Subject:** a long line of metadata\n'.repeat(60)}`;
+    const output = truncateBody(`${preamble}${buildOverviewHeader(1, 50)}`, buildSections(50, 400), {
+      continuationHint: hint,
+      charCap: 2_000,
+    });
+    expect(output).toContain('Overview clipped before any page row');
+    expect(output).toContain('50 page bodies omitted (1-50)');
   });
 
   it('keeps counting bodies alone while the Overview survives whole', () => {
