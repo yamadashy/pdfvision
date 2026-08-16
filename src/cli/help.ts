@@ -154,9 +154,10 @@ Tools
   read_pdf      Text as Markdown. Without \`pages\` on a long document, a document map
                 (page count, outline, per-page quality, warning codes by page range)
                 instead of the body. \`ocr\` takes Tesseract languages, e.g. "jpn+eng".
-  search_pdf    Flat hit list with page, origin, context, region, and a short ref.
-                Names the pages whose native text is unusable, so zero hits is not
-                mistaken for absence.
+  search_pdf    One row per distinct place a hit lands (same-region occurrences
+                collapse into ×N), with page, origin, optional context, region, and
+                a short ref. Names the pages whose native text is unusable, so zero
+                hits is not mistaken for absence.
   render_pdf    Page or region PNGs as image blocks. Takes a ref from an earlier
                 response, so coordinates never have to be transcribed.
 

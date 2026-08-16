@@ -104,7 +104,7 @@ export function createServer(): McpServer {
     {
       title: 'Search a PDF',
       description:
-        'Find where text occurs without pulling page bodies into context — the way to work a long document. Returns a flat hit list: page, origin (page text, form-field value, link target, annotation), context, region, and a short `ref` for render_pdf. Names the searched pages whose native text is missing or corrupted, so zero hits is never mistaken for absence. Case-insensitive.',
+        'Find where text occurs without pulling page bodies into context — the way to work a long document. Returns one row per distinct place a hit lands, `×N` when occurrences share it: page, origin (page text, form-field value, link target, annotation), optional context, region, and a short `ref` for render_pdf. Names the searched pages whose native text is missing or corrupted, so zero hits is never mistaken for absence. Case-insensitive.',
       inputSchema: searchSchema,
       annotations: ANNOTATIONS,
     },
