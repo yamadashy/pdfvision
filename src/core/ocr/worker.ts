@@ -53,15 +53,19 @@ parentPort.postMessage = (message, ...args) => {
  * tesseract's node cache adapter is `util.promisify(fs.writeFile)`,
  * which truncates the destination and then streams ~10-16MB into it. Any
  * interruption in that window leaves a short file exactly where the next
- * session looks for it, and a partial traineddata is worse than none:
- * the cache read succeeds, so the download is skipped and every later
- * run fails at `Init` instead. The interruptions are real — the
- * boot-failure exit above, a Ctrl-C on the CLI, an OOM kill — and none
- * of them can be waited out from here, so the write is made atomic
- * instead: readers see the previous file or the complete new one, and an
- * interrupted write leaves only an unread `.tmp` sibling that
- * `clear-cache` removes. It also keeps two concurrent pdfvision
- * processes caching the same language from interleaving into one file.
+ * session looks for it: the cache read succeeds, so the download is
+ * skipped and that session fails at `Init` instead. It does not poison
+ * the cache permanently — on an `Init` failure tesseract deletes the
+ * cached data before rejecting, so the run after that re-downloads — but
+ * it deletes it for *every* requested language, so one truncated `eng`
+ * costs a failed OCR run and a fresh download of the `jpn` that was
+ * fine. The interruptions are real — the boot-failure exit above, a
+ * Ctrl-C on the CLI, an OOM kill — and none of them can be waited out
+ * from here, so the write is made atomic instead: readers see the
+ * previous file or the complete new one, and an interrupted write leaves
+ * only an unread `.tmp` sibling that `clear-cache` removes. It also
+ * keeps two concurrent pdfvision processes caching the same language
+ * from interleaving into one file.
  *
  * The adapter builds its promisified reference when the worker script is
  * required, so patching `fs` before that require is what makes this take

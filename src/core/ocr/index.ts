@@ -254,9 +254,13 @@ export async function createOcrSession(lang: string): Promise<OcrSession> {
     worker = await Promise.race([booting, failure.promise]);
   } catch (error) {
     // A boot that completes after we gave up would otherwise leave an
-    // orphaned worker thread behind. (A boot that never completes — the
-    // usual shape of this failure — leaves its thread to the process
-    // boundary: the CLI exits, and the MCP server keeps serving.)
+    // orphaned worker thread behind: it posted no boot failure, so
+    // nothing else will end it. (A boot that never completes — the usual
+    // shape of this failure — has no thread left to orphan. tesseract
+    // only reaches `errorHandler` from a reject message, and the worker
+    // exits itself after posting one for a boot action; see
+    // BOOT_FAILURE_SELF_TERMINATION. What outlives the call is the
+    // pending promise, not the thread and its WASM heap.)
     void booting.then((late: { terminate?: () => unknown } | undefined) => late?.terminate?.()).catch(() => {});
     throw failure.recorded() ?? ocrWorkerError(langs, error);
   }
