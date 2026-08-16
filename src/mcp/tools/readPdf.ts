@@ -36,7 +36,7 @@ function detailOptions(base: ProcessDocumentOptions): ProcessDocumentOptions {
 }
 
 function bodyFor(result: DocumentResult, input: ReadPdfInput): string {
-  const { header, pages } = formatMarkdownSections(result, {
+  const { header, pages, overviewStart } = formatMarkdownSections(result, {
     layout: true,
     stripRepeated: true,
     omitEmptySections: true,
@@ -56,6 +56,7 @@ function bodyFor(result: DocumentResult, input: ReadPdfInput): string {
   const password = input.password !== undefined ? ' (with the same `password`)' : '';
   return truncateBody(header, pages, {
     continuationHint: (dropped) => `read_pdf(pages: "${formatPageRange(dropped)}"${ocr})${password}`,
+    overviewStart,
   });
 }
 

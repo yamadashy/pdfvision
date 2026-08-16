@@ -36,6 +36,16 @@ export interface TruncateOptions {
    */
   continuationHint: (droppedPages: readonly number[]) => string;
   charCap?: number;
+  /**
+   * Where the Overview section starts in `header`, from
+   * `formatMarkdownSections` — undefined when the header carries none
+   * (single-page selections). Passed by the code that built the header
+   * rather than found by searching it: a multi-line title can contain
+   * its own `## Overview` line and a table of invented page numbers,
+   * and on a selection with no real Overview a search would let that
+   * forgery stand in for it.
+   */
+  overviewStart?: number;
 }
 
 /**
@@ -81,36 +91,18 @@ function clampBody(body: string, limit: number, charCap: number): string {
   return body.slice(0, clipRoom(limit, note)) + note;
 }
 
-/** The Overview section heading, exactly as `formatMarkdownSections` emits it. */
-const OVERVIEW_HEADING = '## Overview';
-
 /** An Overview row: `| 419 | 3203 | … |`, one page per line. */
 const OVERVIEW_ROW = /^\|\s*(\d+)\s*\|.*\|\s*$/;
 
 /**
- * Where the Overview table starts in the *whole* header.
- *
- * Located before the clip, because the Overview is the last section
- * `formatMarkdownSections` emits and nothing document-controlled can
- * follow it — while a multi-line title or an outline entry above it may
- * contain anything, its own `## Overview` line and a table of invented
- * page numbers included. Searching the clipped text instead would let
- * that forgery stand in for the real table whenever the cut fell short
- * of it.
- */
-function overviewRowsStart(header: string): number | undefined {
-  const marker = `\n${OVERVIEW_HEADING}\n`;
-  const at = header.lastIndexOf(marker);
-  if (at !== -1) return at + marker.length;
-  return header.startsWith(`${OVERVIEW_HEADING}\n`) ? OVERVIEW_HEADING.length + 1 : undefined;
-}
-
-/**
  * The last page whose Overview row survived the cut, or undefined when
- * no complete row did.
+ * no complete row did. `rowsStart` comes from the header's builder (see
+ * {@link TruncateOptions.overviewStart}), so nothing before it — however
+ * table-like — is ever read as a row; the heading, the column header,
+ * and the separator inside the section do not match the row pattern.
  */
-function lastOverviewRowPage(clipped: string, rowsStart: number | undefined): number | undefined {
-  if (rowsStart === undefined || clipped.length <= rowsStart) return undefined;
+function lastOverviewRowPage(clipped: string, rowsStart: number): number | undefined {
+  if (clipped.length <= rowsStart) return undefined;
   const lines = clipped.slice(rowsStart).split('\n');
   for (let index = lines.length - 1; index >= 0; index -= 1) {
     const page = OVERVIEW_ROW.exec(lines[index] ?? '')?.[1];
@@ -121,6 +113,8 @@ function lastOverviewRowPage(clipped: string, rowsStart: number | undefined): nu
 
 interface ClampedHeader {
   text: string;
+  /** Whether the header carried a real Overview section to lose rows from. */
+  hasOverview: boolean;
   /** Last page whose Overview row survived the cut, if the table was reached at all. */
   lastOverviewPage: number | undefined;
 }
@@ -134,11 +128,15 @@ interface ClampedHeader {
  * preceding line break can only remove characters, and page selection is
  * already settled by the time this runs, so no body can move in behind it.
  */
-function clampHeader(header: string, limit: number, charCap: number): ClampedHeader {
+function clampHeader(header: string, limit: number, charCap: number, overviewStart: number | undefined): ClampedHeader {
   const note = clipNote(charCap);
   const cut = header.slice(0, clipRoom(limit, note));
   const aligned = cut.endsWith('\n') ? cut : cut.slice(0, cut.lastIndexOf('\n') + 1);
-  return { text: aligned + note, lastOverviewPage: lastOverviewRowPage(aligned, overviewRowsStart(header)) };
+  return {
+    text: aligned + note,
+    hasOverview: overviewStart !== undefined,
+    lastOverviewPage: overviewStart === undefined ? undefined : lastOverviewRowPage(aligned, overviewStart),
+  };
 }
 
 export function truncateBody(
@@ -164,7 +162,7 @@ export function truncateBody(
   }
 
   const dropped = clipped.slice(kept.length).map((section) => section.page);
-  const headerClip = header.length > limit ? clampHeader(header, limit, charCap) : undefined;
+  const headerClip = header.length > limit ? clampHeader(header, limit, charCap, options.overviewStart) : undefined;
   if (dropped.length === 0) return headerClip?.text ?? header;
 
   // A page is only reported as delivered when it fits whole. When none
@@ -191,8 +189,11 @@ export function truncateBody(
   // the count would then imply detail the response does not carry — so
   // the notice reports the clip and the last row that made it.
   const omitted = `${dropped.length} page ${dropped.length === 1 ? 'body' : 'bodies'} omitted (${formatPageRange(dropped)})`;
+  // No clause at all when the header had no Overview to lose (a
+  // single-page selection): claiming one was clipped would be as false
+  // as the count it replaces.
   const overviewLoss =
-    headerClip === undefined
+    headerClip === undefined || !headerClip.hasOverview
       ? undefined
       : headerClip.lastOverviewPage === undefined
         ? 'Overview clipped before any page row'

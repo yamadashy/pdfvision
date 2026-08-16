@@ -128,6 +128,13 @@ export function formatMarkdownSections(
 ): {
   header: string;
   pages: MarkdownPageSection[];
+  /**
+   * Where the Overview section starts in `header`; undefined when none
+   * was emitted (single-page results). Reported from here rather than
+   * searched for downstream, so document-controlled text that mimics
+   * the heading can never stand in for the real table.
+   */
+  overviewStart?: number;
 } {
   const lines: string[] = [];
   lines.push(`# ${result.file}`);
@@ -197,8 +204,13 @@ export function formatMarkdownSections(
     }
   }
 
+  const linesBeforeOverview = lines.length;
   appendOverview(lines, result, { layout: options.layout ?? false });
   const header = lines.join('\n');
+  // +1 for the '\n' that join() puts between the last pre-Overview line
+  // and the section's first line.
+  const overviewStart =
+    lines.length > linesBeforeOverview ? lines.slice(0, linesBeforeOverview).join('\n').length + 1 : undefined;
 
   const pages = result.pages.map((page) => {
     const lines: string[] = [];
@@ -317,5 +329,5 @@ export function formatMarkdownSections(
     return { page: page.page, text: `\n${lines.join('\n')}` };
   });
 
-  return { header, pages };
+  return { header, pages, overviewStart };
 }

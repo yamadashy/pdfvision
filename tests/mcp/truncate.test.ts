@@ -13,6 +13,15 @@ function buildOverviewHeader(firstPage: number, pageCount: number): string {
   return `# doc.pdf\n\n## Overview\n\n| Page | Chars |\n| ---: | ---: |\n${rows}`;
 }
 
+/**
+ * The offset the formatter would report for these hand-built headers.
+ * `lastIndexOf` is safe here because every fixture puts the real
+ * Overview last, mirroring `formatMarkdownSections`.
+ */
+function overviewStartOf(header: string): number {
+  return header.lastIndexOf('\n## Overview\n') + 1;
+}
+
 function tableLines(output: string): string[] {
   const body = output.slice(0, output.indexOf('[pdfvision] Response clipped'));
   return body.split('\n').filter((line) => line.startsWith('|'));
@@ -210,9 +219,11 @@ describe('truncateBody', () => {
     // page" — which is false exactly here, where the Overview itself is
     // what overflowed. The notice has to say where the table stops.
     const sections = buildSections(300, 400).map((section, index) => ({ ...section, page: index + 100 }));
-    const output = truncateBody(buildOverviewHeader(100, 300), sections, {
+    const header = buildOverviewHeader(100, 300);
+    const output = truncateBody(header, sections, {
       continuationHint: hint,
       charCap: 2_000,
+      overviewStart: overviewStartOf(header),
     });
     const named = /Overview clipped after page (\d+)/.exec(output)?.[1];
     expect(named).toBe('193');
@@ -226,9 +237,11 @@ describe('truncateBody', () => {
 
   it('cuts the Overview on a row boundary, never mid-row', () => {
     const sections = buildSections(300, 400).map((section, index) => ({ ...section, page: index + 100 }));
-    const output = truncateBody(buildOverviewHeader(100, 300), sections, {
+    const header = buildOverviewHeader(100, 300);
+    const output = truncateBody(header, sections, {
       continuationHint: hint,
       charCap: 2_000,
+      overviewStart: overviewStartOf(header),
     });
     const rows = tableLines(output);
     expect(rows.length).toBeGreaterThan(1);
@@ -236,7 +249,12 @@ describe('truncateBody', () => {
   });
 
   it('cuts a page-less header on a row boundary too', () => {
-    const output = truncateBody(buildOverviewHeader(1, 300), [], { continuationHint: hint, charCap: 2_000 });
+    const header = buildOverviewHeader(1, 300);
+    const output = truncateBody(header, [], {
+      continuationHint: hint,
+      charCap: 2_000,
+      overviewStart: overviewStartOf(header),
+    });
     expect(output).toContain('Response clipped at');
     for (const row of tableLines(output)) expect(row.endsWith('|')).toBe(true);
   });
@@ -246,20 +264,24 @@ describe('truncateBody', () => {
     // that, so both have to come out of the budget rather than on top of
     // it — page-boundary truncation never reaches this response.
     const sections = buildSections(5_000, 400);
-    const output = truncateBody(buildOverviewHeader(1, 5_000), sections, { continuationHint: hint });
+    const huge = buildOverviewHeader(1, 5_000);
+    const output = truncateBody(huge, sections, { continuationHint: hint, overviewStart: overviewStartOf(huge) });
     expect(output).toContain('Overview clipped after page');
     expect(output.length).toBeLessThanOrEqual(BODY_CHAR_CAP);
-    const small = truncateBody(buildOverviewHeader(1, 300), buildSections(300, 400), {
+    const smallHeader = buildOverviewHeader(1, 300);
+    const small = truncateBody(smallHeader, buildSections(300, 400), {
       continuationHint: hint,
       charCap: 2_000,
+      overviewStart: overviewStartOf(smallHeader),
     });
     expect(small.length).toBeLessThanOrEqual(2_000);
     // At the cap where the allowance is exactly the clip note, the note
     // is still charged for: content room is zero, not the whole
     // allowance over again.
-    const boundary = truncateBody(buildOverviewHeader(1, 300), buildSections(300, 400), {
+    const boundary = truncateBody(smallHeader, buildSections(300, 400), {
       continuationHint: hint,
       charCap: 238,
+      overviewStart: overviewStartOf(smallHeader),
     });
     expect(boundary.startsWith('\n\n[pdfvision] Response clipped at the 238-char budget.')).toBe(true);
   });
@@ -269,9 +291,11 @@ describe('truncateBody', () => {
     // contain anything, `| 999 | fake |` included. Naming a page from
     // one would put a row in the notice the response never carried.
     const spoof = `# doc.pdf\n\n- **Title:** untitled\n${'| 999 | fake |\n'.repeat(300)}`;
-    const output = truncateBody(`${spoof}${buildOverviewHeader(1, 300)}`, buildSections(300, 400), {
+    const header = `${spoof}${buildOverviewHeader(1, 300)}`;
+    const output = truncateBody(header, buildSections(300, 400), {
       continuationHint: hint,
       charCap: 2_000,
+      overviewStart: overviewStartOf(header),
     });
     expect(output).toContain('| 999 | fake |');
     expect(output).not.toContain('Overview clipped after page');
@@ -285,28 +309,47 @@ describe('truncateBody', () => {
     // invented pages stands in for the real one whenever the cut falls
     // short of it.
     const spoof = `# doc.pdf\n\n- **Title:** untitled\n## Overview\n\n${'| 999 | fake |\n'.repeat(300)}`;
-    const output = truncateBody(`${spoof}${buildOverviewHeader(1, 300)}`, buildSections(300, 400), {
+    const header = `${spoof}${buildOverviewHeader(1, 300)}`;
+    const output = truncateBody(header, buildSections(300, 400), {
       continuationHint: hint,
       charCap: 2_000,
+      overviewStart: overviewStartOf(header),
     });
     expect(output).not.toContain('Overview clipped after page 999');
     expect(output).toContain('Overview clipped before any page row');
   });
 
+  it('carries no Overview clause at all when the header has no Overview', () => {
+    // A single-page selection gets no Overview section from the
+    // formatter, so `overviewStart` is undefined — and a forged heading
+    // in the metadata must not conjure the clause back: there was no
+    // Overview to clip, and saying one was clipped is itself false.
+    const forged = `# doc.pdf\n\n- **Title:** untitled\n## Overview\n\n${'| 999 | fake |\n'.repeat(300)}`;
+    const sections = [{ page: 7, text: `\n\n---\n\n## Page 7\n\n${'x'.repeat(900)}\n` }];
+    const output = truncateBody(forged, sections, { continuationHint: hint, charCap: 2_000 });
+    expect(output).toContain('1 page body omitted (7)');
+    expect(output).not.toContain('Overview clipped');
+    expect(output).not.toContain('after page 999');
+  });
+
   it('says so when the cut lands before the Overview has any row', () => {
     const preamble = `# doc.pdf\n\n${'- **Subject:** a long line of metadata\n'.repeat(60)}`;
-    const output = truncateBody(`${preamble}${buildOverviewHeader(1, 50)}`, buildSections(50, 400), {
+    const header = `${preamble}${buildOverviewHeader(1, 50)}`;
+    const output = truncateBody(header, buildSections(50, 400), {
       continuationHint: hint,
       charCap: 2_000,
+      overviewStart: overviewStartOf(header),
     });
     expect(output).toContain('Overview clipped before any page row');
     expect(output).toContain('50 page bodies omitted (1-50)');
   });
 
   it('keeps counting bodies alone while the Overview survives whole', () => {
-    const output = truncateBody(buildOverviewHeader(1, 10), buildSections(10, 400), {
+    const header = buildOverviewHeader(1, 10);
+    const output = truncateBody(header, buildSections(10, 400), {
       continuationHint: hint,
       charCap: 2_000,
+      overviewStart: overviewStartOf(header),
     });
     expect(output).not.toContain('Overview clipped');
     expect(output).toContain('showing pages 1-3');
