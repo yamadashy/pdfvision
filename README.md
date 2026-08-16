@@ -5,7 +5,7 @@
     <b>Give AI agents human-like PDF vision</b>
   </p>
   <p>
-    Turn silent PDF failures into recoverable ones
+    Turn silent PDF failures into recoverable ones — so agents never answer wrong without knowing it
   </p>
 </div>
 
