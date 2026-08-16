@@ -17,7 +17,9 @@
  * large image regions whose internal labels will not appear in native text,
  * optional-content layer text that may include default-hidden content,
  * OCR-backed scan layers whose bboxes or word boundaries may drift from pixels,
- * XFA (LiveCycle) forms whose real content lives outside the standard text layer, etc.
+ * dynamic XFA (LiveCycle) forms whose extracted pages are only the viewer placeholder,
+ * XFA forms whose field layer is real while their page text is not,
+ * hybrid XFA forms whose static content is real but whose XFA layer is unread, etc.
  */
 export interface PageWarning {
   /** Machine-readable rule identifier. */
@@ -51,7 +53,9 @@ export interface PageWarning {
     | 'annotation_text_missing_from_native'
     | 'optional_content_text_may_include_hidden_layers'
     | 'reading_order_divergence'
-    | 'xfa_form';
+    | 'xfa_form'
+    | 'xfa_fields_only'
+    | 'xfa_static_content';
   /**
    * `'error'` means likely data-integrity issue (off-page bbox usually
    * indicates a broken render or pathological PDF), `'warning'` means

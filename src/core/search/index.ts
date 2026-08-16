@@ -1,7 +1,16 @@
-import type { FormField, PageAnnotation, PageLink, PageOcr, SearchMatch, TextSpan } from '../../types/index.js';
+import type {
+  FormField,
+  PageAnnotation,
+  PageLayout,
+  PageLink,
+  PageOcr,
+  SearchMatch,
+  TextSpan,
+} from '../../types/index.js';
 import { contributingBoxes, round2, unionBoxes } from './boxes.js';
 import { type CompiledSearch, nfkc } from './compiler.js';
 import { buildPreciseDuplicateBudget, duplicateKey } from './duplicates.js';
+import { reconstructedLineContext, reconstructedLines } from './lineContext.js';
 import { buildOcrSearchLines, buildSearchLines } from './lines.js';
 import { isRegexTimeout, runWithRegexTimeout } from './regexTimeout.js';
 import { REGEX_BUDGET_WARNING_PREFIX } from './requestBudget.js';
@@ -87,6 +96,10 @@ const REGEX_SEARCH_TIMEOUT_MS = 1000;
  * Link targets are included when the processor supplies links. They use
  * the clickable link bbox and are marked `source: 'link'`.
  *
+ * A native match's `context` quotes the reconstructed layout line it sits
+ * on when the processor supplies a layout, so the preview reads the way
+ * the page body does; without one it falls back to the raw search line.
+ *
  * In regex mode the whole page pass is bounded at
  * {@link REGEX_SEARCH_TIMEOUT_MS}; exceeding it warns and returns no
  * matches for that page.
@@ -102,6 +115,7 @@ export function searchPage(
   formFields?: readonly FormField[],
   annotations?: readonly PageAnnotation[],
   links?: readonly PageLink[],
+  layout?: PageLayout,
 ): SearchMatch[] {
   return searchPageWithMatchCap(
     spans,
@@ -115,6 +129,9 @@ export function searchPage(
     formFields,
     annotations,
     links,
+    undefined,
+    undefined,
+    layout,
   );
 }
 
@@ -161,6 +178,7 @@ export function searchPageWithMatchCap(
   links?: readonly PageLink[],
   ocrDuplicateMatches?: readonly SearchMatch[],
   regexTimeoutMs: number = REGEX_SEARCH_TIMEOUT_MS,
+  layout?: PageLayout,
 ): SearchMatch[] {
   const run = () =>
     collectPageMatches(
@@ -176,6 +194,7 @@ export function searchPageWithMatchCap(
       annotations,
       links,
       ocrDuplicateMatches,
+      layout,
     );
   if (!compiled.regexMode) return run();
   try {
@@ -232,8 +251,10 @@ function collectPageMatches(
   annotations?: readonly PageAnnotation[],
   links?: readonly PageLink[],
   ocrDuplicateMatches?: readonly SearchMatch[],
+  layout?: PageLayout,
 ): SearchMatch[] {
   const matches: SearchMatch[] = [];
+  const layoutLines = reconstructedLines(layout);
 
   // Per-query, per-page, per-source emission counter. Resets between
   // native and OCR passes (each gets its own cap). Track per matcher
@@ -299,7 +320,7 @@ function collectPageMatches(
           // the documented `text` contract.
           text: hit[0],
           source: 'native',
-          context: haystack,
+          context: reconstructedLineContext(layoutLines, box, hit[0]) ?? haystack,
         });
         nativeCount.set(mi, count + 1);
       }

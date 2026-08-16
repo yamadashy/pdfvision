@@ -81,6 +81,7 @@ export function buildPageResult({
         data._internalFormFields,
         data._internalAnnotations,
         data._internalLinks,
+        data._internalLayout,
       );
     // The budget charges what this pass costs and refuses the page once
     // the request has spent its regex time; `undefined` means the search

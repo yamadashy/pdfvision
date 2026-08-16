@@ -3,6 +3,7 @@ import { processDocument } from '../../core/processor.js';
 import { hasUnreliableNativeText } from '../../core/quality/pageQuality.js';
 import { cropRegionForBox } from '../../core/search/boxes.js';
 import { isRegexBudgetWarning, isRegexTimeoutWarning } from '../../core/search/index.js';
+import { isUnreadableSourceCode, unreadableSourceReport } from '../../core/warnings/unreadableSource.js';
 import { formatBox } from '../../output/markdown/helpers.js';
 import type { PageResult, RenderRegion, SearchMatch } from '../../types/index.js';
 import { MATCH_CONTEXT_CHAR_CAP, MAX_MATCH_TEXTS, MAX_MATCHES, MAX_SEARCH_WARNINGS } from '../limits.js';
@@ -44,7 +45,8 @@ export interface CollapsedHit {
 }
 
 function groupKey(page: number, source: SearchMatch['source'], region: RenderRegion): string {
-  return `${page}:${source}:${region.x},${region.y},${region.width},${region.height}`;
+  // Whole points, not the emitted precision — see collapseHits.
+  return `${page}:${source}:${Math.round(region.x)},${Math.round(region.y)},${Math.round(region.width)},${Math.round(region.height)}`;
 }
 
 /**
@@ -53,9 +55,21 @@ function groupKey(page: number, source: SearchMatch['source'], region: RenderReg
  * A hit's crop grows to the line or table row it sits in, so two hits on
  * one line resolve to the same region and used to emit two rows that
  * differed only in their ref — three copies of one handle, since both
- * render the same image. Grouping on `(page, region)` is exact rather
- * than approximate: the regions come from the same computation over the
- * same structure, so equal places produce equal numbers.
+ * render the same image.
+ *
+ * The regions come from the same computation over the same structure,
+ * but that does not make equal places produce equal numbers: the crop
+ * grows to the shared line and is then padded by a fraction of the
+ * *match* box, so two hits on one line disagree in the last hundredths
+ * of a point (measured:
+ * width `263.88` vs `263.89` for one heading, height `35.06`/`34.96`/
+ * `35.18` for one line) and used to emit a duplicate row. So the key
+ * rounds to whole points, which is far below the size of any distinct
+ * place a crop can stand for and far above that jitter. Only the key
+ * rounds; the emitted region keeps its precision, because that is what
+ * the render uses. Two crops straddling a `.5` boundary can still split,
+ * which is a smaller residual of a residual and not worth a neighbour
+ * search to close.
  *
  * The matched strings are kept per row because they are the one thing
  * that can differ within a group — `the` / `The`, or, under a regex,
@@ -110,14 +124,50 @@ export function collapseHits(hits: readonly SearchHit[]): CollapsedHit[] {
  * exact failure pdfvision exists to expose, so the report says which
  * pages could not have matched in the first place. Same classification
  * the document map uses to suggest OCR.
+ *
+ * Pages `appendUnreadableSource` already spoke for are skipped: an
+ * image-bearing placeholder page is both empty of native text and not the
+ * document, and the two notes would hand the caller contradictory
+ * recoveries — "render or OCR it" against "rendering shows the placeholder
+ * too". The stronger claim wins, since it is the one that says the page
+ * cannot answer the question at all.
  */
-function appendUnsearchable(lines: string[], pages: readonly PageResult[]): void {
-  const suspect = pages.filter(hasUnreliableNativeText);
+export function appendUnsearchable(lines: string[], pages: readonly PageResult[], covered: ReadonlySet<number>): void {
+  const suspect = pages.filter((page) => !covered.has(page.page) && hasUnreliableNativeText(page));
   if (suspect.length === 0) return;
   lines.push(
     '',
     `> ${suspect.length} of the searched pages have no usable native text (${formatPageRange(suspect.map((page) => page.page))}), so a miss there is not evidence of absence. Re-run \`read_pdf\` with \`ocr\` on those pages, or \`render_pdf\` to look at them.`,
   );
+}
+
+/**
+ * The one class of warning that has to be reported per *response* rather
+ * than per hit: the searched text was not the page's content at all.
+ *
+ * `appendPageWarnings` below only speaks for pages that produced a hit,
+ * which is exactly backwards here — a page can only warn that it was
+ * unreadable once it has proved it was readable enough to match. On a
+ * dynamic XFA form the whole document is one "Please wait..." placeholder,
+ * so the response that needs this most is the clean `0 matches`, and the
+ * caller reads absence into it. Neither does `appendUnsearchable` cover
+ * it: the placeholder page carries ~700 characters of well-formed text, so
+ * nothing about its native-text quality is suspect.
+ *
+ * Reported once, here, whether or not those pages matched, and over the
+ * whole selection rather than the one page the document-level warning is
+ * pinned to — a three-page placeholder document must not report page 1 and
+ * leave pages 2-3 looking searched. `appendPageWarnings` drops these codes
+ * so the two notes cannot say the same thing twice; its "render the ref"
+ * recovery would be wrong for a confirmed placeholder anyway.
+ *
+ * Returns the pages it spoke for, so the notes after it can stay off them.
+ */
+export function appendUnreadableSource(lines: string[], pages: readonly PageResult[]): ReadonlySet<number> {
+  const { pages: covered, notes } = unreadableSourceReport(pages);
+  if (covered.length === 0) return new Set();
+  lines.push('', ...notes.map((note) => `> ${note}`));
+  return new Set(covered);
 }
 
 /**
@@ -135,6 +185,10 @@ function appendUnsearchable(lines: string[], pages: readonly PageResult[]): void
  * the page, and the recovery here is the same for all of them (render
  * the ref). Errors first, then warnings, capped like the search
  * warnings above.
+ *
+ * Unreadable-source codes are left out: `appendUnreadableSource` has
+ * already reported them for every searched page, hit or not, with a
+ * recovery that fits them.
  */
 export function appendPageWarnings(lines: string[], pages: readonly PageResult[], matched: ReadonlySet<number>): void {
   const noted = pages
@@ -145,10 +199,12 @@ export function appendPageWarnings(lines: string[], pages: readonly PageResult[]
         ...new Set(
           [...(page.warnings ?? [])]
             .sort((a, b) => (a.severity === b.severity ? 0 : a.severity === 'error' ? -1 : 1))
-            .map((warning) => warning.code),
+            .map((warning) => warning.code)
+            .filter((code) => !isUnreadableSourceCode(code)),
         ),
       ],
-    }));
+    }))
+    .filter((entry) => entry.codes.length > 0);
   if (noted.length === 0) return;
 
   const shown = noted.slice(0, MAX_SEARCH_WARNINGS);
@@ -280,7 +336,8 @@ export async function searchPdf(input: SearchPdfInput): Promise<ToolResult> {
     }
   }
 
-  appendUnsearchable(lines, result.pages);
+  const unreadableSource = appendUnreadableSource(lines, result.pages);
+  appendUnsearchable(lines, result.pages, unreadableSource);
   appendPageWarnings(lines, result.pages, matchedPages);
 
   if (collapsed.length > 0) {

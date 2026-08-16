@@ -28,27 +28,72 @@ function duplicateKeyForMatch(compiled: CompiledSearch, match: SearchMatch): str
   return duplicateKey(match.queryIndex, match.query, match.text, matcher?.regex.ignoreCase ?? false);
 }
 
+const NOT_DRAWN_ON_PAGE = Symbol('pdfvision.searchMatchNotDrawnOnPage');
+
+type SearchMatchWithVisibility = SearchMatch & { [NOT_DRAWN_ON_PAGE]?: true };
+
+/**
+ * Mark a match whose string is not part of the page's artwork.
+ *
+ * Non-enumerable on purpose: this is a fact about where a match came
+ * from, not a field of the documented `SearchMatch` shape, and it must
+ * not reach JSON/TOON/XML output or the cache payload.
+ */
+export function markMatchNotDrawnOnPage(match: SearchMatch): void {
+  Object.defineProperty(match, NOT_DRAWN_ON_PAGE, { value: true, enumerable: false });
+}
+
+/**
+ * Whether a match counts as one visible occurrence for the OCR budget.
+ *
+ * The budget exists because OCR re-reads the page image: an OCR hit on a
+ * string a precise source already reported is the same occurrence read
+ * twice, so the precise bbox should win. That reasoning holds only for
+ * matches whose text is actually drawn on the page. A link target is not
+ * — it lives in the annotation, and when the anchor does restate it the
+ * native hit is what OCR would re-read. A checkbox or radio export value
+ * is form metadata that commonly appears nowhere in the artwork. Letting
+ * either fund the budget spends it on text OCR never saw, and the cost
+ * lands on a genuine OCR-only occurrence of the same string somewhere
+ * else on the page, which disappears without a warning.
+ *
+ * Text and choice values and button captions stay: those are drawn
+ * inside their widgets, so OCR does read them back.
+ */
+function fundsOcrDuplicateBudget(match: SearchMatch): boolean {
+  if (match.source === 'ocr' || match.source === 'link') return false;
+  return (match as SearchMatchWithVisibility)[NOT_DRAWN_ON_PAGE] !== true;
+}
+
 export function buildPreciseDuplicateBudget(
   preciseMatches: readonly SearchMatch[] | undefined,
   compiled: CompiledSearch,
 ): Map<string, number> {
   const budget = new Map<string, number>();
   for (const match of preciseMatches ?? []) {
-    if (match.source === 'ocr') continue;
+    if (!fundsOcrDuplicateBudget(match)) continue;
     const key = duplicateKeyForMatch(compiled, match);
     budget.set(key, (budget.get(key) ?? 0) + 1);
   }
   return budget;
 }
 
+/**
+ * `sources` narrows which earlier matches can suppress this one. Callers
+ * that can tell apart "the same evidence reported twice" from "two
+ * different facts about one rectangle" pass it; the default counts every
+ * non-OCR source, which is the historical behaviour.
+ */
 export function hasPreciseDuplicateAtBox(
   preciseMatches: readonly SearchMatch[] | undefined,
   compiled: CompiledSearch,
   key: string,
   box: Box,
+  sources?: (source: SearchMatch['source']) => boolean,
 ): boolean {
   for (const match of preciseMatches ?? []) {
     if (match.source === 'ocr') continue;
+    if (sources && !sources(match.source)) continue;
     if (duplicateKeyForMatch(compiled, match) !== key) continue;
     if (boxOverlapRatio(match.bbox, box) >= PRECISE_DUPLICATE_MIN_OVERLAP_RATIO) return true;
   }

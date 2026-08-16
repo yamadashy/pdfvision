@@ -83,10 +83,52 @@ describe('formatDocumentMap', () => {
     expect(output).toContain('read_pdf(attachment:');
   });
 
-  it('flags an XFA form loudly', () => {
-    const output = formatDocumentMap(document([page(1, ok)], { xfa: true }));
-    expect(output).toContain('XFA (LiveCycle) form');
+  it('flags a placeholder-only XFA form loudly', () => {
+    const placeholder: PageWarning = { code: 'xfa_form', severity: 'error', message: 'placeholder only' };
+    const output = formatDocumentMap(document([page(1, ok, [placeholder])], { xfa: true }));
+    expect(output).toContain('Dynamic XFA (LiveCycle) form');
+    expect(output).toContain('Do not answer from it');
     expect(output).toContain('Adobe Acrobat/Reader');
+  });
+
+  it('does not tell the reader to distrust an XFA form whose static content is real', () => {
+    const softened: PageWarning = {
+      code: 'xfa_static_content',
+      severity: 'warning',
+      message: 'static content is real',
+    };
+    const output = formatDocumentMap(document([page(1, ok, [softened])], { xfa: true }));
+    expect(output).toContain('XFA (LiveCycle) form with real static content');
+    expect(output).toContain("the document's own content");
+    expect(output).not.toContain('Do not answer from it');
+  });
+
+  it('names the field layer as the evidence when the pages carry none', () => {
+    const fieldsOnly: PageWarning = { code: 'xfa_fields_only', severity: 'warning', message: 'fields are real' };
+    const output = formatDocumentMap(document([page(1, ok, [fieldsOnly])], { xfa: true }));
+    expect(output).toContain('XFA (LiveCycle) form, fields only');
+    // The map itself shows no field values, so the banner must route to
+    // a call that does rather than say "answer from the fields below".
+    expect(output).toContain('This map does not show field values');
+    expect(output).toContain('read the fields');
+    expect(output).not.toContain('read them as usual');
+    expect(output).not.toContain('Do not answer from it');
+  });
+
+  it('does not guarantee the static content when no page was classified', () => {
+    const output = formatDocumentMap(document([], { xfa: true, totalPages: 7 }));
+    expect(output).toContain('unconfirmed static layer');
+    expect(output).not.toContain('read them as usual');
+    expect(output).not.toContain('Do not answer from it');
+  });
+
+  it('hedges instead of guaranteeing when the static layer could not be confirmed', () => {
+    const unconfirmed: PageWarning = { code: 'xfa_form', severity: 'warning', message: 'cannot confirm' };
+    const output = formatDocumentMap(document([page(1, ok, [unconfirmed])], { xfa: true }));
+    expect(output).toContain('unconfirmed static layer');
+    expect(output).toContain('render or OCR them');
+    expect(output).not.toContain('Do not answer from it');
+    expect(output).not.toContain('read them as usual');
   });
 
   it('renders a two-level outline and drops deeper nesting', () => {

@@ -37,6 +37,52 @@ async function buildPdfWithLink(): Promise<Uint8Array> {
   return new Uint8Array(Buffer.concat(chunks));
 }
 
+/**
+ * A radio group and a checkbox whose option wording lives only in the
+ * widget's on-state — the shape a real AcroForm uses, where the visible
+ * label is drawn separately and `/Opt` carries the exported wording.
+ */
+async function buildPdfWithButtonFields(): Promise<Uint8Array> {
+  const chunks: Buffer[] = [];
+  const doc = new PDFDocument({ size: [612, 792], margin: 0 });
+  doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+  const done = new Promise<void>((resolveDone) => doc.on('end', resolveDone));
+
+  const appearanceStates = (states: readonly string[]): Record<string, unknown> => {
+    const normal: Record<string, unknown> = {};
+    for (const state of states) {
+      const stream = doc.ref({ Type: 'XObject', Subtype: 'Form', BBox: [0, 0, 12, 12] });
+      stream.end('');
+      normal[state] = stream;
+    }
+    return { N: normal };
+  };
+
+  const form = doc as unknown as {
+    initForm(): void;
+    formField(name: string, options: Record<string, unknown>): unknown;
+    formRadioButton(name: string, x: number, y: number, w: number, h: number, options: Record<string, unknown>): void;
+    formCheckbox(name: string, x: number, y: number, w: number, h: number, options: Record<string, unknown>): void;
+  };
+  form.initForm();
+  doc.font('Helvetica').fontSize(12).text('Choose a fruit', 50, 50);
+  // `Opt` supplies the exported wording; the appearance states are the
+  // bare indices a viewer switches between, as pdf.js expects.
+  const group = form.formField('fruit', {
+    FT: 'Btn',
+    Ff: 32768,
+    V: '1',
+    Opt: [new String('りんご'), new String('Banane')],
+  });
+  form.formRadioButton('fruit', 50, 80, 12, 12, { parent: group, AP: appearanceStates(['Off', '0']), AS: 'Off' });
+  form.formRadioButton('fruit', 50, 100, 12, 12, { parent: group, AP: appearanceStates(['Off', '1']), AS: '1' });
+  form.formCheckbox('newsletter', 50, 130, 12, 12, { AP: appearanceStates(['Off', 'SubscribeMe']), AS: 'Off' });
+  doc.end();
+
+  await done;
+  return new Uint8Array(Buffer.concat(chunks));
+}
+
 async function buildPdfWithOutline(): Promise<Uint8Array> {
   const chunks: Buffer[] = [];
   const doc = new PDFDocument({ size: [612, 792], margin: 0 });
@@ -1130,6 +1176,31 @@ describe('processDocument', () => {
         text: 'path?q=1',
         source: 'link',
         bbox: { x: 100, y: 72, width: 120, height: 20 },
+      }),
+    ]);
+  });
+
+  it('searches the export values of real radio and checkbox widgets', async () => {
+    // read_pdf shows these in the Export column, so a caller who read
+    // one there has to be able to find it with a search.
+    const sourceData = await buildPdfWithButtonFields();
+    const result = await processDocument('memory://button-fields.pdf', {
+      sourceData,
+      noCache: true,
+      search: ['りんご', 'SubscribeMe'],
+    });
+
+    expect(result.pages[0].matches).toEqual([
+      expect.objectContaining({
+        text: 'りんご',
+        source: 'formField',
+        bbox: { x: 50, y: 80, width: 12, height: 12 },
+        context: 'Choose a fruit: りんご',
+      }),
+      expect.objectContaining({
+        text: 'SubscribeMe',
+        source: 'formField',
+        bbox: { x: 50, y: 130, width: 12, height: 12 },
       }),
     ]);
   });

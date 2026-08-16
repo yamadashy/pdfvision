@@ -23,7 +23,7 @@ interface DocumentResult {
   attachmentCount?: number;    // document-level embedded files; always computed, omitted when zero
   javascriptActionCount?: number; // document-level JavaScript scripts; always computed, omitted when zero
   outlineCount?: number;       // top-level outline entries; always computed, omitted when zero
-  xfa?: boolean;               // true iff the PDF declares an XFA (LiveCycle) form; see xfa_form warning
+  xfa?: boolean;               // true iff the PDF declares an XFA (LiveCycle) form; the xfa_form / xfa_static_content warning says whether that broke extraction
   outline?: DocumentOutlineItem[]; // document bookmarks; present iff --outline
   viewer?: DocumentViewerState; // viewer settings; present iff --viewer
   layers?: DocumentLayers;       // optional content groups; present iff --layers

@@ -95,12 +95,7 @@ export function formatDocumentMap(result: DocumentResult): string {
     lines.push(`- **JavaScript:** ${result.javascriptActionCount} document-level action(s)`);
   }
 
-  if (result.xfa) {
-    lines.push(
-      '',
-      '> **XFA (LiveCycle) form.** The real content lives in an XML stream that standard PDF extraction never sees, so the text below may be only a viewer placeholder. Do not answer from it — report that the document needs Adobe Acrobat/Reader.',
-    );
-  }
+  if (result.xfa) lines.push('', xfaBanner(result));
 
   lines.push('', '_Document map: page bodies are omitted._');
 
@@ -119,4 +114,33 @@ export function formatDocumentMap(result: DocumentResult): string {
   if (result.outline) appendOutline(lines, result.outline);
 
   return lines.join('\n');
+}
+
+/**
+ * `xfa: true` says only that the document declares XFA, which is true of a
+ * dynamic form that extracted nothing and of an IRS form that extracted
+ * perfectly alike. The XFA warning carries the classification, so the
+ * banner follows it — every branch explicitly, because the case with no
+ * warning at all (an empty page selection, so nothing was classified) must
+ * not fall through to the one banner that makes a guarantee.
+ */
+function xfaBanner(result: DocumentResult): string {
+  const warning = result.pages
+    .flatMap((page) => page.warnings ?? [])
+    .find(
+      (candidate) =>
+        candidate.code === 'xfa_form' ||
+        candidate.code === 'xfa_fields_only' ||
+        candidate.code === 'xfa_static_content',
+    );
+  if (warning?.code === 'xfa_static_content') {
+    return "> **XFA (LiveCycle) form with real static content.** The pages below are the document's own content, not a viewer placeholder, so read them as usual; only values held solely in the XFA layer, which standard PDF extraction never sees, are missing.";
+  }
+  if (warning?.code === 'xfa_fields_only') {
+    return '> **XFA (LiveCycle) form, fields only.** The document carries a real static form-field layer, but the pages holding it are not the document — where they are not empty they are the viewer placeholder. This map does not show field values: read the fields (`read_pdf` with `pages`, or `--form-fields` on the CLI) and answer from those, and report that anything outside them needs Adobe Acrobat/Reader.';
+  }
+  if (warning?.code === 'xfa_form' && warning.severity === 'error') {
+    return '> **Dynamic XFA (LiveCycle) form.** The pages below are only the viewer placeholder; the real content lives in an XML stream that standard PDF extraction never sees. Do not answer from it — report that the document needs Adobe Acrobat/Reader.';
+  }
+  return '> **XFA (LiveCycle) form, unconfirmed static layer.** Too little was extracted to tell whether the pages below are the document or a viewer placeholder — render or OCR them to check. If they show only a "Please wait..." notice, the content is XFA-only and the document needs Adobe Acrobat/Reader.';
 }
