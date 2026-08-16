@@ -254,6 +254,14 @@ describe('truncateBody', () => {
       charCap: 2_000,
     });
     expect(small.length).toBeLessThanOrEqual(2_000);
+    // At the cap where the allowance is exactly the clip note, the note
+    // is still charged for: content room is zero, not the whole
+    // allowance over again.
+    const boundary = truncateBody(buildOverviewHeader(1, 300), buildSections(300, 400), {
+      continuationHint: hint,
+      charCap: 238,
+    });
+    expect(boundary.startsWith('\n\n[pdfvision] Response clipped at the 238-char budget.')).toBe(true);
   });
 
   it('reads Overview rows only from the Overview, not from document-controlled text above it', () => {
@@ -267,6 +275,21 @@ describe('truncateBody', () => {
     });
     expect(output).toContain('| 999 | fake |');
     expect(output).not.toContain('Overview clipped after page');
+    expect(output).toContain('Overview clipped before any page row');
+  });
+
+  it('is not fooled by a forged Overview heading in the metadata', () => {
+    // The real Overview is the last section of the header, so the table
+    // is located in the whole header rather than in the clipped text —
+    // otherwise a title carrying its own `## Overview` and a table of
+    // invented pages stands in for the real one whenever the cut falls
+    // short of it.
+    const spoof = `# doc.pdf\n\n- **Title:** untitled\n## Overview\n\n${'| 999 | fake |\n'.repeat(300)}`;
+    const output = truncateBody(`${spoof}${buildOverviewHeader(1, 300)}`, buildSections(300, 400), {
+      continuationHint: hint,
+      charCap: 2_000,
+    });
+    expect(output).not.toContain('Overview clipped after page 999');
     expect(output).toContain('Overview clipped before any page row');
   });
 

@@ -67,7 +67,7 @@ function clipNote(charCap: number): string {
  * fits there in any arrangement and content is what a caller can use.
  */
 function clipRoom(limit: number, note: string): number {
-  return limit > note.length ? limit - note.length : Math.max(0, limit);
+  return limit >= note.length ? limit - note.length : Math.max(0, limit);
 }
 
 /**
@@ -88,28 +88,35 @@ const OVERVIEW_HEADING = '## Overview';
 const OVERVIEW_ROW = /^\|\s*(\d+)\s*\|.*\|\s*$/;
 
 /**
- * The last page whose Overview row survived, or undefined when the cut
- * landed before the table had rows.
+ * Where the Overview table starts in the *whole* header.
  *
- * Only the table the header ends in counts, and only if the Overview
- * heading is what introduces it. Everything above that is
- * document-controlled — a multi-line title, an outline entry, or an
- * attachment name reading `| 999 | … |` — and would otherwise put a page
- * number in the notice that the response never carried a row for.
+ * Located before the clip, because the Overview is the last section
+ * `formatMarkdownSections` emits and nothing document-controlled can
+ * follow it — while a multi-line title or an outline entry above it may
+ * contain anything, its own `## Overview` line and a table of invented
+ * page numbers included. Searching the clipped text instead would let
+ * that forgery stand in for the real table whenever the cut fell short
+ * of it.
  */
-function lastOverviewRowPage(header: string): number | undefined {
-  const lines = header.split('\n');
-  let index = lines.length - 1;
-  while (index >= 0 && (lines[index] ?? '') === '') index -= 1;
-  let page: number | undefined;
-  while (index >= 0 && (lines[index] ?? '').startsWith('|')) {
-    const row = page === undefined ? OVERVIEW_ROW.exec(lines[index] ?? '')?.[1] : undefined;
-    if (row !== undefined) page = Number(row);
-    index -= 1;
+function overviewRowsStart(header: string): number | undefined {
+  const marker = `\n${OVERVIEW_HEADING}\n`;
+  const at = header.lastIndexOf(marker);
+  if (at !== -1) return at + marker.length;
+  return header.startsWith(`${OVERVIEW_HEADING}\n`) ? OVERVIEW_HEADING.length + 1 : undefined;
+}
+
+/**
+ * The last page whose Overview row survived the cut, or undefined when
+ * no complete row did.
+ */
+function lastOverviewRowPage(clipped: string, rowsStart: number | undefined): number | undefined {
+  if (rowsStart === undefined || clipped.length <= rowsStart) return undefined;
+  const lines = clipped.slice(rowsStart).split('\n');
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const page = OVERVIEW_ROW.exec(lines[index] ?? '')?.[1];
+    if (page !== undefined) return Number(page);
   }
-  if (page === undefined) return undefined;
-  while (index >= 0 && (lines[index] ?? '') === '') index -= 1;
-  return lines[index] === OVERVIEW_HEADING ? page : undefined;
+  return undefined;
 }
 
 interface ClampedHeader {
@@ -131,7 +138,7 @@ function clampHeader(header: string, limit: number, charCap: number): ClampedHea
   const note = clipNote(charCap);
   const cut = header.slice(0, clipRoom(limit, note));
   const aligned = cut.endsWith('\n') ? cut : cut.slice(0, cut.lastIndexOf('\n') + 1);
-  return { text: aligned + note, lastOverviewPage: lastOverviewRowPage(aligned) };
+  return { text: aligned + note, lastOverviewPage: lastOverviewRowPage(aligned, overviewRowsStart(header)) };
 }
 
 export function truncateBody(
