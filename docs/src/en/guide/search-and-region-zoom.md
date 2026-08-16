@@ -56,7 +56,7 @@ Search can match:
 
 OCR matches that duplicate native, form-field, link, or annotation matches are suppressed so agents do not see the same visible text twice. A link hit is suppressed the same way only when its visible anchor text restates the target, such as a URL printed as itself; a prose anchor that merely shares a word with its target keeps both hits, because the sentence and the target are different evidence.
 
-A native hit's `context` quotes the line as the page body renders it, so a preview taken from a match and the text of the page cannot disagree — which matters most for right-to-left scripts, where the reconstruction supplies the word spacing and bracket direction that the raw match text lacks.
+A native hit's `context` quotes the line as the page body renders it — which matters most for right-to-left scripts, where the reconstruction supplies the word spacing and bracket direction that the raw match text lacks. The quoted line is used only when it clearly is the match's line (it must cover most of the match box and contain the matched string); a hit stitched across lines, or one the reconstruction assigned elsewhere, falls back to the raw span join the context has always been.
 
 The match `source` helps the agent decide how much to trust it:
 
