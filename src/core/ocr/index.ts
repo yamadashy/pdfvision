@@ -253,14 +253,15 @@ export async function createOcrSession(lang: string): Promise<OcrSession> {
   try {
     worker = await Promise.race([booting, failure.promise]);
   } catch (error) {
-    // A boot that completes after we gave up would otherwise leave an
-    // orphaned worker thread behind: it posted no boot failure, so
-    // nothing else will end it. (A boot that never completes — the usual
-    // shape of this failure — has no thread left to orphan. tesseract
-    // only reaches `errorHandler` from a reject message, and the worker
-    // exits itself after posting one for a boot action; see
-    // BOOT_FAILURE_SELF_TERMINATION. What outlives the call is the
-    // pending promise, not the thread and its WASM heap.)
+    // Defensive: no current path reaches this catch with a boot that
+    // later succeeds — `failure.promise` only fires from a reject
+    // message, after which the worker exits itself (see
+    // BOOT_FAILURE_SELF_TERMINATION), and a rejected `booting` cannot
+    // resolve later. What outlives the call today is the pending
+    // promise, not the thread and its WASM heap. The terminate is kept
+    // for a future tesseract.js where `errorHandler` fires for a
+    // recoverable reason while the boot still completes: that worker
+    // posted no boot failure, so nothing else would end it.
     void booting.then((late: { terminate?: () => unknown } | undefined) => late?.terminate?.()).catch(() => {});
     throw failure.recorded() ?? ocrWorkerError(langs, error);
   }
