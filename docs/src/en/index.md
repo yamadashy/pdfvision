@@ -29,7 +29,7 @@ features:
 
 The worst property of PDF extraction is that failure looks like success. A scan returns empty text, a broken font map returns readable-looking garbage, a two-column paper comes back interleaved — and every one of them comes back as a normal, successful result. An agent that trusts it answers wrong without ever knowing anything went wrong.
 
-Most tools in this space aim at conversion: turn the PDF into clean Markdown and hope the result is faithful. pdfvision aims at diagnosis instead — it reports whether extraction can be trusted, page by page, and fetches localized visual evidence where it cannot.
+Most tools in this space aim at conversion: turn the PDF into clean Markdown and hope the result is faithful. pdfvision aims at diagnosis instead — it flags the pages where extraction cannot be trusted and fetches localized visual evidence there.
 
 The loop it is built around:
 
@@ -56,7 +56,7 @@ Run pdfvision without installing it:
 npx pdfvision document.pdf
 ```
 
-When extraction goes wrong, the page says so. Here the text layer decodes a figure's labels as garbage, and the warning both explains it and names the way out:
+When extraction goes wrong, the page says so. Here the warning flags lines whose visual order and native text order diverge — and the lines it quotes expose a second problem: a figure's label column this PDF's font map does not decode:
 
 ```console
 $ pdfvision tracemonkey.pdf -p 10
