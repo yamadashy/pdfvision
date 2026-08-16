@@ -95,24 +95,7 @@ export function formatDocumentMap(result: DocumentResult): string {
     lines.push(`- **JavaScript:** ${result.javascriptActionCount} document-level action(s)`);
   }
 
-  // `xfa: true` says only that the document declares XFA, which is true of
-  // a dynamic form that extracted nothing and of an IRS form that extracted
-  // perfectly alike. The XFA warning carries the classification, so the
-  // banner follows it — including its middle case, where the placeholder is
-  // suspected but not established and a guarantee either way would be
-  // invented.
-  if (result.xfa) {
-    const xfaWarning = result.pages
-      .flatMap((page) => page.warnings ?? [])
-      .find((warning) => warning.code === 'xfa_form' || warning.code === 'xfa_static_content');
-    const banner =
-      xfaWarning?.code === 'xfa_form'
-        ? xfaWarning.severity === 'error'
-          ? '> **Dynamic XFA (LiveCycle) form.** The pages below are only the viewer placeholder; the real content lives in an XML stream that standard PDF extraction never sees. Do not answer from it — report that the document needs Adobe Acrobat/Reader.'
-          : '> **XFA (LiveCycle) form, unconfirmed static layer.** Too little was extracted to tell whether the pages below are the document or a viewer placeholder — render or OCR them to check. If they show only a "Please wait..." notice, the content is XFA-only and the document needs Adobe Acrobat/Reader.'
-        : "> **XFA (LiveCycle) form with real static content.** The pages below are the document's own content, not a viewer placeholder, so read them as usual; only values held solely in the XFA layer, which standard PDF extraction never sees, are missing.";
-    lines.push('', banner);
-  }
+  if (result.xfa) lines.push('', xfaBanner(result));
 
   lines.push('', '_Document map: page bodies are omitted._');
 
@@ -131,4 +114,33 @@ export function formatDocumentMap(result: DocumentResult): string {
   if (result.outline) appendOutline(lines, result.outline);
 
   return lines.join('\n');
+}
+
+/**
+ * `xfa: true` says only that the document declares XFA, which is true of a
+ * dynamic form that extracted nothing and of an IRS form that extracted
+ * perfectly alike. The XFA warning carries the classification, so the
+ * banner follows it — every branch explicitly, because the case with no
+ * warning at all (an empty page selection, so nothing was classified) must
+ * not fall through to the one banner that makes a guarantee.
+ */
+function xfaBanner(result: DocumentResult): string {
+  const warning = result.pages
+    .flatMap((page) => page.warnings ?? [])
+    .find(
+      (candidate) =>
+        candidate.code === 'xfa_form' ||
+        candidate.code === 'xfa_fields_only' ||
+        candidate.code === 'xfa_static_content',
+    );
+  if (warning?.code === 'xfa_static_content') {
+    return "> **XFA (LiveCycle) form with real static content.** The pages below are the document's own content, not a viewer placeholder, so read them as usual; only values held solely in the XFA layer, which standard PDF extraction never sees, are missing.";
+  }
+  if (warning?.code === 'xfa_fields_only') {
+    return '> **XFA (LiveCycle) form, fields only.** The static form fields below are real and were extracted; the pages carrying them are not the document — where they are not empty they are the viewer placeholder. Answer from the fields, and report that anything outside them needs Adobe Acrobat/Reader.';
+  }
+  if (warning?.code === 'xfa_form' && warning.severity === 'error') {
+    return '> **Dynamic XFA (LiveCycle) form.** The pages below are only the viewer placeholder; the real content lives in an XML stream that standard PDF extraction never sees. Do not answer from it — report that the document needs Adobe Acrobat/Reader.';
+  }
+  return '> **XFA (LiveCycle) form, unconfirmed static layer.** Too little was extracted to tell whether the pages below are the document or a viewer placeholder — render or OCR them to check. If they show only a "Please wait..." notice, the content is XFA-only and the document needs Adobe Acrobat/Reader.';
 }

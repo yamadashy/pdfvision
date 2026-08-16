@@ -764,6 +764,29 @@ describe('processDocument search', () => {
     expect(matches.map((match) => match.source)).toEqual(['native', 'link']);
   });
 
+  it('treats trailing sentence punctuation on a one-word anchor as prose, not URL structure', () => {
+    // `Download.` ends a sentence; the period joins nothing, so the
+    // anchor is still an operational label and the link hit stays.
+    const spans: TextSpan[] = [{ text: 'Download.', x: 72, y: 100, width: 50, height: 10, fontSize: 10 }];
+    const links: PageLink[] = [
+      {
+        type: 'url',
+        target: 'https://example.com/download/report.pdf',
+        text: 'Download.',
+        x: 72,
+        y: 100,
+        width: 50,
+        height: 10,
+      },
+    ];
+    const compiled = compileSearch('download', {});
+    if (!compiled) throw new Error('expected compiled search');
+
+    const matches = searchPage(spans, undefined, 1, 612, 792, compiled, undefined, undefined, undefined, links);
+
+    expect(matches.map((match) => match.source)).toEqual(['native', 'link']);
+  });
+
   it('still drops a link-target hit when the anchor text is the URL itself', () => {
     // Anchor and target say one thing twice, and the native hit already
     // carries the precise glyph box, so the link row would be noise.

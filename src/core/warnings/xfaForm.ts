@@ -19,6 +19,12 @@ import type { PageResult, PageWarning } from '../../types/index.js';
  *   page is worth is then the ordinary per-page question the other
  *   warnings and `quality` answer; the only XFA-specific loss is data
  *   held solely in the XFA layer.
+ * - **`field_layer_only`** — the document has a real AcroForm field layer,
+ *   but the pages extracted alongside it carry nothing of their own: the
+ *   viewer placeholder, or nothing at all. The fields are evidence and the
+ *   page text is not, and neither half can be reported as the other — a
+ *   document can genuinely be both, and `xfa_filled_imm1344e`-style page
+ *   text sitting next to fillable fields is exactly that.
  * - **`unconfirmed`** — XFA is declared and nothing extracted looks like
  *   content, but nothing confirms the placeholder either: no marker
  *   matched (LiveCycle localizes that page, and other producers write
@@ -28,7 +34,7 @@ import type { PageResult, PageWarning } from '../../types/index.js';
  *   and saying "real content" would vouch for text nothing checked. The
  *   honest output is the hedge, and the check is cheap: render or OCR.
  */
-export type XfaStaticLayerShape = 'viewer_placeholder' | 'unconfirmed' | 'static_content';
+export type XfaStaticLayerShape = 'viewer_placeholder' | 'unconfirmed' | 'field_layer_only' | 'static_content';
 
 /**
  * Adobe's generated placeholder page, matched against whitespace-collapsed
@@ -109,18 +115,21 @@ export interface ClassifyXfaStaticLayerInput {
 /**
  * Classify from the pages in hand plus one document-level structural fact.
  *
- * Two facts can end the question on their own, and both are document-level
- * so a narrow `pages` selection cannot flip them: a static field layer
- * means the static document is usable, and any extracted page carrying
- * content of its own means the static layer is not a placeholder. Only
- * when neither holds does the placeholder verdict get considered, and it
- * still needs a marker to confirm it — everything else stays
- * `unconfirmed`, which is a cheap render away from being settled.
+ * Each branch claims only what it can show. Content on an extracted page
+ * is the strongest evidence there is, so it settles the question first.
+ * Failing that, a static field layer still rules out the Acrobat-only
+ * verdict — the form can be read and filled without an XFA-aware viewer —
+ * but it says nothing about the page text sitting next to it, so it lands
+ * on `field_layer_only` rather than vouching for pages that produced
+ * nothing. Both of those are document-level, so a narrow `pages` selection
+ * cannot flip them. Only with neither does the placeholder verdict get
+ * considered, and it still needs a marker to confirm it; everything else
+ * stays `unconfirmed`, which is a cheap render away from being settled.
  */
 export function classifyXfaStaticLayer({ isAcroFormPresent, pages }: ClassifyXfaStaticLayerInput): XfaStaticLayerShape {
-  if (pages.length === 0) return 'unconfirmed';
+  if (pages.length === 0) return isAcroFormPresent ? 'field_layer_only' : 'unconfirmed';
   if (pages.some(carriesRealContent)) return 'static_content';
-  if (isAcroFormPresent) return 'static_content';
+  if (isAcroFormPresent) return 'field_layer_only';
   return pages.some(isViewerPlaceholderPage) ? 'viewer_placeholder' : 'unconfirmed';
 }
 
@@ -138,9 +147,20 @@ export function classifyXfaStaticLayer({ isAcroFormPresent, pages }: ClassifyXfa
  * merely unconfirmed and one render settles it. `xfa_static_content`
  * exists so the common case can be told the truth without borrowing that
  * alarm — it claims only what was actually established: these pages are
- * the document's own, not a viewer placeholder.
+ * the document's own, not a viewer placeholder. `xfa_fields_only` is the
+ * case that is both at once, and it gets its own code rather than a
+ * severity because the action is neither of the other two: read the
+ * fields, distrust the page text, and expect the rest to need Acrobat.
  */
 export function buildXfaFormWarning(shape: XfaStaticLayerShape = 'viewer_placeholder'): PageWarning {
+  if (shape === 'field_layer_only') {
+    return {
+      code: 'xfa_fields_only',
+      severity: 'warning',
+      message:
+        'document declares an XFA (LiveCycle) form; its static AcroForm field layer is real and was extracted, but the pages carry no content of their own — where they are not empty they are the viewer placeholder ("Please wait..."). Read the form fields; do not read the page text as the document, and expect anything outside the fields to live in the XFA layer that standard extraction never sees',
+    };
+  }
   if (shape === 'static_content') {
     return {
       code: 'xfa_static_content',

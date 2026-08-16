@@ -35,28 +35,42 @@ import { formatPageRange } from '../options/pageRange.js';
  */
 interface UnreadableSourceRule {
   scope: 'document' | 'page';
-  /** The complete note, given a phrase naming the pages it covers ("p.1", "p.1-3"). */
+  /**
+   * The complete note, given a phrase naming the pages it covers. A
+   * document-scoped rule gets "the pages selected for this search (p.1-3)"
+   * rather than "the pages searched": when the request's regex budget runs
+   * out, some of the selection was never searched, and the budget warning
+   * in the same response says so. What this note reports is a fact about
+   * the document, so it holds for every selected page either way.
+   */
   note: (pages: string) => string;
 }
 
 function unreadableSourceRule(warning: PageWarning): UnreadableSourceRule | undefined {
+  if (warning.code === 'xfa_fields_only') {
+    return {
+      scope: 'document',
+      note: (pages) =>
+        `The page text on ${pages} is not this document's content (xfa_fields_only) — it is the XFA (LiveCycle) viewer placeholder or empty, so a miss over it is not evidence of absence. The static form fields searched alongside it are real, so a field hit stands; anything outside the fields lives in the XFA layer that standard extraction cannot search, so open the file in Adobe Acrobat/Reader to see the rest.`,
+    };
+  }
   if (warning.code !== 'xfa_form') return undefined;
   if (warning.severity === 'error') {
     return {
       scope: 'document',
       note: (pages) =>
-        `The text searched on ${pages} is the XFA (LiveCycle) viewer placeholder, not this document's content (xfa_form), so neither a hit nor a miss there is evidence about the form — open the file in Adobe Acrobat/Reader; standard extraction cannot see the XFA layer, and rendering shows the placeholder too.`,
+        `Nothing on ${pages} is this document's content (xfa_form): those pages are the XFA (LiveCycle) viewer placeholder, so neither a hit nor a miss there is evidence about the form — open the file in Adobe Acrobat/Reader; standard extraction cannot see the XFA layer, and rendering shows the placeholder too.`,
     };
   }
   return {
     scope: 'document',
     note: (pages) =>
-      `Too little was extracted from ${pages} to confirm the text searched there is this document's content rather than an XFA (LiveCycle) viewer placeholder (xfa_form), so a miss there is not evidence of absence — render or OCR those pages to check; if they show only a "Please wait..." notice, the content is XFA-only and needs Adobe Acrobat/Reader.`,
+      `Too little was extracted from ${pages} to confirm they are this document's content rather than an XFA (LiveCycle) viewer placeholder (xfa_form), so a miss there is not evidence of absence — render or OCR them to check; if they show only a "Please wait..." notice, the content is XFA-only and needs Adobe Acrobat/Reader.`,
   };
 }
 
 export function isUnreadableSourceCode(code: PageWarning['code']): boolean {
-  return code === 'xfa_form';
+  return code === 'xfa_form' || code === 'xfa_fields_only';
 }
 
 export interface UnreadableSourceReport {
@@ -85,7 +99,10 @@ export function unreadableSourceReport(pages: readonly PageResult[]): Unreadable
 
   if (perPage.length === 0) return { pages: [], notes: [] };
   const covered = coversSelection ? pages.map((page) => page.page) : perPage;
-  const phrase = `p.${formatPageRange(covered)}`;
+  const range = `p.${formatPageRange(covered)}`;
+  const phrase = coversSelection
+    ? `${covered.length === 1 ? 'the page' : 'the pages'} selected for this search (${range})`
+    : range;
   const notes: string[] = [];
   for (const rule of rules) {
     const note = rule.note(phrase);

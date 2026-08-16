@@ -87,13 +87,15 @@ export function appendLinkMatches(
  * substring containment would read `press` as covered by `wordpress`
  * and suppress an anchor that shares no word with its target at all.
  *
- * One-word anchors get a second condition: the word must look like part
- * of a URL, carrying a dot, slash, or colon. `example.com` does and is a
- * shortened rendering of the target; `Download` over `…/download/…` does
- * not, and it is the operational label a URL is most often hung on — the
- * case where the visible word and the link are least likely to be one
- * fact stated twice. A single common word is too little evidence to drop
- * a match on.
+ * One-word anchors get a second condition: the anchor must look like
+ * part of a URL — a dot, slash, or colon *between* word characters.
+ * `example.com` qualifies and is a shortened rendering of the target;
+ * `Download` over `…/download/…` does not, and neither does `Download.`
+ * with a sentence period or `Download:` as a label — trailing
+ * punctuation is prose, not structure. The operational label a URL is
+ * most often hung on is the case where the visible word and the link are
+ * least likely to be one fact stated twice, and a single common word is
+ * too little evidence to drop a match on.
  *
  * An anchor pdfvision could not reconstruct is not treated as a
  * restatement. Silence is not evidence of double-reporting, and this
@@ -113,8 +115,8 @@ function anchorTextRestatesTarget(link: PageLink, target: string, normalize: boo
 
 const ANCHOR_WORD_PATTERN = /[\p{Letter}\p{Number}]+/gu;
 
-/** Punctuation that makes a lone anchor word read as a URL fragment. */
-const URL_PUNCTUATION_PATTERN = /[./:]/u;
+/** A dot, slash, or colon joining word characters — URL structure, not sentence punctuation. */
+const URL_PUNCTUATION_PATTERN = /[\p{Letter}\p{Number}][./:][\p{Letter}\p{Number}]/u;
 
 function isLinkSource(source: SearchMatch['source']): boolean {
   return source === 'link';

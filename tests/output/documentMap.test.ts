@@ -103,6 +103,22 @@ describe('formatDocumentMap', () => {
     expect(output).not.toContain('Do not answer from it');
   });
 
+  it('names the field layer as the evidence when the pages carry none', () => {
+    const fieldsOnly: PageWarning = { code: 'xfa_fields_only', severity: 'warning', message: 'fields are real' };
+    const output = formatDocumentMap(document([page(1, ok, [fieldsOnly])], { xfa: true }));
+    expect(output).toContain('XFA (LiveCycle) form, fields only');
+    expect(output).toContain('Answer from the fields');
+    expect(output).not.toContain('read them as usual');
+    expect(output).not.toContain('Do not answer from it');
+  });
+
+  it('does not guarantee the static content when no page was classified', () => {
+    const output = formatDocumentMap(document([], { xfa: true, totalPages: 7 }));
+    expect(output).toContain('unconfirmed static layer');
+    expect(output).not.toContain('read them as usual');
+    expect(output).not.toContain('Do not answer from it');
+  });
+
   it('hedges instead of guaranteeing when the static layer could not be confirmed', () => {
     const unconfirmed: PageWarning = { code: 'xfa_form', severity: 'warning', message: 'cannot confirm' };
     const output = formatDocumentMap(document([page(1, ok, [unconfirmed])], { xfa: true }));

@@ -410,7 +410,7 @@ describe('search_pdf on a document whose text is not the document', () => {
   it('says so on a zero-hit response', async () => {
     const body = text(await searchPdf({ source: xfaPlaceholderPdf, query: 'sponsor' }));
     expect(body).toContain('0 matches');
-    expect(body).toContain('The text searched on p.1 is the XFA (LiveCycle) viewer placeholder');
+    expect(body).toContain("Nothing on the page selected for this search (p.1) is this document's content");
     expect(body).toContain('neither a hit nor a miss there is evidence about the form');
     expect(body).toContain('Adobe Acrobat/Reader');
   });
@@ -418,14 +418,14 @@ describe('search_pdf on a document whose text is not the document', () => {
   it('says it once, not twice, when a hit lands on the placeholder', async () => {
     const body = text(await searchPdf({ source: xfaPlaceholderPdf, query: 'Adobe' }));
     expect(body).not.toContain('0 matches');
-    expect(body.match(/viewer placeholder, not this document's content/g)).toHaveLength(1);
+    expect(body.match(/those pages are the XFA \(LiveCycle\) viewer placeholder/g)).toHaveLength(1);
     expect(body).not.toContain('> - p.1: xfa_form');
   });
 
   it('speaks for every searched page, not just the one the warning is pinned to', async () => {
     const body = text(await searchPdf({ source: multiPageXfaPdf, query: 'sponsor' }));
     expect(body).toContain('0 matches on 0 of 3 searched page(s)');
-    expect(body).toContain('The text searched on p.1-3 is the XFA (LiveCycle) viewer placeholder');
+    expect(body).toContain("Nothing on the pages selected for this search (p.1-3) is this document's content");
   });
 });
 

@@ -38,8 +38,10 @@ describe('classifyXfaStaticLayer', () => {
     expect(classifyXfaStaticLayer({ isAcroFormPresent: false, pages: [page(french)] })).toBe('viewer_placeholder');
   });
 
-  it('does not call it a placeholder when a static field layer exists', () => {
-    expect(classifyXfaStaticLayer({ isAcroFormPresent: true, pages: [page(PLACEHOLDER_TEXT)] })).toBe('static_content');
+  it('reports the placeholder page of a document with real fields as fields-only, not as either extreme', () => {
+    expect(classifyXfaStaticLayer({ isAcroFormPresent: true, pages: [page(PLACEHOLDER_TEXT)] })).toBe(
+      'field_layer_only',
+    );
   });
 
   it('counts a scanned page as real content, since a render or OCR reads it', () => {
@@ -103,7 +105,14 @@ describe('classifyXfaStaticLayer', () => {
   });
 
   it('does not report a blank page of a document whose fields are real as unreadable', () => {
-    expect(classifyXfaStaticLayer({ isAcroFormPresent: true, pages: [page('')] })).toBe('static_content');
+    expect(classifyXfaStaticLayer({ isAcroFormPresent: true, pages: [page('')] })).toBe('field_layer_only');
+    expect(classifyXfaStaticLayer({ isAcroFormPresent: true, pages: [] })).toBe('field_layer_only');
+  });
+
+  it('vouches for the pages only when a page carried content', () => {
+    expect(
+      classifyXfaStaticLayer({ isAcroFormPresent: true, pages: [page('Real extracted body text on this page.')] }),
+    ).toBe('static_content');
   });
 });
 
@@ -143,7 +152,7 @@ describe('XFA warnings on extracted documents', () => {
     );
   });
 
-  it('does not call a placeholder page unreadable when the form also has real fields', async () => {
+  it('neither vouches for nor condemns a placeholder page whose form also has real fields', async () => {
     const result = await processDocument('xfa-placeholder-with-fields.pdf', {
       sourceData: buildXfaPlaceholderWithFieldsPdf(),
       noCache: true,
@@ -152,7 +161,17 @@ describe('XFA warnings on extracted documents', () => {
 
     const codes = (result.pages[0].warnings ?? []).map((warning) => warning.code);
     expect(codes).not.toContain('xfa_form');
-    expect(codes).toContain('xfa_static_content');
+    expect(codes).not.toContain('xfa_static_content');
+    expect(result.pages[0].warnings).toContainEqual(
+      expect.objectContaining({
+        code: 'xfa_fields_only',
+        severity: 'warning',
+        message: expect.stringContaining('do not read the page text as the document'),
+      }),
+    );
+    const message = (result.pages[0].warnings ?? []).find((warning) => warning.code === 'xfa_fields_only')?.message;
+    expect(message).toContain('static AcroForm field layer is real');
+    expect(message).not.toContain("the document's own content");
   });
 
   it('does not send a scanned XFA page to Acrobat when a render would read it', async () => {

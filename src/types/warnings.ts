@@ -18,6 +18,7 @@
  * optional-content layer text that may include default-hidden content,
  * OCR-backed scan layers whose bboxes or word boundaries may drift from pixels,
  * dynamic XFA (LiveCycle) forms whose extracted pages are only the viewer placeholder,
+ * XFA forms whose field layer is real while their page text is not,
  * hybrid XFA forms whose static content is real but whose XFA layer is unread, etc.
  */
 export interface PageWarning {
@@ -53,6 +54,7 @@ export interface PageWarning {
     | 'optional_content_text_may_include_hidden_layers'
     | 'reading_order_divergence'
     | 'xfa_form'
+    | 'xfa_fields_only'
     | 'xfa_static_content';
   /**
    * `'error'` means likely data-integrity issue (off-page bbox usually
