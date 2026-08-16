@@ -36,6 +36,16 @@ export interface TruncateOptions {
    */
   continuationHint: (droppedPages: readonly number[]) => string;
   charCap?: number;
+  /**
+   * Where the Overview section starts in `header`, from
+   * `formatMarkdownSections` — undefined when the header carries none
+   * (single-page selections). Passed by the code that built the header
+   * rather than found by searching it: a multi-line title can contain
+   * its own `## Overview` line and a table of invented page numbers,
+   * and on a selection with no real Overview a search would let that
+   * forgery stand in for it.
+   */
+  overviewStart?: number;
 }
 
 /**
@@ -52,6 +62,24 @@ export interface TruncateOptions {
  */
 const NOTICE_RESERVE = 400;
 
+function clipNote(charCap: number): string {
+  return `\n\n[pdfvision] Response clipped at the ${charCap.toLocaleString('en-US')}-char budget. Ask for fewer pages, or use search_pdf to locate what you need.\n`;
+}
+
+/**
+ * How much content a clipped response may keep.
+ *
+ * The clip note is charged to the allowance rather than added on top of
+ * it: it is emitted below the cut, so leaving it out spends part of the
+ * reserve the structured notice still has to fit in — a few characters
+ * of slack that the Overview clause has since used up. Below a cap that
+ * cannot hold the note itself the charge is dropped, because nothing
+ * fits there in any arrangement and content is what a caller can use.
+ */
+function clipRoom(limit: number, note: string): number {
+  return limit >= note.length ? limit - note.length : Math.max(0, limit);
+}
+
 /**
  * Last-resort clip, for the one case page selection cannot cover: not
  * even the first page fits, so the response is cut mid-content and has
@@ -59,7 +87,56 @@ const NOTICE_RESERVE = 400;
  */
 function clampBody(body: string, limit: number, charCap: number): string {
   if (body.length <= limit) return body;
-  return `${body.slice(0, Math.max(0, limit))}\n\n[pdfvision] Response clipped at the ${charCap.toLocaleString('en-US')}-char budget. Ask for fewer pages, or use search_pdf to locate what you need.\n`;
+  const note = clipNote(charCap);
+  return body.slice(0, clipRoom(limit, note)) + note;
+}
+
+/** An Overview row: `| 419 | 3203 | … |`, one page per line. */
+const OVERVIEW_ROW = /^\|\s*(\d+)\s*\|.*\|\s*$/;
+
+/**
+ * The last page whose Overview row survived the cut, or undefined when
+ * no complete row did. `rowsStart` comes from the header's builder (see
+ * {@link TruncateOptions.overviewStart}), so nothing before it — however
+ * table-like — is ever read as a row; the heading, the column header,
+ * and the separator inside the section do not match the row pattern.
+ */
+function lastOverviewRowPage(clipped: string, rowsStart: number): number | undefined {
+  if (clipped.length <= rowsStart) return undefined;
+  const lines = clipped.slice(rowsStart).split('\n');
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const page = OVERVIEW_ROW.exec(lines[index] ?? '')?.[1];
+    if (page !== undefined) return Number(page);
+  }
+  return undefined;
+}
+
+interface ClampedHeader {
+  text: string;
+  /** Whether the header carried a real Overview section to lose rows from. */
+  hasOverview: boolean;
+  /** Last page whose Overview row survived the cut, if the table was reached at all. */
+  lastOverviewPage: number | undefined;
+}
+
+/**
+ * Clip a header that alone overflows the budget, on a line boundary.
+ *
+ * The header's Overview table is one row per line, so cutting at the raw
+ * character limit leaves a half row with no closing `|` and names a page
+ * whose numbers the reader only partly received. Backing up to the
+ * preceding line break can only remove characters, and page selection is
+ * already settled by the time this runs, so no body can move in behind it.
+ */
+function clampHeader(header: string, limit: number, charCap: number, overviewStart: number | undefined): ClampedHeader {
+  const note = clipNote(charCap);
+  const cut = header.slice(0, clipRoom(limit, note));
+  const aligned = cut.endsWith('\n') ? cut : cut.slice(0, cut.lastIndexOf('\n') + 1);
+  return {
+    text: aligned + note,
+    hasOverview: overviewStart !== undefined,
+    lastOverviewPage: overviewStart === undefined ? undefined : lastOverviewRowPage(aligned, overviewStart),
+  };
 }
 
 export function truncateBody(
@@ -85,7 +162,8 @@ export function truncateBody(
   }
 
   const dropped = clipped.slice(kept.length).map((section) => section.page);
-  if (dropped.length === 0) return clampBody(header, limit, charCap);
+  const headerClip = header.length > limit ? clampHeader(header, limit, charCap, options.overviewStart) : undefined;
+  if (dropped.length === 0) return headerClip?.text ?? header;
 
   // A page is only reported as delivered when it fits whole. When none
   // does — the header carries an Overview row per selected page, so
@@ -98,15 +176,29 @@ export function truncateBody(
   const body =
     kept.length > 0
       ? header + kept.map((section) => section.text).join('')
-      : clampBody(header + (clipped[0]?.text ?? ''), limit, charCap);
+      : (headerClip?.text ?? clampBody(header + (clipped[0]?.text ?? ''), limit, charCap));
   const shown =
     kept.length > 0
       ? `showing pages ${formatPageRange(kept.map((section) => section.page))}`
       : 'no page fits it whole, so nothing below is complete';
-  // "Bodies", not "pages": the header still carries an Overview row for
-  // every selected page, so a caller reading "756 pages omitted" next to
-  // 419 rows of per-page detail cannot tell what it was denied.
+  // "Bodies", not "pages": the header normally carries an Overview row
+  // for every selected page, so a caller reading "756 pages omitted"
+  // next to 419 rows of per-page detail cannot tell what it was denied.
+  // That only holds while the header survives whole. When the Overview
+  // alone overflows the budget the rows below the cut are gone too, and
+  // the count would then imply detail the response does not carry — so
+  // the notice reports the clip and the last row that made it.
   const omitted = `${dropped.length} page ${dropped.length === 1 ? 'body' : 'bodies'} omitted (${formatPageRange(dropped)})`;
+  // No clause at all when the header had no Overview to lose (a
+  // single-page selection): claiming one was clipped would be as false
+  // as the count it replaces.
+  const overviewLoss =
+    headerClip === undefined || !headerClip.hasOverview
+      ? undefined
+      : headerClip.lastOverviewPage === undefined
+        ? 'Overview clipped before any page row'
+        : `Overview clipped after page ${headerClip.lastOverviewPage}`;
+  const lost = overviewLoss === undefined ? `${shown}, ${omitted}` : [shown, overviewLoss, omitted].join('; ');
 
   // Never hand back the call that just failed. When nothing fit, the
   // dropped pages *are* the requested pages, so `continuationHint(dropped)`
@@ -125,7 +217,7 @@ export function truncateBody(
 
   const notice = [
     '',
-    `[pdfvision] Truncated at the ${charCap.toLocaleString('en-US')}-char response budget: ${shown}, ${omitted}.`,
+    `[pdfvision] Truncated at the ${charCap.toLocaleString('en-US')}-char response budget: ${lost}.`,
     next,
     '',
   ].join('\n');

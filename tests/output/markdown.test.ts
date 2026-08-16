@@ -1702,6 +1702,21 @@ describe('formatMarkdownSections', () => {
     expect(first?.text).toContain('## Page 1');
     expect(first?.text).not.toContain('## Page 2');
   });
+
+  it('reports where the Overview section starts in the header', () => {
+    const { header, overviewStart } = formatMarkdownSections(doc());
+    expect(overviewStart).toBeDefined();
+    expect(header.slice(overviewStart)).toMatch(/^\n## Overview\n/);
+    // Everything at or past the offset is the Overview alone.
+    expect(header.slice(overviewStart).lastIndexOf('## Overview')).toBe(1);
+  });
+
+  it('reports no Overview offset for a single-page result', () => {
+    const single = makeResult({ totalPages: 1, pages: [makePage({ page: 1, text: 'one', charCount: 3 })] });
+    const { header, overviewStart } = formatMarkdownSections(single);
+    expect(overviewStart).toBeUndefined();
+    expect(header).not.toContain('## Overview');
+  });
 });
 
 describe('omitEmptySections', () => {
