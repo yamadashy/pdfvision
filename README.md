@@ -4,6 +4,9 @@
   <p>
     <b>Give AI agents human-like PDF vision</b>
   </p>
+  <p>
+    Turn silent failures in PDF extraction into errors agents can recover from
+  </p>
 </div>
 
 <hr />
