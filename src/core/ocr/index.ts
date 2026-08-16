@@ -235,7 +235,13 @@ export async function createOcrSession(lang: string): Promise<OcrSession> {
   const booting = tesseract.createWorker(langs, undefined, {
     workerPath,
     cachePath: ocrDataDir,
-    cacheMethod: 'readWrite',
+    // tesseract.js takes 'write' | 'readOnly' | 'refresh' | 'none', and
+    // 'write' is the read-and-write one: its worker script only skips the
+    // cache read for 'refresh' / 'none', and only writes back for
+    // 'write' / 'refresh' / undefined. Any other string reads like
+    // read-only, so a plausible-looking value silently re-downloads
+    // ~10-16MB per language on every session.
+    cacheMethod: 'write',
     // Tesseract's default logger writes a status line per progress tick;
     // silence it so it doesn't pollute stdout/stderr in the CLI.
     logger: () => {},
