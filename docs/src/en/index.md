@@ -59,7 +59,7 @@ npx pdfvision document.pdf
 When extraction goes wrong, the page says so. Here the warning flags lines whose visual order and native text order diverge — and the lines it quotes expose a second problem: a figure's label column this PDF's font map does not decode:
 
 ```console
-$ pdfvision tracemonkey.pdf -p 10
+$ npx pdfvision tracemonkey.pdf -p 10
 _chars: 6944 · images: 0 · coverage: 42% · vectors: 17 · warnings: 1 · size: 612×792pt_
 … page body …
 ### Warnings

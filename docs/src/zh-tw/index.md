@@ -19,7 +19,7 @@ hero:
 features:
   - title: 先查證，再信任
     details: 每一頁回傳的不只是文字，還有品質訊號。警告會指名具體風險——字形亂碼、影像化文字、閱讀順序分歧——並以下一步該做什麼收尾。
-  - title: 按需逐步使用脈絡
+  - title: 按需逐步使用上下文
     details: 先用低成本的原生文字，再依頁縮小長文件的範圍，只在訊號提示需要細看的地方啟用版面、OCR 或渲染。
   - title: 搜尋、放大、渲染
     details: 先找到文字證據，再只渲染匹配區域——送進視覺模型的是一張小裁切圖，而不是每一頁的影像。
@@ -59,7 +59,7 @@ npx pdfvision document.pdf
 擷取出問題時，頁面自己會說出來。下面的例子裡，警告指出的是視覺順序與原生文字順序的分歧，而它引用的那幾行還暴露出另一個問題——這份 PDF 的字型對應表無法解碼一張圖的標籤列：
 
 ```console
-$ pdfvision tracemonkey.pdf -p 10
+$ npx pdfvision tracemonkey.pdf -p 10
 _chars: 6944 · images: 0 · coverage: 42% · vectors: 17 · warnings: 1 · size: 612×792pt_
 … page body …
 ### Warnings

@@ -59,7 +59,7 @@ npx pdfvision document.pdf
 提取出问题时，页面自己会说出来。下面的例子里，警告指出的是视觉顺序与原生文本顺序的分歧，而它引用的那几行还暴露出另一个问题——这份 PDF 的字体映射无法解码一张图的标签列：
 
 ```console
-$ pdfvision tracemonkey.pdf -p 10
+$ npx pdfvision tracemonkey.pdf -p 10
 _chars: 6944 · images: 0 · coverage: 42% · vectors: 17 · warnings: 1 · size: 612×792pt_
 … page body …
 ### Warnings

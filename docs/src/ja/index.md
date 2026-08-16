@@ -59,7 +59,7 @@ npx pdfvision document.pdf
 抽出がうまくいかないときは、ページ自身がそう伝えます。次の例で警告が指摘しているのは見た目の順序とネイティブテキストの順序の乖離ですが、警告が引用している行はもうひとつの問題も明らかにします。この PDF のフォントマップでは、図のラベル列が文字化けするのです。
 
 ```console
-$ pdfvision tracemonkey.pdf -p 10
+$ npx pdfvision tracemonkey.pdf -p 10
 _chars: 6944 · images: 0 · coverage: 42% · vectors: 17 · warnings: 1 · size: 612×792pt_
 … page body …
 ### Warnings
