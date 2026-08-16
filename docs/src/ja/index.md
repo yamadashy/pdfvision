@@ -4,8 +4,8 @@ title: pdfvision
 titleTemplate: AI エージェント向け PDF 信号抽出
 hero:
   name: pdfvision
-  text: 気づけない PDF の失敗を、立て直せる失敗に
-  tagline: 空のスキャン、化けた字形、崩れた段組み。どれも成功したかのように返ってきます。pdfvision はテキスト、レイアウト、ページ画像を抽出し、問題をページ単位で警告し、次に取るべき手段まで示します。
+  text: AI エージェントに人間のような PDF 視覚を
+  tagline: 気づけない PDF の失敗を、立て直せる失敗に。空のスキャン、化けた字形、崩れた段組みは、どれも成功したかのように返ってきます。pdfvision はテキスト、レイアウト、ページ画像を抽出し、問題をページ単位で警告し、次に取るべき手段まで示します。
   image:
     src: /logo.svg
     alt: pdfvision

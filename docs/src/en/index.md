@@ -4,8 +4,8 @@ title: pdfvision
 titleTemplate: Extract PDF signals for AI agents
 hero:
   name: pdfvision
-  text: Turn silent PDF failures into recoverable ones
-  tagline: Empty scans, glyph garbage, and scrambled columns all come back looking like success. pdfvision extracts text, layout, and page images, flags problems page by page, and names the next step to take.
+  text: Human-like PDF vision for AI agents
+  tagline: Turn silent PDF failures into recoverable ones. Empty scans, glyph garbage, and scrambled columns all come back looking like success — pdfvision extracts text, layout, and page images, flags problems page by page, and names the next step to take.
   image:
     src: /logo.svg
     alt: pdfvision

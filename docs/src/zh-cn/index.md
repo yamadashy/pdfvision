@@ -4,8 +4,8 @@ title: pdfvision
 titleTemplate: 面向 AI 智能体的 PDF 信号提取
 hero:
   name: pdfvision
-  text: 让悄无声息的 PDF 失败变得可以补救
-  tagline: 空白扫描件、乱码字形、错乱的分栏，返回时都像是成功的结果。pdfvision 会提取文本、布局和页面图像，逐页标记问题，并指出下一步该怎么做。
+  text: 让 AI 智能体具备类似人的 PDF 视觉
+  tagline: 让悄无声息的 PDF 失败变得可以补救。空白扫描件、乱码字形、错乱的分栏，返回时都像是成功的结果——pdfvision 会提取文本、布局和页面图像，逐页标记问题，并指出下一步该怎么做。
   image:
     src: /logo.svg
     alt: pdfvision
