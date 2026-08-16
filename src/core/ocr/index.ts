@@ -235,7 +235,13 @@ export async function createOcrSession(lang: string): Promise<OcrSession> {
   const booting = tesseract.createWorker(langs, undefined, {
     workerPath,
     cachePath: ocrDataDir,
-    cacheMethod: 'readWrite',
+    // tesseract.js takes 'write' | 'readOnly' | 'refresh' | 'none', and
+    // 'write' is the read-and-write one: its worker script only skips the
+    // cache read for 'refresh' / 'none', and only writes back for
+    // 'write' / 'refresh' / undefined. Any other string reads like
+    // read-only, so a plausible-looking value silently re-downloads
+    // ~10-16MB per language on every session.
+    cacheMethod: 'write',
     // Tesseract's default logger writes a status line per progress tick;
     // silence it so it doesn't pollute stdout/stderr in the CLI.
     logger: () => {},
@@ -247,10 +253,15 @@ export async function createOcrSession(lang: string): Promise<OcrSession> {
   try {
     worker = await Promise.race([booting, failure.promise]);
   } catch (error) {
-    // A boot that completes after we gave up would otherwise leave an
-    // orphaned worker thread behind. (A boot that never completes — the
-    // usual shape of this failure — leaves its thread to the process
-    // boundary: the CLI exits, and the MCP server keeps serving.)
+    // Defensive: no current path reaches this catch with a boot that
+    // later succeeds — `failure.promise` only fires from a reject
+    // message, after which the worker exits itself (see
+    // BOOT_FAILURE_SELF_TERMINATION), and a rejected `booting` cannot
+    // resolve later. What outlives the call today is the pending
+    // promise, not the thread and its WASM heap. The terminate is kept
+    // for a future tesseract.js where `errorHandler` fires for a
+    // recoverable reason while the boot still completes: that worker
+    // posted no boot failure, so nothing else would end it.
     void booting.then((late: { terminate?: () => unknown } | undefined) => late?.terminate?.()).catch(() => {});
     throw failure.recorded() ?? ocrWorkerError(langs, error);
   }
