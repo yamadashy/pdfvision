@@ -137,7 +137,7 @@ function xfaBanner(result: DocumentResult): string {
     return "> **XFA (LiveCycle) form with real static content.** The pages below are the document's own content, not a viewer placeholder, so read them as usual; only values held solely in the XFA layer, which standard PDF extraction never sees, are missing.";
   }
   if (warning?.code === 'xfa_fields_only') {
-    return '> **XFA (LiveCycle) form, fields only.** The static form fields below are real and were extracted; the pages carrying them are not the document — where they are not empty they are the viewer placeholder. Answer from the fields, and report that anything outside them needs Adobe Acrobat/Reader.';
+    return '> **XFA (LiveCycle) form, fields only.** The document carries a real static form-field layer, but the pages holding it are not the document — where they are not empty they are the viewer placeholder. This map does not show field values: read the fields (`read_pdf` with `pages`, or `--form-fields` on the CLI) and answer from those, and report that anything outside them needs Adobe Acrobat/Reader.';
   }
   if (warning?.code === 'xfa_form' && warning.severity === 'error') {
     return '> **Dynamic XFA (LiveCycle) form.** The pages below are only the viewer placeholder; the real content lives in an XML stream that standard PDF extraction never sees. Do not answer from it — report that the document needs Adobe Acrobat/Reader.';

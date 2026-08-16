@@ -107,7 +107,10 @@ describe('formatDocumentMap', () => {
     const fieldsOnly: PageWarning = { code: 'xfa_fields_only', severity: 'warning', message: 'fields are real' };
     const output = formatDocumentMap(document([page(1, ok, [fieldsOnly])], { xfa: true }));
     expect(output).toContain('XFA (LiveCycle) form, fields only');
-    expect(output).toContain('Answer from the fields');
+    // The map itself shows no field values, so the banner must route to
+    // a call that does rather than say "answer from the fields below".
+    expect(output).toContain('This map does not show field values');
+    expect(output).toContain('read the fields');
     expect(output).not.toContain('read them as usual');
     expect(output).not.toContain('Do not answer from it');
   });
