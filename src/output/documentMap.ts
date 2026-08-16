@@ -96,20 +96,22 @@ export function formatDocumentMap(result: DocumentResult): string {
   }
 
   // `xfa: true` says only that the document declares XFA, which is true of
-  // both a dynamic form that extracted nothing and an IRS form that
-  // extracted perfectly. The `xfa_form` warning is the one that means the
-  // pages below are a placeholder, so the loud banner follows it, not the
-  // bare declaration.
+  // a dynamic form that extracted nothing and of an IRS form that extracted
+  // perfectly alike. The XFA warning carries the classification, so the
+  // banner follows it — including its middle case, where the placeholder is
+  // suspected but not established and a guarantee either way would be
+  // invented.
   if (result.xfa) {
-    const placeholderOnly = result.pages.some((page) =>
-      (page.warnings ?? []).some((warning) => warning.code === 'xfa_form'),
-    );
-    lines.push(
-      '',
-      placeholderOnly
-        ? '> **Dynamic XFA (LiveCycle) form.** The pages below are only the viewer placeholder; the real content lives in an XML stream that standard PDF extraction never sees. Do not answer from it — report that the document needs Adobe Acrobat/Reader.'
-        : '> **XFA (LiveCycle) form with real static content.** The pages below extracted normally and can be read as-is; only values held solely in the XFA layer, which standard PDF extraction never sees, are missing.',
-    );
+    const xfaWarning = result.pages
+      .flatMap((page) => page.warnings ?? [])
+      .find((warning) => warning.code === 'xfa_form' || warning.code === 'xfa_static_content');
+    const banner =
+      xfaWarning?.code === 'xfa_form'
+        ? xfaWarning.severity === 'error'
+          ? '> **Dynamic XFA (LiveCycle) form.** The pages below are only the viewer placeholder; the real content lives in an XML stream that standard PDF extraction never sees. Do not answer from it — report that the document needs Adobe Acrobat/Reader.'
+          : '> **XFA (LiveCycle) form, unconfirmed static layer.** Too little was extracted to tell whether the pages below are the document or a viewer placeholder — render or OCR them to check. If they show only a "Please wait..." notice, the content is XFA-only and the document needs Adobe Acrobat/Reader.'
+        : "> **XFA (LiveCycle) form with real static content.** The pages below are the document's own content, not a viewer placeholder, so read them as usual; only values held solely in the XFA layer, which standard PDF extraction never sees, are missing.";
+    lines.push('', banner);
   }
 
   lines.push('', '_Document map: page bodies are omitted._');

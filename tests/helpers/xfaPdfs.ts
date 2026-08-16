@@ -80,6 +80,74 @@ export function buildHybridXfaPdf(): Uint8Array {
   ]);
 }
 
+/** Three placeholder pages, so a note that speaks only for the page it is pinned to is visible. */
+export function buildMultiPageXfaPlaceholderPdf(): Uint8Array {
+  return buildRawPdf([
+    '<< /Type /Catalog /Pages 2 0 R /NeedsRendering true /AcroForm << /Fields [] /XFA [ (preamble) 8 0 R ] >> >>',
+    '<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R] /Count 3 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 7 0 R >> >> /Contents 6 0 R >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 7 0 R >> >> /Contents 6 0 R >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 7 0 R >> >> /Contents 6 0 R >>',
+    textStream(PLACEHOLDER_LINES),
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    '<< /Length 28 >>\nstream\n<xdp:xdp>real form</xdp:xdp>\nendstream',
+  ]);
+}
+
+/**
+ * The placeholder page of a document that also carries a filled AcroForm
+ * field: the static field layer is real evidence, so this must not be
+ * called a placeholder document.
+ */
+export function buildXfaPlaceholderWithFieldsPdf(): Uint8Array {
+  return buildRawPdf([
+    '<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [6 0 R] /XFA [ (preamble) 7 0 R ] >> >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Annots [6 0 R] /Contents 4 0 R >>',
+    textStream(PLACEHOLDER_LINES),
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    '<< /Type /Annot /Subtype /Widget /FT /Tx /T (sponsorName) /V (Maria Sanchez) /Rect [40 600 300 620] /F 4 >>',
+    '<< /Length 28 >>\nstream\n<xdp:xdp>real form</xdp:xdp>\nendstream',
+  ]);
+}
+
+/**
+ * XFA declared, no field layer, and a page whose content is a scanned
+ * image with a page number for text — unreadable by extraction, but a
+ * render or OCR reads it, so it is not the Acrobat-only shape.
+ */
+export function buildScannedXfaPdf(): Uint8Array {
+  const content =
+    'q 400 0 0 300 40 400 cm\nBI /W 2 /H 2 /CS /G /BPC 8 /F /AHx ID\n00ff00ff>\nEI Q\nBT /F1 11 Tf 40 60 Td (2) Tj ET';
+  return buildRawPdf([
+    '<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [] /XFA [ (preamble) 6 0 R ] >> >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>',
+    `<< /Length ${Buffer.byteLength(content, 'binary')} >>\nstream\n${content}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    '<< /Length 28 >>\nstream\n<xdp:xdp>real form</xdp:xdp>\nendstream',
+  ]);
+}
+
+/**
+ * XFA declared, no field layer, one page of real text and one blank page —
+ * so a whole-document call and a call scoped to the blank page can be
+ * compared.
+ */
+export function buildXfaWithBlankSecondPagePdf(): Uint8Array {
+  const blank = '<< /Length 0 >>\nstream\n\nendstream';
+  return buildRawPdf([
+    '<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [] /XFA [ (preamble) 8 0 R ] >> >>',
+    '<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 7 0 R >> >> /Contents 5 0 R >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 7 0 R >> >> /Contents 6 0 R >>',
+    textStream(FORM_LINES),
+    blank,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    '<< /Length 28 >>\nstream\n<xdp:xdp>real form</xdp:xdp>\nendstream',
+  ]);
+}
+
 /** Same page content as the hybrid form, with no XFA declared at all. */
 export function buildPlainFormPdf(): Uint8Array {
   return buildRawPdf([

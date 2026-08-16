@@ -1,24 +1,34 @@
 import { describe, expect, it } from 'vitest';
 import { processDocument } from '../../../src/core/processor.js';
 import { classifyXfaStaticLayer } from '../../../src/core/warnings/xfaForm.js';
-import { buildHybridXfaPdf, buildPlainFormPdf, buildXfaPlaceholderPdf } from '../../helpers/xfaPdfs.js';
+import type { PageResult } from '../../../src/types/index.js';
+import {
+  buildHybridXfaPdf,
+  buildPlainFormPdf,
+  buildScannedXfaPdf,
+  buildXfaPlaceholderPdf,
+  buildXfaPlaceholderWithFieldsPdf,
+  buildXfaWithBlankSecondPagePdf,
+} from '../../helpers/xfaPdfs.js';
 
 const PLACEHOLDER_TEXT =
   'Please wait... If this message is not eventually replaced by the proper contents of the document, ' +
   'your PDF viewer may not be able to display this type of document. You can upgrade to the latest ' +
   'version of Adobe Reader for Windows, Mac, or Linux by visiting http://www.adobe.com/go/reader_download.';
 
-const page = (text: string) => ({ text, charCount: text.length });
+type TestPage = Parameters<typeof classifyXfaStaticLayer>[0]['pages'][number];
+
+const page = (text: string, extra: Partial<TestPage> = {}): TestPage => ({
+  text,
+  charCount: text.length,
+  imageCount: 0,
+  vectorCount: 0,
+  ...extra,
+});
 
 describe('classifyXfaStaticLayer', () => {
   it('calls the Adobe boilerplate page a viewer placeholder', () => {
     expect(classifyXfaStaticLayer({ isAcroFormPresent: false, pages: [page(PLACEHOLDER_TEXT)] })).toBe(
-      'viewer_placeholder',
-    );
-  });
-
-  it('still calls it a placeholder when the document also carries AcroForm fields', () => {
-    expect(classifyXfaStaticLayer({ isAcroFormPresent: true, pages: [page(PLACEHOLDER_TEXT)] })).toBe(
       'viewer_placeholder',
     );
   });
@@ -28,17 +38,48 @@ describe('classifyXfaStaticLayer', () => {
     expect(classifyXfaStaticLayer({ isAcroFormPresent: false, pages: [page(french)] })).toBe('viewer_placeholder');
   });
 
-  it('treats a bare page with no field layer as a placeholder', () => {
-    expect(classifyXfaStaticLayer({ isAcroFormPresent: false, pages: [page('')] })).toBe('viewer_placeholder');
+  it('does not call it a placeholder when a static field layer exists', () => {
+    expect(classifyXfaStaticLayer({ isAcroFormPresent: true, pages: [page(PLACEHOLDER_TEXT)] })).toBe('static_content');
+  });
+
+  it('counts a scanned page as real content, since a render or OCR reads it', () => {
+    expect(classifyXfaStaticLayer({ isAcroFormPresent: false, pages: [page('2', { imageCount: 1 })] })).toBe(
+      'static_content',
+    );
+    expect(classifyXfaStaticLayer({ isAcroFormPresent: false, pages: [page('2', { vectorCount: 40 })] })).toBe(
+      'static_content',
+    );
+    expect(
+      classifyXfaStaticLayer({
+        isAcroFormPresent: false,
+        pages: [page('2', { quality: { nativeTextStatus: 'empty_but_visual_content', visualStatus: 'ok' } })],
+      }),
+    ).toBe('static_content');
+  });
+
+  it('counts recovered OCR text as real content', () => {
+    const ocr = { text: 'Recovered by OCR: the sponsor declaration and the signature block.', confidence: 82 };
+    expect(
+      classifyXfaStaticLayer({
+        isAcroFormPresent: false,
+        pages: [page('2', { ocr: ocr as PageResult['ocr'] })],
+      }),
+    ).toBe('static_content');
+  });
+
+  it('still calls it a placeholder when OCR only recovers the boilerplate', () => {
+    const ocr = { text: PLACEHOLDER_TEXT, confidence: 88 };
+    expect(
+      classifyXfaStaticLayer({
+        isAcroFormPresent: false,
+        pages: [page(PLACEHOLDER_TEXT, { ocr: ocr as PageResult['ocr'] })],
+      }),
+    ).toBe('viewer_placeholder');
   });
 
   it('does not call a real form page a placeholder', () => {
     const real = 'Form 1040 U.S. Individual Income Tax Return. '.repeat(20);
     expect(classifyXfaStaticLayer({ isAcroFormPresent: true, pages: [page(real)] })).toBe('static_content');
-  });
-
-  it('does not fire on a blank page inside a document whose fields are real', () => {
-    expect(classifyXfaStaticLayer({ isAcroFormPresent: true, pages: [page('')] })).toBe('static_content');
   });
 
   it('does not fire on a long page that merely mentions upgrading Adobe Reader', () => {
@@ -53,6 +94,16 @@ describe('classifyXfaStaticLayer', () => {
         pages: [page(PLACEHOLDER_TEXT), page('Real page text that the static layer actually carries.')],
       }),
     ).toBe('static_content');
+  });
+
+  it('hedges instead of guessing when nothing was extracted and no marker matched', () => {
+    expect(classifyXfaStaticLayer({ isAcroFormPresent: false, pages: [page('')] })).toBe('unconfirmed');
+    expect(classifyXfaStaticLayer({ isAcroFormPresent: false, pages: [page('page 7')] })).toBe('unconfirmed');
+    expect(classifyXfaStaticLayer({ isAcroFormPresent: false, pages: [] })).toBe('unconfirmed');
+  });
+
+  it('does not report a blank page of a document whose fields are real as unreadable', () => {
+    expect(classifyXfaStaticLayer({ isAcroFormPresent: true, pages: [page('')] })).toBe('static_content');
   });
 });
 
@@ -87,7 +138,46 @@ describe('XFA warnings on extracted documents', () => {
       expect.objectContaining({
         code: 'xfa_static_content',
         severity: 'warning',
-        message: expect.stringContaining('can be read as-is'),
+        message: expect.stringContaining("the document's own content"),
+      }),
+    );
+  });
+
+  it('does not call a placeholder page unreadable when the form also has real fields', async () => {
+    const result = await processDocument('xfa-placeholder-with-fields.pdf', {
+      sourceData: buildXfaPlaceholderWithFieldsPdf(),
+      noCache: true,
+      formFields: true,
+    });
+
+    const codes = (result.pages[0].warnings ?? []).map((warning) => warning.code);
+    expect(codes).not.toContain('xfa_form');
+    expect(codes).toContain('xfa_static_content');
+  });
+
+  it('does not send a scanned XFA page to Acrobat when a render would read it', async () => {
+    const result = await processDocument('xfa-scanned.pdf', {
+      sourceData: buildScannedXfaPdf(),
+      noCache: true,
+    });
+
+    expect(result.pages[0].imageCount).toBeGreaterThan(0);
+    const codes = (result.pages[0].warnings ?? []).map((warning) => warning.code);
+    expect(codes).not.toContain('xfa_form');
+    expect(codes).toContain('xfa_static_content');
+  });
+
+  it('hedges on a scoped selection that lands on a blank page, and does not on the whole document', async () => {
+    const sourceData = buildXfaWithBlankSecondPagePdf();
+    const whole = await processDocument('xfa-blank-tail.pdf', { sourceData, noCache: true });
+    expect((whole.pages[0].warnings ?? []).map((warning) => warning.code)).toContain('xfa_static_content');
+
+    const scoped = await processDocument('xfa-blank-tail.pdf', { sourceData, noCache: true, pages: '2' });
+    expect(scoped.pages[0].warnings).toContainEqual(
+      expect.objectContaining({
+        code: 'xfa_form',
+        severity: 'warning',
+        message: expect.stringContaining('render or OCR them to check'),
       }),
     );
   });

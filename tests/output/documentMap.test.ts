@@ -99,8 +99,17 @@ describe('formatDocumentMap', () => {
     };
     const output = formatDocumentMap(document([page(1, ok, [softened])], { xfa: true }));
     expect(output).toContain('XFA (LiveCycle) form with real static content');
-    expect(output).toContain('extracted normally');
+    expect(output).toContain("the document's own content");
     expect(output).not.toContain('Do not answer from it');
+  });
+
+  it('hedges instead of guaranteeing when the static layer could not be confirmed', () => {
+    const unconfirmed: PageWarning = { code: 'xfa_form', severity: 'warning', message: 'cannot confirm' };
+    const output = formatDocumentMap(document([page(1, ok, [unconfirmed])], { xfa: true }));
+    expect(output).toContain('unconfirmed static layer');
+    expect(output).toContain('render or OCR them');
+    expect(output).not.toContain('Do not answer from it');
+    expect(output).not.toContain('read them as usual');
   });
 
   it('renders a two-level outline and drops deeper nesting', () => {

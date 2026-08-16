@@ -3,7 +3,7 @@ import { processDocument } from '../../core/processor.js';
 import { hasUnreliableNativeText } from '../../core/quality/pageQuality.js';
 import { cropRegionForBox } from '../../core/search/boxes.js';
 import { isRegexBudgetWarning, isRegexTimeoutWarning } from '../../core/search/index.js';
-import { isUnreadableSourceCode, unreadableSourcePages } from '../../core/warnings/unreadableSource.js';
+import { isUnreadableSourceCode, unreadableSourceReport } from '../../core/warnings/unreadableSource.js';
 import { formatBox } from '../../output/markdown/helpers.js';
 import type { PageResult, RenderRegion, SearchMatch } from '../../types/index.js';
 import { MATCH_CONTEXT_CHAR_CAP, MAX_MATCH_TEXTS, MAX_MATCHES, MAX_SEARCH_WARNINGS } from '../limits.js';
@@ -124,9 +124,16 @@ export function collapseHits(hits: readonly SearchHit[]): CollapsedHit[] {
  * exact failure pdfvision exists to expose, so the report says which
  * pages could not have matched in the first place. Same classification
  * the document map uses to suggest OCR.
+ *
+ * Pages `appendUnreadableSource` already spoke for are skipped: an
+ * image-bearing placeholder page is both empty of native text and not the
+ * document, and the two notes would hand the caller contradictory
+ * recoveries — "render or OCR it" against "rendering shows the placeholder
+ * too". The stronger claim wins, since it is the one that says the page
+ * cannot answer the question at all.
  */
-function appendUnsearchable(lines: string[], pages: readonly PageResult[]): void {
-  const suspect = pages.filter(hasUnreliableNativeText);
+export function appendUnsearchable(lines: string[], pages: readonly PageResult[], covered: ReadonlySet<number>): void {
+  const suspect = pages.filter((page) => !covered.has(page.page) && hasUnreliableNativeText(page));
   if (suspect.length === 0) return;
   lines.push(
     '',
@@ -147,23 +154,20 @@ function appendUnsearchable(lines: string[], pages: readonly PageResult[]): void
  * it: the placeholder page carries ~700 characters of well-formed text, so
  * nothing about its native-text quality is suspect.
  *
- * Reported once, here, for every searched page carrying such a code
- * whether or not it matched; `appendPageWarnings` drops those codes so the
- * two notes cannot say the same thing twice — and its "render the ref"
- * recovery would be wrong for them anyway, since the render shows the
- * placeholder too.
+ * Reported once, here, whether or not those pages matched, and over the
+ * whole selection rather than the one page the document-level warning is
+ * pinned to — a three-page placeholder document must not report page 1 and
+ * leave pages 2-3 looking searched. `appendPageWarnings` drops these codes
+ * so the two notes cannot say the same thing twice; its "render the ref"
+ * recovery would be wrong for a confirmed placeholder anyway.
+ *
+ * Returns the pages it spoke for, so the notes after it can stay off them.
  */
-export function appendUnreadableSource(lines: string[], pages: readonly PageResult[]): void {
-  const { pages: affected, codes, recovery } = unreadableSourcePages(pages);
-  if (affected.length === 0) return;
-  const subject =
-    affected.length === 1
-      ? `The text searched on p.${affected[0]} is not that page's content`
-      : `The text searched on ${affected.length} of the searched pages (${formatPageRange(affected)}) is not those pages' content`;
-  lines.push(
-    '',
-    `> ${subject} (${codes.join(', ')}), so neither a hit nor a miss there is evidence about this document: ${recovery.join('; ')}.`,
-  );
+export function appendUnreadableSource(lines: string[], pages: readonly PageResult[]): ReadonlySet<number> {
+  const { pages: covered, notes } = unreadableSourceReport(pages);
+  if (covered.length === 0) return new Set();
+  lines.push('', ...notes.map((note) => `> ${note}`));
+  return new Set(covered);
 }
 
 /**
@@ -332,8 +336,8 @@ export async function searchPdf(input: SearchPdfInput): Promise<ToolResult> {
     }
   }
 
-  appendUnreadableSource(lines, result.pages);
-  appendUnsearchable(lines, result.pages);
+  const unreadableSource = appendUnreadableSource(lines, result.pages);
+  appendUnsearchable(lines, result.pages, unreadableSource);
   appendPageWarnings(lines, result.pages, matchedPages);
 
   if (collapsed.length > 0) {
