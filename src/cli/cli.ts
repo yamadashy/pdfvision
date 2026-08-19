@@ -228,6 +228,14 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
     exitWithError(`--strip-repeated only applies to markdown output (got --format ${format})`);
   }
 
+  const ocr = (values.ocr as boolean | undefined) ?? false;
+  if (values['ocr-lang'] !== undefined && !ocr) {
+    // A language choice with no OCR pass to apply it to used to be accepted
+    // and silently do nothing. Fail rather than ignore, mirroring how
+    // --render-scale treats its missing prerequisite above.
+    exitWithError('--ocr-lang requires --ocr');
+  }
+
   // --search collects 0..N queries (multiple: true gives string[] |
   // undefined). The bool companions only make sense when at least one
   // query was passed — fail loud rather than silently no-op.
@@ -380,7 +388,7 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
       viewer: (values.viewer as boolean | undefined) ?? false,
       layers: (values.layers as boolean | undefined) ?? false,
       stripRepeated,
-      ocr: (values.ocr as boolean | undefined) ?? false,
+      ocr,
       ocrLang: (values['ocr-lang'] as string | undefined) ?? 'eng',
       // Library callers stay silent by default; the CLI wires warnings
       // to stderr so users see them alongside the formatted output on

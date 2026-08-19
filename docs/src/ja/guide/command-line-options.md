@@ -87,7 +87,7 @@ description: PDF 入力、出力形式、レンダリング、OCR、検索、レ
 | オプション | 用途 |
 | --- | --- |
 | `--ocr` | Tesseract OCR を実行し、text、confidence、language、word box を含む `pages[].ocr` を追加します。 |
-| `--ocr-lang <lang>` | `eng`, `jpn`, `eng+jpn` のように OCR 言語を指定します。既定は `eng` です。 |
+| `--ocr-lang <lang>` | `eng`, `jpn`, `eng+jpn` のように OCR 言語を指定します。既定は `eng` です。`--ocr` が必須で、単体指定はエラーになります。 |
 
 OCR は `pages[].text` を上書きしません。ネイティブテキストの横に追加されるため、エージェントが両方を比較できます。
 

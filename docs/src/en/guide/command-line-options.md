@@ -87,7 +87,7 @@ Search is NFKC-aware by default and can match native text, form-field text, link
 | Option | Purpose |
 | --- | --- |
 | `--ocr` | Run Tesseract OCR and attach `pages[].ocr` with text, confidence, language, and word boxes. |
-| `--ocr-lang <lang>` | Set OCR languages, such as `eng`, `jpn`, or `eng+jpn`. Default: `eng`. |
+| `--ocr-lang <lang>` | Set OCR languages, such as `eng`, `jpn`, or `eng+jpn`. Default: `eng`. Requires `--ocr`; passing it alone is an error. |
 
 OCR never replaces `pages[].text`; it is added beside the native text so the agent can compare both signals.
 

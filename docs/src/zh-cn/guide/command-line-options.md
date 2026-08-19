@@ -87,7 +87,7 @@ description: pdfvision CLI 选项参考，涵盖 PDF 输入、输出格式、渲
 | 选项 | 用途 |
 | --- | --- |
 | `--ocr` | 运行 Tesseract OCR，并附加包含 text、confidence、language 和 word boxes 的 `pages[].ocr`。 |
-| `--ocr-lang <lang>` | 指定 OCR 语言，例如 `eng`、`jpn` 或 `eng+jpn`。默认 `eng`。 |
+| `--ocr-lang <lang>` | 指定 OCR 语言，例如 `eng`、`jpn` 或 `eng+jpn`。默认 `eng`。需要 `--ocr`，单独使用会报错。 |
 
 OCR 不会替换 `pages[].text`；它会作为额外信号并列输出，便于智能体比较原生文本和 OCR。
 
