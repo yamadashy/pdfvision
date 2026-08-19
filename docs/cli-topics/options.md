@@ -131,7 +131,8 @@ The short `pdfvision --help` lists the flags reached for most often. This topic 
                           optional `tesseract.js` dependency. `pages[].text` is
                           preserved alongside so callers can compare native vs OCR.
       --ocr-lang <lang>   Tesseract language code(s), plus-separated for multi-lang
-                          (e.g. `eng+jpn`). Default: eng. Only used with --ocr.
+                          (e.g. `eng+jpn`). Default: eng. Requires --ocr; passing it
+                          alone is an error rather than a silent no-op.
       --search <query>    Find occurrences of <query> on each page and emit
                           `pages[].matches[]` with the bbox of each hit. Pipe a
                           match's bbox into a follow-up --render-region for visual

@@ -691,6 +691,15 @@ describe('cli', () => {
     expect(r.stderr.join('\n')).toMatch(/finite numbers/);
   });
 
+  it('rejects --ocr-lang without --ocr', async () => {
+    // A language choice with no OCR pass to apply it to used to be
+    // silently ignored. Mirrors the --render-scale / --render-region
+    // posture above.
+    const r = await captureRun([SAMPLE_PDF, '--ocr-lang', 'eng', '--no-cache']);
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr.join('\n')).toMatch(/--ocr-lang requires --ocr/);
+  });
+
   it('--search hits get echoed in markdown overview (Matches column)', async () => {
     // CLI smoke test: an unspecified-format (markdown default) run with
     // --search on a multi-page doc must surface the matches column so
@@ -1028,6 +1037,17 @@ describe('cli cache root safety', () => {
     const result = await captureRun([SAMPLE_PDF, '--json', '--no-cache', '--ocr']);
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toEqual([]);
+    expect(result.stderr.join('\n')).toMatch(/Invalid PDFVISION_CACHE_DIR.*absolute path/);
+  });
+
+  it('does not reject --ocr --ocr-lang eng as missing --ocr (fails later, on the invalid cache dir)', async () => {
+    // Confirms the pairing is accepted by CLI validation without paying for
+    // a real OCR/tesseract run: an invalid cache dir surfaces first, from
+    // deeper in the pipeline than the --ocr-lang requires --ocr check.
+    process.env.PDFVISION_CACHE_DIR = 'relative-cache-root';
+    const result = await captureRun([SAMPLE_PDF, '--json', '--no-cache', '--ocr', '--ocr-lang', 'eng']);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr.join('\n')).not.toContain('--ocr-lang requires --ocr');
     expect(result.stderr.join('\n')).toMatch(/Invalid PDFVISION_CACHE_DIR.*absolute path/);
   });
 

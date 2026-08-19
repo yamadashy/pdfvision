@@ -48,7 +48,10 @@ export const CLI_PARSE_OPTIONS = {
   remote: { type: 'string' },
   'clear-cache': { type: 'boolean' },
   ocr: { type: 'boolean' },
-  'ocr-lang': { type: 'string', default: 'eng' },
+  // `default` is intentionally NOT set here either — the default lives at the
+  // use site so that `--ocr-lang` without `--ocr` is detectable and can be
+  // rejected instead of silently doing nothing.
+  'ocr-lang': { type: 'string' },
   // --search is repeatable so `--search A --search B` works
   // (multi-query AND-merge into pages[].matches[]). The bool
   // companions modify ALL queries — case sensitivity / regex

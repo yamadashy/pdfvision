@@ -178,8 +178,8 @@ Options
       --matches-only      Report only the matches, with a crop-ready region each. Needs --search.
       --search-regex, --search-case-sensitive
                           Regex instead of literal substring; exact case.
-      --ocr, --ocr-lang <lang>
-                          OCR the selected pages beside the native text. Slow; opt-in.
+      --ocr               OCR the selected pages beside the native text. Slow; opt-in.
+      --ocr-lang <lang>   Language(s) for --ocr, plus-separated (e.g. `eng+jpn`). Default: eng.
       --layout            Reconstruct lines, blocks, vertical CJK stacks, and table hints.
       --visual-regions, --render-visual-regions
                           Crop-ready bboxes for figures, charts, tables, forms — and their PNGs.
