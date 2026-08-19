@@ -2,7 +2,7 @@
 
 Notable user-facing changes to pdfvision are documented here.
 
-## [Unreleased]
+## [0.18.0] - 2026-08-19
 
 ### Fixed
 
