@@ -2,6 +2,8 @@
 
 Notable user-facing changes to pdfvision are documented here.
 
+## [Unreleased]
+
 ## [0.18.0] - 2026-08-19
 
 ### Fixed
@@ -89,6 +91,7 @@ Notable user-facing changes to pdfvision are documented here.
 - Preserved explicit word spaces and corrected common paired-bracket direction when reconstructing right-to-left text. ([#102](https://github.com/yamadashy/pdfvision/pull/102))
 - Reported `checked: true` only for the selected radio widget instead of every widget in its group. ([#104](https://github.com/yamadashy/pdfvision/pull/104))
 
-[Unreleased]: https://github.com/yamadashy/pdfvision/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/yamadashy/pdfvision/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/yamadashy/pdfvision/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/yamadashy/pdfvision/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/yamadashy/pdfvision/compare/v0.15.0...v0.16.0
