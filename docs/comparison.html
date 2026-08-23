@@ -87,8 +87,10 @@
     width: 990px; color: #55494f;
     background: repeating-linear-gradient(-45deg, #d9d1d5, #d9d1d5 14px, #cfc6cb 14px, #cfc6cb 28px);
   }
-  .bar.plum { width: 118px; background: var(--plum); color: #fff; }
+  /* bar widths share one scale: 990px : 50px ≈ 40k : 2k tokens */
+  .bar.plum { width: 50px; background: var(--plum); }
   .bar span { font-size: 18.5px; font-weight: 600; white-space: nowrap; }
+  .barlabel { font-size: 18.5px; font-weight: 700; color: var(--plum); white-space: nowrap; margin-left: -4px; }
   .barnote { font-size: 18px; color: var(--muted); white-space: nowrap; }
 
   footer {
@@ -143,7 +145,8 @@
       <div style="flex: 1 1 0"></div>
     </div>
     <div class="barwrap">
-      <div class="bar plum"><span>~2k</span></div>
+      <div class="bar plum"></div>
+      <div class="barlabel">~2k</div>
       <div class="barnote">one sharp PNG of just the table — region coordinates come from the search hit</div>
     </div>
   </section>
