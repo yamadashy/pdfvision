@@ -27,6 +27,8 @@ features:
 
 ## Why pdfvision
 
+![Without pdfvision, an agent hauls every page as an image and still can't read the table. With pdfvision it searches, renders one region, verifies, and answers with evidence.](/comparison.png)
+
 The worst property of PDF extraction is that failure looks like success. A scan returns empty text, a broken font map returns readable-looking garbage, a two-column paper comes back interleaved — and every one of them comes back as a normal, successful result. An agent that trusts it answers wrong without ever knowing anything went wrong.
 
 Most tools in this space aim at conversion: turn the PDF into clean Markdown and hope the result is faithful. pdfvision aims at diagnosis instead — it flags the pages where extraction cannot be trusted and fetches localized visual evidence there.
