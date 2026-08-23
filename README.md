@@ -34,6 +34,10 @@ pdfvision turns that silent failure into a recoverable one. When it detects a pr
 
 When the task depends on visual structure, opt into layout blocks, table hints, form fields, visual regions, or OCR without replacing the original native text.
 
+<div align="center">
+  <img src="https://raw.githubusercontent.com/yamadashy/pdfvision/main/docs/src/public/comparison.png" alt="Without pdfvision, an agent hauls every page as an image and still can't read the table. With pdfvision it searches, renders one region, verifies, and answers with evidence." width="820" />
+</div>
+
 ### What that looks like
 
 An agent is asked what speedups a JIT paper reports, and starts by reading the page the claim is on:

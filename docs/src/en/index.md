@@ -40,6 +40,8 @@ The loop it is built around:
 
 That loop is closer to how a human reads a PDF: skim the page, notice when the visual page and the extracted text disagree, and zoom into the chart or form field that decides the answer.
 
+![Without pdfvision, an agent hauls every page as an image and still can't read the table. With pdfvision it searches, renders one region, verifies, and answers with evidence.](/comparison.png)
+
 ## What It Gives Agents
 
 - **Quality signals on every page.** Character, image, and vector counts, text coverage, native-text status, and warnings for the cues a human would notice — each ending in the remedy, so the agent never needs to understand font maps or content streams.
