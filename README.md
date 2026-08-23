@@ -24,10 +24,6 @@
 
 ## 💡 Why pdfvision
 
-<div align="center">
-  <img src="https://raw.githubusercontent.com/yamadashy/pdfvision/main/docs/src/public/comparison.png" alt="Without pdfvision, an agent hauls every page as an image and still can't read the table. With pdfvision it searches, renders one region, verifies, and answers with evidence." width="820" />
-</div>
-
 The worst property of PDF extraction is that failure looks like success. A scan returns empty text, a broken font map returns readable-looking garbage, a two-column paper comes back interleaved — and every one of them comes back as a normal, successful result. An agent that trusts it answers wrong without ever knowing anything went wrong.
 
 pdfvision turns that silent failure into a recoverable one. When it detects a problem it says so on the page it found it, and every warning ends in the next step to take — `inspect the render or run OCR before trusting extracted text`, `compare with --render before trusting it`, `prefer layout.blocks order when sequence matters`. The agent never needs to understand font maps or content streams; it reads the remedy and follows it.
@@ -37,6 +33,10 @@ pdfvision turns that silent failure into a recoverable one. When it detects a pr
 - **Search → zoom → render.** `--search` returns each match with its page and `bbox`; add `--matches-only` and each match also carries a crop-ready `region`, grown to the table row or line containing it. Pass that `region` to `--render-region` to inspect only the evidence that matters — passing `bbox` crops to the matched glyphs alone, which on a table shows the row label without its values.
 
 When the task depends on visual structure, opt into layout blocks, table hints, form fields, visual regions, or OCR without replacing the original native text.
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/yamadashy/pdfvision/main/docs/src/public/comparison.png" alt="Without pdfvision, an agent hauls every page as an image and still can't read the table. With pdfvision it searches, renders one region, verifies, and answers with evidence." width="820" />
+</div>
 
 ### What that looks like
 
