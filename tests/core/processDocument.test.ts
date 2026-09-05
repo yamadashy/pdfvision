@@ -58,25 +58,50 @@ async function buildPdfWithButtonFields(): Promise<Uint8Array> {
     return { N: normal };
   };
 
+  type FieldRef = { data: Record<string, unknown> };
   const form = doc as unknown as {
     initForm(): void;
-    formField(name: string, options: Record<string, unknown>): unknown;
-    formRadioButton(name: string, x: number, y: number, w: number, h: number, options: Record<string, unknown>): void;
-    formCheckbox(name: string, x: number, y: number, w: number, h: number, options: Record<string, unknown>): void;
+    formField(name: string, options: Record<string, unknown>): FieldRef;
+    annotate(x: number, y: number, w: number, h: number, options: Record<string, unknown>): void;
+    page: { annotations: FieldRef[] };
   };
+
+  // pdfkit builds its field dictionaries from a fixed set of named options
+  // (`value`, `select`, ...), so raw PDF keys have to be written onto the
+  // dictionaries here: onto a field ref, which stays open until `doc.end()`,
+  // and inline for a widget, whose ref is serialized as soon as it is added.
+  const buttonField = (name: string, entries: Record<string, unknown>): FieldRef => {
+    const field = form.formField(name, {});
+    Object.assign(field.data, { FT: 'Btn', ...entries });
+    field.data.Kids = [];
+    return field;
+  };
+  const buttonWidget = (
+    parent: FieldRef,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    entries: Record<string, unknown>,
+  ): void => {
+    form.annotate(x, y, w, h, { Subtype: 'Widget', F: 4, Parent: parent, ...entries });
+    const { annotations } = form.page;
+    (parent.data.Kids as FieldRef[]).push(annotations[annotations.length - 1]);
+  };
+
   form.initForm();
   doc.font('Helvetica').fontSize(12).text('Choose a fruit', 50, 50);
   // `Opt` supplies the exported wording; the appearance states are the
   // bare indices a viewer switches between, as pdf.js expects.
-  const group = form.formField('fruit', {
-    FT: 'Btn',
+  const group = buttonField('fruit', {
     Ff: 32768,
     V: '1',
     Opt: [new String('りんご'), new String('Banane')],
   });
-  form.formRadioButton('fruit', 50, 80, 12, 12, { parent: group, AP: appearanceStates(['Off', '0']), AS: 'Off' });
-  form.formRadioButton('fruit', 50, 100, 12, 12, { parent: group, AP: appearanceStates(['Off', '1']), AS: '1' });
-  form.formCheckbox('newsletter', 50, 130, 12, 12, { AP: appearanceStates(['Off', 'SubscribeMe']), AS: 'Off' });
+  buttonWidget(group, 50, 80, 12, 12, { AP: appearanceStates(['Off', '0']), AS: 'Off' });
+  buttonWidget(group, 50, 100, 12, 12, { AP: appearanceStates(['Off', '1']), AS: '1' });
+  const newsletter = buttonField('newsletter', {});
+  buttonWidget(newsletter, 50, 130, 12, 12, { AP: appearanceStates(['Off', 'SubscribeMe']), AS: 'Off' });
   doc.end();
 
   await done;
