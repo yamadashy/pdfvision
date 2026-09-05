@@ -70,27 +70,27 @@
     "@napi-rs/canvas": "^1.0.0",
     "@toon-format/toon": "^4.1.1",
     "pdfjs-dist": "^6.2.108",
-    "zod": "^4.4.3"
+    "zod": "^4.5.2"
   },
   "optionalDependencies": {
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.10",
+    "@biomejs/biome": "^2.5.11",
     "@expo-google-fonts/noto-sans-jp": "^0.4.3",
-    "@secretlint/secretlint-rule-preset-recommend": "^13.0.4",
+    "@secretlint/secretlint-rule-preset-recommend": "^13.0.5",
     "@types/node": "^25.9.5",
     "@types/pdfkit": "^0.17.6",
     "@vitest/coverage-v8": "^4.1.11",
     "es-module-lexer": "2.3.2",
-    "oxlint": "^1.79.0",
-    "pdfkit": "^0.19.1",
-    "secretlint": "^13.0.4",
+    "oxlint": "^1.80.0",
+    "pdfkit": "^0.20.1",
+    "secretlint": "^13.0.5",
     "tsdown": "^0.22.14",
     "typescript": "^7.0.2",
     "vitepress": "^1.6.4",
     "vitepress-plugin-llms": "^1.13.5",
     "vitest": "^4.1.11",
-    "wrangler": "^4.125.0"
+    "wrangler": "^4.127.1"
   }
 }
