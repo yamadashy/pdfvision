@@ -84,6 +84,23 @@ Common warning families include:
 - large raster regions whose internal labels may need vision.
 - dense vector pages such as forms, charts, or diagrams.
 
+### Hidden Native Text
+
+A PDF can contain successfully extracted and searchable native text that is not visible on the rendered page. These checks run by default—no geometry or vector flag is required—and they leave the original extracted text unchanged. Inspect `pages[].warnings` separately from `quality.nativeTextStatus`, which can still be `ok`.
+
+| Code | What it means |
+| --- | --- |
+| `invisible_text` | Text was shown while PDF text rendering mode `Tr 3` was active, so it remains in native extraction but is not painted for a viewer. |
+| `text_under_opaque_fill` | A later opaque dark rectangular fill covers extracted text. This can reveal a specific visual-only redaction failure, but it is not a general redaction detector. |
+
+To avoid expected scan/OCR layers, `invisible_text` is suppressed when a full-page raster backs the page, while `text_under_opaque_fill` is suppressed when `raster_backed_text_layer` applies. Inspect the affected page as rendered:
+
+```bash
+pdfvision document.pdf -p 3 --render --format json
+```
+
+A render establishes only what the page visibly shows. Neither a warning nor its absence validates whether redaction succeeded, and absence does not certify visibility, correctness, or safety. These detectors do not find arbitrary hidden text or prompt injection. See `pdfvision docs warnings` for full warning details, and [Security and Privacy](./security-and-privacy.md) before acting on or sharing PDF-derived content.
+
 Warnings are not final judgments. They are inspection cues that tell the agent which page or region deserves a closer look.
 
 ## How Agents Should Use Warnings
