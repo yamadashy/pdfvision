@@ -4,6 +4,10 @@ Notable user-facing changes to pdfvision are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- Added site guidance for inspecting searchable native text that is invisible or covered by a later opaque fill, including the limits of these warnings and rendered-page verification.
+
 ## [0.18.0] - 2026-08-19
 
 ### Fixed
