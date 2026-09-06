@@ -53,7 +53,7 @@ Options
       --map               A map of the document instead of its contents: pages, metadata,
                           outline, per-page quality and warning codes. Markdown only.
       --search <query>    Find <query> and report each hit's page and bbox. Repeatable.
-      --matches-only      Report only the matches, with a crop-ready region each. Needs --search.
+      --matches-only      Report matches plus compact diagnostics, with crop-ready regions. Needs --search.
       --search-regex, --search-case-sensitive
                           Regex instead of literal substring; exact case.
       --ocr               OCR the selected pages beside the native text. Slow; opt-in.

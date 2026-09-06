@@ -19,6 +19,8 @@ pdfvision report.pdf --search "revenue" --json
 
 如需省略页面正文的紧凑扁平报告，可添加 `--matches-only`。如果任一选中页面使用非默认 PDF `/UserUnit`，JSON/TOON 会保留 `pageUserUnits: [{ page, userUnit }]`，XML 会输出等价的 `<pageUserUnits>`，Markdown 会输出 `Page UserUnits` 摘要。所有选中页面均使用 UserUnit 1 时，该元数据会被省略。
 
+Compact output still retains optional diagnostics for every selected page with warnings or non-OK native or visual quality, including pages with no hits and searches with zero total results. JSON/TOON expose `pageDiagnostics` with raw quality and complete warnings; XML and Markdown present the same information in compact diagnostic sections. Inspect it before treating a hit or miss as visible evidence. Native quality describes native text only and does not rule out OCR or field hits. When applicable, `unreadableSource` keeps document-wide XFA placeholder scope and recovery guidance; rendering a confirmed XFA placeholder only renders the placeholder, so open it in Adobe Acrobat/Reader instead.
+
 重复 `--search` 可以一次运行多个查询：
 
 ```bash

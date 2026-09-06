@@ -12,7 +12,7 @@ function makePage(overrides: Partial<PageResult> & Pick<PageResult, 'page'>): Pa
     textCoverage: 0,
     nonPrintableRatio: 0,
     nonPrintableCount: 0,
-    quality: { nativeTextStatus: 'empty' },
+    quality: { nativeTextStatus: 'ok' },
     width: 612,
     height: 792,
     ...overrides,
@@ -118,10 +118,11 @@ describe('formatMatchesOnly', () => {
 
   it('json: flat structure with no pages[] array', () => {
     const parsed = JSON.parse(formatMatchesOnly(THREE_HITS, 'json', ['BLEU']));
-    expect(parsed).toMatchObject({ file: '/tmp/attention.pdf', totalPages: 15, queries: ['BLEU'], totalMatches: 3 });
+    const { matches, ...report } = parsed;
+    expect(report).toEqual({ file: '/tmp/attention.pdf', totalPages: 15, queries: ['BLEU'], totalMatches: 3 });
     expect(parsed.pages).toBeUndefined();
-    expect(parsed.matches).toHaveLength(3);
-    expect(parsed.matches[0]).toEqual({
+    expect(matches).toHaveLength(3);
+    expect(matches[0]).toEqual({
       page: 1,
       queryIndex: 0,
       source: 'native',
@@ -132,7 +133,7 @@ describe('formatMatchesOnly', () => {
     });
     // The query STRING is not repeated per entry — consumers key off
     // queryIndex against the top-level queries array.
-    expect(parsed.matches[0]).not.toHaveProperty('query');
+    expect(matches[0]).not.toHaveProperty('query');
   });
 
   it('xml: mirrors the flat json shape', () => {
@@ -228,14 +229,244 @@ describe('formatMatchesOnly', () => {
   });
 
   it('zero matches: minimal output, no table, still a valid result', () => {
-    const empty = makeResult([makePage({ page: 1, matches: [] })]);
+    const empty = makeResult([
+      makePage({ page: 1, quality: { nativeTextStatus: 'ok', visualStatus: 'ok' }, matches: [] }),
+    ]);
     const md = formatMatchesOnly(empty, 'markdown', ['BLEU']);
     expect(md).toContain('- **Matches:** 0');
     expect(md).not.toContain('| Page | Query |');
 
     const json = JSON.parse(formatMatchesOnly(empty, 'json', ['BLEU']));
+    expect(json).toEqual({
+      file: '/tmp/attention.pdf',
+      totalPages: 15,
+      queries: ['BLEU'],
+      totalMatches: 0,
+      matches: [],
+    });
+  });
+
+  it('retains a warning on an otherwise healthy page with a native hit', () => {
+    const warning = {
+      code: 'invisible_text' as const,
+      severity: 'error' as const,
+      message: 'native text is present but not visible on the rendered page',
+    };
+    const result = makeResult([
+      makePage({ page: 1, matches: [match({ page: 1, query: 'HIDDEN', text: 'HIDDEN' })], warnings: [warning] }),
+    ]);
+
+    const json = JSON.parse(formatMatchesOnly(result, 'json', ['HIDDEN']));
+    expect(json.pageDiagnostics).toEqual([{ page: 1, quality: { nativeTextStatus: 'ok' }, warnings: [warning] }]);
+    expect(json.totalMatches).toBe(1);
+    expect(decode(formatMatchesOnly(result, 'toon', ['HIDDEN']))).toEqual(json);
+
+    const markdown = formatMatchesOnly(result, 'markdown', ['HIDDEN']);
+    expect(markdown).toContain('## Diagnostics');
+    expect(markdown).toContain('- **Page 1** — native: `ok`');
+    expect(markdown).toContain('**error** (`invisible_text`): native text is present but not visible');
+  });
+
+  it('retains diagnostics for a no-hit page alongside a healthy matched page', () => {
+    const result = makeResult([
+      makePage({ page: 2, matches: [match({ page: 2 })] }),
+      makePage({
+        page: 4,
+        matches: [],
+        warnings: [
+          {
+            code: 'reading_order_divergence',
+            severity: 'warning',
+            message: 'visual and extracted reading order differ',
+          },
+        ],
+      }),
+    ]);
+    const json = JSON.parse(formatMatchesOnly(result, 'json', ['BLEU']));
+
+    expect(json.totalMatches).toBe(1);
+    expect(json.matches[0].page).toBe(2);
+    expect(json.pageDiagnostics).toEqual([
+      {
+        page: 4,
+        quality: { nativeTextStatus: 'ok' },
+        warnings: [
+          {
+            code: 'reading_order_divergence',
+            severity: 'warning',
+            message: 'visual and extracted reading order differ',
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('keeps document-wide unreadable-source scope on an all-zero XFA search', () => {
+    const result = makeResult([
+      makePage({
+        page: 2,
+        matches: [],
+        warnings: [
+          {
+            code: 'xfa_form',
+            severity: 'error',
+            message: 'confirmed XFA viewer placeholder',
+          },
+        ],
+      }),
+      makePage({ page: 5, matches: [] }),
+    ]);
+
+    const json = JSON.parse(formatMatchesOnly(result, 'json', ['SPONSOR']));
     expect(json.totalMatches).toBe(0);
+    expect(json.pageDiagnostics).toEqual([
+      {
+        page: 2,
+        quality: { nativeTextStatus: 'ok' },
+        warnings: [
+          {
+            code: 'xfa_form',
+            severity: 'error',
+            message: 'confirmed XFA viewer placeholder',
+          },
+        ],
+      },
+    ]);
+    expect(json.unreadableSource.pages).toEqual([2, 5]);
+    expect(json.unreadableSource.notes).toEqual([
+      expect.stringContaining('the pages selected for this search (p.2, 5)'),
+    ]);
+    expect(json.unreadableSource.notes[0]).toContain('rendering shows the placeholder too');
+    expect(decode(formatMatchesOnly(result, 'toon', ['SPONSOR']))).toEqual(json);
+
+    const xml = formatMatchesOnly(result, 'xml', ['SPONSOR']);
+    expect(xml).toContain('<unreadableSource>\n<pages>\n<page no="2"/>\n<page no="5"/>\n</pages>');
+    expect(xml).toContain('<note>Nothing on the pages selected for this search (p.2, 5)');
+
+    const markdown = formatMatchesOnly(result, 'markdown', ['SPONSOR']);
+    expect(markdown).toContain('- **Matches:** 0');
+    expect(markdown).toContain('## Diagnostics');
+    expect(markdown).toContain('## Unreadable source');
+    expect(markdown).toContain('- **Pages:** 2, 5');
+    expect(markdown).not.toContain('| Page | Query |');
+  });
+
+  it('retains raster-backed text-layer warnings', () => {
+    const result = makeResult([
+      makePage({
+        page: 9,
+        matches: [],
+        warnings: [
+          {
+            code: 'raster_backed_text_layer',
+            severity: 'warning',
+            message: 'native text appears to be an OCR layer over a raster page',
+          },
+        ],
+      }),
+    ]);
+
+    const json = JSON.parse(formatMatchesOnly(result, 'json', ['ADVENTURES']));
+    expect(json.pageDiagnostics[0].warnings[0].code).toBe('raster_backed_text_layer');
     expect(json.matches).toEqual([]);
-    expect(json.queries).toEqual(['BLEU']);
+  });
+
+  it('retains every non-ok native status without inventing warnings', () => {
+    const result = makeResult([
+      makePage({ page: 1, quality: { nativeTextStatus: 'empty' }, matches: [] }),
+      makePage({ page: 3, quality: { nativeTextStatus: 'mixed_glyph_indices' }, matches: [] }),
+    ]);
+    const json = JSON.parse(formatMatchesOnly(result, 'json', ['missing']));
+
+    expect(json.pageDiagnostics).toEqual([
+      { page: 1, quality: { nativeTextStatus: 'empty' } },
+      { page: 3, quality: { nativeTextStatus: 'mixed_glyph_indices' } },
+    ]);
+    expect(json.pageDiagnostics.every((item: object) => !('warnings' in item))).toBe(true);
+  });
+
+  it('retains a non-ok visual status even when native text quality is ok', () => {
+    const result = makeResult([
+      makePage({ page: 1, quality: { nativeTextStatus: 'ok', visualStatus: 'blank' }, matches: [] }),
+    ]);
+    const json = JSON.parse(formatMatchesOnly(result, 'json', ['missing']));
+
+    expect(json.pageDiagnostics).toEqual([{ page: 1, quality: { nativeTextStatus: 'ok', visualStatus: 'blank' } }]);
+    expect(formatMatchesOnly(result, 'markdown', ['missing'])).toContain(
+      '- **Page 1** — native: `ok`; visual: `blank`',
+    );
+  });
+
+  it('maps complete warnings to XML and escapes their messages', () => {
+    const result = makeResult([
+      makePage({
+        page: 7,
+        quality: { nativeTextStatus: 'ok', visualStatus: 'sparse' },
+        matches: [],
+        warnings: [
+          {
+            code: 'text_overlap',
+            severity: 'warning',
+            message: 'A < B & "quoted"',
+            blockIndex: 0,
+            otherBlockIndex: 1,
+            imageBoxIndex: 2,
+          },
+        ],
+      }),
+    ]);
+
+    const xml = formatMatchesOnly(result, 'xml', ['missing']);
+    const json = JSON.parse(formatMatchesOnly(result, 'json', ['missing']));
+    expect(json.pageDiagnostics[0].warnings[0]).toEqual({
+      code: 'text_overlap',
+      severity: 'warning',
+      message: 'A < B & "quoted"',
+      blockIndex: 0,
+      otherBlockIndex: 1,
+      imageBoxIndex: 2,
+    });
+    expect(xml).toContain('<pageDiagnostics>\n<page no="7" nativeTextStatus="ok" visualStatus="sparse">');
+    expect(xml).toContain(
+      '<warning code="text_overlap" severity="warning" blockIndex="0" otherBlockIndex="1" imageBoxIndex="2">A &lt; B &amp; "quoted"</warning>',
+    );
+
+    const markdown = formatMatchesOnly(result, 'markdown', ['missing']);
+    expect(markdown).toContain('[blockIndex=0, otherBlockIndex=1, imageBoxIndex=2]');
+    expect(markdown).toContain('Warning indices refer to `layout.blocks` or `imageBoxes` in the full report');
+  });
+
+  it('does not leak full page text or layout through diagnostics', () => {
+    const result = makeResult([
+      makePage({
+        page: 1,
+        text: 'FULL PAGE BODY MUST STAY OUT',
+        charCount: 28,
+        layout: {
+          blocks: [
+            {
+              text: 'FULL LAYOUT BODY MUST STAY OUT',
+              x: 10,
+              y: 10,
+              width: 100,
+              height: 20,
+              lines: [],
+            },
+          ],
+          tables: [],
+        },
+        quality: { nativeTextStatus: 'empty_but_visual_content' },
+        matches: [],
+      }),
+    ]);
+    const json = JSON.parse(formatMatchesOnly(result, 'json', ['missing']));
+
+    expect(json.pages).toBeUndefined();
+    expect(json.pageDiagnostics[0]).toEqual({
+      page: 1,
+      quality: { nativeTextStatus: 'empty_but_visual_content' },
+    });
+    expect(JSON.stringify(json)).not.toContain('FULL PAGE BODY');
+    expect(JSON.stringify(json)).not.toContain('FULL LAYOUT BODY');
   });
 });
