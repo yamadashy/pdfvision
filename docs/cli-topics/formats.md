@@ -16,6 +16,8 @@ Format contracts differ:
 
 `-f xml` is a tag-shaped near-parity projection. Key mappings are `page` → `no`, `pageLabel` → `label`, and nested `quality.nativeTextStatus` / `quality.visualStatus` → flattened page attributes. Page-result `rotation` is a `<pages><page rotation="...">` attribute; overview rotation is currently omitted. `rawText` is a sibling `<rawText>` element, a repeated layout marker is `<block repeated="true">`, and top-level JSON/TOON `xfa: true` becomes `<document xfa="true">`. Empty values can be omitted or represented by self-closing tags, so XML field presence is not identical to JSON/TOON. In every text node and string attribute, an XML-1.0-forbidden UTF-16 code unit is represented as `[[pdfvision:U+XXXX]]`; an original `[[pdfvision:` prefix is escaped as `[[pdfvision:literal:`. This keeps the XML well-formed and the marker representation non-colliding.
 
+The `--matches-only` root remains `<matches>`. Its optional JSON/TOON `pageDiagnostics[]` becomes `<pageDiagnostics><page no="..." nativeTextStatus="..." visualStatus="...">`, with complete warnings nested under `<warnings>`; warning messages are text nodes and optional block/image indices are attributes. Optional `unreadableSource` becomes `<unreadableSource>` with nested `<pages>` and `<notes>`. Both sections are omitted when inapplicable.
+
 ```xml
 <document file="..." totalPages="14" javascriptActionCount="..." outlineCount="..." xfa="true">
   <metadata>

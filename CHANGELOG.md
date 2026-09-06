@@ -8,6 +8,10 @@ Notable user-facing changes to pdfvision are documented here.
 
 - Added site guidance for inspecting searchable native text that is invisible or covered by a later opaque fill, including the limits of these warnings and rendered-page verification.
 
+### Fixed
+
+- Preserved compact per-page search diagnostics under `--matches-only`, including warnings and non-OK native or visual quality on no-hit pages and all-zero searches. Applicable XFA placeholder findings now also retain their document-wide unreadable-source scope and correct recovery guidance without restoring full page bodies.
+
 ## [0.18.0] - 2026-08-19
 
 ### Fixed

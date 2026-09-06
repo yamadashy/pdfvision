@@ -6,6 +6,7 @@ import { getCacheDir } from '../../src/core/io/cache.js';
 import { processFile } from '../../src/core/processor.js';
 
 const SAMPLE_PDF = resolve(__dirname, '../fixtures/sample.pdf');
+const SAMPLE_INVISIBLE_TEXT_PDF = resolve(__dirname, '../fixtures/sample-invisible-text.pdf');
 
 describe('processFile', () => {
   it('extracts text as JSON', async () => {
@@ -233,5 +234,43 @@ describe('processFile matchesOnly', () => {
     expect(first.region).toBeDefined();
     expect(first.region.width).toBeGreaterThan(first.bbox.width);
     expect(first.region.x).toBeLessThanOrEqual(first.bbox.x);
+  });
+
+  it('keeps invisible-text diagnostics beside a compact native hit', async () => {
+    const out = await processFile(SAMPLE_INVISIBLE_TEXT_PDF, {
+      format: 'json',
+      noCache: true,
+      search: 'HIDDEN',
+      matchesOnly: true,
+    });
+    const parsed = JSON.parse(out);
+
+    expect(parsed.totalMatches).toBeGreaterThan(0);
+    expect(
+      parsed.matches.some(
+        (item: { source: string; text: string }) => item.source === 'native' && item.text === 'HIDDEN',
+      ),
+    ).toBe(true);
+    expect(parsed.pageDiagnostics).toEqual([
+      expect.objectContaining({
+        page: 1,
+        warnings: expect.arrayContaining([expect.objectContaining({ code: 'invisible_text', severity: 'error' })]),
+      }),
+    ]);
+    expect(parsed.pages).toBeUndefined();
+  });
+
+  it('shows diagnostics before returning an empty compact Markdown search', async () => {
+    const out = await processFile(SAMPLE_INVISIBLE_TEXT_PDF, {
+      format: 'markdown',
+      noCache: true,
+      search: 'definitely-absent-xyzzy-9999',
+      matchesOnly: true,
+    });
+
+    expect(out).toContain('- **Matches:** 0');
+    expect(out).toContain('## Diagnostics');
+    expect(out).toContain('`invisible_text`');
+    expect(out).not.toContain('| Page | Query |');
   });
 });

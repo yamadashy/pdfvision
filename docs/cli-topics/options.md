@@ -168,9 +168,13 @@ The short `pdfvision --help` lists the flags reached for most often. This topic 
                           crops to the matched glyphs alone, which on a financial table renders
                           the row label and none of its values.
                           Non-default page UserUnits are retained
-                          in compact pageUserUnits metadata. Requires --search. The full pages/body
-                          payload is omitted; zero matches still exits 0 with a zero-match report.
-                          Works in every format. Size grows with emitted matches and context.
+                          in compact pageUserUnits metadata. Pages with warnings or non-OK native
+                          or visual quality are retained in optional pageDiagnostics, including
+                          no-hit pages and all-zero searches. Applicable XFA source limitations are
+                          summarized in optional unreadableSource. Requires --search. The full
+                          pages/body payload is omitted; zero matches still exits 0 with a
+                          zero-match report.
+                          Works in every format. Size grows with emitted matches, context, and diagnostics.
       --remote <url>      Download an http(s) PDF, validate the PDF header, and run extraction
                           on it. Same URL → same cache slot unless --no-cache streams the
                           bytes directly without writing the remote-PDF cache. Surrounding

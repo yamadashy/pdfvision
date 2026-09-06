@@ -19,6 +19,8 @@ pdfvision report.pdf --search "revenue" --json
 
 ページ本文を除いた小さなフラット形式が必要なら、`--matches-only` を追加します。選択ページに既定値以外の PDF `/UserUnit` があれば、JSON/TOON では `pageUserUnits: [{ page, userUnit }]`、XML では同等の `<pageUserUnits>`、Markdown では `Page UserUnits` の要約として保持します。すべての選択ページが UserUnit 1 の場合、このメタデータは省略されます。
 
+Compact output still retains optional diagnostics for every selected page with warnings or non-OK native or visual quality, including pages with no hits and searches with zero total results. JSON/TOON expose `pageDiagnostics` with raw quality and complete warnings; XML and Markdown present the same information in compact diagnostic sections. Inspect it before treating a hit or miss as visible evidence. Native quality describes native text only and does not rule out OCR or field hits. When applicable, `unreadableSource` keeps document-wide XFA placeholder scope and recovery guidance; rendering a confirmed XFA placeholder only renders the placeholder, so open it in Adobe Acrobat/Reader instead.
+
 複数の query は `--search` を繰り返します。
 
 ```bash

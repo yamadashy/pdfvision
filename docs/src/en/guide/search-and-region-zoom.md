@@ -21,6 +21,8 @@ Markdown output also shows a per-page `Search matches` table when `--search` is 
 
 Add `--matches-only` for a compact flat report without page bodies. If any selected page has a non-default PDF `/UserUnit`, the report preserves it as `pageUserUnits: [{ page, userUnit }]` in JSON/TOON, equivalent `<pageUserUnits>` entries in XML, and a `Page UserUnits` summary in Markdown. The metadata is omitted when every selected page uses UserUnit 1.
 
+Compact output still retains optional diagnostics for every selected page with warnings or non-OK native or visual quality, including pages with no hits and searches with zero total results. JSON/TOON expose `pageDiagnostics` with raw quality and complete warnings; XML and Markdown present the same information in compact diagnostic sections. Inspect it before treating a hit or miss as visible evidence. Native quality describes native text only and does not rule out OCR or field hits. When applicable, `unreadableSource` keeps document-wide XFA placeholder scope and recovery guidance; rendering a confirmed XFA placeholder only renders the placeholder, so open it in Adobe Acrobat/Reader instead.
+
 Repeat `--search` to run multiple queries in one pass:
 
 ```bash
