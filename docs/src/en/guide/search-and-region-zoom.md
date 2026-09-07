@@ -12,14 +12,14 @@ This is one of the most agent-friendly workflows in pdfvision: use text search a
 ## Search a PDF
 
 ```bash
-pdfvision report.pdf --search "revenue" --json
+pdfvision report.pdf --search "revenue" --matches-only --json
 ```
 
-Matches are emitted in `pages[].matches[]`. Each match includes the page number, query, source, text snippet, and a bounding box when pdfvision can locate the visible area.
+With `--matches-only`, JSON and TOON emit compact hits in the top-level `matches[]` array without page bodies. Each hit includes its page, `queryIndex` linked to the top-level `queries` array, source, text, optional context, tight `bbox`, and crop-ready `region`. Without `--matches-only`, full JSON and TOON keep hits in `pages[].matches[]` alongside the page payload; those full hits include `bbox`, but not `region`.
 
-Markdown output also shows a per-page `Search matches` table when `--search` is used. Use JSON, XML, or TOON when a downstream tool needs to consume the coordinates directly.
+Full Markdown output still shows a per-page `Search matches` table when `--search` is used. With `--matches-only`, Markdown becomes a compact flat report, while JSON, XML, or TOON remain the better choice when another tool needs to consume coordinates directly.
 
-Add `--matches-only` for a compact flat report without page bodies. If any selected page has a non-default PDF `/UserUnit`, the report preserves it as `pageUserUnits: [{ page, userUnit }]` in JSON/TOON, equivalent `<pageUserUnits>` entries in XML, and a `Page UserUnits` summary in Markdown. The metadata is omitted when every selected page uses UserUnit 1.
+If any selected page has a non-default PDF `/UserUnit`, the compact report preserves it as `pageUserUnits: [{ page, userUnit }]` in JSON/TOON, equivalent `<pageUserUnits>` entries in XML, and a `Page UserUnits` summary in Markdown. The metadata is omitted when every selected page uses UserUnit 1.
 
 Compact output still retains optional diagnostics for every selected page with warnings or non-OK native or visual quality, including pages with no hits and searches with zero total results. JSON/TOON expose `pageDiagnostics` with raw quality and complete warnings; XML and Markdown present the same information in compact diagnostic sections. Inspect it before treating a hit or miss as visible evidence. Native quality describes native text only and does not rule out OCR or field hits. When applicable, `unreadableSource` keeps document-wide XFA placeholder scope and recovery guidance; rendering a confirmed XFA placeholder only renders the placeholder, so open it in Adobe Acrobat/Reader instead.
 
@@ -72,13 +72,15 @@ For multi-query searches, `queryIndex` lets the caller map each hit back to the 
 
 ## Render the Matching Region
 
-Take a match bbox and pass it to `--render-region`:
+`bbox` locates the matched text itself. The compact hit's `region` optionally expands that box to a detected containing table row or visual line, then adds padding and clamps the result within the page. Without a containing structure, it is the padded match geometry. The crop provides nearby visual evidence, but it does not guarantee that an entire table, all headers, or relevant footnotes are included. Compact search computes this region internally, so it does not need `--layout`.
+
+Choose a compact hit by its `page`, `source`, and `context`, then pass its `region` unchanged. For example, if the chosen hit reports the illustrative values `page: 3` and `region: { x: 120, y: 180, width: 360, height: 140 }`, run:
 
 ```bash
 pdfvision report.pdf --pages 3 --render --render-region 120,180,360,140 --render-output ./crops --json
 ```
 
-`--render-region` requires exactly one selected page. The region uses raw unrotated page-view units with a top-left origin, and it must stay within the page bounds. Physical points = raw value × `pages[].userUnit` (or 1 when omitted); pixels = raw region × UserUnit × render scale.
+`--render-region` requires exactly one selected page. The region uses raw unrotated page-view units with a top-left origin; compact regions are already clamped, while a custom region must stay within the page bounds. Physical points = raw value × UserUnit; pixels = raw region × UserUnit × render scale. Read UserUnit from `pages[].userUnit` in the full report or the selected page's `pageUserUnits` entry in the compact report (1 when omitted).
 
 Use `--render-scale` when the crop contains small labels, superscripts, dense table cells, or chart legends:
 
@@ -86,13 +88,13 @@ Use `--render-scale` when the crop contains small labels, superscripts, dense ta
 pdfvision report.pdf --pages 3 --render --render-region 120,180,360,140 --render-scale 3 --render-output ./crops --json
 ```
 
-For best crops, add padding around a match bbox before passing it to `--render-region`. A little surrounding context helps vision models read labels, row headers, and nearby explanatory text.
+Start with the emitted `region` unchanged. If the task needs different context, a custom narrower or wider crop remains available within the page bounds.
 
 ## Agent Workflow
 
-1. Run `--search` to locate candidate evidence.
-2. Inspect `pages[].matches[]` and choose the bbox with the right source and page.
-3. Re-run with `--pages`, `--render`, and `--render-region` for a visual crop.
+1. Run `--search "…" --matches-only --json` to locate candidate evidence without page bodies.
+2. Inspect top-level `matches[]` and choose the hit with the right page, source, and context.
+3. Re-run with exactly that hit's `page` and unchanged `region` in `--pages`, `--render`, and `--render-region`.
 4. Ask the vision model to compare the crop against the native text, OCR text, or extracted table data.
 
 For visual regions that are not text-searchable, use [Rendering and OCR](./rendering-and-ocr.md) with `--visual-regions` or `--render-visual-regions`.
@@ -100,10 +102,10 @@ For visual regions that are not text-searchable, use [Rendering and OCR](./rende
 ## Example: Auditable Claim Check
 
 ```bash
-pdfvision annual-report.pdf --search "Net sales" --search "Operating income" --layout --json
+pdfvision annual-report.pdf --search "Net sales" --search "Operating income" --matches-only --json
 ```
 
-An agent can inspect `pages[].matches[]`, choose the hit with the right page and surrounding context, then request a crop:
+An agent can inspect top-level `matches[]`, choose the hit with the right page, source, and context, then pass its `region` to the crop command. No `--layout` flag is needed because compact search computes the region internally. If that selected hit reports the following illustrative page and region, the follow-up is:
 
 ```bash
 pdfvision annual-report.pdf --pages 42 --render --render-region 72,180,468,180 --render-output ./evidence --json

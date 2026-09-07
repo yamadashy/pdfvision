@@ -10,6 +10,7 @@ Notable user-facing changes to pdfvision are documented here.
 
 ### Changed
 
+- Updated the search-and-zoom guide to distinguish a match's tight `bbox` from the compact report's crop-ready `region`, then pass that region unchanged to `--render-region`.
 - Added site guidance for inspecting searchable native text that is invisible or covered by a later opaque fill, including the limits of these warnings and rendered-page verification.
 
 ### Fixed

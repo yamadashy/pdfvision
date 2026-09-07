@@ -12,12 +12,14 @@ pdfvision は、まずテキストの根拠を探し、その一致領域だけ�
 ## PDF を検索する
 
 ```bash
-pdfvision report.pdf --search "revenue" --json
+pdfvision report.pdf --search "revenue" --matches-only --json
 ```
 
-一致結果は `pages[].matches[]` に出ます。各 match にはページ番号、query、source、テキスト断片、位置を特定できた場合の bbox が含まれます。
+With `--matches-only`, JSON and TOON emit compact hits in the top-level `matches[]` array without page bodies. Each hit includes its page, `queryIndex` linked to the top-level `queries` array, source, text, optional context, tight `bbox`, and crop-ready `region`. Without `--matches-only`, full JSON and TOON keep hits in `pages[].matches[]` alongside the page payload; those full hits include `bbox`, but not `region`.
 
-ページ本文を除いた小さなフラット形式が必要なら、`--matches-only` を追加します。選択ページに既定値以外の PDF `/UserUnit` があれば、JSON/TOON では `pageUserUnits: [{ page, userUnit }]`、XML では同等の `<pageUserUnits>`、Markdown では `Page UserUnits` の要約として保持します。すべての選択ページが UserUnit 1 の場合、このメタデータは省略されます。
+Full Markdown output still shows a per-page `Search matches` table when `--search` is used. With `--matches-only`, Markdown becomes a compact flat report, while JSON, XML, or TOON remain the better choice when another tool needs to consume coordinates directly.
+
+If any selected page has a non-default PDF `/UserUnit`, the compact report preserves it as `pageUserUnits: [{ page, userUnit }]` in JSON/TOON, equivalent `<pageUserUnits>` entries in XML, and a `Page UserUnits` summary in Markdown. The metadata is omitted when every selected page uses UserUnit 1.
 
 Compact output still retains optional diagnostics for every selected page with warnings or non-OK native or visual quality, including pages with no hits and searches with zero total results. JSON/TOON expose `pageDiagnostics` with raw quality and complete warnings; XML and Markdown present the same information in compact diagnostic sections. Inspect it before treating a hit or miss as visible evidence. Native quality describes native text only and does not rule out OCR or field hits. When applicable, `unreadableSource` keeps document-wide XFA placeholder scope and recovery guidance; rendering a confirmed XFA placeholder only renders the placeholder, so open it in Adobe Acrobat/Reader instead.
 
@@ -70,38 +72,40 @@ match の `source` は、エージェントがどの程度信頼すべきかを�
 
 ## 一致領域をレンダリングする
 
-match の bbox を `--render-region` に渡します。
+`bbox` locates the matched text itself. The compact hit's `region` optionally expands that box to a detected containing table row or visual line, then adds padding and clamps the result within the page. Without a containing structure, it is the padded match geometry. The crop provides nearby visual evidence, but it does not guarantee that an entire table, all headers, or relevant footnotes are included. Compact search computes this region internally, so it does not need `--layout`.
+
+Choose a compact hit by its `page`, `source`, and `context`, then pass its `region` unchanged. For example, if the chosen hit reports the illustrative values `page: 3` and `region: { x: 120, y: 180, width: 360, height: 140 }`, run:
 
 ```bash
 pdfvision report.pdf --pages 3 --render --render-region 120,180,360,140 --render-output ./crops --json
 ```
 
-`--render-region` は、選択ページがちょうど 1 ページである必要があります。領域は回転前の生の page-view units と左上原点を使い、ページ境界内に収めます。物理サイズのポイント数は「生の値 × `pages[].userUnit`（省略時は 1）」、ピクセル数は「生の領域 × UserUnit × render scale」です。
+`--render-region` requires exactly one selected page. The region uses raw unrotated page-view units with a top-left origin; compact regions are already clamped, while a custom region must stay within the page bounds. Physical points = raw value × UserUnit; pixels = raw region × UserUnit × render scale. Read UserUnit from `pages[].userUnit` in the full report or the selected page's `pageUserUnits` entry in the compact report (1 when omitted).
 
-小さいラベル、上付き文字、密な表セル、チャート凡例では `--render-scale` を上げます。
+Use `--render-scale` when the crop contains small labels, superscripts, dense table cells, or chart legends:
 
 ```bash
 pdfvision report.pdf --pages 3 --render --render-region 120,180,360,140 --render-scale 3 --render-output ./crops --json
 ```
 
-よい crop にするには、match bbox の周囲に少し余白を足してから `--render-region` に渡します。周辺文脈があると、vision model がラベル、行見出し、近くの説明文を読みやすくなります。
+Start with the emitted `region` unchanged. If the task needs different context, a custom narrower or wider crop remains available within the page bounds.
 
 ## エージェントの流れ
 
-1. `--search` で候補の根拠を探す。
-2. `pages[].matches[]` から page、source、bbox が適切な match を選ぶ。
-3. `--pages`、`--render`、`--render-region` で視覚クロップを作る。
-4. クロップをネイティブテキスト、OCR テキスト、周辺 layout block と比較する。
+1. Run `--search "…" --matches-only --json` to locate candidate evidence without page bodies.
+2. Inspect top-level `matches[]` and choose the hit with the right page, source, and context.
+3. Re-run with exactly that hit's `page` and unchanged `region` in `--pages`, `--render`, and `--render-region`.
+4. Ask the vision model to compare the crop against the native text, OCR text, or extracted table data.
 
 テキスト検索できない視覚領域には、[レンダリングと OCR](./rendering-and-ocr.md) の `--visual-regions` または `--render-visual-regions` を使います。
 
 ## 例: 監査可能な claim check
 
 ```bash
-pdfvision annual-report.pdf --search "Net sales" --search "Operating income" --layout --json
+pdfvision annual-report.pdf --search "Net sales" --search "Operating income" --matches-only --json
 ```
 
-エージェントは `pages[].matches[]` を見て、正しいページと周辺 context を持つ hit を選び、crop を要求できます。
+An agent can inspect top-level `matches[]`, choose the hit with the right page, source, and context, then pass its `region` to the crop command. No `--layout` flag is needed because compact search computes the region internally. If that selected hit reports the following illustrative page and region, the follow-up is:
 
 ```bash
 pdfvision annual-report.pdf --pages 42 --render --render-region 72,180,468,180 --render-output ./evidence --json
