@@ -1,0 +1,19 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.yamadashy/pdfvision",
+  "description": "PDF reading for AI agents: search text, check quality signals, render only the region that matters",
+  "title": "pdfvision",
+  "websiteUrl": "https://pdfvision.dev/",
+  "repository": { "url": "https://github.com/yamadashy/pdfvision", "source": "github" },
+  "version": "0.18.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "pdfvision",
+      "version": "0.18.0",
+      "transport": { "type": "stdio" },
+      "packageArguments": [{ "type": "positional", "value": "mcp" }]
+    }
+  ]
+}
