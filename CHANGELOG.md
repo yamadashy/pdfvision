@@ -4,6 +4,10 @@ Notable user-facing changes to pdfvision are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- Listed in the official MCP Registry as `io.github.yamadashy/pdfvision`; the npm-publish workflow now publishes `server.json` after each release.
+
 ### Changed
 
 - Added site guidance for inspecting searchable native text that is invisible or covered by a later opaque fill, including the limits of these warnings and rendered-page verification.
