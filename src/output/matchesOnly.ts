@@ -8,11 +8,12 @@ import { escapeAttr, escapeText } from './xml/helpers.js';
 /**
  * Focused search report. Retain the file, total page/match counts, and query
  * list, then emit flat matches with page, source, text, optional context, and
- * bbox. Diagnostics are retained only for selected pages with warnings or
- * non-OK quality, without restoring their page bodies. The full pages/body
- * payload is omitted so an agent asking "where does BLEU appear" can feed a
- * reported bbox into `--render-region`. Output size still grows with the
- * emitted matches, context, and diagnostics.
+ * both the tight bbox and crop-ready region. Diagnostics are retained only
+ * for selected pages with warnings or non-OK quality, without restoring their
+ * page bodies. The full pages/body payload is omitted so an agent asking
+ * "where does BLEU appear" can feed the reported region unchanged into
+ * `--render-region`. Output size still grows with the emitted matches, context,
+ * and diagnostics.
  *
  * A run that matched nothing anywhere still succeeds (exit 0) and emits a
  * zero-match report — a zero count is a valid observation for an agent,
@@ -31,7 +32,8 @@ import { escapeAttr, escapeText } from './xml/helpers.js';
  * regionX/regionY/regionWidth/regionHeight on <match>.
  * `pageUserUnits` is omitted when every selected page uses the default value
  * 1. It keeps raw match boxes physically interpretable without restoring the
- * full pages[] payload; boxes still pass unchanged to renderRegion.
+ * full pages[] payload; the emitted region still passes unchanged to
+ * `--render-region`.
  */
 
 /** One flattened match, carrying the parent query string (markdown shows

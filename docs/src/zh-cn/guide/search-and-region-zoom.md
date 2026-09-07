@@ -12,12 +12,14 @@ pdfvision 可以先找到文本证据，再只渲染匹配区域。这适合让�
 ## 搜索 PDF
 
 ```bash
-pdfvision report.pdf --search "revenue" --json
+pdfvision report.pdf --search "revenue" --matches-only --json
 ```
 
-匹配结果会输出到 `pages[].matches[]`。每个 match 包含页码、query、source、文本片段，以及能够定位可见区域时的 bbox。
+With `--matches-only`, JSON and TOON emit compact hits in the top-level `matches[]` array without page bodies. Each hit includes its page, `queryIndex` linked to the top-level `queries` array, source, text, optional context, tight `bbox`, and crop-ready `region`. Without `--matches-only`, full JSON and TOON keep hits in `pages[].matches[]` alongside the page payload; those full hits include `bbox`, but not `region`.
 
-如需省略页面正文的紧凑扁平报告，可添加 `--matches-only`。如果任一选中页面使用非默认 PDF `/UserUnit`，JSON/TOON 会保留 `pageUserUnits: [{ page, userUnit }]`，XML 会输出等价的 `<pageUserUnits>`，Markdown 会输出 `Page UserUnits` 摘要。所有选中页面均使用 UserUnit 1 时，该元数据会被省略。
+Full Markdown output still shows a per-page `Search matches` table when `--search` is used. With `--matches-only`, Markdown becomes a compact flat report, while JSON, XML, or TOON remain the better choice when another tool needs to consume coordinates directly.
+
+If any selected page has a non-default PDF `/UserUnit`, the compact report preserves it as `pageUserUnits: [{ page, userUnit }]` in JSON/TOON, equivalent `<pageUserUnits>` entries in XML, and a `Page UserUnits` summary in Markdown. The metadata is omitted when every selected page uses UserUnit 1.
 
 Compact output still retains optional diagnostics for every selected page with warnings or non-OK native or visual quality, including pages with no hits and searches with zero total results. JSON/TOON expose `pageDiagnostics` with raw quality and complete warnings; XML and Markdown present the same information in compact diagnostic sections. Inspect it before treating a hit or miss as visible evidence. Native quality describes native text only and does not rule out OCR or field hits. When applicable, `unreadableSource` keeps document-wide XFA placeholder scope and recovery guidance; rendering a confirmed XFA placeholder only renders the placeholder, so open it in Adobe Acrobat/Reader instead.
 
@@ -70,38 +72,40 @@ match 的 `source` 帮助智能体判断它应该被多大程度信任：
 
 ## 渲染匹配区域
 
-把 match 的 bbox 传给 `--render-region`：
+`bbox` locates the matched text itself. The compact hit's `region` optionally expands that box to a detected containing table row or visual line, then adds padding and clamps the result within the page. Without a containing structure, it is the padded match geometry. The crop provides nearby visual evidence, but it does not guarantee that an entire table, all headers, or relevant footnotes are included. Compact search computes this region internally, so it does not need `--layout`.
+
+Choose a compact hit by its `page`, `source`, and `context`, then pass its `region` unchanged. For example, if the chosen hit reports the illustrative values `page: 3` and `region: { x: 120, y: 180, width: 360, height: 140 }`, run:
 
 ```bash
 pdfvision report.pdf --pages 3 --render --render-region 120,180,360,140 --render-output ./crops --json
 ```
 
-`--render-region` 要求选中的页恰好为一页。区域使用未旋转的原始 page-view units 和左上角原点，并且必须在页面边界内。物理点数 = 原始值 × `pages[].userUnit`（省略时按 1）；像素数 = 原始区域 × UserUnit × render scale。
+`--render-region` requires exactly one selected page. The region uses raw unrotated page-view units with a top-left origin; compact regions are already clamped, while a custom region must stay within the page bounds. Physical points = raw value × UserUnit; pixels = raw region × UserUnit × render scale. Read UserUnit from `pages[].userUnit` in the full report or the selected page's `pageUserUnits` entry in the compact report (1 when omitted).
 
-如果裁剪图包含小标签、上标、密集表格单元格或图表图例，可以提高 `--render-scale`：
+Use `--render-scale` when the crop contains small labels, superscripts, dense table cells, or chart legends:
 
 ```bash
 pdfvision report.pdf --pages 3 --render --render-region 120,180,360,140 --render-scale 3 --render-output ./crops --json
 ```
 
-为了获得更好的 crop，可在把 match bbox 传给 `--render-region` 前加一点 padding。少量周边上下文能帮助视觉模型读取标签、行头和附近说明文字。
+Start with the emitted `region` unchanged. If the task needs different context, a custom narrower or wider crop remains available within the page bounds.
 
 ## 智能体工作流
 
-1. 运行 `--search` 找到候选证据。
-2. 查看 `pages[].matches[]`，选择 page、source 和 bbox 合适的 match。
-3. 用 `--pages`、`--render` 和 `--render-region` 重新运行，生成视觉裁剪图。
-4. 让视觉模型把裁剪图与原生文本、OCR 文本或提取出的表格数据进行对照。
+1. Run `--search "…" --matches-only --json` to locate candidate evidence without page bodies.
+2. Inspect top-level `matches[]` and choose the hit with the right page, source, and context.
+3. Re-run with exactly that hit's `page` and unchanged `region` in `--pages`, `--render`, and `--render-region`.
+4. Ask the vision model to compare the crop against the native text, OCR text, or extracted table data.
 
 对于无法通过文本搜索定位的视觉区域，请结合 [渲染与 OCR](./rendering-and-ocr.md) 使用 `--visual-regions` 或 `--render-visual-regions`。
 
 ## 示例：可审计的 claim check
 
 ```bash
-pdfvision annual-report.pdf --search "Net sales" --search "Operating income" --layout --json
+pdfvision annual-report.pdf --search "Net sales" --search "Operating income" --matches-only --json
 ```
 
-智能体可以检查 `pages[].matches[]`，选择页面和周边 context 正确的 hit，然后请求 crop：
+An agent can inspect top-level `matches[]`, choose the hit with the right page, source, and context, then pass its `region` to the crop command. No `--layout` flag is needed because compact search computes the region internally. If that selected hit reports the following illustrative page and region, the follow-up is:
 
 ```bash
 pdfvision annual-report.pdf --pages 42 --render --render-region 72,180,468,180 --render-output ./evidence --json
