@@ -145,20 +145,19 @@ export function appendUnsearchable(lines: string[], pages: readonly PageResult[]
  * The one class of warning that has to be reported per *response* rather
  * than per hit: the searched text was not the page's content at all.
  *
- * `appendPageWarnings` below only speaks for pages that produced a hit,
- * which is exactly backwards here — a page can only warn that it was
- * unreadable once it has proved it was readable enough to match. On a
- * dynamic XFA form the whole document is one "Please wait..." placeholder,
- * so the response that needs this most is the clean `0 matches`, and the
- * caller reads absence into it. Neither does `appendUnsearchable` cover
- * it: the placeholder page carries ~700 characters of well-formed text, so
- * nothing about its native-text quality is suspect.
+ * `appendPageWarnings` below reports extraction limits on every selected
+ * page, but its recovery is to render one of those pages. That is wrong for
+ * a confirmed dynamic XFA form: the whole document is one "Please wait..."
+ * placeholder, so rendering reproduces the placeholder instead of exposing
+ * the form. Neither does `appendUnsearchable` cover it: the placeholder page
+ * carries ~700 characters of well-formed text, so nothing about its
+ * native-text quality is suspect.
  *
  * Reported once, here, whether or not those pages matched, and over the
  * whole selection rather than the one page the document-level warning is
  * pinned to — a three-page placeholder document must not report page 1 and
  * leave pages 2-3 looking searched. `appendPageWarnings` drops these codes
- * so the two notes cannot say the same thing twice; its "render the ref"
+ * so the two notes cannot say the same thing twice; its generic render
  * recovery would be wrong for a confirmed placeholder anyway.
  *
  * Returns the pages it spoke for, so the notes after it can stay off them.
@@ -171,45 +170,59 @@ export function appendUnreadableSource(lines: string[], pages: readonly PageResu
 }
 
 /**
- * Page-level warnings for the pages a hit landed on.
+ * Page-level warning selection over every selected page.
  *
- * A match is a claim that the text says something, and these codes are
- * the cases where the text is not what the page shows: glyphs that map
- * to nothing, native text drawn invisibly, text sitting under an opaque
- * fill, an OCR layer over a scan. `read_pdf` surfaces them inline with
- * the body; a search response that omits them hands back the one line
- * that matched with none of the reasons to distrust it — and the whole
- * point of the ref is that the caller renders instead of re-reading.
+ * These codes cover cases where extraction and the visible page may differ:
+ * glyphs that map to nothing, native text drawn invisibly, text sitting
+ * under an opaque fill, or an OCR layer over a scan. They can invalidate a
+ * hit or turn a miss into weak evidence, so the selection must consider
+ * no-hit pages and all-zero searches as well as pages carrying hits.
  *
- * Codes only, not messages: the message is written for someone holding
- * the page, and the recovery here is the same for all of them (render
- * the ref). Errors first, then warnings, capped like the search
- * warnings above.
+ * Codes only, not messages: the recovery is the same for all of them
+ * (render the page). Error-bearing pages outrank warning-only pages across
+ * the whole selection; within equal severity, hit pages come first and
+ * source order stays stable. Codes within each page keep errors first. The
+ * page list is capped like the search warnings above.
  *
  * Unreadable-source codes are left out: `appendUnreadableSource` has
- * already reported them for every searched page, hit or not, with a
- * recovery that fits them.
+ * already reported their applicable response scope, hit or not, with a
+ * recovery that fits them. Pages covered by that report are excluded too,
+ * so a confirmed XFA placeholder never receives contradictory render advice.
  */
-export function appendPageWarnings(lines: string[], pages: readonly PageResult[], matched: ReadonlySet<number>): void {
+export function appendPageWarnings(
+  lines: string[],
+  pages: readonly PageResult[],
+  matched: ReadonlySet<number>,
+  covered: ReadonlySet<number> = new Set(),
+): void {
   const noted = pages
-    .filter((page) => matched.has(page.page) && (page.warnings ?? []).length > 0)
-    .map((page) => ({
-      page: page.page,
-      codes: [
-        ...new Set(
-          [...(page.warnings ?? [])]
-            .sort((a, b) => (a.severity === b.severity ? 0 : a.severity === 'error' ? -1 : 1))
-            .map((warning) => warning.code)
-            .filter((code) => !isUnreadableSourceCode(code)),
-        ),
-      ],
-    }))
-    .filter((entry) => entry.codes.length > 0);
+    .map((page, order) => {
+      const warnings = (page.warnings ?? []).filter((warning) => !isUnreadableSourceCode(warning.code));
+      return {
+        page: page.page,
+        codes: [
+          ...new Set(
+            [...warnings]
+              .sort((a, b) => (a.severity === b.severity ? 0 : a.severity === 'error' ? -1 : 1))
+              .map((warning) => warning.code),
+          ),
+        ],
+        severity: warnings.some((warning) => warning.severity === 'error') ? 0 : 1,
+        matched: matched.has(page.page),
+        order,
+      };
+    })
+    .filter((entry) => !covered.has(entry.page) && entry.codes.length > 0)
+    .sort((a, b) => a.severity - b.severity || Number(b.matched) - Number(a.matched) || a.order - b.order);
   if (noted.length === 0) return;
 
   const shown = noted.slice(0, MAX_SEARCH_WARNINGS);
-  const subject = noted.length === 1 ? 'A page carrying a hit also carries' : 'Pages carrying hits also carry';
-  lines.push('', `> ${subject} extraction warnings — render the ref before quoting the text:`);
+  const [firstShown] = shown;
+  if (!firstShown) return;
+  lines.push(
+    '',
+    `> Extraction warnings on selected pages may affect search hits or misses. Inspect the listed codes and render an affected page before relying on its text: \`render_pdf(pages: "${firstShown.page}")\``,
+  );
   for (const entry of shown) lines.push(`> - p.${entry.page}: ${entry.codes.join(', ')}`);
   const omitted = noted.length - shown.length;
   if (omitted > 0) lines.push(`> - ${omitted} further page(s) with warnings omitted.`);
@@ -338,7 +351,7 @@ export async function searchPdf(input: SearchPdfInput): Promise<ToolResult> {
 
   const unreadableSource = appendUnreadableSource(lines, result.pages);
   appendUnsearchable(lines, result.pages, unreadableSource);
-  appendPageWarnings(lines, result.pages, matchedPages);
+  appendPageWarnings(lines, result.pages, matchedPages, unreadableSource);
 
   if (collapsed.length > 0) {
     const first = collapsed[0];

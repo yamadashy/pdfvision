@@ -56,6 +56,8 @@ description: 透過 Model Context Protocol，為沒有 shell 的宿主——Clau
 
 同樣的誠實也適用於搜尋：core warning 會隨回應一起傳回，因此當一個 regex query 超出單頁時間 budget 時，它會如實回報，而不是偽裝成「0 matches」；對沒有可用原生文字的頁面搜尋時，也會說明該處的落空並不代表證據缺失。對動態 XFA (LiveCycle) 表單更進一步：當被搜尋的頁面只是「Please wait...」檢視器佔位頁時，無論是否命中，每次回應都會針對本次檢索選中的全部頁面說明這一點——尤其是零命中的回應，它最容易被誤讀為內容不存在——並建議改用 Adobe Acrobat/Reader，而不是算繪頁面，因為算繪出來同樣只是佔位頁。若擷取到的內容太少、無法判斷，它會如實說明並建議算繪或 OCR，而不是替你猜一個結論。頁面本身帶有文字、圖片或向量圖形的 AcroForm+XFA 混合表單——例如 IRS 報稅表——可以正常擷取，不會被這樣標記。而靜態內容只有欄位層的表單介於兩者之間：註記會說明欄位命中是可信的，但欄位周圍的頁面文字不是文件內容。
 
+`search_pdf` considers page-level extraction warnings from every selected page, including no-hit pages and all-zero searches. It lists at most five diagnostic pages and reports how many additional pages were omitted, prioritizing error-bearing pages, then pages carrying hits within the same severity. These codes mean that a hit or miss may need visual checking; they do not make every part of the page invalid. The response gives one concrete `render_pdf(pages: "N")` call for a listed page. Pages covered by the separate XFA note stay out of this generic render guidance because a confirmed placeholder renders as the placeholder too.
+
 每個結果都帶有 untrusted-data 提示條。MCP 宿主沒有 Agent Skill 那樣的指引，所以信任邊界要隨負載一起傳遞。請把擷取出的內容當作資料而非指令來對待——參見[安全與隱私](./security-and-privacy.md)。
 
 ## 遠端輸入受到防護
