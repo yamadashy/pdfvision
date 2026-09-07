@@ -11,6 +11,7 @@ Notable user-facing changes to pdfvision are documented here.
 ### Changed
 
 - Added site guidance for inspecting searchable native text that is invisible or covered by a later opaque fill, including the limits of these warnings and rendered-page verification.
+- Corrected the search documentation to describe ruby-inclusive and ruby-stripped native matching, narrow cross-line joins for hyphenated terms and stacked labels, and vertical CJK body-column reading order.
 
 ### Fixed
 
