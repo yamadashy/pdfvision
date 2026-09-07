@@ -20,7 +20,7 @@ interface DocumentResult {
   metadata: DocumentMetadata;  // title / author / subject / creator (all string | null)
   pageLabels?: string[];       // full 0-indexed viewer page-label array; present iff --page-labels
   attachments?: DocumentAttachment[]; // embedded file metadata; present iff --attachments
-  attachmentCount?: number;    // document-level embedded files; always computed, omitted when zero
+  attachmentCount?: number;    // catalog EmbeddedFiles by default; --attachments uses deduplicated catalog + all-page FileAttachment annotations; omitted when zero
   javascriptActionCount?: number; // document-level JavaScript scripts; always computed, omitted when zero
   outlineCount?: number;       // top-level outline entries; always computed, omitted when zero
   xfa?: boolean;               // true iff the PDF declares an XFA (LiveCycle) form; the xfa_form / xfa_static_content warning says whether that broke extraction
@@ -34,7 +34,12 @@ interface DocumentResult {
 
 `file` is patched on cache hit to the current invocation's path or `--remote` URL, so a downstream consumer sees a meaningful input label even when the cached entry came from a different invocation that touched the same content hash.
 
-`javascriptActionCount` is an always-on presence signal. It counts the script entries returned by pdf.js at document level, including JavaScript catalog `OpenAction` entries and named JavaScript entries. Pass `--viewer` to expose their names and script source in `viewer.jsActions`; pdfvision reports the scripts as data and does not execute them.
+The three document counts describe the source document independently of `--pages`; `pages[]` and any `overview[]` entries describe only selected pages. This contract applies to full JSON, decoded TOON, and `processDocument()` results. `--matches-only` uses a compact search result and omits the document counts. All three are omitted when zero.
+
+- `attachmentCount` counts catalog `EmbeddedFiles` by default. With `--attachments`, pdfvision also scans file-attachment annotations on every document page, even when `--pages` selects a subset; `attachments[]` and the count reflect the deduplicated catalog and annotations. The structured metadata includes names and sizes, never embedded bytes. Writing files requires `--attachments --attachment-output <dir>`.
+- `javascriptActionCount` counts document-level script entries, not action names, including named JavaScript and JavaScript entries from the catalog `OpenAction`. It excludes page and widget actions. `--viewer` exposes document scripts in `viewer.jsActions` and scripts from selected pages in `pages[].jsActions`; `--form-fields` exposes widget actions. pdfvision reports scripts as data and does not execute them.
+- `outlineCount` counts top-level bookmark entries, not the full recursive tree. `--outline` exposes that tree in `outline[]`.
+
 ## PageOverview (density summary)
 
 ```ts
@@ -63,6 +68,8 @@ interface PageOverview {
   height: number;
 }
 ```
+
+The per-page `formFieldCount`, `linkCount`, and `annotationCount` fields each describe a selected page. On `pages[]`, they are emitted automatically when non-zero and omitted when zero. An `overview[]` count may explicitly be `0` when its matching detail flag ran. The flags expose details in separate fields rather than changing these scalar counts into arrays.
 
 `overview[]` is the first thing to inspect for silent-failure detection. The `quality` field gives a one-shot classification; the raw signals below let agents combine signals their own way:
 - `imageCount > 0 && textCoverage ≈ 0` → image-flattened page; the text stream is empty.

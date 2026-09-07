@@ -67,6 +67,10 @@ On POSIX, pdfvision verifies ownership, uses `0700` / `0600` root and marker per
 
 `--attachments` can expose embedded file metadata and, when `--attachment-output` is used, write embedded files to disk. Treat extracted attachments as untrusted files.
 
+Default `attachmentCount` covers only catalog `EmbeddedFiles`. Its absence therefore does not rule out a file present only through a page `FileAttachment` annotation; `--attachments` checks those annotations across every document page and returns deduplicated metadata. Writing attachment bytes still requires `--attachments --attachment-output <dir>`.
+
+`javascriptActionCount` likewise covers document-level script entries only. Its absence does not rule out page or widget JavaScript; `--viewer` exposes document and selected-page scripts, while `--form-fields` exposes widget actions. These counts are output presence signals, not a complete security inventory or audit guarantee.
+
 Attachment filenames are sanitized before writing: path separators and control characters are replaced, empty names get a fallback, and duplicate names are disambiguated. pdfvision refuses to write into the internal per-document fingerprint directory it creates under `--attachment-output` when that directory is a symlink — but not into `--attachment-output` itself, which is resolved and created through symlinks without complaint. These checks reduce filesystem risk, but they do not make the embedded files safe to open.
 
 `--viewer` and form-field actions can expose PDF JavaScript source as data. pdfvision does not execute PDF JavaScript.
