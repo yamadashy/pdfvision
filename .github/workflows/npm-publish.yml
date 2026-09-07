@@ -62,3 +62,27 @@ jobs:
       - name: Publish
         if: ${{ !inputs.dry-run }}
         run: npm publish --provenance --access public
+
+      - name: Download mcp-publisher
+        if: ${{ !inputs.dry-run }}
+        run: |
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+
+      - name: Login to MCP Registry
+        if: ${{ !inputs.dry-run }}
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish to MCP Registry
+        if: ${{ !inputs.dry-run }}
+        run: |
+          # The registry validates that the npm version it's told about
+          # actually resolves on the npm registry, and npm propagation can
+          # lag behind our own publish step by up to a minute or so.
+          for attempt in 1 2 3 4 5; do
+            if ./mcp-publisher publish; then
+              exit 0
+            fi
+            echo "mcp-publisher publish failed (attempt ${attempt}/5), retrying in 30s..."
+            sleep 30
+          done
+          exit 1
