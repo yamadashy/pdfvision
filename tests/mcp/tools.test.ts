@@ -19,6 +19,7 @@ import type { PageResult, SearchMatch } from '../../src/types/index.js';
 import { buildMultiPageXfaPlaceholderPdf, buildXfaPlaceholderPdf } from '../helpers/xfaPdfs.js';
 
 const SAMPLE = join(import.meta.dirname, '..', 'fixtures', 'sample.pdf');
+const SAMPLE_INVISIBLE_TEXT = join(import.meta.dirname, '..', 'fixtures', 'sample-invisible-text.pdf');
 
 function text(result: { content: (TextBlock | ImageBlock)[] }): string {
   return result.content
@@ -221,6 +222,14 @@ describe('search_pdf', () => {
   it('reports zero hits without claiming absence', async () => {
     const body = text(await searchPdf({ source: SAMPLE, query: 'definitely-not-here' }));
     expect(body).toContain('0 matches');
+    expect(body).not.toContain('`p1m1`');
+  });
+
+  it('retains a real extraction warning when the search has no hits', async () => {
+    const body = text(await searchPdf({ source: SAMPLE_INVISIBLE_TEXT, query: 'definitely-not-here' }));
+    expect(body).toContain('0 matches');
+    expect(body).toContain('> - p.1: invisible_text');
+    expect(body).toContain('render_pdf(pages: "1")');
     expect(body).not.toContain('`p1m1`');
   });
 
@@ -479,7 +488,7 @@ describe('appendPageWarnings', () => {
       // biome-ignore lint/suspicious/noExplicitAny: minimal PageResult stand-in
     }) as any;
 
-  it('names the codes on pages a hit landed on, errors first', () => {
+  it('names the codes on selected pages, errors first within a page', () => {
     const lines: string[] = [];
     appendPageWarnings(
       lines,
@@ -494,20 +503,45 @@ describe('appendPageWarnings', () => {
     expect(lines.join('\n')).toContain('> - p.1: invisible_text, reading_order_divergence');
   });
 
-  it('says nothing about a page no hit landed on', () => {
+  it('retains a no-hit page and gives page-based render guidance', () => {
     const lines: string[] = [];
     appendPageWarnings(lines, [page(2, [{ code: 'invisible_text', severity: 'error' }])], new Set([1]));
-    expect(lines).toEqual([]);
+    const body = lines.join('\n');
+    expect(body).toContain('may affect search hits or misses');
+    expect(body).toContain('render_pdf(pages: "2")');
+    expect(body).toContain('> - p.2: invisible_text');
+    expect(body).not.toContain('ref:');
   });
 
-  it('leaves unreadable-source codes to the response-level note', () => {
+  it('excludes unreadable-source-covered pages while retaining other diagnostics', () => {
+    const lines: string[] = [];
+    appendPageWarnings(
+      lines,
+      [
+        page(1, [
+          { code: 'xfa_form', severity: 'error' },
+          { code: 'text_under_opaque_fill', severity: 'error' },
+        ]),
+        page(2, [{ code: 'invisible_text', severity: 'error' }]),
+      ],
+      new Set([1, 2]),
+      new Set([1]),
+    );
+    const body = lines.join('\n');
+    expect(body).not.toContain('p.1');
+    expect(body).not.toContain('text_under_opaque_fill');
+    expect(body).toContain('> - p.2: invisible_text');
+    expect(body).toContain('render_pdf(pages: "2")');
+  });
+
+  it('leaves unreadable-source codes to the response-level note without a covered set', () => {
     const lines: string[] = [];
     appendPageWarnings(
       lines,
       [
         page(1, [{ code: 'xfa_form', severity: 'error' }]),
         page(2, [
-          { code: 'xfa_form', severity: 'error' },
+          { code: 'xfa_fields_only', severity: 'error' },
           { code: 'invisible_text', severity: 'error' },
         ]),
       ],
@@ -515,15 +549,35 @@ describe('appendPageWarnings', () => {
     );
     const body = lines.join('\n');
     expect(body).not.toContain('p.1');
+    expect(body).not.toContain('xfa_form');
+    expect(body).not.toContain('xfa_fields_only');
     expect(body).toContain('> - p.2: invisible_text');
   });
 
-  it('caps the list and says how many pages it left out', () => {
-    const pages = Array.from({ length: 9 }, (_, i) => page(i + 1, [{ code: 'invisible_text', severity: 'error' }]));
+  it('caps mixed hit and no-hit diagnostics and reports every omitted page', () => {
+    const pages = Array.from({ length: 7 }, (_, i) =>
+      page(i + 1, [{ code: 'reading_order_divergence', severity: 'warning' }]),
+    );
     const lines: string[] = [];
-    appendPageWarnings(lines, pages, new Set(pages.map((p) => p.page)));
+    appendPageWarnings(lines, pages, new Set([6]));
     expect(lines.filter((line) => line.startsWith('> - p.'))).toHaveLength(5);
-    expect(lines.join('\n')).toContain('4 further page(s) with warnings omitted');
+    expect(lines[1]).toContain('render_pdf(pages: "6")');
+    expect(lines[2]).toContain('p.6');
+    expect(lines.join('\n')).toContain('2 further page(s) with warnings omitted');
+  });
+
+  it('ranks a late error-bearing page ahead of earlier warning-only pages', () => {
+    const pages = [
+      ...Array.from({ length: 5 }, (_, i) => page(i + 1, [{ code: 'reading_order_divergence', severity: 'warning' }])),
+      page(9, [{ code: 'invisible_text', severity: 'error' }]),
+    ];
+    const lines: string[] = [];
+    appendPageWarnings(lines, pages, new Set([1]));
+
+    expect(lines[1]).toContain('render_pdf(pages: "9")');
+    expect(lines[2]).toBe('> - p.9: invisible_text');
+    expect(lines.join('\n')).not.toContain('> - p.5:');
+    expect(lines.at(-1)).toBe('> - 1 further page(s) with warnings omitted.');
   });
 });
 

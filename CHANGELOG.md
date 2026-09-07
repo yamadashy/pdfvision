@@ -10,6 +10,7 @@ Notable user-facing changes to pdfvision are documented here.
 
 ### Fixed
 
+- Made MCP search consider extraction warnings from every selected page, including no-hit pages and all-zero searches, so raster-backed text layers and other extraction limits no longer turn a failed exact search into silent evidence of absence. It lists at most five diagnostic pages, prioritizes error-bearing pages, reports the omitted-page count, gives page-based render guidance, and leaves XFA-covered pages to their separate recovery note.
 - Preserved compact per-page search diagnostics under `--matches-only`, including warnings and non-OK native or visual quality on no-hit pages and all-zero searches. Applicable XFA placeholder findings now also retain their document-wide unreadable-source scope and correct recovery guidance without restoring full page bodies.
 
 ## [0.18.0] - 2026-08-19

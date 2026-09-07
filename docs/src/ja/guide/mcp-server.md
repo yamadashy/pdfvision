@@ -56,6 +56,8 @@ map か本文かを分けるのは 20 ページという閾値であって、本
 
 同じ正直さは検索にも適用されます: core の warning はレスポンスに同乗するため、ページあたりの時間バジェットを超えた regex クエリは「0 matches」を装わずに自己申告し、使える native text のないページへの検索は「そこでのミスは不在の証拠ではない」と明言します。動的 XFA (LiveCycle) フォームでは、これがもう一段先まで届きます。検索したページが「Please wait...」のビューア用プレースホルダーだけだった場合、ヒットの有無にかかわらず、検索対象に選ばれたすべてのページについて毎回そう伝えます。不在と読み違えられやすいのはヒット 0 件のレスポンスだからです。案内する復旧手段はレンダーではなく Adobe Acrobat/Reader です。レンダーしてもプレースホルダーが出るだけだからです。判断がつかないほど抽出量が少ない場合は、どちらとも決めつけずに「レンダーか OCR で確かめてほしい」と伝えます。ページ自体にテキスト・画像・図版を持つ AcroForm と XFA のハイブリッド — IRS の申告書など — は通常どおり抽出できるため、この扱いにはなりません。そして、静的な実体がフィールド層だけのフォームはその中間で、フィールドのヒットは信頼できる一方、その周囲のページ本文は文書の内容ではない、と注記されます。
 
+`search_pdf` considers page-level extraction warnings from every selected page, including no-hit pages and all-zero searches. It lists at most five diagnostic pages and reports how many additional pages were omitted, prioritizing error-bearing pages, then pages carrying hits within the same severity. These codes mean that a hit or miss may need visual checking; they do not make every part of the page invalid. The response gives one concrete `render_pdf(pages: "N")` call for a listed page. Pages covered by the separate XFA note stay out of this generic render guidance because a confirmed placeholder renders as the placeholder too.
+
 成功した結果の先頭には untrusted-data バナーが付きます（エラー結果には付かず、文書の内容を引用することがあります）。MCP ホストには Agent Skill の指針に相当するものがないため、信頼境界はペイロードと一緒に運ばれます。抽出されたコンテンツは指示ではなくデータとして扱ってください — [セキュリティとプライバシー](./security-and-privacy.md)を参照。
 
 ## リモート入力はガードされます
