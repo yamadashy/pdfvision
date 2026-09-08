@@ -13,6 +13,7 @@ Notable user-facing changes to pdfvision are documented here.
 - Documented the automatic attachment, JavaScript, and outline presence counts, including their source-document scope and the flags that expose details.
 - Updated the search-and-zoom guide to distinguish a match's tight `bbox` from the compact report's crop-ready `region`, then pass that region unchanged to `--render-region`.
 - Added site guidance for inspecting searchable native text that is invisible or covered by a later opaque fill, including the limits of these warnings and rendered-page verification.
+- Corrected the search documentation to describe ruby-inclusive and ruby-stripped native matching, narrow cross-line joins for hyphenated terms and stacked labels, and vertical CJK body-column reading order.
 
 ### Fixed
 
