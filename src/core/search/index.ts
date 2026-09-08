@@ -66,17 +66,17 @@ const REGEX_SEARCH_TIMEOUT_MS = 1000;
  * text (via spans) and OCR text (when present). Emission is capped at
  * 10,000 matches per page, query, and source. The first additional valid
  * match invokes onWarning when provided; it and later matches for that
- * combination are dropped. Returns native matches in top-down, left-right
- * line order, then
- * OCR-derived matches appended after.
+ * combination are dropped. Returns native matches in reconstructed
+ * search-line order, then OCR-derived matches appended after.
  *
  * Native matches are found against line-level text reconstructed from
  * adjacent spans, so a query can cross pdf.js font-run boundaries
  * (e.g. `"Hello World"` split into `Hello` + `World`) while still
- * returning a bbox union of the contributing spans. Multi-line phrases
- * are intentionally not stitched together except for narrow hyphenated
- * line-break terms, where `boxes[]` keeps the contributing line slices
- * precise enough for follow-up inspection.
+ * returning a bbox union of the contributing spans. Horizontal prose
+ * lines are not generically stitched into phrases. Narrow exceptions join
+ * hyphenated line-break terms and short, geometrically aligned stacked
+ * labels; `boxes[]` keeps their contributing line slices precise enough
+ * for follow-up inspection.
  *
  * OCR matches use `pages[].ocr.words[]` when present and supplement from
  * raw `pages[].ocr.text` with a page-level bbox when word-level
@@ -96,9 +96,9 @@ const REGEX_SEARCH_TIMEOUT_MS = 1000;
  * Link targets are included when the processor supplies links. They use
  * the clickable link bbox and are marked `source: 'link'`.
  *
- * A native match's `context` quotes the reconstructed layout line it sits
- * on when the processor supplies a layout, so the preview reads the way
- * the page body does; without one it falls back to the raw search line.
+ * A native match's `context` quotes a reconstructed layout line when it
+ * covers the hit and contains the matched string. Otherwise it falls back
+ * to the matched search line, including ruby-stripped and cross-line forms.
  *
  * In regex mode the whole page pass is bounded at
  * {@link REGEX_SEARCH_TIMEOUT_MS}; exceeding it warns and returns no
