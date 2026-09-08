@@ -22,6 +22,9 @@ interface DocumentResult {
   file: string;
   totalPages: number;
   metadata: DocumentMetadata;
+  attachmentCount?: number;
+  javascriptActionCount?: number;
+  outlineCount?: number;
   overview?: PageOverview[];
   pages: PageResult[];
 }
@@ -34,6 +37,16 @@ interface DocumentResult {
 - `outline`: `--outline`。
 - `viewer`: `--viewer`。
 - `layers`: `--layers`。
+
+The presence contract below applies to full JSON and decoded TOON output. `--matches-only` uses a compact search result and omits these document counts. The document counts describe the source document independently of `--pages`; `pages[]` and any `overview[]` entries describe only the selected pages.
+
+| Count | Default scope | Detail expansion |
+| --- | --- | --- |
+| `attachmentCount` | Catalog `EmbeddedFiles`. | `--attachments` also scans file-attachment annotations on every document page, even when `--pages` selects a subset. `attachments[]` and the count then reflect the deduplicated catalog and annotations. Structured metadata includes names and sizes, never embedded bytes; writing files requires `--attachments --attachment-output <dir>`. |
+| `javascriptActionCount` | Document-level script entries, including named scripts and JavaScript entries from the catalog `OpenAction`; this is not an action-name count and excludes page and widget actions. | `--viewer` exposes document scripts and scripts on selected pages. `--form-fields` exposes widget actions. |
+| `outlineCount` | Top-level bookmark entries, not a recursive count. | `--outline` exposes the bookmark tree. |
+
+All three document counts are omitted when zero. Per-page `formFieldCount`, `linkCount`, and `annotationCount` describe each selected page and are also omitted when zero; an overview count may explicitly be `0` when its matching detail flag ran. Count fields remain scalar signals, while flags expose details in separate fields.
 
 ## Page Overview
 

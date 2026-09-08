@@ -65,6 +65,10 @@ PDFVISION_CACHE_DIR=/secure/cache pdfvision document.pdf --format json
 
 `--attachments` 可以暴露嵌入文件 metadata；使用 `--attachment-output` 时会把嵌入文件写入磁盘。请把提取出的附件视为 untrusted files。
 
+Default `attachmentCount` covers only catalog `EmbeddedFiles`. Its absence therefore does not rule out a file present only through a page `FileAttachment` annotation; `--attachments` checks those annotations across every document page and returns deduplicated metadata. Writing attachment bytes still requires `--attachments --attachment-output <dir>`.
+
+`javascriptActionCount` likewise covers document-level script entries only. Its absence does not rule out page or widget JavaScript; `--viewer` exposes document and selected-page scripts, while `--form-fields` exposes widget actions. These counts are output presence signals, not a complete security inventory or audit guarantee.
+
 附件文件名在写入前会被 sanitize：路径分隔符和控制字符会被替换，空名称会获得 fallback，重复名称会 disambiguate。pdfvision 拒绝写入它在 `--attachment-output` 下创建的内部 fingerprint directory（当该目录是 symlink 时），但 `--attachment-output` 本身传入的路径会被解析并沿着 symlink 创建，不会被拒绝。这些检查能降低 filesystem 风险，但不能让嵌入文件变得安全。
 
 `--viewer` 和 form-field actions 可能把 PDF JavaScript source 作为数据暴露。pdfvision 不会执行 PDF JavaScript。

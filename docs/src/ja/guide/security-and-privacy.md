@@ -65,6 +65,10 @@ POSIX では、pdfvision は所有者を確認し、ルートとマーカーに 
 
 `--attachments` は埋め込みファイルの metadata を出し、`--attachment-output` を使うと埋め込みファイルを disk に書き出せます。抽出された attachment は untrusted file として扱ってください。
 
+Default `attachmentCount` covers only catalog `EmbeddedFiles`. Its absence therefore does not rule out a file present only through a page `FileAttachment` annotation; `--attachments` checks those annotations across every document page and returns deduplicated metadata. Writing attachment bytes still requires `--attachments --attachment-output <dir>`.
+
+`javascriptActionCount` likewise covers document-level script entries only. Its absence does not rule out page or widget JavaScript; `--viewer` exposes document and selected-page scripts, while `--form-fields` exposes widget actions. These counts are output presence signals, not a complete security inventory or audit guarantee.
+
 attachment filenames は書き出し前に sanitize されます。path separators と control characters は置換され、空の名前には fallback が入り、重複名は disambiguate されます。pdfvision は `--attachment-output` の下に作る内部の fingerprint directory が symlink の場合はその書き込みを拒否しますが、`--attachment-output` に渡したパス自体は symlink を辿ってそのまま解決・作成され、拒否されません。これらは filesystem risk を下げますが、埋め込みファイルを安全に開けるようにするものではありません。
 
 `--viewer` と form-field actions は PDF JavaScript source を data として露出することがあります。pdfvision は PDF JavaScript を実行しません。
