@@ -115,9 +115,10 @@ export function normalizeJavaScriptActions(
   value: unknown,
   options: BuildViewerStateOptions = {},
 ): Record<string, string[]> | undefined {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const dict = dictValue(value);
+  if (!dict) return undefined;
   const actions: Record<string, string[]> = {};
-  for (const [rawName, rawScripts] of Object.entries(value)) {
+  for (const [rawName, rawScripts] of Object.entries(dict)) {
     const name = normalizeTarget(rawName, options);
     if (!name) continue;
     const scripts = (Array.isArray(rawScripts) ? rawScripts : [rawScripts])
@@ -141,8 +142,9 @@ function jsActionsValue(value: unknown, options: BuildViewerStateOptions): Pick<
 }
 
 function markInfoValue(value: unknown): Pick<DocumentViewerState, 'markInfo'> {
-  if (!value || typeof value !== 'object') return {};
-  const markInfo = value as PdfMarkInfo;
+  const dict = dictValue(value);
+  if (!dict) return {};
+  const markInfo = dict as PdfMarkInfo;
   const out: DocumentMarkInfo = {
     marked: markInfo.Marked === true,
     userProperties: markInfo.UserProperties === true,
@@ -156,7 +158,8 @@ function normalizeTarget(target: string, options: BuildViewerStateOptions): stri
 }
 
 // pdf.js 6.2 changed getViewerPreferences / getOpenAction to return their
-// dictionary data in a Map ([api-minor] mozilla/pdf.js#21607, #21621); older
+// dictionary data in a Map ([api-minor] mozilla/pdf.js#21607, #21621), and
+// 6.3 did the same for getJSActions / getMarkInfo (#21664, #21834); older
 // versions return plain objects. Accept both shapes.
 function dictValue(value: unknown): Record<string, unknown> | undefined {
   if (value instanceof Map) {
