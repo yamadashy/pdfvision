@@ -82,7 +82,7 @@
     "@secretlint/secretlint-rule-preset-recommend": "^13.0.5",
     "@types/node": "^25.9.5",
     "@types/pdfkit": "^0.17.6",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/coverage-v8": "^5.0.0",
     "es-module-lexer": "2.3.2",
     "oxlint": "^1.81.0",
     "pdfkit": "^0.20.2",
@@ -91,7 +91,7 @@
     "typescript": "^7.0.2",
     "vitepress": "^1.6.4",
     "vitepress-plugin-llms": "^1.13.5",
-    "vitest": "^4.1.11",
+    "vitest": "^5.0.0",
     "wrangler": "^4.129.0"
   }
 }
