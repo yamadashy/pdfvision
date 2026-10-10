@@ -67,10 +67,10 @@
     "node": ">=22.13.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/server": "^2.2.0",
+    "@modelcontextprotocol/server": "^2.3.0",
     "@napi-rs/canvas": "^1.0.0",
     "@toon-format/toon": "^4.1.1",
-    "pdfjs-dist": "^6.3.289",
+    "pdfjs-dist": "^6.4.299",
     "zod": "^4.6.5"
   },
   "optionalDependencies": {
@@ -79,14 +79,14 @@
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
     "@expo-google-fonts/noto-sans-jp": "^0.4.3",
-    "@secretlint/secretlint-rule-preset-recommend": "^13.0.6",
+    "@secretlint/secretlint-rule-preset-recommend": "^13.0.7",
     "@types/node": "^25.9.9",
     "@types/pdfkit": "^0.17.6",
     "@vitest/coverage-v8": "^5.0.3",
     "es-module-lexer": "3.0.2",
     "oxlint": "^1.86.0",
     "pdfkit": "^0.20.2",
-    "secretlint": "^13.0.6",
+    "secretlint": "^13.0.7",
     "tsdown": "^0.23.0",
     "typescript": "^7.0.2",
     "vitepress": "^1.6.4",
