@@ -19,7 +19,7 @@ pdfvision document.pdf --layout --format json
 
 - `pages[].layout.blocks[].lines`: 带几何信息的重建文本行。
 - `pages[].layout.blocks`: 按阅读顺序排列的块、角色和 bbox。
-- `pages[].layout.tables`: 原生文本可能压平行列关系时的数字表格提示。每个单元格带有几何列号 `column`(分组表头和合并单元格另有 `columnSpan`)，因此空单元格保留为空列，后面的值不会向左错位。
+- `pages[].layout.tables`: 原生文本可能压平行列关系时的数字表格提示。Each cell carries its geometric `column` (plus `columnSpan` for grouped headers and merged values), so an empty cell stays an empty column instead of shifting later values left.
 - 竖排 CJK 文本恢复。
 
 当原生文本流与视觉阅读顺序不同，Markdown 输出可以使用恢复后的 layout order。
@@ -75,7 +75,7 @@ visual regions 可以作为到多模态模型的桥梁：
 - 文本重叠或文本框超出页面。
 - 正文挤到重复页眉或页脚附近。
 - 被压平的数字表格。
-- 单元格未能落入一致网格的 layout table 提示(`layout_table_uncertain`)。
+- layout table hints whose cells did not resolve into one consistent grid (`layout_table_uncertain`).
 - 原生文本顺序与视觉阅读顺序不一致。
 - 字形乱码、PUA 字符串或局部 mojibake。
 - 全页扫描上的 OCR 文本层。
@@ -108,7 +108,7 @@ A render establishes only what the page visibly shows. Neither a warning nor its
 
 - 如果原生文本字形损坏，在摘要前先与 render 或 OCR 比较。
 - 如果阅读顺序分歧，叙事顺序优先使用 layout blocks，而不是 raw page text。
-- 如果出现 table warning，保留行列证据；当数值重要时裁剪表格。`layout_table_uncertain` 会给出对应表格及其 bbox：在信任单元格之前先渲染该区域。
+- 如果出现 table warning，保留行列证据；当数值重要时裁剪表格。`layout_table_uncertain` names the table and its bbox: render that region before trusting its cells.
 - 如果出现 large raster 或 dense vector warning，在验证前假设标签可能是 visual-only。
 - 如果涉及 repeated chrome，避免混合页眉、页脚、页码和正文。
 

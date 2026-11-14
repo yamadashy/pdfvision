@@ -54,7 +54,7 @@ description: 使用 pdfvision 输出让 AI 智能体检查 PDF、验证布局、
 
 对每个表格：
 1. 优先使用 pages[].layout.tables。
-2. 保留行列关系；单元格所在列以 `column` 为准，而不是它在 `cells` 中的位置。
+2. 保留行列关系。Read each cell's column from `column`, not from its position in `cells`.
 3. 标出含义不明确或需要渲染裁剪图确认的单元格。
 4. 包含页码和 bbox 证据。
 ```

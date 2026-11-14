@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildLayout } from '../../src/core/layout/index.js';
+import { tableCandidateRow } from '../../src/core/layout/tableCandidateRows.js';
 import type { LayoutTable, TextSpan } from '../../src/types/index.js';
 
 function span(text: string, x: number, y: number, width: number, fontSize = 9): TextSpan {
@@ -112,6 +113,32 @@ describe('layout table columns', () => {
       '5,228',
     ]);
     expect(cellsOf(table, 'Proceeds from issuance of term debt, net')?.map((cell) => cell.column)).toEqual([0, 1, 2]);
+  });
+
+  it('keeps a row whose only values carry footnote markers', () => {
+    const rows = [
+      ['Products', '69,958', '67,184'],
+      ['Services', '24,972', '22,314'],
+      ['Adjustments', '10 (a)', '20 (b)'],
+      ['Total', '94,940', '89,518'],
+    ];
+    const spans = rows.flatMap(([label, current, prior], index) => {
+      const y = 100 + index * 12;
+      return [span(label, 50, y, 45), span(current, 200, y, 30), span(prior, 260, y, 30)];
+    });
+    const table = findTable(buildLayout(spans, 612, 792).tables, '69,958');
+
+    expect(cellsOf(table, 'Adjustments')?.map(({ text, column }) => [text, column])).toEqual([
+      ['Adjustments', 0],
+      ['10 (a)', 1],
+      ['20 (b)', 2],
+    ]);
+  });
+
+  it('does not take a row of nothing but placeholders as a table row', () => {
+    const line = (text: string, x: number) => ({ text, x, y: 100, width: 20, height: 9, fontSize: 9 });
+    expect(tableCandidateRow([line('Other', 50), line('—', 200), line('—', 260)])).toBeUndefined();
+    expect(tableCandidateRow([line('Other', 50), line('n/a', 200), line('— (a)', 260)])).toBeUndefined();
   });
 
   it('keeps group-label rows inside the table and centers grouped headers over their columns', () => {
@@ -237,6 +264,69 @@ describe('layout table columns', () => {
       ['2', 4],
     ]);
   });
+
+  it('keeps a sparse body column that has its own header', () => {
+    // Q2 holds a value in only one row, a few points right of the Q1
+    // values; its own header shows it is a real column, not a stray header
+    // digit to fold into Q1.
+    const rows: [string, string, number][] = [
+      ['Revenue', '1,010', 95],
+      ['Costs', '1,020', 95],
+      ['Taxes', '1,030', 95],
+      ['Other', '1,040', 95],
+      ['Margin', '1,050', 124],
+    ];
+    const spans = [
+      span('Item', 0, 90, 18),
+      span('Q1', 100, 90, 10),
+      span('Q2', 128, 90, 10),
+      span('Q3', 175, 90, 10),
+      span('Total', 210, 90, 20),
+      ...rows.flatMap(([label, value, x], index) => {
+        const y = 102 + index * 12;
+        return [
+          span(label, 0, y, 28),
+          span(value, x, y, 20),
+          span(`7${index}`, 175, y, 10),
+          span(`90${index}`, 212, y, 14),
+        ];
+      }),
+    ];
+    const table = findTable(buildLayout(spans, 612, 792).tables, '1,050');
+
+    expect(table?.columnCount).toBe(5);
+    expect(cellsOf(table, 'Item')?.map((cell) => cell.column)).toEqual([0, 1, 2, 3, 4]);
+    expect(cellsOf(table, 'Margin')?.map(({ text, column }) => [text, column])).toEqual([
+      ['Margin', 0],
+      ['1,050', 2],
+      ['74', 3],
+      ['904', 4],
+    ]);
+  });
+
+  it('assigns columns in an aligned-text table on a page with no numeric table rows', () => {
+    // Every value mixes letters and digits, so no row is a numeric table
+    // candidate and only the aligned-text detector finds the table.
+    const rows: (string | undefined)[][] = [
+      ['Alpha', 'x86-64', 'gcc12', 'Linux6'],
+      ['Beta', 'arm64', 'clang17', 'macOS14'],
+      ['Gamma', 'riscv64', undefined, 'Linux6'],
+      ['Delta', 'x86-64', 'msvc19', 'Win11'],
+      ['Epsilon', 'arm64', 'gcc13', 'Android14'],
+    ];
+    const xs = [50, 150, 250, 350];
+    const spans = rows.flatMap((row, rowIndex) =>
+      row.flatMap((text, column) => (text ? [span(text, xs[column], 100 + rowIndex * 12, text.length * 4.5)] : [])),
+    );
+    const table = findTable(buildLayout(spans, 612, 792).tables, 'riscv64');
+
+    expect(cellsOf(table, 'Gamma')?.map(({ text, column }) => [text, column])).toEqual([
+      ['Gamma', 0],
+      ['riscv64', 1],
+      ['Linux6', 3],
+    ]);
+  });
+
   it('keeps a column header above the first row instead of gluing it onto that row label', () => {
     // ViT appendix-shaped case: `N/A` makes the first data row a table row,
     // and the header line above it must not become part of its label.

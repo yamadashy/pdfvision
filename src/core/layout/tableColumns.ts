@@ -37,7 +37,8 @@ export function assignTableColumns(table: LayoutTable): LayoutTable {
   const bodyCells: CellRef[] = bodyRows.flatMap((row) => rows[row].cells.map((_, cell) => ({ row, cell })));
   const spanning = new Set(bodyCells.filter((ref) => isSpanningBodyCell(ref, rows, bodyRows)).map(key));
   const clusterCells = bodyCells.filter((ref) => !spanning.has(key(ref)));
-  const columns = absorbStrayColumns(clusterColumns(clusterCells, rows), bodyRows.length);
+  const headerCells = rows.slice(0, bodyRows[0] ?? 0).flatMap((row) => row.cells.map(toExtent));
+  const columns = absorbStrayColumns(clusterColumns(clusterCells, rows), bodyRows.length, headerCells);
   if (columns.length === 0) return table;
 
   const placements = new Map<string, { column: number; span: number }>();
@@ -138,10 +139,11 @@ function clusterColumns(cells: readonly CellRef[], rows: readonly LayoutTableRow
  * A column held by a single cell is usually that cell missing its real
  * column: a header digit centered over right-aligned values too narrow to
  * overlap it. Fold it into the nearest column when that column is clearly
- * nearer than any other and free in the cell's row; otherwise it stays a
- * column of its own.
+ * nearer than any other and free in the cell's row, and no header above the
+ * body sits over it apart from that column; otherwise it stays a column of
+ * its own (a sparse column whose header names it).
  */
-function absorbStrayColumns(columns: Column[], bodyRowCount: number): Column[] {
+function absorbStrayColumns(columns: Column[], bodyRowCount: number, headers: readonly Extent[]): Column[] {
   if (bodyRowCount < STRAY_COLUMN_MIN_BODY_ROWS) return columns;
   const established = columns.filter((column) => column.members.size > 1);
   const kept = new Set(established);
@@ -160,18 +162,23 @@ function absorbStrayColumns(columns: Column[], bodyRowCount: number): Column[] {
       nearest !== undefined &&
       nearest.gap <= STRAY_COLUMN_MAX_GAP_PT &&
       (second === undefined || nearest.gap <= second.gap * STRAY_COLUMN_MAX_GAP_RATIO) &&
-      ![...nearest.candidate.members].some((other) => other.startsWith(`${rowIndex}:`));
+      ![...nearest.candidate.members].some((other) => other.startsWith(`${rowIndex}:`)) &&
+      !headers.some((header) => coversColumn(header, column) && !coversColumn(header, nearest.candidate));
     if (absorbable) nearest.candidate.members.add(member);
     else kept.add(column);
   }
   return columns.filter((column) => kept.has(column));
 }
 
+function coversColumn(extent: Extent, column: Extent): boolean {
+  return (
+    overlap(extent, column) >=
+    Math.max(COLUMN_MIN_OVERLAP_PT, (extent.right - extent.left) * COLUMN_PLACEMENT_MIN_OVERLAP_RATIO)
+  );
+}
+
 function overlappedColumns(extent: Extent, columns: readonly Column[]): number[] {
-  const minOverlap = Math.max(COLUMN_MIN_OVERLAP_PT, (extent.right - extent.left) * COLUMN_PLACEMENT_MIN_OVERLAP_RATIO);
-  return columns
-    .map((column, index) => (overlap(extent, column) >= minOverlap ? index : -1))
-    .filter((index) => index >= 0);
+  return columns.map((column, index) => (coversColumn(extent, column) ? index : -1)).filter((index) => index >= 0);
 }
 
 /**

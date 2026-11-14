@@ -61,12 +61,11 @@ function isTableLikeSuffix(row: LayoutLine[]): boolean {
 }
 
 // Placeholders such as `—` hold a value column open, but a row of nothing
-// but placeholders carries no evidence that it is a table row.
+// but placeholders carries no evidence that it is a table row. A value with
+// a digit (`10 (a)` included) is that evidence.
 function hasTableValueCells(row: LayoutLine[]): boolean {
-  return (
-    row.filter((line) => isTableValueCell(line.text)).length >= TABLE_ROW_MIN_NUMERIC_CELLS &&
-    row.some((line) => isTableNumericCell(line.text))
-  );
+  const values = row.filter((line) => isTableValueCell(line.text));
+  return values.length >= TABLE_ROW_MIN_NUMERIC_CELLS && values.some((line) => /\d/u.test(line.text));
 }
 
 function hasSidePanelTableGap(row: LayoutLine[], start: number): boolean {

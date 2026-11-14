@@ -84,6 +84,17 @@ describe('layout_table_uncertain', () => {
     expect(warnings[0].message).toContain('1 row has two values in one column');
   });
 
+  it('flags a value whose column span overlaps another value of the same row', () => {
+    const rows = [
+      ...cleanRows,
+      [cell('Other', 50, 136, 0, 40), { ...cell('19', 200, 136, 1, 10), columnSpan: 2 }, cell('29', 260, 136, 2)],
+    ];
+    const warnings = uncertain(withTables(page([block(50, 100, 240, 44, { lines: linesOf(rows) })]), [table(rows, 3)]));
+
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0].message).toContain('1 row has two values in one column');
+  });
+
   it('flags neighbouring columns that no row fills together', () => {
     // GPT-3 SuperGLUE-shaped case: two stacked tables with different column
     // grids were read as one table, so each value's column depends on its row.

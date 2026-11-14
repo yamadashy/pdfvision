@@ -42,8 +42,9 @@ export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefin
     .map((row, index) => ({ row: tableCandidateRow(row), index }))
     .filter((item): item is IndexedLayoutRow => item.row !== undefined)
     .map(({ row, index }) => ({ ...scanLabelContinuationRows(row, index, allRowGroups), index }));
+  const finalize = (table: LayoutTable) => assignTableColumns(insertTableGroupLabelRows(table, allRowGroups));
   if (rowGroups.length < 2) {
-    const fallback = [...alignedTextTables, ...sparseSingleRowTables];
+    const fallback = [...alignedTextTables, ...sparseSingleRowTables].map(finalize);
     return fallback.length > 0 ? fallback : undefined;
   }
 
@@ -83,9 +84,7 @@ export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefin
     if (result.some((existing) => overlapOfSmaller(existing, table) >= 0.5)) continue;
     result.push(table);
   }
-  const merged = mergeSplitHeaderTables(result).map((table) =>
-    assignTableColumns(insertTableGroupLabelRows(table, allRowGroups)),
-  );
+  const merged = mergeSplitHeaderTables(result).map(finalize);
   return merged.length > 0 ? merged : undefined;
 }
 

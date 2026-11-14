@@ -88,9 +88,10 @@ function valueCollisionRows(table: LayoutTable): number {
   return table.rows.filter((row) => {
     const seen = new Set<number>();
     for (const cell of row.cells) {
-      if (cell.column === undefined || !isTableValueCell(cell.text)) continue;
-      if (seen.has(cell.column)) return true;
-      seen.add(cell.column);
+      if (!isTableValueCell(cell.text)) continue;
+      const columns = coveredColumns(cell);
+      if (columns.some((column) => seen.has(column))) return true;
+      for (const column of columns) seen.add(column);
     }
     return false;
   }).length;
