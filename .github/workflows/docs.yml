@@ -4,19 +4,19 @@ on:
   push:
     branches: [main]
     paths:
-      - 'docs/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.tool-versions'
-      - '.github/workflows/docs.yml'
+      - "docs/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".tool-versions"
+      - ".github/workflows/docs.yml"
   pull_request:
     branches: [main]
     paths:
-      - 'docs/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.tool-versions'
-      - '.github/workflows/docs.yml'
+      - "docs/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".tool-versions"
+      - ".github/workflows/docs.yml"
   workflow_dispatch:
 
 permissions:

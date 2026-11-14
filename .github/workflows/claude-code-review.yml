@@ -41,10 +41,9 @@ jobs:
           # a public repo '*' would let any external App drive this review with
           # a prompt it controls. Dependabot is not listed because its PRs are
           # skipped at the job level (no secrets in Dependabot-triggered runs).
-          allowed_bots: 'renovate[bot]'
-          plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
-          plugins: 'code-review@claude-code-plugins'
-          prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
+          allowed_bots: "renovate[bot]"
+          plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
+          plugins: "code-review@claude-code-plugins"
+          prompt: "/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
-

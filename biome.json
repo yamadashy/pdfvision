@@ -13,6 +13,7 @@
       "**/.secretlintrc.json",
       "!**/dist",
       "!**/node_modules",
+      "!**/*.md",
       "!src/cli/docs/*.generated.ts"
     ]
   },
