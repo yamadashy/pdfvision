@@ -54,7 +54,7 @@ pdfvision 出力を根拠として、この PDF を要約してください。
 
 各表について:
 1. pages[].layout.tables があれば使う。
-2. 行と列の関係を保持する。
+2. 行と列の関係を保持する。Read each cell's column from `column`, not from its position in `cells`.
 3. 曖昧なセルや crop 確認が必要なセルを示す。
 4. ページ番号と bbox の根拠を含める。
 ```

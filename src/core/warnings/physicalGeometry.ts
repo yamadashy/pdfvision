@@ -1,4 +1,4 @@
-import type { FormField, LayoutBlock, PageResult, TextSpan } from '../../types/index.js';
+import type { FormField, LayoutBlock, LayoutTable, PageResult, TextSpan } from '../../types/index.js';
 import type { OpaqueFillTextEvidence } from '../graphics/opaqueFillText.js';
 import type { PageWarningContext } from './index.js';
 
@@ -31,6 +31,7 @@ export function warningInputsInPhysicalPoints(
         layout: {
           ...page.layout,
           blocks: page.layout.blocks.map((block) => scaleBlock(block, userUnit)),
+          ...(page.layout.tables && { tables: page.layout.tables.map((table) => scaleTable(table, userUnit)) }),
         },
       }),
       ...(page.imageBoxes && { imageBoxes: page.imageBoxes.map((box) => scaleBox(box, userUnit)) }),
@@ -65,6 +66,18 @@ function scaleBlock(block: LayoutBlock, factor: number): LayoutBlock {
   return {
     ...scaleBox(block, factor),
     lines: block.lines.map((line) => ({ ...scaleBox(line, factor), fontSize: line.fontSize * factor })),
+  };
+}
+
+function scaleTable(table: LayoutTable, factor: number): LayoutTable {
+  return {
+    ...scaleBox(table, factor),
+    rows: table.rows.map((row) => ({
+      ...row,
+      y: row.y * factor,
+      height: row.height * factor,
+      cells: row.cells.map((cell) => scaleBox(cell, factor)),
+    })),
   };
 }
 

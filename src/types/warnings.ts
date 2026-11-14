@@ -13,6 +13,7 @@
  * hidden duplicate native text layers that inflate page text,
  * raster-dominated pages with no native text,
  * numeric table-like layouts whose rows/columns may flatten into plain text,
+ * layout table hints whose cells did not resolve into one consistent grid,
  * local math/text-order divergences whose visual order differs from native text,
  * large image regions whose internal labels will not appear in native text,
  * optional-content layer text that may include default-hidden content,
@@ -41,6 +42,7 @@ export interface PageWarning {
     | 'duplicate_text_layer'
     | 'raster_image_no_native_text'
     | 'tabular_numeric_layout'
+    | 'layout_table_uncertain'
     | 'dot_leader_noise'
     | 'tiny_native_text_noise'
     | 'raster_backed_text_layer'
@@ -84,4 +86,9 @@ export interface PageWarning {
    * image box without matching by geometry.
    */
   imageBoxIndex?: number;
+  /**
+   * 0-based index into `page.layout.tables` for warnings about one layout
+   * table hint. The table's bbox is the crop to render.
+   */
+  tableIndex?: number;
 }

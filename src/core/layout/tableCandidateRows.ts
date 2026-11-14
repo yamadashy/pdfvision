@@ -1,5 +1,5 @@
 import type { LayoutLine } from '../../types/index.js';
-import { isCurrencyOnlyCell, isTableNumericCell } from './tableCells.js';
+import { isCurrencyOnlyCell, isTableNumericCell, isTableValueCell } from './tableCells.js';
 
 const TABLE_ROW_MIN_CELLS = 3;
 const TABLE_ROW_MIN_NUMERIC_CELLS = 2;
@@ -38,29 +38,34 @@ export function firstTableLabelCell(row: LayoutLine[]): LayoutLine | undefined {
 }
 
 export function isNumericOnlyTableRow(row: LayoutLine[]): boolean {
-  return (
-    row.filter((line) => isTableNumericCell(line.text)).length >= TABLE_ROW_MIN_NUMERIC_CELLS &&
-    row.every((line) => isTableNumericCell(line.text) || isCurrencyOnlyCell(line.text))
-  );
+  return hasTableValueCells(row) && row.every((line) => isTableValueCell(line.text) || isCurrencyOnlyCell(line.text));
 }
 
 export function isRestorableTableLabelCell(line: LayoutLine): boolean {
-  return !isTableNumericCell(line.text) && !isCurrencyOnlyCell(line.text) && /[\p{L}]/u.test(line.text);
+  return !isTableValueCell(line.text) && !isCurrencyOnlyCell(line.text) && /[\p{L}]/u.test(line.text);
 }
 
 function isLikelyTableRow(row: LayoutLine[]): boolean {
-  const numericCells = row.filter((line) => isTableNumericCell(line.text)).length;
-  if (row.length === TABLE_ROW_MIN_NUMERIC_CELLS) return numericCells === TABLE_ROW_MIN_NUMERIC_CELLS;
+  if (row.length === TABLE_ROW_MIN_NUMERIC_CELLS) {
+    return row.filter((line) => isTableNumericCell(line.text)).length === TABLE_ROW_MIN_NUMERIC_CELLS;
+  }
   if (row.length < TABLE_ROW_MIN_CELLS) return false;
-  return numericCells >= TABLE_ROW_MIN_NUMERIC_CELLS;
+  return hasTableValueCells(row);
 }
 
 function isTableLikeSuffix(row: LayoutLine[]): boolean {
-  const numericCells = row.filter((line) => isTableNumericCell(line.text)).length;
-  if (numericCells < TABLE_ROW_MIN_NUMERIC_CELLS) return false;
+  if (!hasTableValueCells(row)) return false;
   return row.every(
-    (line) => isTableNumericCell(line.text) || isCurrencyOnlyCell(line.text) || isCompactTableLabelCell(line),
+    (line) => isTableValueCell(line.text) || isCurrencyOnlyCell(line.text) || isCompactTableLabelCell(line),
   );
+}
+
+// Placeholders such as `—` hold a value column open, but a row of nothing
+// but placeholders carries no evidence that it is a table row. A value with
+// a digit (`10 (a)` included) is that evidence.
+function hasTableValueCells(row: LayoutLine[]): boolean {
+  const values = row.filter((line) => isTableValueCell(line.text));
+  return values.length >= TABLE_ROW_MIN_NUMERIC_CELLS && values.some((line) => /\d/u.test(line.text));
 }
 
 function hasSidePanelTableGap(row: LayoutLine[], start: number): boolean {

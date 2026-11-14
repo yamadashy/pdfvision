@@ -19,7 +19,7 @@ pdfvision document.pdf --layout --format json
 
 - `pages[].layout.blocks[].lines`: ジオメトリ付きの復元行。
 - `pages[].layout.blocks`: 読み順ブロック、役割、bbox。
-- `pages[].layout.tables`: ネイティブテキストで崩れやすい数値表のヒント。
+- `pages[].layout.tables`: ネイティブテキストで崩れやすい数値表のヒント。Each cell carries its geometric `column` (plus `columnSpan` when a header or merged value's text overlaps several columns; a centered group header narrower than its group covers only the columns under its text, so render to confirm a group's width), so an empty cell stays an empty column instead of shifting later values left.
 - 縦書き CJK テキストの復元。
 
 Markdown 出力では、ネイティブテキストストリームと視覚的読み順が乖離する場合に、復元された layout order を利用できます。
@@ -75,6 +75,7 @@ visual regions は multimodal model への橋渡しとして使えます。
 - 重なった文字やページ外の文字。
 - 本文と繰り返しヘッダー、フッターの衝突。
 - 平坦化された数値表。
+- layout table hints whose cells did not resolve into one consistent grid (`layout_table_uncertain`).
 - ネイティブテキストと視覚的な読み順の不一致。
 - グリフ文字列、PUA 文字、局所的な文字化け。
 - フルページスキャン上の OCR テキストレイヤー。
@@ -107,7 +108,7 @@ warning は routing signal として扱います。
 
 - ネイティブテキストが glyph-corrupted なら、要約前に render または OCR と比較する。
 - 読み順が乖離しているなら、物語的な順序には raw page text より layout blocks を優先する。
-- table warning があるなら、行/列の根拠を保持し、値が重要なら表を crop する。
+- table warning があるなら、行/列の根拠を保持し、値が重要なら表を crop する。`layout_table_uncertain` names the table and its bbox: render that region before trusting its cells.
 - large raster や dense vector の warning があるなら、検証するまで label が visual-only だと仮定する。
 - repeated chrome が関わるなら、ヘッダー、フッター、ページ番号、本文を混ぜない。
 

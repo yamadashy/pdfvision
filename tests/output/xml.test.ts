@@ -525,7 +525,7 @@ describe('formatXml', () => {
                       height: 10,
                       cells: [
                         { text: 'Products', x: 10, y: 20, width: 40, height: 10 },
-                        { text: '298,085', x: 100, y: 20, width: 40, height: 10 },
+                        { text: '298,085', x: 100, y: 20, width: 40, height: 10, column: 1, columnSpan: 2 },
                         { text: '316,199', x: 160, y: 20, width: 40, height: 10 },
                       ],
                     },
@@ -551,6 +551,7 @@ describe('formatXml', () => {
     expect(out).toContain('<row y="20" height="10">');
     expect(out).toContain('<cell x="10" y="20" width="40" height="10">Products</cell>');
     expect(out).toContain('<cell x="160" y="34" width="40" height="10">78,129</cell>');
+    expect(out).toContain('<cell x="100" y="20" width="40" height="10" column="1" columnSpan="2">298,085</cell>');
   });
 
   it('emits an <imageBoxes> block with one <imageBox/> per box', () => {

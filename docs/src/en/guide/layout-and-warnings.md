@@ -19,7 +19,7 @@ Layout output includes:
 
 - `pages[].layout.blocks[].lines`: reconstructed text lines with geometry.
 - `pages[].layout.blocks`: reading-order blocks with roles and bounding boxes.
-- `pages[].layout.tables`: numeric-table hints when rows and columns may be flattened in native text.
+- `pages[].layout.tables`: numeric-table hints when rows and columns may be flattened in native text. Each cell carries its geometric `column` (plus `columnSpan` when a header or merged value's text overlaps several columns; a centered group header narrower than its group covers only the columns under its text, so render to confirm a group's width), so an empty cell stays an empty column instead of shifting later values left.
 - vertical CJK text recovery when text should be read as a vertical stack.
 
 Markdown output can use recovered layout order when the native text stream diverges from visual reading order. It also renders detected `layout.tables[]` as per-page layout table sections, preserving row/value relationships for financial statements and other numeric tables in chat-readable output.
@@ -75,6 +75,7 @@ Common warning families include:
 - overlapping text or off-page text boxes.
 - body text crowded against repeated headers or footers.
 - flattened numeric tables.
+- layout table hints whose cells did not resolve into one consistent grid (`layout_table_uncertain`).
 - native-vs-visual reading order divergence.
 - glyph-garbage native text, private-use glyph strings, or localized mojibake.
 - right-to-left script text whose inter-word spaces or paired brackets may degrade.
@@ -110,7 +111,7 @@ Treat warnings as routing signals:
 - If native text is glyph-corrupted, compare a render or OCR before summarizing.
 - If `rtl_script_text` appears, verify exact wording and paired brackets against a render.
 - If reading order diverges, prefer layout blocks over raw page text for narrative order.
-- If a table warning appears, preserve row and column evidence and crop the table when values matter.
+- If a table warning appears, preserve row and column evidence and crop the table when values matter. `layout_table_uncertain` names the table and its bbox: render that region before trusting its cells.
 - If large raster or dense vector warnings appear, assume labels may be visual-only until verified.
 - If repeated chrome is involved, avoid mixing headers, footers, page numbers, and body text.
 
