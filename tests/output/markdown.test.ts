@@ -2043,3 +2043,52 @@ describe('reading-order remedy', () => {
     expect(out).toContain(READING_ORDER_REMEDY);
   });
 });
+
+describe('formatMarkdown — layout table columns', () => {
+  it('places cells in their assigned columns and leaves empty columns empty', () => {
+    const cell = (text: string, x: number, column: number, columnSpan?: number) => ({
+      text,
+      x,
+      y: 0,
+      width: 20,
+      height: 8,
+      column,
+      ...(columnSpan !== undefined && { columnSpan }),
+    });
+    const out = formatMarkdown(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 'table',
+            charCount: 5,
+            layout: {
+              blocks: [],
+              tables: [
+                {
+                  x: 0,
+                  y: 0,
+                  width: 200,
+                  height: 30,
+                  rowCount: 3,
+                  columnCount: 5,
+                  rows: [
+                    { y: 0, height: 8, cells: [cell('BLEU', 60, 1, 2), cell('Training Cost', 140, 3, 2)] },
+                    { y: 10, height: 8, cells: [cell('Deep-Att', 0, 0), cell('39.2', 90, 2), cell('1.0', 170, 4)] },
+                    { y: 20, height: 8, cells: [cell('Adjustments', 90, 2), cell('(a)', 110, 2)] },
+                  ],
+                },
+              ],
+            },
+          }),
+        ],
+      }),
+      { layout: true },
+    );
+
+    expect(out).toContain('#### Table 1 (3 rows × 5 columns, bbox 0,0,200,30)');
+    expect(out).toContain('|  | BLEU |  | Training Cost |  |');
+    expect(out).toContain('| Deep-Att |  | 39.2 |  | 1.0 |');
+    expect(out).toContain('|  |  | Adjustments (a) |  |  |');
+  });
+});

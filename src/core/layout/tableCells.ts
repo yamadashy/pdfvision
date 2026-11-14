@@ -1,4 +1,5 @@
 import type { LayoutLine } from '../../types/index.js';
+import { round2 } from './geometry.js';
 
 export function isTableNumericCell(text: string): boolean {
   const trimmed = text.trim();
@@ -8,6 +9,31 @@ export function isTableNumericCell(text: string): boolean {
     .replace(/\b(?:below|under|over|above|about|approximately)\s+(?=\d)/giu, '')
     .replace(/(?<=\d)(?:st|nd|rd|th)\b/giu, '');
   return withoutScoreWords.replace(/[0-9.,()%$¥€£+\-/~\s·⋅∙×^]/gu, '').length === 0;
+}
+
+const TABLE_PLACEHOLDER_PATTERN = /^(?:[-‐‑‒–—―−]{1,3}|n\/a|n\.a\.)$/iu;
+const TABLE_FOOTNOTE_SUFFIX_PATTERN = /\s+\([a-z]\)$/u;
+const TABLE_LEADING_CURRENCY_PATTERN = /^[$¥€£]\s*/u;
+const TABLE_TRAILING_CURRENCY_PATTERN = /\s*[$¥€£]$/u;
+
+/** A dash-like or `n/a` marker standing in for an empty value. */
+export function isTablePlaceholderCell(text: string): boolean {
+  return TABLE_PLACEHOLDER_PATTERN.test(text.trim());
+}
+
+/**
+ * A cell that occupies a value column: a number or an empty-value
+ * placeholder, optionally prefixed by a currency symbol, followed by a
+ * lettered footnote marker such as `(b)`, or followed by the currency symbol
+ * of the next column (`10,246 (b) $`).
+ */
+export function isTableValueCell(text: string): boolean {
+  const core = text
+    .trim()
+    .replace(TABLE_TRAILING_CURRENCY_PATTERN, '')
+    .replace(TABLE_FOOTNOTE_SUFFIX_PATTERN, '')
+    .replace(TABLE_LEADING_CURRENCY_PATTERN, '');
+  return isTableNumericCell(core) || isTablePlaceholderCell(core);
 }
 
 export function numericColumnMatchRight(cell: LayoutLine, nextNumericCell: LayoutLine | undefined): number {
@@ -26,7 +52,7 @@ export function normalizeTableCurrencyCells(row: LayoutLine[]): LayoutLine[] {
   for (let i = 0; i < row.length; i++) {
     const cell = row[i];
     const text = cell.text.trim();
-    if (isCurrencyOnlyCell(text) && isTableNumericCell(row[i + 1]?.text ?? '')) {
+    if (isCurrencyOnlyCell(text) && isTableValueCell(row[i + 1]?.text ?? '')) {
       pendingCurrency = text;
       continue;
     }
@@ -34,7 +60,11 @@ export function normalizeTableCurrencyCells(row: LayoutLine[]): LayoutLine[] {
     const trailing = trailingCurrencyForNextValue(text, row[i + 1]);
     const textWithoutTrailing = trailing ? text.slice(0, -trailing.length).trimEnd() : text;
     const nextText = pendingCurrency ? `${pendingCurrency} ${textWithoutTrailing}` : textWithoutTrailing;
-    normalized.push({ ...cell, text: nextText });
+    // The trailing currency belongs to the next column; keep it out of this
+    // cell's box so the box does not reach into that column.
+    const width =
+      trailing && text.length > 0 ? round2(cell.width * (textWithoutTrailing.length / text.length)) : cell.width;
+    normalized.push({ ...cell, text: nextText, width });
     pendingCurrency = trailing;
   }
   if (pendingCurrency) {
@@ -56,10 +86,10 @@ export function isCurrencyOnlyCell(text: string): boolean {
 }
 
 function trailingCurrencyForNextValue(text: string, next: LayoutLine | undefined): string | undefined {
-  if (!next || !isTableNumericCell(next.text)) return undefined;
+  if (!next || !isTableValueCell(next.text)) return undefined;
   const match = /^(.+?)\s*([$¥€£])$/u.exec(text.trim());
   if (!match) return undefined;
-  return isTableNumericCell(match[1]) ? match[2] : undefined;
+  return isTableValueCell(match[1]) ? match[2] : undefined;
 }
 
 function rowY(row: LayoutLine[]): number {

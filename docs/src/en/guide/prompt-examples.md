@@ -54,7 +54,7 @@ Extract the tables from this pdfvision JSON.
 
 For each table:
 1. Use pages[].layout.tables when available.
-2. Preserve row and column relationships.
+2. Preserve row and column relationships; read each cell's column from `column`, not from its position in `cells`.
 3. Flag cells that appear ambiguous or may need a rendered crop.
 4. Include page number and bounding box evidence for each table.
 ```

@@ -167,6 +167,7 @@ function warningIndexReferences(warning: PageWarning): string[] {
   if (warning.blockIndex !== undefined) references.push(`blockIndex=${warning.blockIndex}`);
   if (warning.otherBlockIndex !== undefined) references.push(`otherBlockIndex=${warning.otherBlockIndex}`);
   if (warning.imageBoxIndex !== undefined) references.push(`imageBoxIndex=${warning.imageBoxIndex}`);
+  if (warning.tableIndex !== undefined) references.push(`tableIndex=${warning.tableIndex}`);
   return references;
 }
 
@@ -247,6 +248,7 @@ function appendXmlWarnings(out: string[], warnings: PageWarning[]): void {
     if (warning.blockIndex !== undefined) attrs.push(`blockIndex="${warning.blockIndex}"`);
     if (warning.otherBlockIndex !== undefined) attrs.push(`otherBlockIndex="${warning.otherBlockIndex}"`);
     if (warning.imageBoxIndex !== undefined) attrs.push(`imageBoxIndex="${warning.imageBoxIndex}"`);
+    if (warning.tableIndex !== undefined) attrs.push(`tableIndex="${warning.tableIndex}"`);
     out.push(`<warning ${attrs.join(' ')}>${escapeText(warning.message)}</warning>`);
   }
   out.push('</warnings>');

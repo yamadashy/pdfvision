@@ -93,6 +93,7 @@ function appendWarnings(out: string[], page: PageResult): void {
     if (w.blockIndex !== undefined) wAttrs.push(`blockIndex="${w.blockIndex}"`);
     if (w.otherBlockIndex !== undefined) wAttrs.push(`otherBlockIndex="${w.otherBlockIndex}"`);
     if (w.imageBoxIndex !== undefined) wAttrs.push(`imageBoxIndex="${w.imageBoxIndex}"`);
+    if (w.tableIndex !== undefined) wAttrs.push(`tableIndex="${w.tableIndex}"`);
     out.push(`<warning ${wAttrs.join(' ')}>${escapeText(w.message)}</warning>`);
   }
   out.push('</warnings>');

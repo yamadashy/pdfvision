@@ -164,6 +164,11 @@ export interface LayoutTable {
   width: number;
   height: number;
   rowCount: number;
+  /**
+   * Number of geometric columns the cells were assigned to (see
+   * {@link LayoutTableCell.column}). A row can hold fewer cells than this
+   * when some of its columns are empty.
+   */
   columnCount: number;
   rows: LayoutTableRow[];
 }
@@ -180,4 +185,18 @@ export interface LayoutTableCell {
   y: number;
   width: number;
   height: number;
+  /**
+   * 0-based column the cell sits in, derived from the horizontal extent
+   * the table's body cells share. Cells are listed left to right, so an
+   * empty column shows up as a gap between consecutive `column` values,
+   * never as a shifted value. Two cells can share a column when one line
+   * was split (a header and its footnote marker).
+   */
+  column?: number;
+  /**
+   * Number of columns the cell covers, starting at `column`. Omitted when
+   * it is 1. Grouped headers such as `Three Months Ended` above two year
+   * columns, and merged value cells, cover more than one.
+   */
+  columnSpan?: number;
 }

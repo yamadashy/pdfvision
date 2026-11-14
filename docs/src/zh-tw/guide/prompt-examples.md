@@ -54,7 +54,7 @@ description: 使用 pdfvision 輸出讓 AI 代理檢查 PDF、驗證版面、擷
 
 對每個表格：
 1. 優先使用 pages[].layout.tables。
-2. 保留行列關係。
+2. 保留行列關係；儲存格所在欄以 `column` 為準，而不是它在 `cells` 中的位置。
 3. 標出含義不明確或需要渲染裁切圖確認的儲存格。
 4. 包含頁碼和 bbox 證據。
 ```

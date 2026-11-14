@@ -19,6 +19,7 @@ import {
   hasUnreliableGlyphGeometry,
 } from './glyphText.js';
 import { detectInvisibleText } from './invisibleText.js';
+import { detectLayoutTableUncertainty } from './layoutTables.js';
 import { warningInputsInPhysicalPoints } from './physicalGeometry.js';
 import { detectFormLabelReadingOrderDivergence, detectReadingOrderDivergence } from './readingOrder.js';
 import { detectTextUnderOpaqueFill } from './redactionBypass.js';
@@ -152,6 +153,7 @@ function detectPageWarningsInPhysicalPoints(page: PageResult, context: PageWarni
   suppressOffPageForTruncatedBlocks(warnings);
   detectTextOverlap(blocks, warnings, page.imageBoxes ?? context.imageBoxes, page);
   detectTabularNumericLayout(blocks, warnings);
+  detectLayoutTableUncertainty(page, warnings);
   detectReadingOrderDivergence(page, blocks, warnings);
   detectFormLabelReadingOrderDivergence(page, blocks, warnings);
   // `near_bottom_edge` only distinguishes body from chrome via the
@@ -180,6 +182,7 @@ function sortWarnings(warnings: PageWarning[]): void {
     if (ai !== bi) return ai - bi;
     const aImage = a.imageBoxIndex ?? -1;
     const bImage = b.imageBoxIndex ?? -1;
-    return aImage - bImage;
+    if (aImage !== bImage) return aImage - bImage;
+    return (a.tableIndex ?? -1) - (b.tableIndex ?? -1);
   });
 }

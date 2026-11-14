@@ -19,7 +19,7 @@ pdfvision document.pdf --layout --format json
 
 - `pages[].layout.blocks[].lines`: 帶幾何資訊的重建文字行。
 - `pages[].layout.blocks`: 依閱讀順序排列的區塊、角色與 bbox。
-- `pages[].layout.tables`: 原生文字可能攤平行列關係時的數字表格提示。
+- `pages[].layout.tables`: 原生文字可能攤平行列關係時的數字表格提示。每個儲存格帶有幾何欄號 `column`(分組表頭與合併儲存格另有 `columnSpan`)，因此空儲存格保留為空欄，後面的值不會向左錯位。
 - 直排 CJK 文字復原。
 
 當原生文字流與視覺閱讀順序不同，Markdown 輸出可以使用恢復後的 layout order。
@@ -75,6 +75,7 @@ visual regions 可以作為到多模態模型的橋樑：
 - 文字重疊或文字框超出頁面。
 - 正文擠到重複頁首或頁尾附近。
 - 被攤平的數字表格。
+- 儲存格未能落入一致網格的 layout table 提示(`layout_table_uncertain`)。
 - 原生文字順序與視覺閱讀順序不一致。
 - 字形亂碼、PUA 字串或局部 mojibake。
 - 全頁掃描上的 OCR 文字層。
@@ -107,7 +108,7 @@ A render establishes only what the page visibly shows. Neither a warning nor its
 
 - 如果原生文字字形損壞，在摘要前先與 render 或 OCR 比較。
 - 如果閱讀順序分歧，敘事順序優先使用 layout blocks，而不是 raw page text。
-- 如果出現 table warning，保留行列證據；當數值重要時裁切表格。
+- 如果出現 table warning，保留行列證據；當數值重要時裁切表格。`layout_table_uncertain` 會指出對應表格及其 bbox：在信任儲存格之前先渲染該區域。
 - 如果出現 large raster 或 dense vector warning，在驗證前假設標籤可能是 visual-only。
 - 如果涉及 repeated chrome，避免混合頁首、頁尾、頁碼和正文。
 

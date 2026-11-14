@@ -10,12 +10,14 @@ import { detectSparseSingleRowTables } from './sparseTables.js';
 import { mergeSplitHeaderTables } from './splitHeaderTables.js';
 import { tableCandidateRow } from './tableCandidateRows.js';
 import { isTableNumericCell, normalizeTableCurrencyCells } from './tableCells.js';
+import { assignTableColumns } from './tableColumns.js';
 import {
-  attachLabelContinuationRows,
   attachNumericContinuationRows,
   hasRegularTableRowCadence,
   type IndexedLayoutRow,
+  scanLabelContinuationRows,
 } from './tableContinuations.js';
+import { insertTableGroupLabelRows } from './tableGroupRows.js';
 import { attachLeadingTableRows } from './tableLeadingRows.js';
 import { groupLinesByTableRow, rowBottom, rowY } from './tableRows.js';
 
@@ -39,7 +41,7 @@ export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefin
   const rowGroups: IndexedLayoutRow[] = allRowGroups
     .map((row, index) => ({ row: tableCandidateRow(row), index }))
     .filter((item): item is IndexedLayoutRow => item.row !== undefined)
-    .map(({ row, index }) => ({ row: attachLabelContinuationRows(row, index, allRowGroups), index }));
+    .map(({ row, index }) => ({ ...scanLabelContinuationRows(row, index, allRowGroups), index }));
   if (rowGroups.length < 2) {
     const fallback = [...alignedTextTables, ...sparseSingleRowTables];
     return fallback.length > 0 ? fallback : undefined;
@@ -64,7 +66,9 @@ export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefin
     if (isTwoColumnNumericOnlyTable(baseRows) && baseRows.length < TWO_COLUMN_NUMERIC_TABLE_MIN_ROWS) continue;
     const nextTableFirstIndex = tables[index + 1]?.[0]?.index ?? allRowGroups.length;
     const rows = attachNumericContinuationRows(table, allRowGroups, nextTableFirstIndex);
-    const tableRows = attachLeadingTableRows(rows, table[0]?.index ?? 0, allRowGroups);
+    const leadingRows = attachLeadingTableRows(rows, table[0]?.index ?? 0, allRowGroups);
+    const header = table[0]?.header;
+    const tableRows = leadingRows === rows && header ? [header, ...rows] : leadingRows;
     if (isLikelyTinyNumericVectorGrid(tableRows.flat())) continue;
     if (isLikelyTinyNumericChartFragment(tableRows.flat())) continue;
     if (isLikelySparseNumericLegendFragment(tableRows.flat())) continue;
@@ -79,7 +83,9 @@ export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefin
     if (result.some((existing) => overlapOfSmaller(existing, table) >= 0.5)) continue;
     result.push(table);
   }
-  const merged = mergeSplitHeaderTables(result);
+  const merged = mergeSplitHeaderTables(result).map((table) =>
+    assignTableColumns(insertTableGroupLabelRows(table, allRowGroups)),
+  );
   return merged.length > 0 ? merged : undefined;
 }
 

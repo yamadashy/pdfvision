@@ -2631,7 +2631,14 @@ describe('buildLayout — multi-column reading order', () => {
       'NPV of future revenue less future expenditures for current and future participants (open group) over the next 75 years, beginning of the year',
     );
     expect(labels).toContain('Changes in valuation period');
-    expect(labels.some((label) => label?.startsWith('Reasons for changes'))).toBe(false);
+    // The colon-terminated section header is not glued onto the next label;
+    // it stays a group-label row of its own.
+    const sectionRows = (layout.tables ?? [])
+      .flatMap((table) => table.rows)
+      .filter((row) => row.cells.some((cell) => cell.text.includes('Reasons for changes')));
+    expect(sectionRows.map((row) => row.cells.map((cell) => cell.text))).toEqual([
+      ['Reasons for changes in the NPV during the year:'],
+    ]);
   });
 
   it('splits a financial table from a prose footnote before the next table', () => {

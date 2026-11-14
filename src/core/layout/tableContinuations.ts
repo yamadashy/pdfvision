@@ -1,6 +1,6 @@
 import type { LayoutLine } from '../../types/index.js';
 import { firstTableLabelCell, isNumericOnlyTableRow, isRestorableTableLabelCell } from './tableCandidateRows.js';
-import { isCurrencyOnlyCell, isTableNumericCell, numericColumnMatchRight } from './tableCells.js';
+import { isCurrencyOnlyCell, isTableNumericCell, isTableValueCell, numericColumnMatchRight } from './tableCells.js';
 import {
   medianNumber,
   recurringNumericColumnRights,
@@ -14,6 +14,8 @@ import { mergeLineTexts, rowBottom, rowY } from './tableRows.js';
 export interface IndexedLayoutRow {
   row: LayoutLine[];
   index: number;
+  /** Column header row found directly above this row's label; see {@link scanLabelContinuationRows}. */
+  header?: LayoutLine[];
 }
 
 const TABLE_ROW_MIN_NUMERIC_CELLS = 2;
@@ -24,6 +26,7 @@ const TABLE_ROW_CADENCE_MIN_TOLERANCE_PT = 2;
 const TABLE_DROPPED_LABEL_X_TOLERANCE_PT = 14;
 const TABLE_LABEL_CONTINUATION_PROSE_MIN_WORDS = 6;
 const TABLE_LABEL_CONTINUATION_PROSE_MIN_WIDTH_PT = 220;
+const TABLE_LABEL_CONTINUATION_MAX_ROWS = 4;
 
 export function attachNumericContinuationRows(
   table: IndexedLayoutRow[],
@@ -77,21 +80,47 @@ export function attachLabelContinuationRows(
   rowIndex: number,
   allRows: LayoutLine[][],
 ): LayoutLine[] {
-  const label = row.find((line) => !isTableNumericCell(line.text) && /[\p{L}]/u.test(line.text));
-  if (!label) return row;
+  return scanLabelContinuationRows(row, rowIndex, allRows, { stopAtColumnHeader: false }).row;
+}
 
+/**
+ * Fold label-only rows above `row` into its label. Scanning stops at a row
+ * that reaches over the value columns: that is a column header, not the
+ * first half of a wrapped label, and it is returned as `header` so the
+ * caller can keep it as a row of its own.
+ */
+export function scanLabelContinuationRows(
+  row: LayoutLine[],
+  rowIndex: number,
+  allRows: LayoutLine[][],
+  options: { stopAtColumnHeader: boolean } = { stopAtColumnHeader: true },
+): { row: LayoutLine[]; header?: LayoutLine[] } {
+  const label = row.find((line) => !isTableNumericCell(line.text) && /[\p{L}]/u.test(line.text));
+  if (!label) return { row };
+
+  const valueLeft = Math.min(
+    ...row.filter((line) => line.x > label.x && isTableValueCell(line.text)).map((line) => line.x),
+  );
   const continuations: LayoutLine[] = [];
+  let header: LayoutLine[] | undefined;
   let previousBottom = label.y;
   for (let index = rowIndex - 1; index >= 0; index--) {
     const candidate = allRows[index];
     if (!isLabelContinuationRow(candidate, label, previousBottom)) break;
+    if (options.stopAtColumnHeader && isColumnHeaderAboveRow(candidate, valueLeft)) {
+      header = candidate;
+      break;
+    }
     continuations.unshift(mergeLineTexts(candidate));
     previousBottom = rowY(candidate);
   }
-  if (continuations.length === 0) return row;
+  if (continuations.length === 0) return { row, header };
+  // A label does not wrap over this many lines; folding them would glue a
+  // prose paragraph that happens to end in subscripts onto a table row.
+  if (options.stopAtColumnHeader && continuations.length > TABLE_LABEL_CONTINUATION_MAX_ROWS) return { row };
 
   const mergedLabel = mergeLineTexts([...continuations, label]);
-  return row.map((line) => (line === label ? mergedLabel : line));
+  return { row: row.map((line) => (line === label ? mergedLabel : line)), header };
 }
 
 export function hasRegularTableRowCadence(rows: LayoutLine[][]): boolean {
@@ -120,7 +149,7 @@ function restoreDroppedLabelCell(
 function isAlignedNumericContinuationRow(row: LayoutLine[], columnRights: number[]): boolean {
   const valueCells = row.filter((line) => isTableNumericCell(line.text));
   if (valueCells.length < TABLE_ROW_MIN_NUMERIC_CELLS) return false;
-  if (row.some((line) => !isTableNumericCell(line.text) && !isCurrencyOnlyCell(line.text))) return false;
+  if (row.some((line) => !isTableValueCell(line.text) && !isCurrencyOnlyCell(line.text))) return false;
 
   let matchedCells = 0;
   const matchedColumns = new Set<number>();
@@ -136,6 +165,12 @@ function isAlignedNumericContinuationRow(row: LayoutLine[], columnRights: number
     matchedColumns.add(columnIndex);
   }
   return matchedCells >= TABLE_ROW_MIN_NUMERIC_CELLS && matchedColumns.size >= TABLE_ROW_MIN_NUMERIC_CELLS;
+}
+
+function isColumnHeaderAboveRow(row: LayoutLine[], valueLeft: number): boolean {
+  if (Math.max(...row.map((line) => line.x + line.width)) <= valueLeft) return false;
+  // A single page-wide line is a wrapped prose paragraph, not a header.
+  return row.length >= 2 || row.every((line) => line.width < TABLE_LABEL_CONTINUATION_PROSE_MIN_WIDTH_PT);
 }
 
 function isLabelContinuationRow(row: LayoutLine[], label: LayoutLine, nextTop: number): boolean {

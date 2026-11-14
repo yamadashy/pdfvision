@@ -9,7 +9,7 @@ description: Every pages[].warnings[] code, what fires it, what it means for the
 
 Read this only when a `warnings[]` code needs interpretation past its inline message, or when you want the raw signal thresholds behind a `quality` status.
 
-The machine-readable side of this — the `PageWarning` TypeScript interface (`code` union, `severity`, `message`, `blockIndex` / `otherBlockIndex` / `imageBoxIndex`), the exact firing conditions, and which flag each code requires — is the `## Shape` section directly below.
+The machine-readable side of this — the `PageWarning` TypeScript interface (`code` union, `severity`, `message`, `blockIndex` / `otherBlockIndex` / `imageBoxIndex` / `tableIndex`), the exact firing conditions, and which flag each code requires — is the `## Shape` section directly below.
 
 pdfvision deliberately stops at observation: it does **not** recommend an action. The action is the agent's call based on the two `quality` statuses plus the raw signals below. Silent failures — empty `text` that looks fine to a downstream consumer, or full `text` that is actually NUL bytes — become visible up front; that is the reason to prefer pdfvision over reading a PDF directly.
 
@@ -35,6 +35,7 @@ interface PageWarning {
     | 'duplicate_text_layer'
     | 'raster_image_no_native_text'
     | 'tabular_numeric_layout'
+    | 'layout_table_uncertain'
     | 'dot_leader_noise'
     | 'tiny_native_text_noise'
     | 'raster_backed_text_layer'
@@ -55,6 +56,7 @@ interface PageWarning {
   blockIndex?: number;        // 0-based into pages[N].layout.blocks
   otherBlockIndex?: number;   // for pair-wise rules (text_overlap, body_near_repeated_chrome)
   imageBoxIndex?: number;     // 0-based into pages[N].imageBoxes for image-region rules
+  tableIndex?: number;        // 0-based into pages[N].layout.tables for layout_table_uncertain
 }
 ```
 
@@ -77,6 +79,7 @@ The current rule catalog:
 - `dense_vector_graphics` — the page contains many meaningful vector drawing operations; often form boxes, table rules, chart paths, checkboxes, or diagrams whose visible structure is not represented by native text. Text-dominant pages whose many vectors are only small scattered decorations are suppressed when vector-box geometry is available.
 - `vector_graphics_no_native_text` — a nonblank vector-only page has no native text; symbols, diagrams, or path-drawn labels can be visible in the render but absent from `pages[].text`.
 - `tabular_numeric_layout` — many short numeric lines form multiple aligned columns with shared row positions; often financial statements or dense numeric tables whose row/column relationships are visually obvious but can be flattened in plain native text. Chart-axis tick labels and irregular chart data-label rows are suppressed.
+- `layout_table_uncertain` — a `layout.tables[]` hint did not resolve into one consistent grid, so some of its cells may sit in the wrong row or column, or be missing. `tableIndex` names the table and the message carries its bbox as a ready `--render-region`.
 - `dot_leader_noise` — many standalone dotted leader/noise lines were extracted as separate layout text; often table-of-contents leaders, table leaders, map stipple, or decorative dot patterns that visually connect labels or represent texture but can appear as noisy dot paragraphs in plain native text.
 - `tiny_native_text_noise` — one or more long native text runs are set at extremely small sizes, often hidden producer links or machine-readable residue. Treat matching `pages[].text`, links, and search hits as possibly not human-visible until checked against the render. Requires `--layout` or `--geometry`.
 - `duplicate_text_layer` — native text contains a hidden near-duplicate layer of visible content at a consistent scaled/shifted position, so `pages[].text` is inflated and layout blocks may merge duplicate runs; prefer the render or OCR when exact visible text matters. It may co-occur with `off_page` or `text_overlap`, which remain separate layout-geometry signals.
@@ -135,6 +138,7 @@ Flag requirements per code are noted inline. Geometry warnings pin to layout blo
 - **`dense_vector_graphics`** (always-on `vectorCount` signal) — fires on pages dominated by meaningful vector drawing operations. Text-dominant pages whose many vectors are only small scattered decorations are suppressed. Common firing cases: forms, checkboxes, table rules, chart paths, and diagrams whose visible structure is not represented by native text.
 - **`vector_graphics_no_native_text`** (always-on `vectorCount` signal) — fires when a nonblank vector-only page has no native text. Common cases: symbols, diagrams, or path-drawn labels that render visibly but do not appear in `pages[].text`; inspect `--render`, `--vector-boxes`, or `--visual-regions`.
 - **`tabular_numeric_layout`** (needs `--layout`) — fires when many short numeric lines form multiple aligned columns with shared row positions. Common cases: financial statements and dense numeric tables whose row/column relationships are visually obvious but can be flattened in plain native text. Irregular financial tables can still surface when labelled rows have recurring numeric columns; chart-axis tick labels and irregular chart data-label rows are suppressed.
+- **`layout_table_uncertain`** (needs `--layout`; Markdown computes layout internally, so it also appears there without the flag) — fires for one `layout.tables[]` entry when its geometry is self-contradictory: (1) a text line containing a digit lies inside the table bbox, at or below the first body row (a row with a value next to another cell), yet most of its area is in no cell — a dropped row or value; above the first body row only a bare value counts, because unclaimed text there is header context; (2) one row has two value cells (numbers or dash placeholders) assigned to the same `column`; or (3) two neighbouring columns are each filled by at least two body rows but never by the same row — one visual column split in two, or two stacked tables with different grids read as one, so a value's column depends on which row it is in. The message lists which of these fired and the table bbox; render that region and read the values from the image before trusting the table. A table with empty cells, merged values, or grouped headers is not flagged by itself, and unclaimed text-only lines (notes, captions, wrapped prose) are not counted.
 - **`dot_leader_noise`** (native text/layout signals) — fires when many standalone dotted leader/noise lines are extracted as separate text. Common cases: table-of-contents leaders, table leaders, map stipple, and decorative dot patterns that visually connect labels or represent texture but can appear as noisy dot paragraphs in plain native text.
 - **`tiny_native_text_noise`** (needs `--layout` or `--geometry`) — fires when long native text runs are set at extremely small sizes, such as hidden producer links. Treat matching `pages[].text`, links, and search hits as possibly not human-visible until checked against `--render`.
 - **`duplicate_text_layer`** (internal spans; no flag required) — fires when native text contains a hidden near-duplicate layer of visible text at a consistent scaled/shifted position. It can co-occur with `off_page` or `text_overlap` because those are separate geometry symptoms; prefer the render or OCR when exact visible text matters.
