@@ -7,7 +7,7 @@ Notable user-facing changes to pdfvision are documented here.
 ### Added
 
 - Listed in the official MCP Registry as `io.github.yamadashy/pdfvision`; the npm-publish workflow now publishes `server.json` after each release.
-- Added `column` (and `columnSpan`) to every `layout.tables[].rows[].cells[]` entry, and a `layout_table_uncertain` page warning with a `tableIndex` field. Columns are derived from where the body cells sit, so a row with an empty cell keeps its later values in their own columns; grouped headers such as `Three Months Ended` and values merged across columns carry a span. The warning fires when a table's geometry does not resolve into one grid — a line with numbers inside the table that no row claimed, two values in one column of a row, or neighbouring columns that no row fills together — and names the table bbox to render.
+- Added `column` (and `columnSpan`) to every `layout.tables[].rows[].cells[]` entry, and a `layout_table_uncertain` page warning with a `tableIndex` field. Columns are derived from where the body cells sit, so a row with an empty cell keeps its later values in their own columns; header and merged cells are placed on the columns their text overlaps, with a `columnSpan` when that is more than one, so a centered group header narrower than its group covers only the columns under its text. The warning fires when a table's geometry does not resolve into one grid — a line with numbers inside the table that no row claimed, two values in one column of a row, or neighbouring columns that no row fills together — and names the table bbox to render.
 
 ### Changed
 

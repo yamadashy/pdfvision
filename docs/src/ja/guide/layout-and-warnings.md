@@ -19,7 +19,7 @@ pdfvision document.pdf --layout --format json
 
 - `pages[].layout.blocks[].lines`: ジオメトリ付きの復元行。
 - `pages[].layout.blocks`: 読み順ブロック、役割、bbox。
-- `pages[].layout.tables`: ネイティブテキストで崩れやすい数値表のヒント。Each cell carries its geometric `column` (plus `columnSpan` for grouped headers and merged values), so an empty cell stays an empty column instead of shifting later values left.
+- `pages[].layout.tables`: ネイティブテキストで崩れやすい数値表のヒント。Each cell carries its geometric `column` (plus `columnSpan` when a header or merged value's text overlaps several columns; a centered group header narrower than its group covers only the columns under its text, so render to confirm a group's width), so an empty cell stays an empty column instead of shifting later values left.
 - 縦書き CJK テキストの復元。
 
 Markdown 出力では、ネイティブテキストストリームと視覚的読み順が乖離する場合に、復元された layout order を利用できます。

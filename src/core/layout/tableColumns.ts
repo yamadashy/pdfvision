@@ -29,11 +29,12 @@ interface CellRef {
  * holds for right-aligned numbers, left-aligned labels, and centered values
  * alike. A body cell that overlaps two cells of another row (a merged value)
  * is left out of that clustering, and it, header rows, and single-cell rows
- * are then placed on the columns they overlap.
+ * are then placed on the columns they overlap. `firstDataRow` is where the
+ * detector's own rows begin below the header rows it attached, when it knows.
  */
-export function assignTableColumns(table: LayoutTable): LayoutTable {
+export function assignTableColumns(table: LayoutTable, firstDataRow?: number): LayoutTable {
   const rows = table.rows;
-  const bodyRows = bodyRowIndexes(rows);
+  const bodyRows = bodyRowIndexes(rows, firstDataRow);
   const bodyCells: CellRef[] = bodyRows.flatMap((row) => rows[row].cells.map((_, cell) => ({ row, cell })));
   const spanning = new Set(bodyCells.filter((ref) => isSpanningBodyCell(ref, rows, bodyRows)).map(key));
   const clusterCells = bodyCells.filter((ref) => !spanning.has(key(ref)));
@@ -83,13 +84,16 @@ export function assignTableColumns(table: LayoutTable): LayoutTable {
  * Rows that define the columns: from the first row that holds a value cell
  * next to another cell, every row with at least two cells. Rows above it
  * are headers, which are often centered over a group of columns. Single-cell
- * rows (group labels) carry no column evidence.
+ * rows (group labels) carry no column evidence. A detector whose rows need
+ * no value cell passes where its own rows start, so a value that first
+ * appears in a late row does not turn the data rows above it into headers.
  */
-function bodyRowIndexes(rows: readonly LayoutTableRow[]): number[] {
+function bodyRowIndexes(rows: readonly LayoutTableRow[], firstDataRow: number | undefined): number[] {
   const multiCell = rows.map((row, index) => (row.cells.length >= 2 ? index : -1)).filter((index) => index >= 0);
   const firstValueRow = multiCell.find((index) => rows[index].cells.some((cell) => isTableValueCell(cell.text)));
   if (firstValueRow === undefined) return multiCell;
-  return multiCell.filter((index) => index >= firstValueRow);
+  const firstBodyRow = Math.min(firstValueRow, firstDataRow ?? firstValueRow);
+  return multiCell.filter((index) => index >= firstBodyRow);
 }
 
 function isSpanningBodyCell(ref: CellRef, rows: readonly LayoutTableRow[], bodyRows: readonly number[]): boolean {

@@ -327,6 +327,36 @@ describe('layout table columns', () => {
     ]);
   });
 
+  it('infers aligned-text columns from every data row when only a late row holds a value cell', () => {
+    // `64` is the only value cell, so guessing the body from cell text would
+    // treat the four rows above it as headers and lose the compiler column.
+    const rows: (string | undefined)[][] = [
+      ['Alpha', 'x86-64', 'gcc12', 'Linux6'],
+      ['Beta', 'arm64', 'clang17', 'macOS14'],
+      ['Gamma', 'riscv64', 'tcc09', 'Linux6'],
+      ['Delta', 'x86-64', 'msvc19', 'Win11'],
+      ['Epsilon', '64', undefined, 'Android14'],
+    ];
+    const xs = [50, 150, 250, 350];
+    const spans = rows.flatMap((row, rowIndex) =>
+      row.flatMap((text, column) => (text ? [span(text, xs[column], 100 + rowIndex * 12, text.length * 4.5)] : [])),
+    );
+    const table = findTable(buildLayout(spans, 612, 792).tables, 'riscv64');
+
+    expect(table?.columnCount).toBe(4);
+    expect(cellsOf(table, 'Alpha')?.map(({ text, column }) => [text, column])).toEqual([
+      ['Alpha', 0],
+      ['x86-64', 1],
+      ['gcc12', 2],
+      ['Linux6', 3],
+    ]);
+    expect(cellsOf(table, 'Epsilon')?.map(({ text, column }) => [text, column])).toEqual([
+      ['Epsilon', 0],
+      ['64', 1],
+      ['Android14', 3],
+    ]);
+  });
+
   it('keeps a column header above the first row instead of gluing it onto that row label', () => {
     // ViT appendix-shaped case: `N/A` makes the first data row a table row,
     // and the header line above it must not become part of its label.

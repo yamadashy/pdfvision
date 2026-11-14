@@ -1,4 +1,4 @@
-import type { LayoutLine, LayoutTable } from '../../types/index.js';
+import type { LayoutLine, LayoutTable, LayoutTableRow } from '../../types/index.js';
 import { type BBox, round2, unionBox } from './geometry.js';
 import {
   isLikelyMirroredChartAxisTable,
@@ -36,13 +36,17 @@ const ALIGNED_TEXT_TABLE_MIN_LABEL_ROW_RATIO = 0.5;
 
 export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefined {
   const allRowGroups = groupLinesByTableRow(lines).map((row) => row.sort((a, b) => a.x - b.x));
-  const alignedTextTables = detectAlignedTextTables(allRowGroups);
+  const { tables: alignedTextTables, firstDataRows } = detectAlignedTextTables(allRowGroups);
   const sparseSingleRowTables = detectSparseSingleRowTables(allRowGroups);
   const rowGroups: IndexedLayoutRow[] = allRowGroups
     .map((row, index) => ({ row: tableCandidateRow(row), index }))
     .filter((item): item is IndexedLayoutRow => item.row !== undefined)
     .map(({ row, index }) => ({ ...scanLabelContinuationRows(row, index, allRowGroups), index }));
-  const finalize = (table: LayoutTable) => assignTableColumns(insertTableGroupLabelRows(table, allRowGroups));
+  const finalize = (table: LayoutTable) => {
+    const withGroupLabels = insertTableGroupLabelRows(table, allRowGroups);
+    const firstDataRow = withGroupLabels.rows.findIndex((row) => firstDataRows.has(row));
+    return assignTableColumns(withGroupLabels, firstDataRow >= 0 ? firstDataRow : undefined);
+  };
   if (rowGroups.length < 2) {
     const fallback = [...alignedTextTables, ...sparseSingleRowTables].map(finalize);
     return fallback.length > 0 ? fallback : undefined;
@@ -117,7 +121,15 @@ function toLayoutTable(rows: LayoutLine[][]): LayoutTable {
   };
 }
 
-function detectAlignedTextTables(allRowGroups: LayoutLine[][]): LayoutTable[] {
+/**
+ * Also returns each table's first candidate row, so column assignment knows
+ * where the attached header rows end: the candidate rows only need a digit
+ * somewhere, so their cell text cannot tell a header from the body.
+ */
+function detectAlignedTextTables(allRowGroups: LayoutLine[][]): {
+  tables: LayoutTable[];
+  firstDataRows: Set<LayoutTableRow>;
+} {
   const candidateRows: IndexedLayoutRow[] = allRowGroups
     .map((row, index) => ({ row: alignedTextTableCandidateRow(row), index }))
     .filter((item): item is IndexedLayoutRow => item.row !== undefined);
@@ -134,6 +146,7 @@ function detectAlignedTextTables(allRowGroups: LayoutLine[][]): LayoutTable[] {
   }
 
   const tables: LayoutTable[] = [];
+  const firstDataRows = new Set<LayoutTableRow>();
   for (const group of groups) {
     const baseRows = group.map(({ row }) => row);
     if (isLikelyTinyNumericVectorGrid(baseRows.flat())) continue;
@@ -145,9 +158,11 @@ function detectAlignedTextTables(allRowGroups: LayoutLine[][]): LayoutTable[] {
     if (isLikelyTinyNumericChartFragment(rows.flat())) continue;
     if (isLikelySparseNumericLegendFragment(rows.flat())) continue;
     if (isLikelyMirroredChartAxisTable(rows.flat())) continue;
-    tables.push(toLayoutTable(rows));
+    const table = toLayoutTable(rows);
+    firstDataRows.add(table.rows[rows.length - group.length]);
+    tables.push(table);
   }
-  return tables;
+  return { tables, firstDataRows };
 }
 
 function alignedTextTableCandidateRow(row: LayoutLine[]): LayoutLine[] | undefined {

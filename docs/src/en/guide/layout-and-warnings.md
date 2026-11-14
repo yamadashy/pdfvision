@@ -19,7 +19,7 @@ Layout output includes:
 
 - `pages[].layout.blocks[].lines`: reconstructed text lines with geometry.
 - `pages[].layout.blocks`: reading-order blocks with roles and bounding boxes.
-- `pages[].layout.tables`: numeric-table hints when rows and columns may be flattened in native text. Each cell carries its geometric `column` (plus `columnSpan` for grouped headers and merged values), so an empty cell stays an empty column instead of shifting later values left.
+- `pages[].layout.tables`: numeric-table hints when rows and columns may be flattened in native text. Each cell carries its geometric `column` (plus `columnSpan` when a header or merged value's text overlaps several columns; a centered group header narrower than its group covers only the columns under its text, so render to confirm a group's width), so an empty cell stays an empty column instead of shifting later values left.
 - vertical CJK text recovery when text should be read as a vertical stack.
 
 Markdown output can use recovered layout order when the native text stream diverges from visual reading order. It also renders detected `layout.tables[]` as per-page layout table sections, preserving row/value relationships for financial statements and other numeric tables in chat-readable output.

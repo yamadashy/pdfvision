@@ -19,7 +19,7 @@ pdfvision document.pdf --layout --format json
 
 - `pages[].layout.blocks[].lines`: 带几何信息的重建文本行。
 - `pages[].layout.blocks`: 按阅读顺序排列的块、角色和 bbox。
-- `pages[].layout.tables`: 原生文本可能压平行列关系时的数字表格提示。Each cell carries its geometric `column` (plus `columnSpan` for grouped headers and merged values), so an empty cell stays an empty column instead of shifting later values left.
+- `pages[].layout.tables`: 原生文本可能压平行列关系时的数字表格提示。Each cell carries its geometric `column` (plus `columnSpan` when a header or merged value's text overlaps several columns; a centered group header narrower than its group covers only the columns under its text, so render to confirm a group's width), so an empty cell stays an empty column instead of shifting later values left.
 - 竖排 CJK 文本恢复。
 
 当原生文本流与视觉阅读顺序不同，Markdown 输出可以使用恢复后的 layout order。
