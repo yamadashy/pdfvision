@@ -1,5 +1,6 @@
 import type { LayoutLine } from '../../types/index.js';
 import { type BBox, unionBox } from './geometry.js';
+import { isCaptionHeadingText } from './headingText.js';
 import { isCompactTableLabelCell } from './tableCandidateRows.js';
 import { isCurrencyOnlyCell, isTableNumericCell, numericColumnMatchRight } from './tableCells.js';
 import {
@@ -114,6 +115,8 @@ function isLeadingTableRow(
   allowSingleLabelHeader: boolean,
 ): boolean {
   if (row.length === 0) return false;
+  // `Table 1 (continued)` names the table; it is not one of its rows.
+  if (isCaptionHeadingText(row[0].text)) return false;
   if (!row.every(isCompactLeadingTableCell)) return false;
 
   const rowBox = unionBox(row);

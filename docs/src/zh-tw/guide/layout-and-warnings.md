@@ -19,7 +19,7 @@ pdfvision document.pdf --layout --format json
 
 - `pages[].layout.blocks[].lines`: 帶幾何資訊的重建文字行。
 - `pages[].layout.blocks`: 依閱讀順序排列的區塊、角色與 bbox。Lines are split at the column gutters the whole page shows, so narrow gutters between columns set on their own baselines do not fuse neighbouring columns, and a layout table that is only those text columns read across is not reported; text rotated in the page margin (print-production lines, arXiv stamps) is read after the page body.
-- `pages[].layout.tables`: 原生文字可能攤平行列關係時的數字表格提示。Each cell carries its geometric `column` (plus `columnSpan` when a header or merged value's text overlaps several columns; a centered group header narrower than its group covers only the columns under its text, so render to confirm a group's width), so an empty cell stays an empty column instead of shifting later values left.
+- `pages[].layout.tables`: 原生文字可能攤平行列關係時的數字表格提示。Each cell carries its geometric `column` (plus `columnSpan` when a header or merged value's text overlaps several columns; a centered group header narrower than its group covers only the columns under its text, so render to confirm a group's width), so an empty cell stays an empty column instead of shifting later values left. Rows that continue the grid stay in the table — a row that is `—` in every column between two table rows, a group heading or a sparse row between them, word-valued rows such as `Yes | No` right after the last row — and a wrapped label or cell line joins the row it sits clearly closer to; a header row set as widely spaced words stays a row of its own instead of being glued onto the first label, and a `Table 1 (continued)` caption stays out of the table.
 - 直排 CJK 文字復原。
 
 當原生文字流與視覺閱讀順序不同，Markdown 輸出可以使用恢復後的 layout order。
@@ -75,7 +75,7 @@ visual regions 可以作為到多模態模型的橋樑：
 - 文字重疊或文字框超出頁面。
 - 正文擠到重複頁首或頁尾附近。
 - 被攤平的數字表格。
-- layout table hints whose cells did not resolve into one consistent grid (`layout_table_uncertain`).
+- layout table hints whose cells did not resolve into one consistent grid (`layout_table_uncertain`), including a wrapped label whose first lines could belong to the row above as well as to its own values.
 - signs set in a symbol font whose character map reports them as ordinary characters, so `−52%` reads as `252%` (`symbol_font_substitution`).
 - rotated pages read in their stored orientation because `/Rotate` would turn their text sideways (`rotated_page_read_unrotated`).
 - 原生文字順序與視覺閱讀順序不一致。

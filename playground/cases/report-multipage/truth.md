@@ -96,12 +96,11 @@ Note: TCO includes purchase, energy at contracted depot tariffs, maintenance and
 5. Which depots are blocked on grid upgrades? — Gdansk and Valenciennes
 
 **Current reading (ok — page 4 is covered by warnings):** questions 1, 2, 4 and 5 are answered from
-`read.md`. Table 1 is detected on both pages and its rows stay intact, but on each page the
-caption and the header row are glued into the first data cell (`Table 1: Depot charging deployment
-at 30 September 2026 Depot Region Planned Installed Utilisation Status Aberdeen`, and
-`Table 1 (continued) Depot Region … Szczecin` on page 3) and the columns are named `C1…C6`; the
-column meaning has to be read back out of that cell. No warning covers this. The two halves are
-reported as two separate tables. The running title is dropped as repeated chrome; the varying
+`read.md`. Table 1 is detected on both pages with its rows intact and the header row
+`Depot | Region | Planned | Installed | Utilisation | Status` as its first row, one label per column, on page 3 as well; the
+captions stay outside the table (fixed in #253, before which the caption and the header were glued
+into the first data cell and the columns had no names). The two halves are still reported as two
+separate tables. The running title is dropped as repeated chrome; the varying
 section name in the header is kept, so page 3 shows `3 Risks and mitigations` twice, the first time
 between `Table 1 (continued)` and the table's header row. The page bodies are flattened column by column under `tabular_numeric_layout`.
 

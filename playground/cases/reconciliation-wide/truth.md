@@ -51,7 +51,7 @@ from it. Two rows lose their label and their first value: `|  |  | (9,350) (a)(b
 General and administrative without `41,780`, and `|  |  | (27,240) (b) | — | …` is
 Restructuring charges without `27,240` — the two rows whose adjustment carries a
 `(b)` marker. Question 4 is answerable only by row order. The table carries
-`layout_table_uncertain` (“2 lines with numbers inside the table belong to no row … render that
-region before trusting the table”), and the column-by-column page body carries
+`layout_table_uncertain` (“2 lines with numbers inside the table belong to no row; 1 row has values
+but no label … render that region before trusting the table”), and the column-by-column page body carries
 `tabular_numeric_layout`; in that body the `—` placeholders of the Adjustments columns are
 pulled out of row order.

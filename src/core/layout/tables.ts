@@ -1,5 +1,6 @@
 import type { LayoutLine, LayoutTable, LayoutTableRow } from '../../types/index.js';
 import { type BBox, round2, unionBox } from './geometry.js';
+import { linesAsTableCells } from './lineSegments.js';
 import {
   isLikelyMirroredChartAxisTable,
   isLikelySparseNumericLegendFragment,
@@ -7,18 +8,21 @@ import {
   isLikelyTinyNumericVectorGrid,
 } from './numericVectorGrid.js';
 import { detectSparseSingleRowTables } from './sparseTables.js';
-import { mergeSplitHeaderTables } from './splitHeaderTables.js';
+import { mergeSplitHeaderTables, SPLIT_HEADER_MAX_ROWS } from './splitHeaderTables.js';
+import { groupRowsWithBridges } from './tableBridgeRows.js';
+import { hasRegularTableRowCadence } from './tableCadence.js';
 import { tableCandidateRow } from './tableCandidateRows.js';
 import { isTableNumericCell, normalizeTableCurrencyCells } from './tableCells.js';
 import { assignTableColumns } from './tableColumns.js';
 import {
   attachNumericContinuationRows,
-  hasRegularTableRowCadence,
   type IndexedLayoutRow,
   scanLabelContinuationRows,
 } from './tableContinuations.js';
 import { insertTableGroupLabelRows } from './tableGroupRows.js';
+import { foldCarriedLabelLines } from './tableLabelWraps.js';
 import { attachLeadingTableRows } from './tableLeadingRows.js';
+import { admitPlaceholderRows } from './tablePlaceholderRows.js';
 import { groupLinesByTableRow, rowBottom, rowY } from './tableRows.js';
 
 export { isTableNumericCell } from './tableCells.js';
@@ -33,15 +37,27 @@ const ALIGNED_TEXT_TABLE_COLUMN_TOLERANCE_PT = 10;
 const ALIGNED_TEXT_TABLE_HEADER_MAX_GAP_PT = 28;
 const ALIGNED_TEXT_TABLE_MAX_CELL_WIDTH_PT = 220;
 const ALIGNED_TEXT_TABLE_MIN_LABEL_ROW_RATIO = 0.5;
+const BORROWED_HEADER_MAX_ROWS = 4;
+const BORROWED_HEADER_MAX_GAP_PT = 12;
 
 export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefined {
-  const allRowGroups = groupLinesByTableRow(lines).map((row) => row.sort((a, b) => a.x - b.x));
+  // Rows are grouped from the lines as built, then split into the cells a
+  // widely spaced line joined, so the split never changes which row a line is in.
+  const allRowGroups = groupLinesByTableRow(lines).map((row) => linesAsTableCells(row).sort((a, b) => a.x - b.x));
   const { tables: alignedTextTables, firstDataRows } = detectAlignedTextTables(allRowGroups);
   const sparseSingleRowTables = detectSparseSingleRowTables(allRowGroups);
-  const rowGroups: IndexedLayoutRow[] = allRowGroups
+  const candidateRows: IndexedLayoutRow[] = allRowGroups
     .map((row, index) => ({ row: tableCandidateRow(row), index }))
-    .filter((item): item is IndexedLayoutRow => item.row !== undefined)
-    .map(({ row, index }) => ({ ...scanLabelContinuationRows(row, index, allRowGroups), index }));
+    .filter((item): item is IndexedLayoutRow => item.row !== undefined);
+  const memberRows = admitPlaceholderRows(candidateRows, allRowGroups);
+  const candidateIndexes = new Set(candidateRows.map(({ index }) => index));
+  const tableRowIndexes = new Set(memberRows.map(({ index }) => index));
+  const rowGroups: IndexedLayoutRow[] = foldCarriedLabelLines(
+    memberRows.map(({ row, index }) => ({
+      ...scanLabelContinuationRows(row, index, allRowGroups, { stopAtColumnHeader: true, tableRowIndexes }),
+      index,
+    })),
+  );
   const finalize = (table: LayoutTable) => {
     const withGroupLabels = insertTableGroupLabelRows(table, allRowGroups);
     const firstDataRow = withGroupLabels.rows.findIndex((row) => firstDataRows.has(row));
@@ -67,7 +83,7 @@ export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefin
   for (let index = 0; index < tables.length; index++) {
     const table = tables[index];
     const baseRows = table.map(({ row }) => row);
-    if (baseRows.length < 2 || !hasRegularTableRowCadence(baseRows)) continue;
+    if (baseRows.length < 2 || !hasTableCadence(table, candidateIndexes)) continue;
     if (isTwoColumnNumericOnlyTable(baseRows) && baseRows.length < TWO_COLUMN_NUMERIC_TABLE_MIN_ROWS) continue;
     const nextTableFirstIndex = tables[index + 1]?.[0]?.index ?? allRowGroups.length;
     const rows = attachNumericContinuationRows(table, allRowGroups, nextTableFirstIndex);
@@ -81,15 +97,42 @@ export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefin
     result.push(toLayoutTable(tableRows));
   }
   for (const table of alignedTextTables) {
-    if (result.some((existing) => overlapOfSmaller(existing, table) >= 0.5)) continue;
-    result.push(table);
+    // Overlapping mostly, or ending on a body row of it: the same table.
+    const lastRow = table.rows.at(-1);
+    const existingIndex = result.findIndex(
+      (existing) =>
+        overlapOfSmaller(existing, table) >= 0.5 || (lastRow !== undefined && isInnerRow(existing, lastRow)),
+    );
+    if (existingIndex < 0) result.push(table);
+    else result[existingIndex] = withHeaderRowsFrom(result[existingIndex], table);
   }
   for (const table of sparseSingleRowTables) {
-    if (result.some((existing) => overlapOfSmaller(existing, table) >= 0.5)) continue;
-    result.push(table);
+    // A header stack that starts among the body rows of a table already
+    // found is that table's rows read again. One whose data row is a body
+    // row of it, or that mostly overlaps it, only adds the header rows above
+    // it — unless it is a split header the merge below can use (short, and
+    // holding that table's first row).
+    const [firstRow] = table.rows;
+    const dataRow = table.rows.at(-1);
+    if (firstRow && result.some((existing) => isInnerRow(existing, firstRow))) continue;
+    const existingIndex = result.findIndex(
+      (existing) =>
+        (dataRow !== undefined && isInnerRow(existing, dataRow) && !isSplitHeaderOf(table, existing)) ||
+        overlapOfSmaller(existing, table) >= 0.5,
+    );
+    if (existingIndex < 0) result.push(table);
+    else result[existingIndex] = withHeaderRowsFrom(result[existingIndex], table);
   }
   const merged = mergeSplitHeaderTables(result).map(finalize);
   return merged.length > 0 ? merged : undefined;
+}
+
+// Placeholder rows fill the gaps of the row pitch but carry no numbers, so
+// the rows also pass on the numbered rows alone, as before they were admitted.
+function hasTableCadence(table: IndexedLayoutRow[], candidateIndexes: ReadonlySet<number>): boolean {
+  if (hasRegularTableRowCadence(table.map(({ row }) => row))) return true;
+  const numbered = table.filter(({ index }) => candidateIndexes.has(index)).map(({ row }) => row);
+  return numbered.length < table.length && hasRegularTableRowCadence(numbered);
 }
 
 function isTwoColumnNumericOnlyTable(rows: LayoutLine[][]): boolean {
@@ -133,33 +176,28 @@ function detectAlignedTextTables(allRowGroups: LayoutLine[][]): {
   const candidateRows: IndexedLayoutRow[] = allRowGroups
     .map((row, index) => ({ row: alignedTextTableCandidateRow(row), index }))
     .filter((item): item is IndexedLayoutRow => item.row !== undefined);
-  const groups: IndexedLayoutRow[][] = [];
-
-  for (const row of candidateRows) {
-    const previousGroup = groups.at(-1);
-    const previousRow = previousGroup?.at(-1);
-    if (previousRow && rowY(row.row) - rowBottom(previousRow.row) <= ALIGNED_TEXT_TABLE_MAX_ROW_GAP_PT) {
-      previousGroup?.push(row);
-    } else {
-      groups.push([row]);
-    }
-  }
+  const groups = groupRowsWithBridges(
+    candidateRows,
+    allRowGroups,
+    ALIGNED_TEXT_TABLE_MAX_ROW_GAP_PT,
+    ALIGNED_TEXT_TABLE_MAX_CELL_WIDTH_PT,
+  );
 
   const tables: LayoutTable[] = [];
   const firstDataRows = new Set<LayoutTableRow>();
   for (const group of groups) {
-    const baseRows = group.map(({ row }) => row);
+    const baseRows = group.candidates;
     if (isLikelyTinyNumericVectorGrid(baseRows.flat())) continue;
     if (isLikelyTinyNumericChartFragment(baseRows.flat())) continue;
     if (isLikelySparseNumericLegendFragment(baseRows.flat())) continue;
     if (isLikelyMirroredChartAxisTable(baseRows.flat())) continue;
     if (!isAlignedTextTableGroup(baseRows)) continue;
-    const rows = attachAlignedTextHeaderRows(group, allRowGroups);
+    const rows = attachAlignedTextHeaderRows(group.rows, allRowGroups);
     if (isLikelyTinyNumericChartFragment(rows.flat())) continue;
     if (isLikelySparseNumericLegendFragment(rows.flat())) continue;
     if (isLikelyMirroredChartAxisTable(rows.flat())) continue;
     const table = toLayoutTable(rows);
-    firstDataRows.add(table.rows[rows.length - group.length]);
+    firstDataRows.add(table.rows[rows.length - group.rows.length]);
     tables.push(table);
   }
   return { tables, firstDataRows };
@@ -199,7 +237,17 @@ function attachAlignedTextHeaderRows(group: IndexedLayoutRow[], allRows: LayoutL
 
   for (let index = firstIndex - 1; index >= 0; index--) {
     const candidate = allRows[index];
-    if (!isAlignedTextTableHeaderRow(candidate, bodyBox, headers[0] ?? rows[0])) break;
+    const nextRow = headers[0] ?? rows[0];
+    if (!candidate || !nextRow) break;
+    // A row level with the header but entirely beside the table (a chart
+    // axis next to it) is not above the table; look past it.
+    if (
+      rowY(nextRow) - rowBottom(candidate) <= ALIGNED_TEXT_TABLE_HEADER_MAX_GAP_PT &&
+      isBesideBox(candidate, bodyBox)
+    ) {
+      continue;
+    }
+    if (!isAlignedTextTableHeaderRow(candidate, bodyBox, nextRow)) break;
     headers.unshift(candidate);
   }
 
@@ -222,6 +270,11 @@ function isAlignedTextTableHeaderRow(
   return overlap >= Math.min(rowBox.width, tableBox.width) * 0.35;
 }
 
+function isBesideBox(row: LayoutLine[], box: BBox): boolean {
+  const rowBox = unionBox(row);
+  return rowBox.x >= box.x + box.width || rowBox.x + rowBox.width <= box.x;
+}
+
 function recurringColumnBins(rows: LayoutLine[][]): number[] {
   const bins: number[] = [];
   for (const line of rows.flat()) {
@@ -238,6 +291,50 @@ function recurringColumnBins(rows: LayoutLine[][]): number[] {
     }
     return count;
   });
+}
+
+/**
+ * The same table found by the aligned-text or the single-row pass can carry
+ * header rows above the one found from its numeric rows (a units line such
+ * as `(単位:億円)` or `百万円 | %` that the numeric pass does not take as a
+ * header); keep them.
+ */
+function withHeaderRowsFrom(table: LayoutTable, other: LayoutTable): LayoutTable {
+  if (other.y >= table.y) return table;
+  // Only the run of multi-cell rows right above the table: a single line
+  // there (a title, a caption, an address) ends the header.
+  const header: LayoutTableRow[] = [];
+  let next = table.rows[0];
+  const above = other.rows.filter((row) => next && row.y + row.height / 2 < next.y).reverse();
+  for (const row of above) {
+    if (!next || header.length >= BORROWED_HEADER_MAX_ROWS || row.cells.length < 2) break;
+    if (next.y - (row.y + row.height) > BORROWED_HEADER_MAX_GAP_PT) break;
+    header.unshift(row);
+    next = row;
+  }
+  if (header.length === 0) return table;
+  const rows = [...header, ...table.rows];
+  const box = unionBox(rows.flatMap((row) => row.cells));
+  return { ...table, ...box, rowCount: rows.length, rows };
+}
+
+function isSplitHeaderOf(stack: LayoutTable, table: LayoutTable): boolean {
+  const first = table.rows[0];
+  const text = (row: LayoutTableRow) => row.cells.map((cell) => cell.text).join(' ');
+  return (
+    first !== undefined &&
+    stack.rows.length <= SPLIT_HEADER_MAX_ROWS &&
+    stack.rows.some((row) => text(row) === text(first))
+  );
+}
+
+function isInnerRow(table: LayoutTable, row: LayoutTableRow): boolean {
+  const center = row.y + row.height / 2;
+  const first = table.rows[0];
+  if (!first || center <= first.y + first.height || center >= table.y + table.height) return false;
+  const left = Math.min(...row.cells.map((cell) => cell.x));
+  const right = Math.max(...row.cells.map((cell) => cell.x + cell.width));
+  return left < table.x + table.width && right > table.x;
 }
 
 function overlapOfSmaller(a: BBox, b: BBox): number {

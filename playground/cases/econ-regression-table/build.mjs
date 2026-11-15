@@ -139,14 +139,15 @@ ${NOTES}
 
 How \`read.md\` does: the body text gives each model column top to bottom (\`(3)\` / \`-0.061**\` /
 \`(0.027)\` / \`0.377***\` / …), so every estimate keeps its stars and its standard error, and
-questions 1, 2 and 5 are answerable from it. The layout table has the right values in the right
-columns for Panel B (question 4) but **drops Panel A's \`Log minimum wage\` coefficient row**,
-fuses \`Panel B. Contiguous border-county pairs Log minimum wage\` into one label, and leaves out the
-fixed-effect rows; \`layout_table_uncertain\` flags it ("6 lines with numbers inside the table belong to
-no row … render that region (--render-region 72,121.99,463.94,237) before trusting the table"), and
-that render shows the whole coefficient block legibly. Question 3 comes from the body, where each
-column's last four values are its Yes/No fixed-effect entries in row order; \`tabular_numeric_layout\`
-says to inspect the render when values matter. \`R²\` reads \`R2\` (harmless here).
+questions 1, 2 and 5 are answerable from it. The layout table has every coefficient row of both
+panels with its standard-error row below it, \`Observations\` and \`R2\` per panel, and the four
+fixed-effect rows (\`State linear trends | No | Yes | Yes | No | Yes | Yes\`), each value in its
+model's column, with \`Log teen employment\` over (1)–(3) and \`Log weekly hours\` over (4)–(6); so
+questions 3 and 4 are answerable from the table too. Fixed in #262: before it, Panel A's
+\`Log minimum wage\` row (every value starred) and the fixed-effect rows (word values) were left
+out, under a \`layout_table_uncertain\` warning. Each panel heading is folded into the label of
+the panel's first row (\`Panel A. All counties Log minimum wage\`), the panel is still readable from
+it. \`R²\` reads \`R2\` (harmless here).
 `;
 
 const LEFT = 72;

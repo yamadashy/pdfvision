@@ -67,7 +67,10 @@ no reason to render it, and the text alone answers the bar-only questions wrongl
 - Question 3 is recoverable by luck of the stream order: `Today` is emitted between the week
   headers `10/26` and `11/2`, after `2.3 | Design review | R. Solis | 10/23/26 | 10/23/26`.
 
-The layout table (`Table 1 (14 rows × 5 columns)`) stops after row 3.5: the whole Test & launch
-section (4 to 4.5) is missing from it, with no note. In the page body the Plan start / Plan end
+The layout table (`Table 1 (21 rows × 5 columns)`) now holds every phase and task row through
+4.5, the tasks without dates included (`4.2 | Penetration test | Vendor (TBD)`), so the plan dates
+can be read per task; fixed in #262, before which it stopped after row 3.5 with no note. Its header
+row reads `ID | Task | Owner | Plan start Plan end`: the last two header labels are one line from
+line building, so the end-date column is unnamed. In the page body the Plan start / Plan end
 values come back as two column lists that skip the blank cells of Penetration test and Hypercare, so aligning them to the task list by position shifts the dates of every task
-after QA regression (Penetration test would get UAT's `12/7/26`).
+after QA regression (Penetration test would get UAT's `12/7/26`); the layout table does not.

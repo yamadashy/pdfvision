@@ -135,13 +135,15 @@ mA
 | IN A+ | 3 | 6 | IN B− |
 | V− | 4 | 5 | IN B+ |
 
-#### Table 2 (6 rows × 4 columns, bbox 44,525.01,492.63,91.5)
+#### Table 2 (8 rows × 4 columns, bbox 44,511.51,495.75,105)
 
 | C1 | C2 | C3 | C4 |
 | --- | --- | --- | --- |
+|  | MIN | MAX | UNIT |
 | Supply voltage, VS = (V+) – (V−) | 0 | 6 | V |
 | Input voltage, any pin | (V−) – 0.3 | (V+) + 0.3 | V |
 | Input current, any pin | –10 | 10 | mA |
+| Output short-circuit duration |  | Continuous |  |
 | Operating temperature, TA | –55 | 150 | °C |
 | Junction temperature, TJ |  | 150 | °C |
 | Storage temperature, Tstg | –65 | 150 | °C |

@@ -11,7 +11,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 ## Page 1
 
-_chars: 3124 · images: 0 · coverage: 23% · vectors: 221 · tables: 2 · warnings: 2 · size: 3370×2384pt_
+_chars: 3124 · images: 0 · coverage: 23% · vectors: 221 · tables: 2 · warnings: 3 · size: 3370×2384pt_
 
 International Conference on Precision Livestock Farming · Ghent · 2026
 
@@ -247,4 +247,5 @@ observers who scored 9,200 cow-hours.
 ### Warnings
 
 > **warning** (layout_table_uncertain): layout table 1 (bbox 90,659.28,3167.56,100) did not resolve into one consistent grid: 2 lines with numbers inside the table belong to no row — its cells may sit in the wrong row or column or be missing; render that region (--render-region 90,659.28,3167.56,100) before trusting the table
+> **warning** (layout_table_uncertain): layout table 2 (bbox 90,1463.67,3193,167.61) did not resolve into one consistent grid: 1 row has values but no label while label text overlaps it from the line above or below, so a label set around its values may be split across rows — its cells may sit in the wrong row or column or be missing; render that region (--render-region 90,1463.67,3193,167.61) before trusting the table
 > **warning** (tabular_numeric_layout): page contains 39 short numeric lines in 5 aligned columns and 4 shared numeric rows — table rows/columns may be flattened in native text; inspect the render or geometry when values matter

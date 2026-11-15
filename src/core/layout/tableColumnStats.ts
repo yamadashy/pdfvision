@@ -1,5 +1,5 @@
 import type { LayoutLine } from '../../types/index.js';
-import { isTableNumericCell, numericColumnMatchRight } from './tableCells.js';
+import { isSignedTableNumericCell, numericColumnMatchRight } from './tableCells.js';
 
 export const TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROWS = 4;
 export const TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS = 3;
@@ -12,7 +12,7 @@ export function recurringNumericColumnRights(
 ): number[] {
   const columns: { right: number; rowIndexes: Set<number>; sampleCount: number }[] = [];
   for (const [rowIndex, row] of rows.entries()) {
-    const numericCells = row.filter((line) => isTableNumericCell(line.text));
+    const numericCells = row.filter((line) => isSignedTableNumericCell(line.text));
     for (let cellIndex = 0; cellIndex < numericCells.length; cellIndex++) {
       const line = numericCells[cellIndex];
       if (!line) continue;

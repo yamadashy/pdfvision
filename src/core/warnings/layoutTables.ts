@@ -7,9 +7,11 @@ import type {
   PageWarning,
 } from '../../types/index.js';
 import { isTableValueCell } from '../layout/tableCells.js';
+import { isClearlyCloser } from '../layout/tableLabelWraps.js';
 
 const LINE_CLAIMED_MIN_AREA_RATIO = 0.5;
 const SHIFTED_COLUMN_MIN_ROWS = 2;
+const WRAP_FULL_LINE_SLACK_RATIO = 0.15;
 
 /**
  * Flag layout tables whose geometry did not resolve into one consistent
@@ -53,6 +55,18 @@ export function tableUncertaintyReasons(table: LayoutTable, lines: readonly Layo
   if (collisions > 0) {
     reasons.push(`${collisions} row${collisions === 1 ? ' has' : 's have'} two values in one column`);
   }
+  const wraps = ambiguousLabelWraps(table, lines);
+  if (wraps > 0) {
+    reasons.push(
+      `${wraps} wrapped label${wraps === 1 ? '' : 's'} sit${wraps === 1 ? 's' : ''} as close to the row above as to ${wraps === 1 ? 'its' : 'their'} own values, so ${wraps === 1 ? 'its first line' : 'their first lines'} may belong to the row above`,
+    );
+  }
+  const split = splitLabelRows(table, lines);
+  if (split > 0) {
+    reasons.push(
+      `${split} row${split === 1 ? ' has' : 's have'} values but no label while label text overlaps ${split === 1 ? 'it' : 'them'} from the line above or below, so a label set around its values may be split across rows`,
+    );
+  }
   const shifted = shiftedColumnPairs(table);
   if (shifted > 0) {
     reasons.push(
@@ -82,6 +96,74 @@ function orphanLines(table: LayoutTable, lines: readonly LayoutLine[]): LayoutLi
     if (centerY < bodyTop && !isTableValueCell(line.text)) return false;
     return !cells.some((cell) => isClaimedBy(cell, line));
   });
+}
+
+/**
+ * Rows whose label wraps over lines above the line that carries its values,
+ * where the previous row has values and a full-width label in the same
+ * column, and nothing in the spacing says which row those lines belong to. Detection
+ * moves such lines to the row above only when they sit clearly closer to
+ * it (an invoice item wrapping under its first line); when the gaps are
+ * alike it keeps them with the row below, as statements set them, and the
+ * page cannot confirm that.
+ */
+function ambiguousLabelWraps(table: LayoutTable, lines: readonly LayoutLine[]): number {
+  const labels = table.rows.map((row) => row.cells[0]).filter((cell) => cell && !isTableValueCell(cell.text));
+  const labelLeft = Math.min(...labels.map((cell) => cell.x));
+  const labelRight = Math.max(...labels.map((cell) => cell.x + cell.width));
+  let count = 0;
+  for (let index = 1; index < table.rows.length; index++) {
+    const row = table.rows[index];
+    const above = table.rows[index - 1];
+    const label = row.cells[0];
+    const aboveLabel = above.cells[0];
+    if (!label || !aboveLabel || isTableValueCell(label.text) || isTableValueCell(aboveLabel.text)) continue;
+    const values = row.cells.filter((cell) => isTableValueCell(cell.text));
+    if (values.length === 0 || !above.cells.some((cell) => isTableValueCell(cell.text))) continue;
+    const valueTop = Math.min(...values.map((cell) => cell.y));
+    const wrapped = lines
+      .filter((line) => isClaimedBy(label, line) && line.y + line.height <= valueTop + 1)
+      .sort((a, b) => a.y - b.y);
+    const first = wrapped[0];
+    const last = wrapped.at(-1);
+    if (!first || !last) continue;
+    if (Math.abs(first.x - aboveLabel.x) > Math.max(12, first.fontSize * 2)) continue;
+    // A label only wraps once its line is full; a short last line above (a
+    // subtotal under a group heading) cannot continue onto these lines.
+    const aboveLast = lines.filter((line) => isClaimedBy(aboveLabel, line)).sort((a, b) => b.y - a.y)[0];
+    const fullFrom = labelRight - Math.max(first.fontSize * 3, (labelRight - labelLeft) * WRAP_FULL_LINE_SLACK_RATIO);
+    if (!aboveLast || aboveLast.x + aboveLast.width < fullFrom) continue;
+    const aboveBottom = Math.max(...above.cells.map((cell) => cell.y + cell.height));
+    if (!isClearlyCloser(valueTop - (last.y + last.height), first.y - aboveBottom)) count++;
+  }
+  return count;
+}
+
+/**
+ * Rows with values and no label, overlapped vertically by label text in
+ * the label column: a two-line label set around its values' line, read as
+ * a label-only row, a value-only row and a label glued onto the next row.
+ * Rows set apart from their neighbours (a standard error under its
+ * coefficient) are not overlapped and do not count.
+ */
+function splitLabelRows(table: LayoutTable, lines: readonly LayoutLine[]): number {
+  return table.rows.filter((row) => {
+    const values = row.cells.filter((cell) => isTableValueCell(cell.text));
+    if (values.length === 0 || row.cells.some((cell) => !isTableValueCell(cell.text) && /\p{L}/u.test(cell.text))) {
+      return false;
+    }
+    const valueLeft = Math.min(...values.map((cell) => cell.x));
+    const top = Math.min(...values.map((cell) => cell.y));
+    const bottom = Math.max(...values.map((cell) => cell.y + cell.height));
+    return lines.some(
+      (line) =>
+        /\p{L}/u.test(line.text) &&
+        !isTableValueCell(line.text) &&
+        line.x >= table.x - 1 &&
+        line.x + line.width <= valueLeft &&
+        Math.min(bottom, line.y + line.height) - Math.max(top, line.y) > 0,
+    );
+  }).length;
 }
 
 function valueCollisionRows(table: LayoutTable): number {

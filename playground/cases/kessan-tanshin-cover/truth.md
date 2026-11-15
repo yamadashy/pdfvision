@@ -83,7 +83,8 @@ The rest is usable. The page body separates the company labels from their values
 values after the results table header), but layout table 5 pairs them correctly
 (`| 問合せ先責任者 | (役職名)取締役経理部長 (氏名)佐藤 由美 | … | TEL | 06-0000-1234 |`), so questions 1
 and 4 are answered from it; it carries `layout_table_uncertain` because it runs on into the results
-header. The results table drops its header (columns `C1…C9`) and merges one cell:
+header. The results table keeps only the units row of its header (`百万円 | % | …`, #253) and loses
+the item names, so its columns are `C1…C9` with no label above the amounts, and it merges one cell:
 `| 2027年3月期中間期 | 48,215 | 5.2 | 3,104 △12.4 |  | 3,380 |…` — question 2 is still answerable, but the
 operating-profit change sits in the amount column with the % column empty, and table 1 carries no
 warning. The dividend table, with its `―` placeholders, is read correctly (question 3).
