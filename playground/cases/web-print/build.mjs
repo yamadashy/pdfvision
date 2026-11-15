@@ -229,13 +229,10 @@ text — but it leaves question 2 answerable only as “that sentence is not in 
 banner's \`Manage settings\` / \`Accept all\` buttons remain as two orphan lines after the article
 text on each page.
 
-The link table also misassigns visible text to annotations. In the site navigation the
-${NAV[2][0]} link (\`${NAV[2][1]}\`) gets an empty Text cell and the ${NAV[3][0]} link (\`${NAV[3][1]}\`) gets
-\`Money Podcasts\`,
-so an agent asked where the Money link goes is pointed at the Podcasts URL. Article links pick up
-neighbouring words: \`Halvorsen & Weir counted\`, \`print-release software that\`,
-\`at ${TOOLKIT_TEXT}.\`. The targets themselves are right, so question 1 is answered correctly:
-the page-2 row \`at ${TOOLKIT_TEXT}.\` → \`${TOOLKIT_TARGET}\` shows the mismatch. Questions 3 and 4
+Each link row carries the text inside its own rectangle (issue #264): the navigation reads
+\`${NAV[2][0]}\` → \`${NAV[2][1]}\` and \`${NAV[3][0]}\` → \`${NAV[3][1]}\`, and article links stop at
+their own words (\`Halvorsen & Weir\`, \`print-release software\`, \`${TOOLKIT_TEXT}\`), so
+question 1 is answered from the page-2 row \`${TOOLKIT_TEXT}\` → \`${TOOLKIT_TARGET}\`. Questions 3 and 4
 are answered from \`read.md\`; the comment thread keeps names, dates and text together (the avatar
 initials \`JW\` / \`RO\` / \`PC\` print as a line under each name), and the article text runs on
 correctly from \`…first month.\` on page 1 to \`Staff who need colour proofs …\` on page 2.

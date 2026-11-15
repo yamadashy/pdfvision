@@ -49,10 +49,14 @@ interface PlacedGlyph extends GlyphGeometry {
 }
 
 const SPACE_GAP_EM = 0.15;
+// Joined Arabic glyphs leave small gaps between advances that are not word breaks.
+const RTL_SPACE_GAP_EM = 0.3;
 const SAME_LINE_EM = 0.5;
 const DUPLICATE_EM = 0.1;
 const MAX_REGIONS = 4_096;
 const RTL_SCRIPT = /[\p{Script=Hebrew}\p{Script=Arabic}\p{Script=Syriac}\p{Script=Thaana}]/u;
+const COMBINING_MARKS = /^\p{M}+$/u;
+const LTR_STRONG = /[\p{Number}\p{Script=Latin}\p{Script=Greek}\p{Script=Cyrillic}]/u;
 const CJK = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}　-〿＀-￯]/u;
 
 export function buildRegionGlyphTextIndex(
@@ -71,6 +75,12 @@ export function buildRegionGlyphTextIndex(
   let text: TextState = initialTextState();
   let annotationDepth = 0;
   const stack: Array<{ ctm: Matrix6; text: TextState }> = [];
+  const nearRegions = regions.map((region) => ({
+    x: region.x - region.height,
+    y: region.y,
+    width: region.width + 2 * region.height,
+    height: region.height,
+  }));
 
   for (let i = 0; i < fnArray.length; i++) {
     const fn = fnArray[i];
@@ -110,35 +120,87 @@ export function buildRegionGlyphTextIndex(
         if (hasVisibleText(args?.[0])) return undefined;
         continue;
       }
-      if (!regions.some((region) => boxesTouch(region, placement.box))) continue;
+      // A run just past a region can still hold a combining mark of a glyph inside it.
+      if (!nearRegions.some((region) => boxesTouch(region, placement.box))) continue;
       for (const glyph of placeRunGlyphs(placement, pageHeight, viewMinX, viewMinY)) {
         glyphs.push({ ...glyph, order: glyphs.length });
       }
     }
   }
 
-  return { textIn: (boxes) => regionText(glyphs, boxes) };
+  const clusters = buildClusters(glyphs);
+  return { textIn: (boxes) => regionText(clusters, boxes) };
 }
 
-function regionText(glyphs: readonly PlacedGlyph[], boxes: readonly PageBox[]): string | undefined {
-  const inside: PlacedGlyph[] = [];
+/**
+ * A base glyph with the combining marks drawn right after it (Thai tone
+ * marks, Devanagari signs, Arabic harakat). Marks have little or no advance
+ * and are often kerned back over the base, so they take the base's position
+ * for membership, ordering, and spacing.
+ */
+interface GlyphCluster {
+  base: PlacedGlyph;
+  text: string;
+  box: PageBox;
+  whitespace: boolean;
+  em: number;
+  order: number;
+  lastOrder: number;
+}
+
+function buildClusters(glyphs: readonly PlacedGlyph[]): GlyphCluster[] {
+  const clusters: GlyphCluster[] = [];
   for (const glyph of glyphs) {
-    const cx = glyph.box.x + glyph.box.width / 2;
-    const cy = glyph.box.y + glyph.box.height / 2;
-    if (!boxes.some((box) => cx >= box.x && cx <= box.x + box.width && cy >= box.y && cy <= box.y + box.height)) {
+    const previous = clusters.at(-1);
+    if (previous && COMBINING_MARKS.test(glyph.text) && attachesTo(previous, glyph)) {
+      previous.text += glyph.text;
+      previous.box = unionBox(previous.box, glyph.box);
+      previous.lastOrder = glyph.order;
       continue;
     }
-    // Fake bold and shadowed text draw the same glyph twice in place.
-    if (inside.some((seen) => isDuplicate(seen, glyph))) continue;
-    inside.push(glyph);
+    clusters.push({
+      base: glyph,
+      text: glyph.text,
+      box: glyph.box,
+      // pdf.js flags a glyph as a space by its code (32), and a subset font can draw any letter at code 32.
+      whitespace: glyph.text.trim().length === 0,
+      em: glyph.em,
+      order: glyph.order,
+      lastOrder: glyph.order,
+    });
   }
-  if (inside.every((glyph) => glyph.whitespace)) return undefined;
+  return clusters;
+}
+
+function attachesTo(cluster: GlyphCluster, mark: PlacedGlyph): boolean {
+  const em = Math.max(cluster.em, mark.em);
+  return (
+    !cluster.whitespace &&
+    mark.order === cluster.lastOrder + 1 &&
+    Math.abs(centerY(cluster.base) - centerY(mark)) <= SAME_LINE_EM * em &&
+    mark.box.x >= cluster.box.x - em &&
+    mark.box.x <= cluster.box.x + cluster.box.width + em
+  );
+}
+
+function regionText(clusters: readonly GlyphCluster[], boxes: readonly PageBox[]): string | undefined {
+  const inside: GlyphCluster[] = [];
+  for (const cluster of clusters) {
+    const { box } = cluster.base;
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    if (!boxes.some((b) => cx >= b.x && cx <= b.x + b.width && cy >= b.y && cy <= b.y + b.height)) continue;
+    // Fake bold and shadowed text draw the same glyph twice in place.
+    if (inside.some((seen) => isDuplicate(seen, cluster))) continue;
+    inside.push(cluster);
+  }
+  if (inside.every((cluster) => cluster.whitespace)) return undefined;
 
   const lines = groupLines(inside);
-  const rtl = inside.some((glyph) => RTL_SCRIPT.test(glyph.text));
+  const rtl = inside.some((cluster) => RTL_SCRIPT.test(cluster.text));
   let out = '';
   for (const line of lines) {
-    line.sort((a, b) => (rtl ? b.box.x - a.box.x : a.box.x - b.box.x) || a.order - b.order);
+    line.sort((a, b) => (rtl ? b.base.box.x - a.base.box.x : a.base.box.x - b.base.box.x) || a.order - b.order);
     const lineText = joinLine(line, rtl);
     if (lineText.length === 0) continue;
     out = out.length === 0 ? lineText : joinLines(out, lineText);
@@ -147,31 +209,79 @@ function regionText(glyphs: readonly PlacedGlyph[], boxes: readonly PageBox[]): 
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
-function groupLines(glyphs: readonly PlacedGlyph[]): PlacedGlyph[][] {
-  const lines: Array<{ center: number; em: number; glyphs: PlacedGlyph[] }> = [];
-  const byY = [...glyphs].sort((a, b) => centerY(a) - centerY(b) || a.order - b.order);
-  for (const glyph of byY) {
-    const line = lines.find((candidate) => Math.abs(candidate.center - centerY(glyph)) <= SAME_LINE_EM * candidate.em);
-    if (line) line.glyphs.push(glyph);
-    else lines.push({ center: centerY(glyph), em: Math.max(glyph.em, 0.001), glyphs: [glyph] });
+function groupLines(clusters: readonly GlyphCluster[]): GlyphCluster[][] {
+  const lines: Array<{ center: number; em: number; clusters: GlyphCluster[] }> = [];
+  const byY = [...clusters].sort((a, b) => centerY(a.base) - centerY(b.base) || a.order - b.order);
+  for (const cluster of byY) {
+    const center = centerY(cluster.base);
+    const line = lines.find((candidate) => Math.abs(candidate.center - center) <= SAME_LINE_EM * candidate.em);
+    if (line) line.clusters.push(cluster);
+    else lines.push({ center, em: Math.max(cluster.em, 0.001), clusters: [cluster] });
   }
-  return lines.map((line) => line.glyphs);
+  return lines.map((line) => line.clusters);
 }
 
-function joinLine(line: readonly PlacedGlyph[], rtl: boolean): string {
-  let out = '';
-  let previous: PlacedGlyph | undefined;
-  for (const glyph of line) {
-    if (previous && !previous.whitespace && !glyph.whitespace) {
+interface Piece {
+  text: string;
+  /** A digit or a letter of a left-to-right script. */
+  ltr: boolean;
+  /** Not right-to-left: may sit inside an embedded left-to-right run. */
+  neutral: boolean;
+}
+
+const SPACE_PIECE: Piece = { text: ' ', ltr: false, neutral: true };
+
+function joinLine(line: readonly GlyphCluster[], rtl: boolean): string {
+  const pieces: Piece[] = [];
+  let previous: GlyphCluster | undefined;
+  for (const cluster of line) {
+    if (previous && !previous.whitespace && !cluster.whitespace) {
       const gap = rtl
-        ? previous.box.x - (glyph.box.x + glyph.box.width)
-        : glyph.box.x - (previous.box.x + previous.box.width);
-      if (gap > SPACE_GAP_EM * Math.max(previous.em, glyph.em)) out += ' ';
+        ? previous.box.x - (cluster.box.x + cluster.box.width)
+        : cluster.box.x - (previous.box.x + previous.box.width);
+      if (gap > (rtl ? RTL_SPACE_GAP_EM : SPACE_GAP_EM) * Math.max(previous.em, cluster.em)) pieces.push(SPACE_PIECE);
     }
-    out += glyph.whitespace ? ' ' : glyph.text;
-    previous = glyph;
+    const text = rtl ? rtlClusterText(cluster) : cluster.text;
+    pieces.push(
+      cluster.whitespace ? SPACE_PIECE : { text, ltr: LTR_STRONG.test(text), neutral: !RTL_SCRIPT.test(text) },
+    );
+    previous = cluster;
   }
-  return out.trim();
+  return (rtl ? restoreLtrRuns(pieces) : pieces)
+    .map((piece) => piece.text)
+    .join('')
+    .trim();
+}
+
+/**
+ * A right-to-left ligature glyph (lam-alef) carries its characters in
+ * visual order, so reading the line right to left needs them reversed;
+ * combining marks after the base stay where they are.
+ */
+function rtlClusterText(cluster: GlyphCluster): string {
+  const base = Array.from(cluster.base.text);
+  if (base.length < 2 || !RTL_SCRIPT.test(cluster.base.text)) return cluster.text;
+  return base.reverse().join('') + cluster.text.slice(cluster.base.text.length);
+}
+
+/**
+ * An RTL line read right to left reverses any embedded number or Latin
+ * word (`3200` comes out `0023`); put each such run back in its own order.
+ */
+function restoreLtrRuns(pieces: readonly Piece[]): Piece[] {
+  const out = [...pieces];
+  let i = 0;
+  while (i < out.length) {
+    if (!out[i].ltr) {
+      i++;
+      continue;
+    }
+    let end = i;
+    for (let j = i + 1; j < out.length && out[j].neutral; j++) if (out[j].ltr) end = j;
+    out.splice(i, end - i + 1, ...out.slice(i, end + 1).reverse());
+    i = end + 1;
+  }
+  return out;
 }
 
 function joinLines(before: string, after: string): string {
@@ -184,9 +294,24 @@ function centerY(glyph: GlyphGeometry): number {
   return glyph.box.y + glyph.box.height / 2;
 }
 
-function isDuplicate(a: GlyphGeometry, b: GlyphGeometry): boolean {
+function unionBox(a: PageBox, b: PageBox): PageBox {
+  const x = Math.min(a.x, b.x);
+  const y = Math.min(a.y, b.y);
+  return {
+    x,
+    y,
+    width: Math.max(a.x + a.width, b.x + b.width) - x,
+    height: Math.max(a.y + a.height, b.y + b.height) - y,
+  };
+}
+
+function isDuplicate(a: GlyphCluster, b: GlyphCluster): boolean {
   const tolerance = DUPLICATE_EM * Math.max(a.em, b.em);
-  return a.text === b.text && Math.abs(a.box.x - b.box.x) <= tolerance && Math.abs(a.box.y - b.box.y) <= tolerance;
+  return (
+    a.text === b.text &&
+    Math.abs(a.base.box.x - b.base.box.x) <= tolerance &&
+    Math.abs(a.base.box.y - b.base.box.y) <= tolerance
+  );
 }
 
 function hasVisibleText(glyphArgs: unknown): boolean {

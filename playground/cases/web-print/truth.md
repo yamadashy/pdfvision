@@ -86,13 +86,10 @@ text — but it leaves question 2 answerable only as “that sentence is not in 
 banner's `Manage settings` / `Accept all` buttons remain as two orphan lines after the article
 text on each page.
 
-The link table also misassigns visible text to annotations. In the site navigation the
-Money link (`https://journal.fernleaf.example/money`) gets an empty Text cell and the Podcasts link (`https://journal.fernleaf.example/podcasts`) gets
-`Money Podcasts`,
-so an agent asked where the Money link goes is pointed at the Podcasts URL. Article links pick up
-neighbouring words: `Halvorsen & Weir counted`, `print-release software that`,
-`at greenoffice.example.org/toolkit.`. The targets themselves are right, so question 1 is answered correctly:
-the page-2 row `at greenoffice.example.org/toolkit.` → `https://clk.adpartner-network.example/r?cid=55120&dest=greenoffice-toolkit` shows the mismatch. Questions 3 and 4
+Each link row carries the text inside its own rectangle (issue #264): the navigation reads
+`Money` → `https://journal.fernleaf.example/money` and `Podcasts` → `https://journal.fernleaf.example/podcasts`, and article links stop at
+their own words (`Halvorsen & Weir`, `print-release software`, `greenoffice.example.org/toolkit`), so
+question 1 is answered from the page-2 row `greenoffice.example.org/toolkit` → `https://clk.adpartner-network.example/r?cid=55120&dest=greenoffice-toolkit`. Questions 3 and 4
 are answered from `read.md`; the comment thread keeps names, dates and text together (the avatar
 initials `JW` / `RO` / `PC` print as a line under each name), and the article text runs on
 correctly from `…first month.` on page 1 to `Staff who need colour proofs …` on page 2.

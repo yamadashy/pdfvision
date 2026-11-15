@@ -134,7 +134,7 @@ All boxes use raw page-view units of the page as displayed: the pdf.js `page.vie
 
 使用 `--form-fields` 處理申請表、問卷和政府表單。它暴露 widget type、value、checked state、choices、flags、export values、actions、bbox 和附近標籤，常用於區分空框、已選核取方塊和可見 choice field。
 
-使用 `--links` 與 `--outline` 處理導覽密集的文件。links 是帶 bbox 與 target 的頁面級 annotation，outline 是保留層級和 resolved destination 的文件級書籤。即使未請求 link output，link targets 也會被 `--search` 搜尋。它們適用於引用、目錄、手冊和「指向哪裡」也是證據一部分的報告。
+使用 `--links` 與 `--outline` 處理導覽密集的文件。links 是帶 bbox 與 target 的頁面級 annotation，outline 是保留層級和 resolved destination 的文件級書籤。即使未請求 link output，link targets 也會被 `--search` 搜尋。它們適用於引用、目錄、手冊和「指向哪裡」也是證據一部分的報告。 A link's `text` is the text whose glyphs sit inside its own rectangle, so side-by-side links and inline links in a sentence do not borrow their neighbours' words.
 
 使用 `--annotations` 處理評論、高亮、stamp、ink、shape、file-attachment icons 或可見 FreeText notes 可能改變頁面含義的情況。FreeText annotations 也會被 `--search` 搜尋，因為它們可能對人類可見，卻不在 `pages[].text` 中。 Highlight, Underline, Squiggly, and StrikeOut rows carry `markedText`, the page text under the markup, so an agent sees what was struck out or highlighted without matching boxes against text geometry.
 

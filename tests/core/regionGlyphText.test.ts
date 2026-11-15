@@ -87,6 +87,46 @@ describe('text markup annotations report the text they mark', () => {
   });
 });
 
+describe('link text comes from the glyphs inside each link rectangle', () => {
+  it('gives side-by-side navigation links their own words', async () => {
+    const page = await firstPage((doc) => {
+      const items = ['Sustainability', 'Money', 'Podcasts'];
+      let x = 72;
+      for (const label of items) {
+        doc.text(label, x, 100, { lineBreak: false });
+        doc.link(x, 99, doc.widthOfString(label), 13, `https://example.test/${label.toLowerCase()}`);
+        x += doc.widthOfString(label) + 14;
+      }
+    });
+
+    expect(page.links?.map((link) => [link.text, link.target])).toEqual([
+      ['Sustainability', 'https://example.test/sustainability'],
+      ['Money', 'https://example.test/money'],
+      ['Podcasts', 'https://example.test/podcasts'],
+    ]);
+  });
+
+  it('keeps neighbouring words and trailing punctuation out of an inline link', async () => {
+    const line = 'Read the Cookie Policy. It changed.';
+    const page = await firstPage((doc) => {
+      doc.text(line, 72, 100, { lineBreak: false });
+      const box = wordBox(doc, line, 'Cookie Policy', 72, 99);
+      doc.link(box.x, box.y, box.w, box.h, 'https://example.test/cookies');
+    });
+
+    expect(page.links?.[0]?.text).toBe('Cookie Policy');
+  });
+
+  it('leaves a link over blank space without text', async () => {
+    const page = await firstPage((doc) => {
+      doc.text(SENTENCE, 72, 100, { lineBreak: false });
+      doc.link(72, 300, 80, 13, 'https://example.test/blank');
+    });
+
+    expect(page.links?.[0]?.text).toBeUndefined();
+  });
+});
+
 describe('buildRegionGlyphTextIndex', () => {
   const ops: RegionGlyphOps = {
     beginText: 1,
@@ -147,6 +187,34 @@ describe('buildRegionGlyphTextIndex', () => {
     ];
     expect(index?.textIn(quads)).toBe('no w the');
     expect(index?.textIn([{ x: 300, y: 80, width: 20, height: 20 }])).toBeUndefined();
+  });
+
+  const region = { x: 95, y: 80, width: 80, height: 20 };
+  const read = (glyphs: unknown[]) =>
+    buildRegionGlyphTextIndex(
+      [1, 2, 3, 20],
+      [[], ['F1', 10], [[1, 0, 0, 1, 100, 700]], [glyphs]],
+      ops,
+      [region],
+      792,
+      0,
+      0,
+    )?.textIn([region]);
+
+  it('keeps a number inside a right-to-left line in its own order', () => {
+    // Visual left-to-right order: "2013" then the Arabic word drawn right of it.
+    expect(read([glyph('2'), glyph('0'), glyph('1'), glyph('3'), glyph(' '), glyph('ث'), glyph('د'), glyph('ح')])).toBe(
+      'حدث 2013',
+    );
+  });
+
+  it('keeps a combining mark with its base even when it is kerned back over it', () => {
+    // ก + ่ (tone mark kerned back over the consonant) + า
+    expect(read([glyph('ก'), -500, { unicode: '่', width: 500 }, glyph('า')])).toBe('ก่า');
+  });
+
+  it('reads a letter that a subset font draws at the space code as a letter', () => {
+    expect(read([glyph('a'), { unicode: 'm', width: 500, isSpace: true }, glyph('p')])).toBe('amp');
   });
 
   it('ignores text drawn inside annotation appearance streams', () => {
