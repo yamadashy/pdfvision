@@ -21,7 +21,7 @@ pdfvision 把渲染當作證據，而不是最後手段。代理可以先讀取�
 pdfvision document.pdf --render --render-output ./images --format json
 ```
 
-每個選中頁面都會得到一個影像路徑。版面 bbox 使用未旋轉的 pdf.js page view box 原始 page-view units，而不是 PNG 像素。物理點數 = 原始值 × `pages[].userUnit`（省略時按 1）；像素數 = 原始值 × UserUnit × render scale。旋轉頁使用 pdf.js 的旋轉 viewport transform。
+每個選中頁面都會得到一個影像路徑。Layout boxes use raw page-view units of the page as displayed (the pdf.js page view box turned by its `/Rotate`), not PNG pixels. 物理點數 = 原始值 × `pages[].userUnit`（省略時按 1）；像素數 = 原始值 × UserUnit × render scale。This holds on rotated pages too; no viewport transform is needed. A page with the `rotated_page_read_unrotated` warning is the exception: its coordinates and render both stay unrotated (see Structured Output).
 
 ```bash
 pdfvision document.pdf --render --render-scale 3
@@ -44,7 +44,7 @@ pdfvision document.pdf --render --render-scale 3
 pdfvision document.pdf --pages 2 --render --render-region 120,180,360,240 --render-output ./regions
 ```
 
-`--render-region` 使用未旋轉的原始 page-view units 和左上角原點。版面、影像或視覺區域 bbox 可原樣傳入；渲染器在產生像素時套用 UserUnit 與 render scale。
+`--render-region` takes a rectangle in raw page-view units of the page as displayed, with a top-left origin. 版面、影像或視覺區域 bbox 可原樣傳入；渲染器在產生像素時套用 UserUnit 與 render scale。
 
 搜尋結果的 bbox 也可以使用同一裁切流程。參見 [搜尋與區域放大](./search-and-region-zoom.md)。
 

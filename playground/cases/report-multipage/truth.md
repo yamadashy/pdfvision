@@ -104,11 +104,13 @@ separate tables. The running title is dropped as repeated chrome; the varying
 section name in the header is kept, so page 3 shows `3 Risks and mitigations` twice, the first time
 between `Table 1 (continued)` and the table's header row. The page bodies are flattened column by column under `tabular_numeric_layout`.
 
-Page 4 (`/Rotate 90`) is read in the stored, unrotated orientation: each displayed *column*
-comes out as one line (`91.2 89.6 61.8 96.5 66.0 182.4`, `Voltra e-Van 3.5 Kestrel Cargo E
-Mobion City …`), header words are scattered (`CO2 saved` / `5-yr TCO (EUR k)` / `Maint.` /
-`(t/yr) 9.8 …`), and the running header and footer are mixed into the body. Question 3 can only
-be answered by guessing which numeric line is TCO. The page carries `layout_table_uncertain`
-(“render that region … before trusting the table”) and `reading_order_divergence` (“render the
-page when exact sequence is critical”), so the agent is told to render; the render is upright and
-correct.
+Page 4 (`/Rotate 90`) is read upright, exactly as the same page stored landscape would be: the
+running title is dropped as repeated chrome and the section name shows twice, as on page 3. The
+body is flattened column by column like pages 2–3 — each column header (`Model`, `Range (km)`,
+`5-yr TCO CO2 saved (EUR k)` …) followed by its six values in row order. Layout table 1 merges two
+header pairs (`Price Energy / 100 km`, `5-yr TCO CO2 saved`) and keeps only the last data row
+whole; rows 1–5 carry the Energy-to-CO2 values with no model name. Question 3 is answerable by
+pairing positions in the `Model` and `5-yr TCO` lists (the third entry of each: Mobion City,
+61.8), not from the table. `layout_table_uncertain` names the table's render region and
+`reading_order_divergence` says to render the page, so the agent is told to check; the render is
+upright and correct.

@@ -2,6 +2,7 @@ import { lstatSync, type Stats } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { OcrWord, PageOcr } from '../../types/index.js';
+import { resolvePageFrame } from '../geometry/pageFrame.js';
 import { createCacheRootSession, ensureCacheSubdirectory } from '../io/cache.js';
 import { sameIdentity } from '../io/cacheRoot.js';
 import { type RenderRegion, renderPageToBuffer, viewportCropForRegion } from '../renderer/index.js';
@@ -341,11 +342,13 @@ export async function attachOcr(
       let contentRatio: number | undefined;
       const page = await doc.getPage(pageNumbers[i]);
       const ocrScale = effectiveOcrRenderScale(scale);
-      const viewport = page.getViewport({ scale: ocrScale });
+      const frame = await resolvePageFrame(page);
+      const viewport = page.getViewport({ scale: ocrScale, rotation: frame.rotation });
       const transform: OcrWordTransform = {
         scale: ocrScale,
-        ...(region && { region, crop: viewportCropForRegion(page, viewport, region) }),
+        ...(region && { region, crop: viewportCropForRegion(frame, viewport, region) }),
         pageView: page.view,
+        rotation: frame.rotation,
         viewport,
       };
       if (cachedImage && cachedImageScale === ocrScale) {

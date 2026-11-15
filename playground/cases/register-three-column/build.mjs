@@ -221,28 +221,22 @@ ${BLOCKS.map(plainBlock).join('\n\n')}
 5. How many comments did the Department receive, and on which page and date does this text appear? — 236 comments; page ${HEAD.page}, Thursday, November 5, 2026
 6. What toxin levels led to the shellfish closure, and what is the action level? — 112 and 146 micrograms per 100 grams at stations N–4 and N–7; the action level is 80 micrograms per 100 grams
 
-Every answer is present in \`read.md\`, but several only after reassembling scattered fragments.
+Every answer is present in \`read.md\` as contiguous text within its column: lines stay in their
+column although the three columns sit on separate baselines with 12 pt gutters, each indented first line
+stays with its paragraph, the toxin sentence of question 6 reads in one piece, and the rotated
+margin stamp is read after the body instead of inside a paragraph (#273).
 
-**Known gap (#242):** no warning on the page. The body is read column-segment by column-segment in
-an order that is neither column order nor row order, and a 15 × 6 "layout table" is reported whose
-rows fuse lines from all three columns (\`| designated harbor areas. This rule sets a single | | |
-described in § 214.12(c). | FOR FURTHER INFORMATION CONTACT: | |\`).
+**Known gap (#242):** no warning on the page. A 14 × 5 "layout table" is reported whose rows are
+prose lines from all three columns (\`| designated harbor areas. This rule sets a single | | |
+described in § 214.12(c). | FOR FURTHER INFORMATION CONTACT: |\`).
 
-**Known gap (no issue yet)**, the surveyed register failures, reproduced:
-- First lines of indented paragraphs are detached and emitted together near the end of column 2's
-  text: \`Part 214 governs the placement of private\` / \`On March 12, 2026, the Department published\` /
-  \`The Department received 236 comments from\` / \`1. Maximum length. Many commenters\` — each 20 to 60
-  lines after its own continuation (\`moorings in the forty-one harbor areas\`, \`a proposed rule (51 CR
-  10422)…\`). Question 5's count survives only in that detached line.
-- Lines of different columns are fused where they share a baseline: \`transferred, sublet or used for a
-  vessel other than level\` (column 2 + the word \`level\` from column 3), \`who declines two offers in one
-  season moves to\` / \`municipal harbor committees and one marine the end of the list.\`, and \`2. Inspection
-  interval. The insurer and both WILDLIFE\`.
-- Column 3's sentence about toxin levels is split into \`paralytic\` / \`shellfish toxin at 112 and 146\`
-  / … / \`micrograms per 100 grams of tissue. The action\` / (column 2 line) \`level\` / … / \`is 80
-  micrograms per 100 grams.\`, so question 6 needs those pieces re-joined across interleaved column-2 text.
-- The rotated margin stamp \`${MARGIN_STAMP}\` is spliced into column 1 between \`moorings in the
-  forty-one harbor areas\` and \`designated under section 12 of the Harbors Act.\`
+**Known gap (no issue yet):**
+- The columns are read segment by segment rather than one after another: column 1 down to
+  \`telephone\`, the top of column 2 (opening with \`inspection.\`, the end of column 1's last
+  sentence), the top of column 3, then the rest of column 1, the stray word \`email\`, the rest of
+  column 2 and the rest of column 3. The justified contact line \`telephone 555–0142, email\` is set
+  with word spaces of about 35 pt, so it is cut at them, and the lone \`email\` fragment, aligned
+  with no column, ends the column run.
 - The running head is emitted page number first (\`48216\`, then the date line), which is harmless.
 `;
 

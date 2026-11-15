@@ -144,11 +144,11 @@ function collectPageTextItems({
   for (const item of content.items) {
     if (!isTextItem(item)) continue;
     if (isLikelyPrepressProductionText(item.str)) continue;
-    const w = typeof item.width === 'number' ? item.width : 0;
+    const w = finiteOrZero(item.width);
     // pdf.js reports item.height as 0 for many PDFs (e.g. those produced by
     // certain Office exporters); fall back to the vertical scale from the
     // text matrix, which approximates the text item's height in user units.
-    const reportedH = typeof item.height === 'number' ? item.height : 0;
+    const reportedH = finiteOrZero(item.height);
     const transform = item.transform;
     const h = reportedH > 0 ? reportedH : transform ? textMatrixFontSize(transform) : 0;
     const itemKey = textItemDedupeKey(item.str, w, h, transform, item.fontName);
@@ -576,4 +576,10 @@ function stablePageFontName(rawFontName: string, aliases: Map<string, string>): 
   const alias = `font${aliases.size + 1}`;
   aliases.set(rawFontName, alias);
   return alias;
+}
+
+// pdf.js can report NaN widths for whitespace items; one NaN would poison the
+// page's text area (and so textCoverage) and every downstream box.
+function finiteOrZero(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }

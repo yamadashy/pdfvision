@@ -1,5 +1,5 @@
-import type { PDFPageProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { RenderRegion } from '../../types/index.js';
+import { type DisplayFrame, framePointToPdf } from '../geometry/displayFrame.js';
 
 export interface ViewportCrop {
   x: number;
@@ -14,19 +14,17 @@ export interface PageViewportLike {
 }
 
 export function viewportCropForRegion(
-  page: PDFPageProxy,
+  frame: DisplayFrame,
   viewport: PageViewportLike,
   region: RenderRegion,
 ): ViewportCrop {
-  const view = page.view;
-  const viewMinX = Math.min(view[0], view[2]);
-  const viewMaxY = Math.max(view[1], view[3]);
-  const leftPdf = viewMinX + region.x;
-  const rightPdf = leftPdf + region.width;
-  const topPdf = viewMaxY - region.y;
-  const bottomPdf = topPdf - region.height;
-  const topLeft = viewport.convertToViewportPoint(leftPdf, topPdf);
-  const bottomRight = viewport.convertToViewportPoint(rightPdf, bottomPdf);
+  // `region` is in the page frame spans / imageBoxes / layout.blocks use
+  // (the viewport's own rotation), so map its corners back to PDF user
+  // space and let pdf.js's viewport apply rotation, UserUnit and scale.
+  const topLeft = viewport.convertToViewportPoint(...framePointToPdf(frame, region.x, region.y));
+  const bottomRight = viewport.convertToViewportPoint(
+    ...framePointToPdf(frame, region.x + region.width, region.y + region.height),
+  );
   const rect = [topLeft[0], topLeft[1], bottomRight[0], bottomRight[1]];
   const left = Math.min(rect[0], rect[2]);
   const top = Math.min(rect[1], rect[3]);

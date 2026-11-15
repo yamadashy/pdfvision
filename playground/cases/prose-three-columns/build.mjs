@@ -53,9 +53,8 @@ const COLUMNS = [
 export const meta = {
   title: 'Three-column instructions prose',
   stresses: 'multi-column running prose whose lines end in years and form numbers; no table on the page',
-  status: 'known-gap',
+  status: 'ok',
   families: ['reading-order'],
-  issue: 242,
 };
 
 const plain = (paragraph) => `${paragraph.lead} ${paragraph.text}`;
@@ -70,10 +69,10 @@ not values.
 
 ${COLUMNS.map((column, i) => `_Column ${i + 1}_\n\n${column.map(plain).join('\n\n')}`).join('\n\n')}
 
-**Known gap (#242):** the body text is read correctly, column by column, but a
-3-column layout table is also reported, one row per baseline across the three
-columns (\`| 2026. | next to line 4b; see also your Form 5329. | 5329. |\`), with
-some prose lines missing from it, and no warning marks it as unreliable.
+The body text is read correctly, column by column, and no layout table is reported: the
+aligned-text table detector does build a 3-column "table" from the lines that share a baseline,
+but every boundary between its columns is one of the page's prose gutters, so it is dropped
+(#242).
 `;
 
 const TOP = 72;

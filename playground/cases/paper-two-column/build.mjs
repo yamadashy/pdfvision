@@ -152,15 +152,15 @@ Page number: 1.
 4. What is the paper's arXiv identifier? — ${ARXIV.split(' ')[0]}
 5. What rule decides whether a token is kept? — ${EQUATION.rule}
 
-**Known gap (#241):** the subscripts of the inline equation are split off their lines and
-emitted later as lone \`i\` lines (two after the equation, two more inside the Table 1 run), and
-the superscript is joined: the body reads \`For a token i with embedding k we compute\` /
-\`s = qTk / √d and keep the token when s ≥ τ.\` — question 5 cannot be answered correctly
-from \`read.md\`. Author and affiliation markers are joined too (\`Lindqvist2\`, \`2Halden\`),
+**Known gap (#241):** the subscripts and the superscript of the inline equation are joined as
+plain characters (\`si = qTk / √d and keep the token when s ≥ τ.\`) or split off as lone \`i\` lines
+(one after the equation, two more inside the Table 1 run): the body reads \`For a token i with
+embedding k we compute\` / \`si = qTk / √d …\` — question 5 cannot be answered correctly from
+\`read.md\`. Author and affiliation markers are joined too (\`Lindqvist2\`, \`2Halden\`),
 which still lets question 1 be answered.
 
 **Known gap (#242):** the abstract, the whole left column and the figure labels are also
-reported as an 8 × 51 “layout table” of prose fragments. No warning accompanies it.
+reported as an 8 × 50 “layout table” of prose fragments. No warning accompanies it.
 
 **Known gap (no issue yet):**
 - The real Table 1 is detected without its header row (columns \`C1…C5\`), and it picks up a
@@ -175,8 +175,8 @@ reported as an 8 × 51 “layout table” of prose fragments. No warning accompa
   \`ATP (ours)\` sits next to the MultiNews-R pair, not the ATP bars. No warning covers the chart.
 - The centred page number \`1\` is emitted inside the left column, between Table 1 and the axis ticks.
 
-The left column is correctly read before the right one; the rotated arXiv stamp is read
-upright after the abstract (question 4 is answerable).
+The left column is correctly read before the right one; the rotated arXiv stamp in the margin is
+read upright at the end of the page, after the body (question 4 is answerable).
 `;
 
 const COLS = [

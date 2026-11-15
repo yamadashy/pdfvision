@@ -109,7 +109,7 @@ OCR はネイティブテキストを上書きしません。利用側が `page.
 
 ## 座標系
 
-すべての bbox は、回転前の pdf.js `page.view` を基準とする生の page-view units で表し、左上を原点とします。表示ボックスは、有効な CropBox が適用される場合は CropBox ∩ MediaBox、それ以外は MediaBox です。`pages[].width` / `height`、ゼロ基準座標、`renderRegion` の境界も、このボックスを基準にします。`pages[].userUnit` と `overview[].userUnit` は、既定値 1 以外の PDF `/UserUnit` を示し、1 の場合は省略されます。物理サイズのポイント数は「生の page-view 値 × userUnit（省略時は 1）」、レンダリング後のピクセル数は「生の領域 × UserUnit × render scale」です。bbox は変更せず `--render-region` に渡せます。ページ全体の PNG に重ねる場合、回転なしの場合は画像とページの寸法比で拡大し、回転ありの場合は pdf.js の回転 viewport transform を使います。
+All boxes use raw page-view units of the page as displayed: the pdf.js `page.view` visible box turned by the page's `/Rotate`, with a top-left origin. On a page rotated 90° or 270°, `pages[].width` / `height` are the stored box's height / width. A page whose text is upright only as stored is read and rendered unrotated instead, with a `rotated_page_read_unrotated` warning. 表示ボックスは、有効な CropBox が適用される場合は CropBox ∩ MediaBox、それ以外は MediaBox です。`pages[].width` / `height`、ゼロ基準座標、`renderRegion` の境界も、このボックスを基準にします。`pages[].userUnit` と `overview[].userUnit` は、既定値 1 以外の PDF `/UserUnit` を示し、1 の場合は省略されます。物理サイズのポイント数は「生の page-view 値 × userUnit（省略時は 1）」、レンダリング後のピクセル数は「生の領域 × UserUnit × render scale」です。bbox は変更せず `--render-region` に渡せます。For full-page PNG overlays, scale by image/page dimensions; this holds on rotated pages too, including `rotated_page_read_unrotated` pages, whose render is unrotated like their coordinates.
 
 警告検出のしきい値と `pt` / `pt²` を含むメッセージには、抽出済みジオメトリを物理ポイントへ換算した非公開ビューを使います。ただし、抽出処理のすべてが物理サイズに対して不変になるわけではありません。レイアウトのグループ化、フォームラベルの再構築、vector box の整形、visual region の生成には、生の単位に基づくヒューリスティックが残っているため、物理的に同等な PDF でも上流の抽出結果が異なる場合があります。
 

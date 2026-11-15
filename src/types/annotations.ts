@@ -74,10 +74,10 @@ export interface PageAnnotation {
   height: number;
   /** Precise markup quadrilateral boxes, present when the PDF provides QuadPoints. */
   quadBoxes?: PageAnnotationBox[];
-  /** Line start/end coordinates in unrotated page-view top-left user space. */
+  /** Line start/end coordinates in displayed (post-/Rotate) page-view top-left user space. */
   line?: PageAnnotationLine;
-  /** Polygon and PolyLine vertices in unrotated page-view top-left user space. */
+  /** Polygon and PolyLine vertices in displayed (post-/Rotate) page-view top-left user space. */
   vertices?: PageAnnotationPoint[];
-  /** Freehand paths in unrotated page-view top-left user space. */
+  /** Freehand paths in displayed (post-/Rotate) page-view top-left user space. */
   inkPaths?: PageAnnotationPoint[][];
 }

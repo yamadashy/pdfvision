@@ -22,7 +22,6 @@ cross-sectional study of hospital staff
 
 Citation: Marwick L, Bannerman O,
 Ramaswamy P, Feldt J (2026)
-Night-shift work and gut microbial
 
 Lena Marwick1, Osei Bannerman1,2, Priya Ramaswamy2, Jonas Feldt1*
 
@@ -35,6 +34,7 @@ Abstract
 
 Circadian disruption alters host metabolism, but its association with the gut microbiome in working
 
+Night-shift work and gut microbial
 diversity: a cross-sectional study of
 
 adults is poorly characterised. We sequenced stool samples from 410 nurses and porters at two hospitals,
@@ -52,10 +52,10 @@ Editor: Tamsin Achterberg, Leiden
 diet score and antibiotic use in the preceding year. The difference grew with years of night work and was
 
 Centre for Infection Biology,
-NETHERLANDS
 
 not explained by sleep duration alone. These findings support including shift pattern as a covariate in
-microbiome studies of working populations.
+
+NETHERLANDS
 
 Received: May 4, 2026
 
@@ -79,9 +79,14 @@ Funding: This work was funded by the
 Nordic Shift Health Foundation (grant
 NSHF-2024-117 to JF). The funder had
 no role in study design or analysis.
-Competing interests: The authors have one in five hospital employees in Northern Europe
+
+Competing interests: The authors have
 declared that no competing interests
 exist.
+
+Journal of Occupational Microbiome Research | https://doi.org/10.5555/jomr.0312
+
+microbiome studies of working populations.
 
 Table 1. Characteristics of participants by shift pattern.
 
@@ -97,7 +102,7 @@ SD, standard deviation; BMI, body mass index.
 Introduction
 
 Shift work is common in health care, and roughly
-
+one in five hospital employees in Northern Europe
 works a rotating pattern that includes nights.
 Disrupted circadian rhythm has been linked to
 weight gain, impaired glucose tolerance and
@@ -108,6 +113,19 @@ Human evidence is thinner. Small studies of
 airline crews and military personnel reported
 shifts in community composition after short
 periods of jet lag or sleep restriction, but few have
+examined workers exposed to night shifts over
+years, and fewer still have adjusted for diet, which
+differs systematically between shift patterns.
+We therefore compared stool microbial
+diversity between day-shift and night-shift staff at
+two hospitals, and asked whether any difference
+scaled with cumulative years of night work.
+
+Methods
+
+Study population
+Nurses, healthcare assistants and porters aged 25
+to 60 years were invited between January and
 
 Day shift Night shift
 (n = 212) (n = 198)
@@ -132,6 +150,8 @@ p
 <0.001
 0.002
 0.57
+
+September 30, 2026
 
 4.0
 
@@ -159,6 +179,16 @@ Participants collected a stool sample at home
 within 48 hours of a day off and returned it by
 courier on ice packs. DNA was extracted with a
 bead-beating protocol and the V4 region of the
+16S rRNA gene was sequenced on a paired-end
+platform.
+Statistical analysis
+Alpha diversity was summarised by the Shannon
+index on rarefied counts. Differences between
+shift groups were estimated by linear regression
+adjusted for age, sex, body mass index, diet
+quality score and antibiotic use in the past year.
+Years of night work were analysed in two bands,
+under five years and five years or more.
 
 3.87
 
@@ -172,38 +202,8 @@ Night < 5 y
 
 Night ≥ 5 y
 
-16S rRNA gene was sequenced on a paired-end
-years, and fewer still have adjusted for diet, which platform.
-differs systematically between shift patterns.
-
-examined workers exposed to night shifts over
-
-We therefore compared stool microbial
-diversity between day-shift and night-shift staff at
-two hospitals, and asked whether any difference
-scaled with cumulative years of night work.
-
-Methods
-
-Study population
-Nurses, healthcare assistants and porters aged 25
-to 60 years were invited between January and
-
-September 30, 2026
-
-Statistical analysis
-Alpha diversity was summarised by the Shannon
-index on rarefied counts. Differences between
-shift groups were estimated by linear regression
-adjusted for age, sex, body mass index, diet
-quality score and antibiotic use in the past year.
-Years of night work were analysed in two bands,
-under five years and five years or more.
-
 1 / 11
-
-Journal of Occupational Microbiome Research | https://doi.org/10.5555/jomr.0312
 
 ### Warnings
 
-> **warning** (reading_order_divergence): heading "Night-shift work and gut microbial diver" leads the visual reading order but only appears 93% of the way through the native text stream — native text order diverges from what a human reads; the body above is that reading order, rebuilt from the layout — render the page when exact sequence is critical
+> **warning** (reading_order_divergence): heading "Night-shift work and gut microbial diver" leads the visual reading order but only appears 93% of the way through the native text stream — native text order diverges from what a human reads; the layout-rebuilt order is unreliable here too — side-by-side blocks "Circadian disruption alters host meta..." and "Night-shift work and gut microbial di..." are interleaved line by line; render the page to read it in sequence

@@ -36,6 +36,14 @@ replaces the paper waiting list with an electronic
 list administered by each harbor office. The
 changes respond to comments received on the
 proposed rule and to a rise in mooring failures
+during winter storms.
+DATES: This rule is effective January 4, 2027.
+Permits issued before that date remain valid until
+their stated expiration.
+FOR FURTHER INFORMATION CONTACT:
+Delia Fairweather, Office of Harbor
+Management, Department of Coastal Resources,
+telephone
 
 inspection.
 3. Waiting lists. Several commenters asked
@@ -57,6 +65,14 @@ Department amends 14 CCR part 214 as follows:
 § 214.12 Permit conditions.
 (a) General. A mooring permit authorizes one
 vessel to occupy one mooring at the location
+stated on the permit. The permit may not be
+transferred, sublet or used for a vessel other than
+the one named on it.
+(b) Maximum length. The overall length of the
+permitted vessel may not exceed—
+(1) In a Class A harbor, 12 meters;
+(2) In a Class B harbor, 15 meters; and
+(3) In a Class C harbor, 20 meters, unless the
 
 AGENCY: Department of Fisheries and Wildlife
 (DFW).
@@ -77,32 +93,9 @@ telephone 555–0178.
 SUPPLEMENTARY INFORMATION:
 Samples taken on October 27 and November
 2, 2026, at stations N–4 and N–7 contained
-paralytic
-
-shellfish toxin at 112 and 146
-
-during winter storms.
-DATES: This rule is effective January 4, 2027.
-Permits issued before that date remain valid until
-their stated expiration.
-FOR FURTHER INFORMATION CONTACT:
-Delia Fairweather, Office of Harbor
-Management, Department of Coastal Resources,
-telephone
-
-stated on the permit. The permit may not be
-
+paralytic shellfish toxin at 112 and 146
 micrograms per 100 grams of tissue. The action
-transferred, sublet or used for a vessel other than level
-
-the one named on it.
-(b) Maximum length. The overall length of the
-permitted vessel may not exceed—
-(1) In a Class A harbor, 12 meters;
-(2) In a Class B harbor, 15 meters; and
-(3) In a Class C harbor, 20 meters, unless the
-
-is 80 micrograms per 100 grams.
+level is 80 micrograms per 100 grams.
 Commercial harvest in the same beds was closed
 by the Department of Health on November 3,
 2026.
@@ -114,11 +107,8 @@ Department finds good cause to waive prior
 harbors@dcr.example.gov.
 SUPPLEMENTARY INFORMATION:
 I. Background
-
+Part 214 governs the placement of private
 moorings in the forty-one harbor areas
-
-kmalloy on DSK7QP2VN1PROD with RULES
-
 designated under section 12 of the Harbors Act.
 Since the rule was last revised in 2009, the
 number of permitted moorings has grown by
@@ -127,44 +117,31 @@ mooring fields has not changed. Harbor masters
 have reported that boats longer than the swing
 radius of their mooring now routinely strike
 neighbouring vessels at low water.
-
+On March 12, 2026, the Department published
 a proposed rule (51 CR 10422) that would have
 set maximum mooring lengths by harbor,
 required inspection of ground tackle every two
 years, and moved the waiting lists online. The
 comment period closed on May 11, 2026.
 II. Discussion of Comments
-
-who declines two offers in one season moves to
-municipal harbor committees and one marine the end of the list.
-insurer. The principal issues raised are discussed
-
+The Department received 236 comments from
 individual boat owners, yacht clubs, two
-
+municipal harbor committees and one marine
+insurer. The principal issues raised are discussed
 below.
-
+1. Maximum length. Many commenters
 objected that a separate limit for each harbor
-
-[FR Doc. 2026–24117 Filed 11–4–26; 8:45
-would be hard to follow for owners who move am]
+would be hard to follow for owners who move
 between harbors during the season. The
 Department agrees and has instead adopted a
 single limit for each of the three harbor classes in
 § 214.12(b).
-2. Inspection interval. The insurer and both WILDLIFE
-harbor committees urged annual rather than 16 CCR Part 631
+2. Inspection interval. The insurer and both
+harbor committees urged annual rather than
 biennial inspection, citing the winter storms of
 2024 and 2025, in which most failed moorings
 had not been inspected for more than eighteen
 months. The final rule requires annual
-
-Part 214 governs the placement of private
-
-On March 12, 2026, the Department published
-
-The Department received 236 comments from
-
-1. Maximum length. Many commenters
 
 email
 
@@ -191,15 +168,18 @@ filed by that date is suspended until one is filed.
 one electronic waiting list for the harbor.
 Applicants are offered a vacant mooring in the
 order of their application date, and an applicant
-
+who declines two offers in one season moves to
+the end of the list.
 Dated: October 28, 2026.
 Rafael Quintero-Haas,
 Director, Office of Harbor Management.
-
+[FR Doc. 2026–24117 Filed 11–4–26; 8:45
+am]
 BILLING CODE 4410–22–P
 
 DEPARTMENT OF FISHERIES AND
-
+WILDLIFE
+16 CCR Part 631
 [Docket No. DFW–2026–0388]
 Temporary Closure of the Northern
 Shellfish Beds to Recreational Harvest
@@ -224,24 +204,25 @@ micrograms per 100 grams.
 
 PrtDate Nov 03 2026 18:22 Job 304118 PO 00000 Frm 00012 Fmt 4700 Sfmt 4700 E:\CR\FM\05NOR1.SGM 05NOR1
 
+kmalloy on DSK7QP2VN1PROD with RULES
+
 ### Layout tables
 
-#### Table 1 (15 rows × 6 columns, bbox 42,204.11,531.47,150.5)
+#### Table 1 (14 rows × 5 columns, bbox 42,204.11,531.47,150.5)
 
-| C1 | C2 | C3 | C4 | C5 | C6 |
-| --- | --- | --- | --- | --- | --- |
-| designated harbor areas. This rule sets a single |  |  | described in § 214.12(c). | FOR FURTHER INFORMATION CONTACT: |  |
-| maximum mooring length for each harbor class, |  |  | For the reasons stated in the preamble, the | Anselm Grieve, Shellfish Sanitation Program, |  |
-| requires annual inspection of ground tackle, and |  |  | Department amends 14 CCR part 214 as follows: | telephone 555–0178. |  |
-| replaces the paper waiting list with an electronic |  |  |  | SUPPLEMENTARY INFORMATION: |  |
-| list administered by each harbor office. The |  |  | § 214.12 Permit conditions. |  |  |
-|  |  |  | (a) General. A mooring permit authorizes one | Samples taken on October 27 and November |  |
-| changes respond to comments received on the |  |  |  | 2, 2026, at stations N–4 and N–7 contained |  |
-| proposed rule and to a rise in mooring failures |  |  | vessel to occupy one mooring at the location | paralytic | shellfish toxin at 112 and 146 |
-| during winter storms. |  |  | stated on the permit. The permit may not be | micrograms per 100 grams of tissue. The action |  |
-| DATES: This rule is effective January 4, 2027. |  |  | transferred, sublet or used for a vessel other than level the one named on it. |  | is 80 micrograms per 100 grams. |
-| their stated expiration. |  |  | permitted vessel may not exceed— | by the Department of Health on November 3, |  |
-| FOR FURTHER INFORMATION CONTACT: |  |  | (1) In a Class A harbor, 12 meters; | 2026. |  |
-| Delia Fairweather, Office of Harbor |  |  | (2) In a Class B harbor, 15 meters; and | Because the toxin poses an immediate risk to |  |
-| Management, Department of Coastal Resources, |  |  | (3) In a Class C harbor, 20 meters, unless the | people who eat shellfish from the beds, the |  |
-| telephone | 555–0142, | email | harbor master approves a longer vessel for a | Department finds good cause to waive prior |  |
+| C1 | C2 | C3 | C4 | C5 |
+| --- | --- | --- | --- | --- |
+| designated harbor areas. This rule sets a single |  |  | described in § 214.12(c). | FOR FURTHER INFORMATION CONTACT: |
+| maximum mooring length for each harbor class, |  |  | For the reasons stated in the preamble, the | Anselm Grieve, Shellfish Sanitation Program, |
+| requires annual inspection of ground tackle, and |  |  | Department amends 14 CCR part 214 as follows: | telephone 555–0178. |
+| replaces the paper waiting list with an electronic |  |  |  | SUPPLEMENTARY INFORMATION: |
+| list administered by each harbor office. The |  |  | § 214.12 Permit conditions. |  |
+|  |  |  | (a) General. A mooring permit authorizes one | Samples taken on October 27 and November |
+| changes respond to comments received on the |  |  |  | 2, 2026, at stations N–4 and N–7 contained |
+| proposed rule and to a rise in mooring failures |  |  | vessel to occupy one mooring at the location | paralytic shellfish toxin at 112 and 146 |
+| during winter storms. |  |  | stated on the permit. The permit may not be | micrograms per 100 grams of tissue. The action |
+| DATES: This rule is effective January 4, 2027. |  |  | transferred, sublet or used for a vessel other than | level is 80 micrograms per 100 grams. |
+| their stated expiration. |  |  | (b) Maximum length. The overall length of the | by the Department of Health on November 3, |
+| Delia Fairweather, Office of Harbor |  |  | (2) In a Class B harbor, 15 meters; and | Because the toxin poses an immediate risk to |
+| Management, Department of Coastal Resources, |  |  | (3) In a Class C harbor, 20 meters, unless the | people who eat shellfish from the beds, the |
+| telephone | 555–0142, | email | harbor master approves a longer vessel for a | Department finds good cause to waive prior |

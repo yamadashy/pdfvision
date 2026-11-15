@@ -146,7 +146,12 @@ describe('warning UserUnit normalization', () => {
       scaledContext,
     );
 
-    expect(doubleUnit).toEqual(defaultUnit);
+    expect(doubleUnit[0]).toEqual(defaultUnit[0]);
     expect(doubleUnit.map((warning) => warning.code)).toEqual(['page_edge_text_truncated', 'text_under_opaque_fill']);
+    expect(defaultUnit.map((warning) => warning.code)).toEqual(['page_edge_text_truncated', 'text_under_opaque_fill']);
+    // The bbox is quoted in raw page units so it can be passed to --render-region as-is.
+    expect(defaultUnit[1].message).toContain('(bbox 545,100,70,10)');
+    expect(doubleUnit[1].message).toContain('(bbox 272.5,50,35,5)');
+    expect(doubleUnit[1].message.replace('272.5,50,35,5', '545,100,70,10')).toBe(defaultUnit[1].message);
   });
 });

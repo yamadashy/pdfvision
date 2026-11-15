@@ -16,7 +16,7 @@ export interface PageStructureNode {
   mathML?: string;
   /** Language hint for this structure node. */
   lang?: string;
-  /** Optional [x, y, width, height] bbox in unrotated page-view top-left user space. */
+  /** Optional [x, y, width, height] bbox in displayed (post-/Rotate) page-view top-left user space. */
   bbox?: number[];
   /** Nested structure nodes or marked-content/object references. */
   children: PageStructureItem[];

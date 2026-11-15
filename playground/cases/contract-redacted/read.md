@@ -9,16 +9,16 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 ## Overview
 
-| Page | Chars | Images | Coverage | Size (pt) | Vectors | Blocks | Fields | Links | Annots |
-| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 1704 | 0 | 16% | 612×792 | 3 | 28 | 0 | 0 | 2 |
-| 2 | 1057 | 0 | 10% | 612×792 | 3 | 16 | 0 | 1 | 1 |
+| Page | Chars | Images | Coverage | Size (pt) | Vectors | Blocks | Warnings | Fields | Links | Annots |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 1704 | 0 | 16% | 612×792 | 3 | 28 | 1 | 0 | 0 | 2 |
+| 2 | 1057 | 0 | 10% | 612×792 | 3 | 16 | 1 | 0 | 1 | 1 |
 
 ---
 
 ## Page 1
 
-_chars: 1704 · images: 0 · coverage: 16% · vectors: 3 · annotations: 2 · size: 612×792pt_
+_chars: 1704 · images: 0 · coverage: 16% · vectors: 3 · annotations: 2 · warnings: 1 · size: 612×792pt_
 
 MASTER SERVICES AGREEMENT
 
@@ -94,11 +94,15 @@ early-termination fee of USD 120,000.
 | StrikeOut |  | Replace with 1.0% per month, per our standard terms. | J. Ortiz |  |  | 229.59,457.84,69.37,13.08 | 220,40,40 |  |  | 1 |
 | Highlight |  |  | J. Ortiz |  |  | 379.19,533.64,130.12,13.08 | 255,236,61 |  |  | 1 |
 
+### Warnings
+
+> **warning** (text_matches_background): 2 extracted native text passages are drawn in the same colour as the paint behind them (for example white text on a white page): "Client may terminate this Agreement for convenience after..." (bbox 102,567.02,413.35,10.5); "early-termination fee of USD 120,000." (bbox 102,581.22,162.72,10.5) — a human viewer sees blank space there, so this text is not part of what the page shows (often production metadata, sometimes deliberately hidden content); render a listed bbox (--render-region x,y,w,h) before quoting it as visible
+
 ---
 
 ## Page 2
 
-_chars: 1057 · images: 0 · coverage: 10% · vectors: 3 · links: 1 · annotations: 1 · size: 612×792pt_
+_chars: 1057 · images: 0 · coverage: 10% · vectors: 3 · links: 1 · annotations: 1 · warnings: 1 · size: 612×792pt_
 
 5. Confidentiality
 5.1
@@ -154,3 +158,7 @@ Date: November 5, 2026
 | Type | Name | Contents | Title | File | Flags | BBox | Color | Border | Shape | QuadBoxes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---: |
 | Text | Comment | Cap is too low for a 24-month term. Ask for 2x annual fees. — J. Ortiz, Client Legal | J. Ortiz |  |  | 554,147.8,22,22 | 243,223,92 |  |  | 0 |
+
+### Warnings
+
+> **error** (text_under_opaque_fill): 1 extracted native text passage is covered by a later opaque dark fill: "USD 250,000" (bbox 389.89,150.78,57.75,10.5) — the covered text remains extractable even though a human viewer sees a black box; render a listed bbox (--render-region x,y,w,h) before trusting or repeating it

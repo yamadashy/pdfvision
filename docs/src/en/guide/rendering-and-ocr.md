@@ -21,7 +21,7 @@ You do not have to render everything. Start with the overview, then render the p
 pdfvision document.pdf --render --render-output ./images --format json
 ```
 
-Each selected page receives an image path. Layout boxes use raw unrotated pdf.js page-view units, not PNG pixels. Physical points = raw value × `pages[].userUnit` (or 1 when omitted); pixels = raw value × UserUnit × render scale. Use the rotated pdf.js viewport transform for rotated pages.
+Each selected page receives an image path. Layout boxes use raw page-view units of the page as displayed (the pdf.js page view box turned by its `/Rotate`), not PNG pixels. Physical points = raw value × `pages[].userUnit` (or 1 when omitted); pixels = raw value × UserUnit × render scale. This holds on rotated pages too; no viewport transform is needed. A page with the `rotated_page_read_unrotated` warning is the exception: its coordinates and render both stay unrotated (see Structured Output).
 
 Use `--render-scale` to control detail:
 
@@ -46,7 +46,7 @@ The rendered image path is returned in `pages[].image`, so an agent can pass it 
 pdfvision document.pdf --pages 2 --render --render-region 120,180,360,240 --render-output ./regions
 ```
 
-`--render-region` uses raw unrotated page-view units with a top-left origin. A layout, image, or visual-region bbox passes unchanged; the renderer applies UserUnit and render scale when producing pixels.
+`--render-region` takes a rectangle in raw page-view units of the page as displayed, with a top-left origin. A layout, image, or visual-region bbox passes unchanged; the renderer applies UserUnit and render scale when producing pixels.
 
 The same crop flow works after `--search`, because search matches can carry bounding boxes. See [Search and Region Zoom](./search-and-region-zoom.md).
 

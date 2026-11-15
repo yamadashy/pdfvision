@@ -100,7 +100,7 @@ export const meta = {
   title: 'Journal first page with floats out of stream order',
   stresses:
     'metadata sidebar column; title block drawn last in the content stream; table and figure floated to column tops but written after the body; footer line under the sidebar',
-  status: 'known-gap',
+  status: 'ok',
   families: ['reading-order', 'structure'],
 };
 
@@ -153,26 +153,27 @@ Questions 1, 2, 3 and 5 are answerable from \`read.md\`: the title is moved to t
 being last in the stream, every sidebar label keeps its value, and each bar value sits just
 before its group label (\`3.24\` / \`Night ≥ 5 y\`).
 
-**Known gap (no issue yet):** \`reading_order_divergence\` fires on the title and says "the body
-above is that reading order, rebuilt from the layout", but the rebuilt body is still wrong
-where the columns share baselines:
+Lines no longer cross the narrow gaps between the sidebar and the body or between the two body
+columns (#273): the Introduction's second line \`one in five hospital employees in Northern Europe\`
+stays in its sentence, and the left column is read whole, \`Introduction\` through \`…invited
+between January and\`, before the right column.
+
+\`reading_order_divergence\` fires on the title and says the layout-rebuilt order is unreliable too,
+naming the sidebar and abstract blocks that are interleaved line by line, and tells the reader to
+render the page. That is true, and the render answers question 4 and the order problems below,
+so the case is \`ok\` (#272: the warning used to claim "the body above is that reading order,
+rebuilt from the layout"). The rebuilt body itself is still wrong around the abstract and the
+floats (#274):
 - The sidebar is interleaved with the abstract line by line (\`Circadian disruption … in working\` /
   \`diversity: a cross-sectional study of\` / \`adults is poorly characterised. …\`).
-- The last sidebar line is fused with the second line of the Introduction:
-  \`Competing interests: The authors have one in five hospital employees in Northern Europe\`, so
-  the Introduction reads \`Shift work is common in health care, and roughly\` / \`works a rotating pattern…\`.
-- A left-column line is fused with the right column's last line (\`years, and fewer still have
-  adjusted for diet, which platform.\`), and the left column's second paragraph is split around
-  the figure labels and the right column's text.
 - Table 1 is not detected as a table: its row labels come first, then the values column by column
   (\`41.2 (9.8)\` / \`163 (76.9) 149 (75.3)\` / \`25.1 (3.9)\` / \`7.1\` / \`61 (12)\` / \`38.6 (8.9)\` / …),
-  with the first two value columns partly fused and the Introduction text between the labels and
+  with the first two value columns partly fused and the left column's text between the labels and
   the values. Question 4 is answerable only by counting positions in each value list (the fourth
   value of each column), which an agent cannot do safely when \`163 (76.9) 149 (75.3)\` shares a line.
-- The footer date \`September 30, 2026\` lands between \`Methods\` text and \`Statistical analysis\`.
-- The bottom of the left column (end of the Introduction, \`Methods\`, \`Study population\` ending
-  \`…invited between January and\`) is read after the right column's \`Sample collection\` paragraph, so
-  the right column opens mid-sentence with \`June 2025. Night-shift workers were eligible…\`.
+- The right column is read after Table 1's values and the figure (#274), so the sentence
+  \`…invited between January and\` / \`June 2025. Night-shift workers were eligible…\` is cut by
+  Table 1's values, the footer date \`September 30, 2026\`, the axis ticks and the caption.
 `;
 
 const SIDE = { x: 36, w: 122 };

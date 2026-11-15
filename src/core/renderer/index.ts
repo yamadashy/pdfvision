@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { RenderedContentBox, RenderRegion } from '../../types/index.js';
+import { resolvePageFrame } from '../geometry/pageFrame.js';
 import { atomicWrite } from '../io/atomicWrite.js';
 import { runParallel } from '../runtime/parallel.js';
 import { contentBoxFromViewportPixels } from './contentBox.js';
@@ -62,8 +63,11 @@ export async function renderPageToBuffer(
   region?: RenderRegion,
 ): Promise<{ buffer: Buffer; contentRatio: number; renderedContentBox?: RenderedContentBox }> {
   const page = await doc.getPage(pageNum);
-  const viewport = page.getViewport({ scale });
-  const crop = region ? viewportCropForRegion(page, viewport, region) : undefined;
+  // Render in the frame the page's geometry is reported in, so bboxes and
+  // regions line up with the pixels.
+  const frame = await resolvePageFrame(page);
+  const viewport = page.getViewport({ scale, rotation: frame.rotation });
+  const crop = region ? viewportCropForRegion(frame, viewport, region) : undefined;
 
   // With a region, the canvas captures only the sub-rectangle; without
   // it, we render the full viewport. `Math.round` matches the rounding
@@ -97,7 +101,7 @@ export async function renderPageToBuffer(
     buffer,
     contentRatio: stats.contentRatio,
     ...(stats.contentBoxPx && {
-      renderedContentBox: contentBoxFromViewportPixels(page, viewport, crop, stats.contentBoxPx, region),
+      renderedContentBox: contentBoxFromViewportPixels(frame, viewport, crop, stats.contentBoxPx, region),
     }),
   };
 }
@@ -156,12 +160,13 @@ export async function renderPageWithStats(
       const stats = await computeContentStatsFromPng(outputPath);
       if (!stats.contentBoxPx) return { path: outputPath, contentRatio: stats.contentRatio };
       const page = await doc.getPage(pageNum);
-      const viewport = page.getViewport({ scale });
-      const crop = region ? viewportCropForRegion(page, viewport, region) : undefined;
+      const frame = await resolvePageFrame(page);
+      const viewport = page.getViewport({ scale, rotation: frame.rotation });
+      const crop = region ? viewportCropForRegion(frame, viewport, region) : undefined;
       return {
         path: outputPath,
         contentRatio: stats.contentRatio,
-        renderedContentBox: contentBoxFromViewportPixels(page, viewport, crop, stats.contentBoxPx, region),
+        renderedContentBox: contentBoxFromViewportPixels(frame, viewport, crop, stats.contentBoxPx, region),
       };
     } catch {
       // Corrupt or partially-written cached PNG (e.g. disk error mid-write

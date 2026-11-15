@@ -1602,8 +1602,11 @@ describe('processDocument', () => {
     ).rejects.toThrow(/renderRegion requires render: true or ocr: true/);
   });
 
-  it('renders renderRegion on rotated pages in the human-visible orientation', async () => {
+  it('renders renderRegion on a rotated page whose text is upright only as stored in that stored orientation', async () => {
     const { loadImage } = await import('@napi-rs/canvas');
+    // The 596 × 842 page is stored with /Rotate 270 but its text is drawn
+    // upright as stored, so a viewer would show it sideways. pdfvision reads,
+    // reports and renders it unrotated, and the region follows that frame.
     const result = await processDocument('memory://rotated-render-region.pdf', {
       sourceData: await buildRotatedPdf(),
       render: true,
@@ -1618,9 +1621,10 @@ describe('processDocument', () => {
       rotation: 270,
       renderRegion: { x: 0, y: 0, width: 596, height: 842 },
     });
+    expect(result.pages[0].warnings?.map((warning) => warning.code)).toContain('rotated_page_read_unrotated');
     const img = await loadImage(result.pages[0].image as string);
-    expect(img.width).toBe(842);
-    expect(img.height).toBe(596);
+    expect(img.width).toBe(596);
+    expect(img.height).toBe(842);
   });
 
   it('applies UserUnit to full-page and cropped pixel dimensions while keeping raw renderRegion input', async () => {

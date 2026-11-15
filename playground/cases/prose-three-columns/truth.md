@@ -2,7 +2,7 @@
 
 - **Stresses:** multi-column running prose whose lines end in years and form numbers; no table on the page
 - **Families:** reading-order
-- **Status:** known-gap (#242)
+- **Status:** ok
 
 A heading over three columns of prose. There is **no table** on this page: a
 correct reading reports no layout table and reads the columns top to bottom,
@@ -35,7 +35,7 @@ Disaster relief. Distributions made because of a federally declared disaster may
 
 Repayments. Amounts you repay within three years are treated as a rollover and reduce the taxable amount reported on line 4b of your return for 2025 and for 2026.
 
-**Known gap (#242):** the body text is read correctly, column by column, but a
-3-column layout table is also reported, one row per baseline across the three
-columns (`| 2026. | next to line 4b; see also your Form 5329. | 5329. |`), with
-some prose lines missing from it, and no warning marks it as unreliable.
+The body text is read correctly, column by column, and no layout table is reported: the
+aligned-text table detector does build a 3-column "table" from the lines that share a baseline,
+but every boundary between its columns is one of the page's prose gutters, so it is dropped
+(#242).

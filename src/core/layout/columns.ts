@@ -2,6 +2,9 @@ import type { LayoutBlock, LayoutLine } from '../../types/index.js';
 import { sortColumnRun } from './columnBottomNotes.js';
 import { median, unionBox } from './geometry.js';
 import { isNumberedHeadingText } from './headings.js';
+import { containsCjkScript, hasVerticalTextShape } from './verticalText.js';
+
+const ROTATED_MARGIN_MAX_TEXT_SHARE = 0.2;
 
 /**
  * Detect a multi-column layout and reorder blocks into reading order.
@@ -46,7 +49,8 @@ export function reorderForColumns(blocks: LayoutBlock[], pageWidth: number, page
   const spanThreshold = pageWidth * 0.6;
   const xEpsilon = pageWidth * 0.05;
 
-  const narrow = blocks.filter((b) => b.width < spanThreshold && b.writingMode !== 'vertical');
+  const rotatedMargin = rotatedMarginBlocks(blocks);
+  const narrow = blocks.filter((b) => b.width < spanThreshold && b.writingMode !== 'vertical' && !rotatedMargin.has(b));
   if (narrow.length < 4) return blocks;
 
   // Cluster narrow blocks by left edge x. Sorted ascending so each new
@@ -137,6 +141,7 @@ export function reorderForColumns(blocks: LayoutBlock[], pageWidth: number, page
     pending = [];
   };
   for (const b of blocks) {
+    if (rotatedMargin.has(b)) continue;
     const isSeparator = !columnOf.has(b) || promoted.has(b);
     if (isSeparator) {
       flush();
@@ -146,7 +151,37 @@ export function reorderForColumns(blocks: LayoutBlock[], pageWidth: number, page
     }
   }
   flush();
+  out.push(...blocks.filter((b) => rotatedMargin.has(b)));
   return out;
+}
+
+/**
+ * Text rotated a quarter turn in the page margin, outside every
+ * horizontal block (print-production lines, arXiv stamps). Its left edge
+ * says nothing about the columns: at the page edge it would anchor the
+ * first column's x cluster and push indented first lines into a "column"
+ * of their own, and read by its y it lands inside a paragraph or flushes
+ * the column run. It is read after the page body instead. Rotated text
+ * among the body (an axis title beside its chart) keeps its place.
+ */
+function rotatedMarginBlocks(blocks: readonly LayoutBlock[]): Set<LayoutBlock> {
+  const rotated = blocks.filter(isRotatedLatinBlock);
+  if (rotated.length === 0) return new Set();
+  const chars = (list: readonly LayoutBlock[]) => list.reduce((sum, block) => sum + block.text.length, 0);
+  // On a page whose own text is turned (a landscape table on a portrait
+  // page) the rotated blocks are the body, not margin marks.
+  if (chars(rotated) > chars(blocks) * ROTATED_MARGIN_MAX_TEXT_SHARE) return new Set();
+  const horizontal = blocks.filter((block) => block.writingMode !== 'vertical' && !rotated.includes(block));
+  if (horizontal.length === 0) return new Set();
+  const bodyLeft = Math.min(...horizontal.map((block) => block.x));
+  const bodyRight = Math.max(...horizontal.map((block) => block.x + block.width));
+  return new Set(rotated.filter((block) => block.x + block.width <= bodyLeft || block.x >= bodyRight));
+}
+
+function isRotatedLatinBlock(block: LayoutBlock): boolean {
+  // Undetected vertical CJK writing is body text, not a turned margin line.
+  if (block.writingMode === 'vertical' || block.lines.length === 0 || containsCjkScript(block.text)) return false;
+  return block.lines.every((line) => hasVerticalTextShape(line));
 }
 
 function nearestColumnByX(

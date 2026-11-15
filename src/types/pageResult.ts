@@ -25,7 +25,7 @@ export interface PageResult {
    * Rendered region echoed back when `renderRegion` was passed to the
    * extraction call. Lets consumers tell whether `pages[].image` is the
    * full page or a sub-rectangle without having to track the original
-   * request. Coordinates use the raw unrotated page-view system
+   * request. Coordinates use the raw displayed (post-/Rotate) page-view system
    * (top-left origin), matching the input. Omitted for full-page renders.
    */
   renderRegion?: RenderRegion;
@@ -118,10 +118,12 @@ export interface PageResult {
   /**
    * Clockwise page rotation in degrees from the PDF page dictionary,
    * present only for rotated pages. Geometry fields (`spans`,
-   * `layout.blocks`, `imageBoxes`, `renderRegion`, etc.) remain in the
-   * unrotated page-view coordinate system; renderers map those boxes through
-   * the rotated viewport so full-page and cropped PNGs follow the
-   * human-visible orientation. XML projects this as a page attribute.
+   * `layout.blocks`, `imageBoxes`, `renderRegion`, etc.) and `width` /
+   * `height` are already in the displayed frame, turned by this rotation, so
+   * they line up with full-page and cropped PNGs and text is rebuilt along
+   * the axes a reader sees. Exception: a page whose text is upright only as
+   * stored keeps the stored frame for geometry and renders, and carries a
+   * `rotated_page_read_unrotated` warning. XML projects this as a page attribute.
    */
   rotation?: number;
   /**
@@ -131,7 +133,8 @@ export interface PageResult {
    */
   userUnit?: number;
   /**
-   * Page width in the unrotated pdf.js `page.view` visible box. This is the
+   * Displayed page width: the pdf.js `page.view` visible box turned by
+   * {@link rotation} (the stored height on a 90° or 270° page). The box is the
    * CropBox/MediaBox intersection when a distinct valid CropBox applies,
    * otherwise the MediaBox. The value is in raw page-view units. Multiply by
    * `userUnit` (or 1 when omitted) to obtain PostScript points (1/72 in).
@@ -150,7 +153,7 @@ export interface PageResult {
    * first matching item is retained and its `hasEOL` is ORed with later matches. Whitespace/prepress
    * items, items without a transform, and items empty after normalization are
    * omitted. Bboxes are rounded aggregate axis-aligned envelopes in the
-   * unrotated page-view top-down coordinate system.
+   * displayed (post-/Rotate) page-view top-down coordinate system.
    */
   spans?: TextSpan[];
   /**
@@ -171,7 +174,7 @@ export interface PageResult {
    * `vectorBoxes: true` was passed. One entry per path paint operation
    * where pdf.js reports a path bbox, plus shading fills when pdf.js
    * exposes the active clipping bbox, excluding page-sized white
-   * background fills. Coordinates use the same unrotated page-view top-left
+   * background fills. Coordinates use the same displayed (post-/Rotate) page-view top-left
    * raw page-view system as `spans`, `layout.blocks`, and `imageBoxes`.
    */
   vectorBoxes?: VectorBox[];
@@ -189,7 +192,7 @@ export interface PageResult {
   formFieldCount?: number;
   /**
    * Interactive PDF form/widget fields, only present when
-   * `formFields: true` was passed. Coordinates use the same unrotated
+   * `formFields: true` was passed. Coordinates use the same displayed-frame
    * page-view top-left system as `spans`, `layout.blocks`, and `imageBoxes`.
    */
   formFields?: FormField[];
@@ -200,7 +203,7 @@ export interface PageResult {
   linkCount?: number;
   /**
    * Clickable PDF link annotations, only present when `links: true` was
-   * passed. Coordinates use the same unrotated page-view top-left system as
+   * passed. Coordinates use the same displayed (post-/Rotate) page-view top-left system as
    * `spans`, `layout.blocks`, and `imageBoxes`.
    */
   links?: PageLink[];
@@ -211,7 +214,7 @@ export interface PageResult {
   annotationCount?: number;
   /**
    * Non-link, non-widget PDF annotations, only present when
-   * `annotations: true` was passed. Coordinates use the same unrotated
+   * `annotations: true` was passed. Coordinates use the same displayed-frame
    * page-view top-left system as `spans`, `layout.blocks`, and `imageBoxes`.
    */
   annotations?: PageAnnotation[];

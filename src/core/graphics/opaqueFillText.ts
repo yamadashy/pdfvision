@@ -1,4 +1,31 @@
-export interface OpaqueFillTextOps {
+import {
+  type BackgroundHistory,
+  backgroundColorAt,
+  createBackgroundHistory,
+  hasCandidateBackground,
+  recordPaint,
+  recordUnboundedPaint,
+} from './backgroundPaints.js';
+import { isDarkColor, isIndistinguishable, parseHexColor, type Rgb } from './paintColor.js';
+import { numericQuad, type Quad, rectanglePathBox } from './rectanglePath.js';
+import {
+  advanceRun,
+  applyTextStateOp,
+  cloneTextState,
+  type FontGeometryResolver,
+  type GlyphGeometry,
+  initialTextState,
+  type Matrix6,
+  multiply,
+  type PageBox,
+  placeRunGlyphs,
+  type RunPlacement,
+  type TextGlyphOps,
+  type TextState,
+  toPageBox,
+} from './textGlyphs.js';
+
+export interface OpaqueFillTextOps extends TextGlyphOps {
   save: number;
   restore: number;
   transform: number;
@@ -18,6 +45,12 @@ export interface OpaqueFillTextOps {
   fillColorOps: ReadonlySet<number>;
   pathFillOps: ReadonlySet<number>;
   textShowOps: ReadonlySet<number>;
+  /** Path paints that stroke. */
+  pathStrokeOps?: ReadonlySet<number>;
+  setLineWidth?: number;
+  setTextRenderingMode?: number;
+  /** Paints whose extent is the current clip (`sh`) or otherwise not bounded by path data. */
+  unboundedPaintOps?: ReadonlySet<number>;
 }
 
 export interface OpaqueDarkFillEvidence {
@@ -28,13 +61,23 @@ export interface OpaqueDarkFillEvidence {
   precedingTextRunCount: number;
 }
 
+export interface TextGlyphEvidence extends GlyphGeometry {
+  /**
+   * The glyph was filled in a colour that, after alpha compositing, cannot
+   * be told apart from the known paint (or blank page) behind it.
+   */
+  matchesBackground?: boolean;
+}
+
 export interface OpaqueFillTextEvidence {
   textRuns: string[];
   fills: OpaqueDarkFillEvidence[];
+  /**
+   * Glyph geometry parallel to `textRuns`; an undefined entry is a run whose
+   * glyphs could not be placed. Present only when at least one run was placed.
+   */
+  glyphRuns?: Array<TextGlyphEvidence[] | undefined>;
 }
-
-type Matrix6 = [number, number, number, number, number, number];
-type Quad = [number, number, number, number];
 
 interface GraphicsState {
   ctm: Matrix6;
@@ -44,15 +87,29 @@ interface GraphicsState {
   fillTransparent: boolean;
   softMaskActive: boolean;
   clipActive: boolean;
+  lineWidth: number;
+  renderingMode: number;
+  text: TextState;
 }
 
 const MIN_FILL_ALPHA = 0.9;
-const MAX_DARK_LUMINANCE = 0.2;
-const MAX_RECTANGLE_PATH_NUMBERS = 16;
+const MIN_OPAQUE_BACKGROUND_ALPHA = 0.99;
 const MAX_EVIDENCE_TEXT_RUNS = 4_096;
 const MAX_EVIDENCE_TEXT_CODE_UNITS = 65_536;
 const MAX_EVIDENCE_FILLS = 4_096;
+const MAX_RUN_REGION_CHECKS = 2_000_000;
+/** Fill and fill+clip; stroke modes depend on a stroke colour, Tr 3/7 is `invisible_text`. */
+const FILL_ONLY_RENDERING_MODES = new Set([0, 4]);
 
+/**
+ * One pass over the page operator list collecting two kinds of evidence
+ * that native text is not what a reader sees:
+ *
+ * - opaque dark rectangles painted after text (`fills`), matched against
+ *   the text runs or glyphs painted before them;
+ * - glyphs filled in the colour of the known paint behind them
+ *   (`matchesBackground`), e.g. white text on a white page.
+ */
 export function collectOpaqueFillTextEvidence(
   fnArray: readonly number[],
   argsArray: readonly unknown[][],
@@ -60,9 +117,14 @@ export function collectOpaqueFillTextEvidence(
   pageHeight: number,
   viewMinX: number,
   viewMinY: number,
+  resolveFont?: FontGeometryResolver,
 ): OpaqueFillTextEvidence | undefined {
   const textRuns: string[] = [];
+  const glyphRuns: Array<TextGlyphEvidence[] | undefined> = [];
+  const runPlacements: Array<RunPlacement | undefined> = [];
+  const candidateColors = new Map<string, boolean>();
   const fills: OpaqueDarkFillEvidence[] = [];
+  const background: BackgroundHistory = createBackgroundHistory();
   let ctm: Matrix6 = [1, 0, 0, 1, 0, 0];
   let fillColor: string | undefined = '#000000';
   let fillAlpha = 1;
@@ -70,10 +132,15 @@ export function collectOpaqueFillTextEvidence(
   let fillTransparent = false;
   let softMaskActive = false;
   let clipActive = false;
+  let lineWidth = 1;
+  let renderingMode = 0;
+  let text = initialTextState();
   let annotationDepth = 0;
   let groupDepth = 0;
   let optionalContentDepth = 0;
   let textCodeUnits = 0;
+  let placedRuns = 0;
+  let matchedBackground = false;
   const stack: GraphicsState[] = [];
   const groupSoftMaskStack: boolean[] = [];
   const markedContentStack: boolean[] = [];
@@ -87,6 +154,9 @@ export function collectOpaqueFillTextEvidence(
       fillTransparent,
       softMaskActive,
       clipActive,
+      lineWidth,
+      renderingMode,
+      text: cloneTextState(text),
     });
   };
   const popState = (): void => {
@@ -99,6 +169,84 @@ export function collectOpaqueFillTextEvidence(
     fillTransparent = restored.fillTransparent;
     softMaskActive = restored.softMaskActive;
     clipActive = restored.clipActive;
+    lineWidth = restored.lineWidth;
+    renderingMode = restored.renderingMode;
+    text = restored.text;
+  };
+  const pageBox = (bbox: Quad): PageBox => toPageBox(bbox, ctm, pageHeight, viewMinX, viewMinY);
+
+  /**
+   * The text fill colour when a glyph shown now could be indistinguishable
+   * from what is behind it; undefined when the paint state makes that
+   * unanswerable (stroke modes, patterns, non-normal blending, soft masks,
+   * optional content) or no candidate background has a matching colour.
+   */
+  const backgroundMatchCandidateColor = (): Rgb | undefined => {
+    if (
+      !FILL_ONLY_RENDERING_MODES.has(renderingMode) ||
+      fillTransparent ||
+      !normalBlendMode ||
+      softMaskActive ||
+      optionalContentDepth > 0 ||
+      background.exhausted
+    ) {
+      return undefined;
+    }
+    const color = parseHexColor(fillColor);
+    if (!color) return undefined;
+    // Most pages show thousands of runs in a handful of colours; the answer
+    // only changes when a new known-colour paint is recorded.
+    const key = `${fillColor}|${fillAlpha}`;
+    let candidate = candidateColors.get(key);
+    if (candidate === undefined) {
+      candidate = hasCandidateBackground(background, (behind) => isIndistinguishable(color, fillAlpha, behind));
+      candidateColors.set(key, candidate);
+    }
+    return candidate ? color : undefined;
+  };
+
+  const recordFillBackground = (rectangle: Quad | undefined, minMax: unknown): void => {
+    if (fillTransparent || fillAlpha <= 0) return;
+    const color = parseHexColor(fillColor);
+    const known =
+      color !== undefined &&
+      isAxisAlignedTransform(ctm) &&
+      fillAlpha >= MIN_OPAQUE_BACKGROUND_ALPHA &&
+      normalBlendMode &&
+      !softMaskActive &&
+      !clipActive &&
+      groupDepth === 0 &&
+      optionalContentDepth === 0;
+    if (rectangle && known) {
+      recordPaint(background, pageBox(rectangle), color);
+      candidateColors.clear();
+      return;
+    }
+    const bounds = rectangle ?? numericQuad(minMax);
+    if (bounds) recordPaint(background, pageBox(bounds));
+    else recordUnboundedPaint(background);
+  };
+
+  const recordStrokeBackground = (rectangle: Quad | undefined, minMax: unknown): void => {
+    const half = Math.max(lineWidth, 1) / 2;
+    const expanded = ([x1, y1, x2, y2]: Quad): Quad => [x1 - half, y1 - half, x2 + half, y2 + half];
+    if (rectangle) {
+      // A stroked rectangle paints only its outline, so text inside a ruled
+      // cell keeps a known background.
+      const [x1, y1, x2, y2] = rectangle;
+      for (const edge of [
+        [x1, y1, x2, y1],
+        [x1, y2, x2, y2],
+        [x1, y1, x1, y2],
+        [x2, y1, x2, y2],
+      ] as Quad[]) {
+        recordPaint(background, pageBox(expanded(edge)));
+      }
+      return;
+    }
+    const bounds = numericQuad(minMax);
+    if (bounds) recordPaint(background, pageBox(expanded(bounds)));
+    else recordUnboundedPaint(background);
   };
 
   for (let i = 0; i < fnArray.length; i++) {
@@ -126,6 +274,8 @@ export function collectOpaqueFillTextEvidence(
     }
     if (annotationDepth > 0) continue;
 
+    if (applyTextStateOp(text, fn, args, ops)) continue;
+
     if (fn === ops.beginGroup) {
       groupDepth++;
       groupSoftMaskStack.push(softMaskActive);
@@ -148,12 +298,20 @@ export function collectOpaqueFillTextEvidence(
     } else if (fn === ops.formEnd) {
       popState();
     } else if (fn === ops.setGState) {
-      const alpha = nonstrokingAlpha(args?.[0]);
+      const alpha = gStateNumber(args?.[0], 'ca');
       if (alpha !== undefined) fillAlpha = alpha;
       const blendMode = isNormalBlendMode(args?.[0]);
       if (blendMode !== undefined) normalBlendMode = blendMode;
       const softMask = hasSoftMask(args?.[0]);
       if (softMask !== undefined) softMaskActive = softMask;
+      const width = gStateNumber(args?.[0], 'LW');
+      if (width !== undefined) lineWidth = width;
+    } else if (fn === ops.setLineWidth) {
+      const width = args?.[0];
+      if (typeof width === 'number' && Number.isFinite(width)) lineWidth = width;
+    } else if (fn === ops.setTextRenderingMode) {
+      const mode = args?.[0];
+      if (typeof mode === 'number' && Number.isFinite(mode)) renderingMode = mode;
     } else if (fn === ops.setFillTransparent) {
       fillTransparent = true;
       fillColor = undefined;
@@ -161,25 +319,52 @@ export function collectOpaqueFillTextEvidence(
       fillTransparent = false;
       fillColor = fillColorValue(args);
     } else if (ops.textShowOps.has(fn)) {
-      const text = operatorText(args);
-      if (normalizeComparableText(text).length > 0) {
-        textCodeUnits += text.length;
-        if (textRuns.length >= MAX_EVIDENCE_TEXT_RUNS || textCodeUnits > MAX_EVIDENCE_TEXT_CODE_UNITS) {
-          return undefined;
+      const run = operatorText(args);
+      const placement = advanceRun(text, args?.[0], ctm, resolveFont, pageHeight, viewMinX, viewMinY);
+      if (normalizeComparableText(run).length === 0) continue;
+      textCodeUnits += run.length;
+      if (textRuns.length >= MAX_EVIDENCE_TEXT_RUNS || textCodeUnits > MAX_EVIDENCE_TEXT_CODE_UNITS) {
+        return undefined;
+      }
+      textRuns.push(run);
+      runPlacements.push(placement);
+      glyphRuns.push(undefined);
+      if (!placement) continue;
+      placedRuns++;
+      const textColor = backgroundMatchCandidateColor();
+      if (!textColor) continue;
+      // The paint behind the glyphs is only known now, so a candidate run is placed immediately.
+      const glyphs: TextGlyphEvidence[] = placeRunGlyphs(placement, pageHeight, viewMinX, viewMinY);
+      glyphRuns[glyphRuns.length - 1] = glyphs;
+      const behindRun = backgroundColorAt(background, placement.box);
+      for (const glyph of glyphs) {
+        if (glyph.whitespace) continue;
+        const behind = behindRun ?? backgroundColorAt(background, glyph.core);
+        if (behind && isIndistinguishable(textColor, fillAlpha, behind)) {
+          glyph.matchesBackground = true;
+          matchedBackground = true;
         }
-        textRuns.push(text);
       }
     } else if (ops.clipOps.has(fn)) {
       clipActive = true;
+    } else if (ops.unboundedPaintOps?.has(fn)) {
+      recordUnboundedPaint(background);
     } else if (fn === ops.constructPath) {
       const pathOp = args?.[0];
       if (typeof pathOp === 'number' && ops.clipOps.has(pathOp)) {
         clipActive = true;
         continue;
       }
+      if (typeof pathOp !== 'number') continue;
+      const filled = ops.pathFillOps.has(pathOp);
+      const stroked = ops.pathStrokeOps?.has(pathOp) ?? false;
+      if (!filled && !stroked) continue;
+      const rectangle = rectanglePathBox(args?.[1]);
+      if (filled) recordFillBackground(rectangle, args?.[2]);
+      if (stroked) recordStrokeBackground(rectangle, args?.[2]);
       if (
-        typeof pathOp !== 'number' ||
-        !ops.pathFillOps.has(pathOp) ||
+        !filled ||
+        !rectangle ||
         !isAxisAlignedTransform(ctm) ||
         fillAlpha < MIN_FILL_ALPHA ||
         fillAlpha > 1 ||
@@ -193,18 +378,71 @@ export function collectOpaqueFillTextEvidence(
       ) {
         continue;
       }
-      const rectangle = rectanglePathBox(args?.[1]);
-      if (!rectangle) continue;
-      const box = bboxToTopLeftBox(rectangle, ctm, pageHeight, viewMinX, viewMinY);
+      const box = pageBox(rectangle);
       if (!isPositiveFiniteBox(box)) continue;
       if (fills.length >= MAX_EVIDENCE_FILLS) return undefined;
       fills.push({ ...box, precedingTextRunCount: textRuns.length });
     }
   }
 
+  // A history that ran out of budget part-way cannot vouch for earlier answers either.
+  const backgroundMatches = matchedBackground && !background.exhausted;
+  if (matchedBackground && !backgroundMatches) clearBackgroundMatches(glyphRuns);
   const laterFills = fills.filter((fill) => fill.precedingTextRunCount > 0);
-  if (laterFills.length === 0) return undefined;
-  return { textRuns, fills: laterFills };
+  if (laterFills.length === 0 && !backgroundMatches) return undefined;
+  if (placedRuns > 0) {
+    placeRunsNear(
+      [...laterFills, ...(backgroundMatches ? matchedGlyphBoxes(glyphRuns) : [])],
+      runPlacements,
+      glyphRuns,
+      pageHeight,
+      viewMinX,
+      viewMinY,
+    );
+  }
+  return {
+    textRuns,
+    fills: laterFills,
+    ...(placedRuns > 0 && { glyphRuns }),
+  };
+}
+
+/**
+ * Place the glyphs of every run whose box touches a region the warnings
+ * will examine — a later dark fill, or a background-matching glyph (for
+ * the repainted-on-top check). Other placeable runs get an empty glyph
+ * list: they cannot change either warning, and leaving them `undefined`
+ * would wrongly send their text to the whole-span fallback.
+ */
+function placeRunsNear(
+  regions: readonly PageBox[],
+  runPlacements: ReadonlyArray<RunPlacement | undefined>,
+  glyphRuns: Array<TextGlyphEvidence[] | undefined>,
+  pageHeight: number,
+  viewMinX: number,
+  viewMinY: number,
+): void {
+  const placeAll = regions.length * runPlacements.length > MAX_RUN_REGION_CHECKS;
+  for (let i = 0; i < runPlacements.length; i++) {
+    const placement = runPlacements[i];
+    if (!placement || glyphRuns[i]) continue;
+    const near = placeAll || regions.some((region) => boxesTouch(region, placement.box));
+    glyphRuns[i] = near ? placeRunGlyphs(placement, pageHeight, viewMinX, viewMinY) : [];
+  }
+}
+
+function matchedGlyphBoxes(glyphRuns: ReadonlyArray<TextGlyphEvidence[] | undefined>): PageBox[] {
+  const boxes: PageBox[] = [];
+  for (const run of glyphRuns) for (const glyph of run ?? []) if (glyph.matchesBackground) boxes.push(glyph.box);
+  return boxes;
+}
+
+function boxesTouch(a: PageBox, b: PageBox): boolean {
+  return a.x <= b.x + b.width && b.x <= a.x + a.width && a.y <= b.y + b.height && b.y <= a.y + a.height;
+}
+
+function clearBackgroundMatches(glyphRuns: Array<TextGlyphEvidence[] | undefined>): void {
+  for (const run of glyphRuns) for (const glyph of run ?? []) delete glyph.matchesBackground;
 }
 
 export function normalizeComparableText(text: string): string {
@@ -224,39 +462,12 @@ function fillColorValue(args: readonly unknown[] | undefined): string | undefine
   return typeof value === 'string' ? value.toLowerCase() : undefined;
 }
 
-function isDarkColor(value: string | undefined): boolean {
-  const rgb = parseHexColor(value);
-  if (!rgb) return false;
-  const [red, green, blue] = rgb.map(srgbToLinear);
-  return 0.2126 * red + 0.7152 * green + 0.0722 * blue <= MAX_DARK_LUMINANCE;
-}
-
-function parseHexColor(value: string | undefined): [number, number, number] | undefined {
-  if (!value) return undefined;
-  const short = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/iu.exec(value);
-  if (short) {
-    return [
-      Number.parseInt(short[1] + short[1], 16),
-      Number.parseInt(short[2] + short[2], 16),
-      Number.parseInt(short[3] + short[3], 16),
-    ];
-  }
-  const full = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/iu.exec(value);
-  if (!full) return undefined;
-  return [Number.parseInt(full[1], 16), Number.parseInt(full[2], 16), Number.parseInt(full[3], 16)];
-}
-
-function srgbToLinear(channel: number): number {
-  const normalized = channel / 255;
-  return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
-}
-
-function nonstrokingAlpha(value: unknown): number | undefined {
+function gStateNumber(value: unknown, key: string): number | undefined {
   if (!Array.isArray(value)) return undefined;
   for (const entry of value) {
-    if (!Array.isArray(entry) || entry[0] !== 'ca') continue;
-    const alpha = entry[1];
-    if (typeof alpha === 'number' && Number.isFinite(alpha)) return alpha;
+    if (!Array.isArray(entry) || entry[0] !== key) continue;
+    const number = entry[1];
+    if (typeof number === 'number' && Number.isFinite(number)) return number;
   }
   return undefined;
 }
@@ -283,132 +494,16 @@ function isSoftMaskDefinitionGroup(value: unknown): boolean {
   return Boolean(value && typeof value === 'object' && (value as { smask?: unknown }).smask);
 }
 
-function numericQuad(value: unknown): Quad | undefined {
-  if (!value || typeof value !== 'object') return undefined;
-  const candidate = value as ArrayLike<unknown>;
-  if (candidate.length < 4) return undefined;
-  const quad = [candidate[0], candidate[1], candidate[2], candidate[3]];
-  return quad.every((item) => typeof item === 'number' && Number.isFinite(item)) ? (quad as Quad) : undefined;
-}
-
-/**
- * pdf.js encodes path geometry in constructPath args[1] using DrawOPS:
- * moveTo=0, lineTo=1, curveTo=2, quadraticCurveTo=3, closePath=4.
- * Only a single axis-aligned rectangle proves that its whole bbox is painted
- * (fill operations implicitly close an open subpath). Complex paths can
- * contain holes or disconnected subpaths, so their aggregate bbox is not
- * positive coverage evidence. The longest accepted encoding is 16 numbers:
- * moveTo, four lineTo commands (the last repeats the start), and closePath.
- */
-function rectanglePathBox(value: unknown): Quad | undefined {
-  if (!Array.isArray(value) || value.length !== 1) return undefined;
-  const data = arrayLikeNumbers(value[0]);
-  if (!data) return undefined;
-
-  const points: Array<readonly [number, number]> = [];
-  let pathEnded = false;
-  for (let i = 0; i < data.length; ) {
-    const command = data[i++];
-    if (command === 0 || command === 1) {
-      if (pathEnded || i + 1 >= data.length || (command === 0 && points.length > 0)) return undefined;
-      const x = data[i++];
-      const y = data[i++];
-      if (!Number.isFinite(x) || !Number.isFinite(y)) return undefined;
-      points.push([x, y]);
-      continue;
-    }
-    if (command === 4) {
-      pathEnded = true;
-      continue;
-    }
-    return undefined;
-  }
-
-  if (points.length === 5 && samePoint(points[0], points[4])) points.pop();
-  if (points.length !== 4) return undefined;
-
-  const xs = [...new Set(points.map(([x]) => x))];
-  const ys = [...new Set(points.map(([, y]) => y))];
-  const corners = new Set(points.map(([x, y]) => `${x},${y}`));
-  if (xs.length !== 2 || ys.length !== 2 || corners.size !== 4) return undefined;
-  for (let i = 0; i < points.length; i++) {
-    const current = points[i];
-    const next = points[(i + 1) % points.length];
-    if (samePoint(current, next) || (current[0] !== next[0] && current[1] !== next[1])) return undefined;
-  }
-
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
-  return maxX > minX && maxY > minY ? [minX, minY, maxX, maxY] : undefined;
-}
-
-function arrayLikeNumbers(value: unknown): number[] | undefined {
-  if (!value || typeof value !== 'object') return undefined;
-  const candidate = value as ArrayLike<unknown>;
-  const { length } = candidate;
-  if (!Number.isInteger(length) || length <= 0 || length > MAX_RECTANGLE_PATH_NUMBERS) {
-    return undefined;
-  }
-  const data = Array.from(candidate);
-  return data.every((item): item is number => typeof item === 'number') ? data : undefined;
-}
-
-function samePoint(a: readonly [number, number], b: readonly [number, number]): boolean {
-  return a[0] === b[0] && a[1] === b[1];
-}
-
 function isAxisAlignedTransform([a, b, c, d]: Matrix6): boolean {
   const scale = Math.max(1, Math.abs(a), Math.abs(b), Math.abs(c), Math.abs(d));
   const nearZero = (value: number): boolean => Math.abs(value) <= Number.EPSILON * scale * 16;
   return (nearZero(b) && nearZero(c)) || (nearZero(a) && nearZero(d));
 }
 
-function multiply(ctm: Matrix6, matrix: Matrix6): Matrix6 {
-  return [
-    ctm[0] * matrix[0] + ctm[2] * matrix[1],
-    ctm[1] * matrix[0] + ctm[3] * matrix[1],
-    ctm[0] * matrix[2] + ctm[2] * matrix[3],
-    ctm[1] * matrix[2] + ctm[3] * matrix[3],
-    ctm[0] * matrix[4] + ctm[2] * matrix[5] + ctm[4],
-    ctm[1] * matrix[4] + ctm[3] * matrix[5] + ctm[5],
-  ];
-}
-
 function matrix6(value: unknown): Matrix6 | undefined {
   if (!Array.isArray(value) || value.length !== 6) return undefined;
   if (!value.every((item) => typeof item === 'number' && Number.isFinite(item))) return undefined;
   return value as Matrix6;
-}
-
-function bboxToTopLeftBox(
-  bbox: Quad,
-  ctm: Matrix6,
-  pageHeight: number,
-  viewMinX: number,
-  viewMinY: number,
-): { x: number; y: number; width: number; height: number } {
-  const [x1, y1, x2, y2] = bbox;
-  const [a, b, c, d, e, f] = ctm;
-  const corners = [
-    [x1, y1],
-    [x2, y1],
-    [x1, y2],
-    [x2, y2],
-  ].map(([x, y]) => [a * x + c * y + e, b * x + d * y + f]);
-  const xs = corners.map(([x]) => x);
-  const ys = corners.map(([, y]) => y);
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
-  return {
-    x: minX - viewMinX,
-    y: pageHeight - (maxY - viewMinY),
-    width: maxX - minX,
-    height: maxY - minY,
-  };
 }
 
 function isPositiveFiniteBox(box: { x: number; y: number; width: number; height: number }): boolean {
