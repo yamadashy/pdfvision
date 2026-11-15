@@ -18,7 +18,7 @@ import { shortTextSample } from './textSamples.js';
 
 const MAX_RUN_CODE_POINTS = 3;
 const MIN_SIGN_SLOT_RUNS = 3;
-const MIN_NON_FRACTION_SIGN_SLOT_RUNS = 2;
+const MIN_STRONG_SIGN_SLOT_RUNS = 2;
 const MIN_SIGN_SLOT_SHARE = 0.5;
 const MAX_BASELINE_SHIFT_EM = 0.35;
 const MIN_SIZE_RATIO = 0.8;
@@ -33,8 +33,14 @@ const SAMPLE_LIMIT = 3;
 // and a lone letter in another font is an italic variable or small cap.
 const SUBSTITUTE_CHAR_RE = /^[0-9,.;:¼-¾⁄À-ÖØ-öø-ÿ]$/u;
 // `½` set in its own font beside a number is also how fraction fonts work,
-// so fractions alone never make the case.
+// so fractions never make the case on their own.
 const FRACTION_RE = /^(?:[¼-¾]|\d⁄\d)$/u;
+// TeX sets the decimal point and comma of math-mode numbers from the
+// math-italic font, and they really are a period and a comma. Punctuation is
+// reported once the font qualifies, but only a digit or a Latin-1 letter set
+// in its own font beside a number is evidence that a glyph is not what it
+// claims to be.
+const STRONG_SUBSTITUTE_RE = /^[0-9À-ÖØ-öø-ÿ]+$/u;
 
 interface SignSlot {
   span: TextSpan;
@@ -71,7 +77,7 @@ export function detectSymbolFontSubstitution(page: PageResult, spans: readonly T
     });
     if (slots.length < MIN_SIGN_SLOT_RUNS) continue;
     if (slots.length < fontSpans.length * MIN_SIGN_SLOT_SHARE) continue;
-    if (slots.filter((slot) => !FRACTION_RE.test(slot.span.text.trim())).length < MIN_NON_FRACTION_SIGN_SLOT_RUNS) {
+    if (slots.filter((slot) => STRONG_SUBSTITUTE_RE.test(slot.span.text.trim())).length < MIN_STRONG_SIGN_SLOT_RUNS) {
       continue;
     }
 

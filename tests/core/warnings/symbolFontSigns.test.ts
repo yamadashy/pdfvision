@@ -164,6 +164,54 @@ describe('symbol_font_substitution', () => {
     expect(warningsFor(spans)).toEqual([]);
   });
 
+  it('ignores TeX math-italic decimal points and commas beside numbers, which really are punctuation', () => {
+    // TeX sets the `.` and `,` of math-mode numbers from cmmi, so a font used
+    // only for single periods and commas between digits is ordinary LaTeX.
+    const spans = [
+      ...prose(100),
+      ...lineSpans(
+        [
+          ['accuracy of 88', BODY],
+          ['.', SYM],
+          ['55 on the range [0', BODY],
+          [',', SYM],
+          [' 100) with 0', BODY],
+          ['.', SYM],
+          ['3 dropout, equations 164a', BODY],
+          [',', SYM],
+          ['164b and Section 3', BODY],
+          [',', SYM],
+          [' using 2', BODY],
+          ['.', SYM],
+          ['5 epochs', BODY],
+        ],
+        120,
+      ),
+    ];
+    expect(warningsFor(spans)).toEqual([]);
+  });
+
+  it('needs more than one digit or Latin-1 slot, however much punctuation sits beside it', () => {
+    const spans = [
+      ...prose(100),
+      ...lineSpans(
+        [
+          ['value 88', BODY],
+          ['.', SYM],
+          ['55 and 0', BODY],
+          [',', SYM],
+          ['1 then (', BODY],
+          ['2', SYM],
+          ['3 and 4', BODY],
+          ['.', SYM],
+          ['5', BODY],
+        ],
+        120,
+      ),
+    ];
+    expect(warningsFor(spans)).toEqual([]);
+  });
+
   it('ignores pages whose producer positions every glyph separately', () => {
     const glyphs: Part[] = [];
     for (const ch of 'care (52%, p 0.001) and 7.1 9.8 years') glyphs.push([ch, BODY]);
