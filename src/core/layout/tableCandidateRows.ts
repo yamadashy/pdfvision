@@ -1,5 +1,5 @@
 import type { LayoutLine } from '../../types/index.js';
-import { isCurrencyOnlyCell, isTableNumericCell, isTableValueCell } from './tableCells.js';
+import { hasTableValueEvidence, isCurrencyOnlyCell, isTableNumericCell, isTableValueCell } from './tableCells.js';
 
 const TABLE_ROW_MIN_CELLS = 3;
 const TABLE_ROW_MIN_NUMERIC_CELLS = 2;
@@ -65,7 +65,7 @@ function isTableLikeSuffix(row: LayoutLine[]): boolean {
 // a digit (`10 (a)` included) is that evidence.
 function hasTableValueCells(row: LayoutLine[]): boolean {
   const values = row.filter((line) => isTableValueCell(line.text));
-  return values.length >= TABLE_ROW_MIN_NUMERIC_CELLS && values.some((line) => /\d/u.test(line.text));
+  return values.length >= TABLE_ROW_MIN_NUMERIC_CELLS && values.some((line) => hasTableValueEvidence(line.text));
 }
 
 function hasSidePanelTableGap(row: LayoutLine[], start: number): boolean {

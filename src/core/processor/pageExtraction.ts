@@ -24,7 +24,7 @@ import { buildLayout } from '../layout/index.js';
 import { buildLinks, isLinkAnnotation } from '../links/index.js';
 import { nonPrintableStats } from '../quality/nonPrintable.js';
 import { isRasterBackedTextLayer } from '../quality/rasterBackedTextLayer.js';
-import { collectFontTextHints } from '../text/fontTextHints.js';
+import { collectFontTextHints, type FontNameInfo } from '../text/fontTextHints.js';
 import type { PageData, PageFlags } from './pageData.js';
 import { extractPageText } from './pageText.js';
 import { normalizeText, round2 } from './textUtils.js';
@@ -70,10 +70,16 @@ export async function extractPageData(
   const readUnrotated = rotation !== undefined && frame.rotation === 0;
   const userUnit = normalizePageUserUnit(page.userUnit);
 
-  // The operator list comes first: it carries the glyph facts text content
-  // drops (character spacing), which correct the text before it is joined.
+  // The operator list comes first: it loads the page's fonts into
+  // commonObjs and carries the glyph facts text content drops (symbol-font
+  // codes, character spacing), which correct the text before it is joined.
   const rawOpList = await page.getOperatorList();
-  const fontHints = collectFontTextHints(rawOpList.fnArray, rawOpList.argsArray as unknown[], opaqueFillTextOps);
+  const fontHints = collectFontTextHints(
+    rawOpList.fnArray,
+    rawOpList.argsArray as unknown[],
+    opaqueFillTextOps,
+    cachedFontNames(page.commonObjs),
+  );
 
   const {
     text,
@@ -359,6 +365,33 @@ function cachedFontGeometry(
   return (loadedName) => {
     if (cache.has(loadedName)) return cache.get(loadedName);
     const info = fontGeometry(commonObjs, loadedName);
+    cache.set(loadedName, info);
+    return info;
+  };
+}
+
+/**
+ * Base font name and /Differences of a loaded font. Both are pdf.js "extra"
+ * font properties, exported because the document is opened with
+ * `fontExtraProperties` (see pdfJsSetup).
+ */
+function cachedFontNames(
+  commonObjs: { has(id: string): boolean; get(id: string): unknown } | undefined,
+): (loadedName: string) => FontNameInfo | undefined {
+  const cache = new Map<string, FontNameInfo | undefined>();
+  return (loadedName) => {
+    if (cache.has(loadedName)) return cache.get(loadedName);
+    let info: FontNameInfo | undefined;
+    try {
+      if (commonObjs?.has(loadedName)) {
+        const font = commonObjs.get(loadedName) as { name?: unknown; differences?: unknown } | null;
+        if (font && typeof font === 'object') {
+          info = { ...(typeof font.name === 'string' && { name: font.name }), differences: font.differences };
+        }
+      }
+    } catch {
+      info = undefined;
+    }
     cache.set(loadedName, info);
     return info;
   };

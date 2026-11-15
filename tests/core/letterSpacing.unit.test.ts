@@ -21,6 +21,7 @@ describe('tracked words from the operator list', () => {
       [3, 4, 5, 4, 5],
       [['f1', 8.6], [1.6], [glyphs('SUMMARY OF')], [0], [glyphs('plain text')]],
       OPS,
+      () => undefined,
     );
     expect(hints.get('f1')?.trackedWords?.split('\u0000')).toEqual(['SUMMARY', 'OF']);
   });
@@ -30,6 +31,7 @@ describe('tracked words from the operator list', () => {
       [3, 4, 5, 1, 4, 2, 5],
       [['f1', 10], [0.2], [glyphs('kerned')], [], [3], [], [glyphs('after')]],
       OPS,
+      () => undefined,
     );
     expect(hints.get('f1')).toBeUndefined();
   });

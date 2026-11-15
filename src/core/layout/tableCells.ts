@@ -1,8 +1,22 @@
 import type { LayoutLine } from '../../types/index.js';
 import { round2 } from './geometry.js';
 
+// A lone check or cross mark is a yes/no value. Decoded from ZapfDingbats it
+// used to arrive as the digit `3` or `7`; a mark column is still a value column.
+const TABLE_CHECK_MARK_PATTERN = /^[✓✔✗✘]$/u;
+
+export function isTableCheckMarkCell(text: string): boolean {
+  return TABLE_CHECK_MARK_PATTERN.test(text.trim());
+}
+
+/** A digit or a lone check/cross mark: what shows a value row is not all placeholders. */
+export function hasTableValueEvidence(text: string): boolean {
+  return /\d/u.test(text) || isTableCheckMarkCell(text);
+}
+
 export function isTableNumericCell(text: string): boolean {
   const trimmed = text.trim();
+  if (isTableCheckMarkCell(trimmed)) return true;
   if (trimmed.length === 0 || !/\d/u.test(trimmed)) return false;
   const withoutRatioSuffix = trimmed.replace(/(?<=\d)\s*[xX]$/u, '');
   const withoutScoreWords = withoutRatioSuffix
