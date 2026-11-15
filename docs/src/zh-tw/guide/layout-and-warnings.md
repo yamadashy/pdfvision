@@ -76,6 +76,7 @@ visual regions 可以作為到多模態模型的橋樑：
 - 正文擠到重複頁首或頁尾附近。
 - 被攤平的數字表格。
 - layout table hints whose cells did not resolve into one consistent grid (`layout_table_uncertain`).
+- signs set in a symbol font whose character map reports them as ordinary characters, so `−52%` reads as `252%` (`symbol_font_substitution`).
 - 原生文字順序與視覺閱讀順序不一致。
 - 字形亂碼、PUA 字串或局部 mojibake。
 - 全頁掃描上的 OCR 文字層。
@@ -109,6 +110,7 @@ A render establishes only what the page visibly shows. Neither a warning nor its
 - 如果原生文字字形損壞，在摘要前先與 render 或 OCR 比較。
 - 如果閱讀順序分歧，敘事順序優先使用 layout blocks，而不是 raw page text。
 - 如果出現 table warning，保留行列證據；當數值重要時裁切表格。`layout_table_uncertain` names the table and its bbox: render that region before trusting its cells.
+- If `symbol_font_substitution` appears, do not report a sign, direction, bound, or p-value from native text: render the region the warning names and read the minus, `<`, `>`, `±`, and `=` signs from the image.
 - 如果出現 large raster 或 dense vector warning，在驗證前假設標籤可能是 visual-only。
 - 如果涉及 repeated chrome，避免混合頁首、頁尾、頁碼和正文。
 

@@ -24,6 +24,7 @@ import { warningInputsInPhysicalPoints } from './physicalGeometry.js';
 import { detectFormLabelReadingOrderDivergence, detectReadingOrderDivergence } from './readingOrder.js';
 import { detectTextUnderOpaqueFill } from './redactionBypass.js';
 import { detectRtlScriptText } from './rtlScript.js';
+import { detectSymbolFontSubstitution } from './symbolFontSigns.js';
 import { detectDotLeaderNoise, detectTabularNumericLayout } from './tabular.js';
 import {
   detectDenseVectorGraphics,
@@ -130,6 +131,7 @@ function detectPageWarningsInPhysicalPoints(page: PageResult, context: PageWarni
 
   const unreliableGlyphGeometry = hasUnreliableGlyphGeometry(page);
   if (!context.rasterBackedTextLayer && !unreliableGlyphGeometry) {
+    detectSymbolFontSubstitution(page, context.spans ?? page.spans ?? [], warnings);
     detectPageEdgeTextTruncated(
       context.spans ?? page.spans ?? [],
       page.width,

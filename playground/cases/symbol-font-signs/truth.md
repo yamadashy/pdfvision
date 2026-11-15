@@ -2,7 +2,8 @@
 
 - **Stresses:** minus, <, >, ±, × and = set in a symbol font whose ToUnicode CMap lies; signs inside prose and in an effect-size table with p-values
 - **Families:** encoding, tables
-- **Status:** known-gap
+- **Status:** ok
+- **Showcase:** The symbol font’s ToUnicode map names ordinary characters for every sign, so the text layer is well-formed and plausible while −52% reads as 252% and < as a comma.
 
 Page 419 of *Journal of Community Health Outcomes* (Vol. 14, No. 6 · June 2009), running head “Nurse-Led Remote Monitoring in Type 2 Diabetes”. A **Results** section:
 two paragraphs, Table 2, two more paragraphs.
@@ -44,15 +45,16 @@ In a per-protocol analysis restricted to patients who transmitted readings on >8
 How the lies read when taken at face value: `252%` for −52%, `,0.001` for <0.001,
 `7.1 þ 0.9` for 7.1 ± 0.9, `(n ¼ 398)` for (n = 398), `22.4` for −2.4.
 
-**Known gap (no issue yet):** `read.md` reports every sign as its CMap claims, and no warning
-mentions the font. The prose reads `Hospital admissions fell by 52% relative to usual care (252%, p , 0.001)`
-and `emergency visits were essentially unchanged (22%, p 1⁄4 0.91)`; the table row reads
-`| Hospital admissions, n (%) | 38 (9%) | 79 (20%) | 252% | ,0.001 |`. So question 1 gets “252%”
-(an increase), question 4 gets `22.4 þ 3.1`, and “<” and “>” become `,` and `.`
-(`Sites with .25 patients`). Questions 3 and 5 survive only by reading `,0.001` as “<0.001”.
+**How pdfvision carries it:** the text is still reported as the CMap claims — the PDF states those
+characters, and nothing in it states the true signs — so the prose reads
+`Hospital admissions fell by 52% relative to usual care (252%, p , 0.001)` and
+`emergency visits were essentially unchanged (22%, p 1⁄4 0.91)`. A `symbol_font_substitution`
+warning names the font, the characters it extracts as, samples in context, and a
+`--render-region` covering every affected run in the prose and the table, so an agent
+reads the signs from the image before answering questions 1, 2, 4, and 5. Without that render,
+question 1 gets “252%” (an increase), question 4 gets `22.4 þ 3.1`, and “<” and “>” become
+`,` and `.` (`Sites with .25 patients`).
 `=` comes out as `1⁄4` (¼ after normalisation), exactly the survey's `z 1⁄4 0.09`.
 
 The table also carries `layout_table_uncertain` — its first three rows lose their label and
-first value (`|  |  | 7.6 þ 1.1 | 20.5 | ,0.001 |`) — and says to render the table region,
-which would happen to show the true signs there; nothing covers the prose, which is where
-question 1 is usually answered.
+first value (`|  |  | 7.6 þ 1.1 | 20.5 | ,0.001 |`) — and says to render the table region.
