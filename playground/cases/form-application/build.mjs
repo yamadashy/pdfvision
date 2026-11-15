@@ -73,6 +73,7 @@ export const meta = {
   stresses:
     'filled and empty text fields; labels left of and above boxes; multi-line field; split date boxes; radio group; checkboxes; dropdown; signature line that is not a field',
   status: 'ok',
+  families: ['interactive'],
 };
 
 const shown = (value) => (value ? `\`${value.replace('\n', ' / ')}\`` : '(empty)');

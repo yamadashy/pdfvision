@@ -105,6 +105,7 @@ export const meta = {
   stresses:
     'full-width header over two columns; superscript author markers; inline equation; vector chart with text labels; table caption above; footnote; rotated margin stamp',
   status: 'known-gap',
+  families: ['reading-order', 'math', 'vector-meaning', 'vertical-rotated', 'structure'],
   issue: 241,
 };
 

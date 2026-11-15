@@ -1,7 +1,9 @@
 # Table with empty cells under grouped headers
 
 - **Stresses:** column assignment when a row leaves value cells empty; two-level header with centred group labels
+- **Families:** tables
 - **Status:** ok
+- **Showcase:** Rows leave value cells empty under grouped headers, so a reader that assigns columns by order rather than by x position shifts every later value one column left.
 
 The page holds one caption paragraph and one table of 7 data rows.
 Every value belongs to the column it is drawn under; an empty cell stays empty

@@ -25,6 +25,9 @@ export const meta = {
   title: 'Table with empty cells under grouped headers',
   stresses: 'column assignment when a row leaves value cells empty; two-level header with centred group labels',
   status: 'ok',
+  families: ['tables'],
+  showcase: true,
+  hard: 'Rows leave value cells empty under grouped headers, so a reader that assigns columns by order rather than by x position shifts every later value one column left.',
 };
 
 const markdownRow = (cells) => `| ${cells.join(' | ')} |`;

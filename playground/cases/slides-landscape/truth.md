@@ -1,6 +1,7 @@
 # Three-slide 16:9 deck with a screenshot slide
 
 - **Stresses:** non-Letter landscape page size; repeated footer; nested bullets; vector chart with value labels; a slide whose content is only a raster image
+- **Families:** page-geometry, raster-text, vector-meaning
 - **Status:** ok
 
 Three 960 × 540 pt slides. Every slide carries the footer `Larkspur Analytics  |  Confidential — internal use only`; slides 2 and 3 carry

@@ -109,6 +109,9 @@ export const meta = {
   stresses:
     'Letter landscape; three-level centred header over two column groups; `$` as its own glyph; parenthesised negatives; `—` placeholders; footnote markers on values; per-share decimals; wrapped footnotes',
   status: 'ok',
+  families: ['tables', 'page-geometry'],
+  showcase: true,
+  hard: 'A three-level centred header spans two column groups on a landscape page, with `$`, parenthesised negatives, `—` placeholders and footnote markers each set as separate glyphs that must be reattached to the right value.',
   page: { size: 'LETTER', layout: 'landscape' },
 };
 

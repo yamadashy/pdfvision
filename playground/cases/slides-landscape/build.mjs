@@ -41,6 +41,7 @@ export const meta = {
   stresses:
     'non-Letter landscape page size; repeated footer; nested bullets; vector chart with value labels; a slide whose content is only a raster image',
   status: 'ok',
+  families: ['page-geometry', 'raster-text', 'vector-meaning'],
   page: { size: [W, H] },
 };
 

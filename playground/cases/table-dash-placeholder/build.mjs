@@ -28,6 +28,7 @@ export const meta = {
   stresses:
     '`—` as an empty value, a row that is `—` in every column, `$` drawn as a separate glyph, parenthesised negatives',
   status: 'known-gap',
+  families: ['tables'],
 };
 
 const valued = ROWS.filter((row) => row.values);

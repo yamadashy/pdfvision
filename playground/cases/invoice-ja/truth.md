@@ -1,6 +1,7 @@
 # Japanese invoice (請求書) with seal and embedded XML
 
 - **Stresses:** CJK key-value header; bordered item table with a wrapped name and a negative line; per-rate tax summary; vector seal over the issuer name; XML attachment
+- **Families:** scripts, tables, vector-meaning, interactive
 - **Status:** known-gap
 
 An A4 請求書 from **株式会社みなとテック** to **株式会社さくら商事 御中** (経理部 ご担当者様).

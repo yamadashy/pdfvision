@@ -3,7 +3,8 @@
 //
 //   node --run playground               every case: case.pdf, truth.md, read.md, page PNGs, index.html
 //   node --run playground -- <name>...  only the named cases (the gallery still lists all of them)
-//   node --run playground -- --check    re-read the committed case.pdf files and fail if read.md differs
+//   node --run playground -- --check    re-read the committed case.pdf files and fail if read.md or
+//                                       COVERAGE.md differs
 //
 // Always rebuilds dist/ first (sub-second), the same way .mcp.json and
 // scripts/run-local-cli.mjs do, so a snapshot can never come from a stale bundle.
@@ -13,6 +14,7 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { renderCoverage, statusLabel, validateMeta } from './lib/coverage.mjs';
 import { renderGallery } from './lib/gallery.mjs';
 import { startMcpServer } from './lib/mcpClient.mjs';
 import { buildCasePdf } from './lib/pdf.mjs';
@@ -20,6 +22,7 @@ import { buildCasePdf } from './lib/pdf.mjs';
 const PLAYGROUND = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(PLAYGROUND, '..');
 const CASES_DIR = join(PLAYGROUND, 'cases');
+const COVERAGE_PATH = join(PLAYGROUND, 'COVERAGE.md');
 
 class PlaygroundError extends Error {}
 
@@ -55,7 +58,18 @@ async function loadCases() {
     for (const key of ['meta', 'truth', 'draw']) {
       if (module[key] === undefined) fail(`cases/${name}/build.mjs does not export \`${key}\``);
     }
-    cases.push({ name, dir, meta: module.meta, truth: module.truth, draw: module.draw });
+    validateMeta(name, module.meta, fail);
+    if (module.postprocess !== undefined && typeof module.postprocess !== 'function') {
+      fail(`cases/${name}/build.mjs: \`postprocess\` must be a function (pdfBytes) => pdfBytes`);
+    }
+    cases.push({
+      name,
+      dir,
+      meta: module.meta,
+      truth: module.truth,
+      draw: module.draw,
+      postprocess: module.postprocess,
+    });
   }
   return cases;
 }
@@ -66,7 +80,9 @@ function truthMarkdown({ meta, truth }) {
     `# ${meta.title}`,
     '',
     `- **Stresses:** ${meta.stresses}`,
+    `- **Families:** ${meta.families.join(', ')}`,
     `- **Status:** ${status}`,
+    ...(meta.showcase ? [`- **Showcase:** ${meta.hard.trim()}`] : []),
     '',
     truth.trim(),
     '',
@@ -117,7 +133,11 @@ function renderPages(testCase, env) {
   if (render.status !== 0) fail(`rendering ${testCase.name} failed:\n${render.stderr}`);
 }
 
-function diffSummary(name, expected, actual) {
+function readOrEmpty(path) {
+  return existsSync(path) ? readFileSync(path, 'utf8') : '';
+}
+
+function diffSummary(path, expected, actual) {
   const scratch = mkdtempSync(join(tmpdir(), 'pdfvision-playground-diff-'));
   try {
     const committed = join(scratch, 'committed.md');
@@ -128,7 +148,7 @@ function diffSummary(name, expected, actual) {
       encoding: 'utf8',
     });
     const body = diff.stdout?.split('\n').slice(4).join('\n') || '(git diff unavailable; contents differ)';
-    return `--- cases/${name}/read.md (committed)\n+++ cases/${name}/read.md (current pdfvision)\n${body}`;
+    return `--- ${path} (committed)\n+++ ${path} (current)\n${body}`;
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }
@@ -154,31 +174,37 @@ async function main() {
       const stale = [];
       for (const testCase of selected) {
         const committedPath = join(testCase.dir, 'read.md');
-        const committed = existsSync(committedPath) ? readFileSync(committedPath, 'utf8') : '';
+        const committed = readOrEmpty(committedPath);
         const current = await snapshotRead(server, testCase, cacheRoot);
-        if (current !== committed) stale.push(diffSummary(testCase.name, committed, current));
+        if (current !== committed) stale.push(diffSummary(`cases/${testCase.name}/read.md`, committed, current));
+      }
+      const coverage = renderCoverage(cases);
+      if (!existsSync(COVERAGE_PATH) || readFileSync(COVERAGE_PATH, 'utf8') !== coverage) {
+        stale.push(diffSummary('COVERAGE.md', readOrEmpty(COVERAGE_PATH), coverage));
       }
       if (stale.length > 0) {
         console.error(stale.join('\n\n'));
         fail(
-          `${stale.length} read.md snapshot(s) differ from what pdfvision now returns. ` +
+          `${stale.length} snapshot(s) differ (read.md: what pdfvision now returns; COVERAGE.md: the cases' meta). ` +
             'Review the change; if it is intended, run `node --run playground` and commit the new snapshots.',
         );
       }
-      console.log(`playground: ${selected.length} read.md snapshot(s) match.`);
+      console.log(`playground: ${selected.length} read.md snapshot(s) and COVERAGE.md match.`);
       return;
     }
 
     for (const testCase of selected) {
       writeFileSync(
         join(testCase.dir, 'case.pdf'),
-        await buildCasePdf(testCase.meta, testCase.draw, { dir: testCase.dir }),
+        await buildCasePdf(testCase.meta, testCase.draw, { dir: testCase.dir, postprocess: testCase.postprocess }),
       );
       writeFileSync(join(testCase.dir, 'truth.md'), truthMarkdown(testCase));
       writeFileSync(join(testCase.dir, 'read.md'), await snapshotRead(server, testCase, cacheRoot));
       renderPages(testCase, env);
-      console.log(`playground: built ${testCase.name}`);
+      console.log(`playground: built ${testCase.name} (${statusLabel(testCase.meta)})`);
     }
+    writeFileSync(COVERAGE_PATH, renderCoverage(cases));
+    console.log(`playground: wrote ${relative(REPO_ROOT, COVERAGE_PATH)}`);
     writeFileSync(join(PLAYGROUND, 'index.html'), renderGallery(cases));
     console.log(`playground: wrote ${relative(REPO_ROOT, join(PLAYGROUND, 'index.html'))}`);
   } finally {

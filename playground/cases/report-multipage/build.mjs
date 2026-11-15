@@ -135,6 +135,7 @@ export const meta = {
   stresses:
     'A4; running header/footer; bookmarks; numbered list and footnote; table continued across pages with a repeated header; a /Rotate 90 landscape page',
   status: 'ok',
+  families: ['structure', 'tables', 'vertical-rotated', 'interactive'],
   page: { size: 'A4' },
 };
 

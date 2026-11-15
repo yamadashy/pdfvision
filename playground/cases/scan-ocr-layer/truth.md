@@ -1,7 +1,9 @@
 # Scanned letter with an imperfect OCR text layer
 
 - **Stresses:** full-page raster scans; invisible OCR text (render mode 3) with OCR errors; a second scanned page with no text layer
+- **Families:** raster-text, hidden-overlap
 - **Status:** ok
+- **Showcase:** The only text is an invisible OCR layer under a scanned image, and its errors (`retumed`, `l4`, a dropped line) look like ordinary native text.
 
 **Page 1 — what the scan shows** (a skewed, speckled image of a typed letter):
 

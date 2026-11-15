@@ -1,6 +1,7 @@
 # Fillable grant application (AcroForm)
 
 - **Stresses:** filled and empty text fields; labels left of and above boxes; multi-line field; split date boxes; radio group; checkboxes; dropdown; signature line that is not a field
+- **Families:** interactive
 - **Status:** ok
 
 Riverside Community Arts Fund — Project Grant Application — 2027 Cycle (Form RCAF-12 (rev. 03/2026)). Instructions: “Please type or print clearly. Fields marked * are required. Return the completed form to grants@riverside-arts.example no later than January 31, 2027. Incomplete applications will not be reviewed.”

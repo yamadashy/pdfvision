@@ -82,6 +82,7 @@ export const meta = {
   stresses:
     'CJK key-value header; bordered item table with a wrapped name and a negative line; per-rate tax summary; vector seal over the issuer name; XML attachment',
   status: 'known-gap',
+  families: ['scripts', 'tables', 'vector-meaning', 'interactive'],
   page: { size: 'A4' },
 };
 

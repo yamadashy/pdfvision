@@ -159,6 +159,7 @@ export const meta = {
   stresses:
     'numbered clauses with bold defined terms; a proper redaction; a black box over live text; white-on-white text; highlight, sticky note, strike-out and link annotations',
   status: 'known-gap',
+  families: ['hidden-overlap', 'interactive', 'structure'],
 };
 
 const visible = (segments) =>

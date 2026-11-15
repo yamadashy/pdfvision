@@ -1,6 +1,7 @@
 # Statement with dash placeholders
 
 - **Stresses:** `—` as an empty value, a row that is `—` in every column, `$` drawn as a separate glyph, parenthesised negatives
+- **Families:** tables
 - **Status:** known-gap
 
 CONSOLIDATED STATEMENTS OF CASH FLOWS (In millions): 10 rows with values under the years 2024 and 2023, plus

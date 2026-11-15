@@ -26,6 +26,9 @@ export const meta = {
   title: 'Statement with section rows and a two-level header',
   stresses: 'repeated sub-labels under section rows; period header spanning two year columns; `$` as its own glyph',
   status: 'ok',
+  families: ['tables'],
+  showcase: true,
+  hard: 'Sub-labels such as `Products` and `Services` repeat under value-less section rows, so a row only means something if the section row above it stays in place.',
 };
 
 const columnNames = PERIODS.flatMap((period) => YEARS.map((year) => `${period} ${year}`));

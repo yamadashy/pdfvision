@@ -54,6 +54,7 @@ export const meta = {
   title: 'Three-column instructions prose',
   stresses: 'multi-column running prose whose lines end in years and form numbers; no table on the page',
   status: 'known-gap',
+  families: ['reading-order'],
   issue: 242,
 };
 

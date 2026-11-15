@@ -1,6 +1,7 @@
 # Services agreement with redactions and review annotations
 
 - **Stresses:** numbered clauses with bold defined terms; a proper redaction; a black box over live text; white-on-white text; highlight, sticky note, strike-out and link annotations
+- **Families:** hidden-overlap, interactive, structure
 - **Status:** known-gap
 
 MASTER SERVICES AGREEMENT between **Corvane Analytics Ltd.** (“Provider”), 40 Wharf Road, Leith, Edinburgh EH6 6QX, and **Blue Fern Retail, Inc.**
