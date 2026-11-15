@@ -167,10 +167,13 @@ describe('topics', () => {
 
 /**
  * A generous ceiling, not a target: it exists so a topic cannot quietly
- * become a second 20 KB help. `warnings` is the current outlier at ~36 KB
- * because it carries both the shape and the catalog of every code.
+ * become a second 20 KB help. `warnings` is the current outlier at ~51 KB
+ * because it carries both the shape and the catalog of every code; the
+ * ceiling was raised from 48 KB when the hidden-text, symbol-font and
+ * rotated-page warnings landed together. Split the topic before raising it
+ * again.
  */
-const TOPIC_BYTE_CEILING = 48 * 1024;
+const TOPIC_BYTE_CEILING = 56 * 1024;
 
 describe('no topic grows into a second oversized help', () => {
   it.each(CLI_TOPIC_INDEX.map((topic) => topic.name))('keeps %s under the ceiling', (name) => {

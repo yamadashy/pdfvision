@@ -82,7 +82,7 @@ Reviewed PDFs, annotated drafts, PDFs with sticky notes, highlights, underlines,
 
 ## `--structure` — tagged-PDF accessibility structure
 
-Accessible PDFs, government forms/reports, manuals, and any PDF where figure alt text, role hierarchy, language hints, structure bboxes, or tagged tables may explain content that native text and rendered pixels alone do not label. Tagged `Table` structures are also reconstructed as row-major `structureTables[]` grids and GFM tables. Structure bboxes use the same unrotated page-view top-left coordinates as spans/layout/image boxes. Stray control bytes in structure strings are removed.
+Accessible PDFs, government forms/reports, manuals, and any PDF where figure alt text, role hierarchy, language hints, structure bboxes, or tagged tables may explain content that native text and rendered pixels alone do not label. Tagged `Table` structures are also reconstructed as row-major `structureTables[]` grids and GFM tables. Structure bboxes use the same displayed-frame top-left coordinates as spans/layout/image boxes. Stray control bytes in structure strings are removed.
 
 ## Document-level feature probes
 
@@ -130,7 +130,7 @@ Multimodal flows, typically after the density Overview already flagged the page 
 
 ## `--render-region <x,y,w,h>` — zoom into a sub-rectangle of one page
 
-Use when the agent already saw a suspect block via `--layout` / `warnings[]` and only wants visual confirmation of that bbox, not the whole page. Coordinates use raw unrotated page-view units with a top-left origin; single-page only. Physical points = raw value × `pages[].userUnit` (or 1 when omitted), while pixels = raw region × UserUnit × render scale. The bbox passes unchanged. On rotated pages, pdfvision maps it through the rotated viewport, so the cropped PNG's visible width/height may be swapped.
+Use when the agent already saw a suspect block via `--layout` / `warnings[]` and only wants visual confirmation of that bbox, not the whole page. Coordinates use raw units in the displayed (post-`/Rotate`) page frame with a top-left origin, the frame every bbox is reported in; single-page only. Physical points = raw value × `pages[].userUnit` (or 1 when omitted), while pixels = raw region × UserUnit × render scale. The bbox passes unchanged, and the crop comes back the way the page displays, on rotated pages too. (Exception: a page flagged `rotated_page_read_unrotated` — text upright only as stored — is reported and rendered unrotated; see `pdfvision docs warnings`.)
 
 ## `--search <query>` — find occurrences with bbox
 

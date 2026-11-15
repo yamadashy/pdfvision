@@ -488,4 +488,26 @@ describe('extractPageText', () => {
 
     expect(result.text).toBe('昭和10(1935)年5月、新聞にこんな');
   });
+
+  it('treats non-finite item widths and heights as zero so textArea and span boxes stay finite', () => {
+    const result = extractPageText({
+      content: {
+        items: [
+          textItem('Hello', 100),
+          { ...positionedSpaceItem(60, 100, 10, Number.NaN), height: Number.NaN },
+          { ...textItem('World', 120), width: Number.POSITIVE_INFINITY },
+        ],
+      },
+      flags: BASE_FLAGS,
+      pageHeight: 800,
+      viewMinX: 0,
+      viewMinY: 0,
+    });
+
+    expect(Number.isFinite(result.textArea)).toBe(true);
+    expect(result.textArea).toBeGreaterThan(0);
+    for (const span of result.spans) {
+      for (const value of [span.x, span.y, span.width, span.height]) expect(Number.isFinite(value)).toBe(true);
+    }
+  });
 });

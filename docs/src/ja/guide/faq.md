@@ -41,7 +41,7 @@ visual regions は、図、グラフ、表、フォームセクション、注�
 
 ## 座標系はどうなっていますか？
 
-bbox は、回転前の pdf.js page view 表示ボックスを基準とする生の page-view units で、左上が原点です。表示ボックスは、適用可能な場合は CropBox ∩ MediaBox、それ以外は MediaBox です。`x` は右、`y` は下に増えます。物理サイズのポイント数は「生の値 × `pages[].userUnit`（省略時は 1）」、ピクセル数は「生の領域 × UserUnit × render scale」です。bbox は変更せず `--render-region` に渡せます。回転ページでは、pdf.js の回転 viewport transform を使います。
+Boxes use raw page-view units of the page as displayed (the pdf.js page view box turned by its `/Rotate`), with a top-left origin. 表示ボックスは、適用可能な場合は CropBox ∩ MediaBox、それ以外は MediaBox です。`x` は右、`y` は下に増えます。物理サイズのポイント数は「生の値 × `pages[].userUnit`（省略時は 1）」、ピクセル数は「生の領域 × UserUnit × render scale」です。bbox は変更せず `--render-region` に渡せます。Rotated pages need no extra transform; a page with the `rotated_page_read_unrotated` warning is read and rendered unrotated.
 
 ## キャッシュはどこにありますか？
 

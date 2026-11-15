@@ -109,7 +109,7 @@ OCR 不會覆蓋原生文字。使用方應比較 `page.text` 與 `page.ocr?.tex
 
 ## 座標
 
-所有 bbox 均使用未旋轉的 pdf.js `page.view` 原始 page-view units，並以左上角為原點。存在有效 CropBox 時，可見框是 CropBox ∩ MediaBox，否則是 MediaBox。`pages[].width` / `height`、零基準座標和 `renderRegion` 邊界均相對於此框。`pages[].userUnit` 與 `overview[].userUnit` 只在 PDF `/UserUnit` 不為預設值 1 時出現。物理點數 = 原始 page-view 值 × `userUnit`（省略時按 1）；渲染像素數 = 原始區域 × UserUnit × render scale，旋轉可能交換兩個軸。bbox 可原樣傳給 `--render-region`；旋轉頁使用 pdf.js 的旋轉 viewport transform。
+All boxes use raw page-view units of the page as displayed: the pdf.js `page.view` visible box turned by the page's `/Rotate`, with a top-left origin. On a page rotated 90° or 270°, `pages[].width` / `height` are the stored box's height / width. A page whose text is upright only as stored is read and rendered unrotated instead, with a `rotated_page_read_unrotated` warning. 存在有效 CropBox 時，可見框是 CropBox ∩ MediaBox，否則是 MediaBox。`pages[].width` / `height`、零基準座標和 `renderRegion` 邊界均相對於此框。`pages[].userUnit` 與 `overview[].userUnit` 只在 PDF `/UserUnit` 不為預設值 1 時出現。物理點數 = 原始 page-view 值 × `userUnit`（省略時按 1）；渲染像素數 = 原始區域 × UserUnit × render scale。bbox 可原樣傳給 `--render-region`；Rotated pages need no extra transform; a page with the `rotated_page_read_unrotated` warning is read and rendered unrotated.
 
 警告偵測閾值以及包含 `pt` / `pt²` 的訊息，會使用已擷取幾何的私有物理點視圖。但這並不保證整個擷取流程在物理尺寸上保持不變：版面分組、表單標籤重建、vector box 整形和 visual region 產生仍包含以原始單位為基礎的啟發式規則，因此物理上等價的 PDF 仍可能產生不同的上游訊號。
 

@@ -62,6 +62,7 @@ export const meta = {
   stresses:
     'vertical Japanese set glyph by glyph; /Rotate 90 landscape sheet; columns right to left; hanging article, paragraph and item numbers at column heads; parenthesised captions; kanji page number',
   status: 'known-gap',
+  issue: 261,
   page: { size: 'A4' },
   families: ['vertical-rotated', 'reading-order', 'structure'],
 };
@@ -95,17 +96,18 @@ NFKC-normalised (\`３\` → \`3\`, \`（\` → \`(\`).
 4. 新設される第八条の二で、館長は評価の結果をどうするよう努めなければならないか。 — 協議会に報告するとともに、インターネットの利用その他の適切な方法により公表する
 5. この法律はいつから施行されるか。 — 令和九年四月一日
 
-**Known gap (no issue yet):** on the rotated page the vertical columns are not reassembled. Only
-the title column and the 附則 sentence come back whole; between them \`read.md\` is a stack of
-one- to eight-character fragments in which glyphs of neighbouring columns that share a height
-are joined sideways (\`を「五年」\`, \`。こ\`, \`る、\`, \`えく\` … \`委にい次会に者のめ条)館をり\`),
-column heads such as \`第\`, \`3\`, \`2\` and \`一二三\` stand alone, and no caption, article number or
-item survives in context. The page reports \`rotation: 90°\` but raises **no warning**, so nothing
-tells the agent to render. Only question 5 is answerable from \`read.md\`; questions 1–4 are not
-(\`図書館協議会\` and \`第八条の二\` never appear as text). The same drawing on an unrotated
-landscape page (not part of this case) comes back as whole columns — with its own faults: the
-２/３ and 一–三 column heads detached from their text, and the title and the 第八条の二 body moved
-to the end — so the rotation is what turns it into fragments.
+**Known gap (#261):** the rotated page is read exactly as the same drawing stored landscape: the
+columns are reassembled into whole sentences in reading order, \`(図書館協議会)\` heads \`第八条\` and
+\`(運営状況の評価等)\` heads \`第八条の二\`. What remains wrong is what #261 describes for unrotated
+vertical text: the paragraph and item numbers at the head of a column detach from their text
+(\`3\` and \`2\` are emitted before the first article, the second \`3\` after \`第八条の二\`, and
+\`三 二 一\` after the 附則 sentence, so the paragraphs and the three items lose their numbers),
+\`附 則\` comes back one glyph per line, and the title column and the body of 第八条の二 are
+moved to the end of the page, the body after the title rather than after its own \`第八条の二\`
+label. \`reading_order_divergence\` fires
+on the title ("render the page when exact sequence is critical"). Questions 1, 2, 3 and 5 are
+answerable from \`read.md\`; question 4 is answerable only by attaching the displaced closing
+paragraph back to \`第八条の二\`.
 `;
 
 export function draw(doc, h) {

@@ -2,7 +2,7 @@
 
 - **Stresses:** vertical statute comparison on a /Rotate 90 sheet; upper half 改正後 over lower half 改正前, columns right to left; changed passages marked only by vector side lines; （略） provisions; an added article with a blank old half; hanging item numbers
 - **Families:** vertical-rotated, tables, vector-meaning
-- **Status:** known-gap
+- **Status:** known-gap (#261)
 
 A portrait A4 page stored with `/Rotate 90`; a viewer shows an 842 × 595 pt landscape sheet
 holding a vertical 新旧対照条文: the title **地域図書館の振興に関する法律施行規則の一部を改正する省令 新旧対照条文** in the rightmost column
@@ -36,14 +36,17 @@ Full-width digits and brackets may come back NFKC-normalised (`２` → `2`, `�
 4. 第二条第三号「協議会」で引用する条文はどう変わったか。 — 「法第八条」から「法第八条第一項」へ
 5. 第一条は改正されるか。 — 改正されない（両欄とも（略））
 
-**Known gap (no issue yet):** as in `tategaki-statute`, the rotated vertical columns are mostly
-not reassembled. A few columns come back whole — `第一条 (略)` twice, `第三条 法第七条第一項の計画の
-期間は、五年と / する。` and then the same with `三年と`, `第四条及び第五条 (略)` twice — but the
-第二条 and 第三条の二 blocks are fragments in which glyphs of neighbouring columns at the same
-height are joined sideways (`用ろ`, `るこ`, `げと` …; `)図び会。`), and some glyphs are lost
-(`(計画の期 )`, `第三条 法第 条第一項…` in the 改正前 half, `況 評価の方法)`). The side lines are not
-reported. The only warnings are three `text_overlap` notes (“block bboxes overlap … text from
-different blocks may visually collide”), which name no next step. Questions 1 and 5 are
-answerable (五年 precedes 三年, following the `改正後` / `改正前` label order); questions 2, 3 and 4
-are not — `自動車を用いて` and `法第八条に規定する` never appear, and `第三条の二` and its caption
-come back only as scattered glyphs.
+**Known gap (#261):** the rotated page is read exactly as the same drawing stored landscape: the
+改正後 half comes first and the 改正前 half after it, and every body column comes back whole
+(`法第七条第一項の計画の期間は、五年と`, `法第八条の二の評価は、利用者の満足度、…`), but
+within each half the columns are not reassembled into provisions: labels, captions, bodies and
+their one-line endings (`する。`, `をいう。`) are separated by other provisions' columns. The
+rest is the vertical-text column cutting of #261: every `(略)` and the `(定義)` caption come
+back one glyph per line, so 第一条 and its caption interleave as `第 / ( / 一 / 定 / 条 / 義 / )`; the narrow `改正後` / `改正前` labels come back one
+glyph per line after their half; the item numbers detach (`三`, `二 一`); and in each half the
+definition terms `移動図書館` / `協議会` stand apart from their definitions, with
+`自動車を用いて図書館資料の` and `法第八条に規定する図書館協議会` displaced to the end of the 改正前
+half. The side lines are not reported. `reading_order_divergence` fires on the title ("render
+the page when exact sequence is critical"). Questions 1 to 4 are answerable from `read.md`, though
+2 and 4 need the displaced 改正前 fragments; question 5 is not — 第一条 survives only as the
+interleaved glyphs above.

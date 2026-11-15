@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { READING_ORDER_REMEDY } from '../../src/core/warnings/readingOrder/remedy.js';
+import { READING_ORDER_REMEDY, READING_ORDER_UNRESOLVED_REMEDY } from '../../src/core/warnings/readingOrder/remedy.js';
 import { formatMarkdown, formatMarkdownSections } from '../../src/output/markdown.js';
 import type { DocumentResult, FormField, PageResult } from '../../src/types/index.js';
 
@@ -2027,6 +2027,15 @@ describe('reading-order remedy', () => {
     const out = formatMarkdown(makeResult({ pages: [page] }));
     expect(out).not.toContain('prefer layout.blocks order when exact sequence matters');
     expect(out).toContain('the body above is that reading order, rebuilt from the layout');
+  });
+
+  it('never claims a rebuild when the detector found the layout order broken too', () => {
+    const page = divergentPage();
+    const message = `heading "Title" leads the visual reading order — native text order diverges from what a human reads; the layout-rebuilt order is unreliable here too — side-by-side blocks "a" and "b" are interleaved line by line; ${READING_ORDER_UNRESOLVED_REMEDY}`;
+    page.warnings = [{ code: 'reading_order_divergence', severity: 'warning', message }];
+    const out = formatMarkdown(makeResult({ pages: [page] }));
+    expect(out).toContain(message);
+    expect(out).not.toContain('rebuilt from the layout');
   });
 
   it('keeps the layout.blocks advice when the body is the native stream', () => {

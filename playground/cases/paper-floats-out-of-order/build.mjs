@@ -100,7 +100,7 @@ export const meta = {
   title: 'Journal first page with floats out of stream order',
   stresses:
     'metadata sidebar column; title block drawn last in the content stream; table and figure floated to column tops but written after the body; footer line under the sidebar',
-  status: 'known-gap',
+  status: 'ok',
   families: ['reading-order', 'structure'],
 };
 
@@ -158,9 +158,12 @@ columns (#273): the Introduction's second line \`one in five hospital employees 
 stays in its sentence, and the left column is read whole, \`Introduction\` through \`…invited
 between January and\`, before the right column.
 
-**Known gap (no issue yet):** \`reading_order_divergence\` fires on the title and says "the body
-above is that reading order, rebuilt from the layout", but the rebuilt body is still wrong
-around the abstract and the floats:
+\`reading_order_divergence\` fires on the title and says the layout-rebuilt order is unreliable too,
+naming the sidebar and abstract blocks that are interleaved line by line, and tells the reader to
+render the page. That is true, and the render answers question 4 and the order problems below,
+so the case is \`ok\` (#272: the warning used to claim "the body above is that reading order,
+rebuilt from the layout"). The rebuilt body itself is still wrong around the abstract and the
+floats (#274):
 - The sidebar is interleaved with the abstract line by line (\`Circadian disruption … in working\` /
   \`diversity: a cross-sectional study of\` / \`adults is poorly characterised. …\`).
 - Table 1 is not detected as a table: its row labels come first, then the values column by column

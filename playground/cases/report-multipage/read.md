@@ -15,7 +15,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 | 1 | 1167 | 0 | 12% | 595.28×841.89 | — | 3 | 0 | 11 | 0 | 0 | 0 | 0 |
 | 2 | 1816 | 0 | 35% | 595.28×841.89 | — | 42 | 1 | 14 | 1 | 0 | 0 | 0 |
 | 3 | 763 | 0 | 11% | 595.28×841.89 | — | 10 | 1 | 19 | 1 | 0 | 0 | 0 |
-| 4 | 902 | 0 | 13% | 595.28×841.89 | 90° | 9 | 1 | 25 | 5 | 0 | 0 | 0 |
+| 4 | 902 | 0 | 13% | 841.89×595.28 | 90° | 9 | 1 | 35 | 3 | 0 | 0 | 0 |
 
 ---
 
@@ -448,73 +448,138 @@ On track
 
 ## Page 4
 
-_chars: 902 · images: 0 · coverage: 13% · rotation: 90° · vectors: 9 · tables: 1 · warnings: 5 · size: 595.28×841.89pt_
+_chars: 902 · images: 0 · coverage: 13% · rotation: 90° · vectors: 9 · tables: 1 · warnings: 3 · size: 841.89×595.28pt_
 
 Appendix A — Vehicle cost comparison by model
 
-CO2 saved
-5-yr TCO (EUR k)
-
-Maint.
-
-(t/yr) 9.8 9.1 6.2 10.4 6.5 21.7
-
-91.2 89.6 61.8 96.5 66.0 182.4
-
-(EUR/yr)
-
-1,150 1,240 880 1,100 900 2,600
-
-Page 4 of 4
-
-TCO includes purchase, energy at contracted depot tariffs, maintenance and insurance over five years at 28,000 km per year; it excludes residual value.
-
-Fleet Electrification Programme — Q3 2026 Status Report
-
-Energy / 100 km
-Price
-
-Battery
-
-Appendix A — Vehicle cost comparison by model Range
-
-Units
-
-Class
+Appendix A — Vehicle cost comparison by model
 
 Model
 
-EUR 7.10 EUR 6.80 EUR 4.90 EUR 7.40 EUR 5.10 EUR 14.20
+Voltra e-Van 3.5
 
+Kestrel Cargo E
+Mobion City
+Arcadia eTransit
+Mobion City LR
+Northway 7.5t E
+
+Class
+
+Large van
+
+Large van
+Small van
+Large van
+Small van
+Light truck
+
+Units
+
+64
+
+41
+88
+22
+35
+12
+
+Range
+(km)
+
+310
+
+285
+220
+340
+275
+230
+
+Battery
+(kWh)
+
+90
+
+75
+50
+100
+64
+140
+
+Price Energy / 100 km
 (EUR k)
 
-58.4 54.9 36.2 63.0 39.8 118.0
+58.4
 
-(kWh) 90 75 50 100 64 140
+54.9
+36.2
+63.0
+39.8
+118.0
 
-(km) 310 285 220 340 275 230
+EUR 7.10
 
-64 41 88 22 35 12
+EUR 6.80
+EUR 4.90
+EUR 7.40
+EUR 5.10
+EUR 14.20
 
-Large van Large van Small van Large van Small van Light truck
+Maint.
+(EUR/yr)
 
-Voltra e-Van 3.5 Kestrel Cargo E Mobion City Arcadia eTransit Mobion City LR Northway 7.5t E
+1,150
+
+1,240
+880
+1,100
+900
+2,600
+
+5-yr TCO CO2 saved
+(EUR k)
+
+91.2
+
+89.6
+61.8
+96.5
+66.0
+182.4
+
+(t/yr)
+
+9.8
+
+9.1
+6.2
+10.4
+6.5
+21.7
+
+TCO includes purchase, energy at contracted depot tariffs, maintenance and insurance over five years at 28,000 km per year; it excludes residual value.
 
 Confidential — Harbourline Logistics internal use only
 
+Page 4 of 4
+
 ### Layout tables
 
-#### Table 1 (2 rows × 3 columns, bbox 25.74,56,538.93,729.89)
+#### Table 1 (8 rows × 10 columns, bbox 60,89.6,722,130.86)
 
-| C1 | C2 | C3 |
-| --- | --- | --- |
-| Appendix A — Vehicle cost comparison by model CO2 saved 5-yr TCO (EUR k) Maint. (EUR/yr) | (t/yr) 9.8 9.1 6.2 10.4 6.5 21.7 91.2 89.6 61.8 96.5 66.0 182.4 1,150 1,240 880 1,100 900 2,600 | Page 4 of 4 |
-| Fleet Electrification Programme — Q3 2026 Status Report Appendix A — Vehicle cost comparison by model Range Energy / 100 km Price Battery Units Class Model (EUR k) | (kWh) 90 75 50 100 64 140 (km) 310 285 220 340 275 230 EUR 7.10 EUR 6.80 EUR 4.90 EUR 7.40 EUR 5.10 EUR 14.20 58.4 54.9 36.2 63.0 39.8 118.0 64 41 88 22 35 12 Large van Large van Small van Large van Small van Light truck Voltra e-Van 3.5 Kestrel Cargo E Mobion City Arcadia eTransit Mobion City LR Northway 7.5t E TCO includes purchase, energy at contracted depot tariffs, maintenance and insurance over five years at 28,000 km per year; it excludes residual value. | Confidential — Harbourline Logistics internal use only |
+| C1 | C2 | C3 | C4 | C5 | C6 | C7 | C8 | C9 | C10 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Model | Class | Units | Range | Battery | Price Energy / 100 km |  | Maint. | 5-yr TCO CO2 saved |  |
+|  |  |  | (km) | (kWh) | (EUR k) |  | (EUR/yr) | (EUR k) | (t/yr) |
+|  |  |  |  |  |  | EUR 7.10 | 1,150 | 91.2 | 9.8 |
+|  |  |  |  |  |  | EUR 6.80 | 1,240 | 89.6 | 9.1 |
+|  |  |  |  |  |  | EUR 4.90 | 880 | 61.8 | 6.2 |
+|  |  |  |  |  |  | EUR 7.40 | 1,100 | 96.5 | 10.4 |
+|  |  |  |  |  |  | EUR 5.10 | 900 | 66.0 | 6.5 |
+| Northway 7.5t E | Light truck | 12 | 230 | 140 | 118.0 | EUR 14.20 | 2,600 | 182.4 | 21.7 |
 
 ### Warnings
 
-> **warning** (layout_table_uncertain): layout table 1 (bbox 25.74,56,538.93,729.89) did not resolve into one consistent grid: 2 rows have two values in one column — its cells may sit in the wrong row or column or be missing; render that region (--render-region 25.74,56,538.93,729.89) before trusting the table
-> **warning** (reading_order_divergence): layout block "CO2 saved 5-yr TCO (EUR k)" appears with reordered characters in the native text stream — superscripts, radicals, or inline math may read differently in pages[].text; the body above is that reading order, rebuilt from the layout — render the page when exact sequence is critical
-> **warning** (text_overlap): block bboxes overlap (208.8pt²) — text from different blocks may visually collide
-> **warning** (text_overlap): block bboxes overlap (192.8pt²) — text from different blocks may visually collide
-> **warning** (text_overlap): block bboxes overlap (180.6pt²) — text from different blocks may visually collide
+> **warning** (layout_table_uncertain): layout table 1 (bbox 60,89.6,722,130.86) did not resolve into one consistent grid: 21 lines with numbers inside the table belong to no row — its cells may sit in the wrong row or column or be missing; render that region (--render-region 60,89.6,722,130.86) before trusting the table
+> **warning** (reading_order_divergence): layout block "Price Energy / 100 km (EUR k)" appears with reordered characters in the native text stream — superscripts, radicals, or inline math may read differently in pages[].text; the body above is that reading order, rebuilt from the layout — render the page when exact sequence is critical
+> **warning** (tabular_numeric_layout): page contains 42 short numeric lines in 7 aligned columns and 6 shared numeric rows — table rows/columns may be flattened in native text; inspect the render or geometry when values matter

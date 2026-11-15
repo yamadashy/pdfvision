@@ -1,4 +1,5 @@
 import type { OcrWord } from '../../types/index.js';
+import { pageDisplayFrame, pdfPointToFrame } from '../geometry/displayFrame.js';
 import type { RenderRegion, ViewportCrop } from '../renderer/index.js';
 
 export const DEFAULT_OCR_RENDER_SCALE = 2;
@@ -8,6 +9,8 @@ export interface OcrWordTransform {
   region?: RenderRegion;
   crop?: ViewportCrop;
   pageView?: readonly number[];
+  /** The page's `/Rotate`, so word boxes land in the displayed frame. */
+  rotation?: number;
   viewport?: PageViewportLike;
 }
 
@@ -107,8 +110,7 @@ function ocrBboxToPageBox(bbox: RawOcrBbox, transform: OcrWordTransform): PageBo
 
   const cropX = transform.crop?.x ?? 0;
   const cropY = transform.crop?.y ?? 0;
-  const viewMinX = Math.min(pageView[0], pageView[2]);
-  const viewMaxY = Math.max(pageView[1], pageView[3]);
+  const frame = pageDisplayFrame(pageView, transform.rotation);
   const corners = [
     [bbox.x0, bbox.y0],
     [bbox.x1, bbox.y0],
@@ -118,11 +120,8 @@ function ocrBboxToPageBox(bbox: RawOcrBbox, transform: OcrWordTransform): PageBo
   const points = corners.map(([x, y]) => {
     const pdfPoint = viewport.convertToPdfPoint(cropX + x, cropY + y);
     if (!isUsablePdfPoint(pdfPoint)) return undefined;
-    const [pdfX, pdfY] = pdfPoint;
-    return {
-      x: pdfX - viewMinX,
-      y: viewMaxY - pdfY,
-    };
+    const [frameX, frameY] = pdfPointToFrame(frame, pdfPoint[0], pdfPoint[1]);
+    return { x: frameX, y: frameY };
   });
   if (points.some((point) => point === undefined)) return undefined;
   const usablePoints = points as { x: number; y: number }[];

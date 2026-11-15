@@ -41,8 +41,8 @@ export interface PageOverview {
   renderContentRatio?: number;
   /**
    * Mirror of {@link PageResult.rotation}, present only for rotated pages
-   * so multi-page consumers can spot pages whose rendered PNG orientation
-   * differs from the unrotated page-view coordinate system. XML currently
+   * so multi-page consumers can spot pages stored turned; their geometry
+   * and size are already reported as displayed. XML currently
    * omits this overview attribute; JSON, decoded TOON, and the library retain it.
    */
   rotation?: number;
