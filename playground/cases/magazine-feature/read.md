@@ -69,6 +69,8 @@ county, and a waiting list. Their method
 “We are not saving the forest. We are giving it a
 reason to come back on its own.”
 
+— Maren Tolliver, dive coordinator
+
 has not changed much. Divers work in
 pairs, one clearing and one counting, and
 every rope is logged with its depth, its
@@ -109,6 +111,8 @@ The lobster crews who fish that reef are
 wary of anything that brings more boats
 out.
 
+Continued on page 48 ›
+
 BY THE NUMBERS
 
 14.2 hectares
@@ -130,10 +134,6 @@ this season.
 
 of seeded ropes still carrying kelp after
 one full year.
-
-— Maren Tolliver, dive coordinator
-
-Continued on page 48 ›
 
 ### Warnings
 

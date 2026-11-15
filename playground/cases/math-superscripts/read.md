@@ -22,25 +22,32 @@ Residual dropout uses P = 0.1 for the base model and 0.3 for the big one.
 drop
 
 Model
-base
-big
-
-1 Measured on eight P100 GPUs.
 
 Train steps
-1.0 · 105
-3.0 · 105
 
 FLOPs
-3.3 · 1018
-2.3 · 1019
 
 P
 
 drop
 
+base
+
+1.0 · 105
+
+3.3 · 1018
+
 0.1
+
+big
+
+3.0 · 105
+
+2.3 · 1019
+
 0.3
+
+1 Measured on eight P100 GPUs.
 
 ### Layout tables
 

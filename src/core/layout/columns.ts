@@ -47,7 +47,12 @@ const ROTATED_MARGIN_MAX_TEXT_SHARE = 0.2;
  *      reorder that run by (column index, y). A separator cuts only the
  *      columns it crosses.
  */
-export function reorderForColumns(blocks: LayoutBlock[], pageWidth: number, pageHeight = 0): LayoutBlock[] {
+export function reorderForColumns(
+  blocks: LayoutBlock[],
+  pageWidth: number,
+  pageHeight = 0,
+  units: ReadonlySet<LayoutBlock> = new Set(),
+): LayoutBlock[] {
   if (blocks.length < 3 || pageWidth <= 0) return blocks;
 
   const spanThreshold = pageWidth * 0.6;
@@ -118,13 +123,14 @@ export function reorderForColumns(blocks: LayoutBlock[], pageWidth: number, page
   }
 
   // Surviving columns are the initial clusters minus promoted blocks.
-  // Each surviving column needs ≥ 2 members and we need ≥ 2 surviving
-  // columns; otherwise this isn't a real multi-column layout. One
-  // paragraph that fills a column counts as a column too: once interleaved
-  // lines are rebuilt into blocks, a column can be a single block.
+  // Each surviving column needs ≥ 2 members (or a region unit) and we need ≥ 2 surviving
+  // columns; otherwise this isn't a real multi-column layout.
+  // A framed panel stands in for a whole column of text, and so does one
+  // paragraph that fills a column (once interleaved lines are rebuilt into
+  // blocks, a column can be a single block), so either counts as a column.
   const survivingColumns = initialColumns
     .map((c) => c.filter((b) => !promoted.has(b)))
-    .filter((c) => c.length >= 2 || c.some(isColumnSizedBlock));
+    .filter((c) => c.length >= 2 || c.some((b) => units.has(b) || isColumnSizedBlock(b)));
   if (survivingColumns.length < 2) return blocks;
 
   const columnOf = new Map<LayoutBlock, number>();
@@ -139,7 +145,7 @@ export function reorderForColumns(blocks: LayoutBlock[], pageWidth: number, page
     if (nearestColumn !== undefined) columnOf.set(b, nearestColumn);
   }
 
-  const { extents, spliced } = refineColumnMembership(narrow, columnOf, survivingColumns.length, promoted);
+  const { extents, spliced } = refineColumnMembership(narrow, columnOf, survivingColumns.length, promoted, units);
 
   // Walk in current (y-ordered) order. Buffer column-member blocks and
   // emit them sorted by (column, y) whenever a clearly-spanning block or a
@@ -207,12 +213,21 @@ function nearestColumnByX(
   return bestDistance <= maxDistance ? bestIndex : undefined;
 }
 
-export function mergeAdjacentColumnBlocks(blocks: LayoutBlock[], pageWidth = 0): LayoutBlock[] {
+export function mergeAdjacentColumnBlocks(
+  blocks: LayoutBlock[],
+  pageWidth = 0,
+  unmergeable: ReadonlySet<LayoutBlock> = new Set(),
+): LayoutBlock[] {
   if (blocks.length < 2) return blocks;
   const out: LayoutBlock[] = [];
   for (const block of blocks) {
     const prev = out[out.length - 1];
-    if (prev && canMergeAdjacentBodyBlocks(prev, block, pageWidth)) {
+    if (
+      prev &&
+      !unmergeable.has(prev) &&
+      !unmergeable.has(block) &&
+      canMergeAdjacentBodyBlocks(prev, block, pageWidth)
+    ) {
       prev.lines.push(...block.lines);
       prev.text = prev.lines.map((l) => l.text).join('\n');
       const box = unionBox(prev.lines);
@@ -230,6 +245,9 @@ export function mergeAdjacentColumnBlocks(blocks: LayoutBlock[], pageWidth = 0):
 function canMergeAdjacentBodyBlocks(a: LayoutBlock, b: LayoutBlock, pageWidth = 0): boolean {
   if (a.role || b.role) return false;
   if (a.writingMode || b.writingMode) return false;
+  // A rotated axis title is one line as tall as a paragraph; its height
+  // says nothing about the gap to the caption under it.
+  if (a.lines.some(hasVerticalTextShape) || b.lines.some(hasVerticalTextShape)) return false;
   if (pageWidth > 0 && (a.width >= pageWidth * 0.6 || b.width >= pageWidth * 0.6)) return false;
   const prevLine = a.lines.at(-1);
   const nextLine = b.lines[0];

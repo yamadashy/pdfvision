@@ -11,7 +11,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 | Page | Chars | Images | Coverage | Size (pt) | Vectors | Blocks | Warnings | Fields | Links | Annots |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 264 | 0 | 9% | 362.83×272.13 | 13 | 8 | 1 | 0 | 0 | 0 |
+| 1 | 264 | 0 | 9% | 362.83×272.13 | 13 | 9 | 1 | 0 | 0 | 0 |
 | 2 | 261 | 0 | 8% | 362.83×272.13 | 13 | 9 | 0 | 0 | 0 | 0 |
 | 3 | 379 | 0 | 11% | 362.83×272.13 | 18 | 14 | 0 | 0 | 0 | 0 |
 | 4 | 379 | 0 | 11% | 362.83×272.13 | 18 | 14 | 0 | 0 | 0 | 0 |
@@ -29,6 +29,7 @@ Numerical Methods for PDEs
 Lecture 5: Stability of time-stepping schemes
 
 Ana Ferreira
+
 Department of Applied Mathematics, Lisbon Polytechnic
 
 18 November 2026
@@ -71,9 +72,9 @@ Stable only if λ = Δt / Δx2 ≤ 1/2
 
 unj +1 = un + λ (un − 2un + un )
 
-j+1
-
 j
+
+j+1
 
 j
 
@@ -93,9 +94,9 @@ Stable only if λ = Δt / Δx2 ≤ 1/2
 
 unj +1 = un + λ (un − 2un + un )
 
-j+1
-
 j
+
+j+1
 
 j
 
@@ -115,9 +116,9 @@ Stable only if λ = Δt / Δx2 ≤ 1/2
 
 unj +1 = un + λ (un − 2un + un )
 
-j+1
-
 j
+
+j+1
 
 j
 

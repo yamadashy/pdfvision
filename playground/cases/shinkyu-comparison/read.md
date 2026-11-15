@@ -88,8 +88,14 @@ _chars: 583 · images: 0 · coverage: 10% · rotation: 90° · vectors: 15 · wa
 )
 
 改
+
 正
 後
+
+改
+
+正
+前
 
 第二条
 
@@ -149,14 +155,10 @@ _chars: 583 · images: 0 · coverage: 10% · rotation: 90° · vectors: 15 · wa
 略
 )
 
-自動車を用いて図書館資料の
-
-改
-正
-前
-
 新旧対照条文
 (傍線部分は改正部分)
+
+自動車を用いて図書館資料の
 
 法第八条に規定する図書館協議会
 

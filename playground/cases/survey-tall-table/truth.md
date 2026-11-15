@@ -81,8 +81,9 @@ column), so questions 1 and 4 are answerable from it plus the header words in th
   rather than numbers; the only warning, `tabular_numeric_layout`, is about flattened rows. Question 3
   cannot be answered from `read.md` (an agent would have to guess that `3` means yes).
 - The layout table has no header (`C1 … C6`) and drops both group-label rows, so membership is
-  only recoverable from the column-by-column body text, where `Open source` sits between `(B)` and the
-  first parameter count and `Closed source` before `175`. Question 2 needs that inference (Pangolin-Σ
-  is the 14th model after the break in the model list); question 5 needs counting the second list.
-- The body text is the table read column by column (all models, then all dates, …), as the survey
-  reported for the real page.
+  only recoverable from the body text, where `Open source` comes after the header words and before
+  the open-source model list, and `Closed source` before the first closed-source row. Question 2
+  needs that inference; question 5 needs counting.
+- The body text reads the open-source half column by column (all models, then all dates, …), as the
+  survey reported for the real page, and the closed-source half row by row
+  (`Atlas-1 [50]` / `Jun-2022` / `175` / `0.3T` / `2k` / `7`).

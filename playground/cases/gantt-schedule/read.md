@@ -21,181 +21,20 @@ ID
 
 Task
 
-1
-
-Discovery
-
-1.1
-
-Stakeholder interviews
-
-1.2
-
-Current-state audit
-
-1.3
-
-Requirements sign-off
-
-2
-
-Design
-
-2.1
-
-UX wireframes
-
-2.2
-
-Visual design system
-
-2.3
-
-Design review
-
-3
-
-Build
-
-3.1
-
-API integration
-
-3.2
-
-Data migration
-
-3.3
-
-Secure messaging module
-
-3.4
-
-Appointment scheduling
-
-3.5
-
-Accessibility audit
-
-4
-
-Test & launch
-
-4.1
-
-QA regression
-
-4.2
-
-Penetration test
-
-4.3
-
-User acceptance testing
-
-4.4
-
-Go-live
-
-4.5
-
-Hypercare
-
-Legend
-
 Owner
-
-P. Nair
-
-J. Brandt
-
-R. Solis
-
-M. Lindqvist
-
-A. Tanaka
-
-R. Solis
-
-D. Okafor
-
-S. Kowalski
-
-L. Haddad
-
-D. Okafor
-
-A. Tanaka
-
-QA team
-
-Vendor (TBD)
-
-J. Brandt
-
-R. Solis
-
-Support
 
 Plan start Plan end
 
-9/7/26
-
-9/14/26
-
-9/25/26
-
-9/21/26
-
-9/28/26
-
-10/23/26
-
-10/12/26
-
-10/5/26
-
-10/19/26
-
-10/26/26
-
-11/9/26
-
-11/23/26
-
-12/7/26
-
-12/18/26
-
-9/18/26
-
-9/25/26
-
-9/25/26
-
-10/9/26
-
-10/23/26
-
-10/23/26
-
-11/20/26
-
-10/30/26
-
-11/27/26
-
-11/27/26
-
-11/20/26
-
-12/4/26
-
-12/18/26
-
-12/18/26
+Project manager: Renata Solis
+Schedule v7
 
 Sep 2026
+
+Oct 2026
+
+Nov 2026
+
+Dec 2026
 
 9/7
 
@@ -205,8 +44,6 @@ Sep 2026
 
 9/28
 
-Oct 2026
-
 10/5
 
 10/12
@@ -215,24 +52,15 @@ Oct 2026
 
 10/26
 
-Today
-
 11/2
 
 11/9
 
-Nov 2026
 11/16
 
 11/23
 
-Project manager: Renata Solis
-
 11/30
-
-Schedule v7
-
-Dec 2026
 
 12/7
 
@@ -240,9 +68,175 @@ Dec 2026
 
 12/21
 
-Done
+1
 
-Cobalt Ridge Health | PMO | Internal
+Discovery
+
+1.1
+
+Stakeholder interviews
+
+P. Nair
+
+9/7/26
+
+9/18/26
+
+1.2
+
+Current-state audit
+
+J. Brandt
+
+9/14/26
+
+9/25/26
+
+1.3
+
+Requirements sign-off
+
+R. Solis
+
+9/25/26
+
+9/25/26
+
+2
+
+Design
+
+2.1
+
+UX wireframes
+
+M. Lindqvist
+
+9/21/26
+
+10/9/26
+
+2.2
+
+Visual design system
+
+A. Tanaka
+
+9/28/26
+
+10/23/26
+
+2.3
+
+Design review
+
+R. Solis
+
+10/23/26
+
+10/23/26
+
+3
+
+Build
+
+3.1
+
+API integration
+
+D. Okafor
+
+10/12/26
+
+11/20/26
+
+3.2
+
+Data migration
+
+S. Kowalski
+
+10/5/26
+
+10/30/26
+
+3.3
+
+Secure messaging module
+
+L. Haddad
+
+10/19/26
+
+11/27/26
+
+3.4
+
+Appointment scheduling
+
+D. Okafor
+
+10/26/26
+
+11/27/26
+
+3.5
+
+Accessibility audit
+
+A. Tanaka
+
+11/9/26
+
+11/20/26
+
+4
+
+Test & launch
+
+4.1
+
+QA regression
+
+QA team
+
+11/23/26
+
+12/4/26
+
+4.2
+
+Penetration test
+
+Vendor (TBD)
+
+4.3
+
+User acceptance testing
+
+J. Brandt
+
+12/7/26
+
+12/18/26
+
+4.4
+
+Go-live
+
+R. Solis
+
+12/18/26
+
+12/18/26
+
+4.5
+
+Hypercare
+
+Legend Done
+
+Support
 
 On track
 
@@ -250,11 +244,15 @@ At risk
 
 Late
 
+Today
+
 Progress (% complete)
 
 Milestone
 
 Today
+
+Cobalt Ridge Health | PMO | Internal
 
 Dependency
 

@@ -12,7 +12,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 | Page | Chars | Images | Coverage | Size (pt) | Vectors | Blocks | Warnings | Fields | Links | Annots |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | 1 | 1232 | 0 | 29% | 612×792 | 3 | 13 | 4 | 0 | 0 | 0 |
-| 2 | 897 | 0 | 26% | 612×792 | 3 | 12 | 1 | 0 | 0 | 0 |
+| 2 | 897 | 0 | 26% | 612×792 | 3 | 9 | 4 | 0 | 0 | 0 |
 
 ---
 
@@ -25,8 +25,6 @@ BRIGHTWATER LOGISTICS
 Facilities & Real Estate
 
 MEMORANDUM
-
-DRAFT
 
 TO:
 FROM:
@@ -42,6 +40,8 @@ S A M P L E
 
 November 12, 2026
 Consolidation of the Fremont and Hayward warehouses
+
+DRAFT
 
 BA C K G R O U N D
 Brightwater currently runs two cross-dock warehouses eleven miles apart. Fremont handles
@@ -64,41 +64,38 @@ BRIGHTWATER LOGISTICS · Internal · Page 1 of 2
 
 ### Warnings
 
+> **warning** (text_overlap): block bboxes overlap (792.7pt²) — text from different blocks may visually collide
 > **warning** (text_overlap): block bboxes overlap (14308.2pt²) — text from different blocks may visually collide
 > **warning** (text_overlap): block bboxes overlap (7294.3pt²) — text from different blocks may visually collide
 > **warning** (text_overlap): block bboxes overlap (6570.2pt²) — text from different blocks may visually collide
-> **warning** (text_overlap): block bboxes overlap (792.7pt²) — text from different blocks may visually collide
 
 ---
 
 ## Page 2
 
-_chars: 897 · images: 0 · coverage: 26% · vectors: 3 · warnings: 1 · size: 612×792pt_
+_chars: 897 · images: 0 · coverage: 26% · vectors: 3 · warnings: 4 · size: 612×792pt_
 
 TI M E L I N E
 
 Milestone
 Committee approval
-
-Owner
-Executive Committee
-
-Target date
-December 9, 2026
-
-DRAFT
-
 Dock works complete at Hayward
 Fremont inbound moved to Hayward
 Fremont lease surrendered
 
+Owner
+Executive Committee
 Facilities
 Operations
 Legal
 
+Target date
+December 9, 2026
 April 30, 2027
 June 15, 2027
 September 30, 2027
+
+DRAFT
 
 RI S K S
 The main risk is the November peak: if the dock works slip past April, Hayward will run the
@@ -116,4 +113,7 @@ BRIGHTWATER LOGISTICS · Internal · Page 2 of 2
 
 ### Warnings
 
+> **warning** (text_overlap): block bboxes overlap (4304.5pt²) — text from different blocks may visually collide
+> **warning** (text_overlap): block bboxes overlap (1135.3pt²) — text from different blocks may visually collide
+> **warning** (text_overlap): block bboxes overlap (1833.6pt²) — text from different blocks may visually collide
 > **warning** (text_overlap): block bboxes overlap (3386.2pt²) — text from different blocks may visually collide

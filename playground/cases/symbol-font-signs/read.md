@@ -29,6 +29,8 @@ emergency visits were essentially unchanged (22%, p 1⁄4 0.91).
 
 Table 2. Primary and secondary outcomes at 12 months.
 
+Remote monitoring
+
 Outcome
 
 HbA1c at 12 months, %
@@ -39,7 +41,6 @@ Emergency visits, n (%)
 Adverse events, n (%)
 Sites with .25 patients, n (%)
 
-Remote monitoring
 (n 1⁄4 412)
 
 7.1 þ 0.9

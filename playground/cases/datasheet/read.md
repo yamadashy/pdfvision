@@ -12,7 +12,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 | Page | Chars | Images | Coverage | Size (pt) | Vectors | Tables | Blocks | Warnings | Fields | Links | Annots |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | 1 | 1511 | 0 | 17% | 612×792 | 22 | 2 | 40 | 0 | 0 | 0 | 0 |
-| 2 | 1041 | 0 | 7% | 612×792 | 219 | 1 | 73 | 2 | 0 | 0 | 0 |
+| 2 | 1041 | 0 | 7% | 612×792 | 219 | 1 | 93 | 2 | 0 | 0 | 0 |
 
 ---
 
@@ -38,31 +38,39 @@ KX4562 Dual 5-V Low-Noise Rail-to-Rail Operational Amplifier
 
 Over operating free-air temperature range (unless otherwise noted)
 
-Supply voltage, VS = (V+) – (V−)
-Input voltage, any pin
-Input current, any pin
-Output short-circuit duration
-Operating temperature, TA
-Junction temperature, TJ
-Storage temperature, Tstg
-
 OUT A
-
-IN A−
-
-IN A+
-
-V−
-
-D Package, 8-Pin SOIC (Top View)
 
 1
 
+8
+
+V+
+
+IN A−
+
 2
+
+7
+
+OUT B
+
+IN A+
 
 3
 
+6
+
+IN B−
+
+V−
+
 4
+
+5
+
+IN B+
+
+D Package, 8-Pin SOIC (Top View)
 
 2 Applications
 
@@ -81,21 +89,13 @@ supports active filters well into the audio range. The device is
 offered in an 8-pin SOIC package and is specified over the
 extended industrial temperature range.
 
-8
-
-7
-
-6
-
-5
-
-V+
-
-OUT B
-
-IN B−
-
-IN B+
+Supply voltage, VS = (V+) – (V−)
+Input voltage, any pin
+Input current, any pin
+Output short-circuit duration
+Operating temperature, TA
+Junction temperature, TJ
+Storage temperature, Tstg
 
 MIN MAX UNIT
 0
@@ -162,157 +162,177 @@ A S L S
 
 PARAMETER
 
+SYMBOL
+
+TEST CONDITIONS
+
+MIN
+
+TYP
+
+MAX
+
+UNIT
+
 OFFSET VOLTAGE
 Input offset voltage
-
-Offset voltage drift
-INPUT BIAS CURRENT
-Input bias current
-
-NOISE
-Input voltage noise
-density
-
-OUTPUT
-Voltage output swing
-from rail
-Short-circuit current
-POWER SUPPLY
-Quiescent current per
-amplifier
-
-Power-supply rejection
-ratio
-
-7 Package Outline
-
-D (SOIC-8) plastic small-outline package
-
-SYMBOL
 
 V
 
 OS
+
+T = 25°C
+
+A
+
+±0.3
+
+±1.5
+
+mV
+
+±2.5
+
+mV
+
+Offset voltage drift
 
 TA = –40°C to +125°C
 dV /dT T = –40°C to +125°C
 
 OS
 
+A
+
+1.2
+
+μV/°C
+
+INPUT BIAS CURRENT
+Input bias current
+
 I
 
 B
+
+T = 25°C
+
+A
+
+±1
+
+±10
+
+pA
+
+TA = –40°C to +125°C
+
+±800
+
+pA
+
+NOISE
+Input voltage noise
 
 e
 
 n
 
+f = 1 kHz
+
+12
+
+nV/√Hz
+
+density
+
+f = 10 kHz
+
+9.5
+
+nV/√Hz
+
+OUTPUT
+Voltage output swing
+
 V
 
 O L S
+
+R = 10 kΩ to V / 2,
+
+8
+
+25
+
+mV
+
+from rail
+
+T = –40°C to +125°C
+
+A
+
+Short-circuit current
 
 I
 
 SC
 
-I
-
-Q
-
-PSRR
-
-T = 25°C
-
-A
-
-A
-
-T = 25°C
-
-A
-
-TA = –40°C to +125°C
-
-f = 1 kHz
-f = 10 kHz
-
-R = 10 kΩ to V / 2,
-T = –40°C to +125°C
-
-A
-
 V = 5 V
 
 S
+
+±50
+
+mA
+
+POWER SUPPLY
+Quiescent current per
+
+I
+
+Q
 
 I = 0 mA
 
 O
 
+0.85
+
+1.1
+
+mA
+
+amplifier
+
 IO = 0 mA,
+
+1.4
+
+mA
+
 TA = –40°C to +125°C
+
+Power-supply rejection
+
+PSRR
+
 V = 2.7 V to 5.5 V
 
 S
 
-TEST CONDITIONS
-
-MIN
-
 80
-
-TYP
-
-±0.3
-
-1.2
-
-±1
-
-12
-9.5
-
-8
-
-±50
-
-0.85
 
 96
 
-MAX
-
-±1.5
-±2.5
-
-±10
-±800
-
-25
-
-1.1
-1.4
-
-UNIT
-
-mV
-mV
-μV/°C
-
-pA
-pA
-
-nV/√Hz
-nV/√Hz
-
-mV
-
-mA
-
-mA
-mA
-
 dB
+
+ratio
+
+7 Package Outline
+
+D (SOIC-8) plastic small-outline package
 
 2
 
@@ -330,4 +350,4 @@ dB
 ### Warnings
 
 > **warning** (layout_table_uncertain): layout table 1 (bbox 44,265.03,487.63,109.36) did not resolve into one consistent grid: 6 lines with numbers inside the table belong to no row — its cells may sit in the wrong row or column or be missing; render that region (--render-region 44,265.03,487.63,109.36) before trusting the table
-> **warning** (reading_order_divergence): layout line "INPUT BIAS CURRENT" appears after "Offset voltage drift" visually but earlier in the native text stream — native line order diverges from what a human reads; the body above is that reading order, rebuilt from the layout — render the page when exact sequence is critical
+> **warning** (reading_order_divergence): layout block "T = 25°C" appears with reordered characters in the native text stream — superscripts, radicals, or inline math may read differently in pages[].text; the body above is that reading order, rebuilt from the layout — render the page when exact sequence is critical

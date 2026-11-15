@@ -20,7 +20,27 @@ A SURVEY OF OPEN AND CLOSED LANGUAGE MODELS, 2022–2026
 TABLE 3: Statistics of the language models covered by this survey. “Params” is the largest released size; “–” means not disclosed.
 RLHF marks models whose release notes report reinforcement learning from human feedback.
 
+Release
+
+Params
+
+Pre-train
+
+Context
+
 Model
+
+RLHF
+
+date
+
+(B)
+
+tokens
+
+length
+
+Open source
 
 Corvid-7B [12]
 Corvid-65B [12]
@@ -50,32 +70,6 @@ Plover-14B [45]
 Tern-1B [47]
 Wren-3-27B [33]
 
-Atlas-1 [50]
-Atlas-1.5 [50]
-Atlas-2 [51]
-Atlas-2 Turbo [51]
-Atlas-2o [52]
-Beacon-1 [54]
-Beacon-2 [54]
-Beacon-3 Opal [55]
-Beacon-3.5 [55]
-Gemma-Pro [57]
-Gemma-Ultra [57]
-Gemma-Flash [58]
-Ernst-4 [60]
-Pangolin-Σ [62]
-Jurist-2 [64]
-Comet-R [66]
-Nimbus-Large [68]
-Nimbus-Large-2 [68]
-Grebe-1 [70]
-Grebe-2 [70]
-Yarrow-Lightning [72]
-Atlas-3 [52]
-
-Release
-date
-
 Feb-2023
 Feb-2023
 Apr-2023
@@ -104,32 +98,6 @@ Dec-2024
 Jan-2025
 Mar-2025
 
-Jun-2022
-Nov-2022
-Mar-2023
-Nov-2023
-May-2024
-Mar-2023
-Jul-2023
-Mar-2024
-Jun-2024
-Dec-2023
-Feb-2024
-May-2024
-Oct-2023
-Mar-2023
-Mar-2023
-Mar-2024
-Feb-2024
-Jul-2024
-Nov-2023
-Aug-2024
-Oct-2024
-Feb-2025
-
-Params
-(B)
-Open source
 7
 65
 13
@@ -157,33 +125,6 @@ Open source
 14
 1.2
 27
-
-Closed source
-175
-–
-–
-–
-–
-–
-–
-–
-–
-–
-–
-–
-–
-1085
-178
-104
-–
-123
-314
-–
-–
-–
-
-Pre-train
-tokens
 
 1.0T
 1.4T
@@ -213,32 +154,6 @@ tokens
 4T
 14T
 
-0.3T
-–
-–
-–
-–
-–
-–
-–
-–
-–
-–
-–
-–
-0.3T
-–
-–
-–
-–
-–
-–
-–
-–
-
-Context
-length
-
 2k
 2k
 4k
@@ -267,80 +182,298 @@ length
 8k
 128k
 
+7
+7
+7
+3
+7
+7
+7
+7
+7
+7
+7
+7
+3
+7
+3
+7
+3
+3
+3
+7
+3
+3
+7
+3
+7
+7
+3
+
+Closed source
+
+Atlas-1 [50]
+
+Jun-2022
+
+175
+
+0.3T
+
 2k
+
+7
+
+Atlas-1.5 [50]
+
+Nov-2022
+
+–
+
+–
+
 4k
+
+3
+
+Atlas-2 [51]
+
+Mar-2023
+
+–
+
+–
+
 8k
+
+3
+
+Atlas-2 Turbo [51]
+
+Nov-2023
+
+–
+
+–
+
 128k
+
+3
+
+Atlas-2o [52]
+
+May-2024
+
+–
+
+–
+
 128k
+
+3
+
+Beacon-1 [54]
+
+Mar-2023
+
+–
+
+–
+
 9k
+
+3
+
+Beacon-2 [54]
+
+Jul-2023
+
+–
+
+–
+
 100k
+
+3
+
+Beacon-3 Opal [55]
+
+Mar-2024
+
+–
+
+–
+
 200k
+
+3
+
+Beacon-3.5 [55]
+
+Jun-2024
+
+–
+
+–
+
 200k
+
+3
+
+Gemma-Pro [57]
+
+Dec-2023
+
+–
+
+–
+
 32k
+
+3
+
+Gemma-Ultra [57]
+
+Feb-2024
+
+–
+
+–
+
 1M
+
+3
+
+Gemma-Flash [58]
+
+May-2024
+
+–
+
+–
+
 1M
+
+3
+
+Ernst-4 [60]
+
+Oct-2023
+
+–
+
+–
+
 8k
+
+3
+
+Pangolin-Σ [62]
+
+Mar-2023
+
+1085
+
+0.3T
+
 2k
+
+7
+
+Jurist-2 [64]
+
+Mar-2023
+
+178
+
+–
+
 8k
+
+7
+
+Comet-R [66]
+
+Mar-2024
+
+104
+
+–
+
 128k
+
+3
+
+Nimbus-Large [68]
+
+Feb-2024
+
+–
+
+–
+
 32k
+
+3
+
+Nimbus-Large-2 [68]
+
+Jul-2024
+
+123
+
+–
+
 128k
+
+3
+
+Grebe-1 [70]
+
+Nov-2023
+
+314
+
+–
+
 8k
+
+7
+
+Grebe-2 [70]
+
+Aug-2024
+
+–
+
+–
+
 128k
+
+3
+
+Yarrow-Lightning [72]
+
+Oct-2024
+
+–
+
+–
+
 16k
+
+3
+
+Atlas-3 [52]
+
+Feb-2025
+
+–
+
+–
+
 128k
 
-RLHF
-
-7
-7
-7
-3
-7
-7
-7
-7
-7
-7
-7
-7
-3
-7
-3
-7
-3
-3
-3
-7
-3
-3
-7
-3
-7
-7
-3
-
-7
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-7
-7
-3
-3
-3
-7
-3
-3
 3
 
 ### Layout tables

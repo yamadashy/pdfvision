@@ -17,18 +17,18 @@ Table A-2. Households and Median Household Income by Selected Characteristics: 2
 
 (Numbers in thousands. Income in 2026 dollars. Households as of March of the following year. For information on confidentiality protection, sampling error, and definitions, see the technical notes.)
 
-Characteristic
-
-Median income (dollars)
-
-Median income (dollars)
-
 Percent change in real median
 income (
 
 less
 
 )
+
+Median income (dollars)
+
+Median income (dollars)
+
+Characteristic
 
 Number
 
@@ -37,6 +37,10 @@ Estimate
 MOE1 (±)
 
 Number
+
+Estimate
+
+MOE1 (±)
 
 Estimate
 
@@ -69,21 +73,17 @@ Z Represents or rounds to zero.
 2 Householders aged 15 to 24 years are shown separately because their estimates are less reliable.
 Source: Office for Household Statistics, Annual Social and Economic Survey, 2026 and 2027 releases.
 
-Estimate
-
 *
-
-*
-
-*
-
-*
-
-*
-
-MOE1 (±)
 
 Z
+
+*
+
+*
+
+*
+
+*
 
 ### Warnings
 

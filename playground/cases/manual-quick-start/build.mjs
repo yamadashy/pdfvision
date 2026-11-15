@@ -78,7 +78,7 @@ export const meta = {
   stresses:
     'vector exploded drawing with numbered callouts and leader lines; parts list keyed by number; step table with large numerals in dark cells drawn as their own layer; warning box with vector icon; one sentence in English, Japanese and French',
   families: ['vector-meaning', 'tables', 'reading-order', 'scripts'],
-  status: 'known-gap',
+  status: 'ok',
   page: { size: 'A4' },
 };
 
@@ -118,21 +118,23 @@ Footer: ${FOOTER_LEFT} / ${FOOTER_RIGHT}.
 4. What does the warning box tell you not to do? — ${WARNING.lines.join(' ')}
 5. What does the French safety line say, and does it match the English one? — “${SAFETY[2].text}” — yes, it is the same instruction as “${SAFETY[0].text}”
 
-**Known gap (no issue yet):** the warning box comes apart. \`read.md\` prints the heading
-\`${WARNING.heading}\` and then, directly under it, the three safety lines (\`EN ${SAFETY[0].text}\` …)
-and the page footer (\`${FOOTER_LEFT.replaceAll('  ', ' ')}\`); the box's own two sentences
-(\`${WARNING.lines[0]}\` / \`${WARNING.lines[1]}\`) come only after the footer, as the last body
-text of the page. No warning fires. An agent answering question 4 from the text order takes the
-unplug/immersion sentence as the scalding warning, and can mistake the real warning text for a
-trailer below the footer.
+The warning box reads as one unit (#263): \`read.md\` prints the heading \`${WARNING.heading}\`
+followed directly by the box's own two sentences (\`${WARNING.lines[0]}\` / \`${WARNING.lines[1]}\`),
+then the three safety lines below the box and the footer, so question 4 is answered from the
+text order. It used to put the safety lines and the footer between the heading and its body;
+the frame drawn around the box now keeps them together.
 
 Everything else reads correctly. The parts list keeps each number with its name, so question 1,
 the part half of question 3 and the number references inside the steps resolve from text; the
-callout digits themselves come out as a bare run (\`2 5 6 7 1 3 4 8\`, left side then right
-side) with nothing on the drawing to map, which is harmless here because the drawing carries
+callout digits themselves come out as a bare run (\`2 1 3 5 4 6 8 7\`, top to bottom) with
+nothing on the drawing to map, which is harmless here because the drawing carries
 no labels of its own. The step table survives its layer order: each numeral is printed right
 before its own title and instruction, 1 to 5, so questions 1 and 2 are answered in order. The
 Japanese and French lines, accents and \`’\` included, are intact (question 5).
+\`vector_chart_labels\` fires on the exploded drawing (its callout digits and leader marks pass for
+labelled bars, and the \`Getting started\` heading under it is taken in as a label): it calls the
+drawing a chart, which it is not, though rendering the region before pairing the numbers with
+anything is the right next step for the callouts.
 `;
 
 function partsDrawing(doc) {

@@ -25,7 +25,8 @@ const WORD_CHAR_RE = /[\p{L}\p{N}]/u;
  * interrupts a column does not cut it:
  *
  * - A column whose band lies inside another column's band, and whose
- *   blocks never sit beside that column's blocks, is the same column
+ *   blocks never sit beside that column's blocks (or which is a lone
+ *   region unit, see regionOrder.ts), is the same column
  *   narrowed — text run around an inset photo — and is merged into it,
  *   so the narrowed segment is read in its place down the column instead
  *   of after the whole column.
@@ -41,10 +42,11 @@ export function refineColumnMembership(
   columnOf: Map<LayoutBlock, number>,
   columnCount: number,
   separators: ReadonlySet<LayoutBlock>,
+  units: ReadonlySet<LayoutBlock> = new Set(),
 ): { extents: ColumnExtent[]; spliced: Set<LayoutBlock> } {
   let extents = columnExtents(columnOf, columnCount);
   const spliced = new Set<LayoutBlock>();
-  const remap = nestedColumnRemap(columnOf, extents);
+  const remap = nestedColumnRemap(columnOf, extents, units);
   if (remap) {
     const resolve = (column: number): number => (remap[column] === column ? column : resolve(remap[column]));
     for (const [block, column] of columnOf) columnOf.set(block, resolve(column));
@@ -203,7 +205,11 @@ function columnExtents(columnOf: ReadonlyMap<LayoutBlock, number>, columnCount: 
   );
 }
 
-function nestedColumnRemap(columnOf: ReadonlyMap<LayoutBlock, number>, extents: ColumnExtent[]): number[] | undefined {
+function nestedColumnRemap(
+  columnOf: ReadonlyMap<LayoutBlock, number>,
+  extents: ColumnExtent[],
+  units: ReadonlySet<LayoutBlock>,
+): number[] | undefined {
   const members: LayoutBlock[][] = extents.map(() => []);
   for (const [block, column] of columnOf) members[column]?.push(block);
   const remap = extents.map((_, i) => i);
@@ -213,8 +219,13 @@ function nestedColumnRemap(columnOf: ReadonlyMap<LayoutBlock, number>, extents: 
       if (outer === inner || remap[outer] !== outer) continue;
       const a = extents[inner];
       const b = extents[outer];
-      if (a.left <= b.left || a.right > b.right + EDGE_TOLERANCE_PT) continue;
-      if (members[inner].some((x) => members[outer].some((y) => verticallyOverlap(x, y)))) continue;
+      // A lone region unit (a figure inside a column) belongs to the column
+      // it starts in, even where it is drawn wider than the column's typical
+      // line or an axis title or caption of its own sits beside it.
+      const loneUnit = members[inner].length === 1 && units.has(members[inner][0]);
+      if (a.left <= b.left || a.left >= b.right) continue;
+      if (!loneUnit && a.right > b.right + EDGE_TOLERANCE_PT) continue;
+      if (!loneUnit && members[inner].some((x) => members[outer].some((y) => verticallyOverlap(x, y)))) continue;
       remap[inner] = outer;
       changed = true;
       break;

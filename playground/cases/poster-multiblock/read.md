@@ -63,19 +63,40 @@ Results
 The
 
 drone
+
+flagged
+
+87%
+
+of
+
+the
 observer-confirmed heat-stress events, with
 a median lead time of 38 minutes before the
-first visible panting.
 
 Drone
 
-100
+Visual check
 
 91
 
-75
+89
+
+78
+
+64
+
+58
+
+61
+
+first visible panting.
+
+100
 
 Events detected (%)
+
+75
 
 50
 
@@ -84,40 +105,62 @@ Events detected (%)
 0
 
 Northfield
+
+Ardmore
+
 Figure 1. Detection rate by farm
+
+Kilbrack
 
 Detection was lowest on the Kilbrack farm,
 where tree cover hid cows from the camera
 during the afternoon flight.
 
-flagged
-
-Visual check
-
-89
-
-64
-
-Ardmore
-
-87%
-
-of
-
-78
-
-58
-
-Kilbrack
-
 Results (continued)
 
-the
+Eye Muzzle
+
+1.0
+
+0.93
+
+0.91
+
+0.88
+
+0.86
+
+0.84
+
+0.80
+
+0.78
+
+0.75
+
+0.73
+
+0.71
 
 AUC
 
-61
+07:00
 
+10:00
+
+0.9
+
+0.8
+
+0.7
+
+0.6
+
+13:00
+
+16:00
+
+19:00
 Figure 2. Separation of stressed and unstressed cows (AUC) by
 time of day
 
@@ -127,67 +170,45 @@ temperature at every hour of the day.
 
 Table 1. Event-level detection (all farms)
 
-Eye
-
-1.0
-
-0.9
-
-0.84
-
-0.8
-
-0.7
-
-0.71
-
-0.6
-
-07:00
-
 Method
-Visual check
-Collar sensor
-Drone, muzzle
-Drone, eye
-
-Muzzle
-
-0.93
-
-0.88
-
-0.80
-
-0.75
-
-10:00
-
-13:00
 
 Precision
-0.95
-0.72
-0.76
-0.83
-
-0.91
-
-0.86
-
-0.78
-
-0.73
-
-16:00
-
-19:00
 
 Recall
+
+F1
+
+Visual check
+
+0.95
+
 0.61
+
+0.74
+
+Collar sensor
+
+0.72
+
 0.69
+
+0.70
+
+Drone, muzzle
+
+0.76
+
 0.79
+
+0.77
+
+Drone, eye
+
+0.83
+
 0.87
+
+0.85
 
 Conclusions
 
@@ -207,23 +228,11 @@ the bovine eye. Vet. Imaging Rev. 9, 101–113.
 [3] Varga, L. (2025). Small-object detection in aerial
 thermal video. Remote Sens. Agric. 5, 7–19.
 
-F1
-
 Acknowledgements
 
-0.74
-
 Funded by the Corrib Valley Agri-Innovation Fund (grant
-
-0.70
-
 CVA-2024-031). We thank the three host farms and the
-
-0.77
-
 observers who scored 9,200 cow-hours.
-
-0.85
 
 ### Layout tables
 

@@ -1,14 +1,17 @@
 import type { LayoutBlock, LayoutLine, PageLayout, TextSpan } from '../../types/index.js';
 import { isProseColumnTable } from './columnGutters.js';
-import { isStandaloneNumericLineAfterProse, mergeAdjacentColumnBlocks, reorderForColumns } from './columns.js';
+import { isStandaloneNumericLineAfterProse } from './columns.js';
 import { unionBox } from './geometry.js';
 import { classifyHeadings } from './headings.js';
 import { buildLayoutLinesWithGutters } from './lines.js';
+import { orderLayoutBlocks } from './regionOrder.js';
+import { detectLayoutRegions, type LayoutGraphics } from './regions.js';
 import { detectLayoutTables } from './tables.js';
 import { compareLayoutBlocks, extractVerticalCjkBlocks } from './verticalText.js';
 import { findWovenContinuation } from './wovenLines.js';
 
 export { markPageEdgeChromeBlocks } from './pageEdgeChrome.js';
+export type { LayoutGraphics } from './regions.js';
 export { markRepeatedBlocks } from './repeatedChrome.js';
 
 const SHORT_LARGER_LINE_MAX_CHARS = 100;
@@ -29,8 +32,10 @@ const SHORT_LARGER_LINE_MAX_CHARS = 100;
  * column or when blocks come from a non-page source). `pageHeight`
  * enables bottom-note detection inside column runs; 0 keeps the legacy
  * column sort for synthetic callers that do not know page bounds.
+ * `graphics` (the page's vector and image boxes) lets frames, rule bands
+ * and figures keep their text together in the reading order.
  */
-export function buildLayout(spans: TextSpan[], pageWidth = 0, pageHeight = 0): PageLayout {
+export function buildLayout(spans: TextSpan[], pageWidth = 0, pageHeight = 0, graphics?: LayoutGraphics): PageLayout {
   if (spans.length === 0) return { blocks: [] };
 
   const vertical = extractVerticalCjkBlocks(spans);
@@ -107,9 +112,9 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0, pageHeight = 0): P
   ].sort(compareLayoutBlocks);
 
   classifyHeadings(blocks, pageWidth, pageHeight);
-  const ordered = pageWidth > 0 ? reorderForColumns(blocks, pageWidth, pageHeight) : blocks;
-  if (ordered !== blocks)
-    return { blocks: mergeAdjacentColumnBlocks(ordered, pageWidth), ...(tables !== undefined && { tables }) };
-
+  const ordered =
+    pageWidth > 0
+      ? orderLayoutBlocks(blocks, detectLayoutRegions(blocks, graphics, pageWidth, pageHeight), pageWidth, pageHeight)
+      : blocks;
   return { blocks: ordered, ...(tables !== undefined && { tables }) };
 }

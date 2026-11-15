@@ -87,13 +87,13 @@ read `V` / `OS`, `dV /dT` / `OS`, `I` / `B`; and conditions read `T = 25°C` / `
 (a few condition lines keep theirs: `TA = –40°C to +125°C`, `IO = 0 mA,`).
 
 **Known gap (no issue yet):**
-- The electrical-characteristics table is read as separate column streams — all parameters, then
-  symbols, conditions, and one list each for MIN, TYP, MAX and UNIT, with blank cells simply absent
-  (MAX: `±1.5` / `±2.5` / `±10` / `±800` / `25` / `1.1` / `1.4`). Questions 3 and 4 are answerable only by
-  matching positions across lists that have different lengths. The only layout table is a fragment
-  of the last rows (`| POWER SUPPLY Quiescent current per | I Q I = 0 mA O | | 0.85 | 1.1 | mA |`);
-  `layout_table_uncertain` names a render region that covers that fragment only, and
-  `reading_order_divergence` says to render the page "when exact sequence is critical".
+- The electrical-characteristics table has no complete layout table: the only one is a fragment of
+  the last rows (`| POWER SUPPLY Quiescent current per | I Q I = 0 mA O | | 0.85 | 1.1 | mA |`), and
+  `layout_table_uncertain` names a render region that covers that fragment only. The page body
+  reads the grid row by row (`OFFSET VOLTAGE` / `Input offset voltage` / `V` / `OS` / `T = 25°C` /
+  `A` / `±0.3` / `±1.5` / `mV`), so questions 3 and 4 are answerable from it, but a blank cell is
+  simply absent, so which of MIN, TYP and MAX a lone value fills is not in the text. It used to be
+  read as separate column streams (all parameters, then symbols, then one list per column).
 - The package outline's dimensions are vector outlines with no text, and nothing says so: page 2 has
   219 vector operations but no `vector_graphics_no_native_text` or figure warning, and the only text
   near it is `7 Package Outline` / `D (SOIC-8) plastic small-outline package`. Question 5 cannot be

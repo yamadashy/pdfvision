@@ -186,17 +186,15 @@ but no label, overlapped by label text). Layout table 1 (2 × 7) is prose and ch
 columns; \`layout_table_uncertain\` flags that one too.
 
 **Known gap (no issue yet):**
-- Chart labels are scattered through two columns' text with no warning that names the figures:
-  Figure 2's values come as \`Eye\` / \`1.0\` / \`0.9\` / \`0.84\` / … / \`Muzzle\` / \`0.93\` / \`0.88\` / \`0.80\` / \`0.75\` /
-  \`10:00\` / \`13:00\`, interleaved with Table 1's columns, so question 4 (0.93 for Eye at 13:00) cannot be
-  attributed; only the generic \`tabular_numeric_layout\` says to inspect the render "when values
-  matter". Figure 1's bar values are split around \`Ardmore\` and \`Kilbrack\` (\`89\` / \`64\` / \`Ardmore\` /
-  … / \`78\` / \`58\` / \`Kilbrack\` / … / \`61\`), so the Kilbrack drone rate (78%) is not recoverable either.
-- The third affiliation, \`3 Northfield Dairy Research Farm\`, is spliced into the Results column, between
-  \`Ardmore\` and \`87%\`.
-- The widely justified first line of Results is broken into single words scattered through the
-  column: \`The\` / \`drone\` … \`flagged\` … \`87%\` / \`of\` … \`the\`, so “87% of events” only survives as fragments.
-- Table 1's F1 column is read after the References, interleaved line by line with the Acknowledgements.
+- The four poster columns are read one after another, each panel whole, and Table 1 reads row by row
+  in the body (\`Visual check\` / \`0.95\` / \`0.61\` / \`0.74\`). The charts' labels stay inside their
+  panel, but no warning names the figures (only the generic \`tabular_numeric_layout\`): Figure 2's
+  values come row by row from the top (\`1.0\` / \`0.93\` / \`0.91\` / \`0.88\` / …), with the time axis
+  after them, so question 4 (0.93 for Eye at 13:00) cannot be attributed; Figure 1's bar values come
+  as \`91\` / \`89\` / \`78\` / \`64\` / \`58\` / \`61\` before the farm names, so the Kilbrack drone rate
+  (78%) is not recoverable either.
+- The widely justified first line of Results is broken into single words: \`The\` / \`drone\` /
+  \`flagged\` / \`87%\` / \`of\` / \`the\` (now consecutive, before \`observer-confirmed heat-stress events\`).
 `;
 
 const MARGIN = 90;

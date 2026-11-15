@@ -79,12 +79,54 @@ Journal of Occupational Microbiome Research | https://doi.org/10.5555/jomr.0312
 
 Table 1. Characteristics of participants by shift pattern.
 
+Day shift Night shift
+
+p
+
+(n = 212) (n = 198)
+
 Age, years, mean (SD)
+
+41.2 (9.8)
+
+38.6 (8.9)
+
+0.006
+
 Female, n (%)
+
+163 (76.9) 149 (75.3)
+
+0.70
+
 BMI, kg/m2, mean (SD)
+
+25.1 (3.9)
+
+26.4 (4.2)
+
+0.001
+
+7.1
+
+6.2
+
+<0.001
+
 Sleep, h/day, median
 Diet quality score
+
+61 (12)
+
+57 (13)
+
+0.002
+
 Antibiotics past year, n (%) 31 (14.6)
+
+33 (16.7)
+
+0.57
 
 SD, standard deviation; BMI, body mass index.
 
@@ -116,37 +158,9 @@ Study population
 Nurses, healthcare assistants and porters aged 25
 to 60 years were invited between January and
 
-Day shift Night shift
-(n = 212) (n = 198)
-41.2 (9.8)
-163 (76.9) 149 (75.3)
-25.1 (3.9)
-7.1
-61 (12)
-
-38.6 (8.9)
-
-26.4 (4.2)
-6.2
-57 (13)
-33 (16.7)
-
-p
-
-0.006
-0.70
-0.001
-<0.001
-0.002
-0.57
-
-September 30, 2026
-
-3.87
+Shannon index
 
 4.0
-
-Shannon index
 
 3.0
 
@@ -156,7 +170,18 @@ Shannon index
 
 0.0
 
+3.87
+
 Day shift
+
+3.58
+
+Night < 5 y
+
+3.24
+
+Night ≥ 5 y
+
 Fig 1. Mean Shannon diversity index by shift exposure.
 Night-shift workers are split by years of night work. Error
 bars show 95% confidence intervals.
@@ -182,13 +207,7 @@ quality score and antibiotic use in the past year.
 Years of night work were analysed in two bands,
 under five years and five years or more.
 
-3.58
-
-Night < 5 y
-
-3.24
-
-Night ≥ 5 y
+September 30, 2026
 
 1 / 11
 

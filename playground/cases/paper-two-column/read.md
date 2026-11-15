@@ -56,6 +56,8 @@ si = qTk / √d and keep the token when s ≥ τ.
 
 i
 
+i
+
 Tokens below the threshold are removed before indexing;
 the remaining tokens are scored unchanged at query time.
 The threshold is the 60th percentile of the scores within
@@ -64,36 +66,18 @@ each document, so short documents lose few tokens.
 Table 1: Retrieval quality and query latency on LongDocQA.
 
 Method
-Full attention
-Static pruning (k = 512)
-ATP (ours)
-
-Full attention
-
-ATP (ours)
-
-182
-
-156
-
-88
-
-79
-
-LongDocQA
-
-MultiNews-R
-
-i
-
-i
 
 nDCG@10 R@100 Latency (ms)
+
+Full attention
+
 41.2
 
 58.7
 
 182
+
+Static pruning (k = 512)
 
 38.9
 
@@ -101,19 +85,17 @@ nDCG@10 R@100 Latency (ms)
 
 97
 
+ATP (ours)
+
 40.8
 
 58.3
 
 88
 
-1
-
 250
 
 200
-
-Latency (ms)
 
 150
 
@@ -122,6 +104,30 @@ Latency (ms)
 50
 
 0
+
+Full attention
+
+182
+
+88
+
+LongDocQA
+
+ATP (ours)
+
+156
+
+79
+
+MultiNews-R
+
+241
+
+121
+
+LegalBench-S
+
+Latency (ms)
 
 Figure 1: Median query latency (ms) per benchmark for full
 attention and ATP. Lower is better.
@@ -133,6 +139,9 @@ We evaluate on LongDocQA, MultiNews-R and
 LegalBench-S, whose documents average 3.1k, 2.4k and
 6.8k tokens. All systems share the same encoder and the
 same approximate nearest-neighbour index; latency is the
+
+i
+
 median over 2,000 queries on a single GPU, including the
 index lookup.
 Figure 1 shows that ATP cuts latency roughly in half on
@@ -148,11 +157,7 @@ Static truncation is the usual answer to document length.
 ATP is closest to attention-based pruning for re-rankers, but
 it runs once, at indexing time.
 
-241
-
-121
-
-LegalBench-S
+1
 
 1Code and probe weights: https://example.org/atp
 

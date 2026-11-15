@@ -27,6 +27,7 @@ no warning — `2.3 · 1019`, `|∇f|2`, `104`, `e-f`, `model.1` — and the sub
 `P_drop` is split off its line, so the paragraph reads `P = 0.1` and `drop` lands on a
 line of its own; the table header reads `P drop`.
 
-**Known gap (no issue yet):** in the page body the table is flattened column by column
-(no `tabular_numeric_layout` warning, the table is small) and the footnote at the foot
-of the page is emitted inside that run, between `big` and `Train steps`.
+In the page body the table is read row by row between its rules (`Model` / `Train steps` /
+`FLOPs` / `P` / `drop`, then `base` and its values, then `big` and its values), and the
+footnote is the last text on the page (#257: it used to be emitted between two table columns,
+which were read one after another).
