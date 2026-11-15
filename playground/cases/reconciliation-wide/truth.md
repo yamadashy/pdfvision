@@ -1,7 +1,9 @@
 # Landscape GAAP to non-GAAP reconciliation
 
 - **Stresses:** Letter landscape; three-level centred header over two column groups; `$` as its own glyph; parenthesised negatives; `—` placeholders; footnote markers on values; per-share decimals; wrapped footnotes
+- **Families:** tables, page-geometry
 - **Status:** ok
+- **Showcase:** A three-level centred header spans two column groups on a landscape page, with `$`, parenthesised negatives, `—` placeholders and footnote markers each set as separate glyphs that must be reattached to the right value.
 
 NORTHBRIDGE SYSTEMS, INC. — RECONCILIATION OF GAAP TO NON-GAAP FINANCIAL MEASURES (Unaudited; in thousands, except per-share amounts).
 

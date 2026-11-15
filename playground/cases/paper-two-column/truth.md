@@ -1,6 +1,7 @@
 # Two-column paper first page
 
 - **Stresses:** full-width header over two columns; superscript author markers; inline equation; vector chart with text labels; table caption above; footnote; rotated margin stamp
+- **Families:** reading-order, math, vector-meaning, vertical-rotated, structure
 - **Status:** known-gap (#241)
 
 Reading order: title, authors, affiliations, e-mails, abstract, then the **whole left column**

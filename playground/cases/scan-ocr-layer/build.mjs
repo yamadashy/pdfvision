@@ -13,6 +13,9 @@ export const meta = {
   stresses:
     'full-page raster scans; invisible OCR text (render mode 3) with OCR errors; a second scanned page with no text layer',
   status: 'ok',
+  families: ['raster-text', 'hidden-overlap'],
+  showcase: true,
+  hard: 'The only text is an invisible OCR layer under a scanned image, and its errors (`retumed`, `l4`, a dropped line) look like ordinary native text.',
 };
 
 const visibleLine = (entry) => (entry.amount ? `${entry.text} ${entry.amount}` : entry.text);

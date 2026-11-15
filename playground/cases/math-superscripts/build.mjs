@@ -58,6 +58,7 @@ export const meta = {
   stresses:
     'exponents, a superscript square, a negative exponent, a subscript, and a footnote marker drawn as raised/lowered small text',
   status: 'known-gap',
+  families: ['math'],
   issue: 241,
 };
 

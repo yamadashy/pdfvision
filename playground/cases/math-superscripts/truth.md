@@ -1,6 +1,7 @@
 # Superscripts and subscripts
 
 - **Stresses:** exponents, a superscript square, a negative exponent, a subscript, and a footnote marker drawn as raised/lowered small text
+- **Families:** math
 - **Status:** known-gap (#241)
 
 A heading, a three-line paragraph, a small table and a footnote. Every raised or

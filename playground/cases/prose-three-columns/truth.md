@@ -1,6 +1,7 @@
 # Three-column instructions prose
 
 - **Stresses:** multi-column running prose whose lines end in years and form numbers; no table on the page
+- **Families:** reading-order
 - **Status:** known-gap (#242)
 
 A heading over three columns of prose. There is **no table** on this page: a

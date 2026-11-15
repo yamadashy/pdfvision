@@ -22,15 +22,18 @@ export const FIXED_DATE = new Date('2026-01-01T00:00:00Z');
 const FIXED_FILE_ID = Buffer.from('pdfvision-playground-case-id!!!!');
 
 /**
- * Render one case to PDF bytes by calling its `draw(doc, helpers)`.
+ * Render one case to PDF bytes by calling its `draw(doc, helpers)`, then its
+ * optional `postprocess(bytes)` (see lib/pdfBytes.mjs).
  * `meta.page` (optional) sets the first page's pdfkit `size` / `layout`;
+ * `meta.compress: false` stores every stream uncompressed;
  * `dir` is the case directory, for `helpers.asset`.
  */
-export async function buildCasePdf(meta, draw, { dir } = {}) {
+export async function buildCasePdf(meta, draw, { dir, postprocess } = {}) {
   const doc = new PDFDocument({
     size: 'LETTER',
     ...meta.page,
     margin: 0,
+    compress: meta.compress ?? true,
     info: {
       Title: meta.title,
       Author: 'pdfvision playground',
@@ -56,7 +59,12 @@ export async function buildCasePdf(meta, draw, { dir } = {}) {
   await draw(doc, helpers(doc, dir));
   doc.end();
   await done;
-  return Buffer.concat(chunks);
+  const bytes = Buffer.concat(chunks);
+  if (!postprocess) return bytes;
+  const once = Buffer.from(await postprocess(Buffer.from(bytes)));
+  const twice = Buffer.from(await postprocess(Buffer.from(bytes)));
+  if (!once.equals(twice)) throw new Error('postprocess is not deterministic: two runs gave different bytes');
+  return once;
 }
 
 /**

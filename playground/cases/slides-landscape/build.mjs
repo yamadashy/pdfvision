@@ -18,6 +18,9 @@ const TITLE_SLIDE = {
   speaker: 'Dana Whitfield, VP Revenue Operations',
   date: 'October 14, 2026',
 };
+// Used by the bullet on the slide and by the answer key, so the two cannot drift.
+const RENEWALS = 37;
+
 const CONTENT_SLIDE = {
   heading: 'Net revenue retention rose for a third straight quarter',
   // depth 0 = bullet, 1 = nested bullet.
@@ -25,7 +28,7 @@ const CONTENT_SLIDE = {
     { depth: 0, text: 'NRR reached 118%, up from 112% in Q2' },
     { depth: 1, text: 'Expansion led by the Analytics Pro tier' },
     { depth: 0, text: 'Gross churn held at 4.1% of ARR' },
-    { depth: 0, text: '37 enterprise renewals closed, 6 ahead of plan' },
+    { depth: 0, text: `${RENEWALS} enterprise renewals closed, 6 ahead of plan` },
   ],
   chartTitle: 'Net revenue retention by quarter',
   chart: [
@@ -40,7 +43,8 @@ export const meta = {
   title: 'Three-slide 16:9 deck with a screenshot slide',
   stresses:
     'non-Letter landscape page size; repeated footer; nested bullets; vector chart with value labels; a slide whose content is only a raster image',
-  status: 'ok',
+  status: 'known-gap',
+  families: ['page-geometry', 'raster-text', 'vector-meaning'],
   page: { size: [W, H] },
 };
 
@@ -72,17 +76,17 @@ ${PIPELINE.rows.map((row) => `| ${row.join(' | ')} |`).join('\n')}
 
 1. Who presented the review, and on what date? — ${TITLE_SLIDE.speaker}, ${TITLE_SLIDE.date}
 2. What was NRR in ${CONTENT_SLIDE.chart[1].label}, according to the chart? — ${CONTENT_SLIDE.chart[1].value}%
-3. How many enterprise renewals closed in Q3? — 37
+3. How many enterprise renewals closed in Q3? — ${RENEWALS}
 4. What is the open pipeline in EMEA? — ${PIPELINE.rows[1][2]} (in the screenshot only; needs the render or OCR)
 5. Which point under “NRR reached 118%” explains the increase? — ${CONTENT_SLIDE.bullets[1].text} (nested under the first bullet)
 
-**Current reading (ok):** questions 1, 2, 3 and 5 are answered from \`read.md\`; nesting survives
-as the \`–\` sub-bullet glyph, and each chart value label is followed by its quarter. Question 4
-cannot be answered from text, which is expected: page 3 carries
+**Known gap (no issue yet):** questions 1, 2, 3 and 5 are answered from \`read.md\`; nesting
+survives as the \`–\` sub-bullet glyph, and each chart value label is followed by its quarter.
+Question 4 cannot be answered from \`read.md\`: the value is only in the screenshot. Page 3 carries
 \`large_raster_low_text_overlap\` (“large raster image covers 63.3% of the page … labels, chart
 text, or map text inside the image will not appear in native text”) and its native status is
-\`sparse_text_with_visual_content\`, so the agent knows to render or OCR that page. The warning
-says what is missing but does not itself name \`render_pdf\`/OCR as the next step.
+\`sparse_text_with_visual_content\`. Both say what is missing; neither names rendering the page
+or OCR as the next step.
 
 The footer is dropped from every page as repeated chrome, and nothing in the response says
 so; an agent asked whether the deck is marked confidential cannot tell from \`read.md\`.
