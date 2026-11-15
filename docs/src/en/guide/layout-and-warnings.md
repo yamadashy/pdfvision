@@ -111,7 +111,7 @@ Treat warnings as routing signals:
 
 - If native text is glyph-corrupted, compare a render or OCR before summarizing.
 - If `rtl_script_text` appears, verify exact wording and paired brackets against a render.
-- If reading order diverges, prefer layout blocks over raw page text for narrative order.
+- If reading order diverges, prefer layout blocks over raw page text for narrative order. When the warning says the layout-rebuilt order is unreliable here too, side-by-side blocks were read line by line or run together, so render the page instead of trusting either order.
 - If a table warning appears, preserve row and column evidence and crop the table when values matter. `layout_table_uncertain` names the table and its bbox: render that region before trusting its cells.
 - If `symbol_font_substitution` appears, do not report a sign, direction, bound, or p-value from native text: render the region the warning names and read the minus, `<`, `>`, `±`, and `=` signs from the image.
 - If large raster or dense vector warnings appear, assume labels may be visual-only until verified.

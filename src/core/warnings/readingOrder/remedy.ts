@@ -28,6 +28,14 @@ export const READING_ORDER_REMEDY = 'prefer layout.blocks order when sequence ma
 export const READING_ORDER_REMEDY_EXACT = 'prefer layout.blocks order when exact sequence matters';
 
 /**
+ * The clause a reading-order message ends with when the layout order is
+ * shown to be broken too (see `rebuildConsistency.ts`). Deliberately not
+ * in {@link READING_ORDER_REMEDIES}: no surface has applied a remedy that
+ * fixes the page, so none may swap this out for a claim that it did.
+ */
+export const READING_ORDER_UNRESOLVED_REMEDY = 'render the page to read it in sequence';
+
+/**
  * Every clause a reading-order message can end with, for surfaces that
  * substitute their own. Both are matched, not just the current one: the
  * extraction cache is content-addressed and its version is independent of

@@ -2,7 +2,7 @@
 
 - **Stresses:** metadata sidebar column; title block drawn last in the content stream; table and figure floated to column tops but written after the body; footer line under the sidebar
 - **Families:** reading-order, structure
-- **Status:** known-gap
+- **Status:** ok
 
 Visual reading order: journal header, **title**, authors, affiliations, abstract, then the
 sidebar (left), then the main columns — Table 1 (top of the left body column), the body of the
@@ -82,9 +82,12 @@ Questions 1, 2, 3 and 5 are answerable from `read.md`: the title is moved to the
 being last in the stream, every sidebar label keeps its value, and each bar value sits just
 before its group label (`3.24` / `Night ≥ 5 y`).
 
-**Known gap (no issue yet):** `reading_order_divergence` fires on the title and says "the body
-above is that reading order, rebuilt from the layout", but the rebuilt body is still wrong
-where the columns share baselines:
+`reading_order_divergence` fires on the title and says the layout-rebuilt order is unreliable too,
+naming the sidebar and abstract blocks that are interleaved line by line, and tells the reader to
+render the page. That is true, and the render answers question 4 and the order problems below,
+so the case is `ok` (#272: the warning used to claim "the body above is that reading order,
+rebuilt from the layout"). The rebuilt body itself is still wrong where the columns share
+baselines — column fusion is #273, segments around the floats out of order is #274:
 - The sidebar is interleaved with the abstract line by line (`Circadian disruption … in working` /
   `diversity: a cross-sectional study of` / `adults is poorly characterised. …`).
 - The last sidebar line is fused with the second line of the Introduction:
