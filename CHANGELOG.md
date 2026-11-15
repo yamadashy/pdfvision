@@ -15,6 +15,7 @@ Notable user-facing changes to pdfvision are documented here.
 
 ### Changed
 
+- `large_raster_low_text_overlap` now ends with the next step, like its neighbours: `render that region (--render-region x,y,w,h) or OCR the page (--ocr) to read it`, with the image's own region clipped to the page (the union of the tiles for the tiled-image form). It used to stop at the diagnosis, leaving an agent that follows warning text with nothing to do on a slide whose content is a screenshot.
 - Documented the automatic attachment, JavaScript, and outline presence counts, including their source-document scope and the flags that expose details.
 - Updated the search-and-zoom guide to distinguish a match's tight `bbox` from the compact report's crop-ready `region`, then pass that region unchanged to `--render-region`.
 - Added site guidance for inspecting searchable native text that is invisible or covered by a later opaque fill, including the limits of these warnings and rendered-page verification.
