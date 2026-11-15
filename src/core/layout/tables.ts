@@ -19,6 +19,7 @@ import {
 } from './tableContinuations.js';
 import { insertTableGroupLabelRows } from './tableGroupRows.js';
 import { attachLeadingTableRows } from './tableLeadingRows.js';
+import { admitPlaceholderRows } from './tablePlaceholderRows.js';
 import { groupLinesByTableRow, rowBottom, rowY } from './tableRows.js';
 
 export { isTableNumericCell } from './tableCells.js';
@@ -38,10 +39,15 @@ export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefin
   const allRowGroups = groupLinesByTableRow(lines).map((row) => row.sort((a, b) => a.x - b.x));
   const { tables: alignedTextTables, firstDataRows } = detectAlignedTextTables(allRowGroups);
   const sparseSingleRowTables = detectSparseSingleRowTables(allRowGroups);
-  const rowGroups: IndexedLayoutRow[] = allRowGroups
+  const candidateRows: IndexedLayoutRow[] = allRowGroups
     .map((row, index) => ({ row: tableCandidateRow(row), index }))
-    .filter((item): item is IndexedLayoutRow => item.row !== undefined)
-    .map(({ row, index }) => ({ ...scanLabelContinuationRows(row, index, allRowGroups), index }));
+    .filter((item): item is IndexedLayoutRow => item.row !== undefined);
+  const memberRows = admitPlaceholderRows(candidateRows, allRowGroups);
+  const candidateIndexes = new Set(candidateRows.map(({ index }) => index));
+  const rowGroups: IndexedLayoutRow[] = memberRows.map(({ row, index }) => ({
+    ...scanLabelContinuationRows(row, index, allRowGroups),
+    index,
+  }));
   const finalize = (table: LayoutTable) => {
     const withGroupLabels = insertTableGroupLabelRows(table, allRowGroups);
     const firstDataRow = withGroupLabels.rows.findIndex((row) => firstDataRows.has(row));
@@ -67,7 +73,7 @@ export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefin
   for (let index = 0; index < tables.length; index++) {
     const table = tables[index];
     const baseRows = table.map(({ row }) => row);
-    if (baseRows.length < 2 || !hasRegularTableRowCadence(baseRows)) continue;
+    if (baseRows.length < 2 || !hasTableCadence(table, candidateIndexes)) continue;
     if (isTwoColumnNumericOnlyTable(baseRows) && baseRows.length < TWO_COLUMN_NUMERIC_TABLE_MIN_ROWS) continue;
     const nextTableFirstIndex = tables[index + 1]?.[0]?.index ?? allRowGroups.length;
     const rows = attachNumericContinuationRows(table, allRowGroups, nextTableFirstIndex);
@@ -90,6 +96,14 @@ export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefin
   }
   const merged = mergeSplitHeaderTables(result).map(finalize);
   return merged.length > 0 ? merged : undefined;
+}
+
+// Placeholder rows fill the gaps of the row pitch but carry no numbers, so
+// the rows also pass on the numbered rows alone, as before they were admitted.
+function hasTableCadence(table: IndexedLayoutRow[], candidateIndexes: ReadonlySet<number>): boolean {
+  if (hasRegularTableRowCadence(table.map(({ row }) => row))) return true;
+  const numbered = table.filter(({ index }) => candidateIndexes.has(index)).map(({ row }) => row);
+  return numbered.length < table.length && hasRegularTableRowCadence(numbered);
 }
 
 function isTwoColumnNumericOnlyTable(rows: LayoutLine[][]): boolean {
