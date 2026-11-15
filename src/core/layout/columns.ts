@@ -1,5 +1,5 @@
 import type { LayoutBlock, LayoutLine } from '../../types/index.js';
-import { sortColumnRun } from './columnBottomNotes.js';
+import { refineColumnMembership, walkColumnRuns } from './columnSegments.js';
 import { median, unionBox } from './geometry.js';
 import { isNumberedHeadingText } from './headings.js';
 import { containsCjkScript, hasVerticalTextShape } from './verticalText.js';
@@ -39,19 +39,25 @@ const ROTATED_MARGIN_MAX_TEXT_SHARE = 0.2;
  *      surviving column, or any surviving column has < 2 blocks — a
  *      lone block sitting at a different x is just an indent, not a
  *      column.
- *   6. Walk the y-ordered blocks; whenever a run of narrow column
+ *   6. Refine membership (columnSegments.ts): a band nested inside a
+ *      column's band is the same column narrowed around an inset, and a
+ *      stray narrow block inside one column's band joins that column.
+ *   7. Walk the y-ordered blocks; whenever a run of narrow column
  *      blocks sits between two spanning blocks (or the page edge),
- *      reorder that run by (column index, y).
+ *      reorder that run by (column index, y). A separator cuts only the
+ *      columns it crosses.
  */
 export function reorderForColumns(blocks: LayoutBlock[], pageWidth: number, pageHeight = 0): LayoutBlock[] {
-  if (blocks.length < 4 || pageWidth <= 0) return blocks;
+  if (blocks.length < 3 || pageWidth <= 0) return blocks;
 
   const spanThreshold = pageWidth * 0.6;
   const xEpsilon = pageWidth * 0.05;
 
   const rotatedMargin = rotatedMarginBlocks(blocks);
   const narrow = blocks.filter((b) => b.width < spanThreshold && b.writingMode !== 'vertical' && !rotatedMargin.has(b));
-  if (narrow.length < 4) return blocks;
+  // Three blocks make a column layout only when one of them fills a column
+  // (a heading over two column-length paragraphs).
+  if (narrow.length < 3 || (narrow.length === 3 && !narrow.some(isColumnSizedBlock))) return blocks;
 
   // Cluster narrow blocks by left edge x. Sorted ascending so each new
   // block joins the most recent column whose representative x is within
@@ -113,8 +119,12 @@ export function reorderForColumns(blocks: LayoutBlock[], pageWidth: number, page
 
   // Surviving columns are the initial clusters minus promoted blocks.
   // Each surviving column needs ≥ 2 members and we need ≥ 2 surviving
-  // columns; otherwise this isn't a real multi-column layout.
-  const survivingColumns = initialColumns.map((c) => c.filter((b) => !promoted.has(b))).filter((c) => c.length >= 2);
+  // columns; otherwise this isn't a real multi-column layout. One
+  // paragraph that fills a column counts as a column too: once interleaved
+  // lines are rebuilt into blocks, a column can be a single block.
+  const survivingColumns = initialColumns
+    .map((c) => c.filter((b) => !promoted.has(b)))
+    .filter((c) => c.length >= 2 || c.some(isColumnSizedBlock));
   if (survivingColumns.length < 2) return blocks;
 
   const columnOf = new Map<LayoutBlock, number>();
@@ -129,28 +139,18 @@ export function reorderForColumns(blocks: LayoutBlock[], pageWidth: number, page
     if (nearestColumn !== undefined) columnOf.set(b, nearestColumn);
   }
 
-  // Walk in current (y-ordered) order. Buffer column-member blocks;
-  // flush sorted by (column, y) whenever we hit a clearly-spanning
-  // block or a promoted standalone heading.
-  const out: LayoutBlock[] = [];
-  let pending: LayoutBlock[] = [];
-  const flush = () => {
-    if (pending.length === 0) return;
-    sortColumnRun(pending, columnOf, pageHeight);
-    out.push(...pending);
-    pending = [];
-  };
-  for (const b of blocks) {
-    if (rotatedMargin.has(b)) continue;
-    const isSeparator = !columnOf.has(b) || promoted.has(b);
-    if (isSeparator) {
-      flush();
-      out.push(b);
-    } else {
-      pending.push(b);
-    }
-  }
-  flush();
+  const { extents, spliced } = refineColumnMembership(narrow, columnOf, survivingColumns.length, promoted);
+
+  // Walk in current (y-ordered) order. Buffer column-member blocks and
+  // emit them sorted by (column, y) whenever a clearly-spanning block or a
+  // promoted standalone heading crosses their column.
+  const out = walkColumnRuns(
+    blocks.filter((b) => !rotatedMargin.has(b) && !spliced.has(b)),
+    columnOf,
+    extents,
+    (b) => !columnOf.has(b) || promoted.has(b),
+    pageHeight,
+  );
   out.push(...blocks.filter((b) => rotatedMargin.has(b)));
   return out;
 }
@@ -182,6 +182,12 @@ function isRotatedLatinBlock(block: LayoutBlock): boolean {
   // Undetected vertical CJK writing is body text, not a turned margin line.
   if (block.writingMode === 'vertical' || block.lines.length === 0 || containsCjkScript(block.text)) return false;
   return block.lines.every((line) => hasVerticalTextShape(line));
+}
+
+const COLUMN_SIZED_MIN_LINES = 8;
+
+function isColumnSizedBlock(block: LayoutBlock): boolean {
+  return block.lines.length >= COLUMN_SIZED_MIN_LINES;
 }
 
 function nearestColumnByX(

@@ -12,7 +12,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 | Page | Chars | Images | Coverage | Size (pt) | Vectors | Blocks | Fields | Links | Annots |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | 1 | 1583 | 0 | 18% | 612×792 | 13 | 18 | 0 | 9 | 0 |
-| 2 | 1977 | 0 | 18% | 612×792 | 13 | 29 | 0 | 5 | 0 |
+| 2 | 1977 | 0 | 18% | 612×792 | 13 | 26 | 0 | 5 | 0 |
 
 ---
 
@@ -96,28 +96,25 @@ stopped printing is everything nobody reads twice.”
 Comments (3)
 
 Jonas Whitcombe Nov 12, 2026
-
-JW
-
 We tried badge release and people just reprinted when the queue timed out after an hour. Worth
 checking that setting first.
+
+JW
 
 Reply · 14 likes
 
 R. Okonkwo-Hale Nov 13, 2026
+The £12,300 saving leaves out the two wall screens. Ours cost more than a year of toner.
 
 RO
-
-The £12,300 saving leaves out the two wall screens. Ours cost more than a year of toner.
 
 Reply · 9 likes
 
 Priya Castellano Nov 13, 2026
-
-PC
-
 Fair point. The screens were already budgeted for the studio refit, so we left them out. About
 £6,000 for the pair.
+
+PC
 
 Reply · 21 likes
 

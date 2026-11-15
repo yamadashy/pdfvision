@@ -21,6 +21,7 @@ Aoife Brennan1, Kwame Asante2, Sofia Lindgren1, Rahul Menon1,3
 
 1 School of Agriculture and Food Science, Corrib Valley University
 2 Institute for Precision Livestock, Tamale Polytechnic
+3 Northfield Dairy Research Farm
 
 Paper and code
 
@@ -98,8 +99,6 @@ Visual check
 64
 
 Ardmore
-
-3 Northfield Dairy Research Farm
 
 87%
 

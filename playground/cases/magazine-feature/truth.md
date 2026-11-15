@@ -2,7 +2,8 @@
 
 - **Stresses:** three justified columns; drop cap; pull quote across two columns; tinted sidebar sharing baselines with the next column and written alternately with it; text run around an inset photo; jump line
 - **Families:** reading-order, structure
-- **Status:** known-gap
+- **Status:** ok
+- **Showcase:** Three columns are cut into segments by a pull quote across two of them, an inset photo with text run around it and a tinted sidebar, so reading by position alone splices sentences across columns.
 
 Reading order: kicker, headline, standfirst, byline; then the body column by column (column 1
 under the drop cap, with the inset photo's caption under the photo; column 2 above and below the
@@ -57,19 +58,16 @@ Folio: `46  HARBOR & HORIZON  DECEMBER 2026`.
 4. How did the Carrow Point project start, and what did the divers do each weekend? — With six divers and a borrowed boat; each weekend they cleared urchins from a tennis-court-sized plot, then lowered ropes seeded with kelp spores in a shore tank.
 5. On which page does the article continue? — 48
 
-Each column is read as a column, the sidebar stays in one piece after the body (it is not woven
-into column 2 even though its lines are written alternately with column 2's), and the pull quote,
-caption and jump line are present. Questions 1, 2, 3 and 5 are answerable from `read.md`.
+Each column is read to its end before the next one starts (#274): column 1 runs from the drop
+cap to `…six divers and a borrowed boat. Each`, with the photo caption where the photo
+interrupts it; column 2 runs from `weekend they cleared urchins…` through the runaround beside
+the photo (`The counting matters more than the clearing…`, its first line whole again) to
+`…stripped bare again by urchins drifting in`; column 3 follows, ending in the jump line, then
+the sidebar as one block. All five questions are answerable from `read.md`; question 4 reads
+across the column break as consecutive text.
 
-**Known gap (no issue yet):** the column *segments* are emitted out of reading order, with no
-reading-order warning (the only warning is a `text_overlap` with no next step). `read.md` reads
-column 1 down to the photo (`…by starving them of`), then jumps to the top of column 2
-(`weekend they cleared urchins…`), continues through the pull quote into column 2's middle and
-the whole of column 3 above the quote and the jump line, and only then gives the rest of
-column 1 (`light and space moved in; …` / `The Carrow Point project began with six divers and a
-borrowed boat. Each`), the bottom of column 2 (`first two seasons now hold kelp…`) and finally the
-runaround beside the photo (`matters more than the clearing, says Tolliver.`), whose first line
-`The counting` is split into `The` and `counting` lines far apart. Paragraphs that cross a segment
-break are cut mid-sentence: question 4 needs `…six divers and a borrowed boat. Each` joined to
-`weekend they cleared urchins…`, which `read.md` prints about forty lines earlier, and the
-paragraph about the logs is read in the order end, middle, start.
+Floats are read where they sit in their column, so a sentence that runs past one is split by it:
+the caption between `…by starving them of` and `light and space moved in`, the pull quote and
+its credit between `Their method` and `has not changed much`. The folio line
+(`46 HARBOR & HORIZON DECEMBER 2026`) is read at the end of column 1, and the only warning is
+`text_overlap` from the drop cap.

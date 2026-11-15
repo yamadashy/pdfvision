@@ -70,9 +70,8 @@ _chars: 895 · images: 0 · coverage: 12% · vectors: 254 · tables: 1 · warnin
 
 ウ
 
-1 3 5 0 0 0
-
 4 8 0 0 0
+1 3 5 0 0 0
 
 課税される所得金額(4-8) 9
 
@@ -85,10 +84,8 @@ _chars: 895 · images: 0 · coverage: 12% · vectors: 254 · tables: 1 · warnin
 11
 
 2 2 8 8 0 0
-
-2 2 4 0 0 0
-
 4 8 0 0
+2 2 4 0 0 0
 
 税金の計算
 
@@ -120,12 +117,11 @@ _chars: 895 · images: 0 · coverage: 12% · vectors: 254 · tables: 1 · warnin
 
 5
 
+4 8 0 0 0
+9 5 0 0 0
 4 6 9 5 0 0 0
 
 9 1 2 0 0 0
-
-4 8 0 0 0
-9 5 0 0 0
 
 復興特別所得税額(12×2.1%)13
 
@@ -139,10 +135,9 @@ _chars: 895 · images: 0 · coverage: 12% · vectors: 254 · tables: 1 · warnin
 
 16
 
+4 7 0 4
 2 2 8 7 0 4
 2 5 1 3 0 0
-
-4 7 0 4
 
 所得から差し
 
@@ -164,10 +159,9 @@ _chars: 895 · images: 0 · coverage: 12% · vectors: 254 · tables: 1 · warnin
 
 8
 
+4 0 0 0 0
 4 8 0 0 0 0
 1 4 3 2 0 0 0
-
-4 0 0 0 0
 
 還付される税金
 

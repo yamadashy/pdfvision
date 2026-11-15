@@ -15,11 +15,11 @@ _chars: 3285 · images: 0 · coverage: 29% · vectors: 19 · tables: 2 · size: 
 
 Adaptive Token Pruning for Efficient Long-Document Retrieval
 
+Mira Okafor1, Tomasz Lindqvist2, Haruka Senda1
+
 1Department of Computer Science, Northgate University 2Halden Research Labs
 
 {mokafor, hsenda}@northgate.example.edu tomasz@halden.example
-
-Mira Okafor1, Tomasz Lindqvist2, Haruka Senda1
 
 Abstract
 
@@ -68,22 +68,43 @@ Full attention
 Static pruning (k = 512)
 ATP (ours)
 
-nDCG@10 R@100 Latency (ms)
+Full attention
 
-i
-
-41.2
-38.9
-40.8
-
-i
-
-58.7
-55.1
-58.3
+ATP (ours)
 
 182
+
+156
+
+88
+
+79
+
+LongDocQA
+
+MultiNews-R
+
+i
+
+i
+
+nDCG@10 R@100 Latency (ms)
+41.2
+
+58.7
+
+182
+
+38.9
+
+55.1
+
 97
+
+40.8
+
+58.3
+
 88
 
 1
@@ -126,22 +147,6 @@ passages often sit deep in the document.
 Static truncation is the usual answer to document length.
 ATP is closest to attention-based pruning for re-rankers, but
 it runs once, at indexing time.
-
-Full attention
-
-182
-
-88
-
-LongDocQA
-
-ATP (ours)
-
-156
-
-79
-
-MultiNews-R
 
 241
 

@@ -12,7 +12,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 | Page | Chars | Images | Coverage | Size (pt) | Vectors | Tables | Blocks | Warnings | Fields | Links | Annots |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | 1 | 1511 | 0 | 17% | 612×792 | 22 | 2 | 40 | 0 | 0 | 0 | 0 |
-| 2 | 1041 | 0 | 7% | 612×792 | 219 | 1 | 74 | 2 | 0 | 0 | 0 |
+| 2 | 1041 | 0 | 7% | 612×792 | 219 | 1 | 73 | 2 | 0 | 0 | 0 |
 
 ---
 
@@ -194,6 +194,7 @@ V
 
 OS
 
+TA = –40°C to +125°C
 dV /dT T = –40°C to +125°C
 
 OS
@@ -223,8 +224,6 @@ PSRR
 T = 25°C
 
 A
-
-TA = –40°C to +125°C
 
 A
 

@@ -11,8 +11,8 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 | Page | Chars | Images | Coverage | Size (pt) | Vectors | Blocks | Fields | Links | Annots |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 1260 | 0 | 14% | 612×792 | 10 | 20 | 0 | 0 | 0 |
-| 2 | 1415 | 0 | 14% | 612×792 | 17 | 17 | 0 | 0 | 0 |
+| 1 | 1260 | 0 | 14% | 612×792 | 10 | 18 | 0 | 0 | 0 |
+| 2 | 1415 | 0 | 14% | 612×792 | 17 | 16 | 0 | 0 | 0 |
 
 ---
 
@@ -84,6 +84,9 @@ A custom stage is a subclass of Stage registered under a name with @register :
 11
 12
 13
+14
+15
+16
 
 """Drop rows already seen in this run."""
 
@@ -93,11 +96,6 @@ for row in rows:
 key = (row["id"], row["ts"])
 if key in seen:
 continue
-
-14
-15
-16
-
 seen.add(key)
 yield row
 self.log.info("dedupe finished")
@@ -125,17 +123,11 @@ Every stage accepts the options below. In the source of this page the table is w
 which renders as:
 
 Option Type Default Description
-name
-image
-retries
-timeout
-env
-
-string
-string
-integer
-duration
-map
+name string
+image string
+retries integer
+timeout duration
+env map
 
 —
 —

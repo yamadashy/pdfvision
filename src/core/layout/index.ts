@@ -6,6 +6,7 @@ import { classifyHeadings } from './headings.js';
 import { buildLayoutLinesWithGutters } from './lines.js';
 import { detectLayoutTables } from './tables.js';
 import { compareLayoutBlocks, extractVerticalCjkBlocks } from './verticalText.js';
+import { findWovenContinuation } from './wovenLines.js';
 
 export { markPageEdgeChromeBlocks } from './pageEdgeChrome.js';
 export { markRepeatedBlocks } from './repeatedChrome.js';
@@ -85,7 +86,9 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0, pageHeight = 0): P
         prevWasShortLarger ||
         standaloneNumericAfterProse
       ) {
-        blockGroups.push([line]);
+        const woven = findWovenContinuation(blockGroups, line);
+        if (woven) woven.push(line);
+        else blockGroups.push([line]);
       } else {
         last.push(line);
       }

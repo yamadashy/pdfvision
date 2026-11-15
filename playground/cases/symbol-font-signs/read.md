@@ -40,14 +40,13 @@ Adverse events, n (%)
 Sites with .25 patients, n (%)
 
 Remote monitoring
-
-22.4 þ 3.1
-
 (n 1⁄4 412)
 
 7.1 þ 0.9
 
 131 þ 14
+
+22.4 þ 3.1
 
 38 (9%)
 61 (15%)

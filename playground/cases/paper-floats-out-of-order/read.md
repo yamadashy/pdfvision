@@ -20,9 +20,6 @@ Journal of Occupational Microbiome Research
 Night-shift work and gut microbial diversity: a
 cross-sectional study of hospital staff
 
-Citation: Marwick L, Bannerman O,
-Ramaswamy P, Feldt J (2026)
-
 Lena Marwick1, Osei Bannerman1,2, Priya Ramaswamy2, Jonas Feldt1*
 
 1 Institute of Occupational Health, Ravelin University Medical Centre, Ravelin, Norway
@@ -33,28 +30,22 @@ Lena Marwick1, Osei Bannerman1,2, Priya Ramaswamy2, Jonas Feldt1*
 Abstract
 
 Circadian disruption alters host metabolism, but its association with the gut microbiome in working
+adults is poorly characterised. We sequenced stool samples from 410 nurses and porters at two hospitals,
+198 of whom had worked rotating night shifts for at least two years. Night-shift workers had lower alpha
+diversity than day-shift colleagues (mean Shannon index 3.41 versus 3.87) after adjustment for age, sex,
+diet score and antibiotic use in the preceding year. The difference grew with years of night work and was
+not explained by sleep duration alone. These findings support including shift pattern as a covariate in
+microbiome studies of working populations.
 
+Citation: Marwick L, Bannerman O,
+Ramaswamy P, Feldt J (2026)
 Night-shift work and gut microbial
 diversity: a cross-sectional study of
-
-adults is poorly characterised. We sequenced stool samples from 410 nurses and porters at two hospitals,
-
 hospital staff. J Occup Microbiome Res
-
-198 of whom had worked rotating night shifts for at least two years. Night-shift workers had lower alpha
-
 14(3): e0312.
 
-diversity than day-shift colleagues (mean Shannon index 3.41 versus 3.87) after adjustment for age, sex,
-
 Editor: Tamsin Achterberg, Leiden
-
-diet score and antibiotic use in the preceding year. The difference grew with years of night work and was
-
 Centre for Infection Biology,
-
-not explained by sleep duration alone. These findings support including shift pattern as a covariate in
-
 NETHERLANDS
 
 Received: May 4, 2026
@@ -85,8 +76,6 @@ declared that no competing interests
 exist.
 
 Journal of Occupational Microbiome Research | https://doi.org/10.5555/jomr.0312
-
-microbiome studies of working populations.
 
 Table 1. Characteristics of participants by shift pattern.
 
@@ -153,6 +142,8 @@ p
 
 September 30, 2026
 
+3.87
+
 4.0
 
 Shannon index
@@ -165,6 +156,7 @@ Shannon index
 
 0.0
 
+Day shift
 Fig 1. Mean Shannon diversity index by shift exposure.
 Night-shift workers are split by years of night work. Error
 bars show 95% confidence intervals.
@@ -190,10 +182,6 @@ quality score and antibiotic use in the past year.
 Years of night work were analysed in two bands,
 under five years and five years or more.
 
-3.87
-
-Day shift
-
 3.58
 
 Night < 5 y
@@ -206,4 +194,4 @@ Night ≥ 5 y
 
 ### Warnings
 
-> **warning** (reading_order_divergence): heading "Night-shift work and gut microbial diver" leads the visual reading order but only appears 93% of the way through the native text stream — native text order diverges from what a human reads; the layout-rebuilt order is unreliable here too — side-by-side blocks "Circadian disruption alters host meta..." and "Night-shift work and gut microbial di..." are interleaved line by line; render the page to read it in sequence
+> **warning** (reading_order_divergence): heading "Night-shift work and gut microbial diver" leads the visual reading order but only appears 93% of the way through the native text stream — native text order diverges from what a human reads; the body above is that reading order, rebuilt from the layout — render the page when exact sequence is critical

@@ -11,13 +11,9 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 ## Page 1
 
-_chars: 2275 · images: 0 · coverage: 13% · vectors: 18 · tables: 1 · size: 792×612pt_
+_chars: 2275 · images: 0 · coverage: 13% · vectors: 18 · tables: 1 · warnings: 1 · size: 792×612pt_
 
 14 Harbour Station – Northgate Terminal
-
-Riverside Transit Authority
-
-Customer service 555-0190
 
 NORTHBOUND - Effective September 7, 2026
 
@@ -193,12 +189,16 @@ Northgate Terminal .......................
 
 8:52 10:22 10:52 12:52
 
+Riverside Transit Authority
+
 1505
 
 1507
 10:15 12:15
 
 10:18 12:18
+
+Customer service 555-0190
 
 1509
 
@@ -278,3 +278,7 @@ Northgate Terminal .......................
 | Ashgrove Shops ........................... 6:32 7:02 7:32 | 7:43 | 8:02 12:32 | 3:52 | 6:02 | Ashgrove Shops ........................... | 8:42 10:12 10:42 12:42 |  | 2:42 | 4:42 | 6:42 |
 | Northgate Library ......................... 6:38 7:08 7:38 | 7:49 | 8:08 12:38 | 3:58 | 6:08 | Northgate Library ......................... | 8:48 10:18 10:48 12:48 |  | 2:48 | 4:48 | 6:48 |
 | Northgate Terminal ....................... 6:42 7:12 7:42 | 7:53 | 8:12 12:42 | 4:02 | 6:12 | Northgate Terminal ....................... | 8:52 10:22 10:52 12:52 |  | 2:52 | 4:52 |  |
+
+### Warnings
+
+> **warning** (reading_order_divergence): side block "Riverside Transit Authority" appears at the start of the native text stream despite sitting late in the visual reading order — native text order diverges from what a human reads; the body above is that reading order, rebuilt from the layout — render the page when exact sequence is critical
