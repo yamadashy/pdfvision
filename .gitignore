@@ -6,3 +6,5 @@ docs/.vitepress/dist/
 .wrangler/
 *.tgz
 .DS_Store
+playground/cases/*/page-*.png
+playground/index.html

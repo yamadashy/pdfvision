@@ -29,6 +29,7 @@
     "dev": "tsdown --watch",
     "pdfvision": "node scripts/run-local-cli.mjs",
     "build-fixtures": "node scripts/build-test-fixtures.mjs",
+    "playground": "node playground/run.mjs",
     "lint": "node --run lint-biome && node --run lint-oxlint && node --run lint-ts && node --run lint-secretlint",
     "lint-biome": "biome check --write",
     "lint-oxlint": "oxlint --fix",

@@ -96,6 +96,25 @@ jobs:
       - run: node scripts/sync-readme-usage.mjs
       - run: git diff --exit-code README.md
 
+  playground-snapshots:
+    name: Playground snapshots in sync with read_pdf
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .tool-versions
+          cache: npm
+      - run: npm ci
+      # Builds dist/ itself, then re-reads each committed
+      # playground/cases/*/case.pdf through the MCP server and fails if
+      # read.md no longer matches. A diff here is a behaviour change to
+      # review, not a file to regenerate blindly.
+      - run: node --run playground -- --check
+
   test:
     name: Test (${{ matrix.os }}, Node ${{ matrix.node-version }})
     strategy:
