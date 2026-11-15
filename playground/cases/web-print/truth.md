@@ -2,7 +2,7 @@
 
 - **Stresses:** browser print header/footer in the page margins; site navigation; fixed cookie banner repeated on both pages; unloaded image placeholder; article continued across a page break; inline link annotations, one whose text names a different domain than its target; comment thread; related links
 - **Families:** interactive, structure, reading-order
-- **Status:** known-gap
+- **Status:** ok
 
 Two US Letter pages printed from a browser. The browser adds, in the page margins, `11/14/26, 9:42 AM`
 (top left) and the page title `How a 40-person office cut its paper use by 60% in a year | Fernleaf Journal` (top centre), and `https://journal.fernleaf.example/2026/11/office-paper-use-60-percent?utm_source=newsletter` (bottom left)
@@ -76,15 +76,13 @@ reader to an ad-network click redirect on a different domain.
 4. Which commenter says the savings figure is incomplete, and what does the firm say the missing item cost? — R. Okonkwo-Hale (the wall screens); Priya Castellano replies about £6,000 for the pair
 5. When was this copy printed, and from which address? — 11/14/26, 9:42 AM, https://journal.fernleaf.example/2026/11/office-paper-use-60-percent?utm_source=newsletter
 
-**Known gap (no issue yet):** `read_pdf` drops repeated page chrome, and here that removes
-the browser's header and footer lines — `11/14/26, 9:42 AM`, the page title and `https://journal.fernleaf.example/2026/11/office-paper-use-60-percent?utm_source=newsletter` — from
-both pages; only `1/2` / `2/2` survive. Nothing in the response says text was dropped, so
-question 5 gets no answer (the print time and source URL are not in `read.md` at all; the CLI's
-JSON `text` and a `search_pdf` for `9:42` still find them). The cookie sentence is dropped the same
-way, which happens to be the right call for the article — an agent will not mistake it for article
-text — but it leaves question 2 answerable only as “that sentence is not in the document”, and the
-banner's `Manage settings` / `Accept all` buttons remain as two orphan lines after the article
-text on each page.
+**Current reading (ok):** `read_pdf` drops repeated page chrome from the page bodies — the
+browser's header and footer lines and the cookie sentence — and names each once in the header
+(issue #259): `11/14/26, 9:42 AM`, the page title, the cookie sentence (clipped) and `https://journal.fernleaf.example/2026/11/office-paper-use-60-percent?utm_source=newsletter`,
+each on 2 pages. Question 5 is answered from that line, and question 2 as “repeated page chrome
+on both pages, not article text”. Only `1/2` / `2/2` stay in the bodies, and the banner's
+`Manage settings` / `Accept all` buttons remain as two orphan lines after the article text on
+each page.
 
 Each link row carries the text inside its own rectangle (issue #264): the navigation reads
 `Money` → `https://journal.fernleaf.example/money` and `Podcasts` → `https://journal.fernleaf.example/podcasts`, and article links stop at

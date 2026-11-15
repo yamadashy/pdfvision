@@ -6,6 +6,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 - **Title:** Software documentation with indented code blocks
 - **Author:** pdfvision playground
 - **Creator:** pdfvision
+- **Repeated page chrome (removed from page bodies):** "tidepool docs · Guides › Pipelines › Configuring pipelines" (2 pages); "v2.4" (2 pages); "https://docs.tidepool.example/guides/pipelines/" (2 pages)
 
 ## Overview
 

@@ -124,4 +124,5 @@ The rest holds up. The Markdown source comes back intact and separate from the r
 so question 4 is answered from the source; the rendered table itself is flattened column by
 column (`name` / `image` / … then `string` / `string` / …) with no layout table. The shell
 session keeps its prompts and order (question 5), though `[extract]` and `[load]` are split from
-their `would run …` text. The breadcrumb and URL lines are dropped as repeated chrome.
+their `would run …` text. The breadcrumb and URL lines are dropped as repeated chrome and named once in the
+header (issue #259).

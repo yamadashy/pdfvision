@@ -6,6 +6,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 - **Title:** News article printed from a browser, cookie banner on every page
 - **Author:** pdfvision playground
 - **Creator:** pdfvision
+- **Repeated page chrome (removed from page bodies):** "11/14/26, 9:42 AM" (2 pages); "How a 40-person office cut its paper use by 60% in a year \| Fernleaf Journal" (2 pages); "We use cookies to measure traffic and personalise ads. By continuing to browse you agree to our Coo…" (2 pages); "https://journal.fernleaf.example/2026/11/office-paper-use-60-percent?utm\_source=newsletter" (2 pages)
 
 ## Overview
 

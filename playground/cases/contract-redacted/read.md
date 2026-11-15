@@ -6,6 +6,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 - **Title:** Services agreement with redactions and review annotations
 - **Author:** pdfvision playground
 - **Creator:** pdfvision
+- **Repeated page chrome (removed from page bodies):** "Page 1 of 2" … "Page 2 of 2" (2 pages)
 
 ## Overview
 

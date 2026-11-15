@@ -88,8 +88,8 @@ text, or map text inside the image will not appear in native text”) and its na
 \`sparse_text_with_visual_content\`. Both say what is missing; neither names rendering the page
 or OCR as the next step.
 
-The footer is dropped from every page as repeated chrome, and nothing in the response says
-so; an agent asked whether the deck is marked confidential cannot tell from \`read.md\`.
+The footer is dropped from every page body as repeated chrome and named once in the header
+(issue #259), so an agent asked whether the deck is marked confidential can tell from \`read.md\`.
 `;
 
 function chrome(doc, h, number) {

@@ -6,6 +6,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 - **Title:** Three-slide 16:9 deck with a screenshot slide
 - **Author:** pdfvision playground
 - **Creator:** pdfvision
+- **Repeated page chrome (removed from page bodies):** "Larkspur Analytics \| Confidential — internal use only" (3 pages)
 
 ## Overview
 

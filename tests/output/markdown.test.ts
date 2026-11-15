@@ -1423,8 +1423,50 @@ describe('formatMarkdown', () => {
       }),
       { stripRepeated: true },
     );
-    expect(out).toContain('Real body line.');
-    expect(out).not.toContain('© COLOPL, Inc.');
+    const body = out.slice(out.indexOf('## Page 1'));
+    expect(body).toContain('Real body line.');
+    expect(body).not.toContain('© COLOPL, Inc.');
+    // The stripped string is named once in the header instead (#259).
+    expect(out.slice(0, out.indexOf('## Page 1'))).toContain(
+      '- **Repeated page chrome (removed from page bodies):** "© COLOPL, Inc." (1 page)',
+    );
+  });
+
+  it('names stripped chrome once, folding strings that differ only in digits', () => {
+    const footer = (page: number, total: number) => ({
+      text: `Page ${page} of ${total}`,
+      x: 500,
+      y: 770,
+      width: 60,
+      height: 10,
+      lines: [],
+      repeated: true,
+    });
+    const banner = { text: 'Acme | Confidential', x: 0, y: 10, width: 100, height: 10, lines: [], repeated: true };
+    const body = { text: 'Body', x: 0, y: 100, width: 100, height: 12, lines: [] };
+    const out = formatMarkdown(
+      makeResult({
+        totalPages: 3,
+        pages: [1, 2, 3].map((page) =>
+          makePage({ page, layout: { blocks: [page < 3 ? banner : body, body, footer(page, 3)] } }),
+        ),
+      }),
+      { stripRepeated: true },
+    );
+    expect(out).toContain(
+      '- **Repeated page chrome (removed from page bodies):** "Page 1 of 3" … "Page 3 of 3" (3 pages); "Acme \\| Confidential" (2 pages)',
+    );
+  });
+
+  it('adds no chrome line without stripRepeated or when nothing repeated', () => {
+    const page = makePage({
+      page: 1,
+      layout: { blocks: [{ text: 'Footer', x: 0, y: 780, width: 50, height: 10, lines: [], repeated: true }] },
+    });
+    expect(formatMarkdown(makeResult({ pages: [page] }))).not.toContain('Repeated page chrome');
+    expect(
+      formatMarkdown(makeResult({ pages: [makePage({ page: 1, layout: { blocks: [] } })] }), { stripRepeated: true }),
+    ).not.toContain('Repeated page chrome');
   });
 
   it('keeps repeated chrome in the body when stripRepeated is off (default)', async () => {

@@ -166,7 +166,7 @@ export const meta = {
   stresses:
     'browser print header/footer in the page margins; site navigation; fixed cookie banner repeated on both pages; unloaded image placeholder; article continued across a page break; inline link annotations, one whose text names a different domain than its target; comment thread; related links',
   families: ['interactive', 'structure', 'reading-order'],
-  status: 'known-gap',
+  status: 'ok',
 };
 
 export const truth = `
@@ -219,15 +219,13 @@ reader to an ad-network click redirect on a different domain.
 4. Which commenter says the savings figure is incomplete, and what does the firm say the missing item cost? — ${COMMENTS[1].name} (the wall screens); ${COMMENTS[2].name} replies about £6,000 for the pair
 5. When was this copy printed, and from which address? — ${PRINTED_AT}, ${PAGE_URL}
 
-**Known gap (no issue yet):** \`read_pdf\` drops repeated page chrome, and here that removes
-the browser's header and footer lines — \`${PRINTED_AT}\`, the page title and \`${PAGE_URL}\` — from
-both pages; only \`1/2\` / \`2/2\` survive. Nothing in the response says text was dropped, so
-question 5 gets no answer (the print time and source URL are not in \`read.md\` at all; the CLI's
-JSON \`text\` and a \`search_pdf\` for \`9:42\` still find them). The cookie sentence is dropped the same
-way, which happens to be the right call for the article — an agent will not mistake it for article
-text — but it leaves question 2 answerable only as “that sentence is not in the document”, and the
-banner's \`Manage settings\` / \`Accept all\` buttons remain as two orphan lines after the article
-text on each page.
+**Current reading (ok):** \`read_pdf\` drops repeated page chrome from the page bodies — the
+browser's header and footer lines and the cookie sentence — and names each once in the header
+(issue #259): \`${PRINTED_AT}\`, the page title, the cookie sentence (clipped) and \`${PAGE_URL}\`,
+each on 2 pages. Question 5 is answered from that line, and question 2 as “repeated page chrome
+on both pages, not article text”. Only \`1/2\` / \`2/2\` stay in the bodies, and the banner's
+\`Manage settings\` / \`Accept all\` buttons remain as two orphan lines after the article text on
+each page.
 
 Each link row carries the text inside its own rectangle (issue #264): the navigation reads
 \`${NAV[2][0]}\` → \`${NAV[2][1]}\` and \`${NAV[3][0]}\` → \`${NAV[3][1]}\`, and article links stop at
