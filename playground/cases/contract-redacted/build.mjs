@@ -158,7 +158,7 @@ export const meta = {
   title: 'Services agreement with redactions and review annotations',
   stresses:
     'numbered clauses with bold defined terms; a proper redaction; a black box over live text; white-on-white text; highlight, sticky note, strike-out and link annotations',
-  status: 'known-gap',
+  status: 'ok',
   families: ['hidden-overlap', 'interactive', 'structure'],
 };
 
@@ -208,13 +208,18 @@ box is. A correct reading says the fee is redacted and does not guess.
 4. What did the reviewer say about the liability clause, and what change did they propose to late-payment interest? — “${NOTE}”; strike “1.5% per month” — “${STRIKE_COMMENT}”
 5. Who signed for the Client, and when? — ${SIGNATORIES[1].name}, ${SIGNATORIES[1].title}, ${SIGNATORIES[1].date}
 
-**Known gap (no issue yet):** both failed redactions come back as ordinary visible text with no
-warning. Page 2 reads \`shall not exceed ${CAP} in any contract year.\` as if the cap were printed,
-and page 1 reads clause 4.3 (\`${HIDDEN.slice(0, 40)}…\`) as a normal clause although the page shows
-a blank. An agent answers question 2 with the cap as a plain fact and question 3 with “no”
-(nothing in \`read.md\` distinguishes hidden from visible text); nothing tells it to render.
+**Current reading (ok):** both failed redactions are still in the text, where they belong — the
+file contains them — and each is flagged on its page. Page 2 reads \`shall not exceed ${CAP} in any
+contract year.\` and carries \`text_under_opaque_fill\` naming exactly \`"${CAP}"\` with its bbox, so
+the rest of clause 6.1 stays ordinary visible text and question 2 is answered as “shown redacted;
+the hidden text reads ${CAP}”. Page 1 reads clause 4.3 as a normal clause and carries
+\`text_matches_background\` (severity \`warning\`) naming its two lines (\`"${HIDDEN.slice(0, 57)}..."\` and
+\`"early-termination fee of USD 120,000."\`) with bboxes, which answers question 3. Both warnings
+point at \`--render-region\` for the listed bbox, and the render shows the black box and the blank.
+The warnings sit at the end of each page, after the annotation tables, so an agent has to read to the
+end of the page before quoting clause 6.1 or 4.3. (Issue #249.)
 
-The proper redaction is only partly readable: 3.1 reads \`a fixed monthly fee of\` / \`(the “Fees”),
+Defects without a warning: the proper redaction is only partly readable. 3.1 reads \`a fixed monthly fee of\` / \`(the “Fees”),
 invoiced monthly in\` / \`advance.\` — the value is simply absent (no box is reported, there is no warning, and the line
 is broken where the box sits), so question 1 gets “not stated” where the page shows a redaction:
 the reading cannot establish that anything was redacted. Annotations are listed per page

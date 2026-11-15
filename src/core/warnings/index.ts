@@ -2,6 +2,7 @@ import type { ImageBox, PageAnnotation, PageResult, PageWarning, TextSpan, Vecto
 import type { InvisibleTextEvidence } from '../graphics/invisibleText.js';
 import type { OpaqueFillTextEvidence } from '../graphics/opaqueFillText.js';
 import { detectTextOverlap } from '../warningTextOverlap/index.js';
+import { detectTextMatchesBackground } from './backgroundMatchText.js';
 import { detectDuplicateTextLayer } from './duplicateLayer.js';
 import {
   detectBodyNearRepeatedChrome,
@@ -114,6 +115,7 @@ function detectPageWarningsInPhysicalPoints(page: PageResult, context: PageWarni
   detectRawEmbeddedSourceText(page, warnings);
   detectInvisibleText(page, context, warnings);
   detectTextUnderOpaqueFill(page, context, warnings);
+  detectTextMatchesBackground(page, context, warnings);
   detectRasterBackedTextLayer(page, context, warnings);
   detectRasterTextLayerSymbolNoise(page, context, warnings);
   detectRasterTextLayerWordFragmentation(page, context, warnings);

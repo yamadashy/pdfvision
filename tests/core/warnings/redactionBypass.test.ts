@@ -738,7 +738,9 @@ describe('detectPageWarnings text_under_opaque_fill', () => {
       expect.objectContaining({
         code: 'text_under_opaque_fill',
         severity: 'error',
-        message: expect.stringContaining('1 extracted native text run is at least 90% covered'),
+        message: expect.stringContaining(
+          '1 extracted native text passage is covered by a later opaque dark fill: "Employee SSN" (bbox 10,20,100,10)',
+        ),
       }),
     );
   });
@@ -844,7 +846,9 @@ describe('detectPageWarnings text_under_opaque_fill', () => {
     expect(out).toContainEqual(
       expect.objectContaining({
         code: 'text_under_opaque_fill',
-        message: expect.stringContaining('2 extracted native text runs are at least 90% covered'),
+        message: expect.stringContaining(
+          '2 extracted native text passages are covered by a later opaque dark fill: "Alpha Beta" (bbox 10,20,100,10); "Gamma Delta" (bbox 10,50,100,10)',
+        ),
       }),
     );
   });

@@ -1,16 +1,23 @@
 import type { PageResult, PageWarning, TextSpan } from '../../types/index.js';
-import type { OpaqueFillTextEvidence } from '../graphics/opaqueFillText.js';
+import type { OpaqueDarkFillEvidence, OpaqueFillTextEvidence, TextGlyphEvidence } from '../graphics/opaqueFillText.js';
 import { normalizeComparableText } from '../graphics/opaqueFillText.js';
-import { shortTextSample } from './textSamples.js';
+import {
+  coverage,
+  createComparisonBudget,
+  describePassages,
+  firstGlyphAtOrAfterRun,
+  flattenGlyphs,
+  type HiddenPassage,
+  hiddenPassages,
+  isOnPage,
+  isRepaintedOver,
+  spend,
+} from './hiddenGlyphPassages.js';
 
 interface RedactionBypassContext {
   opaqueFillText?: OpaqueFillTextEvidence;
   spans?: readonly TextSpan[];
   rasterBackedTextLayer?: boolean;
-}
-
-interface CoveredSpan {
-  span: TextSpan;
 }
 
 interface Box {
@@ -21,6 +28,9 @@ interface Box {
 }
 
 const MIN_COVERAGE = 0.9;
+/** Share of a glyph's body (see `GlyphGeometry.core`) a fill must hide. */
+const MIN_GLYPH_COVERAGE = 0.9;
+const MAX_GLYPH_COMPARISONS = 2_000_000;
 const MAX_CANDIDATE_SPANS = 4_096;
 const MAX_CANDIDATE_SPAN_CODE_UNITS = 65_536;
 const MAX_ADJACENT_MATCH_RUNS = 4_096;
@@ -44,26 +54,66 @@ interface MatchWorkBudget {
   exhausted: boolean;
 }
 
+/**
+ * Native text that a later opaque dark rectangle hides.
+ *
+ * Where the operator list let every glyph be placed, coverage is decided
+ * per glyph, so a box over two words inside a sentence is found and named
+ * — the usual shape of a failed redaction. Text whose glyphs could not be
+ * placed falls back to whole-span coverage of at least 90%.
+ */
 export function detectTextUnderOpaqueFill(page: PageResult, context: RedactionBypassContext, out: PageWarning[]): void {
   if (context.rasterBackedTextLayer || !context.opaqueFillText) return;
+  const evidence = context.opaqueFillText;
+  if (evidence.fills.length === 0) return;
+
+  const passages = glyphPassagesUnderFills(page, evidence);
   const spans = candidateSpans(context.spans ?? page.spans ?? []);
-  if (!spans || spans.length === 0) return;
+  if (spans && spans.length > 0) {
+    for (const span of spansCoveredByLaterFills(spans, evidence)) {
+      passages.push({ text: span.text, box: { x: span.x, y: span.y, width: span.width, height: span.height } });
+    }
+  }
+  if (passages.length === 0) return;
 
-  const covered = new Map<TextSpan, CoveredSpan>();
-  for (const item of spansCoveredByLaterFills(spans, context.opaqueFillText)) covered.set(item.span, item);
-  if (covered.size === 0) return;
-
-  const findings = [...covered.values()];
-  const sample = findings[0];
+  const plural = passages.length !== 1;
   out.push({
     code: 'text_under_opaque_fill',
     severity: 'error',
-    message: `${findings.length} extracted native text run${findings.length === 1 ? '' : 's'} ${findings.length === 1 ? 'is' : 'are'} at least 90% covered by a later opaque dark fill (sample: ${JSON.stringify(shortTextSample(sample.span.text))}) — the covered text remains extractable even though a human viewer cannot see it; compare with --render before trusting it`,
+    message: `${passages.length} extracted native text passage${plural ? 's' : ''} ${plural ? 'are' : 'is'} covered by a later opaque dark fill: ${describePassages(passages, page.userUnit)} — the covered text remains extractable even though a human viewer sees a black box; render a listed bbox (--render-region x,y,w,h) before trusting or repeating it`,
   });
 }
 
-function spansCoveredByLaterFills(spans: readonly TextSpan[], evidence: OpaqueFillTextEvidence): CoveredSpan[] {
-  const findings: CoveredSpan[] = [];
+function glyphPassagesUnderFills(page: PageResult, evidence: OpaqueFillTextEvidence): HiddenPassage[] {
+  if (!evidence.glyphRuns) return [];
+  const glyphs = flattenGlyphs(evidence.glyphRuns);
+  const budget = createComparisonBudget(MAX_GLYPH_COMPARISONS);
+  // For each glyph, the latest fill painted after it that hides its body.
+  const coveringFill = new Map<TextGlyphEvidence, OpaqueDarkFillEvidence>();
+  for (const fill of evidence.fills) {
+    for (const ref of glyphs) {
+      if (ref.run >= fill.precedingTextRunCount) break;
+      if (!spend(budget)) return [];
+      if (ref.glyph.whitespace || coverage(ref.glyph.core, fill) < MIN_GLYPH_COVERAGE) continue;
+      const previous = coveringFill.get(ref.glyph);
+      if (!previous || previous.precedingTextRunCount < fill.precedingTextRunCount) coveringFill.set(ref.glyph, fill);
+    }
+  }
+  if (coveringFill.size === 0) return [];
+
+  const hidden = new Set<TextGlyphEvidence>();
+  for (const [glyph, fill] of coveringFill) {
+    if (!isOnPage(glyph.core, page.width, page.height)) continue;
+    const later = firstGlyphAtOrAfterRun(glyphs, fill.precedingTextRunCount);
+    if (isRepaintedOver(glyph, glyphs, later, budget)) continue;
+    if (budget.exhausted) return [];
+    hidden.add(glyph);
+  }
+  return hiddenPassages(glyphs, (ref) => hidden.has(ref.glyph));
+}
+
+function spansCoveredByLaterFills(spans: readonly TextSpan[], evidence: OpaqueFillTextEvidence): TextSpan[] {
+  const findings: TextSpan[] = [];
   const matches = Array.from<{ start: number; end: number } | undefined>({ length: spans.length });
   const runIndex = createAdjacentRunIndex(evidence.textRuns);
   if (!runIndex) return findings;
@@ -83,7 +133,7 @@ function spansCoveredByLaterFills(spans: readonly TextSpan[], evidence: OpaqueFi
   for (let i = 0; i < spans.length; i++) {
     const span = spans[i];
     const match = matches[i];
-    if (!match) continue;
+    if (!match || runsArePlaced(evidence, match)) continue;
     let covered = false;
     for (const fill of evidence.fills) {
       if (remainingCoverageChecks-- <= 0) return [];
@@ -92,9 +142,17 @@ function spansCoveredByLaterFills(spans: readonly TextSpan[], evidence: OpaqueFi
         break;
       }
     }
-    if (covered) findings.push({ span });
+    if (covered) findings.push(span);
   }
   return findings;
+}
+
+/** Glyph-level coverage already decided these runs; span coverage would only repeat or contradict it. */
+function runsArePlaced(evidence: OpaqueFillTextEvidence, match: { start: number; end: number }): boolean {
+  const runs = evidence.glyphRuns;
+  if (!runs) return false;
+  for (let i = match.start; i < match.end; i++) if (!runs[i]) return false;
+  return true;
 }
 
 function findLastAdjacentRunMatch(

@@ -93,9 +93,10 @@ A PDF can contain successfully extracted and searchable native text that is not 
 | Code | What it means |
 | --- | --- |
 | `invisible_text` | Text was shown while PDF text rendering mode `Tr 3` was active, so it remains in native extraction but is not painted for a viewer. |
-| `text_under_opaque_fill` | A later opaque dark rectangular fill covers extracted text. This can reveal a specific visual-only redaction failure, but it is not a general redaction detector. |
+| `text_under_opaque_fill` | A later opaque dark rectangular fill covers extracted text, decided per glyph so a box over a few words inside a sentence counts. The message names each covered passage with a bbox for `--render-region`. This can reveal a specific visual-only redaction failure, but it is not a general redaction detector. |
+| `text_matches_background` | Extracted text is filled in the colour of the paint behind it, such as white text on a white page, so a reader sees blank space. It fires only where that background is provably known (a plain rectangle or the bare page), never over images, gradients, or complex shapes. Severity is `warning`: the usual cause is invisible production metadata such as a printer slug, not concealment, but the text is still not what a reader sees. The message names each passage with a bbox. |
 
-To avoid expected scan/OCR layers, `invisible_text` is suppressed when a full-page raster backs the page, while `text_under_opaque_fill` is suppressed when `raster_backed_text_layer` applies. Inspect the affected page as rendered:
+To avoid expected scan/OCR layers, `invisible_text` is suppressed when a full-page raster backs the page, while `text_under_opaque_fill` and `text_matches_background` are suppressed when `raster_backed_text_layer` applies. Inspect the affected page as rendered:
 
 ```bash
 pdfvision document.pdf -p 3 --render --format json
