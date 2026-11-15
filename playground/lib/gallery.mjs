@@ -29,14 +29,20 @@ function badge(meta) {
 }
 
 function caseSection({ name, dir, meta }) {
-  const images = pageImages(dir)
-    .map((file) => `<img src="cases/${name}/${file}" alt="${escapeHtml(`${name} ${file}`)}">`)
+  const files = pageImages(dir);
+  const images = files
+    .map(
+      (file, i) =>
+        `<figure><img src="cases/${name}/${file}" alt="${escapeHtml(`${name} ${file}`)}">${
+          files.length > 1 ? `<figcaption>Page ${i + 1}</figcaption>` : ''
+        }</figure>`,
+    )
     .join('\n');
   return `<section id="${name}">
   <h2><a href="#${name}">${escapeHtml(meta.title)}</a> ${badge(meta)}</h2>
   <p class="stresses">${escapeHtml(meta.stresses)} · <code>cases/${name}/</code></p>
   <div class="pair">
-    <div class="pages">${images || '<p class="missing">No page PNG — run <code>node --run playground</code>.</p>'}</div>
+    <div class="pages${files.length > 1 ? ' multi' : ''}">${images || '<p class="missing">No page PNG — run <code>node --run playground</code>.</p>'}</div>
     <div class="read"><h3>read.md — what an agent receives</h3><pre>${escapeHtml(readOrEmpty(join(dir, 'read.md')))}</pre></div>
   </div>
   <details open><summary>truth.md — what a correct reading contains</summary><pre>${escapeHtml(readOrEmpty(join(dir, 'truth.md')))}</pre></details>
@@ -45,8 +51,14 @@ function caseSection({ name, dir, meta }) {
 
 export function renderGallery(cases) {
   const toc = cases
-    .map(({ name, meta }) => `<li><a href="#${name}">${escapeHtml(meta.title)}</a> ${badge(meta)}</li>`)
+    .map(
+      ({ name, dir, meta }) =>
+        `<tr><td><a href="#${name}">${escapeHtml(meta.title)}</a><br><code>${name}</code></td><td>${badge(meta)}</td><td class="num">${
+          pageImages(dir).length || '—'
+        }</td><td class="stresses">${escapeHtml(meta.stresses)}</td></tr>`,
+    )
     .join('\n');
+  const gaps = cases.filter(({ meta }) => meta.status === 'known-gap').length;
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -71,7 +83,15 @@ export function renderGallery(cases) {
   .badge.gap { color: var(--gap); }
   .pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
   @media (max-width: 900px) { .pair { grid-template-columns: minmax(0, 1fr); } }
-  .pages img { display: block; width: 100%; height: auto; border: 1px solid var(--line); background: #fff; margin-bottom: 8px; }
+  .pages img { display: block; width: 100%; height: auto; border: 1px solid var(--line); background: #fff; }
+  .pages figure { margin: 0 0 8px; }
+  .pages figcaption { color: var(--muted); font-size: 0.75rem; }
+  .pages.multi { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+  .toc { overflow-x: auto; }
+  .toc table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+  .toc th, .toc td { text-align: left; vertical-align: top; padding: 6px 10px 6px 0; border-bottom: 1px solid var(--line); }
+  .toc .num { text-align: right; }
+  .toc td.stresses { color: var(--muted); }
   pre { margin: 0; padding: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow: auto; font: 12.5px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
   .read pre { max-height: 85vh; }
   details { margin-top: 12px; }
@@ -83,9 +103,13 @@ export function renderGallery(cases) {
 <header>
   <h1>pdfvision playground</h1>
   <p>Synthetic PDFs with a known correct reading, next to what <code>read_pdf</code> returns. Regenerate with <code>node --run playground</code>.</p>
-  <ul>
+  <p>${cases.length} cases · ${cases.length - gaps} ok · ${gaps} known gap${gaps === 1 ? '' : 's'}</p>
+  <div class="toc"><table>
+    <thead><tr><th>Case</th><th>Status</th><th class="num">Pages</th><th>Stresses</th></tr></thead>
+    <tbody>
 ${toc}
-  </ul>
+    </tbody>
+  </table></div>
 </header>
 ${cases.map(caseSection).join('\n')}
 </body>
