@@ -2,7 +2,7 @@
 
 - **Stresses:** non-Letter landscape page size; repeated footer; nested bullets; vector chart with value labels; a slide whose content is only a raster image
 - **Families:** page-geometry, raster-text, vector-meaning
-- **Status:** ok
+- **Status:** known-gap
 
 Three 960 × 540 pt slides. Every slide carries the footer `Larkspur Analytics  |  Confidential — internal use only`; slides 2 and 3 carry
 their number at the bottom right. A good reading may report the footer as repeated chrome.
@@ -42,13 +42,13 @@ Open pipeline by region — Snapshot as of Sep 30, 2026 · stage 2 and later
 4. What is the open pipeline in EMEA? — $29.1M (in the screenshot only; needs the render or OCR)
 5. Which point under “NRR reached 118%” explains the increase? — Expansion led by the Analytics Pro tier (nested under the first bullet)
 
-**Current reading (ok):** questions 1, 2, 3 and 5 are answered from `read.md`; nesting survives
-as the `–` sub-bullet glyph, and each chart value label is followed by its quarter. Question 4
-cannot be answered from text, which is expected: page 3 carries
+**Known gap (no issue yet):** questions 1, 2, 3 and 5 are answered from `read.md`; nesting
+survives as the `–` sub-bullet glyph, and each chart value label is followed by its quarter.
+Question 4 cannot be answered from `read.md`: the value is only in the screenshot. Page 3 carries
 `large_raster_low_text_overlap` (“large raster image covers 63.3% of the page … labels, chart
 text, or map text inside the image will not appear in native text”) and its native status is
-`sparse_text_with_visual_content`, so the agent knows to render or OCR that page. The warning
-says what is missing but does not itself name `render_pdf`/OCR as the next step.
+`sparse_text_with_visual_content`. Both say what is missing; neither names rendering the page
+or OCR as the next step.
 
 The footer is dropped from every page as repeated chrome, and nothing in the response says
 so; an agent asked whether the deck is marked confidential cannot tell from `read.md`.

@@ -92,9 +92,10 @@ and page 1 reads clause 4.3 (`Client may terminate this Agreement for …`) as a
 a blank. An agent answers question 2 with the cap as a plain fact and question 3 with “no”
 (nothing in `read.md` distinguishes hidden from visible text); nothing tells it to render.
 
-The proper redaction is handled acceptably: 3.1 reads `a fixed monthly fee of` / `(the “Fees”),
-invoiced monthly in` / `advance.` — the value is simply absent (no box is reported, and the line
-is broken where the box sits), so question 1 gets “not stated”. Annotations are listed per page
+The proper redaction is only partly readable: 3.1 reads `a fixed monthly fee of` / `(the “Fees”),
+invoiced monthly in` / `advance.` — the value is simply absent (no box is reported, there is no warning, and the line
+is broken where the box sits), so question 1 gets “not stated” where the page shows a redaction:
+the reading cannot establish that anything was redacted. Annotations are listed per page
 with author, contents, colour and bbox, and the link with its target, so question 4 is answerable
 — but the highlight and strike-out rows do not quote the text they mark (`1.5% per month`,
 `thirty (30) days’ written notice`); only the strike-out's comment reveals what it is about.
