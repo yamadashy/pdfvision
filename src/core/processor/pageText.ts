@@ -17,6 +17,7 @@ import {
 import { type JoinItem, joinPageText, type VerticalJoinRun } from '../text/cjkJoin.js';
 import { textMatrixFontSize, textRunGeometryFromTransform } from '../text/geometry.js';
 import { isLikelyPrepressProductionText } from '../text/prepress.js';
+import { prepareTextItems } from '../text/textItemPasses.js';
 import type { PageFlags } from './pageData.js';
 import { normalizeText, normalizeTextForNonPrintableStats, textItemDedupeKey } from './textUtils.js';
 
@@ -92,7 +93,7 @@ export function extractPageText({
     flags.needFormFieldsForSearch;
 
   const { joinItems, textArea, spans, verticalJoinSpans, verticalJoinSpanIndices } = collectPageTextItems({
-    content,
+    content: { items: prepareTextItems(content.items) },
     flags,
     pageHeight,
     viewMinX,

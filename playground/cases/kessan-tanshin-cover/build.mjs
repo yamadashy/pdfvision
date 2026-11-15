@@ -187,12 +187,10 @@ individually across the full measure; it reads without spaces.) △ means a nega
 4. Who should be contacted about the report? — ${COMPANY.contact.title} ${COMPANY.contact.name}, TEL ${COMPANY.contact.tel}
 5. Which fiscal period and accounting standard does the report cover? — 2027年3月期 第2四半期（中間期）, 日本基準, 連結
 
-**Known gap (no issue yet):** the overdrawn title comes back with every run repeated and no
-warning: \`2222000022227777年3月期年3月期年3月期年3月期 第2四半期第2四半期…決算短決算短決算短決算短信信信信〔〔〔〔日本基準日本基準…\`
-— the survey's \`22222000002222255555年3月期…\` exactly. The year cannot be read back from it and a search
-for 「決算短信」 misses the title (\`決算短\` and \`信\` are no longer adjacent). Question 5 survives only
-through section 1's heading (\`2027年3月期第2四半期(中間期)の連結業績\`) and by guessing 日本基準 out of
-the repeats. The justified line is emitted letter-spaced, also without a warning:
+The overdrawn title reads once, \`2027年3月期 第2四半期(中間期)決算短信〔日本基準〕(連結)\` (#267), which
+answers question 5.
+
+**Known gap (no issue yet):** the justified line is emitted letter-spaced, without a warning:
 \`る と 判 断 す る 一 定 の 前 提 に 基 づ い て お り 、 詳 細 は 当 社 ウ ェ ブ サ イ ト\`, so a search for
 「判断する」 or 「当社ウェブサイト」 fails.
 

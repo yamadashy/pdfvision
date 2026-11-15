@@ -11,11 +11,11 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 ## Page 1
 
-_chars: 1364 · images: 0 · coverage: 24% · vectors: 43 · tables: 5 · warnings: 1 · size: 595.28×841.89pt_
+_chars: 1269 · images: 0 · coverage: 21% · vectors: 43 · tables: 5 · warnings: 1 · size: 595.28×841.89pt_
 
 2026年11月14日
 
-2222000022227777年3月期年3月期年3月期年3月期 第2四半期第2四半期第2四半期第2四半期((((中間期中間期中間期中間期))))決算短決算短決算短決算短信信信信〔〔〔〔日本基準日本基準日本基準日本基準〕〕〕〕((((連結連結連結連結)))
+2027年3月期 第2四半期(中間期)決算短信〔日本基準〕(連結)
 
 上場会社名
 コード番号
