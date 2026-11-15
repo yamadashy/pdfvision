@@ -1,8 +1,9 @@
 import type { LayoutBlock, LayoutLine, PageLayout, TextSpan } from '../../types/index.js';
+import { isProseColumnTable } from './columnGutters.js';
 import { isStandaloneNumericLineAfterProse, mergeAdjacentColumnBlocks, reorderForColumns } from './columns.js';
 import { unionBox } from './geometry.js';
 import { classifyHeadings } from './headings.js';
-import { buildLayoutLines } from './lines.js';
+import { buildLayoutLinesWithGutters } from './lines.js';
 import { detectLayoutTables } from './tables.js';
 import { compareLayoutBlocks, extractVerticalCjkBlocks } from './verticalText.js';
 
@@ -33,8 +34,11 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0, pageHeight = 0): P
 
   const vertical = extractVerticalCjkBlocks(spans);
 
-  const lines = buildLayoutLines(vertical.remainingSpans, pageWidth);
-  const tables = detectLayoutTables(lines);
+  const { lines, columnGutters } = buildLayoutLinesWithGutters(vertical.remainingSpans, pageWidth);
+  // A "table" whose every column boundary is a detected prose gutter is the
+  // page's text columns read across (#242), not a table.
+  const detectedTables = detectLayoutTables(lines)?.filter((table) => !isProseColumnTable(table, columnGutters));
+  const tables = detectedTables && detectedTables.length > 0 ? detectedTables : undefined;
 
   // Cluster lines into blocks. Splits when:
   //   - vertical gap > 1× prev line height (paragraph break / section break)

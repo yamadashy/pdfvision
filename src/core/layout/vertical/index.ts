@@ -11,6 +11,7 @@ export {
 } from './ruby.js';
 export {
   type BodyVerticalCjkRunAnalysis,
+  containsCjkScript,
   hasVerticalTextShape,
   type TallVerticalRun,
   type VerticalCjkRun,

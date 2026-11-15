@@ -18,7 +18,7 @@ pdfvision document.pdf --layout --format json
 版面輸出包括：
 
 - `pages[].layout.blocks[].lines`: 帶幾何資訊的重建文字行。
-- `pages[].layout.blocks`: 依閱讀順序排列的區塊、角色與 bbox。
+- `pages[].layout.blocks`: 依閱讀順序排列的區塊、角色與 bbox。Lines are split at the column gutters the whole page shows, so narrow gutters between columns set on their own baselines do not fuse neighbouring columns, and a layout table that is only those text columns read across is not reported; text rotated in the page margin (print-production lines, arXiv stamps) is read after the page body.
 - `pages[].layout.tables`: 原生文字可能攤平行列關係時的數字表格提示。Each cell carries its geometric `column` (plus `columnSpan` when a header or merged value's text overlaps several columns; a centered group header narrower than its group covers only the columns under its text, so render to confirm a group's width), so an empty cell stays an empty column instead of shifting later values left.
 - 直排 CJK 文字復原。
 
