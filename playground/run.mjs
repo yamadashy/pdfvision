@@ -170,7 +170,10 @@ async function main() {
     }
 
     for (const testCase of selected) {
-      writeFileSync(join(testCase.dir, 'case.pdf'), await buildCasePdf(testCase.meta, testCase.draw));
+      writeFileSync(
+        join(testCase.dir, 'case.pdf'),
+        await buildCasePdf(testCase.meta, testCase.draw, { dir: testCase.dir }),
+      );
       writeFileSync(join(testCase.dir, 'truth.md'), truthMarkdown(testCase));
       writeFileSync(join(testCase.dir, 'read.md'), await snapshotRead(server, testCase, cacheRoot));
       renderPages(testCase, env);

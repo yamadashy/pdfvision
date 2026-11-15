@@ -1,0 +1,57 @@
+# Japanese invoice (請求書) with seal and embedded XML
+
+- **Stresses:** CJK key-value header; bordered item table with a wrapped name and a negative line; per-rate tax summary; vector seal over the issuer name; XML attachment
+- **Status:** known-gap
+
+An A4 請求書 from **株式会社みなとテック** to **株式会社さくら商事 御中** (経理部 ご担当者様).
+Issuer block: 〒105-0011 / 東京都港区芝公園九丁目8番7号 / みなとビル5階 / TEL 03-0000-1234; 登録番号 `T9999012345678`. A red round seal (vector
+outlines, no text) is stamped over the end of the issuer name; it must not hide or garble the name.
+
+- 請求書番号: INV-2026-0412
+- 発行日: 2026年10月31日
+- お支払期限: 2026年11月30日
+- ご請求金額: ¥611,884（税込） — shown large near the top
+
+| 品名 | 数量 | 単位 | 単価 | 金額 |
+| --- | ---: | --- | ---: | ---: |
+| Webサイト保守サービス（2026年10月分） | 1 | 式 | 120,000 | 120,000 |
+| クラウドサーバー利用料 | 3 | 台 | 30,000 | 90,000 |
+| 業務システム改修（受発注画面の入力項目追加・帳票レイアウト変更・結合テスト一式） | 1 | 式 | 350,000 | 350,000 |
+| 会議用弁当（定例打合せ時） ※ | 12 | 個 | 1,080 | 12,960 |
+| ペットボトル飲料（500ml） ※ | 24 | 本 | 150 | 3,600 |
+| 値引き（長期契約割引） | 1 | 式 | -20,000 | -20,000 |
+
+The third item name wraps onto two lines inside its cell; a correct reading keeps it one item
+(`業務システム改修（受発注画面の入力項目追加・帳票レイアウト変更・結合テスト一式）`), not two rows. Two empty ruled rows follow the items.
+
+| 税率区分 | 対象金額（税抜） | 消費税額 |
+| --- | ---: | ---: |
+| 10%対象 | 540,000 | 54,000 |
+| 8%対象（軽減税率） | 16,560 | 1,324 |
+
+- 小計: 556,560
+- 消費税: 55,324
+- 合計: 611,884
+
+お振込先: 金融機関 あおば銀行 芝公園支店 / 口座 普通 1234567 / 口座名義 カ）ミナトテック. 備考: ※印は軽減税率（8%）対象品目です。 お振込手数料は貴社にてご負担くださいますようお願い申し上げます。
+
+Embedded file `invoice.xml` (application/xml) carries the same invoice; its totals match the page.
+
+## Questions an agent should be able to answer
+
+1. What is the amount billed, tax included? — ¥611,884
+2. When is payment due? — 2026年11月30日
+3. How much of the invoice is at the reduced 8% rate, and what is the tax on it? — 16,560 taxable, 1,324 tax
+4. What is the issuer's qualified-invoice registration number? — T9999012345678
+5. What exactly is billed at 350,000? — 業務システム改修（受発注画面の入力項目追加・帳票レイアウト変更・結合テスト一式）
+
+**Known gap (no issue yet):** in the layout table the second line of the wrapped item name is
+merged into the next row: `業務システム改修（受発注画面の入力項目追加・` stays on the 350,000 row and
+`帳票レイアウト変更・結合テスト一式） 会議用弁当（定例打合せ時） ※` becomes the name of the 12,960 row, so
+question 5 is answered with a truncated name and the 弁当 row carries text that is not its own.
+The page body, which the `tabular_numeric_layout` warning tells the reader not to trust for
+values, lists the 金額 column as `120,000 / 350,000 / 90,000` — out of row order. The same
+layout table also absorbs the recipient/issuer header block into its first five rows
+(issuer address lines out of order, postcode/TEL/登録番号 missing from the table, present
+in the body). Questions 1–4 are answerable from `read.md`. Full-width punctuation comes
+back NFKC-normalised (`（` → `(`, `：` → `:`); that is intended.

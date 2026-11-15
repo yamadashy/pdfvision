@@ -1,23 +1,35 @@
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { join } from 'node:path';
 import PDFDocument from 'pdfkit';
 
 // Standard PDF fonts cover WinAnsi only. Cases that need CJK, or symbols such
 // as ∇ and −, use this TTF (a devDependency, so no network access) under the
-// registered name 'NotoSansJP'; pdfkit embeds only the glyphs a case draws.
-const NOTO_SANS_JP = createRequire(import.meta.url).resolve(
+// registered names 'NotoSansJP' / 'NotoSansJP-Bold'; pdfkit embeds only the
+// glyphs a case draws. assets.mjs scripts register the same files with canvas.
+const requireFromHere = createRequire(import.meta.url);
+export const NOTO_SANS_JP = requireFromHere.resolve(
   '@expo-google-fonts/noto-sans-jp/400Regular/NotoSansJP_400Regular.ttf',
+);
+export const NOTO_SANS_JP_BOLD = requireFromHere.resolve(
+  '@expo-google-fonts/noto-sans-jp/700Bold/NotoSansJP_700Bold.ttf',
 );
 
 // Same pinning as scripts/build-test-fixtures.mjs: a fixed creation date and
 // trailer /ID make the output byte-identical across runs, so regenerating a
 // case whose drawing did not change leaves the tree clean.
-const FIXED_DATE = new Date('2026-01-01T00:00:00Z');
+export const FIXED_DATE = new Date('2026-01-01T00:00:00Z');
 const FIXED_FILE_ID = Buffer.from('pdfvision-playground-case-id!!!!');
 
-/** Render one case to PDF bytes by calling its `draw(doc, helpers)`. */
-export async function buildCasePdf(meta, draw) {
+/**
+ * Render one case to PDF bytes by calling its `draw(doc, helpers)`.
+ * `meta.page` (optional) sets the first page's pdfkit `size` / `layout`;
+ * `dir` is the case directory, for `helpers.asset`.
+ */
+export async function buildCasePdf(meta, draw, { dir } = {}) {
   const doc = new PDFDocument({
     size: 'LETTER',
+    ...meta.page,
     margin: 0,
     info: {
       Title: meta.title,
@@ -39,8 +51,9 @@ export async function buildCasePdf(meta, draw) {
   });
 
   doc.registerFont('NotoSansJP', NOTO_SANS_JP);
+  doc.registerFont('NotoSansJP-Bold', NOTO_SANS_JP_BOLD);
   doc.addPage();
-  await draw(doc, helpers(doc));
+  await draw(doc, helpers(doc, dir));
   doc.end();
   await done;
   return Buffer.concat(chunks);
@@ -50,7 +63,7 @@ export async function buildCasePdf(meta, draw) {
  * Drawing primitives that place text at exact coordinates. pdfkit's flowing
  * text API wraps and advances a cursor; the cases need geometry they control.
  */
-function helpers(doc) {
+function helpers(doc, dir) {
   // pdfkit places text by the top of its line box; the baseline sits one
   // ascent below that.
   const ascent = (font, size) => {
@@ -102,6 +115,34 @@ function helpers(doc) {
     },
     rule(x1, y, x2, { width = 0.5 } = {}) {
       doc.moveTo(x1, y).lineTo(x2, y).lineWidth(width).stroke();
+    },
+    /** Start a new page; `options` (pdfkit `size` / `layout`) default to the first page's. */
+    newPage(options = {}) {
+      doc.addPage({ ...doc.options, ...options, margin: 0 });
+    },
+    /**
+     * Store the current page with `/Rotate 90` (shown turned clockwise, as a
+     * landscape page in a portrait document) and switch to the coordinates a
+     * reader sees: origin top-left of the turned page, y down. Returns the
+     * displayed `{ width, height }`.
+     */
+    rotateClockwise() {
+      const { width, height } = doc.page;
+      doc.page.dictionary.data.Rotate = 90;
+      doc.transform(0, -1, 1, 0, 0, height);
+      return { width: height, height: width };
+    },
+    /** Run `fn` with text render mode 3 (invisible), as an OCR text layer is drawn. */
+    invisible(fn) {
+      doc.save();
+      doc.addContent('3 Tr');
+      fn();
+      doc.restore();
+    },
+    /** Bytes of a committed file under the case's `assets/` directory. */
+    asset(name) {
+      if (!dir) throw new Error('helpers.asset needs the case directory');
+      return readFileSync(join(dir, 'assets', name));
     },
   };
 }
