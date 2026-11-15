@@ -206,4 +206,4 @@ Journal of Occupational Microbiome Research | https://doi.org/10.5555/jomr.0312
 
 ### Warnings
 
-> **warning** (reading_order_divergence): heading "Night-shift work and gut microbial diver" leads the visual reading order but only appears 93% of the way through the native text stream — native text order diverges from what a human reads; the body above is that reading order, rebuilt from the layout — render the page when exact sequence is critical
+> **warning** (reading_order_divergence): heading "Night-shift work and gut microbial diver" leads the visual reading order but only appears 93% of the way through the native text stream — native text order diverges from what a human reads; the layout-rebuilt order is unreliable here too — side-by-side blocks "Circadian disruption alters host meta..." and "diversity: a cross-sectional study of" are interleaved line by line; render the page to read it in sequence

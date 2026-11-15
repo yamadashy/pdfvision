@@ -107,7 +107,7 @@ A render establishes only what the page visibly shows. Neither a warning nor its
 把 warning 当作 routing signal：
 
 - 如果原生文本字形损坏，在摘要前先与 render 或 OCR 比较。
-- 如果阅读顺序分歧，叙事顺序优先使用 layout blocks，而不是 raw page text。
+- 如果阅读顺序分歧，叙事顺序优先使用 layout blocks，而不是 raw page text。When the warning says the layout-rebuilt order is unreliable here too, side-by-side blocks were read line by line or run together, so render the page instead of trusting either order.
 - 如果出现 table warning，保留行列证据；当数值重要时裁剪表格。`layout_table_uncertain` names the table and its bbox: render that region before trusting its cells.
 - 如果出现 large raster 或 dense vector warning，在验证前假设标签可能是 visual-only。
 - 如果涉及 repeated chrome，避免混合页眉、页脚、页码和正文。
