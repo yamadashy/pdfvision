@@ -51,30 +51,26 @@ to its bar, point or segment; nothing in the text says which label belongs to wh
 4. 「地域で指導者・講師を確保できない」という課題に対応する施策は？ — ④ 講師育成・認定制度の創設
 5. 支援対象者の内訳で最も割合が大きいのは何で、何%か？ — 在職者、45%
 
-**Known gap (no issue yet):** the page raises no warning at all (100 vector ops, no
-`dense_vector_graphics`, no layout-table caveat), yet the chart values come back as a stream
-with no series or category link, partly out of order, plus one bogus layout table:
+**Known gap (no issue yet):** the four charts are read chart by chart, each with its title,
+and `vector_chart_labels` names the chart panel to render, but within a chart the values are
+read row by row from the top, with no series or category link:
 
-- Bar chart: `8.2 / 2022 / 11.3 / 9.5 / 2023 / 2024 / 14.6 / 12.8 / 2025 / 2026`. Pairing labels
-  in stream order gives 11.3 → 2023 and 12.8 → 2026, so question 1 is answered wrongly (2026)
-  unless the agent assumes the bars rise monotonically.
-- Line chart: `3.1 / 0.9 / 2021 / 2022 / … / 4.6 / 3.8 / 1.4 / 1.1 / 2023 / 都市部 / 5.2 / 1.6 / 2024 /
-  地方部 / 6.0 / 1.9 / 2025`. Which value belongs to 地方部 is never stated; question 2 needs the
-  guess that the smaller series is 地方部 (the 課題 text happens to support it).
-- Stacked bars: `中小企業 22%` keeps only its first segment; the other segments come back
-  column-wise (`取組済 / 62% / 41% / 30% / 検討中 / 28% 10% / 33% / 26% / 48% / 70% / 未着手`), so
-  question 3 (48%) cannot be read off. The layout table (`Table 1 (6 rows × 5 columns)`) spans the
-  bar, line and stacked charts, cuts off before the 中小企業 row, and mixes `12.8 | 中堅企業 | 41% | 33% | 26%`
-  into one row.
-- Donut: `10% / 20% / 3万人 / 目標 / 25% / 45% / 在職者 / 離職者・求職者 / 学生 / その他` — the
-  percentages are never tied to the legend names, so question 5 is a guess.
-- Flow: question 4 is answerable — 課題 1–3 and 施策 1–3 come back in order, and 課題 4
-  (`地域で指導者・講師を確保できない`) and 施策 `4 講師育成・認定制度の創設` match by number and
-  content — but the arrows themselves leave no trace, and 施策 4 is printed among the line-chart
-  labels. The third 効果 box is split: `中小企業のDX取組率を` stays in the flow while
-  `60%に引き上げ` lands after the stacked-bar labels, where it reads like a chart value.
+- Bar chart: `14.6 / 12.8 / 11.3 / 9.5 / 8.2` then `2022 … 2026`. Pairing the two lists in order
+  gives 14.6 → 2022, so question 1 is answered wrongly unless the agent reverses one list (or
+  assumes the bars rise monotonically); the warning says to render.
+- Line chart: `都市部 / 地方部` then `6.0 / 5.2 / 4.6 / 3.8 / 3.1 / 1.9 / 1.6 / 1.4 / 1.1 / 0.9` then
+  the years. Which value belongs to 地方部 is never stated; question 2 needs the guess that the
+  smaller series is 地方部.
+- Stacked bars: each company size is followed by its segments (`大企業 / 62% / 28% 10%`,
+  `中小企業 22% / 30% / 48%`), so question 3 (48%) is answerable by position, with the legend
+  (`取組済 / 検討中 / 未着手`) after the bars. The layout table (`Table 1 (6 rows × 5 columns)`)
+  still spans the bar, line and stacked charts and mixes `12.8 | 中堅企業 | 41% | 33% | 26%` into one row.
+- Donut: `10% / 在職者 / 20% / 離職者・求職者 / 3万人 / 45% / 目標 / 学生 / その他 / 25%` — the
+  percentages are not tied to the legend names, so question 5 is a guess.
+- Flow: question 4 is answerable — 課題 1–4, 施策 1–4 and the three 効果 boxes come back in order,
+  each box whole (`中小企業のDX取組率を` / `60%に引き上げ` together); the arrows leave no trace.
 - `①〜④` come back NFKC-normalised as `1〜4` (intended). The rotated band label
   `令和9年度 概算要求 重点施策` reads correctly.
 
-Only the title, lead, flow text (questions about issues and measures) and the source note are
-reliable from `read.md`; questions 1, 3 and 5 need the render.
+The title, lead, flow text and source note are reliable from `read.md`; questions 1, 2 and 5
+need the render the warning names.

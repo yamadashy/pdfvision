@@ -11,7 +11,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 ## Page 1
 
-_chars: 3285 · images: 0 · coverage: 29% · vectors: 19 · tables: 2 · size: 612×792pt_
+_chars: 3285 · images: 0 · coverage: 29% · vectors: 19 · tables: 2 · warnings: 1 · size: 612×792pt_
 
 Adaptive Token Pruning for Efficient Long-Document Retrieval
 
@@ -185,3 +185,7 @@ arXiv:2611.04217v1 [cs.IR] 12 Nov 2026
 |  |  |  |  |  | query latency while keeping nDCG@10 within 0.4 points of full attention, and it outperforms static length |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
 |  |  | truncation at every budget we test. |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
 | arXiv:2611.04217v1 [cs.IR] 12 Nov 2026 | time. | 2 Method | i | 1 Introduction | contribute to a match. | measured end to end. | threshold per document; | Our contributions are as follows: | For a token i with embedding k we compute | si = qTk / √d and keep the token when s ≥ τ. | function words and boilerplate dominate; | Retrieval over long documents such as contracts, filings and | technical manuals is increasingly served by late-interaction | models, which keep one embedding per token. Their quality | comes at a cost: index size and query latency grow linearly | with document length, and most of the stored tokens never | on a held-out query set, so the probe adds no cost at query | Let d be the embedding width and q a probe vector learned | • an analysis of which tokens are pruned, showing that | • experiments on three benchmarks with latency | • a pruning rule that needs only a probe vector and a | i | i | Latency (ms) | 250 | 200 | 150 | 100 | 50 | 0 | 3 Experiments | 182 | attention and ATP. Lower is better. | LongDocQA | Full attention | 88 | Our experiments1 follow prior late-interaction work. | Figure 1: Median query latency (ms) per benchmark for full | We evaluate on LongDocQA, MultiNews-R and | LegalBench-S, whose documents average 3.1k, 2.4k and | 6.8k tokens. All systems share the same encoder and the | same approximate nearest-neighbour index; latency is the | 156 | ATP (ours) | MultiNews-R | 79 | 241 | LegalBench-S | 121 |
+
+### Warnings
+
+> **warning** (vector_chart_labels): vector chart at 329,271,229,150 has 17 text labels (values such as "182", labels such as "Full attention"), read together bar by bar — which value belongs to which bar, series or category is shown only by the drawing; render the region (--render-region 329,271,229,150) before pairing or quoting values

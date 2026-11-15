@@ -11,7 +11,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 ## Page 1
 
-_chars: 4730 · images: 0 · coverage: 32% · vectors: 21 · warnings: 1 · size: 612×792pt_
+_chars: 4730 · images: 0 · coverage: 32% · vectors: 21 · warnings: 2 · size: 612×792pt_
 
 RESEARCH ARTICLE
 
@@ -214,3 +214,4 @@ September 30, 2026
 ### Warnings
 
 > **warning** (reading_order_divergence): heading "Night-shift work and gut microbial diver" leads the visual reading order but only appears 93% of the way through the native text stream — native text order diverges from what a human reads; the body above is that reading order, rebuilt from the layout — render the page when exact sequence is critical
+> **warning** (vector_chart_labels): vector chart at 385,310,185,105 has 12 text labels (values such as "3.87", labels such as "Day shift"), read together bar by bar — which value belongs to which bar, series or category is shown only by the drawing; render the region (--render-region 385,310,185,105) before pairing or quoting values

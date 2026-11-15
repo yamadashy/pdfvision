@@ -47,6 +47,7 @@ export interface PageWarning {
     | 'duplicate_text_layer'
     | 'raster_image_no_native_text'
     | 'tabular_numeric_layout'
+    | 'vector_chart_labels'
     | 'layout_table_uncertain'
     | 'dot_leader_noise'
     | 'tiny_native_text_noise'

@@ -12,7 +12,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 | Page | Chars | Images | Coverage | Size (pt) | Vectors | Blocks | Warnings | Fields | Links | Annots |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | 1 | 174 | 0 | 8% | 960×540 | 3 | 4 | 0 | 0 | 0 | 0 |
-| 2 | 374 | 0 | 12% | 960×540 | 7 | 16 | 0 | 0 | 0 | 0 |
+| 2 | 374 | 0 | 12% | 960×540 | 7 | 16 | 1 | 0 | 0 | 0 |
 | 3 | 55 | 1 | 2% | 960×540 | 3 | 2 | 1 | 0 | 0 | 0 |
 
 ---
@@ -32,7 +32,7 @@ October 14, 2026
 
 ## Page 2
 
-_chars: 374 · images: 0 · coverage: 12% · vectors: 7 · size: 960×540pt_
+_chars: 374 · images: 0 · coverage: 12% · vectors: 7 · warnings: 1 · size: 960×540pt_
 
 Net revenue retention rose for a third straight quarter
 
@@ -63,6 +63,10 @@ Q2 FY26
 Q3 FY26
 
 2
+
+### Warnings
+
+> **warning** (vector_chart_labels): vector chart at 560,153,340,284 has 8 text labels (values such as "108%", labels such as "Q4 FY25"), read together bar by bar — which value belongs to which bar, series or category is shown only by the drawing; render the region (--render-region 560,153,340,284) before pairing or quoting values
 
 ---
 

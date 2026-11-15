@@ -11,7 +11,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 ## Page 1
 
-_chars: 945 · images: 0 · coverage: 15% · vectors: 100 · tables: 1 · size: 841.89×595.28pt_
+_chars: 945 · images: 0 · coverage: 15% · vectors: 100 · tables: 1 · warnings: 1 · size: 841.89×595.28pt_
 
 地域デジタル人材育成プログラム(仮称)の概要
 
@@ -198,3 +198,7 @@ _chars: 945 · images: 0 · coverage: 15% · vectors: 100 · tables: 1 · size: 
 | 14.6 |  |  |  |  |
 |  | 6.0 |  |  |  |
 | 12.8 | 中堅企業 | 41% | 33% | 26% |
+
+### Warnings
+
+> **warning** (vector_chart_labels): vector chart at 40,308,784,250 has 58 text labels (values such as "14.6", labels such as "デジタル人材の不足数(推計)"), read together row by row — which value belongs to which bar, series or category is shown only by the drawing; render the region (--render-region 40,308,784,250) before pairing or quoting values

@@ -29,6 +29,7 @@ import { detectRotatedPageReadUnrotated } from './rotatedPage.js';
 import { detectRtlScriptText } from './rtlScript.js';
 import { detectSymbolFontSubstitution } from './symbolFontSigns.js';
 import { detectDotLeaderNoise, detectTabularNumericLayout } from './tabular.js';
+import { detectVectorChartLabels } from './vectorChartLabels.js';
 import {
   detectDenseVectorGraphics,
   detectHighConfidenceOcrNativeMismatch,
@@ -162,6 +163,13 @@ function detectPageWarningsInPhysicalPoints(page: PageResult, context: PageWarni
   suppressOffPageForTruncatedBlocks(warnings);
   detectTextOverlap(blocks, warnings, page.imageBoxes ?? context.imageBoxes, page);
   detectTabularNumericLayout(blocks, warnings);
+  detectVectorChartLabels(
+    page,
+    blocks,
+    context.vectorBoxes ?? page.vectorBoxes,
+    context.imageBoxes ?? page.imageBoxes,
+    warnings,
+  );
   detectLayoutTableUncertainty(page, warnings);
   const readingOrderFrom = warnings.length;
   detectReadingOrderDivergence(page, blocks, warnings);
