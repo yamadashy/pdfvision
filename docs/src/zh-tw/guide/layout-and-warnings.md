@@ -76,6 +76,7 @@ visual regions 可以作為到多模態模型的橋樑：
 - 正文擠到重複頁首或頁尾附近。
 - 被攤平的數字表格。
 - layout table hints whose cells did not resolve into one consistent grid (`layout_table_uncertain`).
+- rotated pages read in their stored orientation because `/Rotate` would turn their text sideways (`rotated_page_read_unrotated`).
 - 原生文字順序與視覺閱讀順序不一致。
 - 字形亂碼、PUA 字串或局部 mojibake。
 - 全頁掃描上的 OCR 文字層。

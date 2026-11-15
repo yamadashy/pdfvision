@@ -216,15 +216,16 @@ describe('processDocument visualRegions: true', () => {
     const page = result.pages[0];
     const region = page.visualRegions?.[0];
 
-    expect(page).toMatchObject({ width: 596, height: 842 });
+    // Displayed frame: the 596 × 842 page stored with /Rotate 270 shows as 842 × 596.
+    expect(page).toMatchObject({ width: 842, height: 596 });
     expect(page.image).toBeUndefined();
     expect(region).toMatchObject({
       id: 'p1-vr0',
       kind: 'raster',
       x: 0,
       y: 0,
-      width: 596,
-      height: 842,
+      width: 842,
+      height: 596,
       areaRatio: 1,
     });
     expect(region?.image).toBeDefined();

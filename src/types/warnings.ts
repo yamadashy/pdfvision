@@ -15,6 +15,7 @@
  * numeric table-like layouts whose rows/columns may flatten into plain text,
  * layout table hints whose cells did not resolve into one consistent grid,
  * local math/text-order divergences whose visual order differs from native text,
+ * rotated pages read in their stored orientation because /Rotate would turn their text sideways,
  * large image regions whose internal labels will not appear in native text,
  * optional-content layer text that may include default-hidden content,
  * OCR-backed scan layers whose bboxes or word boundaries may drift from pixels,
@@ -55,6 +56,7 @@ export interface PageWarning {
     | 'annotation_text_missing_from_native'
     | 'optional_content_text_may_include_hidden_layers'
     | 'reading_order_divergence'
+    | 'rotated_page_read_unrotated'
     | 'xfa_form'
     | 'xfa_fields_only'
     | 'xfa_static_content';

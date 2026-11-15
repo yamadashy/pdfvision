@@ -2,18 +2,18 @@
  * One retained positioned text item from pdf.js. An item may contain a
  * character, word, or longer string; its bbox covers the whole item rather
  * than individual glyph outlines, and adjacent items are not merged or split
- * in public spans. The rounded aggregate axis-aligned bbox uses unrotated
- * raw page-view units, with `(0, 0)` at the top-left and y increasing
- * downward. Multiply by `pages[].userUnit` (or 1 when omitted) for physical
- * points. These are page coordinates, not PNG pixels; rendered pixels equal
- * raw lengths × UserUnit × render scale before rotation swaps axes.
+ * in public spans. The rounded aggregate axis-aligned bbox uses raw
+ * page-view units in the displayed (post-/Rotate) page frame, with `(0, 0)`
+ * at the top-left and y increasing downward. Multiply by `pages[].userUnit`
+ * (or 1 when omitted) for physical points. These are page coordinates, not
+ * PNG pixels; rendered pixels equal raw lengths × UserUnit × render scale.
  */
 export interface TextSpan {
   /** Text-item content. Already NFKC-normalized and C0-cleaned when `normalize` is on. */
   text: string;
-  /** Top-left x in raw unrotated page-view units. */
+  /** Top-left x in raw displayed (post-/Rotate) page-view units. */
   x: number;
-  /** Top-left y in raw unrotated page-view units; y grows downward. */
+  /** Top-left y in raw displayed (post-/Rotate) page-view units; y grows downward. */
   y: number;
   /** Rounded aggregate text-item width in raw page-view units. */
   width: number;

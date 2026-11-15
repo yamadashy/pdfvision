@@ -34,8 +34,8 @@ The short `pdfvision --help` lists the flags reached for most often. This topic 
                           Errors when none of the three flags is present, rather than
                           silently doing nothing — same contract as --render-output.
       --render-region <x,y,width,height>
-                          Render a sub-rectangle in raw unrotated page-view units (top-left origin,
-                          y grows downward). Physical points = raw value × pages[].userUnit (or 1
+                          Render a sub-rectangle in raw units of the page as displayed (after
+                          /Rotate; top-left origin, y grows downward). Physical points = raw value × pages[].userUnit (or 1
                           when omitted); pixels = raw region × UserUnit × render scale. Requires
                           --render or --ocr — there is nothing to crop otherwise. Single-page
                           only: --pages must resolve to exactly one

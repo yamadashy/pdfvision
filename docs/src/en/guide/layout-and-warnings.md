@@ -77,6 +77,7 @@ Common warning families include:
 - flattened numeric tables.
 - layout table hints whose cells did not resolve into one consistent grid (`layout_table_uncertain`).
 - native-vs-visual reading order divergence.
+- rotated pages read in their stored orientation because `/Rotate` would turn their text sideways (`rotated_page_read_unrotated`).
 - glyph-garbage native text, private-use glyph strings, or localized mojibake.
 - right-to-left script text whose inter-word spaces or paired brackets may degrade.
 - OCR text layers over full-page scans, including symbol noise or word fragmentation.

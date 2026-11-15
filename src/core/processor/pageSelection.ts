@@ -1,5 +1,6 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { ProcessDocumentOptions, RenderRegion } from '../../types/index.js';
+import { resolvePageFrame } from '../geometry/pageFrame.js';
 import { parsePageRangeWithSkipped } from '../options/pageRange.js';
 
 interface ResolvePageNumbersInput {
@@ -44,18 +45,11 @@ export async function resolvePageNumbers({ doc, options, renderRegion }: Resolve
       `renderRegion requires exactly 1 page (resolved ${pageNumbers.length} from pages selector ${options.pages ? `"${options.pages}"` : '(all pages)'})`,
     );
   }
-  // Bounds are checked against the unrotated pdf.js page.view dimensions
-  // exposed by spans / imageBoxes / layout.blocks. The renderer maps that
-  // region through pdf.js's viewport, so rotated pages still crop the
-  // human-visible rotated page while callers keep one coordinate system.
+  // Bounds are checked against the page frame spans / imageBoxes /
+  // layout.blocks are reported in (normally the displayed, post-/Rotate one).
   if (renderRegion && (options.render || options.ocr)) {
     const probePage = await doc.getPage(pageNumbers[0]);
-    // Bounds against the visible page view box — matches the coordinates
-    // pdfvision exposes via spans / imageBoxes / layout.blocks, not the
-    // post-rotation viewport.
-    const view = probePage.view;
-    const pageW = Math.abs(view[2] - view[0]);
-    const pageH = Math.abs(view[3] - view[1]);
+    const { width: pageW, height: pageH } = await resolvePageFrame(probePage);
     const right = renderRegion.x + renderRegion.width;
     const bottom = renderRegion.y + renderRegion.height;
     if (right > pageW + RENDER_REGION_BOUNDS_EPSILON_PT || bottom > pageH + RENDER_REGION_BOUNDS_EPSILON_PT) {

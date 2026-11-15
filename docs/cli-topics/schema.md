@@ -53,7 +53,7 @@ interface PageOverview {
   nonPrintableRatio: number;      // 0..1, pre-C0-strip NUL / control / noncharacter fraction
   nonPrintableCount: number;      // raw count — stays discriminable when the 3dp ratio rounds to 0
   renderContentRatio?: number;    // 0..1, fraction of pixels differing from the page's dominant background (present iff --render or --ocr)
-  rotation?: number;               // clockwise page rotation in degrees; present only for rotated pages
+  rotation?: number;               // clockwise page rotation in degrees; present only for rotated pages; geometry is already turned
   userUnit?: number;               // PDF /UserUnit; omitted when 1; physical points = raw page-view value * userUnit
   quality: PageQuality;           // derived classification — see below
   warningCount?: number;          // mirror of pages[N].warnings.length, omitted when no rule fired
@@ -64,7 +64,7 @@ interface PageOverview {
   linkCount?: number;             // furniture presence count; automatic when non-zero, present-with-0 when the matching flag ran
   annotationCount?: number;       // furniture presence count; automatic when non-zero, present-with-0 when the matching flag ran
   structureNodeCount?: number;    // count of tagged-PDF structure nodes; present iff --structure
-  width: number;                  // raw unrotated page-view units
+  width: number;                  // raw units, displayed (post-/Rotate) frame
   height: number;
 }
 ```
@@ -99,7 +99,7 @@ interface PageResult {
   nonPrintableCount: number;     // pre-C0-strip raw count alongside the ratio
   renderContentRatio?: number;   // pixel fraction differing from the page's dominant background (present iff --render or --ocr)
   quality: PageQuality;          // derived per-page classification — agent-side dispatch lives on this field
-  rotation?: number;              // clockwise page rotation in degrees; present only for rotated pages
+  rotation?: number;              // clockwise page rotation in degrees; present only for rotated pages; geometry is already turned
   userUnit?: number;              // PDF /UserUnit; omitted when 1; mirrored in overview[]
   width: number;
   height: number;
@@ -148,19 +148,17 @@ Feature payloads are opt-in, so a result from `--layout --form-fields` is a diff
 
 ## Coordinate system
 
-All coordinates (spans, layout blocks, image boxes, vector boxes, visual regions, form fields, `renderRegion`) use raw units from the unrotated pdf.js `page.view` visible box, with `(0, 0)` at its top-left and `y` growing downward. This box is CropBox ∩ MediaBox when a distinct valid CropBox applies, otherwise MediaBox. `pages[].userUnit` and `overview[].userUnit` expose a non-default PDF `/UserUnit` and are omitted when it is 1. Physical points = raw page-view value × UserUnit; rendered pixels = raw region × UserUnit × render scale before rotation swaps axes. `pages[].width` / `height` and `renderRegion` bounds are raw values relative to the visible box, and the same bbox passes unchanged to `--render-region`. JSON, decoded TOON, and the library retain clockwise rotation in `pages[].rotation` and `overview[].rotation`; XML keeps page-result rotation on `<pages><page rotation="...">` but currently omits overview rotation.
+All coordinates (spans, layout blocks, image boxes, vector boxes, visual regions, form fields, `renderRegion`) use raw units in the displayed page frame: the pdf.js `page.view` visible box turned by the page's `/Rotate`, the way a viewer shows it, with `(0, 0)` at its top-left and `y` growing downward. This box is CropBox ∩ MediaBox when a distinct valid CropBox applies, otherwise MediaBox. On a page with `rotation` 90 or 270, `width` / `height` are the stored box's height / width, and text lines, reading order, and tables are rebuilt along the displayed axes, so a rotated page reads like the same page stored upright. The one exception is a page whose text is upright only as stored, which `/Rotate` would turn sideways: it is read, reported, and rendered unrotated and carries a `rotated_page_read_unrotated` warning. Either way, the coordinates match that page's `--render` PNG. `pages[].userUnit` and `overview[].userUnit` expose a non-default PDF `/UserUnit` and are omitted when it is 1. Physical points = raw page-view value × UserUnit; rendered pixels = raw region × UserUnit × render scale, on rotated pages too. `pages[].width` / `height` and `renderRegion` bounds are raw values relative to the visible box, and the same bbox passes unchanged to `--render-region`. JSON, decoded TOON, and the library retain clockwise rotation in `pages[].rotation` and `overview[].rotation`; XML keeps page-result rotation on `<pages><page rotation="...">` but currently omits overview rotation.
 
 Warning-detector thresholds and `pt` / `pt²` messages use a private physical-point view of the geometry already extracted, while public bboxes stay raw. This does not make the full extraction pipeline physically invariant: layout grouping, form-label reconstruction, vector-box shaping, and visual-region generation still include raw-unit heuristics and can produce different upstream signals for physically equivalent non-default-UserUnit PDFs.
 
-To map unrotated page coordinates onto an unrotated full-page PNG:
+To map coordinates onto a full-page PNG (rotated or not, since the render is the displayed page):
 
 ```ts
 const sx = image.width / page.width;
 const sy = image.height / page.height;
 const pixelBox = { x: box.x * sx, y: box.y * sy, width: box.width * sx, height: box.height * sy };
 ```
-
-This direct scale is valid for unrotated pages. For rotated pages, use `pages[].rotation` and the PDF viewport transform (or `--render-region`) because the full-page PNG width/height may be swapped relative to `page.width` / `page.height`.
 
 Every coordinate-bearing field — spans, layout blocks and lines, image boxes, vector boxes, visual regions, form fields, link and annotation boxes, structure node bboxes, OCR words, search matches — uses this one system, so moving from a structured field to a visual crop never requires inventing a second one.
 

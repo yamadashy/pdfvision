@@ -39,6 +39,8 @@ export interface PageData {
    *  was not requested. */
   _warningSpans?: TextSpan[];
   _invisibleText?: InvisibleTextEvidence;
+  /** The page has a /Rotate but its text only reads upright as stored, so it was read unrotated. */
+  _readUnrotated?: true;
   _opaqueFillText?: OpaqueFillTextEvidence;
   layout?: PageLayout;
   /** Layout built internally (independent of `flags.layout`) so a search
