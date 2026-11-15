@@ -40,19 +40,14 @@ standard deviations σ , the likelihood over the N = 47 events of the catalogue 
 
 k
 
-ln L(θ) = −
-
-1 N (dk − μ (θ))2
-
-∑
+1 N (dk − μk(θ))2
+ln L(θ) = − ∑
 
 2 k
 
 =1
 
 σ2
-
-k
 
 k
 

@@ -111,10 +111,11 @@ columns; `layout_table_uncertain` does flag that one.
   Figure 2's values come as `Eye` / `1.0` / `0.9` / `0.84` / … / `Muzzle` / `0.93` / `0.88` / `0.80` / `0.75` /
   `10:00` / `13:00`, interleaved with Table 1's columns, so question 4 (0.93 for Eye at 13:00) cannot be
   attributed; only the generic `tabular_numeric_layout` says to inspect the render "when values
-  matter". Figure 1's bar values are split around `Ardmore` and `Kilbrack` (`89` / `64` / `Ardmore` /
-  … / `78` / `58` / `Kilbrack` / … / `61`), so the Kilbrack drone rate (78%) is not recoverable either.
+  matter". Figure 1's farm names come as one line, `Northfield Ardmore Kilbrack`, above the caption, and
+  its bar values later in the Results column (`89` / `64` / … / `78` / `58` / … / `61`), so the Kilbrack
+  drone rate (78%) is not recoverable either.
 - The third affiliation, `3 Northfield Dairy Research Farm`, is spliced into the Results column, between
-  `Ardmore` and `87%`.
+  `64` and `87%`.
 - The widely justified first line of Results is broken into single words scattered through the
   column: `The` / `drone` … `flagged` … `87%` / `of` … `the`, so “87% of events” only survives as fragments.
 - Table 1's F1 column is read after the References, interleaved line by line with the Acknowledgements.

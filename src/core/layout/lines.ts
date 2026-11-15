@@ -1,6 +1,7 @@
 import type { LayoutLine, TextSpan } from '../../types/index.js';
 import { isCjkLeading } from '../text/cjkJoin.js';
 import { isLikelyCjkDisplaySpacingRow, isLikelyWideWordSpacingRow } from '../text/spacing.js';
+import { type ColumnGutter, columnGutterSide, detectColumnGutters, gapCrossesColumnGutter } from './columnGutters.js';
 import { type BBox, median, mode, round2, unionBox } from './geometry.js';
 import {
   detectRecurringGutterBins,
@@ -138,8 +139,11 @@ function horizontalLineGroupingHeight(span: TextSpan): number {
 }
 
 function lineGroupAnchor(group: TextSpan[]): TextSpan {
-  const candidates = group.filter((span) => !hasVerticalTextShape(span));
-  const usable = candidates.length > 0 ? candidates : group;
+  const horizontal = group.filter((span) => !hasVerticalTextShape(span));
+  // Bullets, warning icons and other lone symbols are often set larger
+  // and off the text baseline; anchoring on one lets the next line join.
+  const textual = horizontal.filter((span) => /[\p{L}\p{N}]/u.test(span.text));
+  const usable = textual.length > 0 ? textual : horizontal.length > 0 ? horizontal : group;
   const medianHeight = median(usable.map((span) => span.height || span.fontSize || FONT_SIZE_FALLBACK_PT));
   return usable.reduce((best, span) => {
     const bestHeight = best.height || best.fontSize || FONT_SIZE_FALLBACK_PT;
@@ -150,6 +154,41 @@ function lineGroupAnchor(group: TextSpan[]): TextSpan {
     if (distance === bestDistance && height < bestHeight) return span;
     return best;
   });
+}
+
+/**
+ * Cluster y-sorted spans into lines. The y comparison anchors on the
+ * group's representative span rather than the most recent one — chaining
+ * off the latest span lets a slow vertical drift accumulate and merge spans
+ * whose y is significantly above the line's actual baseline.
+ */
+function groupLineSpans(sorted: readonly TextSpan[]): TextSpan[][] {
+  const groups: TextSpan[][] = [];
+  for (const s of sorted) {
+    const last = groups[groups.length - 1];
+    if (last && canShareTextLine(s, lineGroupAnchor(last))) last.push(s);
+    else groups.push([s]);
+  }
+  return groups;
+}
+
+/**
+ * The same clustering run separately on each side of every column gutter.
+ * Columns set on their own baselines interleave in y order, so one pass
+ * over the page lets a column's line capture the neighbouring column's
+ * first word, or a bullet, and strands the rest of that line in a group of
+ * its own. Groups come back in the order of their first span.
+ */
+function groupLineSpansByColumn(sorted: readonly TextSpan[], gutters: readonly ColumnGutter[]): TextSpan[][] {
+  const order = new Map(sorted.map((span, index) => [span, index]));
+  const parts = new Map<string, TextSpan[]>();
+  for (const span of sorted) {
+    const key = gutters.map((gutter) => columnGutterSide(gutter, span)).join('');
+    const part = parts.get(key);
+    if (part) part.push(span);
+    else parts.set(key, [span]);
+  }
+  return [...parts.values()].flatMap(groupLineSpans).sort((a, b) => (order.get(a[0]) ?? 0) - (order.get(b[0]) ?? 0));
 }
 
 function isMisalignedLeftSidePanelBoundaryCandidate(
@@ -179,20 +218,10 @@ export function buildLayoutLines(spans: TextSpan[], pageWidth = 0): LayoutLine[]
   const rubyAttachments = horizontalRubyTextAttachments(horizontalRuby.rubyAssociations);
   // Stable sort: primarily by y (top to bottom), then by x within a row.
   const sorted = spans.filter((span) => !horizontalRubySpans.has(span)).sort((a, b) => a.y - b.y || a.x - b.x);
+  const columnGutters = detectColumnGutters(sorted);
 
-  // Cluster spans into lines. The y comparison anchors on the first span
-  // of the current group rather than the most recent one — chaining off
-  // the latest span lets a slow vertical drift accumulate and merge spans
-  // whose y is significantly above the line's actual baseline.
-  const lineGroups: TextSpan[][] = [];
-  for (const s of sorted) {
-    const last = lineGroups[lineGroups.length - 1];
-    if (last && canShareTextLine(s, lineGroupAnchor(last))) {
-      last.push(s);
-    } else {
-      lineGroups.push([s]);
-    }
-  }
+  const pageRows = groupLineSpans(sorted);
+  const lineGroups = columnGutters.length > 0 ? groupLineSpansByColumn(sorted, columnGutters) : pageRows;
 
   // Split each y-row into runs of contiguous spans. An x-gap of
   // max(1.5×fontSize, 16pt) is a strong column/table gutter signal:
@@ -201,9 +230,11 @@ export function buildLayoutLines(spans: TextSpan[], pageWidth = 0): LayoutLine[]
   // Some dense journals use ~12pt two-column gutters, too close to wide
   // justified word spaces to trust per-row. Those split only when the
   // same gutter position recurs on several page-wide y-rows.
-  const recurringGutterBins = detectRecurringGutterBins(lineGroups, pageWidth);
-  const recurringSidePanelStartBins = detectRecurringSidePanelStartBins(lineGroups, pageWidth);
-  const recurringTableGutterBins = detectRecurringTableGutterBins(lineGroups, pageWidth);
+  // The recurring-gutter signals read page-wide rows, so they are taken
+  // from the grouping that ignores column gutters.
+  const recurringGutterBins = detectRecurringGutterBins(pageRows, pageWidth);
+  const recurringSidePanelStartBins = detectRecurringSidePanelStartBins(pageRows, pageWidth);
+  const recurringTableGutterBins = detectRecurringTableGutterBins(pageRows, pageWidth);
   const lines: LayoutLine[] = lineGroups.flatMap((group) => {
     const xSorted = [...group].sort((a, b) => a.x - b.x);
     const groupBox = unionBox(xSorted);
@@ -241,6 +272,7 @@ export function buildLayoutLines(spans: TextSpan[], pageWidth = 0): LayoutLine[]
         isTableGutterNumericSpan(cur) &&
         (isRecurringTableGutterCandidate(groupBox, gap, fontSize, pageWidth) ||
           isTrailingCurrencyTableGutterCandidate(groupBox, prev, cur, gap, fontSize, pageWidth));
+      const columnGutter = gapCrossesColumnGutter(columnGutters, prev, cur);
       const misalignedLeftSidePanelBoundary = isMisalignedLeftSidePanelBoundaryCandidate(
         groupBox,
         prev,
@@ -252,6 +284,7 @@ export function buildLayoutLines(spans: TextSpan[], pageWidth = 0): LayoutLine[]
       if (
         !preserveCjkDisplaySpacing &&
         (denseNumericTableGutter ||
+          columnGutter ||
           (!preserveWideWordSpacing &&
             (gap > segmentGap ||
               recurringGutter ||

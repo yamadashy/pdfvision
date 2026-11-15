@@ -49,7 +49,7 @@ later lines. Subscripts on inline symbols drift away: `standard deviations σ ,`
 
 The display equations are scattered across lines: Eq. (1) is
 `c (1 + z)∫z dz′` / `dL(z) =` / `H` / `0` / `0 E(z′)`, interleaved with the section heading and
-the page number `7`; Eq. (2) is `ln L(θ) = −` / `1 N (dk − μ (θ))2` / `∑` / `2 k` / `=1` / `σ2`,
+the page number `7`; Eq. (2) is `1 N (dk − μk(θ))2` / `ln L(θ) = − ∑` / `2 k` / `=1` / `σ2`,
 so question 4 has to be reassembled from fragments. The matrix (question 3) and the aligned
 derivation (question 5) come out row by row and are answerable: `0.042 −0.013` / `−0.013` /
 `0.027` and `≈ 1 + 0.93 z.`.

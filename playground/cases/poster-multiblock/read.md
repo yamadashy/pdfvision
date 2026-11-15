@@ -82,7 +82,7 @@ Events detected (%)
 
 0
 
-Northfield
+Northfield Ardmore Kilbrack
 Figure 1. Detection rate by farm
 
 Detection was lowest on the Kilbrack farm,
@@ -97,8 +97,6 @@ Visual check
 
 64
 
-Ardmore
-
 3 Northfield Dairy Research Farm
 
 87%
@@ -108,8 +106,6 @@ of
 78
 
 58
-
-Kilbrack
 
 Results (continued)
 
