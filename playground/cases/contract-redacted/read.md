@@ -96,7 +96,7 @@ early-termination fee of USD 120,000.
 
 ### Warnings
 
-> **error** (text_matches_background): 2 extracted native text passages are drawn in the same colour as the paint behind them (for example white text on a white page): "Client may terminate this Agreement for convenience after..." (bbox 102,567.02,413.35,10.5); "early-termination fee of USD 120,000." (bbox 102,581.22,162.72,10.5) — the text remains extractable although a human viewer sees blank space there; render a listed bbox (--render-region x,y,w,h) before trusting or repeating it
+> **warning** (text_matches_background): 2 extracted native text passages are drawn in the same colour as the paint behind them (for example white text on a white page): "Client may terminate this Agreement for convenience after..." (bbox 102,567.02,413.35,10.5); "early-termination fee of USD 120,000." (bbox 102,581.22,162.72,10.5) — a human viewer sees blank space there, so this text is not part of what the page shows (often production metadata, sometimes deliberately hidden content); render a listed bbox (--render-region x,y,w,h) before quoting it as visible
 
 ---
 

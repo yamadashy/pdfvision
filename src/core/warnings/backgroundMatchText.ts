@@ -60,7 +60,11 @@ export function detectTextMatchesBackground(
   const plural = passages.length !== 1;
   out.push({
     code: 'text_matches_background',
-    severity: 'error',
-    message: `${passages.length} extracted native text passage${plural ? 's are' : ' is'} drawn in the same colour as the paint behind ${plural ? 'them' : 'it'} (for example white text on a white page): ${describePassages(passages, page.userUnit)} — the text remains extractable although a human viewer sees blank space there; render a listed bbox (--render-region x,y,w,h) before trusting or repeating it`,
+    // Not an error: the extraction is faithful to the file, and the common
+    // real-world cause is invisible production metadata (printer slugs,
+    // job IDs) rather than an attempt to hide content. A black box drawn
+    // over text is a stronger claim and stays an error.
+    severity: 'warning',
+    message: `${passages.length} extracted native text passage${plural ? 's are' : ' is'} drawn in the same colour as the paint behind ${plural ? 'them' : 'it'} (for example white text on a white page): ${describePassages(passages, page.userUnit)} — a human viewer sees blank space there, so this text is not part of what the page shows (often production metadata, sometimes deliberately hidden content); render a listed bbox (--render-region x,y,w,h) before quoting it as visible`,
   });
 }

@@ -87,7 +87,7 @@ export async function extractPageData(
     height,
     xMin,
     yMin,
-    (loadedName) => fontGeometry(page.commonObjs, loadedName),
+    cachedFontGeometry(page.commonObjs),
   );
   const allBoxes = buildImageBoxes(opList.fnArray, opList.argsArray as unknown[][], ops, height, view[0], yMin);
   const imageCount = allBoxes.length;
@@ -333,4 +333,16 @@ function fontGeometry(
   } catch {
     return undefined;
   }
+}
+
+function cachedFontGeometry(
+  commonObjs: { has(id: string): boolean; get(id: string): unknown } | undefined,
+): (loadedName: string) => FontGeometryInfo | undefined {
+  const cache = new Map<string, FontGeometryInfo | undefined>();
+  return (loadedName) => {
+    if (cache.has(loadedName)) return cache.get(loadedName);
+    const info = fontGeometry(commonObjs, loadedName);
+    cache.set(loadedName, info);
+    return info;
+  };
 }

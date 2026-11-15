@@ -9,6 +9,7 @@ import {
 import { isDarkColor, isIndistinguishable, parseHexColor, type Rgb } from './paintColor.js';
 import { numericQuad, type Quad, rectanglePathBox } from './rectanglePath.js';
 import {
+  advanceRun,
   applyTextStateOp,
   cloneTextState,
   type FontGeometryResolver,
@@ -17,7 +18,8 @@ import {
   type Matrix6,
   multiply,
   type PageBox,
-  placeGlyphs,
+  placeRunGlyphs,
+  type RunPlacement,
   type TextGlyphOps,
   type TextState,
   toPageBox,
@@ -95,6 +97,7 @@ const MIN_OPAQUE_BACKGROUND_ALPHA = 0.99;
 const MAX_EVIDENCE_TEXT_RUNS = 4_096;
 const MAX_EVIDENCE_TEXT_CODE_UNITS = 65_536;
 const MAX_EVIDENCE_FILLS = 4_096;
+const MAX_RUN_REGION_CHECKS = 2_000_000;
 /** Fill and fill+clip; stroke modes depend on a stroke colour, Tr 3/7 is `invisible_text`. */
 const FILL_ONLY_RENDERING_MODES = new Set([0, 4]);
 
@@ -118,6 +121,8 @@ export function collectOpaqueFillTextEvidence(
 ): OpaqueFillTextEvidence | undefined {
   const textRuns: string[] = [];
   const glyphRuns: Array<TextGlyphEvidence[] | undefined> = [];
+  const runPlacements: Array<RunPlacement | undefined> = [];
+  const candidateColors = new Map<string, boolean>();
   const fills: OpaqueDarkFillEvidence[] = [];
   const background: BackgroundHistory = createBackgroundHistory();
   let ctm: Matrix6 = [1, 0, 0, 1, 0, 0];
@@ -189,9 +194,15 @@ export function collectOpaqueFillTextEvidence(
     }
     const color = parseHexColor(fillColor);
     if (!color) return undefined;
-    return hasCandidateBackground(background, (behind) => isIndistinguishable(color, fillAlpha, behind))
-      ? color
-      : undefined;
+    // Most pages show thousands of runs in a handful of colours; the answer
+    // only changes when a new known-colour paint is recorded.
+    const key = `${fillColor}|${fillAlpha}`;
+    let candidate = candidateColors.get(key);
+    if (candidate === undefined) {
+      candidate = hasCandidateBackground(background, (behind) => isIndistinguishable(color, fillAlpha, behind));
+      candidateColors.set(key, candidate);
+    }
+    return candidate ? color : undefined;
   };
 
   const recordFillBackground = (rectangle: Quad | undefined, minMax: unknown): void => {
@@ -208,6 +219,7 @@ export function collectOpaqueFillTextEvidence(
       optionalContentDepth === 0;
     if (rectangle && known) {
       recordPaint(background, pageBox(rectangle), color);
+      candidateColors.clear();
       return;
     }
     const bounds = rectangle ?? numericQuad(minMax);
@@ -308,29 +320,26 @@ export function collectOpaqueFillTextEvidence(
       fillColor = fillColorValue(args);
     } else if (ops.textShowOps.has(fn)) {
       const run = operatorText(args);
-      const glyphs: TextGlyphEvidence[] | undefined = placeGlyphs(
-        text,
-        args?.[0],
-        ctm,
-        resolveFont,
-        pageHeight,
-        viewMinX,
-        viewMinY,
-      );
+      const placement = advanceRun(text, args?.[0], ctm, resolveFont, pageHeight, viewMinX, viewMinY);
       if (normalizeComparableText(run).length === 0) continue;
       textCodeUnits += run.length;
       if (textRuns.length >= MAX_EVIDENCE_TEXT_RUNS || textCodeUnits > MAX_EVIDENCE_TEXT_CODE_UNITS) {
         return undefined;
       }
       textRuns.push(run);
-      glyphRuns.push(glyphs);
-      if (!glyphs) continue;
+      runPlacements.push(placement);
+      glyphRuns.push(undefined);
+      if (!placement) continue;
       placedRuns++;
       const textColor = backgroundMatchCandidateColor();
       if (!textColor) continue;
+      // The paint behind the glyphs is only known now, so a candidate run is placed immediately.
+      const glyphs: TextGlyphEvidence[] = placeRunGlyphs(placement, pageHeight, viewMinX, viewMinY);
+      glyphRuns[glyphRuns.length - 1] = glyphs;
+      const behindRun = backgroundColorAt(background, placement.box);
       for (const glyph of glyphs) {
         if (glyph.whitespace) continue;
-        const behind = backgroundColorAt(background, glyph.core);
+        const behind = behindRun ?? backgroundColorAt(background, glyph.core);
         if (behind && isIndistinguishable(textColor, fillAlpha, behind)) {
           glyph.matchesBackground = true;
           matchedBackground = true;
@@ -381,11 +390,55 @@ export function collectOpaqueFillTextEvidence(
   if (matchedBackground && !backgroundMatches) clearBackgroundMatches(glyphRuns);
   const laterFills = fills.filter((fill) => fill.precedingTextRunCount > 0);
   if (laterFills.length === 0 && !backgroundMatches) return undefined;
+  if (placedRuns > 0) {
+    placeRunsNear(
+      [...laterFills, ...(backgroundMatches ? matchedGlyphBoxes(glyphRuns) : [])],
+      runPlacements,
+      glyphRuns,
+      pageHeight,
+      viewMinX,
+      viewMinY,
+    );
+  }
   return {
     textRuns,
     fills: laterFills,
     ...(placedRuns > 0 && { glyphRuns }),
   };
+}
+
+/**
+ * Place the glyphs of every run whose box touches a region the warnings
+ * will examine — a later dark fill, or a background-matching glyph (for
+ * the repainted-on-top check). Other placeable runs get an empty glyph
+ * list: they cannot change either warning, and leaving them `undefined`
+ * would wrongly send their text to the whole-span fallback.
+ */
+function placeRunsNear(
+  regions: readonly PageBox[],
+  runPlacements: ReadonlyArray<RunPlacement | undefined>,
+  glyphRuns: Array<TextGlyphEvidence[] | undefined>,
+  pageHeight: number,
+  viewMinX: number,
+  viewMinY: number,
+): void {
+  const placeAll = regions.length * runPlacements.length > MAX_RUN_REGION_CHECKS;
+  for (let i = 0; i < runPlacements.length; i++) {
+    const placement = runPlacements[i];
+    if (!placement || glyphRuns[i]) continue;
+    const near = placeAll || regions.some((region) => boxesTouch(region, placement.box));
+    glyphRuns[i] = near ? placeRunGlyphs(placement, pageHeight, viewMinX, viewMinY) : [];
+  }
+}
+
+function matchedGlyphBoxes(glyphRuns: ReadonlyArray<TextGlyphEvidence[] | undefined>): PageBox[] {
+  const boxes: PageBox[] = [];
+  for (const run of glyphRuns) for (const glyph of run ?? []) if (glyph.matchesBackground) boxes.push(glyph.box);
+  return boxes;
+}
+
+function boxesTouch(a: PageBox, b: PageBox): boolean {
+  return a.x <= b.x + b.width && b.x <= a.x + a.width && a.y <= b.y + b.height && b.y <= a.y + a.height;
 }
 
 function clearBackgroundMatches(glyphRuns: Array<TextGlyphEvidence[] | undefined>): void {

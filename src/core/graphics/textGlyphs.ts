@@ -153,12 +153,38 @@ export function applyTextStateOp(
 }
 
 /**
- * Place the glyphs of one pdf.js `showText` argument and advance the text
- * position. Returns undefined (and marks the position unknown) when the
- * run cannot be placed faithfully: no font size, a negative size, vertical
- * writing, or a missing advance width.
+ * Everything needed to place one text-show's glyphs later, plus the run's
+ * bounding box. Placing every glyph on every page is the expensive part,
+ * and almost no glyph is ever asked about, so callers place a run's glyphs
+ * only when the run can matter (see `placeRunGlyphs`).
  */
-export function placeGlyphs(
+export interface RunPlacement {
+  box: PageBox;
+  glyphArgs: readonly unknown[];
+  matrix: Matrix6;
+  startX: number;
+  baseline: number;
+  fontSize: number;
+  widthAdvanceScale: number;
+  em: number;
+  charSpacing: number;
+  wordSpacing: number;
+  hScale: number;
+}
+
+interface GlyphFields {
+  unicode?: unknown;
+  width?: unknown;
+  isSpace?: unknown;
+}
+
+/**
+ * Measure one pdf.js `showText` argument and advance the text position.
+ * Returns undefined (and marks the position unknown) when the run cannot
+ * be placed faithfully: no font size, a negative size, vertical writing,
+ * or a missing advance width.
+ */
+export function advanceRun(
   state: TextState,
   glyphArgs: unknown,
   ctm: Matrix6,
@@ -166,7 +192,7 @@ export function placeGlyphs(
   pageHeight: number,
   viewMinX: number,
   viewMinY: number,
-): GlyphGeometry[] | undefined {
+): RunPlacement | undefined {
   if (!Array.isArray(glyphArgs)) return fail(state);
   const font = state.fontName ? resolveFont?.(state.fontName) : undefined;
   const fontMatrix = font?.fontMatrix && font.fontMatrix.length >= 4 ? font.fontMatrix : FONT_IDENTITY_MATRIX;
@@ -175,52 +201,98 @@ export function placeGlyphs(
     return fail(state);
   }
   const widthAdvanceScale = fontSize * fontMatrix[0];
-  const em = fontSize * Math.abs(fontMatrix[3]) * 1000;
-  const matrix = multiply(ctm, state.textMatrix);
-  const baseline = state.y + state.rise;
-  const placed: GlyphGeometry[] = [];
+  const { wordSpacing, charSpacing } = state;
   let x = 0;
+  let minX = 0;
+  let maxX = 0;
   for (const glyph of glyphArgs) {
     if (typeof glyph === 'number') {
       if (!Number.isFinite(glyph)) return fail(state);
       x -= (glyph * fontSize) / 1000;
+    } else if (glyph && typeof glyph === 'object') {
+      const { width, isSpace } = glyph as GlyphFields;
+      if (typeof width !== 'number' || !Number.isFinite(width)) return fail(state);
+      x += width * widthAdvanceScale + (isSpace === true ? wordSpacing : 0) + charSpacing;
+    }
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+  }
+  const em = fontSize * Math.abs(fontMatrix[3]) * 1000;
+  const matrix = multiply(ctm, state.textMatrix);
+  const baseline = state.y + state.rise;
+  const startX = state.x;
+  state.x += x * state.hScale;
+  return {
+    box: toPageBox(
+      [
+        startX + minX * state.hScale,
+        baseline - DESCENT_EM * em,
+        startX + maxX * state.hScale,
+        baseline + ASCENT_EM * em,
+      ],
+      matrix,
+      pageHeight,
+      viewMinX,
+      viewMinY,
+    ),
+    glyphArgs,
+    matrix,
+    startX,
+    baseline,
+    fontSize,
+    widthAdvanceScale,
+    em,
+    charSpacing,
+    wordSpacing,
+    hScale: state.hScale,
+  };
+}
+
+/** Per-glyph boxes for a run measured by `advanceRun`. */
+export function placeRunGlyphs(
+  run: RunPlacement,
+  pageHeight: number,
+  viewMinX: number,
+  viewMinY: number,
+): GlyphGeometry[] {
+  const { matrix, baseline, em, hScale, startX } = run;
+  const emOnPage = em * matrixScale(matrix);
+  const placed: GlyphGeometry[] = [];
+  let x = 0;
+  for (const glyph of run.glyphArgs) {
+    if (typeof glyph === 'number') {
+      x -= (glyph * run.fontSize) / 1000;
       continue;
     }
     if (!glyph || typeof glyph !== 'object') continue;
-    const { unicode, width, isSpace } = glyph as { unicode?: unknown; width?: unknown; isSpace?: unknown };
-    if (typeof width !== 'number' || !Number.isFinite(width)) return fail(state);
-    const spacing = (isSpace === true ? state.wordSpacing : 0) + state.charSpacing;
-    const advance = width * widthAdvanceScale + spacing;
+    const { unicode, width, isSpace } = glyph as GlyphFields;
+    const advance =
+      (width as number) * run.widthAdvanceScale + (isSpace === true ? run.wordSpacing : 0) + run.charSpacing;
     const text = typeof unicode === 'string' ? unicode : '';
-    const left = state.x + x * state.hScale;
-    const right = state.x + (x + Math.max(advance, 0)) * state.hScale;
-    const inset = (right - left) * CORE_INSET;
-    const box = toPageBox(
-      [left, baseline - DESCENT_EM * em, right, baseline + ASCENT_EM * em],
-      matrix,
-      pageHeight,
-      viewMinX,
-      viewMinY,
-    );
-    const core = toPageBox(
-      [left + inset, baseline + CORE_BOTTOM_EM * em, right - inset, baseline + CORE_TOP_EM * em],
-      matrix,
-      pageHeight,
-      viewMinX,
-      viewMinY,
-    );
-    if (text.length > 0 && isFiniteBox(box) && isFiniteBox(core)) {
-      placed.push({
-        text,
-        whitespace: isSpace === true || text.trim().length === 0,
-        box,
-        core,
-        em: em * matrixScale(matrix),
-      });
+    if (text.length > 0) {
+      const left = startX + x * hScale;
+      const right = startX + (x + Math.max(advance, 0)) * hScale;
+      const inset = (right - left) * CORE_INSET;
+      const box = toPageBox(
+        [left, baseline - DESCENT_EM * em, right, baseline + ASCENT_EM * em],
+        matrix,
+        pageHeight,
+        viewMinX,
+        viewMinY,
+      );
+      const core = toPageBox(
+        [left + inset, baseline + CORE_BOTTOM_EM * em, right - inset, baseline + CORE_TOP_EM * em],
+        matrix,
+        pageHeight,
+        viewMinX,
+        viewMinY,
+      );
+      if (isFiniteBox(box) && isFiniteBox(core)) {
+        placed.push({ text, whitespace: isSpace === true || text.trim().length === 0, box, core, em: emOnPage });
+      }
     }
     x += advance;
   }
-  state.x += x * state.hScale;
   return placed;
 }
 
@@ -270,18 +342,11 @@ export function toPageBox(
   viewMinY: number,
 ): PageBox {
   const [a, b, c, d, e, f] = matrix;
-  const corners = [
-    [x1, y1],
-    [x2, y1],
-    [x1, y2],
-    [x2, y2],
-  ].map(([x, y]) => [a * x + c * y + e, b * x + d * y + f]);
-  const xs = corners.map(([x]) => x);
-  const ys = corners.map(([, y]) => y);
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
+  // Each corner is e + a·x + c·y, so the extremes pick the smaller/larger term per axis.
+  const minX = e + Math.min(a * x1, a * x2) + Math.min(c * y1, c * y2);
+  const maxX = e + Math.max(a * x1, a * x2) + Math.max(c * y1, c * y2);
+  const minY = f + Math.min(b * x1, b * x2) + Math.min(d * y1, d * y2);
+  const maxY = f + Math.max(b * x1, b * x2) + Math.max(d * y1, d * y2);
   return { x: minX - viewMinX, y: pageHeight - (maxY - viewMinY), width: maxX - minX, height: maxY - minY };
 }
 

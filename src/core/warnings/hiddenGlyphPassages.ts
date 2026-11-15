@@ -145,14 +145,15 @@ export function overlapArea(a: PageBox, b: PageBox): number {
 /** `"text" (bbox x,y,w,h)` for up to three passages, in raw page units for --render-region. */
 export function describePassages(passages: readonly HiddenPassage[], userUnit: number | undefined): string {
   const toRaw = 1 / (userUnit ?? 1);
-  const listed = passages.slice(0, MAX_LISTED_PASSAGES).map((passage) => {
-    const region = [passage.box.x, passage.box.y, passage.box.width, passage.box.height]
-      .map((n) => round2(n * toRaw))
-      .join(',');
-    return `${JSON.stringify(sample(passage.text))} (bbox ${region})`;
-  });
+  const region = (box: PageBox): string =>
+    [box.x, box.y, box.width, box.height].map((n) => round2(n * toRaw)).join(',');
+  const listed = passages
+    .slice(0, MAX_LISTED_PASSAGES)
+    .map((passage) => `${JSON.stringify(sample(passage.text))} (bbox ${region(passage.box)})`);
   const more = passages.length - listed.length;
-  return more > 0 ? `${listed.join('; ')}; and ${more} more` : listed.join('; ');
+  if (more <= 0) return listed.join('; ');
+  const all = passages.slice(1).reduce((box, passage) => union(box, passage.box), passages[0].box);
+  return `${listed.join('; ')}; and ${more} more (all ${passages.length} within bbox ${region(all)})`;
 }
 
 function sample(text: string): string {

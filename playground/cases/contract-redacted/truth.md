@@ -91,7 +91,7 @@ file contains them — and each is flagged on its page. Page 2 reads `shall not 
 contract year.` and carries `text_under_opaque_fill` naming exactly `"USD 250,000"` with its bbox, so
 the rest of clause 6.1 stays ordinary visible text and question 2 is answered as “shown redacted;
 the hidden text reads USD 250,000”. Page 1 reads clause 4.3 as a normal clause and carries
-`text_matches_background` naming its two lines (`"Client may terminate this Agreement for convenience after..."` and
+`text_matches_background` (severity `warning`) naming its two lines (`"Client may terminate this Agreement for convenience after..."` and
 `"early-termination fee of USD 120,000."`) with bboxes, which answers question 3. Both warnings
 point at `--render-region` for the listed bbox, and the render shows the black box and the blank.
 The warnings sit at the end of each page, after the annotation tables, so an agent has to read to the

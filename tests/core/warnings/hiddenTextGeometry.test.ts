@@ -105,7 +105,7 @@ describe('text_matches_background', () => {
     });
 
     const warning = warnings.find((item) => item.code === 'text_matches_background');
-    expect(warning?.severity).toBe('error');
+    expect(warning?.severity).toBe('warning');
     expect(warning?.message).toContain('"Hidden early-termination fee of USD 120,000."');
     expect(warning?.message).not.toContain('Visible clause');
   });
@@ -238,7 +238,7 @@ describe('glyph placement from the operator list', () => {
         [50],
         [[glyph('A'), -1000, glyph('B')]],
         ['#000000'],
-        [OP.fill, [[0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 4]], [0, 0, 1, 1]],
+        [OP.fill, [[0, 100, 690, 1, 140, 690, 1, 140, 710, 1, 100, 710, 4]], [100, 690, 140, 710]],
       ],
       ops,
       792,
@@ -271,5 +271,38 @@ describe('glyph placement from the operator list', () => {
 
     expect(evidence?.textRuns).toEqual(['SSN']);
     expect(evidence?.glyphRuns).toBeUndefined();
+  });
+
+  it('measures every run but places glyphs only for runs near a later dark fill', () => {
+    const evidence = collectOpaqueFillTextEvidence(
+      [
+        OP.beginText,
+        OP.setFont,
+        OP.setTextMatrix,
+        OP.showText,
+        OP.setTextMatrix,
+        OP.showText,
+        OP.setFillRGBColor,
+        OP.constructPath,
+      ],
+      [
+        [],
+        ['F1', 10],
+        [[1, 0, 0, 1, 100, 700]],
+        [[glyph('A'), glyph('B'), glyph('C')]],
+        [[1, 0, 0, 1, 100, 400]],
+        [[glyph('X'), glyph('Y'), glyph('Z')]],
+        ['#000000'],
+        [OP.fill, [[0, 98, 690, 1, 120, 690, 1, 120, 712, 1, 98, 712, 4]], [98, 690, 120, 712]],
+      ],
+      ops,
+      792,
+      0,
+      0,
+    );
+
+    expect(evidence?.glyphRuns?.[0]?.map((g) => g.text)).toEqual(['A', 'B', 'C']);
+    // Placeable but far from every fill: an empty list, not `undefined`, so it never falls back to span coverage.
+    expect(evidence?.glyphRuns?.[1]).toEqual([]);
   });
 });
