@@ -21,7 +21,7 @@ You do not have to render everything. Start with the overview, then render the p
 pdfvision document.pdf --render --render-output ./images --format json
 ```
 
-Each selected page receives an image path. Layout boxes use raw page-view units of the page as displayed (the pdf.js page view box turned by its `/Rotate`), not PNG pixels. Physical points = raw value × `pages[].userUnit` (or 1 when omitted); pixels = raw value × UserUnit × render scale. This holds on rotated pages too; no viewport transform is needed.
+Each selected page receives an image path. Layout boxes use raw page-view units of the page as displayed (the pdf.js page view box turned by its `/Rotate`), not PNG pixels. Physical points = raw value × `pages[].userUnit` (or 1 when omitted); pixels = raw value × UserUnit × render scale. This holds on rotated pages too; no viewport transform is needed. A page with the `rotated_page_read_unrotated` warning is the exception: its coordinates and render both stay unrotated (see Structured Output).
 
 Use `--render-scale` to control detail:
 

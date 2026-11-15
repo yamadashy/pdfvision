@@ -41,7 +41,7 @@ Visual regions 是可裁剪的页面区域，可能包含有意义的图形、�
 
 ## pdfvision 使用什么坐标系？
 
-Boxes use raw page-view units of the page as displayed (the pdf.js page view box turned by its `/Rotate`), with a top-left origin. 适用时该框是 CropBox ∩ MediaBox，否则是 MediaBox。`x` 向右增加，`y` 向下增加。物理点数 = 原始值 × `pages[].userUnit`（省略时按 1）；像素数 = 原始区域 × UserUnit × render scale。bbox 可原样传给 `--render-region`；Rotated pages need no extra transform.
+Boxes use raw page-view units of the page as displayed (the pdf.js page view box turned by its `/Rotate`), with a top-left origin. 适用时该框是 CropBox ∩ MediaBox，否则是 MediaBox。`x` 向右增加，`y` 向下增加。物理点数 = 原始值 × `pages[].userUnit`（省略时按 1）；像素数 = 原始区域 × UserUnit × render scale。bbox 可原样传给 `--render-region`；Rotated pages need no extra transform; a page with the `rotated_page_read_unrotated` warning is read and rendered unrotated.
 
 ## 缓存在哪里？
 

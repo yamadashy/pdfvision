@@ -21,7 +21,7 @@ pdfvision 把渲染当作证据，而不是最后手段。智能体可以先读�
 pdfvision document.pdf --render --render-output ./images --format json
 ```
 
-每个选中页面都会得到一个图像路径。Layout boxes use raw page-view units of the page as displayed (the pdf.js page view box turned by its `/Rotate`), not PNG pixels. 物理点数 = 原始值 × `pages[].userUnit`（省略时按 1）；像素数 = 原始值 × UserUnit × render scale。This holds on rotated pages too; no viewport transform is needed.
+每个选中页面都会得到一个图像路径。Layout boxes use raw page-view units of the page as displayed (the pdf.js page view box turned by its `/Rotate`), not PNG pixels. 物理点数 = 原始值 × `pages[].userUnit`（省略时按 1）；像素数 = 原始值 × UserUnit × render scale。This holds on rotated pages too; no viewport transform is needed. A page with the `rotated_page_read_unrotated` warning is the exception: its coordinates and render both stay unrotated (see Structured Output).
 
 ```bash
 pdfvision document.pdf --render --render-scale 3

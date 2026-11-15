@@ -121,7 +121,9 @@ export interface PageResult {
    * `layout.blocks`, `imageBoxes`, `renderRegion`, etc.) and `width` /
    * `height` are already in the displayed frame, turned by this rotation, so
    * they line up with full-page and cropped PNGs and text is rebuilt along
-   * the axes a reader sees. XML projects this as a page attribute.
+   * the axes a reader sees. Exception: a page whose text is upright only as
+   * stored keeps the stored frame for geometry and renders, and carries a
+   * `rotated_page_read_unrotated` warning. XML projects this as a page attribute.
    */
   rotation?: number;
   /**

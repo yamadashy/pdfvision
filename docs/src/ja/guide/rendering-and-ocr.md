@@ -21,7 +21,7 @@ pdfvision はレンダリングを最後の手段ではなく、根拠の一種�
 pdfvision document.pdf --render --render-output ./images --format json
 ```
 
-選択ページに画像パスが付きます。Layout boxes use raw page-view units of the page as displayed (the pdf.js page view box turned by its `/Rotate`), not PNG pixels. 物理サイズのポイント数は「生の値 × `pages[].userUnit`（省略時は 1）」、ピクセル数は「生の値 × UserUnit × render scale」です。This holds on rotated pages too; no viewport transform is needed.
+選択ページに画像パスが付きます。Layout boxes use raw page-view units of the page as displayed (the pdf.js page view box turned by its `/Rotate`), not PNG pixels. 物理サイズのポイント数は「生の値 × `pages[].userUnit`（省略時は 1）」、ピクセル数は「生の値 × UserUnit × render scale」です。This holds on rotated pages too; no viewport transform is needed. A page with the `rotated_page_read_unrotated` warning is the exception: its coordinates and render both stay unrotated (see Structured Output).
 
 ```bash
 pdfvision document.pdf --render --render-scale 3

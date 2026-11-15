@@ -130,7 +130,7 @@ Multimodal flows, typically after the density Overview already flagged the page 
 
 ## `--render-region <x,y,w,h>` — zoom into a sub-rectangle of one page
 
-Use when the agent already saw a suspect block via `--layout` / `warnings[]` and only wants visual confirmation of that bbox, not the whole page. Coordinates use raw units in the displayed (post-`/Rotate`) page frame with a top-left origin, the frame every bbox is reported in; single-page only. Physical points = raw value × `pages[].userUnit` (or 1 when omitted), while pixels = raw region × UserUnit × render scale. The bbox passes unchanged, and the crop comes back the way the page displays, on rotated pages too.
+Use when the agent already saw a suspect block via `--layout` / `warnings[]` and only wants visual confirmation of that bbox, not the whole page. Coordinates use raw units in the displayed (post-`/Rotate`) page frame with a top-left origin, the frame every bbox is reported in; single-page only. Physical points = raw value × `pages[].userUnit` (or 1 when omitted), while pixels = raw region × UserUnit × render scale. The bbox passes unchanged, and the crop comes back the way the page displays, on rotated pages too. (Exception: a page flagged `rotated_page_read_unrotated` — text upright only as stored — is reported and rendered unrotated; see `pdfvision docs warnings`.)
 
 ## `--search <query>` — find occurrences with bbox
 

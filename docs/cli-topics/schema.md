@@ -152,7 +152,7 @@ All coordinates (spans, layout blocks, image boxes, vector boxes, visual regions
 
 Warning-detector thresholds and `pt` / `pt²` messages use a private physical-point view of the geometry already extracted, while public bboxes stay raw. This does not make the full extraction pipeline physically invariant: layout grouping, form-label reconstruction, vector-box shaping, and visual-region generation still include raw-unit heuristics and can produce different upstream signals for physically equivalent non-default-UserUnit PDFs.
 
-To map coordinates onto a full-page PNG (rotated or not, since the render is the displayed page):
+To map coordinates onto a full-page PNG (rotated or not: the render is in the same frame as the coordinates — displayed, or unrotated on a `rotated_page_read_unrotated` page):
 
 ```ts
 const sx = image.width / page.width;
