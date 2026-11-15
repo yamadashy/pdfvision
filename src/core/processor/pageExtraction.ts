@@ -1,4 +1,5 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import type { VectorBox } from '../../types/index.js';
 import { buildAnnotations, hasVisibleAnnotationAppearance, isPageAnnotation } from '../annotations/index.js';
 import { resolveDestinationPage } from '../document/destinations.js';
 import { buildMarkedContentTextMap } from '../document/markedContentText.js';
@@ -119,9 +120,19 @@ export async function extractPageData(
     xMin,
     yMin,
   );
+  const colouredVectorFills: VectorBox[] = [];
   const allVectorBoxes =
     vectorCount > 0
-      ? buildVectorBoxes(opList.fnArray, opList.argsArray as unknown[][], ops, width, height, xMin, yMin)
+      ? buildVectorBoxes(
+          opList.fnArray,
+          opList.argsArray as unknown[][],
+          ops,
+          width,
+          height,
+          xMin,
+          yMin,
+          colouredVectorFills,
+        )
       : [];
   const vectorBoxes = flags.vectorBoxes ? allVectorBoxes : undefined;
   // Build layout internally for form-field labels and visual-region table
@@ -310,6 +321,7 @@ export async function extractPageData(
     _warningImageBoxes: allBoxes,
     ...(vectorBoxes !== undefined && { vectorBoxes }),
     _warningVectorBoxes: allVectorBoxes,
+    ...(colouredVectorFills.length > 0 && { _warningColouredFills: colouredVectorFills }),
     ...(allPageAnnotations !== undefined && { _warningAnnotations: allPageAnnotations }),
     ...(visualRegionInput !== undefined && { _visualRegionInput: visualRegionInput }),
     ...(visibleAnnotationAppearance && { hasVisibleAnnotationAppearance: true }),

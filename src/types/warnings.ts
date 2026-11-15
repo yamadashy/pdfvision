@@ -57,6 +57,7 @@ export interface PageWarning {
     | 'ocr_native_text_mismatch'
     | 'ocr_native_spacing_loss'
     | 'large_raster_low_text_overlap'
+    | 'text_row_vector_bars'
     | 'annotation_text_missing_from_native'
     | 'optional_content_text_may_include_hidden_layers'
     | 'reading_order_divergence'

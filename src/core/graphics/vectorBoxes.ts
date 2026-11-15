@@ -78,6 +78,8 @@ export function buildVectorBoxes(
   pageHeight: number,
   viewMinX: number,
   viewMinY: number,
+  /** Receives the boxes of fills painted in a visible, non-white colour (internal warning evidence). */
+  colouredFills?: VectorBox[],
 ): VectorBox[] {
   const boxes: VectorBox[] = [];
   let ctm: Matrix6 = [1, 0, 0, 1, 0, 0];
@@ -122,6 +124,9 @@ export function buildVectorBoxes(
         const box = bboxToBox(bbox, ctm, pageHeight, viewMinX, viewMinY);
         if (!isWhitePageBackgroundFill(pathOp, box, fillColor, ops, pageWidth, pageHeight)) {
           boxes.push(box);
+          if (colouredFills && ops.pathFillOps.has(pathOp) && isVisibleNonWhiteColor(fillColor)) {
+            colouredFills.push(box);
+          }
         }
       } else if (bbox) {
         pendingClipBox = bboxToBox(bbox, ctm, pageHeight, viewMinX, viewMinY);
@@ -146,6 +151,14 @@ function fillColorValue(args: readonly unknown[] | undefined): string | undefine
 
 function isWhiteColor(value: string | undefined): boolean {
   return value === '#fff' || value === '#ffffff' || value === 'white';
+}
+
+/** A `#rrggbb` fill that is not white or nearly so. Patterns and unknown colours are not counted. */
+function isVisibleNonWhiteColor(value: string | undefined): boolean {
+  const match = value ? /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/u.exec(value) : null;
+  if (!match) return false;
+  const [r, g, b] = match.slice(1).map((hex) => Number.parseInt(hex, 16) / 255);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.94;
 }
 
 function isWhitePageBackgroundFill(

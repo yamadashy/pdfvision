@@ -104,7 +104,7 @@ export const meta = {
   title: 'Gantt project schedule with status-coloured bars and a today line',
   stresses:
     'task table whose right half is a week grid; durations, forecast slip, status, progress, milestones, today line and dependencies exist only as vector shapes',
-  status: 'known-gap',
+  status: 'ok',
   families: ['vector-meaning', 'tables'],
   page: { size: 'LETTER', layout: 'landscape' },
 };
@@ -164,9 +164,12 @@ Dependency arrows (finish → start): ${LINKS.map(([a, b]) => `${byId(a).name} �
   .map(([a]) => byId(a).name)
   .join(', ')} (dependency arrow only)
 
-**Known gap (no issue yet):** the page raises no warning (117 vector ops, no
-\`dense_vector_graphics\`, nothing saying that colour or bar extent carries data), so an agent has
-no reason to render it, and the text alone answers the bar-only questions wrongly or not at all:
+**Current reading (ok — recovered through a warning):** the text alone answers the bar-only
+questions wrongly or not at all, as listed below, but the page now carries
+\`text_row_vector_bars\` (issue #265): 13 filled bars sit in the task rows with no text inside them,
+the native text has only the row labels and printed values, and the next step is a render of the
+rows, the timescale and the legend (\`--render-region 23,75.03,743.69,430.36\`), which shows every bar, its
+colour, the dependency arrows and the Today line. Without that render:
 
 - Question 1 is answered from the plan dates, which drop ${migration.name} (\`10/5/26 | 10/30/26\`)
   from the week of ${weekLabel(OVERLAP_WEEK)}; its forecast bar runs through it.
