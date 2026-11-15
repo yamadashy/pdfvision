@@ -78,6 +78,7 @@ Common warning families include:
 - layout table hints whose cells did not resolve into one consistent grid (`layout_table_uncertain`).
 - signs set in a symbol font whose character map reports them as ordinary characters, so `−52%` reads as `252%` (`symbol_font_substitution`).
 - native-vs-visual reading order divergence.
+- rotated pages read in their stored orientation because `/Rotate` would turn their text sideways (`rotated_page_read_unrotated`).
 - glyph-garbage native text, private-use glyph strings, or localized mojibake.
 - right-to-left script text whose inter-word spaces or paired brackets may degrade.
 - OCR text layers over full-page scans, including symbol noise or word fragmentation.

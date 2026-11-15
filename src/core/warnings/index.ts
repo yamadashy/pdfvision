@@ -25,6 +25,7 @@ import { warningInputsInPhysicalPoints } from './physicalGeometry.js';
 import { qualifyUnreliableLayoutOrder } from './readingOrder/rebuildConsistency.js';
 import { detectFormLabelReadingOrderDivergence, detectReadingOrderDivergence } from './readingOrder.js';
 import { detectTextUnderOpaqueFill } from './redactionBypass.js';
+import { detectRotatedPageReadUnrotated } from './rotatedPage.js';
 import { detectRtlScriptText } from './rtlScript.js';
 import { detectSymbolFontSubstitution } from './symbolFontSigns.js';
 import { detectDotLeaderNoise, detectTabularNumericLayout } from './tabular.js';
@@ -76,6 +77,8 @@ export interface PageWarningContext {
   spans?: TextSpan[];
   /** Invisible text-show operations found in the page operator list. */
   invisibleText?: InvisibleTextEvidence;
+  /** The page has a /Rotate that would turn its upright text sideways, so it was read unrotated. */
+  readUnrotated?: boolean;
   /** Ordered text-show and later opaque dark-fill evidence from the page operator list. */
   opaqueFillText?: OpaqueFillTextEvidence;
   /** Non-fatal pdf.js warnings captured during parsing/rendering. */
@@ -114,6 +117,7 @@ function detectPageWarningsInPhysicalPoints(page: PageResult, context: PageWarni
   detectFontMappingWarning(page, context, warnings);
   detectRawEmbeddedSourceText(page, warnings);
   detectInvisibleText(page, context, warnings);
+  detectRotatedPageReadUnrotated(page, context, warnings);
   detectTextUnderOpaqueFill(page, context, warnings);
   detectTextMatchesBackground(page, context, warnings);
   detectRasterBackedTextLayer(page, context, warnings);

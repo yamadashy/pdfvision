@@ -54,7 +54,7 @@ function resolveRenderScale(
 }
 
 function resolveRenderRegion(values: ParsedCliValues, render: boolean): RenderRegion | undefined {
-  // --render-region parses "x,y,width,height" in the unrotated page view box
+  // --render-region parses "x,y,width,height" in the displayed (post-/Rotate) page view box
   // user-space units (top-left origin, y grows downward — same system as
   // imageBoxes / layout.blocks). CLI surfaces shape errors (wrong field count,
   // non-numeric); positive-width/height and single-page constraints

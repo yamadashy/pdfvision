@@ -78,6 +78,7 @@ visual regions は multimodal model への橋渡しとして使えます。
 - layout table hints whose cells did not resolve into one consistent grid (`layout_table_uncertain`).
 - signs set in a symbol font whose character map reports them as ordinary characters, so `−52%` reads as `252%` (`symbol_font_substitution`).
 - ネイティブテキストと視覚的な読み順の不一致。
+- rotated pages read in their stored orientation because `/Rotate` would turn their text sideways (`rotated_page_read_unrotated`).
 - グリフ文字列、PUA 文字、局所的な文字化け。
 - フルページスキャン上の OCR テキストレイヤー。
 - スキャン風ページでの低信頼 OCR。

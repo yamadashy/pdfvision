@@ -1,10 +1,10 @@
-import type { PDFPageProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { RenderedContentBox, RenderRegion } from '../../types/index.js';
+import { type DisplayFrame, pdfPointToFrame } from '../geometry/displayFrame.js';
 import type { PixelContentBox } from './contentStats.js';
 import type { PageViewportLike, ViewportCrop } from './crop.js';
 
 export function contentBoxFromViewportPixels(
-  page: PDFPageProxy,
+  frame: DisplayFrame,
   viewport: PageViewportLike,
   crop: ViewportCrop | undefined,
   box: PixelContentBox,
@@ -20,19 +20,13 @@ export function contentBoxFromViewportPixels(
     viewport.convertToPdfPoint(right, bottom),
     viewport.convertToPdfPoint(left, bottom),
   ];
-  const xs = corners.map((point) => point[0]);
-  const ys = corners.map((point) => point[1]);
-  const view = page.view;
-  const viewMinX = Math.min(view[0], view[2]);
-  const viewMaxY = Math.max(view[1], view[3]);
-  const pdfLeft = Math.min(...xs);
-  const pdfRight = Math.max(...xs);
-  const pdfTop = Math.max(...ys);
-  const pdfBottom = Math.min(...ys);
-  let contentLeft = pdfLeft - viewMinX;
-  let contentTop = viewMaxY - pdfTop;
-  let contentRight = pdfRight - viewMinX;
-  let contentBottom = viewMaxY - pdfBottom;
+  const framePoints = corners.map(([x, y]) => pdfPointToFrame(frame, x, y));
+  const xs = framePoints.map((point) => point[0]);
+  const ys = framePoints.map((point) => point[1]);
+  let contentLeft = Math.min(...xs);
+  let contentTop = Math.min(...ys);
+  let contentRight = Math.max(...xs);
+  let contentBottom = Math.max(...ys);
 
   if (region) {
     contentLeft = Math.max(contentLeft, region.x);

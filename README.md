@@ -204,7 +204,7 @@ Options
       --render-scale <n>      Rasterisation multiplier, default 2 (≈144 DPI); bounds (0, 4].
                               Requires --render, --render-visual-regions, or --ocr.
       --render-region <x,y,width,height>
-                          Crop one page in raw page-view units. Single-page only.
+                          Crop one page in the raw units and frame every bbox uses. Single-page only.
       --map               A map of the document instead of its contents: pages, metadata,
                           outline, per-page quality and warning codes. Markdown only.
       --search <query>    Find <query> and report each hit's page and bbox. Repeatable.
@@ -322,7 +322,7 @@ printf "secret\n" | pdfvision encrypted.pdf --password-stdin --json
 pdfvision scan.pdf --ocr --ocr-lang eng+jpn --json
 ```
 
-Coordinates use raw units from the unrotated pdf.js `page.view` visible box, with a **top-down origin** (0,0 at the view box's top-left, y grows downward). The view box is CropBox ∩ MediaBox when a distinct valid CropBox applies, otherwise MediaBox. Non-default PDF `/UserUnit` values appear as `pages[].userUnit` and `overview[].userUnit`; the fields are omitted when the value is 1. Physical points = raw page-view value × UserUnit, while rendered pixels = raw region × UserUnit × render scale before rotation swaps axes. `pages[].width` / `height`, bboxes, and `--render-region` bounds stay raw, and bboxes pass unchanged to `--render-region`.
+Coordinates use raw units of the page as displayed — the pdf.js `page.view` visible box turned by the page's `/Rotate` — with a **top-down origin** (0,0 at the displayed page's top-left, y grows downward). A rotated page is read along the axes a viewer shows, so its text, layout, and tables come out as if it were stored upright, and on a 90° / 270° page `pages[].width` / `height` are the stored box's height / width. A page whose text is upright only as stored (so `/Rotate` would turn it sideways) is instead read and rendered unrotated, with a `rotated_page_read_unrotated` warning. The view box is CropBox ∩ MediaBox when a distinct valid CropBox applies, otherwise MediaBox. Non-default PDF `/UserUnit` values appear as `pages[].userUnit` and `overview[].userUnit`; the fields are omitted when the value is 1. Physical points = raw page-view value × UserUnit, while rendered pixels = raw region × UserUnit × render scale. `pages[].width` / `height`, bboxes, and `--render-region` bounds stay raw, and bboxes pass unchanged to `--render-region`.
 
 Each `pages[].spans[]` entry is one retained positioned pdf.js text item, which may contain a character, word, or longer string. Adjacent items stay separate; the rounded bbox is the item's aggregate axis-aligned envelope, not glyph outlines. Layout and search may reconstruct lines or slice match boxes without changing public span granularity.
 

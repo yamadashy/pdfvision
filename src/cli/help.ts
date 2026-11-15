@@ -49,7 +49,7 @@ Options
       --render-scale <n>      Rasterisation multiplier, default 2 (≈144 DPI); bounds (0, 4].
                               Requires --render, --render-visual-regions, or --ocr.
       --render-region <x,y,width,height>
-                          Crop one page in raw page-view units. Single-page only.
+                          Crop one page in the raw units and frame every bbox uses. Single-page only.
       --map               A map of the document instead of its contents: pages, metadata,
                           outline, per-page quality and warning codes. Markdown only.
       --search <query>    Find <query> and report each hit's page and bbox. Repeatable.

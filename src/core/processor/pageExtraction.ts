@@ -6,6 +6,14 @@ import { buildPageStructure } from '../document/structure.js';
 import { buildStructureTables } from '../document/structureTables.js';
 import { normalizeJavaScriptActions } from '../document/viewer.js';
 import { buildFormFields, isFormFieldAnnotation } from '../formFields/index.js';
+import { normalizeRotation } from '../geometry/displayFrame.js';
+import {
+  annotationsInFrame,
+  operatorListInFrame,
+  structTreeInFrame,
+  textContentInFrame,
+} from '../geometry/displayFrameInputs.js';
+import { resolvePageFrame } from '../geometry/pageFrame.js';
 import { buildImageBoxes, type ImageOps } from '../graphics/imageBoxes.js';
 import { collectInvisibleTextEvidence, type TextRenderingOps } from '../graphics/invisibleText.js';
 import { collectOpaqueFillTextEvidence, type OpaqueFillTextOps } from '../graphics/opaqueFillText.js';
@@ -43,19 +51,22 @@ export async function extractPageData(
   getWidgetAppearanceCaptions?: () => ReadonlyMap<string, string>,
 ): Promise<PageData> {
   const page = await doc.getPage(pageNum);
-  const content = await page.getTextContent({ includeMarkedContent: true });
+  // Every geometry field is reported in the displayed frame (after
+  // /Rotate), unless that would turn upright stored text sideways — see
+  // resolvePageFrame. On a rotated page the pdf.js inputs are mapped into a
+  // virtual upright page first, so text lines, layout, boxes and annotations
+  // are all rebuilt along the axes a reader sees.
+  const rawContent = page.getTextContent({ includeMarkedContent: true });
+  const frame = await resolvePageFrame(page, rawContent);
+  const content = textContentInFrame(await rawContent, frame);
   const optionalContentText = content.items.some(isOptionalContentTextMarker);
 
-  const view = page.view;
   // pdf.js page.view is the visible page box: CropBox intersected with
   // MediaBox when that intersection is distinct and valid, otherwise
-  // MediaBox. The coordinate pairs may arrive in either order; use abs/min
-  // so a flipped box still produces stable zero-based top-left geometry.
-  const width = Math.abs(view[2] - view[0]);
-  const height = Math.abs(view[3] - view[1]);
-  const xMin = Math.min(view[0], view[2]);
-  const yMin = Math.min(view[1], view[3]);
-  const rotation = normalizePageRotation(page.rotate);
+  // MediaBox.
+  const { width, height, viewMinX: xMin, viewMinY: yMin } = frame;
+  const rotation = normalizeRotation(page.rotate) || undefined;
+  const readUnrotated = rotation !== undefined && frame.rotation === 0;
   const userUnit = normalizePageUserUnit(page.userUnit);
 
   const {
@@ -78,8 +89,13 @@ export async function extractPageData(
   // XObject into a single Repeat / Group op. Expanded boxes serve as
   // both the public `imageBoxes` payload (when requested) and the source
   // of `imageCount`, which keeps the two trivially consistent.
-  const opList = await page.getOperatorList();
-  const invisibleText = collectInvisibleTextEvidence(opList.fnArray, opList.argsArray as unknown[][], textRenderingOps);
+  const rawOpList = await page.getOperatorList();
+  const opList = operatorListInFrame(rawOpList, ops.transform, frame);
+  const invisibleText = collectInvisibleTextEvidence(
+    rawOpList.fnArray,
+    rawOpList.argsArray as unknown[][],
+    textRenderingOps,
+  );
   const opaqueFillText = collectOpaqueFillTextEvidence(
     opList.fnArray,
     opList.argsArray as unknown[][],
@@ -89,7 +105,7 @@ export async function extractPageData(
     yMin,
     cachedFontGeometry(page.commonObjs),
   );
-  const allBoxes = buildImageBoxes(opList.fnArray, opList.argsArray as unknown[][], ops, height, view[0], yMin);
+  const allBoxes = buildImageBoxes(opList.fnArray, opList.argsArray as unknown[][], ops, height, xMin, yMin);
   const imageCount = allBoxes.length;
   const imageBoxes = flags.imageBoxes ? allBoxes : undefined;
   const vectorCount = countVectorPaintOps(
@@ -118,7 +134,7 @@ export async function extractPageData(
       ? buildLayout(spans, round2(width), round2(height))
       : undefined;
   const layout = flags.layout ? internalLayout : undefined;
-  const annotations = await page.getAnnotations({ intent: 'display' });
+  const annotations = annotationsInFrame(await page.getAnnotations({ intent: 'display' }), frame);
   const formFieldCount = annotations.filter(isFormFieldAnnotation).length;
   const linkCount = annotations.filter(isLinkAnnotation).length;
   const annotationCount = annotations.filter(isPageAnnotation).length;
@@ -185,7 +201,7 @@ export async function extractPageData(
   const pageAnnotations = flags.annotations ? allPageAnnotations : undefined;
   const internalAnnotations = flags.needAnnotationsForSearch ? allPageAnnotations : undefined;
   const structure = flags.structure
-    ? buildPageStructure(await page.getStructTree(), {
+    ? buildPageStructure(structTreeInFrame(await page.getStructTree(), frame), {
         normalizeText: flags.normalize ? normalizeText : undefined,
         pageHeight: height,
         viewMinX: xMin,
@@ -253,6 +269,7 @@ export async function extractPageData(
     nonPrintableRatio: npStats.ratio,
     nonPrintableCount: npStats.count,
     ...(rotation !== undefined && { rotation }),
+    ...(readUnrotated && { _readUnrotated: true }),
     ...(userUnit !== undefined && { userUnit }),
     // Round to 2dp; raw page-view dimensions are commonly integers (Letter
     // 612×792 at UserUnit 1) but encrypted/cropped PDFs can carry fractions.
@@ -297,12 +314,6 @@ function isOptionalContentTextMarker(item: unknown): boolean {
   if (!item || typeof item !== 'object') return false;
   const marker = item as { type?: unknown; tag?: unknown };
   return marker.type === 'beginMarkedContentProps' && marker.tag === 'OC';
-}
-
-function normalizePageRotation(rotation: number | undefined): number | undefined {
-  if (typeof rotation !== 'number' || !Number.isFinite(rotation)) return undefined;
-  const normalized = ((Math.round(rotation) % 360) + 360) % 360;
-  return normalized === 0 ? undefined : normalized;
 }
 
 function normalizePageUserUnit(userUnit: number | undefined): number | undefined {

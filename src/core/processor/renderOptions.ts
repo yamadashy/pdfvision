@@ -6,6 +6,18 @@ import { ensurePrivateDir } from '../io/cache.js';
 
 /** Default rasterisation multiplier — must match renderer.ts DEFAULT_SCALE. */
 export const DEFAULT_RENDER_SCALE = 2;
+
+/**
+ * Bump when the pixels a cached PNG name stands for change — the page frame
+ * a region is measured in, or the orientation a page renders in. PNGs are
+ * reused by filename under the per-PDF cache dir, which the extraction
+ * format revision does not cover, so a stale crop would otherwise come back
+ * for the same region numbers. Older `images*` dirs are left orphaned until
+ * `clear-cache`.
+ *
+ * r2: rotated pages render and crop in the displayed (post-/Rotate) frame.
+ */
+export const RENDER_CACHE_REVISION = 2;
 /** Hard cap: 4× a letter page is 2448×3168px, ~7.7Mpx. Higher invites OOM. */
 const MAX_RENDER_SCALE = 4;
 
@@ -119,7 +131,7 @@ export function prepareRenderImagesDir(input: RenderImagesDirInput): string {
   }
 
   if (input.cacheDir) {
-    const baseImagesDir = join(input.cacheDir, 'images');
+    const baseImagesDir = join(input.cacheDir, `images-r${RENDER_CACHE_REVISION}`);
     ensurePrivateDir(baseImagesDir);
     if (!scaleSubdir) return baseImagesDir;
 

@@ -75,8 +75,8 @@ The overview is especially useful for long documents because it lets the agent c
 Each `pages[]` entry includes:
 
 - `text` and optional `rawText`.
-- page dimensions in raw unrotated page-view units, plus optional `userUnit` when it is not 1.
-- optional page rotation in degrees when the PDF page is rotated.
+- page dimensions in raw page-view units of the page as displayed (after `/Rotate`), plus optional `userUnit` when it is not 1.
+- optional page rotation in degrees when the PDF page is rotated; every other field is already reported in the rotated, displayed frame.
 - density fields mirrored from the overview.
 - optional `formFieldCount`, `linkCount`, and `annotationCount` presence signals, omitted when zero.
 - optional `image` path when `--render` is used.
@@ -117,9 +117,9 @@ Practical interpretation:
 
 ## Coordinates
 
-All boxes use raw unrotated pdf.js `page.view` units, with a top-left origin. The visible box is CropBox ∩ MediaBox when a distinct valid CropBox applies, otherwise MediaBox. `pages[].width` / `height`, zero-based coordinates, and `renderRegion` bounds are relative to it. `pages[].userUnit` and `overview[].userUnit` expose a non-default PDF `/UserUnit` and are omitted when it is 1. Physical points equal a raw page-view value × `userUnit` (or 1 when omitted); rendered pixels equal a raw region × UserUnit × render scale before rotation swaps axes.
+All boxes use raw page-view units of the page as displayed: the pdf.js `page.view` visible box turned by the page's `/Rotate`, with a top-left origin. On a page rotated 90° or 270°, `pages[].width` / `height` are the stored box's height / width. A page whose text is upright only as stored is read and rendered unrotated instead, with a `rotated_page_read_unrotated` warning. The visible box is CropBox ∩ MediaBox when a distinct valid CropBox applies, otherwise MediaBox. `pages[].width` / `height`, zero-based coordinates, and `renderRegion` bounds are relative to it. `pages[].userUnit` and `overview[].userUnit` expose a non-default PDF `/UserUnit` and are omitted when it is 1. Physical points equal a raw page-view value × `userUnit` (or 1 when omitted); rendered pixels equal a raw region × UserUnit × render scale.
 
-Pass raw bboxes unchanged to `--render-region`. For full-page PNG overlays, scale unrotated pages by image/page dimensions; on rotated pages, use `pages[].rotation` and the rotated pdf.js viewport transform because the PNG follows the human-visible orientation.
+Pass raw bboxes unchanged to `--render-region`. For full-page PNG overlays, scale by image/page dimensions; this holds on rotated pages too, including `rotated_page_read_unrotated` pages, whose render is unrotated like their coordinates.
 
 Warning-detector thresholds and `pt` / `pt²` messages use a private physical-point view of already extracted geometry. This does not make all extraction physically invariant: layout grouping, form-label reconstruction, vector-box shaping, and visual-region generation still include raw-unit heuristics and can produce different upstream signals for physically equivalent PDFs.
 
