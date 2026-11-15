@@ -1,5 +1,6 @@
 import type { LayoutLine, LayoutTable, LayoutTableRow } from '../../types/index.js';
 import { type BBox, round2, unionBox } from './geometry.js';
+import { linesAsTableCells } from './lineSegments.js';
 import {
   isLikelyMirroredChartAxisTable,
   isLikelySparseNumericLegendFragment,
@@ -35,9 +36,13 @@ const ALIGNED_TEXT_TABLE_COLUMN_TOLERANCE_PT = 10;
 const ALIGNED_TEXT_TABLE_HEADER_MAX_GAP_PT = 28;
 const ALIGNED_TEXT_TABLE_MAX_CELL_WIDTH_PT = 220;
 const ALIGNED_TEXT_TABLE_MIN_LABEL_ROW_RATIO = 0.5;
+const BORROWED_HEADER_MAX_ROWS = 4;
+const BORROWED_HEADER_MAX_GAP_PT = 12;
 
 export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefined {
-  const allRowGroups = groupLinesByTableRow(lines).map((row) => row.sort((a, b) => a.x - b.x));
+  // Rows are grouped from the lines as built, then split into the cells a
+  // widely spaced line joined, so the split never changes which row a line is in.
+  const allRowGroups = groupLinesByTableRow(lines).map((row) => linesAsTableCells(row).sort((a, b) => a.x - b.x));
   const { tables: alignedTextTables, firstDataRows } = detectAlignedTextTables(allRowGroups);
   const sparseSingleRowTables = detectSparseSingleRowTables(allRowGroups);
   const candidateRows: IndexedLayoutRow[] = allRowGroups
@@ -91,12 +96,14 @@ export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefin
     result.push(toLayoutTable(tableRows));
   }
   for (const table of alignedTextTables) {
-    if (result.some((existing) => overlapOfSmaller(existing, table) >= 0.5)) continue;
-    result.push(table);
+    const existingIndex = result.findIndex((existing) => overlapOfSmaller(existing, table) >= 0.5);
+    if (existingIndex < 0) result.push(table);
+    else result[existingIndex] = withHeaderRowsFrom(result[existingIndex], table);
   }
   for (const table of sparseSingleRowTables) {
-    if (result.some((existing) => overlapOfSmaller(existing, table) >= 0.5)) continue;
-    result.push(table);
+    const existingIndex = result.findIndex((existing) => overlapOfSmaller(existing, table) >= 0.5);
+    if (existingIndex < 0) result.push(table);
+    else result[existingIndex] = withHeaderRowsFrom(result[existingIndex], table);
   }
   const merged = mergeSplitHeaderTables(result).map(finalize);
   return merged.length > 0 ? merged : undefined;
@@ -256,6 +263,31 @@ function recurringColumnBins(rows: LayoutLine[][]): number[] {
     }
     return count;
   });
+}
+
+/**
+ * The same table found by the aligned-text or the single-row pass can carry
+ * header rows above the one found from its numeric rows (a units line such
+ * as `(単位:億円)` or `百万円 | %` that the numeric pass does not take as a
+ * header); keep them.
+ */
+function withHeaderRowsFrom(table: LayoutTable, other: LayoutTable): LayoutTable {
+  if (other.y >= table.y) return table;
+  // Only the run of multi-cell rows right above the table: a single line
+  // there (a title, a caption, an address) ends the header.
+  const header: LayoutTableRow[] = [];
+  let next = table.rows[0];
+  const above = other.rows.filter((row) => next && row.y + row.height / 2 < next.y).reverse();
+  for (const row of above) {
+    if (!next || header.length >= BORROWED_HEADER_MAX_ROWS || row.cells.length < 2) break;
+    if (next.y - (row.y + row.height) > BORROWED_HEADER_MAX_GAP_PT) break;
+    header.unshift(row);
+    next = row;
+  }
+  if (header.length === 0) return table;
+  const rows = [...header, ...table.rows];
+  const box = unionBox(rows.flatMap((row) => row.cells));
+  return { ...table, ...box, rowCount: rows.length, rows };
 }
 
 function overlapOfSmaller(a: BBox, b: BBox): number {

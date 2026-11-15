@@ -19,6 +19,7 @@ import {
   horizontalRubyTextAttachments,
   textWithHorizontalRuby,
 } from './horizontalRuby.js';
+import { recordGutterSegments, splitAtSpans } from './lineSegments.js';
 import { joinLineSpans } from './lineText.js';
 import { copySpanMetadata } from './spanMetadata.js';
 import { hasVerticalTextShape } from './verticalText.js';
@@ -210,6 +211,9 @@ export function buildLayoutLines(spans: TextSpan[], pageWidth = 0): LayoutLine[]
     const numericSpanCount = xSorted.filter(isTableGutterNumericSpan).length;
     const preserveWideWordSpacing = isLikelyWideWordSpacingRow(xSorted, pageWidth);
     const preserveCjkDisplaySpacing = isLikelyCjkDisplaySpacingRow(xSorted);
+    // Spans kept on one line only because the row reads as spaced-out words;
+    // table detection still needs them as separate cells.
+    const gutterJoins = new Set<TextSpan>();
     const subLines: TextSpan[][] = [[xSorted[0]]];
     for (let i = 1; i < xSorted.length; i++) {
       const prev = xSorted[i - 1];
@@ -262,13 +266,19 @@ export function buildLayoutLines(spans: TextSpan[], pageWidth = 0): LayoutLine[]
         subLines.push([cur]);
       } else {
         subLines[subLines.length - 1].push(cur);
+        if (preserveWideWordSpacing && gap > segmentGap) gutterJoins.add(cur);
       }
     }
-    return subLines.map((sub) => ({
+    const toLine = (sub: TextSpan[]): LayoutLine => ({
       text: joinLineSpans(spansWithHorizontalRuby(sub, rubyAttachments)),
       ...unionBox(sub),
       fontSize: round2(mode(sub.map((s) => s.fontSize))),
-    }));
+    });
+    return subLines.map((sub) => {
+      const line = toLine(sub);
+      if (gutterJoins.size > 0) recordGutterSegments(line, splitAtSpans(sub, gutterJoins).map(toLine));
+      return line;
+    });
   });
   return lines;
 }

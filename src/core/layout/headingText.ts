@@ -50,7 +50,7 @@ export function isLikelyBodySentenceFragment(text: string): boolean {
   return trimmed.split(/\s+/u).filter(Boolean).length > 16;
 }
 
-function isCaptionHeadingText(text: string): boolean {
+export function isCaptionHeadingText(text: string): boolean {
   return CAPTION_HEADING_PATTERN.test(text);
 }
 

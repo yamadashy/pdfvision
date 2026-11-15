@@ -1,4 +1,5 @@
 import type { LayoutLine } from '../../types/index.js';
+import { isCaptionHeadingText } from './headingText.js';
 import { firstTableLabelCell, isNumericOnlyTableRow, isRestorableTableLabelCell } from './tableCandidateRows.js';
 import { isCurrencyOnlyCell, isTableNumericCell, isTableValueCell, numericColumnMatchRight } from './tableCells.js';
 import {
@@ -188,6 +189,7 @@ function isLabelContinuationRow(row: LayoutLine[], label: LayoutLine, nextTop: n
   if (row.some((line) => isTableNumericCell(line.text))) return false;
   const merged = mergeLineTexts(row);
   if (merged.text.trim().endsWith(':')) return false;
+  if (isCaptionHeadingText(merged.text)) return false;
   if (isWideProseParagraphLine(merged, label)) return false;
   if (!/[\p{L}]/u.test(merged.text)) return false;
   if (Math.abs(merged.x - label.x) > Math.max(12, label.fontSize * 2)) return false;

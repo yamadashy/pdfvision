@@ -231,3 +231,74 @@ describe('layout table rows — wrapped labels (#251)', () => {
     expect(uncertainty(invoice(12, 20)).filter((message) => message.includes('wrapped label'))).toEqual([]);
   });
 });
+
+describe('layout table rows — headers and captions (#253)', () => {
+  // Report-shaped: caption, a header row of single words set as separate
+  // spans with wide gaps, then data rows.
+  function report(): TextSpan[] {
+    const header: [string, number, number][] = [
+      ['Depot', 60, 25],
+      ['Region', 186, 28],
+      ['Planned', 273, 33],
+      ['Installed', 333, 38],
+      ['Utilisation', 400, 46],
+      ['Status', 466, 26],
+    ];
+    const rows: [string, string, string, string, string, string][] = [
+      ['Aarhus', 'North', '10', '10', '48%', 'Complete'],
+      ['Aberdeen', 'East', '17', '12', '59%', 'On track'],
+      ['Antwerp', 'South', '12', '4', '70%', 'On track'],
+      ['Bilbao', 'West', '19', '15', '50%', 'Delayed'],
+      ['Bordeaux', 'West', '14', '7', '61%', 'On track'],
+    ];
+    const spans = [span('Table 1: Depot charging deployment at 30 September 2026', 56, 70, 249)];
+    for (const [text, x, width] of header) spans.push(span(text, x, 86, width));
+    rows.forEach((row, index) => {
+      const y = 102 + index * 15;
+      spans.push(span(row[0], 60, y, row[0].length * 4.5));
+      spans.push(span(row[1], 186, y, row[1].length * 4.5));
+      spans.push(span(row[2], 306 - row[2].length * 4.5, y, row[2].length * 4.5));
+      spans.push(span(row[3], 371 - row[3].length * 4.5, y, row[3].length * 4.5));
+      spans.push(span(row[4], 446 - row[4].length * 4.5, y, row[4].length * 4.5));
+      spans.push(span(row[5], 466, y, row[5].length * 4.5));
+    });
+    return spans;
+  }
+
+  it('reads a widely spaced header row as one cell per column and keeps the caption out', () => {
+    const layout = buildLayout(report(), 612, 792);
+    const table = findTable(layout.tables, 'Aarhus');
+
+    expect(texts(table)?.[0]).toEqual(['Depot', 'Region', 'Planned', 'Installed', 'Utilisation', 'Status']);
+    expect(table?.rows[0]?.cells.map((cell) => cell.column)).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(texts(table)?.[1]?.[0]).toBe('Aarhus');
+    expect(
+      texts(table)
+        ?.flat()
+        .some((text) => text.startsWith('Table 1')),
+    ).toBe(false);
+    // The reading text keeps the header as one line.
+    expect(layout.blocks.flatMap((block) => block.lines).map((line) => line.text)).toContain(
+      'Depot Region Planned Installed Utilisation Status',
+    );
+  });
+
+  it('does not split widely spaced single letters (stacked subscripts) into cells', () => {
+    const spans = report();
+    // `V` `O L S`: a symbol's subscripts set apart on the row of Aarhus.
+    spans.push(span('O', 120, 102, 4), span('L', 140, 102, 4), span('S', 160, 102, 4));
+    const table = findTable(buildLayout(spans, 612, 792).tables, 'Aarhus');
+
+    expect(texts(table)?.[1]).toContain('Aarhus');
+    expect(texts(table)?.[1]).not.toContain('L');
+  });
+
+  it('keeps a `(continued)` caption out of a table whose header it precedes', () => {
+    const spans = report().map((item) =>
+      item.text.startsWith('Table 1') ? { ...item, text: 'Table 1 (continued)', width: 82 } : item,
+    );
+    const table = findTable(buildLayout(spans, 612, 792).tables, 'Aarhus');
+
+    expect(texts(table)?.[0]?.[0]).toBe('Depot');
+  });
+});
