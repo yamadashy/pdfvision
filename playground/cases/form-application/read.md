@@ -11,7 +11,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 ## Page 1
 
-_chars: 1047 · images: 0 · coverage: 8% · vectors: 28 · formFields: 20 · warnings: 1 · size: 612×792pt_
+_chars: 1047 · images: 0 · coverage: 8% · vectors: 25 · formFields: 20 · warnings: 1 · size: 612×792pt_
 
 Riverside Community Arts Fund
 

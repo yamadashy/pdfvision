@@ -37,6 +37,31 @@ function parseArgs(argv) {
   return { check, names: argv.filter((arg) => !arg.startsWith('-')) };
 }
 
+// A snapshot is only meaningful for the dependency versions CI installs.
+// With a stale node_modules (a lockfile bump pulled in without `npm ci`),
+// read.md records what an older pdf.js returned and the bytes of case.pdf
+// follow an older pdfkit or font, so the tree goes red on CI with nothing
+// wrong locally.
+function assertInstalledMatchesLockfile() {
+  const lock = JSON.parse(readFileSync(join(REPO_ROOT, 'package-lock.json'), 'utf8')).packages ?? {};
+  const stale = [];
+  for (const [path, entry] of Object.entries(lock)) {
+    // Top-level packages only: nested copies and optional platform builds
+    // are legitimately absent on some machines.
+    if (!/^node_modules\/(@[^/]+\/)?[^/]+$/.test(path) || entry.optional || entry.peer) continue;
+    const manifest = join(REPO_ROOT, path, 'package.json');
+    if (!existsSync(manifest)) continue;
+    const installed = JSON.parse(readFileSync(manifest, 'utf8')).version;
+    if (installed !== entry.version)
+      stale.push(`${path.slice('node_modules/'.length)} ${installed} (lockfile ${entry.version})`);
+  }
+  if (stale.length > 0) {
+    fail(
+      `installed dependencies differ from package-lock.json; run \`npm ci\` first:\n  ${stale.slice(0, 8).join('\n  ')}`,
+    );
+  }
+}
+
 function buildDist() {
   const build = spawnSync(process.execPath, ['--run', 'build'], { cwd: REPO_ROOT, encoding: 'utf8' });
   if (build.status !== 0) {
@@ -161,6 +186,7 @@ async function main() {
   if (missing.length > 0) fail(`no such case: ${missing.join(', ')} (have: ${cases.map((c) => c.name).join(', ')})`);
   const selected = names.length > 0 ? cases.filter((testCase) => names.includes(testCase.name)) : cases;
 
+  assertInstalledMatchesLockfile();
   buildDist();
 
   // A private cache root per run: a cache entry left by an older build can

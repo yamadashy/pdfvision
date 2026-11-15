@@ -85,7 +85,7 @@ Set `meta.status` by harm, against the questions:
 
 Never change pdfvision to make a case pass, and never bend a realistic layout until it does; equally, do not contrive geometry just to break it.
 
-PDFs are byte-identical across runs (pinned dates and trailer `/ID`), so regenerating an unchanged case leaves the tree clean.
+PDFs are byte-identical across runs (pinned dates and trailer `/ID`), so regenerating an unchanged case leaves the tree clean. That holds for one set of installed dependencies: a pdfkit or font bump changes the bytes of `case.pdf`, and a pdf.js bump can change `read.md`. Every command therefore refuses to run when `node_modules` does not match `package-lock.json`; run `npm ci` after pulling a dependency update, then regenerate and review the diff.
 
 ## How `read.md` is produced
 
