@@ -130,9 +130,10 @@ export function reorderForColumns(
   // blocks, a column can be a single block), so either counts as a column.
   const survivingColumns = initialColumns
     .map((c) => c.filter((b) => !promoted.has(b)))
-    .filter((c) => c.length >= 2 || c.some((b) => units.has(b) || isColumnSizedBlock(b)));
+    .filter(
+      (c) => c.length >= 2 || c.some((b) => units.has(b) || (isColumnSizedBlock(b) && hasBlockBeside(b, narrow))),
+    );
   if (survivingColumns.length < 2) return blocks;
-
   const columnOf = new Map<LayoutBlock, number>();
   for (let ci = 0; ci < survivingColumns.length; ci++) {
     for (const b of survivingColumns[ci]) columnOf.set(b, ci);
@@ -191,6 +192,18 @@ function isRotatedLatinBlock(block: LayoutBlock): boolean {
 }
 
 const COLUMN_SIZED_MIN_LINES = 8;
+
+/** A single paragraph is a column only with text beside it; a long
+ *  paragraph indented under headings is not a column of its own. */
+function hasBlockBeside(block: LayoutBlock, others: readonly LayoutBlock[]): boolean {
+  return others.some((other) => {
+    if (other === block) return false;
+    const disjoint = other.x + other.width <= block.x || block.x + block.width <= other.x;
+    if (!disjoint) return false;
+    const overlap = Math.min(block.y + block.height, other.y + other.height) - Math.max(block.y, other.y);
+    return overlap > Math.min(block.height, other.height) * 0.5;
+  });
+}
 
 function isColumnSizedBlock(block: LayoutBlock): boolean {
   return block.lines.length >= COLUMN_SIZED_MIN_LINES;

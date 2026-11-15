@@ -59,6 +59,8 @@ const LABEL_MAX_CHARS = 40;
 const MARK_MIN_SIZE_PT = 2;
 const MAX_MARK_AREA_RATIO = 0.25;
 const VERTICAL_MARK_SHARE = 2 / 3;
+const MARGIN_STRIP_MAX_WIDTH_RATIO = 0.2;
+const MARGIN_STRIP_MIN_HEIGHT_RATIO = 0.5;
 const MIN_BARS = 3;
 const MAX_BAR_SHARE = 0.2;
 const BAR_SIZE_TOLERANCE_PT = 1;
@@ -98,7 +100,7 @@ export function detectLayoutRegions(
   const regions: LayoutRegion[] = [];
   const seen = new Set<string>();
   for (const candidate of candidates) {
-    const region = evaluateCandidate(candidate, textBlocks, pageArea);
+    const region = evaluateCandidate(candidate, textBlocks, pageWidth, pageHeight);
     if (!region) continue;
     const key = region.blocks
       .map((block) => textBlocks.indexOf(block))
@@ -133,12 +135,15 @@ export function outermostRegions(regions: readonly LayoutRegion[], pool: Readonl
 function evaluateCandidate(
   candidate: Candidate,
   blocks: readonly LayoutBlock[],
-  pageArea: number,
+  pageWidth: number,
+  pageHeight: number,
 ): LayoutRegion | undefined {
+  const pageArea = pageWidth * pageHeight;
   const { box } = candidate;
   if (box.width < MIN_REGION_WIDTH_PT || box.height < MIN_REGION_HEIGHT_PT) return undefined;
   if (box.width * box.height > pageArea * MAX_REGION_AREA_RATIO) return undefined;
   const members: LayoutBlock[] = [];
+  let straddling = 0;
   for (const block of blocks) {
     if (contains(box, block)) {
       members.push(block);
@@ -152,7 +157,11 @@ function evaluateCandidate(
     // to it; prose across the edge means the box does not enclose text.
     if (!isLabelLikeBlock(block)) return undefined;
     members.push(block);
+    straddling++;
   }
+  // Labels on the edge belong to a box that holds text of its own; a path
+  // that only crosses a few headings (a bracket, a margin bar) holds none.
+  if (straddling === members.length && !candidate.drawing) return undefined;
   const prose = members.some((block) => !isLabelLikeBlock(block));
   const region: LayoutRegion = {
     kind: prose ? 'frame' : 'figure',
@@ -165,6 +174,10 @@ function evaluateCandidate(
   };
   if (!prose && candidate.drawing) absorbLabels(region, blocks);
   if (region.blocks.length < 2) return undefined;
+  // A tall narrow strip down the margin (a worksheet's part labels) labels
+  // the rows beside it; reading it as one unit would take every label away
+  // from its row.
+  if (prose && isMarginLabelStrip(region, pageWidth, pageHeight)) return undefined;
   if (region.width * region.height > pageArea * MAX_REGION_AREA_RATIO) return undefined;
   const marks = textFreeMarks(region, candidate.parts);
   region.marks = marks.length;
@@ -193,8 +206,11 @@ function hasBars(
     for (const anchor of group) {
       const onBase = group.filter((mark) => Math.abs(base(mark) - base(anchor)) <= BAR_BASE_TOLERANCE_PT);
       if (onBase.length < MIN_BARS || !sideBySide(onBase, shared === 'width' ? 'x' : 'y', shared)) continue;
-      const lengths = onBase.map((mark) => mark[varying]);
-      if (Math.max(...lengths) - Math.min(...lengths) > BAR_SIZE_TOLERANCE_PT * 2) return true;
+      // Data bars take several lengths; spacer strips in a ruled table take
+      // one or two.
+      const lengths = onBase.map((mark) => mark[varying]).sort((a, b) => a - b);
+      const distinct = lengths.filter((length, i) => i === 0 || length - lengths[i - 1] > BAR_SIZE_TOLERANCE_PT * 2);
+      if (distinct.length >= MIN_BARS) return true;
     }
   }
   return false;
@@ -231,6 +247,13 @@ function absorbLabels(region: LayoutRegion, blocks: readonly LayoutBlock[]): voi
     }
     if (!grew) return;
   }
+}
+
+function isMarginLabelStrip(region: LayoutRegion, pageWidth: number, pageHeight: number): boolean {
+  return (
+    region.width < pageWidth * MARGIN_STRIP_MAX_WIDTH_RATIO &&
+    region.height > pageHeight * MARGIN_STRIP_MIN_HEIGHT_RATIO
+  );
 }
 
 function textFreeMarks(region: LayoutRegion, parts: readonly BBox[]): BBox[] {
