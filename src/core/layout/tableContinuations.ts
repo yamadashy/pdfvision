@@ -1,15 +1,14 @@
 import type { LayoutLine } from '../../types/index.js';
 import { isCaptionHeadingText } from './headingText.js';
+import { foldWrappedLines } from './tableBridgeRows.js';
 import { firstTableLabelCell, isNumericOnlyTableRow, isRestorableTableLabelCell } from './tableCandidateRows.js';
 import { isCurrencyOnlyCell, isTableNumericCell, isTableValueCell, numericColumnMatchRight } from './tableCells.js';
 import {
-  medianNumber,
   recurringNumericColumnRights,
-  TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS,
   TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROW_RATIO,
-  TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROWS,
   TABLE_RECURRING_NUMERIC_COLUMN_TOLERANCE_PT,
 } from './tableColumnStats.js';
+import { isTextGridRow, rowPitch, valueColumnExtents } from './tableGridRows.js';
 import { type CarriedLabelLines, wrapsFromRowAbove } from './tableLabelWraps.js';
 import { mergeLineTexts, rowBottom, rowY } from './tableRows.js';
 
@@ -22,9 +21,6 @@ export interface IndexedLayoutRow {
 
 const TABLE_ROW_MIN_NUMERIC_CELLS = 2;
 const TABLE_GROUP_MAX_ROW_GAP_PT = 48;
-const TABLE_ROW_CADENCE_MIN_MATCH_RATIO = 0.65;
-const TABLE_ROW_CADENCE_TOLERANCE_RATIO = 0.25;
-const TABLE_ROW_CADENCE_MIN_TOLERANCE_PT = 2;
 const TABLE_DROPPED_LABEL_X_TOLERANCE_PT = 14;
 const TABLE_LABEL_CONTINUATION_PROSE_MIN_WORDS = 6;
 const TABLE_LABEL_CONTINUATION_PROSE_MIN_WIDTH_PT = 220;
@@ -48,16 +44,34 @@ export function attachNumericContinuationRows(
 
   const firstIndex = table[0]?.index ?? 0;
   const lastBaseIndex = table.at(-1)?.index ?? firstIndex;
+  const valueColumns = valueColumnExtents(baseRows);
+  const pitch = rowPitch(baseRows);
   const rows: LayoutLine[][] = [];
   let previousIncluded: LayoutLine[] | undefined;
+  let previousIncludedIndex = -1;
   let previousLabelCell: LayoutLine | undefined;
+  const include = (included: LayoutLine[], index: number) => {
+    let row = included;
+    const above = previousIncluded;
+    if (above && index > previousIncludedIndex + 1) {
+      // Lines of a text cell wrapped between two rows join that cell.
+      const between = allRows
+        .slice(previousIncludedIndex + 1, index)
+        .filter((line) => !isClaimedRow(line, above) && !isClaimedRow(line, included))
+        .map((line) => ({ row: line }));
+      const folded = foldWrappedLines(above, between, row);
+      rows[rows.length - 1] = folded.above;
+      row = folded.below;
+    }
+    rows.push(row);
+    previousIncluded = row;
+    previousIncludedIndex = index;
+    previousLabelCell = firstTableLabelCell(row) ?? previousLabelCell;
+  };
   for (let index = firstIndex; index < scanEndIndex; index++) {
     const baseRow = baseRowsByIndex.get(index);
     if (baseRow) {
-      const row = restoreDroppedLabelCell(baseRow, allRows[index], previousLabelCell);
-      rows.push(row);
-      previousIncluded = row;
-      previousLabelCell = firstTableLabelCell(row) ?? previousLabelCell;
+      include(restoreDroppedLabelCell(baseRow, allRows[index], previousLabelCell), index);
       continue;
     }
 
@@ -67,14 +81,27 @@ export function attachNumericContinuationRows(
     const verticalGap = rowY(candidate) - rowBottom(previousIncluded);
     if (index > lastBaseIndex && verticalGap > TABLE_GROUP_MAX_ROW_GAP_PT) break;
     if (verticalGap > TABLE_GROUP_MAX_ROW_GAP_PT) continue;
-    if (!isAlignedNumericContinuationRow(candidate, numericColumnRights)) continue;
-
-    const row = restoreDroppedLabelCell(candidate, allRows[index], previousLabelCell);
-    rows.push(row);
-    previousIncluded = row;
-    previousLabelCell = firstTableLabelCell(row) ?? previousLabelCell;
+    const continuesGrid =
+      isAlignedNumericContinuationRow(candidate, numericColumnRights) ||
+      (index === previousIncludedIndex + 1 && isTextGridRow(candidate, previousIncluded, valueColumns, pitch));
+    if (!continuesGrid) continue;
+    include(restoreDroppedLabelCell(candidate, allRows[index], previousLabelCell), index);
   }
   return rows;
+}
+
+// Every line of `row` already lies inside a cell of `owner` (a label line
+// folded in while the rows were scanned).
+function isClaimedRow(row: readonly LayoutLine[], owner: readonly LayoutLine[]): boolean {
+  return row.every((line) =>
+    owner.some(
+      (cell) =>
+        line.x >= cell.x - 1 &&
+        line.y >= cell.y - 1 &&
+        line.x + line.width <= cell.x + cell.width + 1 &&
+        line.y + line.height <= cell.y + cell.height + 1,
+    ),
+  );
 }
 
 export function attachLabelContinuationRows(
@@ -132,13 +159,6 @@ export function scanLabelContinuationRows(
   }
   const mergedLabel = mergeLineTexts([...continuations, label]);
   return { row: row.map((line) => (line === label ? mergedLabel : line)), header };
-}
-
-export function hasRegularTableRowCadence(rows: LayoutLine[][]): boolean {
-  const gaps = rowGaps(rows);
-  if (gaps.length < 2) return true;
-  if (cadenceMatchRatio(gaps) >= TABLE_ROW_CADENCE_MIN_MATCH_RATIO) return true;
-  return hasRecurringNumericColumns(rows);
 }
 
 function restoreDroppedLabelCell(
@@ -203,37 +223,4 @@ function isWideProseParagraphLine(line: LayoutLine, label: LayoutLine): boolean 
   const wordCount = normalized.split(/\s+/).filter(Boolean).length;
   if (wordCount < TABLE_LABEL_CONTINUATION_PROSE_MIN_WORDS) return false;
   return /[.!?](?:["')\]]*)$/u.test(normalized);
-}
-
-function rowGaps(rows: LayoutLine[][]): number[] {
-  const ys = rows.map(rowY).sort((a, b) => a - b);
-  return ys
-    .slice(1)
-    .map((y, index) => y - ys[index])
-    .filter((gap) => gap > 0.5);
-}
-
-function cadenceMatchRatio(gaps: number[]): number {
-  if (gaps.length === 0) return 1;
-  const median = medianNumber(gaps);
-  const tolerance = Math.max(TABLE_ROW_CADENCE_MIN_TOLERANCE_PT, median * TABLE_ROW_CADENCE_TOLERANCE_RATIO);
-  return gaps.filter((gap) => Math.abs(gap - median) <= tolerance).length / gaps.length;
-}
-
-function hasRecurringNumericColumns(rows: LayoutLine[][]): boolean {
-  const minRows = Math.max(
-    TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROWS,
-    Math.ceil(rows.length * TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROW_RATIO),
-  );
-  if (rows.filter(hasTableLabelCell).length < minRows) return false;
-  return (
-    recurringNumericColumnRights(rows, {
-      minColumns: TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS,
-      minRows,
-    }).length >= TABLE_RECURRING_NUMERIC_COLUMN_MIN_COLUMNS
-  );
-}
-
-function hasTableLabelCell(row: LayoutLine[]): boolean {
-  return firstTableLabelCell(row) !== undefined;
 }

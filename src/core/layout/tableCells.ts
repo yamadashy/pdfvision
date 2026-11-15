@@ -13,8 +13,19 @@ export function isTableNumericCell(text: string): boolean {
 
 const TABLE_PLACEHOLDER_PATTERN = /^(?:[-‐‑‒–—―−]{1,3}|n\/a|n\.a\.)$/iu;
 const TABLE_FOOTNOTE_SUFFIX_PATTERN = /\s+\([a-z]\)$/u;
+// Significance stars and dagger marks set right after a coefficient (`-0.142***`).
+const TABLE_SIGNIFICANCE_SUFFIX_PATTERN = /(?<=[\d)])(?:\*{1,3}|[†‡§]{1,2})$/u;
 const TABLE_LEADING_CURRENCY_PATTERN = /^[$¥€£]\s*/u;
+// Japanese statements mark a value with its note (`※7 26,269`) and write a
+// negative number as `△1,234` or `▲1,234`.
+const TABLE_NOTE_MARKER_PREFIX_PATTERN = /^※\s*\d+\s+(?=\S)/u;
+const TABLE_TRIANGLE_NEGATIVE_PATTERN = /^[△▲]\s*(?=\d)/u;
 const TABLE_TRAILING_CURRENCY_PATTERN = /\s*[$¥€£]$/u;
+
+/** A number, including one written negative with a leading triangle (`△1,234`). */
+export function isSignedTableNumericCell(text: string): boolean {
+  return isTableNumericCell(text.trim().replace(TABLE_TRIANGLE_NEGATIVE_PATTERN, ''));
+}
 
 /** A dash-like or `n/a` marker standing in for an empty value. */
 export function isTablePlaceholderCell(text: string): boolean {
@@ -24,15 +35,20 @@ export function isTablePlaceholderCell(text: string): boolean {
 /**
  * A cell that occupies a value column: a number or an empty-value
  * placeholder, optionally prefixed by a currency symbol, followed by a
- * lettered footnote marker such as `(b)`, or followed by the currency symbol
- * of the next column (`10,246 (b) $`).
+ * lettered footnote marker such as `(b)` or significance stars (`0.41***`),
+ * written negative with a leading triangle (`△1,234`) or behind a note
+ * marker (`※7 26,269`),
+ * or followed by the currency symbol of the next column (`10,246 (b) $`).
  */
 export function isTableValueCell(text: string): boolean {
   const core = text
     .trim()
     .replace(TABLE_TRAILING_CURRENCY_PATTERN, '')
     .replace(TABLE_FOOTNOTE_SUFFIX_PATTERN, '')
-    .replace(TABLE_LEADING_CURRENCY_PATTERN, '');
+    .replace(TABLE_SIGNIFICANCE_SUFFIX_PATTERN, '')
+    .replace(TABLE_NOTE_MARKER_PREFIX_PATTERN, '')
+    .replace(TABLE_LEADING_CURRENCY_PATTERN, '')
+    .replace(TABLE_TRIANGLE_NEGATIVE_PATTERN, '');
   return isTableNumericCell(core) || isTablePlaceholderCell(core);
 }
 

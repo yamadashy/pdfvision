@@ -8,13 +8,14 @@ import {
   isLikelyTinyNumericVectorGrid,
 } from './numericVectorGrid.js';
 import { detectSparseSingleRowTables } from './sparseTables.js';
-import { mergeSplitHeaderTables } from './splitHeaderTables.js';
+import { mergeSplitHeaderTables, SPLIT_HEADER_MAX_ROWS } from './splitHeaderTables.js';
+import { groupRowsWithBridges } from './tableBridgeRows.js';
+import { hasRegularTableRowCadence } from './tableCadence.js';
 import { tableCandidateRow } from './tableCandidateRows.js';
 import { isTableNumericCell, normalizeTableCurrencyCells } from './tableCells.js';
 import { assignTableColumns } from './tableColumns.js';
 import {
   attachNumericContinuationRows,
-  hasRegularTableRowCadence,
   type IndexedLayoutRow,
   scanLabelContinuationRows,
 } from './tableContinuations.js';
@@ -96,12 +97,29 @@ export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefin
     result.push(toLayoutTable(tableRows));
   }
   for (const table of alignedTextTables) {
-    const existingIndex = result.findIndex((existing) => overlapOfSmaller(existing, table) >= 0.5);
+    // Overlapping mostly, or ending on a body row of it: the same table.
+    const lastRow = table.rows.at(-1);
+    const existingIndex = result.findIndex(
+      (existing) =>
+        overlapOfSmaller(existing, table) >= 0.5 || (lastRow !== undefined && isInnerRow(existing, lastRow)),
+    );
     if (existingIndex < 0) result.push(table);
     else result[existingIndex] = withHeaderRowsFrom(result[existingIndex], table);
   }
   for (const table of sparseSingleRowTables) {
-    const existingIndex = result.findIndex((existing) => overlapOfSmaller(existing, table) >= 0.5);
+    // A header stack that starts among the body rows of a table already
+    // found is that table's rows read again. One whose data row is a body
+    // row of it, or that mostly overlaps it, only adds the header rows above
+    // it — unless it is a split header the merge below can use (short, and
+    // holding that table's first row).
+    const [firstRow] = table.rows;
+    const dataRow = table.rows.at(-1);
+    if (firstRow && result.some((existing) => isInnerRow(existing, firstRow))) continue;
+    const existingIndex = result.findIndex(
+      (existing) =>
+        (dataRow !== undefined && isInnerRow(existing, dataRow) && !isSplitHeaderOf(table, existing)) ||
+        overlapOfSmaller(existing, table) >= 0.5,
+    );
     if (existingIndex < 0) result.push(table);
     else result[existingIndex] = withHeaderRowsFrom(result[existingIndex], table);
   }
@@ -158,33 +176,28 @@ function detectAlignedTextTables(allRowGroups: LayoutLine[][]): {
   const candidateRows: IndexedLayoutRow[] = allRowGroups
     .map((row, index) => ({ row: alignedTextTableCandidateRow(row), index }))
     .filter((item): item is IndexedLayoutRow => item.row !== undefined);
-  const groups: IndexedLayoutRow[][] = [];
-
-  for (const row of candidateRows) {
-    const previousGroup = groups.at(-1);
-    const previousRow = previousGroup?.at(-1);
-    if (previousRow && rowY(row.row) - rowBottom(previousRow.row) <= ALIGNED_TEXT_TABLE_MAX_ROW_GAP_PT) {
-      previousGroup?.push(row);
-    } else {
-      groups.push([row]);
-    }
-  }
+  const groups = groupRowsWithBridges(
+    candidateRows,
+    allRowGroups,
+    ALIGNED_TEXT_TABLE_MAX_ROW_GAP_PT,
+    ALIGNED_TEXT_TABLE_MAX_CELL_WIDTH_PT,
+  );
 
   const tables: LayoutTable[] = [];
   const firstDataRows = new Set<LayoutTableRow>();
   for (const group of groups) {
-    const baseRows = group.map(({ row }) => row);
+    const baseRows = group.candidates;
     if (isLikelyTinyNumericVectorGrid(baseRows.flat())) continue;
     if (isLikelyTinyNumericChartFragment(baseRows.flat())) continue;
     if (isLikelySparseNumericLegendFragment(baseRows.flat())) continue;
     if (isLikelyMirroredChartAxisTable(baseRows.flat())) continue;
     if (!isAlignedTextTableGroup(baseRows)) continue;
-    const rows = attachAlignedTextHeaderRows(group, allRowGroups);
+    const rows = attachAlignedTextHeaderRows(group.rows, allRowGroups);
     if (isLikelyTinyNumericChartFragment(rows.flat())) continue;
     if (isLikelySparseNumericLegendFragment(rows.flat())) continue;
     if (isLikelyMirroredChartAxisTable(rows.flat())) continue;
     const table = toLayoutTable(rows);
-    firstDataRows.add(table.rows[rows.length - group.length]);
+    firstDataRows.add(table.rows[rows.length - group.rows.length]);
     tables.push(table);
   }
   return { tables, firstDataRows };
@@ -224,7 +237,17 @@ function attachAlignedTextHeaderRows(group: IndexedLayoutRow[], allRows: LayoutL
 
   for (let index = firstIndex - 1; index >= 0; index--) {
     const candidate = allRows[index];
-    if (!isAlignedTextTableHeaderRow(candidate, bodyBox, headers[0] ?? rows[0])) break;
+    const nextRow = headers[0] ?? rows[0];
+    if (!candidate || !nextRow) break;
+    // A row level with the header but entirely beside the table (a chart
+    // axis next to it) is not above the table; look past it.
+    if (
+      rowY(nextRow) - rowBottom(candidate) <= ALIGNED_TEXT_TABLE_HEADER_MAX_GAP_PT &&
+      isBesideBox(candidate, bodyBox)
+    ) {
+      continue;
+    }
+    if (!isAlignedTextTableHeaderRow(candidate, bodyBox, nextRow)) break;
     headers.unshift(candidate);
   }
 
@@ -245,6 +268,11 @@ function isAlignedTextTableHeaderRow(
   const rowBox = unionBox(row);
   const overlap = Math.min(rowBox.x + rowBox.width, tableBox.x + tableBox.width) - Math.max(rowBox.x, tableBox.x);
   return overlap >= Math.min(rowBox.width, tableBox.width) * 0.35;
+}
+
+function isBesideBox(row: LayoutLine[], box: BBox): boolean {
+  const rowBox = unionBox(row);
+  return rowBox.x >= box.x + box.width || rowBox.x + rowBox.width <= box.x;
 }
 
 function recurringColumnBins(rows: LayoutLine[][]): number[] {
@@ -288,6 +316,25 @@ function withHeaderRowsFrom(table: LayoutTable, other: LayoutTable): LayoutTable
   const rows = [...header, ...table.rows];
   const box = unionBox(rows.flatMap((row) => row.cells));
   return { ...table, ...box, rowCount: rows.length, rows };
+}
+
+function isSplitHeaderOf(stack: LayoutTable, table: LayoutTable): boolean {
+  const first = table.rows[0];
+  const text = (row: LayoutTableRow) => row.cells.map((cell) => cell.text).join(' ');
+  return (
+    first !== undefined &&
+    stack.rows.length <= SPLIT_HEADER_MAX_ROWS &&
+    stack.rows.some((row) => text(row) === text(first))
+  );
+}
+
+function isInnerRow(table: LayoutTable, row: LayoutTableRow): boolean {
+  const center = row.y + row.height / 2;
+  const first = table.rows[0];
+  if (!first || center <= first.y + first.height || center >= table.y + table.height) return false;
+  const left = Math.min(...row.cells.map((cell) => cell.x));
+  const right = Math.max(...row.cells.map((cell) => cell.x + cell.width));
+  return left < table.x + table.width && right > table.x;
 }
 
 function overlapOfSmaller(a: BBox, b: BBox): number {

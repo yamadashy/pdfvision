@@ -1,7 +1,7 @@
 import type { LayoutTable, LayoutTableCell, LayoutTableRow } from '../../types/index.js';
 import { round2 } from './geometry.js';
 
-const SPLIT_HEADER_MAX_ROWS = 10;
+export const SPLIT_HEADER_MAX_ROWS = 10;
 const SPLIT_HEADER_MAX_VERTICAL_GAP_PT = 8;
 const SPLIT_HEADER_MAX_HEADER_TO_BODY_GAP_PT = 48;
 const SPLIT_HEADER_MAX_INTERNAL_ROW_GAP_PT = 24;
