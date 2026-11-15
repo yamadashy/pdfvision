@@ -136,7 +136,7 @@ All boxes use raw page-view units of the page as displayed: the pdf.js `page.vie
 
 使用 `--links` 與 `--outline` 處理導覽密集的文件。links 是帶 bbox 與 target 的頁面級 annotation，outline 是保留層級和 resolved destination 的文件級書籤。即使未請求 link output，link targets 也會被 `--search` 搜尋。它們適用於引用、目錄、手冊和「指向哪裡」也是證據一部分的報告。
 
-使用 `--annotations` 處理評論、高亮、stamp、ink、shape、file-attachment icons 或可見 FreeText notes 可能改變頁面含義的情況。FreeText annotations 也會被 `--search` 搜尋，因為它們可能對人類可見，卻不在 `pages[].text` 中。
+使用 `--annotations` 處理評論、高亮、stamp、ink、shape、file-attachment icons 或可見 FreeText notes 可能改變頁面含義的情況。FreeText annotations 也會被 `--search` 搜尋，因為它們可能對人類可見，卻不在 `pages[].text` 中。 Highlight, Underline, Squiggly, and StrikeOut rows carry `markedText`, the page text under the markup, so an agent sees what was struck out or highlighted without matching boxes against text geometry.
 
 使用 `--viewer`、`--page-labels`、`--layers` 處理 PDF viewer state 有意義的情況。這些欄位可以顯示不同於實體頁碼的頁碼標籤、open actions、viewer preferences、optional content groups、預設圖層可見性和文件權限 flags。把它們視為關於 PDF 的觀察值，而不是要執行的指令。
 

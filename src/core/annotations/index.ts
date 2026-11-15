@@ -1,6 +1,7 @@
 import type {
   PageAnnotation,
   PageAnnotationBorder,
+  PageAnnotationBox,
   PageAnnotationFileAttachment,
   PageAnnotationFlag,
   PageAnnotationLine,
@@ -49,7 +50,13 @@ interface PdfFileAttachment {
 
 interface BuildAnnotationsOptions {
   normalizeText?: (value: string) => string;
+  /** Page text whose glyphs fall inside the given boxes (see `graphics/regionGlyphText.ts`). */
+  textUnder?: (boxes: readonly PageAnnotationBox[]) => string | undefined;
 }
+
+/** Markup annotations whose meaning is the page text they mark. */
+export const TEXT_MARKUP_SUBTYPES: ReadonlySet<string> = new Set(['Highlight', 'Underline', 'Squiggly', 'StrikeOut']);
+const MARKED_TEXT_MAX_CHARS = 400;
 
 const EXCLUDED_SUBTYPES = new Set(['Link', 'Widget', 'Popup']);
 const ANNOTATION_FLAGS: { bit: number; name: PageAnnotationFlag }[] = [
@@ -97,11 +104,15 @@ export function buildAnnotations(
     const inkPaths = inkPathsValue(ann.inkLists, pageHeight, viewMinX, viewMinY);
     const fileAttachment = fileAttachmentValue(ann.file, options.normalizeText);
     const flags = annotationFlagNames(ann.annotationFlags);
+    const markedText = TEXT_MARKUP_SUBTYPES.has(ann.subtype)
+      ? markedTextValue(options.textUnder?.(quadBoxes.length > 0 ? quadBoxes : [baseBox]), options.normalizeText)
+      : undefined;
 
     out.push({
       subtype: ann.subtype,
       ...(name !== undefined && { name }),
       ...(contents !== undefined && { contents }),
+      ...(markedText !== undefined && { markedText }),
       ...(title !== undefined && { title }),
       ...(color !== undefined && { color }),
       ...(typeof ann.modificationDate === 'string' && { modified: ann.modificationDate }),
@@ -136,6 +147,30 @@ export function isPageAnnotation(
 function textValue(value: unknown, normalizeText: ((value: string) => string) | undefined): string | undefined {
   if (typeof value !== 'string' || value.length === 0) return undefined;
   return normalizeText ? normalizeText(value) : value;
+}
+
+function markedTextValue(
+  value: string | undefined,
+  normalizeText: ((value: string) => string) | undefined,
+): string | undefined {
+  const text = textValue(value, normalizeText)?.trim();
+  if (!text) return undefined;
+  const chars = Array.from(text);
+  return chars.length <= MARKED_TEXT_MAX_CHARS ? text : `${chars.slice(0, MARKED_TEXT_MAX_CHARS - 3).join('')}...`;
+}
+
+/** Boxes whose page text a markup annotation marks: its quads, else its rectangle. */
+export function textMarkupRegions(
+  annotation: unknown,
+  pageHeight: number,
+  viewMinX = 0,
+  viewMinY = 0,
+): PageAnnotationBox[] {
+  if (!isPageAnnotation(annotation) || !TEXT_MARKUP_SUBTYPES.has(annotation.subtype)) return [];
+  const quads = quadPointBoxes(annotation.quadPoints, pageHeight, viewMinX, viewMinY);
+  return quads.length > 0
+    ? quads
+    : [rectToBox(annotation.rect as [number, number, number, number], pageHeight, viewMinX, viewMinY)];
 }
 
 function colorValue(value: unknown): [number, number, number] | undefined {

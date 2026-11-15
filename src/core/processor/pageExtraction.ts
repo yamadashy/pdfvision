@@ -1,5 +1,10 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
-import { buildAnnotations, hasVisibleAnnotationAppearance, isPageAnnotation } from '../annotations/index.js';
+import {
+  buildAnnotations,
+  hasVisibleAnnotationAppearance,
+  isPageAnnotation,
+  textMarkupRegions,
+} from '../annotations/index.js';
 import { resolveDestinationPage } from '../document/destinations.js';
 import { buildMarkedContentTextMap } from '../document/markedContentText.js';
 import { buildPageStructure } from '../document/structure.js';
@@ -17,6 +22,7 @@ import { resolvePageFrame } from '../geometry/pageFrame.js';
 import { buildImageBoxes, type ImageOps } from '../graphics/imageBoxes.js';
 import { collectInvisibleTextEvidence, type TextRenderingOps } from '../graphics/invisibleText.js';
 import { collectOpaqueFillTextEvidence, type OpaqueFillTextOps } from '../graphics/opaqueFillText.js';
+import { buildRegionGlyphTextIndex, type RegionGlyphTextIndex } from '../graphics/regionGlyphText.js';
 import type { FontGeometryInfo } from '../graphics/textGlyphs.js';
 import { buildVectorBoxes } from '../graphics/vectorBoxes.js';
 import { countVectorPaintOps } from '../graphics/vectorOps.js';
@@ -91,6 +97,7 @@ export async function extractPageData(
   // of `imageCount`, which keeps the two trivially consistent.
   const rawOpList = await page.getOperatorList();
   const opList = operatorListInFrame(rawOpList, ops.transform, frame);
+  const resolveFont = cachedFontGeometry(page.commonObjs);
   const invisibleText = collectInvisibleTextEvidence(
     rawOpList.fnArray,
     rawOpList.argsArray as unknown[][],
@@ -103,7 +110,7 @@ export async function extractPageData(
     height,
     xMin,
     yMin,
-    cachedFontGeometry(page.commonObjs),
+    resolveFont,
   );
   const allBoxes = buildImageBoxes(opList.fnArray, opList.argsArray as unknown[][], ops, height, xMin, yMin);
   const imageCount = allBoxes.length;
@@ -192,12 +199,30 @@ export async function extractPageData(
       : undefined;
   const links = flags.links ? allLinks : undefined;
   const internalLinks = flags.needLinksForSearch ? allLinks : undefined;
-  const allPageAnnotations =
-    flags.annotations || flags.visualRegions || flags.annotationAppearanceHints || flags.needAnnotationsForSearch
-      ? buildAnnotations(annotations, height, xMin, yMin, {
-          normalizeText: flags.normalize ? normalizeText : undefined,
-        })
-      : undefined;
+  const wantAnnotations =
+    flags.annotations || flags.visualRegions || flags.annotationAppearanceHints || flags.needAnnotationsForSearch;
+  const markupRegions = wantAnnotations
+    ? annotations.flatMap((annotation) => textMarkupRegions(annotation, height, xMin, yMin))
+    : [];
+  let glyphText: RegionGlyphTextIndex | undefined;
+  if (markupRegions.length > 0) {
+    glyphText = buildRegionGlyphTextIndex(
+      opList.fnArray,
+      opList.argsArray as unknown[][],
+      opaqueFillTextOps,
+      markupRegions,
+      height,
+      xMin,
+      yMin,
+      resolveFont,
+    );
+  }
+  const allPageAnnotations = wantAnnotations
+    ? buildAnnotations(annotations, height, xMin, yMin, {
+        normalizeText: flags.normalize ? normalizeText : undefined,
+        textUnder: glyphText ? (boxes) => glyphText?.textIn(boxes) : undefined,
+      })
+    : undefined;
   const pageAnnotations = flags.annotations ? allPageAnnotations : undefined;
   const internalAnnotations = flags.needAnnotationsForSearch ? allPageAnnotations : undefined;
   const structure = flags.structure

@@ -649,6 +649,7 @@ describe('formatMarkdown', () => {
                 subtype: 'Highlight',
                 name: 'Highlight',
                 contents: 'important|note',
+                markedText: 'net 30 days',
                 title: 'Markup',
                 color: [255, 255, 11],
                 flags: ['print', 'noView'],
@@ -683,10 +684,10 @@ describe('formatMarkdown', () => {
     expect(out).toMatch(/annotations: 2/);
     expect(out).toContain('### Annotations');
     expect(out).toContain(
-      '| Highlight | Highlight | important\\|note | Markup |  | print,noView | 100,80,80,12 | 255,255,11 |  |  | 1 |',
+      '| Highlight | Highlight | important\\|note | net 30 days | Markup |  | print,noView | 100,80,80,12 | 255,255,11 |  |  | 1 |',
     );
     expect(out).toContain(
-      '| FileAttachment | PushPin | Test.txt | Reviewer | Test.txt · 15 bytes · Supplement |  | 70,94,20,24 |  | width=1 solid | line 1,2->3,4 endings=None,OpenArrow | 0 |',
+      '| FileAttachment | PushPin | Test.txt |  | Reviewer | Test.txt · 15 bytes · Supplement |  | 70,94,20,24 |  | width=1 solid | line 1,2->3,4 endings=None,OpenArrow | 0 |',
     );
     expect(out).toContain('_No non-link annotations found._');
   });
