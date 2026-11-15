@@ -11,7 +11,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 ## Page 1
 
-_chars: 1269 · images: 0 · coverage: 21% · vectors: 43 · tables: 5 · warnings: 1 · size: 595.28×841.89pt_
+_chars: 1240 · images: 0 · coverage: 21% · vectors: 43 · tables: 5 · warnings: 1 · size: 595.28×841.89pt_
 
 2026年11月14日
 
@@ -200,7 +200,7 @@ TEL
 65.00
 
 本資料に記載されている業績見通し等の将来に関する記述は、当社が現在入手している情報及び合理的であ
-る と 判 断 す る 一 定 の 前 提 に 基 づ い て お り 、 詳 細 は 当 社 ウ ェ ブ サ イ ト
+ると判断する一定の前提に基づいており、詳細は当社ウェブサイト
 (https://www.minami-seiki.example/ir/)に掲載の決算補足説明資料をご覧ください。実際の業績等
 は様々な要因により大きく異なる可能性があります。
 

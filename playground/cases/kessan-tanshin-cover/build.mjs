@@ -188,13 +188,10 @@ individually across the full measure; it reads without spaces.) △ means a nega
 5. Which fiscal period and accounting standard does the report cover? — 2027年3月期 第2四半期（中間期）, 日本基準, 連結
 
 The overdrawn title reads once, \`2027年3月期 第2四半期(中間期)決算短信〔日本基準〕(連結)\` (#267), which
-answers question 5.
+answers question 5, and the justified line reads \`ると判断する一定の前提に基づいており、詳細は当社ウェブサイト\`
+(#268), so 「判断する」 and 「当社ウェブサイト」 can be searched.
 
-**Known gap (no issue yet):** the justified line is emitted letter-spaced, without a warning:
-\`る と 判 断 す る 一 定 の 前 提 に 基 づ い て お り 、 詳 細 は 当 社 ウ ェ ブ サ イ ト\`, so a search for
-「判断する」 or 「当社ウェブサイト」 fails.
-
-The rest is usable. The page body separates the company labels from their values (labels first,
+**Known gap (no issue yet):** the results table, below. The rest is usable. The page body separates the company labels from their values (labels first,
 values after the results table header), but layout table 5 pairs them correctly
 (\`| 問合せ先責任者 | (役職名)取締役経理部長 (氏名)佐藤 由美 | … | TEL | 06-0000-1234 |\`), so questions 1
 and 4 are answered from it; it carries \`layout_table_uncertain\` because it runs on into the results

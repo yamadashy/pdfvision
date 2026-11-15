@@ -15,6 +15,7 @@ import {
   type VerticalRubyAssociation,
 } from '../layout/verticalText.js';
 import { type JoinItem, joinPageText, type VerticalJoinRun } from '../text/cjkJoin.js';
+import type { PageFontTextHints } from '../text/fontTextHints.js';
 import { textMatrixFontSize, textRunGeometryFromTransform } from '../text/geometry.js';
 import { isLikelyPrepressProductionText } from '../text/prepress.js';
 import { prepareTextItems } from '../text/textItemPasses.js';
@@ -41,6 +42,8 @@ interface ExtractPageTextInput {
   pageHeight: number;
   viewMinX: number;
   viewMinY: number;
+  /** Per-font facts from the operator list (tracked words). */
+  fontHints?: PageFontTextHints;
 }
 
 interface RubyTextAttachment {
@@ -81,6 +84,7 @@ export function extractPageText({
   pageHeight,
   viewMinX,
   viewMinY,
+  fontHints,
 }: ExtractPageTextInput): ExtractedPageText {
   const wantSpans =
     flags.geometry ||
@@ -93,7 +97,7 @@ export function extractPageText({
     flags.needFormFieldsForSearch;
 
   const { joinItems, textArea, spans, verticalJoinSpans, verticalJoinSpanIndices } = collectPageTextItems({
-    content: { items: prepareTextItems(content.items) },
+    content: { items: prepareTextItems(content.items, fontHints) },
     flags,
     pageHeight,
     viewMinX,

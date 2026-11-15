@@ -24,6 +24,7 @@ import { buildLayout } from '../layout/index.js';
 import { buildLinks, isLinkAnnotation } from '../links/index.js';
 import { nonPrintableStats } from '../quality/nonPrintable.js';
 import { isRasterBackedTextLayer } from '../quality/rasterBackedTextLayer.js';
+import { collectFontTextHints } from '../text/fontTextHints.js';
 import type { PageData, PageFlags } from './pageData.js';
 import { extractPageText } from './pageText.js';
 import { normalizeText, round2 } from './textUtils.js';
@@ -69,6 +70,11 @@ export async function extractPageData(
   const readUnrotated = rotation !== undefined && frame.rotation === 0;
   const userUnit = normalizePageUserUnit(page.userUnit);
 
+  // The operator list comes first: it carries the glyph facts text content
+  // drops (character spacing), which correct the text before it is joined.
+  const rawOpList = await page.getOperatorList();
+  const fontHints = collectFontTextHints(rawOpList.fnArray, rawOpList.argsArray as unknown[], opaqueFillTextOps);
+
   const {
     text,
     rawText: preservedRaw,
@@ -82,6 +88,7 @@ export async function extractPageData(
     pageHeight: height,
     viewMinX: xMin,
     viewMinY: yMin,
+    fontHints,
   });
 
   // Always expand image-bbox per instance — counting ops would under-
@@ -89,7 +96,6 @@ export async function extractPageData(
   // XObject into a single Repeat / Group op. Expanded boxes serve as
   // both the public `imageBoxes` payload (when requested) and the source
   // of `imageCount`, which keeps the two trivially consistent.
-  const rawOpList = await page.getOperatorList();
   const opList = operatorListInFrame(rawOpList, ops.transform, frame);
   const invisibleText = collectInvisibleTextEvidence(
     rawOpList.fnArray,
