@@ -19,7 +19,7 @@ pdfvision document.pdf --layout --format json
 
 - `pages[].layout.blocks[].lines`: 带几何信息的重建文本行。
 - `pages[].layout.blocks`: 按阅读顺序排列的块、角色和 bbox。
-- `pages[].layout.tables`: 原生文本可能压平行列关系时的数字表格提示。Each cell carries its geometric `column` (plus `columnSpan` when a header or merged value's text overlaps several columns; a centered group header narrower than its group covers only the columns under its text, so render to confirm a group's width), so an empty cell stays an empty column instead of shifting later values left.
+- `pages[].layout.tables`: 原生文本可能压平行列关系时的数字表格提示。Each cell carries its geometric `column` (plus `columnSpan` when a header or merged value's text overlaps several columns; a centered group header narrower than its group covers only the columns under its text, so render to confirm a group's width), so an empty cell stays an empty column instead of shifting later values left. Rows that continue the grid stay in the table — a row that is `—` in every column between two table rows, a group heading or a sparse row between them, word-valued rows such as `Yes | No` right after the last row — and a wrapped label or cell line joins the row it sits clearly closer to; a header row set as widely spaced words stays a row of its own instead of being glued onto the first label, and a `Table 1 (continued)` caption stays out of the table.
 - 竖排 CJK 文本恢复。
 
 当原生文本流与视觉阅读顺序不同，Markdown 输出可以使用恢复后的 layout order。
@@ -75,7 +75,7 @@ visual regions 可以作为到多模态模型的桥梁：
 - 文本重叠或文本框超出页面。
 - 正文挤到重复页眉或页脚附近。
 - 被压平的数字表格。
-- layout table hints whose cells did not resolve into one consistent grid (`layout_table_uncertain`).
+- layout table hints whose cells did not resolve into one consistent grid (`layout_table_uncertain`), including a wrapped label whose first lines could belong to the row above as well as to its own values.
 - 原生文本顺序与视觉阅读顺序不一致。
 - 字形乱码、PUA 字符串或局部 mojibake。
 - 全页扫描上的 OCR 文本层。

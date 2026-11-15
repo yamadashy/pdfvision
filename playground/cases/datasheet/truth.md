@@ -78,8 +78,8 @@ A correct reading says the drawing carries dimensions that are only visible in a
 5. What is the overall width of the package across the leads? — 6.00 ±0.20 mm (only in the drawing)
 
 Page 1 reads well: the pinout comes back as a 4 × 4 layout table (`| IN A− | 2 | 7 | OUT B |`), so
-question 2 is answerable, and the absolute-maximum table keeps its values (question 1); its layout
-table drops the `Output short-circuit duration | Continuous` row, which the body still carries.
+question 2 is answerable, and the absolute-maximum table keeps its values (question 1), with its
+`MIN | MAX | UNIT` header row and the `Output short-circuit duration | Continuous` row (#262).
 
 **Known gap (#241):** every subscript on page 2 is split off its symbol. The condition note reads
 `At T = 25°C, V = 5 V, R = 10 kΩ connected to V / 2` followed by a stray `A S L S` line; symbols

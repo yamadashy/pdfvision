@@ -305,11 +305,12 @@ On track
 
 ### Layout tables
 
-#### Table 1 (39 rows × 6 columns, bbox 56,151.79,459.56,610.64)
+#### Table 1 (40 rows × 6 columns, bbox 60,167.93,455.56,594.5)
 
 | C1 | C2 | C3 | C4 | C5 | C6 |
 | --- | --- | --- | --- | --- | --- |
-| Table 1: Depot charging deployment at 30 September 2026 Depot Region Planned Installed Utilisation Status Aarhus | North | 10 | 10 | 48% | Complete |
+| Depot | Region | Planned | Installed | Utilisation | Status |
+| Aarhus | North | 10 | 10 | 48% | Complete |
 | Aberdeen | East | 17 | 12 | 59% | On track |
 | Antwerp | South | 12 | 4 | 70% | On track |
 | Bilbao | West | 19 | 15 | 50% | Delayed |
@@ -428,11 +429,12 @@ On track
 
 ### Layout tables
 
-#### Table 1 (7 rows × 6 columns, bbox 56,67.46,459.56,130.64)
+#### Table 1 (8 rows × 6 columns, bbox 60,83.6,455.56,114.5)
 
 | C1 | C2 | C3 | C4 | C5 | C6 |
 | --- | --- | --- | --- | --- | --- |
-| Table 1 (continued) Depot Region Planned Installed Utilisation Status Szczecin | South | 19 | 12 | 74% | Delayed |
+| Depot | Region | Planned | Installed | Utilisation | Status |
+| Szczecin | South | 19 | 12 | 74% | Delayed |
 | Turku | South | 14 | 11 | 54% | On track |
 | Utrecht | West | 21 | 21 | 65% | Complete |
 | Valenciennes | North | 16 | 0 | — | Grid upgrade |

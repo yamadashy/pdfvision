@@ -19,7 +19,7 @@ Layout output includes:
 
 - `pages[].layout.blocks[].lines`: reconstructed text lines with geometry.
 - `pages[].layout.blocks`: reading-order blocks with roles and bounding boxes.
-- `pages[].layout.tables`: numeric-table hints when rows and columns may be flattened in native text. Each cell carries its geometric `column` (plus `columnSpan` when a header or merged value's text overlaps several columns; a centered group header narrower than its group covers only the columns under its text, so render to confirm a group's width), so an empty cell stays an empty column instead of shifting later values left.
+- `pages[].layout.tables`: numeric-table hints when rows and columns may be flattened in native text. Each cell carries its geometric `column` (plus `columnSpan` when a header or merged value's text overlaps several columns; a centered group header narrower than its group covers only the columns under its text, so render to confirm a group's width), so an empty cell stays an empty column instead of shifting later values left. Rows that continue the grid stay in the table — a row that is `—` in every column between two table rows, a group heading or a sparse row between them, word-valued rows such as `Yes | No` right after the last row — and a wrapped label or cell line joins the row it sits clearly closer to; a header row set as widely spaced words stays a row of its own instead of being glued onto the first label, and a `Table 1 (continued)` caption stays out of the table.
 - vertical CJK text recovery when text should be read as a vertical stack.
 
 Markdown output can use recovered layout order when the native text stream diverges from visual reading order. It also renders detected `layout.tables[]` as per-page layout table sections, preserving row/value relationships for financial statements and other numeric tables in chat-readable output.
@@ -75,7 +75,7 @@ Common warning families include:
 - overlapping text or off-page text boxes.
 - body text crowded against repeated headers or footers.
 - flattened numeric tables.
-- layout table hints whose cells did not resolve into one consistent grid (`layout_table_uncertain`).
+- layout table hints whose cells did not resolve into one consistent grid (`layout_table_uncertain`), including a wrapped label whose first lines could belong to the row above as well as to its own values.
 - native-vs-visual reading order divergence.
 - glyph-garbage native text, private-use glyph strings, or localized mojibake.
 - right-to-left script text whose inter-word spaces or paired brackets may degrade.

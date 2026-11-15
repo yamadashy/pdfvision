@@ -11,7 +11,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 ## Page 1
 
-_chars: 1455 · images: 0 · coverage: 17% · vectors: 7 · tables: 1 · warnings: 2 · size: 612×792pt_
+_chars: 1455 · images: 0 · coverage: 17% · vectors: 7 · tables: 1 · warnings: 1 · size: 612×792pt_
 
 Table 4: Minimum wages and teen labour-market outcomes
 
@@ -178,13 +178,13 @@ effects. Standard errors, in parentheses, are clustered by state (Panel A) or by
 
 ### Layout tables
 
-#### Table 1 (14 rows × 7 columns, bbox 72,121.99,463.94,237)
+#### Table 1 (18 rows × 7 columns, bbox 72,121.99,463.94,297)
 
 | C1 | C2 | C3 | C4 | C5 | C6 | C7 |
 | --- | --- | --- | --- | --- | --- | --- |
-|  | Log teen employment |  |  |  | Log weekly hours |  |
+|  | Log teen employment |  |  | Log weekly hours |  |  |
 |  | (1) | (2) | (3) | (4) | (5) | (6) |
-| Panel A. All counties |  |  |  |  |  |  |
+| Panel A. All counties Log minimum wage | -0.142*** | -0.097*** | -0.061** | -0.088*** | -0.054** | -0.031 |
 |  | (0.031) | (0.029) | (0.027) | (0.024) | (0.022) | (0.025) |
 | Log county population | 0.412*** | 0.398*** | 0.377*** | 0.106* | 0.094 | 0.088 |
 |  | (0.058) | (0.061) | (0.063) | (0.057) | (0.060) | (0.062) |
@@ -196,8 +196,11 @@ effects. Standard errors, in parentheses, are clustered by state (Panel A) or by
 |  | (0.072) | (0.074) | (0.077) | (0.066) | (0.068) | (0.069) |
 | Observations | 21,384 | 21,384 | 21,384 | 21,208 | 21,208 | 21,208 |
 | R2 | 0.934 | 0.937 | 0.939 | 0.781 | 0.786 | 0.790 |
+| County fixed effects | Yes | Yes | Yes | Yes | Yes | Yes |
+| Period fixed effects | Yes | Yes | Yes | Yes | Yes | Yes |
+| State linear trends | No | Yes | Yes | No | Yes | Yes |
+| Census-division × period FE | No | No | Yes | No | No | Yes |
 
 ### Warnings
 
-> **warning** (layout_table_uncertain): layout table 1 (bbox 72,121.99,463.94,237) did not resolve into one consistent grid: 6 lines with numbers inside the table belong to no row — its cells may sit in the wrong row or column or be missing; render that region (--render-region 72,121.99,463.94,237) before trusting the table
 > **warning** (tabular_numeric_layout): page contains 64 short numeric lines in 6 aligned columns and 12 shared numeric rows — table rows/columns may be flattened in native text; inspect the render or geometry when values matter

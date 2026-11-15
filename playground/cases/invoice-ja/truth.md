@@ -2,7 +2,7 @@
 
 - **Stresses:** CJK key-value header; bordered item table with a wrapped name and a negative line; per-rate tax summary; vector seal over the issuer name; XML attachment
 - **Families:** scripts, tables, vector-meaning, interactive
-- **Status:** known-gap
+- **Status:** known-gap (#252)
 
 An A4 請求書 from **株式会社みなとテック** to **株式会社さくら商事 御中** (経理部 ご担当者様).
 Issuer block: 〒105-0011 / 東京都港区芝公園九丁目8番7号 / みなとビル5階 / TEL 03-0000-1234; 登録番号 `T9999012345678`. A red round seal (vector
@@ -46,13 +46,14 @@ Embedded file `invoice.xml` (application/xml) carries the same invoice; its tota
 4. What is the issuer's qualified-invoice registration number? — T9999012345678
 5. What exactly is billed at 350,000? — 業務システム改修（受発注画面の入力項目追加・帳票レイアウト変更・結合テスト一式）
 
-**Known gap (no issue yet):** in the layout table the second line of the wrapped item name is
-merged into the next row: `業務システム改修（受発注画面の入力項目追加・` stays on the 350,000 row and
-`帳票レイアウト変更・結合テスト一式） 会議用弁当（定例打合せ時） ※` becomes the name of the 12,960 row, so
-question 5 is answered with a truncated name and the 弁当 row carries text that is not its own.
-The page body, which the `tabular_numeric_layout` warning tells the reader not to trust for
-values, lists the 金額 column as `120,000 / 350,000 / 90,000` — out of row order. The same
-layout table also absorbs the recipient/issuer header block into its first five rows
-(issuer address lines out of order, postcode/TEL/登録番号 missing from the table, present
-in the body). Questions 1–4 are answerable from `read.md`. Full-width punctuation comes
-back NFKC-normalised (`（` → `(`, `：` → `:`); that is intended.
+The wrapped item name comes back whole on its own row (`業務システム改修（受発注画面の入力項目追加・ 帳票レイアウト変更・結合テスト一式）`
+on the 350,000 row — the join adds a space at the wrap), so question 5 is answerable
+from the layout table; fixed in #251, before which the second line was glued onto the
+会議用弁当（定例打合せ時） ※ row.
+
+**Known gap (#252):** the layout table absorbs the recipient/issuer header block into its first
+five rows (issuer address lines out of order, postcode/TEL/登録番号 missing from the table,
+present in the body). The page body, which the `tabular_numeric_layout` warning tells the reader
+not to trust for values, lists the 金額 column as `120,000 / 350,000 / 90,000` — out of row
+order. Questions 1–5 are answerable from `read.md`. Full-width punctuation comes back
+NFKC-normalised (`（` → `(`, `：` → `:`); that is intended.

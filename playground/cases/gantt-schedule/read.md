@@ -262,10 +262,11 @@ Page 1 of 1
 
 ### Layout tables
 
-#### Table 1 (14 rows × 5 columns, bbox 27,107.39,307,241.5)
+#### Table 1 (21 rows × 5 columns, bbox 27,84.89,307,372)
 
 | C1 | C2 | C3 | C4 | C5 |
 | --- | --- | --- | --- | --- |
+| ID | Task | Owner | Plan start Plan end |  |
 | 1 | Discovery |  |  |  |
 | 1.1 | Stakeholder interviews | P. Nair | 9/7/26 | 9/18/26 |
 | 1.2 | Current-state audit | J. Brandt | 9/14/26 | 9/25/26 |
@@ -280,3 +281,9 @@ Page 1 of 1
 | 3.3 | Secure messaging module | L. Haddad | 10/19/26 | 11/27/26 |
 | 3.4 | Appointment scheduling | D. Okafor | 10/26/26 | 11/27/26 |
 | 3.5 | Accessibility audit | A. Tanaka | 11/9/26 | 11/20/26 |
+| 4 | Test & launch |  |  |  |
+| 4.1 | QA regression | QA team | 11/23/26 | 12/4/26 |
+| 4.2 | Penetration test | Vendor (TBD) |  |  |
+| 4.3 | User acceptance testing | J. Brandt | 12/7/26 | 12/18/26 |
+| 4.4 | Go-live | R. Solis | 12/18/26 | 12/18/26 |
+| 4.5 | Hypercare | Support |  |  |

@@ -82,6 +82,7 @@ export const meta = {
   stresses:
     'CJK key-value header; bordered item table with a wrapped name and a negative line; per-rate tax summary; vector seal over the issuer name; XML attachment',
   status: 'known-gap',
+  issue: 252,
   families: ['scripts', 'tables', 'vector-meaning', 'interactive'],
   page: { size: 'A4' },
 };
@@ -119,16 +120,17 @@ Embedded file \`${XML_NAME}\` (application/xml) carries the same invoice; its to
 4. What is the issuer's qualified-invoice registration number? — ${ISSUER.registration}
 5. What exactly is billed at ${yen(ITEMS[2].price)}? — ${ITEMS[2].lines.join('')}
 
-**Known gap (no issue yet):** in the layout table the second line of the wrapped item name is
-merged into the next row: \`${ITEMS[2].lines[0]}\` stays on the ${yen(ITEMS[2].price)} row and
-\`${ITEMS[2].lines[1]} ${itemName(ITEMS[3])}\` becomes the name of the ${yen(amount(ITEMS[3]))} row, so
-question 5 is answered with a truncated name and the 弁当 row carries text that is not its own.
-The page body, which the \`tabular_numeric_layout\` warning tells the reader not to trust for
-values, lists the 金額 column as \`120,000 / 350,000 / 90,000\` — out of row order. The same
-layout table also absorbs the recipient/issuer header block into its first five rows
-(issuer address lines out of order, postcode/TEL/登録番号 missing from the table, present
-in the body). Questions 1–4 are answerable from \`read.md\`. Full-width punctuation comes
-back NFKC-normalised (\`（\` → \`(\`, \`：\` → \`:\`); that is intended.
+The wrapped item name comes back whole on its own row (\`${ITEMS[2].lines[0]} ${ITEMS[2].lines[1]}\`
+on the ${yen(ITEMS[2].price)} row — the join adds a space at the wrap), so question 5 is answerable
+from the layout table; fixed in #251, before which the second line was glued onto the
+${itemName(ITEMS[3])} row.
+
+**Known gap (#252):** the layout table absorbs the recipient/issuer header block into its first
+five rows (issuer address lines out of order, postcode/TEL/登録番号 missing from the table,
+present in the body). The page body, which the \`tabular_numeric_layout\` warning tells the reader
+not to trust for values, lists the 金額 column as \`120,000 / 350,000 / 90,000\` — out of row
+order. Questions 1–5 are answerable from \`read.md\`. Full-width punctuation comes back
+NFKC-normalised (\`（\` → \`(\`, \`：\` → \`:\`); that is intended.
 `;
 
 const LEFT = 50;

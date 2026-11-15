@@ -27,7 +27,7 @@ export const meta = {
   title: 'Statement with dash placeholders',
   stresses:
     '`—` as an empty value, a row that is `—` in every column, `$` drawn as a separate glyph, parenthesised negatives',
-  status: 'known-gap',
+  status: 'ok',
   families: ['tables'],
 };
 
@@ -48,20 +48,17 @@ The \`$\` belongs to the value on its right. The section label rows may be
 emitted as label-only rows or left out of the table, as long as their text
 appears in reading order.
 
-${dashOnly.map((row) => `\`${row.label}\``).join(', ')} has \`—\` in both columns. Under the current table
-rules (\`src/core/layout/tableCandidateRows.ts\`, \`hasTableValueCells\`) a row only counts
-as table evidence when at least two cells are values *and* one of them contains a
-digit, so this row cannot start or extend a table by itself. A reading that keeps it
-as a row of the table is better; one that drops it from the table must still carry
-the text in the page body.
+${dashOnly.map((row) => `\`${row.label}\``).join(', ')} has \`—\` in both columns. On its own a row of
+nothing but placeholders is no evidence of a table (\`hasTableValueCells\` in
+\`src/core/layout/tableCandidateRows.ts\` needs a value with a digit), so the reading has to keep
+it as a row of the table it sits in rather than drop it; a reading that drops it must still
+carry the text in the page body.
 
-**Known gap (no issue yet):** pdfvision returns no layout table and no
-\`tabular_numeric_layout\` warning for this page. The values come out as one run per
-column (\`93,736\`, \`11,445\`, … then \`2024\`), so none can be tied to its row. The
-\`${dashOnly[0].label}\` row splits the table into an upper and a lower fragment and
-neither is kept: with that row given numbers the whole 15-row table is found correctly;
-with the row kept but \`Vendor non-trade receivables\` given a number instead of \`—\`,
-only the six rows below it survive.
+How \`read.md\` does: the layout table has all ${valued.length} valued rows in order with each \`—\` in its
+year column, \`${dashOnly[0].label} | — | —\` included, the \`$\` folded onto the first and total
+values, and the section labels as label-only rows (the two-line \`Adjustments …\` label comes back
+as two rows). Fixed in #250: before it, the \`—\`-only row split the table into two fragments,
+neither was kept, and the page had no layout table and no warning.
 `;
 
 const LEFT = 72;

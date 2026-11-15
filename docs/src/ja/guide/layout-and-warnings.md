@@ -19,7 +19,7 @@ pdfvision document.pdf --layout --format json
 
 - `pages[].layout.blocks[].lines`: ジオメトリ付きの復元行。
 - `pages[].layout.blocks`: 読み順ブロック、役割、bbox。
-- `pages[].layout.tables`: ネイティブテキストで崩れやすい数値表のヒント。Each cell carries its geometric `column` (plus `columnSpan` when a header or merged value's text overlaps several columns; a centered group header narrower than its group covers only the columns under its text, so render to confirm a group's width), so an empty cell stays an empty column instead of shifting later values left.
+- `pages[].layout.tables`: ネイティブテキストで崩れやすい数値表のヒント。Each cell carries its geometric `column` (plus `columnSpan` when a header or merged value's text overlaps several columns; a centered group header narrower than its group covers only the columns under its text, so render to confirm a group's width), so an empty cell stays an empty column instead of shifting later values left. Rows that continue the grid stay in the table — a row that is `—` in every column between two table rows, a group heading or a sparse row between them, word-valued rows such as `Yes | No` right after the last row — and a wrapped label or cell line joins the row it sits clearly closer to; a header row set as widely spaced words stays a row of its own instead of being glued onto the first label, and a `Table 1 (continued)` caption stays out of the table.
 - 縦書き CJK テキストの復元。
 
 Markdown 出力では、ネイティブテキストストリームと視覚的読み順が乖離する場合に、復元された layout order を利用できます。
@@ -75,7 +75,7 @@ visual regions は multimodal model への橋渡しとして使えます。
 - 重なった文字やページ外の文字。
 - 本文と繰り返しヘッダー、フッターの衝突。
 - 平坦化された数値表。
-- layout table hints whose cells did not resolve into one consistent grid (`layout_table_uncertain`).
+- layout table hints whose cells did not resolve into one consistent grid (`layout_table_uncertain`), including a wrapped label whose first lines could belong to the row above as well as to its own values.
 - ネイティブテキストと視覚的な読み順の不一致。
 - グリフ文字列、PUA 文字、局所的な文字化け。
 - フルページスキャン上の OCR テキストレイヤー。
