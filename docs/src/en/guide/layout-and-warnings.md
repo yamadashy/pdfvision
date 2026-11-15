@@ -76,6 +76,7 @@ Common warning families include:
 - body text crowded against repeated headers or footers.
 - flattened numeric tables.
 - layout table hints whose cells did not resolve into one consistent grid (`layout_table_uncertain`).
+- signs set in a symbol font whose character map reports them as ordinary characters, so `−52%` reads as `252%` (`symbol_font_substitution`).
 - native-vs-visual reading order divergence.
 - glyph-garbage native text, private-use glyph strings, or localized mojibake.
 - right-to-left script text whose inter-word spaces or paired brackets may degrade.
@@ -111,8 +112,9 @@ Treat warnings as routing signals:
 
 - If native text is glyph-corrupted, compare a render or OCR before summarizing.
 - If `rtl_script_text` appears, verify exact wording and paired brackets against a render.
-- If reading order diverges, prefer layout blocks over raw page text for narrative order.
+- If reading order diverges, prefer layout blocks over raw page text for narrative order. When the warning says the layout-rebuilt order is unreliable here too, side-by-side blocks were read line by line or run together, so render the page instead of trusting either order.
 - If a table warning appears, preserve row and column evidence and crop the table when values matter. `layout_table_uncertain` names the table and its bbox: render that region before trusting its cells.
+- If `symbol_font_substitution` appears, do not report a sign, direction, bound, or p-value from native text: render the region the warning names and read the minus, `<`, `>`, `±`, and `=` signs from the image.
 - If large raster or dense vector warnings appear, assume labels may be visual-only until verified.
 - If repeated chrome is involved, avoid mixing headers, footers, page numbers, and body text.
 

@@ -76,6 +76,7 @@ visual regions は multimodal model への橋渡しとして使えます。
 - 本文と繰り返しヘッダー、フッターの衝突。
 - 平坦化された数値表。
 - layout table hints whose cells did not resolve into one consistent grid (`layout_table_uncertain`).
+- signs set in a symbol font whose character map reports them as ordinary characters, so `−52%` reads as `252%` (`symbol_font_substitution`).
 - ネイティブテキストと視覚的な読み順の不一致。
 - グリフ文字列、PUA 文字、局所的な文字化け。
 - フルページスキャン上の OCR テキストレイヤー。
@@ -108,8 +109,9 @@ A render establishes only what the page visibly shows. Neither a warning nor its
 warning は routing signal として扱います。
 
 - ネイティブテキストが glyph-corrupted なら、要約前に render または OCR と比較する。
-- 読み順が乖離しているなら、物語的な順序には raw page text より layout blocks を優先する。
+- 読み順が乖離しているなら、物語的な順序には raw page text より layout blocks を優先する。When the warning says the layout-rebuilt order is unreliable here too, side-by-side blocks were read line by line or run together, so render the page instead of trusting either order.
 - table warning があるなら、行/列の根拠を保持し、値が重要なら表を crop する。`layout_table_uncertain` names the table and its bbox: render that region before trusting its cells.
+- If `symbol_font_substitution` appears, do not report a sign, direction, bound, or p-value from native text: render the region the warning names and read the minus, `<`, `>`, `±`, and `=` signs from the image.
 - large raster や dense vector の warning があるなら、検証するまで label が visual-only だと仮定する。
 - repeated chrome が関わるなら、ヘッダー、フッター、ページ番号、本文を混ぜない。
 

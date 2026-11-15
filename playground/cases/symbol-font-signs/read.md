@@ -11,7 +11,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 ## Page 1
 
-_chars: 1785 · images: 0 · coverage: 17% · vectors: 4 · tables: 1 · warnings: 2 · size: 612×792pt_
+_chars: 1785 · images: 0 · coverage: 17% · vectors: 4 · tables: 1 · warnings: 3 · size: 612×792pt_
 
 Nurse-Led Remote Monitoring in Type 2 Diabetes
 
@@ -114,4 +114,5 @@ difference was 20.6 percentage points (p , 0.001).
 ### Warnings
 
 > **warning** (layout_table_uncertain): layout table 1 (bbox 72,261.55,468,93) did not resolve into one consistent grid: 4 lines with numbers inside the table belong to no row — its cells may sit in the wrong row or column or be missing; render that region (--render-region 72,261.55,468,93) before trusting the table
+> **warning** (symbol_font_substitution): 35 single-glyph runs in font font4 sit inline beside numbers in another font and extract as "þ", "2", ",", "1⁄4", ".", "3" (samples: "61.3 þ 9.8", "(difference 20.5", "p , 0.001;") — the pattern of a symbol font whose character map reports minus, <, >, ± or = as ordinary characters, so signs and comparison operators in this text may be wrong (e.g. −52% read as 252%); render that region (--render-region 72,125.23,453.7,343.2) and read the signs from the image before trusting them
 > **warning** (tabular_numeric_layout): page contains 23 short numeric lines in 4 aligned columns and 7 shared numeric rows — table rows/columns may be flattened in native text; inspect the render or geometry when values matter
