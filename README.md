@@ -19,7 +19,7 @@
 [![License](https://img.shields.io/npm/l/pdfvision)](LICENSE)
 
 🔍 **pdfvision** is a CLI, MCP server, and TypeScript library that extracts text, layout, and page images from PDFs for AI agents. When extraction goes wrong — scanned pages, broken font maps, scrambled reading order — it says so, per page, and says what to do next.
-🔍 **pdfvision** reads PDFs for AI agents. It extracts text, layout, and page images. When a page did not read correctly, it says so and names the next step. It runs as a CLI, an MCP server, and a TypeScript library.
+🔍 **pdfvision** reads PDFs for AI agents. It extracts text, layout, and page images. When it detects that a page did not read correctly, it says so and names the next step. It runs as a CLI, an MCP server, and a TypeScript library.
 
 ## 💡 Why pdfvision
 
@@ -93,15 +93,20 @@ _chars: 6944 · images: 0 · coverage: 42% · vectors: 17 · warnings: 1 · size
 > rebuilt from the layout — render the page when exact sequence is critical
 ```
 
-The warning tells the agent two things. The body it just read is already in human reading order. And the lines the warning quotes are unreadable: they are the labels of a figure whose font this PDF does not decode, so no value in that figure can be trusted as text. The agent finds the figure and looks at it:
+The body the agent just read is already in reading order, as the warning says. But the lines the warning quotes are not words, so whatever they label cannot be read as text. The agent asks what is drawn on the page:
 
 ```console
-$ pdfvision tracemonkey.pdf -p 11 --visual-regions
-| ID      | Kind  | BBox                    | Area  | Text                                    |
-| p11-vr0 | mixed | 46,64.45,518.12,334.12  | 35.7% | caption: Figure 10. Speedup vs. a base… |
+$ pdfvision tracemonkey.pdf -p 10 --visual-regions
+| ID      | Kind   | BBox                   | Area  | Text                                             |
+| p10-vr0 | vector | 308.93,65.01,260.6,320 | 17.2% | caption: Figure 11. … The speedup vs. interpreter |
+|         |        |                        |       | is shown in parentheses next to each test. …     |
+```
 
-$ pdfvision tracemonkey.pdf -p 11 --render --render-region 46,64,518,335
-![Page 11](…/page-11_x46_y64_w518_h335.png)
+The page has one figure, and the garbled lines sit inside it. Its caption says the speedups are printed next to each test, so the numbers the agent needs are exactly the text that did not decode. It renders that region and reads the figure itself:
+
+```console
+$ pdfvision tracemonkey.pdf -p 10 --render --render-region 308.93,65.01,260.6,320
+![Page 10](…/page-10_x308.93_y65.01_w260.6_h320.png)
 ```
 
 One cropped image reaches the model instead of fourteen page images. Without the warning, the same agent reads `?>9@AJ.0A:</C./8-2#3$4%56#` as a successful extraction and never finds out otherwise.
