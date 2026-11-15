@@ -4,7 +4,8 @@
  * against chrome, page-edge text truncation, off-page bboxes, localized glyph noise / replacement
  * characters / CJK mojibake,
  * right-to-left script text whose spacing or paired brackets may degrade,
- * page-wide glyph-index garbage, tiny native text that may not be human-visible,
+ * page-wide glyph-index garbage, signs from a symbol font that extract as
+ * ordinary characters, tiny native text that may not be human-visible,
  * raw embedded producer/source payloads that leak into native text,
  * text drawn with invisible rendering mode but included in extraction,
  * native text hidden beneath later opaque fills,
@@ -34,6 +35,7 @@ export interface PageWarning {
     | 'rtl_script_text'
     | 'localized_glyph_noise'
     | 'font_mapping_warning'
+    | 'symbol_font_substitution'
     | 'raw_embedded_source_text'
     | 'invisible_text'
     | 'text_under_opaque_fill'
