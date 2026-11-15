@@ -76,6 +76,7 @@ visual regions 可以作为到多模态模型的桥梁：
 - 正文挤到重复页眉或页脚附近。
 - 被压平的数字表格。
 - layout table hints whose cells did not resolve into one consistent grid (`layout_table_uncertain`).
+- signs set in a symbol font whose character map reports them as ordinary characters, so `−52%` reads as `252%` (`symbol_font_substitution`).
 - 原生文本顺序与视觉阅读顺序不一致。
 - 字形乱码、PUA 字符串或局部 mojibake。
 - 全页扫描上的 OCR 文本层。
@@ -109,6 +110,7 @@ A render establishes only what the page visibly shows. Neither a warning nor its
 - 如果原生文本字形损坏，在摘要前先与 render 或 OCR 比较。
 - 如果阅读顺序分歧，叙事顺序优先使用 layout blocks，而不是 raw page text。
 - 如果出现 table warning，保留行列证据；当数值重要时裁剪表格。`layout_table_uncertain` names the table and its bbox: render that region before trusting its cells.
+- If `symbol_font_substitution` appears, do not report a sign, direction, bound, or p-value from native text: render the region the warning names and read the minus, `<`, `>`, `±`, and `=` signs from the image.
 - 如果出现 large raster 或 dense vector warning，在验证前假设标签可能是 visual-only。
 - 如果涉及 repeated chrome，避免混合页眉、页脚、页码和正文。
 
