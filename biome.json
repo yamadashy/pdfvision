@@ -4,6 +4,7 @@
     "includes": [
       "src/**",
       "tests/**",
+      "playground/**",
       ".github/**",
       "**/package.json",
       "**/biome.json",
@@ -14,6 +15,7 @@
       "!**/dist",
       "!**/node_modules",
       "!**/*.md",
+      "!playground/index.html",
       "!src/cli/docs/*.generated.ts"
     ]
   },
