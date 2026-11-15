@@ -16,6 +16,8 @@ export interface FontTextHints {
   charMap?: ReadonlyMap<string, string>;
   /** Tracked words joined by U+0000, for substring tests. */
   trackedWords?: string;
+  /** Every run in this font was drawn invisible (render mode 3/7): an OCR layer's font. */
+  invisible?: boolean;
 }
 
 export type PageFontTextHints = ReadonlyMap<string, FontTextHints>;
@@ -25,6 +27,7 @@ export interface FontTextHintOps {
   restore: number;
   setFont?: number;
   setCharSpacing?: number;
+  setTextRenderingMode?: number;
   textShowOps: ReadonlySet<number>;
 }
 
@@ -53,6 +56,8 @@ interface FontAccumulator {
   /** Characters some glyph produced through a real mapping; never rewritten. */
   mappedChars?: Set<string>;
   trackedWords?: Set<string>;
+  visibleRuns: number;
+  invisibleRuns: number;
 }
 
 export function collectFontTextHints(
@@ -67,7 +72,11 @@ export function collectFontTextHints(
     if (!acc) {
       const info = resolveFont(loadedName);
       const kind = standardSymbolFontKind(info?.name);
-      acc = kind ? { kind, differences: differenceMap(info?.differences) } : {};
+      acc = {
+        ...(kind && { kind, differences: differenceMap(info?.differences) }),
+        visibleRuns: 0,
+        invisibleRuns: 0,
+      };
       fonts.set(loadedName, acc);
     }
     return acc;
@@ -76,24 +85,29 @@ export function collectFontTextHints(
   let font: string | undefined;
   let fontSize = 0;
   let charSpacing = 0;
-  const stack: { font: string | undefined; fontSize: number; charSpacing: number }[] = [];
+  let renderingMode = 0;
+  const stack: { font: string | undefined; fontSize: number; charSpacing: number; renderingMode: number }[] = [];
   for (let i = 0; i < fnArray.length; i++) {
     const fn = fnArray[i];
     const args = argsArray[i] as readonly unknown[] | null | undefined;
     if (fn === ops.save) {
-      stack.push({ font, fontSize, charSpacing });
+      stack.push({ font, fontSize, charSpacing, renderingMode });
     } else if (fn === ops.restore) {
       const state = stack.pop();
-      if (state) ({ font, fontSize, charSpacing } = state);
+      if (state) ({ font, fontSize, charSpacing, renderingMode } = state);
     } else if (fn === ops.setFont) {
       font = typeof args?.[0] === 'string' ? args[0] : undefined;
       fontSize = typeof args?.[1] === 'number' && Number.isFinite(args[1]) ? Math.abs(args[1]) : 0;
     } else if (fn === ops.setCharSpacing) {
       charSpacing = typeof args?.[0] === 'number' && Number.isFinite(args[0]) ? args[0] : 0;
+    } else if (fn === ops.setTextRenderingMode) {
+      renderingMode = typeof args?.[0] === 'number' ? args[0] : 0;
     } else if (ops.textShowOps.has(fn) && font !== undefined) {
       const glyphs = args?.[0];
       if (!Array.isArray(glyphs)) continue;
       const acc = accumulatorFor(font);
+      if (renderingMode === 3 || renderingMode === 7) acc.invisibleRuns++;
+      else acc.visibleRuns++;
       if (acc.kind) recordSymbolGlyphs(acc, glyphs);
       if (fontSize > 0 && charSpacing >= fontSize * MIN_TRACKING_EM) recordTrackedWords(acc, glyphs);
     }
@@ -105,8 +119,9 @@ export function collectFontTextHints(
     const entry: FontTextHints = {
       ...(charMap && charMap.size > 0 && { charMap }),
       ...(acc.trackedWords && acc.trackedWords.size > 0 && { trackedWords: [...acc.trackedWords].join('\u0000') }),
+      ...(acc.invisibleRuns > 0 && acc.visibleRuns === 0 && { invisible: true }),
     };
-    if (entry.charMap || entry.trackedWords) hints.set(name, entry);
+    if (entry.charMap || entry.trackedWords || entry.invisible) hints.set(name, entry);
   }
   return hints;
 }

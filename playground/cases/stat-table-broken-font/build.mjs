@@ -120,7 +120,7 @@ ${SOURCE}
 
 **Current reading (ok — the warning carries it):** \`read.md\` keeps the title, units line, labels
 and notes, but every figure-font run is gone: the values are dropped as non-printable glyph
-indices, the age labels lose their numbers (\`Under years\`, \`to years2\`, \`years and older\`),
+indices, the age labels lose their numbers (\`Under years\`, \`to years^2\`, \`years and older\`),
 the change-group header reads \`income (\` / \`less\` / \`)\`, and only the \`*\` marks and \`Z\` survive,
 detached from their rows. No question is answerable from the text, and none is answered
 *wrongly*: the page header carries \`nonPrint: 26% (552)\` and \`native: mixed_glyph_indices\`, and

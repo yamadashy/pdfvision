@@ -76,6 +76,8 @@ All three document counts are omitted when zero. Per-page `formFieldCount`, `lin
 
 OCR はネイティブテキストを上書きしません。利用側が `page.text` と `page.ocr?.text` を比較して選びます。
 
+Superscripts and subscripts are written inline as `^…` / `_…` in `text`, layout text, and spans — `^x` for one character or a digit run, `^{…}` otherwise (`10^19`, `P_{drop}`, `^1` for a footnote marker) — so an exponent never reads as trailing digits. Before that, copies of a run overdrawn to fake bold are kept once, spaces pdf.js inserts into letter-spaced text are removed, and ZapfDingbats/Symbol glyphs that pdf.js returns as character codes are decoded (`3` → `✓`). See `pdfvision docs schema`.
+
 オプションフィールドは意図的に opt-in です。`--layout --form-fields` の JSON と、それらのフラグを付けていない JSON は別物です。要求した機能で要素が見つからなかった場合は、空配列や null-like な形を使い、「未要求」と「要求したが存在しない」を区別しやすくします。
 
 ## Quality Fields

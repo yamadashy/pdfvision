@@ -26,6 +26,18 @@ describe('tracked words from the operator list', () => {
     expect(hints.get('f1')?.trackedWords?.split('\u0000')).toEqual(['SUMMARY', 'OF']);
   });
 
+  it('marks a font drawn only in an invisible rendering mode', () => {
+    const ops = { ...OPS, setTextRenderingMode: 6 };
+    const hints = collectFontTextHints(
+      [3, 6, 5, 3, 6, 5],
+      [['ocr', 10], [3], [glyphs('hidden')], ['body', 10], [0], [glyphs('shown')]],
+      ops,
+      () => undefined,
+    );
+    expect(hints.get('ocr')?.invisible).toBe(true);
+    expect(hints.get('body')).toBeUndefined();
+  });
+
   it('ignores kerning-sized character spacing and restores it with the graphics state', () => {
     const hints = collectFontTextHints(
       [3, 4, 5, 1, 4, 2, 5],

@@ -40,6 +40,6 @@ pages 1 and 2 keep `1 / 24` and `2 / 24` because their counters differ). Nothing
 says the pages are overlays of one frame (question 1 only by noticing the duplicates).
 
 Question 3 is answerable by comparing pages: page 6 ends `Δt ≤ Δx2 / 2 ⇒ halving Δx quarters Δt`,
-pages 3–5 end with the update rule — flattened as `unj +1 = un + λ (un − 2un + un )` with the
-subscripts `j` / `j+1` / `j` / `j−1` on later lines (#241). Question 4 is answered from the last item
+pages 3–5 end with the update rule, read with its scripts marked:
+`u_j^{n+1} = u_j^n + λ (u_{j+1}^n − 2u_j^n + u_{j−1}^n)` (#241). Question 4 is answered from the last item
 (`Δx2` for Δx²).

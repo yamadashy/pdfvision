@@ -42,7 +42,7 @@ interface ExtractPageTextInput {
   pageHeight: number;
   viewMinX: number;
   viewMinY: number;
-  /** Per-font facts from the operator list (tracked words). */
+  /** Per-font facts from the operator list (symbol-font glyphs, tracked words). */
   fontHints?: PageFontTextHints;
 }
 
