@@ -2,7 +2,7 @@
 
 - **Stresses:** numbered clauses with bold defined terms; a proper redaction; a black box over live text; white-on-white text; highlight, sticky note, strike-out and link annotations
 - **Families:** hidden-overlap, interactive, structure
-- **Status:** known-gap
+- **Status:** ok
 
 MASTER SERVICES AGREEMENT between **Corvane Analytics Ltd.** (“Provider”), 40 Wharf Road, Leith, Edinburgh EH6 6QX, and **Blue Fern Retail, Inc.**
 (“Client”), 1180 Mercer Street, Suite 400, Seattle, WA 98109, effective November 1, 2026. Defined terms are bold.
@@ -86,13 +86,18 @@ box is. A correct reading says the fee is redacted and does not guess.
 4. What did the reviewer say about the liability clause, and what change did they propose to late-payment interest? — “Cap is too low for a 24-month term. Ask for 2x annual fees. — J. Ortiz, Client Legal”; strike “1.5% per month” — “Replace with 1.0% per month, per our standard terms.”
 5. Who signed for the Client, and when? — Marcus Oyelaran, General Counsel, November 5, 2026
 
-**Known gap (no issue yet):** both failed redactions come back as ordinary visible text with no
-warning. Page 2 reads `shall not exceed USD 250,000 in any contract year.` as if the cap were printed,
-and page 1 reads clause 4.3 (`Client may terminate this Agreement for …`) as a normal clause although the page shows
-a blank. An agent answers question 2 with the cap as a plain fact and question 3 with “no”
-(nothing in `read.md` distinguishes hidden from visible text); nothing tells it to render.
+**Current reading (ok):** both failed redactions are still in the text, where they belong — the
+file contains them — and each is flagged on its page. Page 2 reads `shall not exceed USD 250,000 in any
+contract year.` and carries `text_under_opaque_fill` naming exactly `"USD 250,000"` with its bbox, so
+the rest of clause 6.1 stays ordinary visible text and question 2 is answered as “shown redacted;
+the hidden text reads USD 250,000”. Page 1 reads clause 4.3 as a normal clause and carries
+`text_matches_background` naming its two lines (`"Client may terminate this Agreement for convenience after..."` and
+`"early-termination fee of USD 120,000."`) with bboxes, which answers question 3. Both warnings
+point at `--render-region` for the listed bbox, and the render shows the black box and the blank.
+The warnings sit at the end of each page, after the annotation tables, so an agent has to read to the
+end of the page before quoting clause 6.1 or 4.3. (Issue #249.)
 
-The proper redaction is only partly readable: 3.1 reads `a fixed monthly fee of` / `(the “Fees”),
+Defects without a warning: the proper redaction is only partly readable. 3.1 reads `a fixed monthly fee of` / `(the “Fees”),
 invoiced monthly in` / `advance.` — the value is simply absent (no box is reported, there is no warning, and the line
 is broken where the box sits), so question 1 gets “not stated” where the page shows a redaction:
 the reading cannot establish that anything was redacted. Annotations are listed per page

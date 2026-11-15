@@ -8,6 +8,7 @@
  * raw embedded producer/source payloads that leak into native text,
  * text drawn with invisible rendering mode but included in extraction,
  * native text hidden beneath later opaque fills,
+ * native text filled in the colour of the paint behind it,
  * dense vector graphics whose form fields or chart paths are not text,
  * vector-only visual pages with no native text,
  * hidden duplicate native text layers that inflate page text,
@@ -37,6 +38,7 @@ export interface PageWarning {
     | 'raw_embedded_source_text'
     | 'invisible_text'
     | 'text_under_opaque_fill'
+    | 'text_matches_background'
     | 'dense_vector_graphics'
     | 'vector_graphics_no_native_text'
     | 'duplicate_text_layer'

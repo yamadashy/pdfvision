@@ -9,6 +9,7 @@ import { buildFormFields, isFormFieldAnnotation } from '../formFields/index.js';
 import { buildImageBoxes, type ImageOps } from '../graphics/imageBoxes.js';
 import { collectInvisibleTextEvidence, type TextRenderingOps } from '../graphics/invisibleText.js';
 import { collectOpaqueFillTextEvidence, type OpaqueFillTextOps } from '../graphics/opaqueFillText.js';
+import type { FontGeometryInfo } from '../graphics/textGlyphs.js';
 import { buildVectorBoxes } from '../graphics/vectorBoxes.js';
 import { countVectorPaintOps } from '../graphics/vectorOps.js';
 import { buildLayout } from '../layout/index.js';
@@ -86,6 +87,7 @@ export async function extractPageData(
     height,
     xMin,
     yMin,
+    (loadedName) => fontGeometry(page.commonObjs, loadedName),
   );
   const allBoxes = buildImageBoxes(opList.fnArray, opList.argsArray as unknown[][], ops, height, view[0], yMin);
   const imageCount = allBoxes.length;
@@ -306,4 +308,29 @@ function normalizePageRotation(rotation: number | undefined): number | undefined
 function normalizePageUserUnit(userUnit: number | undefined): number | undefined {
   if (typeof userUnit !== 'number' || !Number.isFinite(userUnit) || userUnit <= 0 || userUnit === 1) return undefined;
   return userUnit;
+}
+
+/**
+ * Font facts glyph placement needs, read from the fonts pdf.js already
+ * loaded for this page's operator list. A font that is not there (or not
+ * resolved yet) yields undefined, and placement falls back to pdf.js's
+ * default 1/1000 font matrix.
+ */
+function fontGeometry(
+  commonObjs: { has(id: string): boolean; get(id: string): unknown } | undefined,
+  loadedName: string,
+): FontGeometryInfo | undefined {
+  try {
+    if (!commonObjs?.has(loadedName)) return undefined;
+    const font = commonObjs.get(loadedName) as { fontMatrix?: unknown; vertical?: unknown } | null;
+    if (!font || typeof font !== 'object') return undefined;
+    const matrix = font.fontMatrix as ArrayLike<unknown> | undefined;
+    const fontMatrix =
+      matrix && typeof matrix === 'object' && matrix.length >= 4
+        ? Array.from(matrix).filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
+        : undefined;
+    return { ...(fontMatrix && fontMatrix.length >= 4 && { fontMatrix }), vertical: font.vertical === true };
+  } catch {
+    return undefined;
+  }
 }
