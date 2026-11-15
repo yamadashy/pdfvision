@@ -65,7 +65,3 @@ nothing on the drawing to map, which is harmless here because the drawing carrie
 no labels of its own. The step table survives its layer order: each numeral is printed right
 before its own title and instruction, 1 to 5, so questions 1 and 2 are answered in order. The
 Japanese and French lines, accents and `’` included, are intact (question 5).
-`vector_chart_labels` fires on the exploded drawing (its callout digits and leader marks pass for
-labelled bars, and the `Getting started` heading under it is taken in as a label): it calls the
-drawing a chart, which it is not, though rendering the region before pairing the numbers with
-anything is the right next step for the callouts.

@@ -11,7 +11,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 ## Page 1
 
-_chars: 1643 · images: 0 · coverage: 14% · vectors: 83 · warnings: 1 · size: 595.28×841.89pt_
+_chars: 1643 · images: 0 · coverage: 14% · vectors: 83 · size: 595.28×841.89pt_
 
 QUICK START GUIDE
 
@@ -106,7 +106,3 @@ FR Débranchez le socle avant le nettoyage et ne le plongez jamais dans l’eau.
 Brightwell Home Appliances Ltd. · support.brightwell-home.example
 
 QSG-KT17 Rev. B 09/2026
-
-### Warnings
-
-> **warning** (vector_chart_labels): vector chart at 40,109,287,356 has 10 text labels (values such as "2", labels such as "Getting started"), read together row by row — which value belongs to which bar, series or category is shown only by the drawing; render the region (--render-region 40,109,287,356) before pairing or quoting values

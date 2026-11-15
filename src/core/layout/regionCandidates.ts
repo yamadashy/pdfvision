@@ -18,6 +18,7 @@ const RULE_MIN_LENGTH_PT = 36;
 const RULE_EXTENT_TOLERANCE_PT = 3;
 const RULE_CHAIN_MAX_GAP_RATIO = 0.35;
 const MIN_RULE_BAND_HEIGHT_PT = 8;
+const MAX_COLUMN_RULE_PT = 120;
 
 /** Connected groups of boxes that touch within {@link CLUSTER_GAP_PT}. */
 export function clusterBoxes(boxes: readonly BBox[]): Candidate[] {
@@ -92,7 +93,24 @@ export function ruleBands(vectors: readonly BBox[], pageHeight: number): Candida
       drawing: false,
     });
   }
-  return bands;
+  // Rules drawn under each value column of a table, at the same heights in
+  // every column, mark the table's rows, not a band of its own: each chain
+  // would cut one column out of the table.
+  return bands.filter((band) => !bands.some((other) => other !== band && isSiblingColumn(band, other)));
+}
+
+function isSiblingColumn(a: Candidate, b: Candidate): boolean {
+  // Value-column underlines are short; two whole tables ruled side by side
+  // at the same heights are bands of their own.
+  if (a.box.width > MAX_COLUMN_RULE_PT || b.box.width > MAX_COLUMN_RULE_PT) return false;
+  const disjoint =
+    a.box.x + a.box.width <= b.box.x + RULE_EXTENT_TOLERANCE_PT ||
+    b.box.x + b.box.width <= a.box.x + RULE_EXTENT_TOLERANCE_PT;
+  if (!disjoint) return false;
+  const shared = a.parts.filter((rule) =>
+    b.parts.some((other) => Math.abs(other.y - rule.y) <= RULE_EXTENT_TOLERANCE_PT),
+  );
+  return shared.length >= 2;
 }
 
 function sameExtent(a: BBox, b: BBox): boolean {

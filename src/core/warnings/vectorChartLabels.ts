@@ -23,7 +23,7 @@ const MAX_MEAN_LABEL_CHARS = 12;
  *
  * A figure counts as a chart when it holds several numeric labels and at
  * least one word, and has bars: text-free marks of one width (or height)
- * and different lengths; a ruled or
+ * standing side by side on one baseline, with different lengths; a ruled or
  * gridded table has its numbers inside text-bearing cells, and a layout
  * table already reconstructed over the region is left to `tables`.
  */

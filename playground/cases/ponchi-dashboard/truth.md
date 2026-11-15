@@ -67,8 +67,10 @@ read row by row from the top, with no series or category link:
   still spans the bar, line and stacked charts and mixes `12.8 | 中堅企業 | 41% | 33% | 26%` into one row.
 - Donut: `10% / 在職者 / 20% / 離職者・求職者 / 3万人 / 45% / 目標 / 学生 / その他 / 25%` — the
   percentages are not tied to the legend names, so question 5 is a guess.
-- Flow: question 4 is answerable — 課題 1–4, 施策 1–4 and the three 効果 boxes come back in order,
-  each box whole (`中小企業のDX取組率を` / `60%に引き上げ` together); the arrows leave no trace.
+- Flow: question 4 is answerable — the flow is read row by row across its three columns
+  (課題 1, 施策 1, the first 効果 box, then 課題 2, …), each box whole
+  (`中小企業のDX取組率を` / `60%に引き上げ` together), so each issue sits next to the measure
+  with its number; the arrows leave no trace.
 - `①〜④` come back NFKC-normalised as `1〜4` (intended). The rotated band label
   `令和9年度 概算要求 重点施策` reads correctly.
 

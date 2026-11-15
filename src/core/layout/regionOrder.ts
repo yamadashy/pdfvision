@@ -73,12 +73,49 @@ function orderUnit(unit: LayoutRegion, regions: readonly LayoutRegion[]): Layout
   if (unit.kind === 'figure' && panels.length < 2) {
     return unit.verticalMarks ? readByStacks(members) : readByRows(members);
   }
+  // A grid of label panels with labels outside them too (a form row above or
+  // below the boxed rows) is read row by row, each panel as one item; panels
+  // of prose keep the page's column rules.
+  const inPanels = new Set(panels.flatMap((panel) => panel.blocks));
+  if (
+    unit.kind === 'figure' &&
+    panels.every((panel) => panel.kind === 'figure') &&
+    members.some((block) => !inPanels.has(block))
+  ) {
+    return readPanelsByRows(members, panels, inner);
+  }
   // Bottom-note detection reads page geometry, which a unit does not have.
   // Lines of a box written alternately with the text beside it reach the
   // layout pass as one-line blocks; inside the box they are one paragraph.
   // Inside a frame every block is the frame's own text, so the page-wide
   // width guard on merging does not apply.
   return mergeAdjacentColumnBlocks(orderLayoutBlocks(members, inner, unit.width, 0), 0);
+}
+
+function readPanelsByRows(
+  members: readonly LayoutBlock[],
+  panels: readonly LayoutRegion[],
+  regions: readonly LayoutRegion[],
+): LayoutBlock[] {
+  const inPanel = new Set(panels.flatMap((panel) => panel.blocks));
+  const panelOf = new Map<LayoutBlock, LayoutRegion>();
+  const items = members.filter((block) => !inPanel.has(block));
+  for (const panel of panels) {
+    const stand: LayoutBlock = {
+      text: '',
+      x: panel.x,
+      y: panel.y,
+      width: panel.width,
+      height: panel.height,
+      lines: [],
+    };
+    panelOf.set(stand, panel);
+    items.push(stand);
+  }
+  return readByRows(items).flatMap((item) => {
+    const panel = panelOf.get(item);
+    return panel ? orderUnit(panel, regions) : [item];
+  });
 }
 
 /**

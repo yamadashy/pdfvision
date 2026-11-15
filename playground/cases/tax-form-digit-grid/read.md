@@ -19,11 +19,11 @@ _chars: 895 · images: 0 · coverage: 12% · vectors: 254 · tables: 1 · warnin
 
 9 年 3 月10 日
 
+申告の種類
+
 青色
 
 分離 損失 修正
-
-申告の種類
 
 住 所
 
@@ -54,6 +54,10 @@ _chars: 895 · images: 0 · coverage: 12% · vectors: 254 · tables: 1 · warnin
 042-555-0187
 
 給与
+
+ア
+
+6 2 4 0 0 0 0
 
 配当
 
@@ -109,16 +113,6 @@ _chars: 895 · images: 0 · coverage: 12% · vectors: 254 · tables: 1 · warnin
 
 4 8 0 0 0 0
 
-合計(5から7まで)
-
-ア
-
-8
-
-6 2 4 0 0 0 0
-
-1 4 3 2 0 0 0
-
 課税される所得金額(4-8) 9
 
 3 2 6 3 0 0 0
@@ -164,6 +158,12 @@ _chars: 895 · images: 0 · coverage: 12% · vectors: 254 · tables: 1 · warnin
 17
 
 2 2 5 9 6
+
+合計(5から7まで)
+
+8
+
+1 4 3 2 0 0 0
 
 還付される税金の受取場所
 

@@ -64,8 +64,8 @@ Circled numbers may come back NFKC-normalised (`①` → `1`).
 
 **Current reading (ok, via warnings):** the page body reads the header fields label by label
 (`氏 名` / `青木 美咲`) and the income and deduction rows row by row (`合計(1から3まで)` / `4` /
-`4 6 9 5 0 0 0`), except that `給与 ア`'s `6 2 4 0 0 0 0` comes after `合計(5から7まで)`; it used to
-follow the drawing order of template and overlay, with every amount far from its label. The layout table pairs most of them correctly — `| 給与 | ア | 6 2 4 0 0 0 0 | 課税される所得金額(4-8) 9 | | 3 2 6 3 0 0 0 |`,
+`4 6 9 5 0 0 0`), each amount right after its label and line number (`給与` / `ア` /
+`6 2 4 0 0 0 0` first); it used to follow the drawing order of template and overlay, with every amount far from its label. The layout table pairs most of them correctly — `| 給与 | ア | 6 2 4 0 0 0 0 | 課税される所得金額(4-8) 9 | | 3 2 6 3 0 0 0 |`,
 `| 源泉徴収税額 | 15 | 2 5 1 3 0 0 |`, `| 還付される税金 | 17 | 2 2 5 9 6 |` — and the stacked band
 labels are rebuilt as words (`収入金額等`, `所得から差し` / `引かれる金額`), never spliced into the
 rows. But the 所得金額等 rows ① to ④ lose their labels and line numbers in the table

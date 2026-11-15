@@ -62,6 +62,7 @@ const VERTICAL_MARK_SHARE = 2 / 3;
 const MIN_BARS = 3;
 const MAX_BAR_SHARE = 0.2;
 const BAR_SIZE_TOLERANCE_PT = 1;
+const BAR_BASE_TOLERANCE_PT = 1.5;
 
 export function isLabelLikeBlock(block: LayoutBlock): boolean {
   if (block.lines.length > LABEL_MAX_LINES) return false;
@@ -186,10 +187,25 @@ function hasBars(
   for (let i = 0; i + MIN_BARS - 1 < sorted.length; i++) {
     const group = sorted.filter((mark) => Math.abs(mark[shared] - sorted[i][shared]) <= BAR_SIZE_TOLERANCE_PT);
     if (group.length < MIN_BARS) continue;
-    const lengths = group.map((mark) => mark[varying]);
-    if (Math.max(...lengths) - Math.min(...lengths) > BAR_SIZE_TOLERANCE_PT * 2) return true;
+    // Bars stand on one baseline (the bottom of vertical bars, the left end
+    // of horizontal ones), side by side, and differ in length.
+    const base = (mark: BBox) => (shared === 'width' ? mark.y + mark.height : mark.x);
+    for (const anchor of group) {
+      const onBase = group.filter((mark) => Math.abs(base(mark) - base(anchor)) <= BAR_BASE_TOLERANCE_PT);
+      if (onBase.length < MIN_BARS || !sideBySide(onBase, shared === 'width' ? 'x' : 'y', shared)) continue;
+      const lengths = onBase.map((mark) => mark[varying]);
+      if (Math.max(...lengths) - Math.min(...lengths) > BAR_SIZE_TOLERANCE_PT * 2) return true;
+    }
   }
   return false;
+}
+
+function sideBySide(marks: readonly BBox[], axis: 'x' | 'y', size: 'width' | 'height'): boolean {
+  const sorted = [...marks].sort((a, b) => a[axis] - b[axis]);
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i][axis] < sorted[i - 1][axis] + sorted[i - 1][size] - BAR_SIZE_TOLERANCE_PT) return false;
+  }
+  return true;
 }
 
 /** Pull in the short labels just outside a figure: axis ticks, category

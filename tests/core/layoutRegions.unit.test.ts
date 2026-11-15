@@ -20,6 +20,19 @@ function rule(x: number, y: number, width: number) {
   return { x, y, width, height: 0 };
 }
 
+describe('detectLayoutRegions — rules under value columns', () => {
+  it('does not cut one value column out of a table by its underlines', () => {
+    const spans: TextSpan[] = [];
+    [254, 339, 424].forEach((x, c) => {
+      for (let r = 0; r < 4; r++) spans.push(span(String(100 * (r + 1) + c), x + 30, 140 + r * 15, 8, 30));
+    });
+    const rules = [254, 339, 424].flatMap((x) => [rule(x, 136, 68), rule(x, 171, 68), rule(x, 210, 68)]);
+    const blocks = buildLayout(spans, 792, 612).blocks;
+    const bands = detectLayoutRegions(blocks, { vectorBoxes: rules }, 792, 612).filter((r) => r.graphicCount > 1);
+    expect(bands).toEqual([]);
+  });
+});
+
 describe('buildLayout — framed boxes (#263)', () => {
   // The manual-quick-start shape: a framed warning whose heading and body
   // sit indented inside the frame, with multilingual lines and a footer

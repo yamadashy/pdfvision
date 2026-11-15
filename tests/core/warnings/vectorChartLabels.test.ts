@@ -73,4 +73,17 @@ describe('vector_chart_labels', () => {
     const out = detectPageWarnings(page(words), { vectorBoxes: chartBoxes });
     expect(out.some((w) => w.code === 'vector_chart_labels')).toBe(false);
   });
+
+  it('stays quiet for same-width shapes that do not stand on one baseline', () => {
+    // A package outline: pads and leads of one width at different heights,
+    // dimension numbers around them.
+    const shapes: VectorBox[] = [
+      { x: 360, y: 300, width: 20, height: 30 },
+      { x: 400, y: 320, width: 20, height: 50 },
+      { x: 440, y: 290, width: 20, height: 70 },
+      { x: 345, y: 286, width: 213, height: 126 },
+    ];
+    const out = detectPageWarnings(page(chartLabels), { vectorBoxes: shapes });
+    expect(out.some((w) => w.code === 'vector_chart_labels')).toBe(false);
+  });
 });
