@@ -132,7 +132,7 @@ All boxes use raw page-view units of the page as displayed: the pdf.js `page.vie
 
 许多 PDF 的意义位于纯文本流之外。pdfvision 让这些功能保持 opt-in，以便轻量提取仍然很小，但在 viewer 体验有意义的文档中它们非常重要。
 
-使用 `--form-fields` 处理申请表、问卷和政府表单。它暴露 widget type、value、checked state、choices、flags、export values、actions、bbox 和附近标签，常用于区分空框、已选复选框和可见 choice field。
+使用 `--form-fields` 处理申请表、问卷和政府表单。它暴露 widget type、value、checked state、choices、flags、export values、actions、bbox 和附近标签，常用于区分空框、已选复选框和可见 choice field。 A label printed at the left margin is paired with a field in a column further right when nothing lies between them on that row, and the boxes of a split date share the label printed before the first box.
 
 使用 `--links` 与 `--outline` 处理导航密集的文档。links 是带 bbox 与 target 的页面级 annotation，outline 是保留层级和 resolved destination 的文档级书签。即使未请求 link output，link targets 也会被 `--search` 搜索。它们适用于引用、目录、手册和“指向哪里”也是证据一部分的报告。 A link's `text` is the text whose glyphs sit inside its own rectangle, so side-by-side links and inline links in a sentence do not borrow their neighbours' words.
 

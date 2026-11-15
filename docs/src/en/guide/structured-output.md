@@ -144,7 +144,7 @@ For agent workflows, the most important pattern is to preserve the field that le
 
 Many PDFs contain information outside the plain text stream. pdfvision keeps full feature contents opt-in so lightweight extraction stays small, while automatic presence counts reveal when the corresponding flag may matter.
 
-Use `--form-fields` for applications, questionnaires, and government forms. It exposes widget type, value, checked state, choices, flags, export values, actions, bbox, and nearby labels. This is often the only reliable way to distinguish a blank box from a selected checkbox or a visible choice field.
+Use `--form-fields` for applications, questionnaires, and government forms. It exposes widget type, value, checked state, choices, flags, export values, actions, bbox, and nearby labels. This is often the only reliable way to distinguish a blank box from a selected checkbox or a visible choice field. A label printed at the left margin is paired with a field in a column further right when nothing lies between them on that row, and the boxes of a split date share the label printed before the first box.
 
 Use `--links` and `--outline` for navigation-heavy documents. Links are page-level annotations with bboxes and targets, while outlines are document-level bookmarks that preserve hierarchy and resolved destinations when available. Link targets are also searched by `--search`, even when link output itself is not requested. They are useful for citations, table-of-contents entries, manuals, and reports where "where this points" is part of the evidence. A link's `text` is the text whose glyphs sit inside its own rectangle, so side-by-side links and inline links in a sentence do not borrow their neighbours' words.
 
