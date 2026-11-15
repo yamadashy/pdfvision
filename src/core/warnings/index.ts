@@ -2,6 +2,7 @@ import type { ImageBox, PageAnnotation, PageResult, PageWarning, TextSpan, Vecto
 import type { InvisibleTextEvidence } from '../graphics/invisibleText.js';
 import type { OpaqueFillTextEvidence } from '../graphics/opaqueFillText.js';
 import { detectTextOverlap } from '../warningTextOverlap/index.js';
+import { detectTextMatchesBackground } from './backgroundMatchText.js';
 import { detectDuplicateTextLayer } from './duplicateLayer.js';
 import {
   detectBodyNearRepeatedChrome,
@@ -21,10 +22,12 @@ import {
 import { detectInvisibleText } from './invisibleText.js';
 import { detectLayoutTableUncertainty } from './layoutTables.js';
 import { warningInputsInPhysicalPoints } from './physicalGeometry.js';
+import { qualifyUnreliableLayoutOrder } from './readingOrder/rebuildConsistency.js';
 import { detectFormLabelReadingOrderDivergence, detectReadingOrderDivergence } from './readingOrder.js';
 import { detectTextUnderOpaqueFill } from './redactionBypass.js';
 import { detectRotatedPageReadUnrotated } from './rotatedPage.js';
 import { detectRtlScriptText } from './rtlScript.js';
+import { detectSymbolFontSubstitution } from './symbolFontSigns.js';
 import { detectDotLeaderNoise, detectTabularNumericLayout } from './tabular.js';
 import {
   detectDenseVectorGraphics,
@@ -116,6 +119,7 @@ function detectPageWarningsInPhysicalPoints(page: PageResult, context: PageWarni
   detectInvisibleText(page, context, warnings);
   detectRotatedPageReadUnrotated(page, context, warnings);
   detectTextUnderOpaqueFill(page, context, warnings);
+  detectTextMatchesBackground(page, context, warnings);
   detectRasterBackedTextLayer(page, context, warnings);
   detectRasterTextLayerSymbolNoise(page, context, warnings);
   detectRasterTextLayerWordFragmentation(page, context, warnings);
@@ -134,6 +138,7 @@ function detectPageWarningsInPhysicalPoints(page: PageResult, context: PageWarni
 
   const unreliableGlyphGeometry = hasUnreliableGlyphGeometry(page);
   if (!context.rasterBackedTextLayer && !unreliableGlyphGeometry) {
+    detectSymbolFontSubstitution(page, context.spans ?? page.spans ?? [], warnings);
     detectPageEdgeTextTruncated(
       context.spans ?? page.spans ?? [],
       page.width,
@@ -158,8 +163,10 @@ function detectPageWarningsInPhysicalPoints(page: PageResult, context: PageWarni
   detectTextOverlap(blocks, warnings, page.imageBoxes ?? context.imageBoxes, page);
   detectTabularNumericLayout(blocks, warnings);
   detectLayoutTableUncertainty(page, warnings);
+  const readingOrderFrom = warnings.length;
   detectReadingOrderDivergence(page, blocks, warnings);
   detectFormLabelReadingOrderDivergence(page, blocks, warnings);
+  qualifyUnreliableLayoutOrder(blocks, warnings, readingOrderFrom);
   // `near_bottom_edge` only distinguishes body from chrome via the
   // `repeated` flag, which is meaningless when chrome detection
   // didn't run reliably (single-page extraction, or every layout

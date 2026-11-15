@@ -68,7 +68,7 @@ Full documentation: <https://pdfvision.dev/> · **[Changelog](https://github.com
 
 ## 🧭 What you get
 
-- **A report on how well each page read.** Every page comes with its text coverage and a quality status. Warnings name the specific problem: garbled characters, text that exists only as an image, a flattened table, lines out of reading order, text hidden under an opaque fill.
+- **A report on how well each page read.** Every page comes with its text coverage and a quality status. Warnings name the specific problem: garbled characters, text that exists only as an image, a flattened table, lines out of reading order, text hidden under an opaque fill or drawn in the colour of its background.
 - **Only the pages you ask for.** `--map` describes a long document without its page bodies. `-p` reads selected pages. `--search "term" --matches-only` reports where a term occurs without the pages around it.
 - **The page itself when text is not enough.** `--render` turns a page into an image. `--render-region` crops to one figure, table, or search hit, so a vision model sees only that part.
 

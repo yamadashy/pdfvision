@@ -92,5 +92,15 @@ function scaleOpaqueFillText(evidence: OpaqueFillTextEvidence, factor: number): 
   return {
     ...evidence,
     fills: evidence.fills.map((fill) => scaleBox(fill, factor)),
+    ...(evidence.glyphRuns && {
+      glyphRuns: evidence.glyphRuns.map((run) =>
+        run?.map((glyph) => ({
+          ...glyph,
+          box: scaleBox(glyph.box, factor),
+          core: scaleBox(glyph.core, factor),
+          em: glyph.em * factor,
+        })),
+      ),
+    }),
   };
 }

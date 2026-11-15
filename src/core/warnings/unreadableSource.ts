@@ -14,8 +14,8 @@ import { formatPageRange } from '../options/pageRange.js';
  *   empty-but-visual pages) are already classified by
  *   `hasUnreliableNativeText` and reported separately; listing them here
  *   too would say the same thing twice.
- * - `invisible_text` and `text_under_opaque_fill` point the other way —
- *   extraction saw *more* than the page shows. A hit there is real text in
+ * - `invisible_text`, `text_under_opaque_fill`, and `text_matches_background`
+ *   point the other way — extraction saw *more* than the page shows. A hit there is real text in
  *   the file, so it belongs in the per-page warning list, not in a note
  *   that discounts the whole page.
  * - `raster_backed_text_layer` and the OCR codes mean the text is an

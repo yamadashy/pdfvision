@@ -76,6 +76,7 @@ visual regions 可以作为到多模态模型的桥梁：
 - 正文挤到重复页眉或页脚附近。
 - 被压平的数字表格。
 - layout table hints whose cells did not resolve into one consistent grid (`layout_table_uncertain`).
+- signs set in a symbol font whose character map reports them as ordinary characters, so `−52%` reads as `252%` (`symbol_font_substitution`).
 - rotated pages read in their stored orientation because `/Rotate` would turn their text sideways (`rotated_page_read_unrotated`).
 - 原生文本顺序与视觉阅读顺序不一致。
 - 字形乱码、PUA 字符串或局部 mojibake。
@@ -91,9 +92,10 @@ A PDF can contain successfully extracted and searchable native text that is not 
 | Code | What it means |
 | --- | --- |
 | `invisible_text` | Text was shown while PDF text rendering mode `Tr 3` was active, so it remains in native extraction but is not painted for a viewer. |
-| `text_under_opaque_fill` | A later opaque dark rectangular fill covers extracted text. This can reveal a specific visual-only redaction failure, but it is not a general redaction detector. |
+| `text_under_opaque_fill` | A later opaque dark rectangular fill covers extracted text, decided per glyph so a box over a few words inside a sentence counts. The message names each covered passage with a bbox for `--render-region`. This can reveal a specific visual-only redaction failure, but it is not a general redaction detector. |
+| `text_matches_background` | Extracted text is filled in the colour of the paint behind it, such as white text on a white page, so a reader sees blank space. It fires only where that background is provably known (a plain rectangle or the bare page), never over images, gradients, or complex shapes. Severity is `warning`: the usual cause is invisible production metadata such as a printer slug, not concealment, but the text is still not what a reader sees. The message names each passage with a bbox. |
 
-To avoid expected scan/OCR layers, `invisible_text` is suppressed when a full-page raster backs the page, while `text_under_opaque_fill` is suppressed when `raster_backed_text_layer` applies. Inspect the affected page as rendered:
+To avoid expected scan/OCR layers, `invisible_text` is suppressed when a full-page raster backs the page, while `text_under_opaque_fill` and `text_matches_background` are suppressed when `raster_backed_text_layer` applies. Inspect the affected page as rendered:
 
 ```bash
 pdfvision document.pdf -p 3 --render --format json
@@ -108,8 +110,9 @@ A render establishes only what the page visibly shows. Neither a warning nor its
 把 warning 当作 routing signal：
 
 - 如果原生文本字形损坏，在摘要前先与 render 或 OCR 比较。
-- 如果阅读顺序分歧，叙事顺序优先使用 layout blocks，而不是 raw page text。
+- 如果阅读顺序分歧，叙事顺序优先使用 layout blocks，而不是 raw page text。When the warning says the layout-rebuilt order is unreliable here too, side-by-side blocks were read line by line or run together, so render the page instead of trusting either order.
 - 如果出现 table warning，保留行列证据；当数值重要时裁剪表格。`layout_table_uncertain` names the table and its bbox: render that region before trusting its cells.
+- If `symbol_font_substitution` appears, do not report a sign, direction, bound, or p-value from native text: render the region the warning names and read the minus, `<`, `>`, `±`, and `=` signs from the image.
 - 如果出现 large raster 或 dense vector warning，在验证前假设标签可能是 visual-only。
 - 如果涉及 repeated chrome，避免混合页眉、页脚、页码和正文。
 
