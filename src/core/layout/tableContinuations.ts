@@ -9,6 +9,7 @@ import {
   TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROWS,
   TABLE_RECURRING_NUMERIC_COLUMN_TOLERANCE_PT,
 } from './tableColumnStats.js';
+import { type CarriedLabelLines, wrapsFromRowAbove } from './tableLabelWraps.js';
 import { mergeLineTexts, rowBottom, rowY } from './tableRows.js';
 
 export interface IndexedLayoutRow {
@@ -87,38 +88,47 @@ export function attachLabelContinuationRows(
  * Fold label-only rows above `row` into its label. Scanning stops at a row
  * that reaches over the value columns: that is a column header, not the
  * first half of a wrapped label, and it is returned as `header` so the
- * caller can keep it as a row of its own.
+ * caller can keep it as a row of its own. When the rows are the wrapped tail of the
+ * table row above instead (see {@link wrapsFromRowAbove}), they are not
+ * folded here but returned as `carriedUp` for the caller to fold there;
+ * `tableRowIndexes` says which rows the caller treats as table rows.
  */
 export function scanLabelContinuationRows(
   row: LayoutLine[],
   rowIndex: number,
   allRows: LayoutLine[][],
-  options: { stopAtColumnHeader: boolean } = { stopAtColumnHeader: true },
-): { row: LayoutLine[]; header?: LayoutLine[] } {
+  options: { stopAtColumnHeader: boolean; tableRowIndexes?: ReadonlySet<number> } = { stopAtColumnHeader: true },
+): { row: LayoutLine[]; header?: LayoutLine[]; carriedUp?: CarriedLabelLines } {
   const label = row.find((line) => !isTableNumericCell(line.text) && /[\p{L}]/u.test(line.text));
   if (!label) return { row };
 
   const valueLeft = Math.min(
     ...row.filter((line) => line.x > label.x && isTableValueCell(line.text)).map((line) => line.x),
   );
-  const continuations: LayoutLine[] = [];
+  const run: LayoutLine[][] = [];
   let header: LayoutLine[] | undefined;
   let previousBottom = label.y;
-  for (let index = rowIndex - 1; index >= 0; index--) {
+  let index = rowIndex - 1;
+  for (; index >= 0; index--) {
     const candidate = allRows[index];
     if (!isLabelContinuationRow(candidate, label, previousBottom)) break;
     if (options.stopAtColumnHeader && isColumnHeaderAboveRow(candidate, valueLeft)) {
       header = candidate;
       break;
     }
-    continuations.unshift(mergeLineTexts(candidate));
+    run.unshift(candidate);
     previousBottom = rowY(candidate);
   }
-  if (continuations.length === 0) return { row, header };
+  if (run.length === 0) return { row, header };
   // A label does not wrap over this many lines; folding them would glue a
   // prose paragraph that happens to end in subscripts onto a table row.
-  if (options.stopAtColumnHeader && continuations.length > TABLE_LABEL_CONTINUATION_MAX_ROWS) return { row };
+  if (options.stopAtColumnHeader && run.length > TABLE_LABEL_CONTINUATION_MAX_ROWS) return { row };
 
+  const continuations = run.map(mergeLineTexts);
+  const above = allRows[index];
+  if (options.tableRowIndexes?.has(index) && above && wrapsFromRowAbove(above, continuations, row)) {
+    return { row, header, carriedUp: { index, lines: continuations } };
+  }
   const mergedLabel = mergeLineTexts([...continuations, label]);
   return { row: row.map((line) => (line === label ? mergedLabel : line)), header };
 }

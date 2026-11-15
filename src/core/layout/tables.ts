@@ -18,6 +18,7 @@ import {
   scanLabelContinuationRows,
 } from './tableContinuations.js';
 import { insertTableGroupLabelRows } from './tableGroupRows.js';
+import { foldCarriedLabelLines } from './tableLabelWraps.js';
 import { attachLeadingTableRows } from './tableLeadingRows.js';
 import { admitPlaceholderRows } from './tablePlaceholderRows.js';
 import { groupLinesByTableRow, rowBottom, rowY } from './tableRows.js';
@@ -44,10 +45,13 @@ export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefin
     .filter((item): item is IndexedLayoutRow => item.row !== undefined);
   const memberRows = admitPlaceholderRows(candidateRows, allRowGroups);
   const candidateIndexes = new Set(candidateRows.map(({ index }) => index));
-  const rowGroups: IndexedLayoutRow[] = memberRows.map(({ row, index }) => ({
-    ...scanLabelContinuationRows(row, index, allRowGroups),
-    index,
-  }));
+  const tableRowIndexes = new Set(memberRows.map(({ index }) => index));
+  const rowGroups: IndexedLayoutRow[] = foldCarriedLabelLines(
+    memberRows.map(({ row, index }) => ({
+      ...scanLabelContinuationRows(row, index, allRowGroups, { stopAtColumnHeader: true, tableRowIndexes }),
+      index,
+    })),
+  );
   const finalize = (table: LayoutTable) => {
     const withGroupLabels = insertTableGroupLabelRows(table, allRowGroups);
     const firstDataRow = withGroupLabels.rows.findIndex((row) => firstDataRows.has(row));
