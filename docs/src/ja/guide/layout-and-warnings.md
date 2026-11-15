@@ -18,7 +18,7 @@ pdfvision document.pdf --layout --format json
 主な出力:
 
 - `pages[].layout.blocks[].lines`: ジオメトリ付きの復元行。
-- `pages[].layout.blocks`: 読み順ブロック、役割、bbox。Lines are split at the column gutters the whole page shows, so narrow gutters between columns set on their own baselines do not fuse neighbouring columns; text rotated in the page margin (print-production lines, arXiv stamps) is read after the page body.
+- `pages[].layout.blocks`: 読み順ブロック、役割、bbox。Lines are split at the column gutters the whole page shows, so narrow gutters between columns set on their own baselines do not fuse neighbouring columns, and a layout table that is only those text columns read across is not reported; text rotated in the page margin (print-production lines, arXiv stamps) is read after the page body.
 - `pages[].layout.tables`: ネイティブテキストで崩れやすい数値表のヒント。Each cell carries its geometric `column` (plus `columnSpan` when a header or merged value's text overlaps several columns; a centered group header narrower than its group covers only the columns under its text, so render to confirm a group's width), so an empty cell stays an empty column instead of shifting later values left.
 - 縦書き CJK テキストの復元。
 

@@ -118,6 +118,21 @@ describe('detectColumnGutters', () => {
     expect(lineTexts(spans)).toContain('• right column bulleted line 0 of the list');
   });
 
+  it('does not treat the strips between figure columns of a tax table as prose gutters', () => {
+    // IRS tax table: blocks of "at least / less than / tax" figures set as
+    // wide runs of numbers separated by clear strips.
+    const spans: TextSpan[] = [];
+    for (let r = 0; r < 20; r++) {
+      const y = 100 + r * 9;
+      for (const blockX of [42, 220, 398]) {
+        ['75,000', '75,050', '11,420', '8,526', '11,420', '9,681'].forEach((value, i) => {
+          spans.push(span(value, blockX + i * 28, y, 7, 22));
+        });
+      }
+    }
+    expect(detectColumnGutters(spans)).toEqual([]);
+  });
+
   it('ends a gutter at a line that runs across it', () => {
     const spans = [
       ...registerColumns(6).filter((s) => s.x < 300),
@@ -211,6 +226,20 @@ describe('buildLayout — lines across narrow column gutters', () => {
     expect(texts.some((text) => text.includes('balance due') && text.includes('on Form 941 by check'))).toBe(false);
   });
 
+  it('keeps a bullet smaller than a heading beside it with its item text', () => {
+    // Slide: a 54pt heading on the left shares a row with a 25pt bullet;
+    // the bullet's 20pt item line starts 5pt lower.
+    const texts = lineTexts(
+      [
+        span('ライフスタイル‧人材', 198.28, 174.48, 54, 552.36),
+        span('•', 1006.77, 184.04, 25, 8.75),
+        span('デジタル技術の専門知識をもつ人材を育成します。', 1033.77, 189.04, 20, 493),
+      ],
+      1920,
+    );
+    expect(texts).toContain('• デジタル技術の専門知識をもつ人材を育成します。');
+  });
+
   it('splits per-word justified columns whose word spaces are nearly as wide as the gutter', () => {
     // Seven words per 168pt line leave ~10pt word spaces against a
     // 12pt gutter; word positions differ from row to row as in real text,
@@ -255,6 +284,42 @@ describe('buildLayout — lines across narrow column gutters', () => {
     }
     const texts = lineTexts(spans);
     expect(texts.filter((text) => text.includes('before a wide space and after it'))).toHaveLength(10);
+  });
+});
+
+describe('buildLayout — tables beside prose columns', () => {
+  it('splits a numeric table inside one column as finely as without the gutter', () => {
+    // A small figure table in the left column of a two-column page. Its
+    // cells are 10pt apart; the dense-numeric split reads the page-wide row,
+    // which the right column's prose makes wide enough.
+    const spans: TextSpan[] = [];
+    for (let r = 0; r < 16; r++) {
+      const y = 100 + r * 11;
+      if (r < 10) {
+        spans.push(span(`left column prose line ${r} before the small table`, 42, y, 8, 250));
+      } else {
+        spans.push(span('1,913', 42, y, 8, 20));
+        spans.push(span('2,250', 72, y, 8, 20));
+        spans.push(span('2,531', 102, y, 8, 20));
+      }
+      spans.push(span(`right column prose line ${r} beside the table rows`, 312, y + 2, 8, 250));
+    }
+    expect(detectColumnGutters(spans).length).toBeGreaterThan(0);
+    const texts = lineTexts(spans);
+    expect(texts).not.toContain('1,913 2,250 2,531');
+    expect(texts).toContain('1,913');
+  });
+
+  it('drops a layout table whose columns are exactly the prose columns', () => {
+    const spans: TextSpan[] = [];
+    for (let r = 0; r < 14; r++) {
+      const y = 100 + r * 10.5;
+      COLS.forEach((x, c) => {
+        spans.push(span(`column ${c + 1} prose line ${r} ending in ${2020 + r}.`, x, y, SIZE, COL_W));
+      });
+    }
+    const layout = buildLayout(spans, 612, 792);
+    expect(layout.tables).toBeUndefined();
   });
 });
 

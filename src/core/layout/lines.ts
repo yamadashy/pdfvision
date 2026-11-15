@@ -140,10 +140,15 @@ function horizontalLineGroupingHeight(span: TextSpan): number {
 
 function lineGroupAnchor(group: TextSpan[]): TextSpan {
   const horizontal = group.filter((span) => !hasVerticalTextShape(span));
-  // Bullets, warning icons and other lone symbols are often set larger
-  // and off the text baseline; anchoring on one lets the next line join.
-  const textual = horizontal.filter((span) => /[\p{L}\p{N}]/u.test(span.text));
-  const usable = textual.length > 0 ? textual : horizontal.length > 0 ? horizontal : group;
+  // Bullets, warning icons and other lone symbols set larger than the
+  // line's text sit off its baseline; anchoring on one lets the next line
+  // join. Symbols no taller than the text stay usable.
+  const spanHeight = (span: TextSpan) => span.height || span.fontSize || FONT_SIZE_FALLBACK_PT;
+  const isTextual = (span: TextSpan) => /[\p{L}\p{N}]/u.test(span.text);
+  const textHeight = median(horizontal.filter(isTextual).map(spanHeight));
+  const candidates =
+    textHeight > 0 ? horizontal.filter((span) => isTextual(span) || spanHeight(span) <= textHeight) : horizontal;
+  const usable = candidates.length > 0 ? candidates : group;
   const medianHeight = median(usable.map((span) => span.height || span.fontSize || FONT_SIZE_FALLBACK_PT));
   return usable.reduce((best, span) => {
     const bestHeight = best.height || best.fontSize || FONT_SIZE_FALLBACK_PT;
@@ -191,6 +196,17 @@ function groupLineSpansByColumn(sorted: readonly TextSpan[], gutters: readonly C
   return [...parts.values()].flatMap(groupLineSpans).sort((a, b) => (order.get(a[0]) ?? 0) - (order.get(b[0]) ?? 0));
 }
 
+/** The page-wide rows the spans of `group` were grouped into without
+ *  column gutters, x-sorted. */
+function pageRowContext(group: readonly TextSpan[], pageRowOf: ReadonlyMap<TextSpan, TextSpan[]>): TextSpan[] {
+  const rows = new Set<TextSpan[]>();
+  for (const span of group) {
+    const row = pageRowOf.get(span);
+    if (row) rows.add(row);
+  }
+  return [...rows].flat().sort((a, b) => a.x - b.x);
+}
+
 function isMisalignedLeftSidePanelBoundaryCandidate(
   groupBox: BBox,
   prev: TextSpan,
@@ -213,6 +229,13 @@ function isMisalignedLeftSidePanelBoundaryCandidate(
 }
 
 export function buildLayoutLines(spans: TextSpan[], pageWidth = 0): LayoutLine[] {
+  return buildLayoutLinesWithGutters(spans, pageWidth).lines;
+}
+
+export function buildLayoutLinesWithGutters(
+  spans: TextSpan[],
+  pageWidth = 0,
+): { lines: LayoutLine[]; columnGutters: ColumnGutter[] } {
   const horizontalRuby = extractHorizontalRubyAnalysis(spans);
   const horizontalRubySpans = new Set(horizontalRuby.rubySpans);
   const rubyAttachments = horizontalRubyTextAttachments(horizontalRuby.rubyAssociations);
@@ -235,12 +258,18 @@ export function buildLayoutLines(spans: TextSpan[], pageWidth = 0): LayoutLine[]
   const recurringGutterBins = detectRecurringGutterBins(pageRows, pageWidth);
   const recurringSidePanelStartBins = detectRecurringSidePanelStartBins(pageRows, pageWidth);
   const recurringTableGutterBins = detectRecurringTableGutterBins(pageRows, pageWidth);
+  const pageRowOf = new Map<TextSpan, TextSpan[]>();
+  if (lineGroups !== pageRows) for (const row of pageRows) for (const span of row) pageRowOf.set(span, row);
   const lines: LayoutLine[] = lineGroups.flatMap((group) => {
     const xSorted = [...group].sort((a, b) => a.x - b.x);
-    const groupBox = unionBox(xSorted);
-    const numericSpanCount = xSorted.filter(isTableGutterNumericSpan).length;
-    const preserveWideWordSpacing = isLikelyWideWordSpacingRow(xSorted, pageWidth);
-    const preserveCjkDisplaySpacing = isLikelyCjkDisplaySpacingRow(xSorted);
+    // Row-shape signals (width, numeric density, spacing) are read from the
+    // page-wide row, as when no gutter was found: a gutter only adds a split
+    // and must not make the cells inside one column band coarser.
+    const rowSpans = lineGroups === pageRows ? xSorted : pageRowContext(group, pageRowOf);
+    const groupBox = unionBox(rowSpans);
+    const numericSpanCount = rowSpans.filter(isTableGutterNumericSpan).length;
+    const preserveWideWordSpacing = isLikelyWideWordSpacingRow(rowSpans, pageWidth);
+    const preserveCjkDisplaySpacing = isLikelyCjkDisplaySpacingRow(rowSpans);
     const subLines: TextSpan[][] = [[xSorted[0]]];
     for (let i = 1; i < xSorted.length; i++) {
       const prev = xSorted[i - 1];
@@ -303,7 +332,7 @@ export function buildLayoutLines(spans: TextSpan[], pageWidth = 0): LayoutLine[]
       fontSize: round2(mode(sub.map((s) => s.fontSize))),
     }));
   });
-  return lines;
+  return { lines, columnGutters };
 }
 
 function spansWithHorizontalRuby(

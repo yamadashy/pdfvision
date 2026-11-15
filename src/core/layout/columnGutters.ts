@@ -1,4 +1,4 @@
-import type { TextSpan } from '../../types/index.js';
+import type { LayoutTable, TextSpan } from '../../types/index.js';
 import type { BBox } from './geometry.js';
 import { hasVerticalTextShape } from './verticalText.js';
 
@@ -33,6 +33,7 @@ const MIN_ROWS = 5;
 const MIN_PROSE_ROWS = 3;
 const MIN_PROSE_SHARE = 0.5;
 const PROSE_SIDE_MIN_EM = 10;
+const LETTER_RE = /\p{L}/u;
 
 interface GutterEdge {
   /** First span of the right column's line. */
@@ -131,8 +132,13 @@ export function detectColumnGutters(spans: readonly TextSpan[]): ColumnGutter[] 
     const gap = span.x - rightOf(neighbor);
     if (gap < minGapFor(fontSize)) continue;
     const sideMin = fontSize * PROSE_SIDE_MIN_EM;
+    // Prose has words on both sides; rows of figures (a tax table) leave
+    // clear strips between their columns too, but those are table cells.
     const prose =
-      rowExtent(neighbor, overlapping(neighbor), gap, -1) >= sideMin && rowExtent(span, rowMates, gap, 1) >= sideMin;
+      LETTER_RE.test(neighbor.text) &&
+      LETTER_RE.test(span.text) &&
+      rowExtent(neighbor, overlapping(neighbor), gap, -1) >= sideMin &&
+      rowExtent(span, rowMates, gap, 1) >= sideMin;
     edges.push({ span, neighbor, gap, fontSize, prose });
   }
   if (edges.length < MIN_ROWS) return [];
@@ -231,9 +237,12 @@ function acceptRun(run: readonly GutterEdge[], items: readonly TextSpan[], edgeX
 
   let top = Number.POSITIVE_INFINITY;
   let bottom = Number.NEGATIVE_INFINITY;
-  for (const { span, neighbor } of run) {
-    top = Math.min(top, span.y, neighbor.y);
-    bottom = Math.max(bottom, span.y + rowHeight(span), neighbor.y + rowHeight(neighbor));
+  // The height comes from the right column's lines only: the left
+  // column may sit on another baseline grid, and its offset must not carry
+  // the gutter onto a neighbouring row that has a marker in the strip.
+  for (const { span } of run) {
+    top = Math.min(top, span.y);
+    bottom = Math.max(bottom, span.y + rowHeight(span));
   }
   return [{ left, right: edgeX, top, bottom }];
 }
@@ -265,4 +274,37 @@ export function columnGutterSide(gutter: ColumnGutter, span: BBox): 'L' | 'R' | 
   if (span.x >= gutter.right - EDGE_TOLERANCE_PT) return 'R';
   if (rightOf(span) <= gutter.left + EDGE_TOLERANCE_PT) return 'L';
   return 'X';
+}
+
+/**
+ * Whether every boundary between neighbouring columns of `table` is one of
+ * the prose gutters: the table is then the page's text columns read across
+ * row by row. A real table has at least one column boundary of its own.
+ */
+export function isProseColumnTable(table: LayoutTable, gutters: readonly ColumnGutter[]): boolean {
+  if (gutters.length === 0 || table.columnCount < 2) return false;
+  const top = table.y;
+  const bottom = table.y + table.height;
+  const local = gutters.filter((gutter) => gutter.top < bottom && gutter.bottom > top);
+  if (local.length === 0) return false;
+  for (let column = 0; column < table.columnCount - 1; column++) {
+    let leftEdge = Number.NEGATIVE_INFINITY;
+    let rightStart = Number.POSITIVE_INFINITY;
+    for (const row of table.rows) {
+      for (const cell of row.cells) {
+        const first = cell.column ?? 0;
+        const last = first + (cell.columnSpan ?? 1) - 1;
+        if (last === column) leftEdge = Math.max(leftEdge, cell.x + cell.width);
+        if (first === column + 1) rightStart = Math.min(rightStart, cell.x);
+      }
+    }
+    if (!Number.isFinite(leftEdge) || !Number.isFinite(rightStart)) return false;
+    // A line that did not bound the strip (no right-column line beside it)
+    // may overhang its left edge a little; it still ends short of the middle.
+    const onGutter = local.some(
+      (gutter) => leftEdge <= (gutter.left + gutter.right) / 2 && rightStart >= gutter.right - EDGE_TOLERANCE_PT,
+    );
+    if (!onGutter) return false;
+  }
+  return true;
 }

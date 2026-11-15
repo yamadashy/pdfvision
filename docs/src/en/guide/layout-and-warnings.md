@@ -18,7 +18,7 @@ pdfvision document.pdf --layout --format json
 Layout output includes:
 
 - `pages[].layout.blocks[].lines`: reconstructed text lines with geometry.
-- `pages[].layout.blocks`: reading-order blocks with roles and bounding boxes. Lines are split at the column gutters the whole page shows, so narrow gutters between columns set on their own baselines do not fuse neighbouring columns; text rotated in the page margin (print-production lines, arXiv stamps) is read after the page body.
+- `pages[].layout.blocks`: reading-order blocks with roles and bounding boxes. Lines are split at the column gutters the whole page shows, so narrow gutters between columns set on their own baselines do not fuse neighbouring columns, and a layout table that is only those text columns read across is not reported; text rotated in the page margin (print-production lines, arXiv stamps) is read after the page body.
 - `pages[].layout.tables`: numeric-table hints when rows and columns may be flattened in native text. Each cell carries its geometric `column` (plus `columnSpan` when a header or merged value's text overlaps several columns; a centered group header narrower than its group covers only the columns under its text, so render to confirm a group's width), so an empty cell stays an empty column instead of shifting later values left.
 - vertical CJK text recovery when text should be read as a vertical stack.
 
