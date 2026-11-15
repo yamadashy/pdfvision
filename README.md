@@ -5,7 +5,7 @@
     <b>Give AI agents human-like PDF vision</b>
   </p>
   <p>
-    Turn silent failures in PDF extraction into errors agents can recover from
+    PDF extraction that tells your agent when a page did not read correctly
   </p>
 </div>
 
@@ -19,54 +19,33 @@
 [![License](https://img.shields.io/npm/l/pdfvision)](LICENSE)
 
 🔍 **pdfvision** is a CLI, MCP server, and TypeScript library that extracts text, layout, and page images from PDFs for AI agents. When extraction goes wrong — scanned pages, broken font maps, scrambled reading order — it says so, per page, and says what to do next.
-
-> **Mission: make every PDF reliably readable by AI agents.** Surface text, layout, and page images together, and expose extraction gaps instead of hiding them.
+🔍 **pdfvision** reads PDFs for AI agents. It extracts text, layout, and page images. When a page did not read correctly, it says so and names the next step. It runs as a CLI, an MCP server, and a TypeScript library.
 
 ## 💡 Why pdfvision
 
-The worst property of PDF extraction is that failure looks like success. A scan returns empty text, a broken font map returns readable-looking garbage, a two-column paper comes back interleaved — and every one of them comes back as a normal, successful result. An agent that trusts it answers wrong without ever knowing anything went wrong.
+PDF extraction fails without telling you. A scanned page returns no text. A broken font returns garbage that looks like text. A two-column page comes back with its lines interleaved. Every one of these is reported as a success, so an agent answers from it and never learns that anything went wrong.
 
-pdfvision turns that silent failure into a recoverable one. When it detects a problem it says so on the page it found it, and every warning ends in the next step to take — `inspect the render or run OCR before trusting extracted text`, `compare with --render before trusting it`, `prefer layout.blocks order when sequence matters`. The agent never needs to understand font maps or content streams; it reads the remedy and follows it.
-
-- **Check before trusting.** Every page carries text coverage and quality signals, not just text. `warnings` name the specific risk: glyph corruption, raster-backed text, flattened tables, reading-order divergence, or text hidden under an opaque fill.
-- **Spend context progressively.** Start with native text, narrow long documents with `-p`, use `--matches-only` for report metadata plus emitted matches without full page bodies, and use TOON when repeated structured rows would make JSON noisy.
-- **Search → zoom → render.** `--search` returns each match with its page and `bbox`; add `--matches-only` and each match also carries a crop-ready `region`, grown to the table row or line containing it. Pass that `region` to `--render-region` to inspect only the evidence that matters — passing `bbox` crops to the matched glyphs alone, which on a table shows the row label without its values.
-
-When the task depends on visual structure, opt into layout blocks, table hints, form fields, visual regions, or OCR without replacing the original native text.
-
-<div align="center">
-  <img src="https://raw.githubusercontent.com/yamadashy/pdfvision/main/docs/src/public/comparison.png" alt="Without pdfvision, an agent hauls every page as an image and still can't read the table. With pdfvision it searches, renders one region, verifies, and answers with evidence." width="820" />
-</div>
-
-### What that looks like
-
-An agent is asked what speedups a JIT paper reports, and starts by reading the page the claim is on:
+pdfvision reports the failure on the page where it happened:
 
 ```console
-$ pdfvision tracemonkey.pdf -p 10
-_chars: 6944 · images: 0 · coverage: 42% · vectors: 17 · warnings: 1 · size: 612×792pt_
-… page body …
+$ npx pdfvision scan.pdf -p 2
+## Page 2
+_chars: 0 · images: 2 · coverage: 0% · native: empty_but_visual_content · warnings: 1 · size: 282×463pt_
+
 ### Warnings
-> **warning** (reading_order_divergence): layout line "?>9@AJ.0A:</C./8-2#3$4%56#" appears
-> after "?>9@AJ.D<F@-<>2.@A:0>#3$4,56#" visually but earlier in the native text stream —
-> native line order diverges from what a human reads; the body above is that reading order,
-> rebuilt from the layout — render the page when exact sequence is critical
+> **warning** (raster_image_no_native_text): raster image covers 100.0% of the page but native
+> text is empty — human-visible text inside the image will not appear in pages[].text; compare
+> the render or OCR when exact text matters
 ```
 
-Two things the agent can act on. The body it just read was already put back into human order, so it does not need to ask for that. And the lines the warning quotes are a figure's label column this PDF's font map does not decode — so no value in that figure can be trusted from text. It goes to the picture instead:
+The page has no text because it is a picture of a page. The warning says so and names the two ways forward:
 
 ```console
-$ pdfvision tracemonkey.pdf -p 11 --visual-regions
-| ID      | Kind  | BBox                    | Area  | Text                                    |
-| p11-vr0 | mixed | 46,64.45,518.12,334.12  | 35.7% | caption: Figure 10. Speedup vs. a base… |
-
-$ pdfvision tracemonkey.pdf -p 11 --render --render-region 46,64,518,335
-![Page 11](…/page-11_x46_y64_w518_h335.png)
+$ npx pdfvision scan.pdf -p 2 --ocr       # read the picture as text
+$ npx pdfvision scan.pdf -p 2 --render    # or hand the picture to a vision model
 ```
 
-One 518×334pt crop reaches the model instead of fourteen page images, and no figure value is quoted from a text layer pdfvision had already flagged. Without the warning, the same agent reads `?>9@AJ.0A:</C./8-2#3$4%56#` as a successful extraction and never finds out otherwise.
-
-Two limits, stated up front. Warnings are conservative and heuristic — their absence is not proof that a page was read correctly. And pdfvision never silently substitutes OCR or rendered pixels for native text: it reports what it observed, and the agent decides.
+The agent does not need to know how PDFs work. It reads the warning and follows it.
 
 ## 🚀 Quick Start
 
@@ -86,6 +65,51 @@ pdfvision document.pdf
 ```
 
 Full documentation: <https://pdfvision.dev/> · **[Changelog](https://github.com/yamadashy/pdfvision/blob/main/CHANGELOG.md)**
+
+## 🧭 What you get
+
+- **A report on how well each page read.** Every page comes with its text coverage and a quality status. Warnings name the specific problem: garbled characters, text that exists only as an image, a flattened table, lines out of reading order, text hidden under an opaque fill.
+- **Only the pages you ask for.** `--map` describes a long document without its page bodies. `-p` reads selected pages. `--search "term" --matches-only` reports where a term occurs without the pages around it.
+- **The page itself when text is not enough.** `--render` turns a page into an image. `--render-region` crops to one figure, table, or search hit, so a vision model sees only that part.
+
+Layout blocks, tables, form fields, links, annotations, and OCR are opt-in flags. None of them replaces the PDF's own text.
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/yamadashy/pdfvision/main/docs/src/public/comparison.png" alt="Without pdfvision, an agent hauls every page as an image and still can't read the table. With pdfvision it searches, renders one region, verifies, and answers with evidence." width="820" />
+</div>
+
+### A harder case: text that looks fine
+
+An agent is asked what speedups a JIT paper reports. Page 10 reads normally, with one warning:
+
+```console
+$ pdfvision tracemonkey.pdf -p 10
+_chars: 6944 · images: 0 · coverage: 42% · vectors: 17 · warnings: 1 · size: 612×792pt_
+… page body …
+### Warnings
+> **warning** (reading_order_divergence): layout line "?>9@AJ.0A:</C./8-2#3$4%56#" appears
+> after "?>9@AJ.D<F@-<>2.@A:0>#3$4,56#" visually but earlier in the native text stream —
+> native line order diverges from what a human reads; the body above is that reading order,
+> rebuilt from the layout — render the page when exact sequence is critical
+```
+
+The warning tells the agent two things. The body it just read is already in human reading order. And the lines the warning quotes are unreadable: they are the labels of a figure whose font this PDF does not decode, so no value in that figure can be trusted as text. The agent finds the figure and looks at it:
+
+```console
+$ pdfvision tracemonkey.pdf -p 11 --visual-regions
+| ID      | Kind  | BBox                    | Area  | Text                                    |
+| p11-vr0 | mixed | 46,64.45,518.12,334.12  | 35.7% | caption: Figure 10. Speedup vs. a base… |
+
+$ pdfvision tracemonkey.pdf -p 11 --render --render-region 46,64,518,335
+![Page 11](…/page-11_x46_y64_w518_h335.png)
+```
+
+One cropped image reaches the model instead of fourteen page images. Without the warning, the same agent reads `?>9@AJ.0A:</C./8-2#3$4%56#` as a successful extraction and never finds out otherwise.
+
+### Limits
+
+- Warnings are heuristic. No warning on a page does not prove the page read correctly.
+- pdfvision never replaces the PDF's own text with OCR or rendered pixels on its own. It reports what it observed, and the agent decides.
 
 ## ⚠️ PDF content is untrusted input
 
@@ -124,7 +148,7 @@ It exposes **three** tools, not a flag-per-parameter mapping of the CLI:
 | Tool | What it does |
 | --- | --- |
 | `read_pdf` | Text as Markdown. Without `pages` on a long document it returns a **document map** — page count, outline, per-page quality, warning codes by page range — so an unscoped first call can never blow up the context. `ocr: "jpn+eng"` switches the selected pages to OCR. |
-| `search_pdf` | One row per distinct place a hit lands — page, origin, optional context, region, and a short `ref` — with same-source occurrences whose crops resolve to one region — typically repeats within a line or table row — collapsed into a single `×N` row. Names the pages whose native text is unusable, so zero hits is never mistaken for absence. |
+| `search_pdf` | One row per place a hit lands: page, origin, context, region, and a short `ref` for `render_pdf`. Repeats within one line or table row collapse into a single `×N` row. Names the pages whose text is unusable, so zero hits is never mistaken for absence. |
 | `render_pdf` | Page or region PNGs as image blocks. Takes a `ref` from an earlier response so you never transcribe coordinates; full-page renders come back with the page's detected visual regions and their refs. Rendering one ref leaves the rest of the set alive, so a search's hits can be rendered one after another. |
 
 Everything pdfvision can decide from the document itself is decided by the server: layout and repeated-chrome stripping are always on, and form-field / link / annotation tables appear only for pages that have them. There is no `format`, `include`, `scale`, or cache parameter.
