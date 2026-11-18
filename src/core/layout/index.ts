@@ -5,6 +5,7 @@ import { isStandaloneNumericLineAfterProse } from './columns.js';
 import { unionBox } from './geometry.js';
 import { classifyHeadings } from './headings.js';
 import { buildLayoutLinesWithGutters } from './lines.js';
+import { assembleDisplayMath } from './math/index.js';
 import { orderLayoutBlocks } from './regionOrder.js';
 import { detectLayoutRegions, type LayoutGraphics } from './regions.js';
 import { tableRules } from './tableRules.js';
@@ -47,7 +48,8 @@ export function buildLayout(
 ): PageLayout {
   if (spans.length === 0) return { blocks: [] };
 
-  const vertical = extractVerticalCjkBlocks(spans);
+  const math = assembleDisplayMath(spans, graphics?.vectorBoxes, pageWidth);
+  const vertical = extractVerticalCjkBlocks(math.spans);
   const code = extractCodeBlocks(vertical.remainingSpans, monospaceFonts);
 
   const rules = tableRules(graphics?.vectorBoxes);

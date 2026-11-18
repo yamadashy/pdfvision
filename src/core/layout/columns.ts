@@ -128,12 +128,16 @@ export function reorderForColumns(
   // A framed panel stands in for a whole column of text, and so does one
   // paragraph that fills a column (once interleaved lines are rebuilt into
   // blocks, a column can be a single block), so either counts as a column.
-  const survivingColumns = initialColumns
+  const candidateColumns = initialColumns
     .map((c) => c.filter((b) => !promoted.has(b)))
     .filter(
       (c) => c.length >= 2 || c.some((b) => units.has(b) || (isColumnSizedBlock(b) && hasBlockBeside(b, narrow))),
     );
-  if (survivingColumns.length < 2) return blocks;
+  const survivingColumns = candidateColumns.filter((column) => !isStackOfLoneLines(column, candidateColumns, units));
+  if (survivingColumns.length < 2) {
+    if (rotatedMargin.size === 0) return blocks;
+    return [...blocks.filter((b) => !rotatedMargin.has(b)), ...blocks.filter((b) => rotatedMargin.has(b))];
+  }
   const columnOf = new Map<LayoutBlock, number>();
   for (let ci = 0; ci < survivingColumns.length; ci++) {
     for (const b of survivingColumns[ci]) columnOf.set(b, ci);
@@ -192,6 +196,31 @@ function isRotatedLatinBlock(block: LayoutBlock): boolean {
 }
 
 const COLUMN_SIZED_MIN_LINES = 8;
+/** A display equation is a line, or a few aligned ones. */
+const LONE_LINES_MAX = 3;
+
+/**
+ * Blocks of a line or a few at one left edge, each set under the width of another
+ * column's text and none of them beside it: the display equations and
+ * centred headings of a single-column page, which line up because they are
+ * centred, not because they are a column. Read as one, they are pulled out
+ * of the text between them.
+ */
+function isStackOfLoneLines(
+  column: readonly LayoutBlock[],
+  columns: readonly (readonly LayoutBlock[])[],
+  units: ReadonlySet<LayoutBlock>,
+): boolean {
+  if (column.some((block) => block.lines.length > LONE_LINES_MAX || units.has(block))) return false;
+  const others = columns.filter((other) => other !== column).flat();
+  if (column.some((block) => hasBlockBeside(block, others))) return false;
+  return column.every((block) =>
+    others.some((other) => {
+      const overlap = Math.min(block.x + block.width, other.x + other.width) - Math.max(block.x, other.x);
+      return overlap >= block.width * 0.5;
+    }),
+  );
+}
 
 /** A single paragraph is a column only with text beside it; a long
  *  paragraph indented under headings is not a column of its own. */

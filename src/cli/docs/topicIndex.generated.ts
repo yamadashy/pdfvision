@@ -28,6 +28,7 @@ export const CLI_WARNING_CODES: readonly string[] = [
   "annotation_text_missing_from_native",
   "body_near_repeated_chrome",
   "dense_vector_graphics",
+  "display_math_layout",
   "dot_leader_noise",
   "duplicate_text_layer",
   "faint_text",

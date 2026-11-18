@@ -2,7 +2,7 @@ import type { TextSpan } from '../../types/index.js';
 import { CJK_TIGHT_GAP_RATIO, isCjkLeading, mirrorReversedRtlCharacter } from '../text/cjkJoin.js';
 import { shouldInsertSemanticSpace } from '../text/spacing.js';
 import { isRtlDominantPositionedText, textOrder } from '../text/textDirection.js';
-import { hasExplicitSpaceBefore } from './spanMetadata.js';
+import { hasExplicitSpaceBefore, isMathTerm } from './spanMetadata.js';
 
 /** Gap fraction for non-CJK pairs — pdf.js typically packs inter-word
  *  spaces around 0.22 × fontSize. Preserves the pre-fix behavior for
@@ -18,6 +18,15 @@ const DEFAULT_SPACE_GAP_RATIO = 0.22;
  *  12pt matches the most common Western body fontSize and is harmless
  *  as a heuristic backstop. */
 const FONT_SIZE_FALLBACK_PT = 12;
+
+const NO_SPACE_BEFORE_RE = /^[,.;:!?)\]}′'’]/u;
+const NO_SPACE_AFTER_RE = /[([{√∛∜]$/u;
+
+/** A linearised fraction or operator is one term: a space sets it off, except before punctuation. */
+function spacesMathTerm(prev: TextSpan, cur: TextSpan): boolean {
+  if (!isMathTerm(prev) && !isMathTerm(cur)) return false;
+  return !NO_SPACE_BEFORE_RE.test(cur.text) && !NO_SPACE_AFTER_RE.test(prev.text);
+}
 
 /**
  * Join the spans of a single layout line into a readable string. pdfjs
@@ -49,7 +58,8 @@ export function joinLineSpans(spans: TextSpan[]): string {
     const insertSpace =
       (rtl && hasExplicitSpaceBefore(prev)) ||
       gap > threshold ||
-      shouldInsertSemanticSpace(prev.text, cur.text, gap, fontSize);
+      shouldInsertSemanticSpace(prev.text, cur.text, gap, fontSize) ||
+      spacesMathTerm(prev, cur);
     const text = rtl ? mirrorReversedRtlCharacter(cur.text) : cur.text;
     out += insertSpace ? ` ${text}` : text;
   }

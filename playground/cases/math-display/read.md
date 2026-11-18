@@ -11,69 +11,37 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 ## Page 1
 
-_chars: 1152 · images: 0 · coverage: 12% · vectors: 6 · warnings: 1 · size: 612×792pt_
+_chars: 1152 · images: 0 · coverage: 12% · vectors: 6 · size: 612×792pt_
 
 Standard-siren distances from low-redshift mergers
 
-For a flat ΛCDM background the luminosity distance of a source at redshift z is
-c (1 + z)∫z dz′
+7
 
 III. DISTANCE ESTIMATION
 
-d_L(z) =
+For a flat ΛCDM background the luminosity distance of a source at redshift z is
 
-,
+d_L(z) = (c (1 + z))/H_0 ∫_0^z dz′/E(z′), (1)
 
-0 E(z′) 
 where E(z) is the dimensionless expansion rate. Given the measured distances d_k and their
 standard deviations σ_k, the likelihood over the N = 47 events of the catalogue is
 
-1 N (d_k − μ_k(θ))^2
-ln L(θ) = − ∑
-
-H_0
-
-2 k=1
-
-σ^2_k
-
-,
-
-7
-
-(1)
-
-(2)
+ln L(θ) = − 1/2 ∑_{k=1}^N ((d_k − μ_k(θ))^2)/σ^2_k, (2)
 
 with θ = (H_0, Ω_m) and μ_k given by Eq. (1). Sampling Eq. (2) with flat priors, the marginal posterior
 covariance of (H_0/100, Ω_m) is
 
-Σ =
-
-−0.013
-
-0.042 −0.013
-0.027
-
-.
-
-(3)
+Σ = [[0.042, −0.013], [−0.013, 0.027]] . (3)
 
 The negative off-diagonal term is the familiar degeneracy between H_0 and Ω_m. For z ≪ 1 the expansion
 rate simplifies to
 
-A. Results for the nearest event
-
 E(z)^2 = Ω_m (1 + z)^3 + Ω_Λ
-= 0.31 (1 + z)^3 + 0.69
+= 0.31 (1 + z)^3 + 0.69 (4)
 ≈ 1 + 0.93 z.
 
-(4)
+A. Results for the nearest event
 
 The nearest event, GW261103, lies at d_L = 410^+160_−180 Mpc (z = 0.09^{+0.03}_{−0.04}), with a primary mass of
 36^+5_−4 M⊙. Combining all N events through Eq. (2) gives H_0 = 68.2^{+6.1}_{−4.7} km s^−1 Mpc^−1,
 where the quoted intervals are the 68% highest-density bounds above and below the median.
-
-### Warnings
-
-> **warning** (text_overlap): block bboxes overlap (305.7pt²) — text from different blocks may visually collide
