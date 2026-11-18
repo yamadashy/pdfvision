@@ -30,11 +30,14 @@ interface CellRef {
  * alike. A body cell that overlaps two cells of another row (a merged value)
  * is left out of that clustering, and it, header rows, and single-cell rows
  * are then placed on the columns they overlap. `firstDataRow` is where the
- * detector's own rows begin below the header rows it attached, when it knows.
+ * detector's own rows begin below the header rows it attached, when it knows;
+ * rows before `headerEnd` are header rows it attached above a single line
+ * between them and the body (a group label, a wrapped header line), so
+ * a year row among them is not the body's first row.
  */
-export function assignTableColumns(table: LayoutTable, firstDataRow?: number): LayoutTable {
+export function assignTableColumns(table: LayoutTable, firstDataRow?: number, headerEnd = 0): LayoutTable {
   const rows = table.rows;
-  const bodyRows = bodyRowIndexes(rows, firstDataRow);
+  const bodyRows = bodyRowIndexes(rows, firstDataRow).filter((index) => index >= headerEnd);
   const bodyCells: CellRef[] = bodyRows.flatMap((row) => rows[row].cells.map((_, cell) => ({ row, cell })));
   const spanning = new Set(bodyCells.filter((ref) => isSpanningBodyCell(ref, rows, bodyRows)).map(key));
   const clusterCells = bodyCells.filter((ref) => !spanning.has(key(ref)));

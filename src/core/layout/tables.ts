@@ -25,11 +25,21 @@ import {
 } from './tableContinuations.js';
 import { insertTableGroupLabelRows } from './tableGroupRows.js';
 import { splitJoinedHeaderCells } from './tableHeaderCells.js';
+import { joinWrappedHeaderRows } from './tableHeaderWraps.js';
 import { foldCarriedLabelLines } from './tableLabelWraps.js';
-import { attachLeadingTableRows } from './tableLeadingRows.js';
+import {
+  attachLeadingTableRows,
+  headerRowsEnd,
+  isHeaderGapLine,
+  isHeaderRowAboveGap,
+  isHeaderTextRow,
+  markHeaderRow,
+  markHeaderRowsAbove,
+} from './tableLeadingRows.js';
 import { admitPlaceholderRows } from './tablePlaceholderRows.js';
 import { groupLinesByTableRow, rowBottom, rowY } from './tableRows.js';
-import type { TableRules } from './tableRules.js';
+import type { TableRule, TableRules } from './tableRules.js';
+import { splitUnlevelledStacks } from './tableStacks.js';
 
 export { isTableNumericCell } from './tableCells.js';
 
@@ -57,7 +67,7 @@ export function detectLayoutTables(
   rules: TableRules = { horizontal: [], vertical: [] },
   boxes: readonly BBox[] = [],
 ): LayoutTable[] | undefined {
-  const found = detectTextTables(lines)
+  const found = detectTextTables(lines, rules.horizontal)
     ?.flatMap((table) => splitSideBySideTables(table, boxes))
     .map((table) => splitJoinedHeaderCells(fitTableToRules(table, rules.horizontal, lines), lines));
   const detected = found && found.length > 0 ? found : undefined;
@@ -74,8 +84,12 @@ export function detectLayoutTables(
     if (grids.length === 0) return [table];
     // Text beside a drawn grid that line-ups glued onto it (an address
     // block above an invoice's item grid) becomes a table of its own.
+    // Its rows there may be blocks set side by side (the recipient's and the
+    // issuer's addresses), which only the grid's rows held together.
     const outside = table.rows.filter((row) => !grids.some((grid) => isRowInside(row, grid)));
-    return outside.filter((row) => row.cells.length >= 2).length >= 2 ? [withRows(table, outside)] : [];
+    return outside.filter((row) => row.cells.length >= 2).length >= 2
+      ? splitUnlevelledStacks(withRows(table, outside))
+      : [];
   });
   for (const item of ruled) {
     const replaced = (detected ?? []).filter((table) => replaces(item.table, table));
@@ -88,7 +102,7 @@ export function detectLayoutTables(
   return tables.sort((a, b) => a.y - b.y || a.x - b.x);
 }
 
-function detectTextTables(lines: LayoutLine[]): LayoutTable[] | undefined {
+function detectTextTables(lines: LayoutLine[], horizontalRules: readonly TableRule[]): LayoutTable[] | undefined {
   // Rows are grouped from the lines as built, then split into the cells a
   // widely spaced line joined, so the split never changes which row a line is in.
   const allRowGroups = groupLinesByTableRow(lines).map((row) => linesAsTableCells(row).sort((a, b) => a.x - b.x));
@@ -107,10 +121,16 @@ function detectTextTables(lines: LayoutLine[]): LayoutTable[] | undefined {
     })),
   );
   const finalize = (table: LayoutTable) => {
-    const withGroupLabels = insertTableGroupLabelRows(table, allRowGroups);
-    const firstDataRow = withGroupLabels.rows.findIndex((row) => firstDataRows.has(row));
+    const withGroupLabels = insertTableGroupLabelRows(table, allRowGroups, horizontalRules);
+    const firstDetected = withGroupLabels.rows.findIndex((row) => firstDataRows.has(row));
+    const joined = joinWrappedHeaderRows(
+      withGroupLabels,
+      firstDetected >= 0 ? firstDetected : undefined,
+      headerRowsEnd(withGroupLabels.rows),
+    );
+    const firstDataRow = joined.rows.findIndex((row) => firstDataRows.has(row));
     return splitJoinedHeaderCells(
-      assignTableColumns(withGroupLabels, firstDataRow >= 0 ? firstDataRow : undefined),
+      assignTableColumns(joined, firstDataRow >= 0 ? firstDataRow : undefined, headerRowsEnd(joined.rows)),
       lines,
     );
   };
@@ -211,17 +231,21 @@ function toLayoutTable(rows: LayoutLine[][]): LayoutTable {
     ...box,
     rowCount: rows.length,
     columnCount: Math.max(...normalizedRows.map((row) => row.length)),
-    rows: normalizedRows.map((row, index) => ({
-      y: round2(rowY(rows[index])),
-      height: round2(rowBottom(rows[index]) - rowY(rows[index])),
-      cells: row.map((cell) => ({
-        text: cell.text,
-        x: cell.x,
-        y: cell.y,
-        width: cell.width,
-        height: cell.height,
-      })),
-    })),
+    rows: normalizedRows.map((row, index) => {
+      const tableRow: LayoutTableRow = {
+        y: round2(rowY(rows[index])),
+        height: round2(rowBottom(rows[index]) - rowY(rows[index])),
+        cells: row.map((cell) => ({
+          text: cell.text,
+          x: cell.x,
+          y: cell.y,
+          width: cell.width,
+          height: cell.height,
+        })),
+      };
+      if (isHeaderRowAboveGap(rows[index])) markHeaderRow(tableRow);
+      return tableRow;
+    }),
   };
 }
 
@@ -295,6 +319,7 @@ function attachAlignedTextHeaderRows(group: IndexedLayoutRow[], allRows: LayoutL
   const firstIndex = group[0]?.index ?? 0;
   const bodyBox = unionBox(rows.flat());
   const headers: LayoutLine[][] = [];
+  let gapRow: LayoutLine[] | undefined;
 
   for (let index = firstIndex - 1; index >= 0; index--) {
     const candidate = allRows[index];
@@ -308,10 +333,29 @@ function attachAlignedTextHeaderRows(group: IndexedLayoutRow[], allRows: LayoutL
     ) {
       continue;
     }
-    if (!isAlignedTextTableHeaderRow(candidate, bodyBox, nextRow)) break;
+    if (isAlignedTextTableHeaderRow(candidate, bodyBox, nextRow)) {
+      headers.unshift(candidate);
+      continue;
+    }
+    // A single line under the header row: a wrapped header cell's second
+    // line, or a group label set between the header and the rows (see
+    // attachLeadingTableRows); only with the header row above it.
+    const header = allRows[index - 1];
+    if (
+      candidate.length !== 1 ||
+      !isHeaderGapLine(candidate[0]) ||
+      !isAlignedTextTableHeaderRow(candidate, bodyBox, nextRow, 1) ||
+      !header ||
+      !isAlignedTextTableHeaderRow(header, bodyBox, candidate) ||
+      !isHeaderTextRow(header)
+    ) {
+      break;
+    }
     headers.unshift(candidate);
+    gapRow = candidate;
   }
 
+  if (gapRow) markHeaderRowsAbove(headers, gapRow);
   return [...headers, ...rows];
 }
 
@@ -319,9 +363,10 @@ function isAlignedTextTableHeaderRow(
   row: LayoutLine[] | undefined,
   tableBox: BBox,
   nextRow: LayoutLine[] | undefined,
-): row is LayoutLine[] {
+  minCells = 2,
+): boolean {
   if (!row || !nextRow) return false;
-  if (row.length < 2) return false;
+  if (row.length < minCells) return false;
   if (row.some((line) => line.width > ALIGNED_TEXT_TABLE_MAX_CELL_WIDTH_PT)) return false;
   if (row.some((line) => !/[\p{L}\p{N}()（）]/u.test(line.text))) return false;
   if (rowY(nextRow) - rowBottom(row) > ALIGNED_TEXT_TABLE_HEADER_MAX_GAP_PT) return false;
@@ -367,12 +412,29 @@ function withHeaderRowsFrom(table: LayoutTable, other: LayoutTable): LayoutTable
   const header: LayoutTableRow[] = [];
   let next = table.rows[0];
   const above = other.rows.filter((row) => next && row.y + row.height / 2 < next.y).reverse();
-  for (const row of above) {
-    if (!next || header.length >= BORROWED_HEADER_MAX_ROWS || row.cells.length < 2) break;
+  for (const [index, row] of above.entries()) {
+    if (!next || header.length >= BORROWED_HEADER_MAX_ROWS) break;
     if (next.y - (row.y + row.height) > BORROWED_HEADER_MAX_GAP_PT) break;
+    // One single-cell row under the header (a group label, a units line)
+    // is taken with the header above it, not instead of one.
+    const over = above[index + 1];
+    if (
+      row.cells.length < 2 &&
+      (header.some((taken) => taken.cells.length < 2) ||
+        !over ||
+        over.cells.length < 2 ||
+        over.cells.filter((cell) => isTableValueCell(cell.text)).length * 2 >= over.cells.length ||
+        row.y - (over.y + over.height) > BORROWED_HEADER_MAX_GAP_PT)
+    ) {
+      break;
+    }
     header.unshift(row);
     next = row;
   }
+  const gap = header.find((row) => row.cells.length < 2);
+  if (gap && header[0] !== gap) markHeaderRowsAbove(header, gap);
+  // Never end on the single-cell row: it came only with a header above it.
+  if (header[0] && header[0].cells.length < 2) header.shift();
   if (header.length === 0) return table;
   const rows = [...header, ...table.rows];
   const box = unionBox(rows.flatMap((row) => row.cells));

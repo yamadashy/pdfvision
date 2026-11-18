@@ -148,9 +148,9 @@ Static truncation is the usual answer to document length.
 ATP is closest to attention-based pruning for re-rankers, but
 it runs once, at indexing time.
 
-1
-
 ^1Code and probe weights: https://example.org/atp
+
+1
 
 arXiv:2611.04217v1 [cs.IR] 12 Nov 2026
 
