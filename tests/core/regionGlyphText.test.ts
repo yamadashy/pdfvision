@@ -208,6 +208,28 @@ describe('buildRegionGlyphTextIndex', () => {
     );
   });
 
+  it('reads each line of a region in its own direction', () => {
+    // An English line above a Hebrew one (שלום drawn in visual order ם ו ל ש).
+    const box = { x: 95, y: 80, width: 80, height: 40 };
+    const text = buildRegionGlyphTextIndex(
+      [1, 2, 3, 20, 3, 20],
+      [
+        [],
+        ['F1', 10],
+        [[1, 0, 0, 1, 100, 700]],
+        [[...'Read'].map((ch) => glyph(ch)).concat([glyph(' '), ...[...'more.'].map((ch) => glyph(ch))])],
+        [[1, 0, 0, 1, 100, 686]],
+        [[glyph('ם'), glyph('ו'), glyph('ל'), glyph('ש')]],
+      ],
+      ops,
+      [box],
+      792,
+      0,
+      0,
+    )?.textIn([box]);
+    expect(text).toBe('Read more. שלום');
+  });
+
   it('keeps a combining mark with its base even when it is kerned back over it', () => {
     // ก + ่ (tone mark kerned back over the consonant) + า
     expect(read([glyph('ก'), -500, { unicode: '่', width: 500 }, glyph('า')])).toBe('ก่า');

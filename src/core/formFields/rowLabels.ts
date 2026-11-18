@@ -5,6 +5,7 @@ import {
   isExplanatoryFormParagraphStart,
   isFormLabelChromeText,
   isSemanticFieldNameMismatch,
+  isStandaloneInstructionReference,
   isUsableLabelText,
   normalizeLabelText,
 } from './text.js';
@@ -40,6 +41,7 @@ export function findClearRowLeftLabel(
     if (best && right <= best.line.x + best.line.width) continue;
     const text = normalizeLabelText(line.text);
     if (!isUsableLabelText(text) || isFormLabelChromeText(text) || isExplanatoryFormParagraphStart(text)) continue;
+    if (field.type === 'text' && isStandaloneInstructionReference(text)) continue;
     if (isSemanticFieldNameMismatch(field, text)) continue;
     if (isChoiceOptionText(line, field, siblings)) continue;
     if (hasLineBetween(line, field, lines) || hasFieldBetween(line, field, siblings)) continue;
@@ -59,7 +61,12 @@ export function inheritSplitBoxLabels(fields: readonly FormField[], lines: reado
   for (const field of byX) {
     if (field.label || field.type !== 'text') continue;
     const neighbour = splitBoxNeighbour(field, byX, lines);
-    if (neighbour?.label?.relation === 'left') field.label = { ...neighbour.label };
+    if (neighbour?.label?.relation !== 'left') continue;
+    // A part of a split date or ID has a name too short to say otherwise
+    // (`day`, `year`); a distinct field beside a labelled one (`phone_number`
+    // after "Email address") is named for its own prompt.
+    if (isSemanticFieldNameMismatch(field, neighbour.label.text)) continue;
+    field.label = { ...neighbour.label };
   }
 }
 
@@ -79,6 +86,7 @@ function splitBoxNeighbour(
     best = other;
   }
   if (!best) return undefined;
+  if (fields.some((other) => other !== best && other !== field && isBetween(other, best, field))) return undefined;
   const between = lines.filter((line) => isBetween(line, best, field));
   return between.every((line) => SPLIT_BOX_SEPARATOR.test(line.text.trim())) ? best : undefined;
 }
