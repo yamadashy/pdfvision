@@ -51,15 +51,7 @@ describe('clock times and dot leaders in layout tables', () => {
     const [table] = buildLayout(timetable(28, WEEKDAY), 792, 612).tables ?? [];
     expect(table?.columnCount).toBe(1 + WEEKDAY.length);
     expect(grid(table)?.[0]?.[0]).toMatch(/^0:Harbour Station \.+$/);
-    expect(grid(table)?.[0]?.slice(1)).toEqual([
-      '1:6:05',
-      '2:6:35',
-      '3:7:05',
-      '4:7:20',
-      '5:7:42',
-      '6:12:05',
-      '7:3:25',
-    ]);
+    expect(grid(table)?.[0]?.slice(1)).toEqual(['1:6:05', '2:6:35', '3:7:05', '4:7:20', '5:7:42', '6:12:05', '7:3:25']);
   });
 
   it('keeps the dot leader with its label in the page text', () => {
