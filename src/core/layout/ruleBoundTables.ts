@@ -8,7 +8,9 @@ const SAME_EXTENT_PT = 3;
 const EXTENT_SLACK_PT = 4;
 const RULE_NEAR_TABLE_PT = 40;
 const RULE_NEAR_ROW_HEIGHTS = 3;
-const HEADER_MAX_ROWS = 3;
+const HEADER_MAX_ROWS = 6;
+// Booktabs rules run a little past the text of the outer columns.
+const RULE_OVERHANG_PT = 12;
 const BRACKET_MIN_ROW_SHARE = 0.5;
 const CLAIMED_MIN_AREA_RATIO = 0.5;
 
@@ -72,8 +74,8 @@ function ruleBracket(table: LayoutTable, rules: readonly TableRule[]): Bracket |
     (rule) =>
       rule.at >= table.y - reach &&
       rule.at <= table.y + table.height + reach &&
-      rule.start >= table.x - EXTENT_SLACK_PT &&
-      rule.end <= table.x + table.width + EXTENT_SLACK_PT,
+      rule.start >= table.x - RULE_OVERHANG_PT &&
+      rule.end <= table.x + table.width + RULE_OVERHANG_PT,
   );
   const rowCenters = table.rows.map((row) => row.y + row.height / 2);
   let best: (Bracket & { rows: number }) | undefined;

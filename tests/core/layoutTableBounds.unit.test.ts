@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { BBox } from '../../src/core/layout/geometry.js';
 import { buildLayout } from '../../src/core/layout/index.js';
 import { recordLineParts } from '../../src/core/layout/lineSegments.js';
+import { fitTableToRules } from '../../src/core/layout/ruleBoundTables.js';
 import { splitJoinedHeaderCells } from '../../src/core/layout/tableHeaderCells.js';
 import type { LayoutTable, TextSpan } from '../../src/types/index.js';
 
@@ -62,6 +63,53 @@ describe('tables fitted to their rules (#252)', () => {
       ['0:ATP (ours)', '1:40.8', '2:58.3', '3:88'],
       ['0:Random pruning', '1:35.0', '2:50.2', '3:96'],
     ]);
+  });
+
+  it('takes a staggered header band under rules that run past the text', () => {
+    const line = (text: string, x: number, y: number, width: number) => ({ text, x, y, width, height: 8, fontSize: 8 });
+    const cell = (text: string, x: number, y: number, width: number, column: number) => ({
+      ...line(text, x, y, width),
+      column,
+    });
+    const body = [
+      ['Alpha', '41.2', '58.7'],
+      ['Beta', '38.9', '55.1'],
+      ['Gamma', '40.8', '58.3'],
+    ];
+    const table: LayoutTable = {
+      x: 113,
+      y: 150,
+      width: 200,
+      height: 30,
+      rowCount: 3,
+      columnCount: 3,
+      rows: body.map(([label, a, b], index) => ({
+        y: 150 + index * 10,
+        height: 8,
+        cells: [
+          cell(label, 113, 150 + index * 10, 30, 0),
+          cell(a, 200, 150 + index * 10, 18, 1),
+          cell(b, 295, 150 + index * 10, 18, 2),
+        ],
+      })),
+    };
+    // Four header lines set on staggered baselines between the top rules,
+    // which run 6pt past the outer columns.
+    const header = [
+      line('Dataset', 196, 120, 30),
+      line('Models', 113, 127, 28),
+      line('Score', 200, 132, 22),
+      line('Recall', 292, 137, 24),
+    ];
+    const rules = [
+      { at: 118, start: 107, end: 319 },
+      { at: 147, start: 107, end: 319 },
+      { at: 182, start: 107, end: 319 },
+    ];
+    const fitted = fitTableToRules(table, rules, header);
+    expect(
+      fitted.rows.slice(0, fitted.rows.length - body.length).flatMap((row) => row.cells.map((item) => item.text)),
+    ).toEqual(['Dataset', 'Models', 'Score', 'Recall']);
   });
 
   it('keeps the table as found when nothing is drawn around it', () => {
