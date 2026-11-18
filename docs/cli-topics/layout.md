@@ -14,6 +14,7 @@ interface PageLayout {
   blocks: LayoutBlock[];     // in approximate reading order (multi-column aware)
   tables?: LayoutTable[];    // row-major hints for aligned numeric tables
   markedText?: LayoutMarkedText[]; // passages marked only by a drawn line beside them (see below)
+  lineNumbers?: { first: number; last: number }; // margin line numbers, left out of the text (see below)
 }
 
 interface LayoutMarkedText {
@@ -38,6 +39,8 @@ interface LayoutLine {
   x: number; y: number; width: number; height: number;
   fontSize: number;          // most common fontSize across the spans in this line
   writingMode?: 'vertical';  // present for top-to-bottom CJK glyph stacks, including body text
+  lineNumber?: number;       // the margin number printed on this line's baseline
+  indent?: number;           // list / index depth; `text` starts with two spaces per level
 }
 
 interface LayoutTable {
@@ -74,6 +77,10 @@ Repeated chrome detection runs after block clustering. Consecutive pages of one 
 ### Code blocks (`role === 'code'`)
 
 A block of monospaced rows is a code block when the page sets it apart from its prose: every span on its rows is in a font pdf.js reports as fixed-pitch, no proportional text shares those rows or lines up with them row after row (so inline `code` in a sentence and a table whose first columns are monospaced are not code), the page also has proportional text (a document set entirely in a monospaced face, such as an RFC, is left as ordinary lines), its tokens sit on one character grid, and it has at least three rows of code. Its `text` has one line per row, blank rows included, with indentation rebuilt from the grid as leading spaces — highlighters place each token at its column, so the offsets are the indentation. A gutter of increasing, right-aligned line numbers left of the code is left out of `text` and reported as `codeLineNumbers: { first, last }` (XML: `firstLineNumber` / `lastLineNumber`). Markdown fences the block and, when a gutter was dropped, names the line range on the line above it. A listing that misses any of these tests (set in a proportional font, a single row, a page with no prose) reads as ordinary lines.
+
+### Author grids, line numbers, indentation
+
+A grid of centred stacks of short lines side by side — a paper's author blocks (name with its marks, affiliation, email) — gives one block per stack, read row by row, left to right. A column of consecutive integers in a margin, at one pitch, reaching over 40% of the page with text on its baselines (pleading paper, bills, review drafts) is left out of the text: each line on a number's baseline carries `lineNumber` (XML `lineNumber`; `layout` gets `firstLineNumber` / `lastLineNumber`), and Markdown starts that line with its number, under a note naming the range. Nested list items (markers at two or more indents) and index or contents entries at three or more indents keep their depth as two leading spaces per level and `indent`; a first-line indent, a block quote, a flat list's hanging indent and right-aligned figures are left flush.
 
 ### Heading levels (`role === 'heading'`)
 
