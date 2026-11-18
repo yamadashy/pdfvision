@@ -2,7 +2,7 @@
 
 - **Stresses:** full-width header over two columns; superscript author markers; inline equation; vector chart with text labels; table caption above; footnote; rotated margin stamp
 - **Families:** reading-order, math, vector-meaning, vertical-rotated, structure
-- **Status:** known-gap (#242)
+- **Status:** ok
 
 Reading order: title, authors, affiliations, e-mails, abstract, then the **whole left column**
 (1 Introduction → bullets → 2 Method → equation → Table 1 → footnote) before the **right column**
@@ -59,8 +59,9 @@ header line between its top rules is split at the columns below it (#253); the a
 two columns of prose are no longer reported as a table (#242, the rotated arXiv stamp beside the
 page used to join every row it overlapped). Question 2 is answered from it.
 
-**Known gap (no issue yet):**
-- The centred page number `1` is emitted at the end of the right column.
+The footnote at the foot of the left column is read after both columns, as column bottom notes
+are, so it does not interrupt the column text, and the centred page number `1` below it comes
+after it, at the page foot (it used to come before the footnote, at the end of the right column).
 
 The chart's text is kept together before its caption (#256): the axis ticks, then bar by bar
 `Full attention / 182 / 88 / LongDocQA`, `ATP (ours) / 156 / 79 / MultiNews-R`,

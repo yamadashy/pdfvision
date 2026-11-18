@@ -478,10 +478,12 @@ Feb-2025
 
 ### Layout tables
 
-#### Table 1 (49 rows × 6 columns, bbox 74,128.14,426.83,563.3)
+#### Table 1 (52 rows × 6 columns, bbox 74,90.44,435.11,601)
 
 | C1 | C2 | C3 | C4 | C5 | C6 |
 | --- | --- | --- | --- | --- | --- |
+| Model | Release date | Params (B) | Pre-train tokens | Context length | RLHF |
+|  |  | Open source |  |  |  |
 | Corvid-7B [12] | Feb-2023 | 7 | 1.0T | 2k | ✗ |
 | Corvid-65B [12] | Feb-2023 | 65 | 1.4T | 2k | ✗ |
 | Heron-13B [15] | Apr-2023 | 13 | 1.2T | 4k | ✗ |
@@ -509,6 +511,7 @@ Feb-2025
 | Plover-14B [45] | Dec-2024 | 14 | 9.8T | 16k | ✗ |
 | Tern-1B [47] | Jan-2025 | 1.2 | 4T | 8k | ✗ |
 | Wren-3-27B [33] | Mar-2025 | 27 | 14T | 128k | ✓ |
+|  |  | Closed source |  |  |  |
 | Atlas-1 [50] | Jun-2022 | 175 | 0.3T | 2k | ✗ |
 | Atlas-1.5 [50] | Nov-2022 | – | – | 4k | ✓ |
 | Atlas-2 [51] | Mar-2023 | – | – | 8k | ✓ |

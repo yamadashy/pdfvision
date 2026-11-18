@@ -2,7 +2,7 @@
 
 - **Stresses:** about 50 rows × 6 columns with no vertical rules; row-group labels as spanning rows; citation markers in cells; dingbat check/cross column; two-line header
 - **Families:** tables, encoding
-- **Status:** known-gap
+- **Status:** ok
 
 TABLE 3: Statistics of the language models covered by this survey. “Params” is the largest released size; “–” means not disclosed. RLHF marks models whose release notes report reinforcement learning from human feedback.
 
@@ -73,15 +73,14 @@ Running head: `A SURVEY OF OPEN AND CLOSED LANGUAGE MODELS, 2022–2026`; page 9
 5. How many models in the table are closed source? — 22
 
 The layout table keeps every model row intact (49 rows, each value under the right
-column), so questions 1 and 4 are answerable from it plus the header words in the body. The RLHF
-marks decode to ✓ and ✗ (`| Heron-3-405B [35] | Jul-2024 | 405 | 15.6T | 128k | ✓ |`, #275), so
-question 3 is answerable from the table too.
+column) under its two-line header joined per column (`| Model | Release date | Params (B) | Pre-train tokens | Context length | RLHF |`,
+#294), with both group labels as rows of their own where they sit: `Open source` between the header
+and the first row (it no longer cuts the header off), `Closed source` (centred in a rule band of its
+own) right before `Atlas-1 [50]`. So all five questions are answered from the table: membership
+and the closed-source count come from the group rows. The RLHF marks decode to ✓ and ✗
+(`| Heron-3-405B [35] | Jul-2024 | 405 | 15.6T | 128k | ✓ |`, #275).
 
-**Known gap (no issue yet):**
-- The layout table has no header (`C1 … C6`) and drops both group-label rows, so membership is
-  only recoverable from the body text, where `Open source` comes after the header words and before
-  the open-source model list, and `Closed source` before the first closed-source row. Question 2
-  needs that inference; question 5 needs counting.
-- The body text reads the open-source half column by column (all models, then all dates, …), as the
-  survey reported for the real page, and the closed-source half row by row
-  (`Atlas-1 [50]` / `Jun-2022` / `175` / `0.3T` / `2k` / `7`).
+The page body still reads the open-source half column by column (all models, then all dates, …),
+as the survey reported for the real page, and the closed-source half row by row (#297);
+`tabular_numeric_layout` says rows and columns may be flattened in the native text, and the table
+carries them.

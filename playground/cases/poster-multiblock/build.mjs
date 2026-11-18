@@ -139,7 +139,6 @@ export const meta = {
   stresses:
     'A0 page; full-width banner over four columns of titled blocks of unequal height; vector charts with text tick labels, legends and value labels; table inside a column; QR-like vector square',
   status: 'known-gap',
-  issue: 242,
   families: ['reading-order', 'page-geometry', 'vector-meaning', 'tables'],
   page: { size: [PAGE.width, PAGE.height] },
 };
@@ -178,13 +177,13 @@ ${BLOCKS.map((column, c) => `_Column ${c + 1}_\n\n${column.map((block) => `**${b
 Questions 1, 3 and 5 are answerable from \`read.md\`; question 2's farm and reason come from the
 prose (\`Detection was lowest on the Kilbrack farm, where tree cover…\`).
 
-Layout table 2 is Table 1 exactly, header row included (\`| Method | Precision | Recall | F1 |\`,
+The only layout table is Table 1 exactly, header row included (\`| Method | Precision | Recall | F1 |\`,
 \`| Visual check | 0.95 | 0.61 | 0.74 |\`): its rules bound it, so the Methods and Acknowledgements
 prose beside it stays out (#252), and the label that row grouping had given to the prose is put
 back on its row. Question 1 is answered from it.
 
-**Known gap (#242):** layout table 1 (2 × 7) is prose and chart labels from all four columns;
-\`layout_table_uncertain\` flags it.
+Two lines of each poster column read across as a 2 × 7 table of prose and chart labels are no
+longer reported as a table (#242): every row holds running text and it straddles the columns' gutters.
 
 **Known gap (no issue yet):**
 - The four poster columns are read one after another, each panel whole, and Table 1 reads row by row

@@ -3,18 +3,29 @@ import { round2 } from './geometry.js';
 import { isCaptionHeadingText } from './headingText.js';
 import { isTableValueCell } from './tableCells.js';
 import { rowBottom, rowY } from './tableRows.js';
+import type { TableRule } from './tableRules.js';
 
 const GROUP_LABEL_LEFT_TOLERANCE_PT = 24;
 const GROUP_LABEL_VALUE_GAP_PT = 2;
 const CELL_CONTAINMENT_TOLERANCE_PT = 1;
+const RULE_BAND_EDGE_TOLERANCE_PT = 6;
+const RULE_BAND_MAX_HEIGHT_RATIO = 3;
 
 /**
  * Restore label-only rows that sit between a table's rows in its label
  * column — group headers such as `Net sales:` or `Earnings per share:`.
  * Row detection needs numeric cells, so these rows were dropped, which left
  * repeated sub-labels (`Products`, `Basic`) with nothing to tell them apart.
+ * A label set anywhere across the table in a band of its own between two
+ * rules that run the table's width (`Closed source` centred in a booktabs
+ * table) is such a row too: nothing else shares its band, so it is not a
+ * wrapped line of a cell.
  */
-export function insertTableGroupLabelRows(table: LayoutTable, allRows: readonly LayoutLine[][]): LayoutTable {
+export function insertTableGroupLabelRows(
+  table: LayoutTable,
+  allRows: readonly LayoutLine[][],
+  rules: readonly TableRule[] = [],
+): LayoutTable {
   const firstRow = table.rows[0];
   const lastRow = table.rows.at(-1);
   if (!firstRow || !lastRow || table.rows.length < 2) return table;
@@ -33,7 +44,8 @@ export function insertTableGroupLabelRows(table: LayoutTable, allRows: readonly 
     if (row.some((line) => cells.some((cell) => contains(cell, line)))) continue;
     // Group headers are a single label; a multi-line text row here is
     // side-by-side prose or a figure, not part of the table.
-    if (row.length !== 1 || !isGroupLabelLine(row[0], labelLeft, valueLeft)) continue;
+    if (row.length !== 1) continue;
+    if (!isGroupLabelLine(row[0], labelLeft, valueLeft) && !isRuleBandLabel(row[0], table, allRows, rules)) continue;
     inserted.push({
       y: round2(rowY(row)),
       height: round2(rowBottom(row) - rowY(row)),
@@ -54,6 +66,36 @@ function isGroupLabelLine(line: LayoutLine, labelLeft: number, valueLeft: number
   if (isCaptionHeadingText(line.text)) return false;
   if (line.x < labelLeft - GROUP_LABEL_LEFT_TOLERANCE_PT) return false;
   return line.x + line.width <= valueLeft - GROUP_LABEL_VALUE_GAP_PT;
+}
+
+function isRuleBandLabel(
+  line: LayoutLine,
+  table: LayoutTable,
+  allRows: readonly LayoutLine[][],
+  rules: readonly TableRule[],
+): boolean {
+  if (!/[\p{L}]/u.test(line.text) || isTableValueCell(line.text) || isCaptionHeadingText(line.text)) return false;
+  const spanning = rules.filter(
+    (rule) =>
+      rule.start <= table.x + RULE_BAND_EDGE_TOLERANCE_PT &&
+      rule.end >= table.x + table.width - RULE_BAND_EDGE_TOLERANCE_PT,
+  );
+  const above = spanning
+    .filter((rule) => rule.at <= line.y + CELL_CONTAINMENT_TOLERANCE_PT)
+    .sort((a, b) => b.at - a.at)[0];
+  const below = spanning
+    .filter((rule) => rule.at >= line.y + line.height - CELL_CONTAINMENT_TOLERANCE_PT)
+    .sort((a, b) => a.at - b.at)[0];
+  if (!above || !below || below.at - above.at > line.height * RULE_BAND_MAX_HEIGHT_RATIO) return false;
+  const left = Math.max(above.start, below.start);
+  const right = Math.min(above.end, below.end);
+  return allRows.every((row) =>
+    row.every((other) => {
+      if (other === line || other.x >= right || other.x + other.width <= left) return true;
+      const middle = other.y + other.height / 2;
+      return middle <= above.at || middle >= below.at;
+    }),
+  );
 }
 
 function firstValueColumnLeft(rows: readonly LayoutTableRow[]): number | undefined {
