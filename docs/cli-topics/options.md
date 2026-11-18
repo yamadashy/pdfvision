@@ -279,6 +279,7 @@ or `clear-cache` must be passed as `./docs`, `./mcp`, or `./clear-cache`.
   pdfvision clear-cache                                                        # clear the verified pdfvision cache
   pdfvision docs                                                               # list the built-in documentation topics
   pdfvision docs warnings                                                      # read one topic
+  pdfvision docs warnings text_overlap                                         # read one warning code's entry
 
 ```
 
@@ -288,8 +289,8 @@ or `clear-cache` must be passed as `./docs`, `./mcp`, or `./clear-cache`.
   0  Success, including --help, --version, a printed docs topic or index, and a
      successful clear-cache
   1  Option-syntax error; multiple positional arguments; unsupported arguments passed to a
-     subcommand; an unknown docs topic; semantic argument failure with a source; file,
-     network, cache, or extraction failure (error message on stderr)
+     subcommand; an unknown docs topic or warning code; semantic argument failure with a
+     source; file, network, cache, or extraction failure (error message on stderr)
   2  With at most one positional argument, no non-empty positional input or nonblank
      --remote URL was provided (usage printed on stderr)
 ```

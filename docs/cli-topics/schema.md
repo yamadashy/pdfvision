@@ -166,7 +166,7 @@ Every coordinate-bearing field — spans, layout blocks and lines, image boxes, 
 
 Which fields answer which question, and the topic that documents them in full:
 
-- Text reading — `pages[].text`, `rawText`, `quality`, `warnings[]` (`pdfvision docs warnings`).
+- Text reading — `pages[].text`, `rawText`, `quality`, `warnings[]` (`pdfvision docs warnings`, or `pdfvision docs warnings <code>` for one code).
 - Layout-sensitive reading — `layout.blocks[]`, `layout.blocks[].lines[]`, `layout.tables[]`, `spans[]` (`pdfvision docs layout`).
 - Visual inspection — `image`, `renderContentRatio`, `imageBoxes[]`, `vectorBoxes[]`, `visualRegions[]` (`pdfvision docs visual`).
 - Scan recovery — `ocr.text`, `ocr.confidence`, `ocr.words`, `quality.visualStatus` (`pdfvision docs ocr`).
