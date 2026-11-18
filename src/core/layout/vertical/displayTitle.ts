@@ -353,10 +353,63 @@ export function extractVerticalCjkBlocks(spans: readonly TextSpan[]): {
   for (const span of bodyVertical.rubySpans) used.add(span);
   for (const span of bodyVertical.gutterAnnotationSpans) used.add(span);
 
+  for (const head of columnHeadSpans(blocks, spans, used)) {
+    blocks.push(head.block);
+    used.add(head.span);
+  }
+
   return {
     blocks,
     remainingSpans: spans.filter((span) => !used.has(span)),
   };
+}
+
+const MAX_COLUMN_HEAD_CHARS = 4;
+const MAX_COLUMN_HEAD_GAP_EM = 1.35;
+const MIN_COLUMN_HEAD_X_OVERLAP = 0.5;
+const MIN_VERTICAL_SPAN_SHARE = 0.5;
+
+/**
+ * Item numbers standing above the heads of neighbouring columns (`一`, `二`,
+ * `三` one column apart, all on one y) would be joined by the horizontal
+ * line pass into one line `三 二 一` read in the wrong place. On a page that
+ * is mostly vertical columns, each such item is kept as its own block so the
+ * page order can start its column with it.
+ */
+function columnHeadSpans(
+  blocks: readonly LayoutBlock[],
+  spans: readonly TextSpan[],
+  used: ReadonlySet<TextSpan>,
+): { span: TextSpan; block: LayoutBlock }[] {
+  const columns = blocks.filter((block) => block.writingMode === 'vertical').flatMap((block) => block.lines);
+  if (columns.length < 2) return [];
+  let verticalChars = 0;
+  let totalChars = 0;
+  for (const span of spans) {
+    const chars = span.text.replace(/\s/gu, '').length;
+    totalChars += chars;
+    if (used.has(span)) verticalChars += chars;
+  }
+  if (totalChars === 0 || verticalChars / totalChars < MIN_VERTICAL_SPAN_SHARE) return [];
+
+  const heads: { span: TextSpan; block: LayoutBlock }[] = [];
+  for (const span of spans) {
+    if (used.has(span)) continue;
+    const text = span.text.trim();
+    if (text.length === 0 || [...text].length > MAX_COLUMN_HEAD_CHARS) continue;
+    const standsAboveColumn = columns.some((column) => {
+      const fontSize = column.fontSize || FONT_SIZE_FALLBACK_PT;
+      const gap = column.y - (span.y + span.height);
+      if (gap < -fontSize * 0.25 || gap > fontSize * MAX_COLUMN_HEAD_GAP_EM) return false;
+      const overlap = Math.min(span.x + span.width, column.x + column.width) - Math.max(span.x, column.x);
+      return overlap >= Math.min(span.width, column.width) * MIN_COLUMN_HEAD_X_OVERLAP;
+    });
+    if (!standsAboveColumn) continue;
+    const box = unionBox([span]);
+    const line: LayoutLine = { text, ...box, fontSize: round2(span.fontSize || FONT_SIZE_FALLBACK_PT) };
+    heads.push({ span, block: { text, ...box, lines: [line] } });
+  }
+  return heads;
 }
 
 export function compareLayoutBlocks(a: LayoutBlock, b: LayoutBlock): number {

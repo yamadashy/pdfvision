@@ -2,7 +2,7 @@
 
 - **Stresses:** vertical Japanese set glyph by glyph; /Rotate 90 landscape sheet; columns right to left; hanging article, paragraph and item numbers at column heads; parenthesised captions; kanji page number
 - **Families:** vertical-rotated, reading-order, structure
-- **Status:** known-gap (#261)
+- **Status:** ok
 
 A portrait A4 page stored with `/Rotate 90`, so a viewer shows an 842 × 595 pt landscape sheet.
 The text is vertical (縦書き): columns run top to bottom and follow one another right to left.
@@ -47,15 +47,9 @@ NFKC-normalised (`３` → `3`, `（` → `(`).
 4. 新設される第八条の二で、館長は評価の結果をどうするよう努めなければならないか。 — 協議会に報告するとともに、インターネットの利用その他の適切な方法により公表する
 5. この法律はいつから施行されるか。 — 令和九年四月一日
 
-**Known gap (#261):** the rotated page is read exactly as the same drawing stored landscape: the
-columns are reassembled into whole sentences in reading order, `(図書館協議会)` heads `第八条` and
-`(運営状況の評価等)` heads `第八条の二`. What remains wrong is what #261 describes for unrotated
-vertical text: the paragraph and item numbers at the head of a column detach from their text
-(`3` and `2` are emitted before the first article, the second `3` after `第八条の二`, and
-`三 二 一` after the 附則 sentence, so the paragraphs and the three items lose their numbers),
-`附 則` comes back one glyph per line, and the title column and the body of 第八条の二 are
-moved to the end of the page, the body after the title rather than after its own `第八条の二`
-label. `reading_order_divergence` fires
-on the title ("render the page when exact sequence is critical"). Questions 1, 2, 3 and 5 are
-answerable from `read.md`; question 4 is answerable only by attaching the displaced closing
-paragraph back to `第八条の二`.
+**Reads correctly (#261):** the rotated page is read exactly as the same drawing stored landscape,
+and in the order it is set: the title column first, then every column right to left, one line
+per column. Each column-head number starts its own line and stays with its text, its blank em box
+read as a space (`3 市町村の教育委員会は、…`, `第八条 市町村の…`, `2 協議会の委員は、…`,
+`一 学校教育及び社会教育の関係者`), `附 則` is one line, and the page number `一` comes last.
+No warning fires. All five questions are answered from `read.md`.

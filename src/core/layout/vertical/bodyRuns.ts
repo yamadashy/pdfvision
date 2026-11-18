@@ -364,19 +364,17 @@ function hasCompatibleBodyFontSize(candidate: VerticalCjkRun, body: VerticalCjkR
 
 export function groupBodyVerticalRunsIntoBlocks(runs: readonly VerticalCjkRun[]): VerticalCjkRunBlock[] {
   const sortedRuns = [...runs].sort((a, b) => b.centerX - a.centerX || bodyRunTop(a) - bodyRunTop(b));
+  // Several blocks can be open at one x: the upper and lower tiers of a
+  // page alternate in x order, and each continues its own block.
   const blocks: VerticalCjkRunBlock[] = [];
-  let columnsInBlock: VerticalCjkRun[] = [];
-  const flushBlock = () => {
-    if (columnsInBlock.length > 0) blocks.push({ columns: columnsInBlock });
-    columnsInBlock = [];
-  };
-
   for (const run of sortedRuns) {
-    const previous = columnsInBlock.at(-1);
-    if (previous && !canContinueBodyVerticalBlock(previous, run)) flushBlock();
-    columnsInBlock.push(run);
+    let open: VerticalCjkRunBlock | undefined;
+    for (let index = blocks.length - 1; index >= 0 && !open; index--) {
+      const previous = blocks[index].columns.at(-1);
+      if (previous && canContinueBodyVerticalBlock(previous, run)) open = blocks[index];
+    }
+    if (open) open.columns.push(run);
+    else blocks.push({ columns: [run] });
   }
-  flushBlock();
-
   return blocks;
 }

@@ -7,6 +7,7 @@ import { buildLayoutLinesWithGutters } from './lines.js';
 import { orderLayoutBlocks } from './regionOrder.js';
 import { detectLayoutRegions, type LayoutGraphics } from './regions.js';
 import { detectLayoutTables } from './tables.js';
+import { isVerticalPage, orderVerticalPage } from './vertical/pageOrder.js';
 import { compareLayoutBlocks, extractVerticalCjkBlocks } from './verticalText.js';
 import { findWovenContinuation } from './wovenLines.js';
 
@@ -110,6 +111,12 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0, pageHeight = 0, gr
     })),
     ...vertical.blocks,
   ].sort(compareLayoutBlocks);
+
+  if (isVerticalPage(blocks)) {
+    const ordered = orderVerticalPage(blocks);
+    classifyHeadings(ordered, pageWidth, pageHeight);
+    return { blocks: ordered, ...(tables !== undefined && { tables }) };
+  }
 
   classifyHeadings(blocks, pageWidth, pageHeight);
   const ordered =

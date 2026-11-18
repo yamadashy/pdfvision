@@ -2,7 +2,7 @@
 
 - **Stresses:** vertical statute comparison on a /Rotate 90 sheet; upper half 改正後 over lower half 改正前, columns right to left; changed passages marked only by vector side lines; （略） provisions; an added article with a blank old half; hanging item numbers
 - **Families:** vertical-rotated, tables, vector-meaning
-- **Status:** known-gap (#261)
+- **Status:** ok
 
 A portrait A4 page stored with `/Rotate 90`; a viewer shows an 842 × 595 pt landscape sheet
 holding a vertical 新旧対照条文: the title **地域図書館の振興に関する法律施行規則の一部を改正する省令 新旧対照条文** in the rightmost column
@@ -36,17 +36,11 @@ Full-width digits and brackets may come back NFKC-normalised (`２` → `2`, `�
 4. 第二条第三号「協議会」で引用する条文はどう変わったか。 — 「法第八条」から「法第八条第一項」へ
 5. 第一条は改正されるか。 — 改正されない（両欄とも（略））
 
-**Known gap (#261):** the rotated page is read exactly as the same drawing stored landscape: the
-改正後 half comes first and the 改正前 half after it, and every body column comes back whole
-(`法第七条第一項の計画の期間は、五年と`, `法第八条の二の評価は、利用者の満足度、…`), but
-within each half the columns are not reassembled into provisions: labels, captions, bodies and
-their one-line endings (`する。`, `をいう。`) are separated by other provisions' columns. The
-rest is the vertical-text column cutting of #261: every `(略)` and the `(定義)` caption come
-back one glyph per line, so 第一条 and its caption interleave as `第 / ( / 一 / 定 / 条 / 義 / )`; the narrow `改正後` / `改正前` labels come back one
-glyph per line, both between the two halves; the item numbers detach (`三`, `二 一`); and in each half the
-definition terms `移動図書館` / `協議会` stand apart from their definitions, with
-`自動車を用いて図書館資料の` and `法第八条に規定する図書館協議会` displaced to the end of the 改正前
-half. The side lines are not reported. `reading_order_divergence` fires on the title ("render
-the page when exact sequence is critical"). Questions 1 to 4 are answerable from `read.md`, though
-2 and 4 need the displaced 改正前 fragments; question 5 is not — 第一条 survives only as the
-interleaved glyphs above.
+**Reads correctly (#261), side lines aside:** the rotated page is read exactly as the same drawing
+stored landscape, as two tiers: the title and （傍線部分は改正部分）, then `改正後` and the whole upper half
+column by column right to left, then `改正前` and the lower half, then `- 1 -`. Every provision
+comes back whole and in order, with its label, caption and blank em boxes kept
+(`第一条 (略)`, `(定義)`, `二 移動図書館 自動車その他の移動手段を用` / `いて図書館資料の…`,
+`第三条の二 法第八条の二の評価は、…`). The side lines are not reported, so what changed is read by
+comparing the two halves provision by provision, which the order now allows. No warning fires.
+All five questions are answered from `read.md`.

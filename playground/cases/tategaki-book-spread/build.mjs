@@ -65,7 +65,10 @@ export const meta = {
   title: 'Vertical novel spread (縦組み見開き) with ruby',
   stresses:
     'two vertical pages on one landscape sheet read right page first; columns right to left; ruby beside base kanji; 縦中横 numbers; vertical ―― and ……; chapter heading; running heads and kanji page numbers at the outer edges',
-  status: 'known-gap',
+  status: 'ok',
+  issue: 261,
+  showcase: true,
+  hard: 'each glyph is a separate text object placed down its column, so 縦中横 digits, vertical dashes and blank em boxes look like breaks, and a two-page spread has to be read right page first',
   page: { size: [W, H] },
   families: ['vertical-rotated', 'reading-order', 'structure'],
 };
@@ -102,17 +105,14 @@ one em box) and read as one number each.
 4. 便箋の一枚目には何と書かれていたか。 — 「あなたが灯りを守っているあいだ、わたしはずっと、その光を数えていました。」
 5. 「漁火」の読みは何か。 — いさりび
 
-**Known gap (no issue yet):** the vertical columns are rebuilt and ruby is attached to its base
-as \`澪《みお》\`, \`漁火《いさりび》\` (questions 1, 4 and 5 are answered from \`read.md\`), but every
-glyph that is not CJK breaks its column: the 縦中横 numbers come back as bare \`11\` and \`12\` near
-the end of the page, and the columns holding them are cut there — the text reads \`時を打ったとき、
-澪《みお》はまだ…\` with \`港の時計台が午後\` moved below the chapter title, and
-\`父が灯台を降りてから、もう\` … \`年になる。それなのに澪は、…\` far apart. The vertical ―― is
-emitted as two stray \`―\` lines, cutting \`宛名は君のお父さんだが\` from \`いや、読めばわかる\` and
-dropping the dash that opens the letter. The chapter heading splits into \`三\` (first line of the
-page) and \`灯台守の手紙\` (mid-page). No warning is raised. Questions 2 and 3 cannot be answered
-from \`read.md\` — the hours and years are there only as context-free numbers. \`……\` comes back
-NFKC-normalised as \`......\`; that is intended.
+**Reads correctly (#261):** the page is read the way it is set — the right page's running head,
+the chapter heading \`三 灯台守の手紙\` (its blank em box kept as a space), the right page's columns
+right to left, then the left page's, the left running head, and the page numbers \`一二四\`, \`一二五\`
+last. Each column is one line, and the 縦中横 numbers and the vertical dashes stay in their
+columns: \`港の時計台が午後11時を打ったとき、…\`, \`父が灯台を降りてから、もう12年になる。…\`,
+\`宛名は君のお父さんだが――いや、読めばわ\` / \`かる」\`, and the letter opens with \`――あなたが…\`.
+Ruby is attached to its base (\`澪《みお》\`, \`漁火《いさりび》\`). All five questions are answered
+from \`read.md\`. \`……\` comes back NFKC-normalised as \`......\`; that is intended.
 `;
 
 function column(doc, segments, cx) {

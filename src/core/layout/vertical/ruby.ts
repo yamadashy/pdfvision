@@ -5,12 +5,12 @@ import {
   BODY_VERTICAL_CJK_MIN_RUN_SPANS,
   collectBodyVerticalCjkRuns,
   collectPageContextShortVerticalCjkRuns,
-  collectShortBodyVerticalCjkRuns,
   collectTallBodyVerticalCjkRuns,
   groupBodyVerticalRunsIntoBlocks,
   isTallBodyVerticalCjkSpan,
   isUniformTallVerticalBaseSpan,
 } from './bodyRuns.js';
+import { growVerticalColumns, hasVerticalPageContext } from './columnGrowth.js';
 import {
   type BodyVerticalCjkRunAnalysis,
   bodyRunBottom,
@@ -163,13 +163,16 @@ export function extractBodyVerticalCjkRunAnalysis(spans: readonly TextSpan[]): B
   const tallBodyRunsWithRubyContext = tallBodyRuns.associationRuns.filter((run) =>
     rubyRuns.some((ruby) => isRubyAdjacentToBodyColumn(ruby, run)),
   );
-  const shortBodyRuns = collectShortBodyVerticalCjkRuns(spans, nonRubyBodyRuns, rubySpanSet);
+  const grownBodyRuns = growVerticalColumns(spans, nonRubyBodyRuns, rubySpanSet);
   const pageContextExcludedSpans = new Set<TextSpan>(rubySpanSet);
-  for (const run of shortBodyRuns) {
+  for (const run of grownBodyRuns) {
     for (const span of run.spans) pageContextExcludedSpans.add(span);
   }
-  const pageContextShortRuns = collectPageContextShortVerticalCjkRuns(spans, nonRubyBodyRuns, pageContextExcludedSpans);
-  const bodyColumns = [...nonRubyBodyRuns, ...tallBodyRunsWithRubyContext, ...shortBodyRuns, ...pageContextShortRuns];
+  // Title and author columns beyond the text are front matter of a vertical page, not of a form.
+  const pageContextShortRuns = hasVerticalPageContext(spans, nonRubyBodyRuns)
+    ? collectPageContextShortVerticalCjkRuns(spans, nonRubyBodyRuns, pageContextExcludedSpans)
+    : [];
+  const bodyColumns = [...grownBodyRuns, ...tallBodyRunsWithRubyContext, ...pageContextShortRuns];
   const gutterAnnotationRuns = collectGutterAnnotationRuns(spans, bodyColumns, rubySpanSet);
   const gutterAnnotationSpans = gutterAnnotationRuns
     .flatMap((run) => run.spans)
@@ -192,7 +195,7 @@ export function verticalRunTextWithRuby(
   rubyAssociations: readonly VerticalRubyAssociation[],
 ): string {
   const attachments = rubyAssociationsForColumn(column, rubyAssociations);
-  if (attachments.length === 0) return column.spans.map((span) => span.text).join('');
+  if (attachments.length === 0) return joinColumnSpans(column, (span) => span.text);
 
   const byEndSpan = new Map<TextSpan, VerticalRubyAssociation[]>();
   for (const association of attachments) {
@@ -206,15 +209,36 @@ export function verticalRunTextWithRuby(
     }
   }
 
-  let text = '';
-  for (const span of column.spans) {
+  return joinColumnSpans(column, (span) => {
     const spanAttachments = byEndSpan.get(span);
-    if (!spanAttachments) {
-      text += span.text;
-      continue;
-    }
-    text += spanTextWithRuby(span, spanAttachments);
-  }
+    return spanAttachments ? spanTextWithRuby(span, spanAttachments) : span.text;
+  });
+}
+
+/**
+ * A blank em box inside a column (`第一条` + blank + `（略）`) separates
+ * words the way a space does. A label set with even letter spacing
+ * (`所 得 金 額 等` drawn wide) has no blank box: only a gap clearly wider
+ * than the column's usual one counts.
+ */
+const COLUMN_BLANK_MIN_EM = 0.75;
+const COLUMN_BLANK_OVER_TYPICAL_EM = 0.6;
+
+function joinColumnSpans(column: VerticalCjkRun, textOf: (span: TextSpan) => string): string {
+  const gaps = column.spans
+    .slice(1)
+    .map((span, index) => span.y - (column.spans[index].y + column.spans[index].height));
+  // Two or three glyphs (`附` + blank + `則`) say nothing about the column's usual gap.
+  const typical = gaps.length >= 3 ? [...gaps].sort((a, b) => a - b)[Math.floor(gaps.length / 2)] : 0;
+  const minBlank = Math.max(
+    column.fontSize * COLUMN_BLANK_MIN_EM,
+    Math.max(typical, 0) + column.fontSize * COLUMN_BLANK_OVER_TYPICAL_EM,
+  );
+  let text = '';
+  column.spans.forEach((span, index) => {
+    if (index > 0 && gaps[index - 1] >= minBlank) text += ' ';
+    text += textOf(span);
+  });
   return text;
 }
 
