@@ -190,11 +190,13 @@ longer reported as a table (#242): every row holds running text and it straddles
   in the body (\`Visual check\` / \`0.95\` / \`0.61\` / \`0.74\`). The charts' labels stay inside their
   panel, but no warning names the figures (only the generic \`tabular_numeric_layout\`): Figure 2's
   values come row by row from the top (\`1.0\` / \`0.93\` / \`0.91\` / \`0.88\` / …), with the time axis
-  after them, so question 4 (0.93 for Eye at 13:00) cannot be attributed; Figure 1's bar values come
-  as \`91\` / \`89\` / \`78\` / \`64\` / \`58\` / \`61\` before the farm names, so the Kilbrack drone rate
-  (78%) is not recoverable either.
-- The widely justified first line of Results is broken into single words: \`The\` / \`drone\` /
-  \`flagged\` / \`87%\` / \`of\` / \`the\` (now consecutive, before \`observer-confirmed heat-stress events\`).
+  after them, so question 4 (0.93 for Eye at 13:00) cannot be attributed. Figure 1's plot is read bar by
+  bar after its legend \`Drone\` / \`Visual check\`: \`100\` (the top tick), then each farm's pair
+  \`91\` / \`64\`, \`89\` / \`58\`, \`78\` / \`61\`, with the farm names after the axis ticks; the
+  Kilbrack drone rate (78%) is recoverable by position (third pair, first of the legend), not by label.
+
+The widely justified first line of Results reads as one line (\`The drone flagged 87% of the\`, #268):
+the line below fills the same measure, so its stretched spaces are word spaces, not gutters.
 `;
 
 const MARGIN = 90;

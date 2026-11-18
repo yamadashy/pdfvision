@@ -7,6 +7,8 @@ import { type Candidate, clusterBoxes, isFiniteBox, MIN_FIGURE_GRAPHICS, ruleBan
 export interface LayoutGraphics {
   vectorBoxes?: readonly BBox[];
   imageBoxes?: readonly BBox[];
+  /** Rules painted as solid 1×1 image masks; only the math pass reads them. */
+  maskRules?: readonly BBox[];
 }
 
 /**
@@ -103,7 +105,7 @@ export function detectLayoutRegions(
   const regions: LayoutRegion[] = [];
   const seen = new Set<string>();
   for (const candidate of candidates) {
-    const region = evaluateCandidate(candidate, textBlocks, pageWidth, pageHeight);
+    const region = evaluateCandidate(candidate, textBlocks, pageWidth, pageHeight, vectors);
     if (!region) continue;
     const key = region.blocks
       .map((block) => textBlocks.indexOf(block))
@@ -140,6 +142,7 @@ function evaluateCandidate(
   blocks: readonly LayoutBlock[],
   pageWidth: number,
   pageHeight: number,
+  vectors: readonly BBox[],
 ): LayoutRegion | undefined {
   const pageArea = pageWidth * pageHeight;
   const { box } = candidate;
@@ -184,9 +187,18 @@ function evaluateCandidate(
   if (region.width * region.height > pageArea * MAX_REGION_AREA_RATIO) return undefined;
   const marks = textFreeMarks(region, candidate.parts);
   region.marks = marks.length;
+  // A chart set in its own frame is one box: its bars are the paths drawn
+  // inside the frame, and they say how its labels stack.
+  const orderMarks =
+    candidate.parts.length === 1 && region.kind === 'figure'
+      ? textFreeMarks(
+          region,
+          vectors.filter((box) => box !== candidate.box && contains(region, box)),
+        )
+      : marks;
   region.verticalMarks =
-    marks.length >= MIN_FIGURE_GRAPHICS - 1 &&
-    marks.filter((mark) => mark.height > mark.width).length >= marks.length * VERTICAL_MARK_SHARE;
+    orderMarks.length >= MIN_FIGURE_GRAPHICS - 1 &&
+    orderMarks.filter((mark) => mark.height > mark.width).length >= orderMarks.length * VERTICAL_MARK_SHARE;
   region.bars = hasBars(marks, 'width', 'height', region.width) || hasBars(marks, 'height', 'width', region.height);
   return region;
 }

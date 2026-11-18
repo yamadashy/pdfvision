@@ -35,6 +35,7 @@ export type {
 export type {
   LayoutBlock,
   LayoutLine,
+  LayoutMarkedText,
   LayoutTable,
   LayoutTableCell,
   LayoutTableRow,

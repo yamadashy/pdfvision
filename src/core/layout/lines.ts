@@ -20,6 +20,7 @@ import {
   horizontalRubyTextAttachments,
   textWithHorizontalRuby,
 } from './horizontalRuby.js';
+import { indexExtents, isJustifiedLine, lineExtent } from './justifiedLines.js';
 import { recordGutterSegments, recordLineParts, splitAtSpans } from './lineSegments.js';
 import { joinLineSpans } from './lineText.js';
 import { copySpanMetadata } from './spanMetadata.js';
@@ -288,7 +289,7 @@ export function buildLayoutLinesWithGutters(
   const recurringTableGutterBins = detectRecurringTableGutterBins(pageRows, pageWidth);
   const pageRowOf = new Map<TextSpan, TextSpan[]>();
   if (lineGroups !== pageRows) for (const row of pageRows) for (const span of row) pageRowOf.set(span, row);
-  const lines: LayoutLine[] = lineGroups.flatMap((group) => {
+  const rows = lineGroups.map((group) => {
     const xSorted = [...group].sort((a, b) => a.x - b.x);
     // Row-shape signals (width, numeric density, spacing) are read from the
     // page-wide row, as when no gutter was found: a gutter only adds a split
@@ -301,6 +302,8 @@ export function buildLayoutLinesWithGutters(
     // Spans kept on one line only because the row reads as spaced-out words;
     // table detection still needs them as separate cells.
     const gutterJoins = new Set<TextSpan>();
+    // Splits made only because a gap was wide; a justified line rejoins across them.
+    const wideGapSplits = new Set<TextSpan>();
     const subLines: TextSpan[][] = [[xSorted[0]]];
     for (let i = 1; i < xSorted.length; i++) {
       const prev = xSorted[i - 1];
@@ -361,6 +364,16 @@ export function buildLayoutLinesWithGutters(
                 misalignedLeftSidePanelBoundary))))
       ) {
         subLines.push([cur]);
+        const onlyWideGap =
+          !ruleBetween(verticalRules, prev, cur) &&
+          !denseNumericTableGutter &&
+          !clockTimeGutter &&
+          !columnGutter &&
+          !recurringGutter &&
+          !recurringSidePanelStart &&
+          !recurringTableGutter &&
+          !misalignedLeftSidePanelBoundary;
+        if (onlyWideGap) wideGapSplits.add(cur);
       } else {
         subLines[subLines.length - 1].push(cur);
         if (preserveWideWordSpacing && gap > segmentGap) gutterJoins.add(cur);
@@ -369,26 +382,76 @@ export function buildLayoutLinesWithGutters(
         else if (LEADER_END_PATTERN.test(prev.text) && isTableValueCell(cur.text)) gutterJoins.add(cur);
       }
     }
-    const toLine = (sub: TextSpan[]): LayoutLine => {
-      const line = {
-        text: joinLineSpans(spansWithHorizontalRuby(sub, rubyAttachments)),
-        ...unionBox(sub),
-        fontSize: round2(mode(sub.map((s) => s.fontSize))),
-      };
-      if (sub.length >= 2)
-        recordLineParts(
-          line,
-          sub.map((span) => toLine([span])),
-        );
-      return line;
+    return { subLines, gutterJoins, wideGapSplits };
+  });
+  rejoinJustifiedLines(rows);
+
+  const toLine = (sub: TextSpan[]): LayoutLine => {
+    const line = {
+      text: joinLineSpans(spansWithHorizontalRuby(sub, rubyAttachments)),
+      ...unionBox(sub),
+      fontSize: round2(mode(sub.map((s) => s.fontSize))),
     };
-    return subLines.map((sub) => {
+    if (sub.length >= 2)
+      recordLineParts(
+        line,
+        sub.map((span) => toLine([span])),
+      );
+    return line;
+  };
+  const lines: LayoutLine[] = rows.flatMap(({ subLines, gutterJoins }) =>
+    subLines.map((sub) => {
       const line = toLine(sub);
       if (gutterJoins.size > 0) recordGutterSegments(line, splitAtSpans(sub, gutterJoins).map(toLine));
       return line;
-    });
-  });
+    }),
+  );
   return { lines, columnGutters };
+}
+
+/** A justified line split into more pieces than this is not one line of prose. */
+const MAX_JUSTIFIED_SEGMENTS = 24;
+
+interface RowSplit {
+  subLines: TextSpan[][];
+  gutterJoins: Set<TextSpan>;
+  wideGapSplits: ReadonlySet<TextSpan>;
+}
+
+/**
+ * Rejoin the words of a justified line that its stretched spaces split
+ * apart (see justifiedLines.ts). The words stay separate cells for table
+ * detection, as a spaced-out row's do.
+ */
+function rejoinJustifiedLines(rows: RowSplit[]): void {
+  if (!rows.some((row) => row.wideGapSplits.size > 0)) return;
+  const index = indexExtents(rows.flatMap((row) => row.subLines.map(lineExtent)));
+  for (const row of rows) {
+    if (row.wideGapSplits.size === 0) continue;
+    const { subLines } = row;
+    const merged: TextSpan[][] = [];
+    let i = 0;
+    while (i < subLines.length) {
+      let end = i;
+      while (end + 1 < subLines.length && row.wideGapSplits.has(subLines[end + 1][0])) end++;
+      let joined = false;
+      for (let j = Math.min(end, i + MAX_JUSTIFIED_SEGMENTS - 1); j > i; j--) {
+        const run = subLines.slice(i, j + 1);
+        const spans = run.flat();
+        if (!isJustifiedLine(spans, index)) continue;
+        for (const sub of run.slice(1)) row.gutterJoins.add(sub[0]);
+        merged.push(spans);
+        i = j + 1;
+        joined = true;
+        break;
+      }
+      if (!joined) {
+        merged.push(subLines[i]);
+        i++;
+      }
+    }
+    row.subLines = merged;
+  }
 }
 
 function spansWithHorizontalRuby(

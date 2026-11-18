@@ -3,6 +3,7 @@ import type { InvisibleTextEvidence } from '../graphics/invisibleText.js';
 import type { OpaqueFillTextEvidence } from '../graphics/opaqueFillText.js';
 import { detectTextOverlap } from '../warningTextOverlap/index.js';
 import { detectTextMatchesBackground } from './backgroundMatchText.js';
+import { detectDisplayMathLayout } from './displayMath.js';
 import { detectDuplicateTextLayer } from './duplicateLayer.js';
 import {
   detectBodyNearRepeatedChrome,
@@ -146,6 +147,7 @@ function detectPageWarningsInPhysicalPoints(page: PageResult, context: PageWarni
   const unreliableGlyphGeometry = hasUnreliableGlyphGeometry(page);
   if (!context.rasterBackedTextLayer && !unreliableGlyphGeometry) {
     detectSymbolFontSubstitution(page, context.spans ?? page.spans ?? [], warnings);
+    detectDisplayMathLayout(page, context.spans ?? page.spans, context.vectorBoxes ?? page.vectorBoxes, warnings);
     detectPageEdgeTextTruncated(
       context.spans ?? page.spans ?? [],
       page.width,

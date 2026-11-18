@@ -180,3 +180,44 @@ function isWhitePageBackgroundFill(
     box.y + box.height >= pageHeight - tolerance
   );
 }
+
+/**
+ * Rules painted as 1×1 solid image masks, which pdf.js reports as
+ * `paintSolidColorImageMask`: the unit square under the CTM. dvips-made
+ * TeX papers draw fraction bars and table rules this way, so no vector
+ * path carries them. Kept apart from `vectorBoxes` (and every count built
+ * on them); the math pass reads them as rules.
+ */
+export function buildSolidMaskRules(
+  fnArray: number[],
+  argsArray: unknown[][],
+  ops: ImageOps,
+  pageHeight: number,
+  viewMinX: number,
+  viewMinY: number,
+): VectorBox[] {
+  const paint = ops.paintSolidColorImageMask;
+  if (paint === undefined || !fnArray.includes(paint)) return [];
+  const boxes: VectorBox[] = [];
+  let ctm: Matrix6 = [1, 0, 0, 1, 0, 0];
+  const stack: Matrix6[] = [];
+  for (let i = 0; i < fnArray.length; i++) {
+    const fn = fnArray[i];
+    const args = argsArray[i];
+    if (fn === ops.save || fn === ops.formBegin) {
+      stack.push([...ctm] as Matrix6);
+      if (fn === ops.formBegin) {
+        const matrix = matrix6(args?.[0]);
+        if (matrix) ctm = multiply(ctm, matrix);
+      }
+    } else if (fn === ops.restore || fn === ops.formEnd) {
+      ctm = stack.pop() ?? ctm;
+    } else if (fn === ops.transform) {
+      const matrix = matrix6(args);
+      if (matrix) ctm = multiply(ctm, matrix);
+    } else if (fn === paint) {
+      boxes.push(bboxToBox([0, 0, 1, 1], ctm, pageHeight, viewMinX, viewMinY));
+    }
+  }
+  return boxes;
+}

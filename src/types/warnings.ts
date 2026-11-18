@@ -18,6 +18,7 @@
  * numeric table-like layouts whose rows/columns may flatten into plain text,
  * layout table hints whose cells did not resolve into one consistent grid,
  * local math/text-order divergences whose visual order differs from native text,
+ * display math (fractions, matrices) that could not be read onto one line,
  * rotated pages read in their stored orientation because /Rotate would turn their text sideways,
  * large image regions whose internal labels will not appear in native text,
  * optional-content layer text that may include default-hidden content,
@@ -50,6 +51,7 @@ export interface PageWarning {
     | 'raster_image_no_native_text'
     | 'tabular_numeric_layout'
     | 'vector_chart_labels'
+    | 'display_math_layout'
     | 'layout_table_uncertain'
     | 'dot_leader_noise'
     | 'tiny_native_text_noise'

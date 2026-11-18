@@ -6,6 +6,7 @@ import { appendFormFields } from './markdown/formFields.js';
 import { escapeInline, escapeTableCell, jsActionCount } from './markdown/helpers.js';
 import { appendLayoutTables } from './markdown/layoutTables.js';
 import { appendLinks } from './markdown/links.js';
+import { appendMarkedText } from './markdown/markedText.js';
 import { appendOverview, formatPhysicalSize } from './markdown/overview.js';
 import { appendJavaScriptActions, appendOcr, appendPageImage, appendWarnings } from './markdown/pageArtifacts.js';
 import { appendSearchMatches } from './markdown/pageSections.js';
@@ -301,6 +302,7 @@ export function formatMarkdownSections(
     if (options.layout && page.layout?.tables && page.layout.tables.length > 0) {
       appendLayoutTables(lines, page.layout.tables);
     }
+    if (options.layout && page.layout?.markedText) appendMarkedText(lines, page.layout.markedText);
     // Only render the match table for pages that actually matched. A
     // zero-match page under --search used to emit a noisy
     // `### Search matches / _No search matches found._` block on every

@@ -2,7 +2,8 @@
 
 - **Stresses:** numbered display equations: fraction, integral and sum with limits, bracketed matrix, aligned multi-line derivation; stacked asymmetric uncertainties; inline Greek and scripts in prose
 - **Families:** math
-- **Status:** known-gap (#241)
+- **Status:** ok
+- **Showcase:** display equations are runs on several baselines joined only by vector fraction bars, hanging operator glyphs and bracket strokes; read as lines they scatter across the page with their numbers among the page numbers
 
 Page 7 of a preprint (running head “Standard-siren distances from low-redshift mergers”), section **III. DISTANCE ESTIMATION**.
 In LaTeX notation, the page reads:
@@ -42,11 +43,11 @@ Inline scripts are marked and stay on their line (#241). The stacked uncertainti
 (question 2), and `H_0 = 68.2^{+6.1}_{−4.7} km s^−1 Mpc^−1`; inline symbols keep their subscripts
 (`σ_k`, `θ = (H_0, Ω_m)`).
 
-**Known gap (#241, display equations):** the page carries no warning at all, and the display
-equations are scattered across lines: Eq. (1) is `c (1 + z)∫z dz′` / `d_L(z) =` / `0 E(z′)`,
-interleaved with the section heading, with its denominator `H_0` landing inside Eq. (2), which
-reads `1 N (d_k − μ_k(θ))^2` / `ln L(θ) = − ∑` / `2 k=1` / `σ^2_k` — so question 4 has to be
-reassembled from fragments. Eq. (1)'s number and the page number come after Eq. (2), as
-`7` / `(1)` / `(2)`, so Eq. (1)'s number is read away from its equation. The matrix (question 3) and the aligned
-derivation (question 5) come out row by row and are answerable: `0.042 −0.013` / `−0.013` /
-`0.027` and `≈ 1 + 0.93 z.`.
+**Reads correctly (#241, display equations):** each display equation is read onto one line from its
+geometry, with its number: Eq. (1) is `d_L(z) = (c (1 + z))/H_0 ∫_0^z dz′/E(z′), (1)` (fraction bars as
+`/` with multi-term parts bracketed, the integral's limits as scripts), Eq. (2) is
+`ln L(θ) = − 1/2 ∑_{k=1}^N ((d_k − μ_k(θ))^2)/σ^2_k, (2)` (question 4), the matrix is
+`Σ = [[0.042, −0.013], [−0.013, 0.027]] . (3)` (question 3: −0.013), and the aligned derivation keeps its
+rows with `(4)` on its middle row (question 5). The heading, page number and equations read in page
+order: centred equations no longer form a column of their own. All five questions are answered from
+`read.md`, and no warning fires.

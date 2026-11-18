@@ -37,6 +37,8 @@ export interface ImageOps {
   paintImageMaskXObjectRepeat: number;
   paintImageMaskXObjectGroup: number;
   paintInlineImageXObjectGroup: number;
+  /** pdf.js's form of a 1×1 image mask: a filled unit square under the CTM (dvips draws rules this way). */
+  paintSolidColorImageMask?: number;
 }
 
 type Matrix6 = [number, number, number, number, number, number];

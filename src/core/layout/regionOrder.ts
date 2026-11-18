@@ -142,19 +142,48 @@ function readByRows(blocks: readonly LayoutBlock[]): LayoutBlock[] {
 /**
  * Labels stack by stack, left to right, each stack top to bottom. Over a
  * vertical bar chart a value sits above its bar and the category below it;
- * reading by rows would list every value before any category.
+ * reading by rows would list every value before any category. Stacks are
+ * built from the narrowest labels first. A label over two stacks (a group's
+ * category under its pair of bars) joins them into one; a label across
+ * more (the chart's title, an axis title) belongs to none, and is read
+ * before the stacks when it sits above them, after them otherwise.
  */
 function readByStacks(blocks: readonly LayoutBlock[]): LayoutBlock[] {
-  const stacks: { left: number; right: number; blocks: LayoutBlock[] }[] = [];
-  for (const block of [...blocks].sort((a, b) => a.x - b.x)) {
-    const stack = stacks.find((s) => block.x < s.right && block.x + block.width > s.left);
-    if (stack) {
-      stack.blocks.push(block);
-      stack.left = Math.min(stack.left, block.x);
-      stack.right = Math.max(stack.right, block.x + block.width);
-    } else {
-      stacks.push({ left: block.x, right: block.x + block.width, blocks: [block] });
-    }
+  type Stack = { left: number; right: number; top: number; blocks: LayoutBlock[] };
+  let stacks: Stack[] = [];
+  const across: LayoutBlock[] = [];
+  const overlapping = (block: LayoutBlock) =>
+    stacks.filter((stack) => block.x < stack.right && block.x + block.width > stack.left);
+  const pending: LayoutBlock[] = [];
+  for (const block of [...blocks].sort((a, b) => a.width - b.width || a.x - b.x)) {
+    const hits = overlapping(block);
+    if (hits.length > 1) pending.push(block);
+    else if (hits[0]) addTo(hits[0], block);
+    else stacks.push({ left: block.x, right: block.x + block.width, top: block.y, blocks: [block] });
   }
-  return stacks.sort((a, b) => a.left - b.left).flatMap((stack) => stack.blocks.sort((a, b) => a.y - b.y));
+  for (const block of pending) {
+    const hits = overlapping(block);
+    if (hits.length > MAX_JOINED_STACKS) {
+      across.push(block);
+      continue;
+    }
+    const joined: Stack = { left: block.x, right: block.x + block.width, top: block.y, blocks: [block] };
+    for (const hit of hits) for (const member of hit.blocks) addTo(joined, member);
+    stacks = [...stacks.filter((stack) => !hits.includes(stack)), joined];
+  }
+  const stacksTop = Math.min(...stacks.map((stack) => stack.top));
+  const byY = (a: LayoutBlock, b: LayoutBlock) => a.y - b.y || a.x - b.x;
+  const before = across.filter((block) => block.y + block.height <= stacksTop).sort(byY);
+  const after = across.filter((block) => block.y + block.height > stacksTop).sort(byY);
+  return [...before, ...stacks.sort((a, b) => a.left - b.left).flatMap((stack) => stack.blocks.sort(byY)), ...after];
+}
+
+/** A label over this many stacks is a group's category; over more, it spans the chart. */
+const MAX_JOINED_STACKS = 2;
+
+function addTo(stack: { left: number; right: number; top: number; blocks: LayoutBlock[] }, block: LayoutBlock): void {
+  stack.blocks.push(block);
+  stack.left = Math.min(stack.left, block.x);
+  stack.right = Math.max(stack.right, block.x + block.width);
+  stack.top = Math.min(stack.top, block.y);
 }

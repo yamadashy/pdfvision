@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ImageOps } from '../../src/core/graphics/imageBoxes.js';
-import { buildVectorBoxes } from '../../src/core/graphics/vectorBoxes.js';
+import { buildSolidMaskRules, buildVectorBoxes } from '../../src/core/graphics/vectorBoxes.js';
 
 const OP = {
   save: 1,
@@ -236,5 +236,26 @@ describe('buildVectorBoxes', () => {
     );
 
     expect(boxes).toEqual([{ x: 0, y: 0, width: 612, height: 792 }]);
+  });
+});
+
+describe('buildSolidMaskRules', () => {
+  it('reads a 1×1 solid image mask as the rule its CTM scales it to', () => {
+    // dvips draws a fraction bar as a 1×1 image mask scaled to 40 × 0.4.
+    const maskOps: ImageOps = { ...ops, paintSolidColorImageMask: 30 };
+    const rules = buildSolidMaskRules(
+      [OP.save, OP.transform, 30, OP.restore],
+      [[], [40, 0, 0, 0.4, 100, 600], [], []],
+      maskOps,
+      792,
+      0,
+      0,
+    );
+    expect(rules).toEqual([{ x: 100, y: 191.55, width: 40, height: 0.5 }]);
+  });
+
+  it('finds none when the page paints no such mask', () => {
+    const maskOps: ImageOps = { ...ops, paintSolidColorImageMask: 30 };
+    expect(buildSolidMaskRules([OP.save, OP.restore], [[], []], maskOps, 792, 0, 0)).toEqual([]);
   });
 });

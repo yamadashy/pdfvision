@@ -7,7 +7,9 @@ import { type SymbolFontKind, standardSymbolFontKind, symbolFontChar } from './s
  * - `charMap`: for a standard symbol font (ZapfDingbats, Symbol) whose
  *   glyphs pdf.js passed through as raw character codes, the character each
  *   code really draws (`3` → ✓).
- * - `trackedWords`: words drawn with explicit character spacing (`Tc`).
+ * - `trackedWords`: words drawn with explicit character spacing (`Tc`), or
+ *   with the same `TJ` adjustment between every pair of glyphs (`[(C) -150
+ *   (L) -150 (A) …]`, the way some typesetters letter-space small caps).
  *   pdf.js inserts a space wherever the gap between two glyphs exceeds about
  *   a tenth of an em, so letter-spaced text comes back as `B A C K`. The
  *   glyph sequence still says no space glyph was drawn there.
@@ -40,6 +42,19 @@ export type FontNameResolver = (loadedName: string) => FontNameInfo | undefined;
 
 // Below this, Tc is kerning-sized and pdf.js inserts no spaces anyway.
 const MIN_TRACKING_EM = 0.05;
+/** TJ adjustments are in thousandths of an em; negative moves right. */
+const MIN_KERN_TRACKING = 60;
+const MAX_KERN_TRACKING = 600;
+/** Every adjustment of a tracked run is within this share of the first. */
+const KERN_TRACKING_TOLERANCE = 0.1;
+/** Fewer glyphs than this between equal adjustments can be single-letter words (`a b c`). */
+const MIN_KERN_TRACKED_GLYPHS = 4;
+/**
+ * Letters, digits and CJK punctuation make a tracked word; a symbol or a
+ * Latin stop ends it. Math set with even spacing (`a + b`, `. . .`) and a
+ * row of single digits keep their spaces.
+ */
+const KERN_TRACKED_CHAR_RE = /^[\p{L}\p{N}\p{M}\u3000-\u303f\u30fb\u30fc\uff01-\uff0f\uff1a-\uff20]+$/u;
 const MIN_TRACKED_WORD_CHARS = 2;
 const MAX_TRACKED_WORDS_PER_FONT = 2000;
 
@@ -110,6 +125,7 @@ export function collectFontTextHints(
       else acc.visibleRuns++;
       if (acc.kind) recordSymbolGlyphs(acc, glyphs);
       if (fontSize > 0 && charSpacing >= fontSize * MIN_TRACKING_EM) recordTrackedWords(acc, glyphs);
+      else recordKernTrackedWords(acc, glyphs);
     }
   }
 
@@ -161,6 +177,67 @@ function recordTrackedWords(acc: FontAccumulator, glyphs: readonly unknown[]): v
     else word += unicode;
   }
   flush();
+}
+
+/**
+ * Words whose every pair of glyphs is pushed apart by the same `TJ`
+ * adjustment, from a word boundary to a word boundary. Justified text set
+ * by adjustment puts the same push between words (`[(as) -383 (a) -383
+ * (conference)]`); a run of pushes there starts or ends inside a word
+ * (`s|a|c` of `as a conference`), so only a run with nothing glued to
+ * either end counts.
+ */
+function recordKernTrackedWords(acc: FontAccumulator, glyphs: readonly unknown[]): void {
+  let run = '';
+  let glyphCount = 0;
+  let kern: number | undefined;
+  // The run's first glyph was glued to a glyph before it (no push between).
+  let gluedStart = false;
+  let previousWasGlyph = false;
+  let pendingKern: number | undefined;
+  const flush = (gluedEnd: boolean) => {
+    if (glyphCount >= MIN_KERN_TRACKED_GLYPHS && !gluedStart && !gluedEnd && /\p{L}/u.test(run)) {
+      acc.trackedWords ??= new Set();
+      if (acc.trackedWords.size < MAX_TRACKED_WORDS_PER_FONT) acc.trackedWords.add(run);
+    }
+    run = '';
+    glyphCount = 0;
+    kern = undefined;
+  };
+  for (const glyph of glyphs) {
+    if (typeof glyph === 'number') {
+      pendingKern = glyph;
+      continue;
+    }
+    if (!glyph || typeof glyph !== 'object') continue;
+    const { unicode, isSpace } = glyph as GlyphLike;
+    const adjustment = pendingKern;
+    pendingKern = undefined;
+    if (typeof unicode !== 'string' || isSpace === true || !KERN_TRACKED_CHAR_RE.test(unicode)) {
+      flush(false);
+      previousWasGlyph = false;
+      continue;
+    }
+    const tracked =
+      adjustment !== undefined &&
+      -adjustment >= MIN_KERN_TRACKING &&
+      -adjustment <= MAX_KERN_TRACKING &&
+      (kern === undefined || Math.abs(adjustment - kern) <= Math.abs(kern) * KERN_TRACKING_TOLERANCE);
+    if (glyphCount > 0 && tracked) {
+      kern ??= adjustment;
+      run += unicode;
+      glyphCount++;
+      previousWasGlyph = true;
+      continue;
+    }
+    const glued = previousWasGlyph && adjustment === undefined;
+    flush(glued);
+    run = unicode;
+    glyphCount = 1;
+    gluedStart = glued;
+    previousWasGlyph = true;
+  }
+  flush(false);
 }
 
 function withoutConflicts(charMap: Map<string, string>, mappedChars: ReadonlySet<string>): Map<string, string> {

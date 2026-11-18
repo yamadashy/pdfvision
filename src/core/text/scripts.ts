@@ -56,6 +56,12 @@ interface Base {
   groups: Group[];
   right: number;
   hasEOL: boolean;
+  /**
+   * A big operator (`∑`, `∫`): math fonts draw it hanging from its
+   * baseline, so its limits look lowered or raised against the wrong line.
+   * The layout's math pass places them; nothing attaches here.
+   */
+  operator: boolean;
   /** Where the space a script run ended with was drawn, kept as its own item. */
   space?: { item: RawTextItem; left: number; right: number };
 }
@@ -113,7 +119,7 @@ export function attachScripts(
 
     const geometry = uprightGeometry(item);
     const script = geometry && canHoldScripts(String(item.fontName)) ? scriptRun(item, geometry) : false;
-    if (script && geometry && base && !separated && !base.space) {
+    if (script && geometry && base && !separated && !base.space && !base.operator) {
       const kind = attachKind(base, geometry);
       if (kind) {
         appendScript(base, kind, item.str, geometry);
@@ -174,8 +180,11 @@ function startBase(item: RawTextItem, index: number): Base | undefined {
   const geometry = uprightGeometry(item);
   // A base that ends in a space has nothing to attach a script to.
   if (!geometry || /\s$/u.test(item.str)) return undefined;
-  return { index, item, geometry, groups: [], right: geometry.right, hasEOL: !!item.hasEOL };
+  const operator = BIG_OPERATOR_RE.test(item.str.trim());
+  return { index, item, geometry, groups: [], right: geometry.right, hasEOL: !!item.hasEOL, operator };
 }
+
+const BIG_OPERATOR_RE = /^[∑∏∐⋃⋂⋁⋀⨁⨂⨀⨄⨆∫∬∭∮∯∰⨌]$/u;
 
 // Kana or kanji set small beside a glyph is ruby (or a vertical line's
 // annotation), which the ruby passes read; CJK typesetting raises digits
@@ -288,8 +297,13 @@ function nextTextItem(
 const BARE_SCRIPT_RE = /^(?:.|[+\-−]?\p{Nd}+)$/u;
 
 function renderGroup(group: Group): string {
-  const body = BARE_SCRIPT_RE.test(group.text) ? group.text : `{${group.text}}`;
-  return `${group.kind === 'sup' ? '^' : '_'}${body}`;
+  return renderScript(group.kind, group.text);
+}
+
+/** `^19`, `_{drop}`: a script in the page text's notation. */
+export function renderScript(kind: ScriptKind, text: string): string {
+  const body = BARE_SCRIPT_RE.test(text) ? text : `{${text}}`;
+  return `${kind === 'sup' ? '^' : '_'}${body}`;
 }
 
 const SCRIPT_MARKUP_RE = /[\^_](?:\{([^{}]*)\})?/gu;
