@@ -83,7 +83,7 @@ ${PIPELINE.rows.map((row) => `| ${row.join(' | ')} |`).join('\n')}
 5. Which point under “NRR reached 118%” explains the increase? — ${CONTENT_SLIDE.bullets[1].text} (nested under the first bullet)
 
 **Current reading (ok — page 3 is recovered through its warning):** questions 1, 2, 3 and 5 are
-answered from \`read.md\`; nesting survives as the \`–\` sub-bullet glyph, and each chart value
+answered from \`read.md\`; nesting survives as the indented \`–\` sub-bullet, and each chart value
 label is followed by its quarter. Question 4's value is only in the screenshot. Page 3's native
 status is \`sparse_text_with_visual_content\` and it carries \`large_raster_low_text_overlap\`, which
 ends with the next step and the screenshot's own region: \`render that region (--render-region

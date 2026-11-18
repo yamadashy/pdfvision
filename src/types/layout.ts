@@ -56,6 +56,13 @@ export interface LayoutLine {
    * that sit between two numbers or on a page without line numbers.
    */
   lineNumber?: number;
+  /**
+   * Indentation depth of a nested list or index line, relative to the
+   * least indented line of its list: `1` for a subentry, `2` for a
+   * sub-subentry. The text starts with two spaces per level. Omitted at
+   * depth 0 and for ordinary paragraphs.
+   */
+  indent?: number;
 }
 
 /**

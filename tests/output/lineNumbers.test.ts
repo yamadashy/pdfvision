@@ -35,7 +35,7 @@ function result(layout: PageResult['layout']): DocumentResult {
   };
 }
 
-describe('margin line numbers in output', () => {
+describe('margin line numbers and indentation in output', () => {
   const numbered = result({
     blocks: [
       block([
@@ -64,5 +64,10 @@ describe('margin line numbers in output', () => {
     const out = formatMarkdown(result({ blocks: [block([line('plain text', 72)])] }));
     expect(out).not.toContain('Margin line numbers');
     expect(out).toContain('\nplain text');
+  });
+
+  it('writes the indent level as an XML attribute', () => {
+    const out = formatXml(result({ blocks: [block([line('entry', 72), line('  subentry', 84, { indent: 1 })])] }));
+    expect(out).toContain('indent="1">  subentry</line>');
   });
 });

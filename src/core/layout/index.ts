@@ -4,6 +4,7 @@ import { isProseColumnTable } from './columnGutters.js';
 import { isStandaloneNumericLineAfterProse } from './columns.js';
 import { unionBox } from './geometry.js';
 import { classifyHeadings } from './headings.js';
+import { indentNestedLines } from './indentation.js';
 import { buildLayoutLinesWithGutters } from './lines.js';
 import { extractMarginLineNumbers, type MarginNumberColumn, numberLines } from './marginLineNumbers.js';
 import { assembleDisplayMath } from './math/index.js';
@@ -158,6 +159,7 @@ export function buildLayout(
           pageHeight,
         )
       : blocks;
+  indentNestedLines(ordered);
   return withMarks(
     { blocks: ordered, ...(tables !== undefined && { tables }), ...lineNumberRange(margin.columns) },
     math.spans,

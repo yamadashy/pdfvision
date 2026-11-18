@@ -20,10 +20,10 @@ RECONCILIATION OF GAAP TO NON-GAAP FINANCIAL MEASURES
 Revenue
 Cost of revenue
 Gross profit
-Research and development
-Sales and marketing
-General and administrative
-Restructuring charges
+  Research and development
+  Sales and marketing
+  General and administrative
+  Restructuring charges
 Total operating expenses
 Operating income (loss)
 Other income, net

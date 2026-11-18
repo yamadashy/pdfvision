@@ -82,6 +82,7 @@ function appendLayoutBlocks(out: string[], page: PageResult): void {
       ];
       if (line.writingMode) lineAttrs.push(`writingMode="${line.writingMode}"`);
       if (line.lineNumber !== undefined) lineAttrs.push(`lineNumber="${line.lineNumber}"`);
+      if (line.indent !== undefined) lineAttrs.push(`indent="${line.indent}"`);
       out.push(`<line ${lineAttrs.join(' ')}>${escapeText(line.text)}</line>`);
     }
     out.push('</block>');
