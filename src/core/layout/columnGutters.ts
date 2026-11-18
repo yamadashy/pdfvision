@@ -321,10 +321,16 @@ const PROSE_TABLE_MIN_ROW_SHARE = 0.5;
 const PROSE_TABLE_MIN_STRADDLING_ROWS = 3;
 
 function straddlesProseGutter(table: LayoutTable, gutters: readonly ColumnGutter[]): boolean {
+  // A table of fewer rows than that is running text when every row holds
+  // prose and half of them straddle (two lines of each text column, read
+  // across): a real table's rows are not lines of the page's prose.
+  const short = table.rows.length < PROSE_TABLE_MIN_STRADDLING_ROWS;
+  const minStraddling = short ? Math.ceil(table.rows.length / 2) : PROSE_TABLE_MIN_STRADDLING_ROWS;
   const proseRows = table.rows.filter((row) => row.cells.some(isProseCell));
-  if (proseRows.length < Math.max(PROSE_TABLE_MIN_STRADDLING_ROWS, table.rows.length * PROSE_TABLE_MIN_ROW_SHARE)) {
-    return false;
-  }
+  const minProseRows = short
+    ? table.rows.length
+    : Math.max(minStraddling, table.rows.length * PROSE_TABLE_MIN_ROW_SHARE);
+  if (proseRows.length < minProseRows) return false;
   return gutters.some((gutter) => {
     if (gutter.left <= table.x || gutter.right >= table.x + table.width) return false;
     const straddling = proseRows.filter((row) => {
@@ -336,7 +342,7 @@ function straddlesProseGutter(table: LayoutTable, gutters: readonly ColumnGutter
         prose.some((cell) => cell.x >= gutter.right - EDGE_TOLERANCE_PT)
       );
     });
-    return straddling.length >= PROSE_TABLE_MIN_STRADDLING_ROWS;
+    return straddling.length >= minStraddling;
   });
 }
 

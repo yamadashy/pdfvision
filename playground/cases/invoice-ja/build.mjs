@@ -81,8 +81,7 @@ export const meta = {
   title: 'Japanese invoice (請求書) with seal and embedded XML',
   stresses:
     'CJK key-value header; bordered item table with a wrapped name and a negative line; per-rate tax summary; vector seal over the issuer name; XML attachment',
-  status: 'known-gap',
-  issue: 252,
+  status: 'ok',
   families: ['scripts', 'tables', 'vector-meaning', 'interactive'],
   page: { size: 'A4' },
 };
@@ -129,10 +128,12 @@ The item table is read from its drawn cells (#252, #277): it starts at its heade
 (\`| 品名 | 数量 | 単位 | 単価 | 金額 |\`) and holds the six items, and the tax summary comes back as
 the two grids it is drawn as (\`税率区分 | 対象金額(税抜) | 消費税額\` and \`小計 | 556,560\` …).
 
-**Known gap (no issue yet):** the recipient/issuer block above the item grid is still reported as
-a 5 × 5 layout table of its own, with the issuer address lines out of order
-(\`東京都港区芝公園九丁目8番7号 | みなとビル5階\`) and postcode/TEL/登録番号 missing from it (present in
-the body); it used to be the item table's first five rows. The page body reads the item table row by row (\`クラウドサーバー利用料\` / \`3\` / \`台\` /
+The block above the item grid is no longer a table of addresses (#242): the recipient block, the
+invoice fields and the issuer's address sit side by side on no shared baselines, so only the fields
+come back as a 3 × 2 table (\`| 請求書番号 | INV-2026-0412 |\`, \`| お支払期限 | 2026年11月30日 |\`), and
+both addresses read in order in the body (\`東京都港区芝公園九丁目8番7号\` / \`みなとビル5階\` / \`TEL …\`).
+It used to be a 5 × 5 table with the issuer's address lines swapped, and before that the item
+table's first five rows. The page body reads the item table row by row (\`クラウドサーバー利用料\` / \`3\` / \`台\` /
 \`30,000\` / \`90,000\`); only the wrapped item name's second line comes after its row's values.
 It used to list the 金額 column as \`120,000 / 350,000 / 90,000\`, out of row order. Questions 1–5 are answerable from \`read.md\`. Full-width punctuation comes back
 NFKC-normalised (\`（\` → \`(\`, \`：\` → \`:\`); that is intended.

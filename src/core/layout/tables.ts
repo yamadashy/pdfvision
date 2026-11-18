@@ -30,6 +30,7 @@ import { attachLeadingTableRows } from './tableLeadingRows.js';
 import { admitPlaceholderRows } from './tablePlaceholderRows.js';
 import { groupLinesByTableRow, rowBottom, rowY } from './tableRows.js';
 import type { TableRules } from './tableRules.js';
+import { splitUnlevelledStacks } from './tableStacks.js';
 
 export { isTableNumericCell } from './tableCells.js';
 
@@ -74,8 +75,12 @@ export function detectLayoutTables(
     if (grids.length === 0) return [table];
     // Text beside a drawn grid that line-ups glued onto it (an address
     // block above an invoice's item grid) becomes a table of its own.
+    // Its rows there may be blocks set side by side (the recipient's and the
+    // issuer's addresses), which only the grid's rows held together.
     const outside = table.rows.filter((row) => !grids.some((grid) => isRowInside(row, grid)));
-    return outside.filter((row) => row.cells.length >= 2).length >= 2 ? [withRows(table, outside)] : [];
+    return outside.filter((row) => row.cells.length >= 2).length >= 2
+      ? splitUnlevelledStacks(withRows(table, outside))
+      : [];
   });
   for (const item of ruled) {
     const replaced = (detected ?? []).filter((table) => replaces(item.table, table));
