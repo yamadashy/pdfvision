@@ -66,6 +66,15 @@ describe('ruled layout tables', () => {
     ]);
   });
 
+  it('marks the copies of a merged cell with the rows it spans', () => {
+    const { spans, boxes } = characteristics();
+    const [table] = buildLayout(spans, 612, 792, { vectorBoxes: boxes }).tables ?? [];
+    const spanned = table?.rows.map((row) =>
+      row.cells.filter((cell) => cell.rowSpan).map((cell) => `${cell.text}×${cell.rowSpan}`),
+    );
+    expect(spanned).toEqual([[], ['Input offset voltage×2', 'VOS×2'], ['Input offset voltage×2', 'VOS×2'], []]);
+  });
+
   it('splits a line where a vertical rule runs between its spans', () => {
     const { spans, boxes } = characteristics();
     const lines = buildLayout(spans, 612, 792, { vectorBoxes: boxes }).blocks.flatMap((block) => block.lines);

@@ -234,15 +234,23 @@ function gridTable(grid: RuleGrid, lines: readonly LayoutLine[]): RuledTable | u
 
   const usedColumns = [...new Set(filled.flatMap((region) => range(region.left, region.right)))].sort((a, b) => a - b);
   const columnOf = new Map(usedColumns.map((column, index) => [column, index]));
-  const rows: LayoutTableRow[] = [];
+  const emitted: number[] = [];
   for (let band = 0; band < bands; band++) {
-    if (!filled.some((region) => region.lines.some((line) => lineBands.get(line) === band))) continue;
-    const cells = filled
+    if (filled.some((region) => region.lines.some((line) => lineBands.get(line) === band))) emitted.push(band);
+  }
+  const rows: LayoutTableRow[] = emitted.map((band) => ({
+    y: round2(ys[band]),
+    height: round2(ys[band + 1] - ys[band]),
+    cells: filled
       .filter((region) => region.top <= band && region.bottom >= band)
       .sort((a, b) => a.left - b.left)
-      .map((region) => regionCell(region, columnOf));
-    rows.push({ y: round2(ys[band]), height: round2(ys[band + 1] - ys[band]), cells });
-  }
+      .map((region) => {
+        const cell = regionCell(region, columnOf);
+        // A merged cell is repeated in each row it covers; rowSpan says how many.
+        const span = emitted.filter((other) => other >= region.top && other <= region.bottom).length;
+        return span > 1 ? { ...cell, rowSpan: span } : cell;
+      }),
+  }));
   if (rows.length < MIN_ROWS || usedColumns.length < MIN_COLUMNS) return undefined;
   if (rows.filter((row) => row.cells.length >= 2).length < MIN_FILLED_ROWS) return undefined;
   // A drawn cell already bounds its value, so a row of cells with figures
