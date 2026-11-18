@@ -70,6 +70,7 @@ function appendLayoutBlocks(out: string[], page: PageResult): void {
     if (block.level !== undefined) blockAttrs.push(`level="${block.level}"`);
     if (block.roleConfidence !== undefined) blockAttrs.push(`roleConfidence="${block.roleConfidence}"`);
     if (block.writingMode) blockAttrs.push(`writingMode="${block.writingMode}"`);
+    if (block.rotation !== undefined) blockAttrs.push(`rotation="${block.rotation}"`);
     if (block.repeated) blockAttrs.push('repeated="true"');
     out.push(`<block ${blockAttrs.join(' ')}>`);
     for (const line of block.lines) {
@@ -94,8 +95,9 @@ function appendLayoutTables(out: string[], page: PageResult): void {
 
   out.push('<tables>');
   for (const table of page.layout.tables) {
+    const rotation = table.rotation !== undefined ? ` rotation="${table.rotation}"` : '';
     out.push(
-      `<table x="${table.x}" y="${table.y}" width="${table.width}" height="${table.height}" rowCount="${table.rowCount}" columnCount="${table.columnCount}">`,
+      `<table x="${table.x}" y="${table.y}" width="${table.width}" height="${table.height}" rowCount="${table.rowCount}" columnCount="${table.columnCount}"${rotation}>`,
     );
     for (const row of table.rows) {
       out.push(`<row y="${row.y}" height="${row.height}">`);

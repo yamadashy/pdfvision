@@ -14,6 +14,7 @@ import { sideLineMarks } from './sideLines.js';
 import { tableRules } from './tableRules.js';
 import { detectLayoutTables } from './tables.js';
 import { extractTitleGrids } from './titleGrid.js';
+import { findTurnedRegions, readTurnedRegion, type TurnedRegion } from './turnedRegions.js';
 import { isVerticalPage, orderVerticalPage } from './vertical/pageOrder.js';
 import { compareLayoutBlocks, extractVerticalCjkBlocks } from './verticalText.js';
 import { findWovenContinuation } from './wovenLines.js';
@@ -41,7 +42,9 @@ const SHORT_LARGER_LINE_MAX_CHARS = 100;
  * enables bottom-note detection inside column runs; 0 keeps the legacy
  * column sort for synthetic callers that do not know page bounds.
  * `graphics` (the page's vector and image boxes) lets frames, rule bands
- * and figures keep their text together in the reading order.
+ * and figures keep their text together in the reading order. Text drawn
+ * turned on the page is laid out in its own upright frame first — see
+ * {@link findTurnedRegions}.
  */
 export function buildLayout(
   spans: TextSpan[],
@@ -49,6 +52,41 @@ export function buildLayout(
   pageHeight = 0,
   graphics?: LayoutGraphics,
   monospaceFonts?: ReadonlySet<string>,
+): PageLayout {
+  const turned = findTurnedRegions(spans, pageWidth, pageHeight);
+  if (!turned) return buildUprightLayout(spans, pageWidth, pageHeight, graphics, monospaceFonts);
+  let layout = buildUprightLayout(turned.upright, pageWidth, pageHeight, graphics, monospaceFonts);
+  for (const region of turned.regions) {
+    const read = readTurnedRegion(region, pageWidth, pageHeight, graphics, (local, width, height, localGraphics) =>
+      buildUprightLayout(local, width, height, localGraphics, monospaceFonts),
+    );
+    layout = withTurnedRegion(layout, region, read);
+  }
+  return layout;
+}
+
+/**
+ * Place a turned region's blocks and tables among the page's, before the
+ * first that starts below the region's top.
+ */
+function withTurnedRegion(layout: PageLayout, region: TurnedRegion, read: PageLayout): PageLayout {
+  const blocks = [...layout.blocks];
+  const blockAt = blocks.findIndex((block) => block.y > region.y);
+  blocks.splice(blockAt < 0 ? blocks.length : blockAt, 0, ...read.blocks);
+  const tables = [...(layout.tables ?? [])];
+  if (read.tables) {
+    const tableAt = tables.findIndex((table) => table.y > region.y);
+    tables.splice(tableAt < 0 ? tables.length : tableAt, 0, ...read.tables);
+  }
+  return { ...layout, blocks, ...(tables.length > 0 && { tables }) };
+}
+
+function buildUprightLayout(
+  spans: TextSpan[],
+  pageWidth: number,
+  pageHeight: number,
+  graphics: LayoutGraphics | undefined,
+  monospaceFonts: ReadonlySet<string> | undefined,
 ): PageLayout {
   if (spans.length === 0) return { blocks: [] };
 

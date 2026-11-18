@@ -27,7 +27,7 @@ import { warningInputsInPhysicalPoints } from './physicalGeometry.js';
 import { qualifyUnreliableLayoutOrder } from './readingOrder/rebuildConsistency.js';
 import { detectFormLabelReadingOrderDivergence, detectReadingOrderDivergence } from './readingOrder.js';
 import { detectTextUnderOpaqueFill } from './redactionBypass.js';
-import { detectRotatedPageReadUnrotated } from './rotatedPage.js';
+import { detectRotatedPageReadUnrotated, detectTurnedTextReadUpright } from './rotatedPage.js';
 import { detectRtlScriptText } from './rtlScript.js';
 import { detectSymbolFontSubstitution } from './symbolFontSigns.js';
 import { detectDotLeaderNoise, detectTabularNumericLayout } from './tabular.js';
@@ -124,6 +124,7 @@ function detectPageWarningsInPhysicalPoints(page: PageResult, context: PageWarni
   detectRawEmbeddedSourceText(page, warnings);
   detectInvisibleText(page, context, warnings);
   detectRotatedPageReadUnrotated(page, context, warnings);
+  detectTurnedTextReadUpright(page, warnings);
   detectTextUnderOpaqueFill(page, context, warnings);
   detectTextMatchesBackground(page, context, warnings);
   detectFaintText(page, context, warnings);

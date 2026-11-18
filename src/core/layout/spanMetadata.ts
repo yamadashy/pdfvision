@@ -27,10 +27,27 @@ export function isMathTerm(span: TextSpan): boolean {
   return mathTerms.has(span);
 }
 
+export type QuarterTurn = 90 | 180 | 270;
+
+const turnedSpans = new WeakMap<TextSpan, QuarterTurn>();
+
+/** Record that this span's baseline is turned a quarter (or half) turn on
+ * the page: the clockwise turn of the page, as `/Rotate` counts it, that
+ * would show it upright. 90 is text running up the page. */
+export function markSpanTurn(span: TextSpan, turn: QuarterTurn): void {
+  turnedSpans.set(span, turn);
+}
+
+export function spanTurn(span: TextSpan): QuarterTurn | undefined {
+  return turnedSpans.get(span);
+}
+
 /** Preserve internal reconstruction metadata when a layout pass has to
  * clone a span, such as when horizontal ruby text is attached. */
 export function copySpanMetadata(source: TextSpan, target: TextSpan): TextSpan {
   if (hasExplicitSpaceBefore(source)) markExplicitSpaceBefore(target);
   if (isMathTerm(source)) markMathTerm(target);
+  const turn = spanTurn(source);
+  if (turn !== undefined) markSpanTurn(target, turn);
   return target;
 }

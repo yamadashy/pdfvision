@@ -67,6 +67,7 @@ export interface PageWarning {
     | 'optional_content_text_may_include_hidden_layers'
     | 'reading_order_divergence'
     | 'rotated_page_read_unrotated'
+    | 'rotated_text_read_upright'
     | 'xfa_form'
     | 'xfa_fields_only'
     | 'xfa_static_content';

@@ -501,6 +501,37 @@ describe('formatXml', () => {
     );
   });
 
+  it('emits rotation on turned layout blocks and tables', () => {
+    const out = formatXml(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 'Aldora',
+            charCount: 6,
+            layout: {
+              blocks: [{ text: 'Aldora', x: 160, y: 600, width: 10, height: 31, rotation: 90, lines: [] }],
+              tables: [
+                {
+                  x: 150,
+                  y: 84,
+                  width: 170,
+                  height: 636,
+                  rowCount: 1,
+                  columnCount: 1,
+                  rows: [{ y: 84, height: 636, cells: [{ text: 'Aldora', x: 160, y: 600, width: 10, height: 31 }] }],
+                  rotation: 90,
+                },
+              ],
+            },
+          }),
+        ],
+      }),
+    );
+    expect(out).toMatch(/<block x="160" y="600" width="10" height="31" rotation="90">/);
+    expect(out).toMatch(/<table x="150" y="84" width="170" height="636" rowCount="1" columnCount="1" rotation="90">/);
+  });
+
   it('emits detected layout tables as row-major XML cells', () => {
     const out = formatXml(
       makeResult({

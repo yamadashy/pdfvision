@@ -56,10 +56,20 @@ function hint(supplied: string | undefined, fallback: string): string {
 }
 
 function layoutBody(page: PageResult, filterRepeated: boolean): string {
-  return (page.layout?.blocks ?? [])
-    .filter((b) => !filterRepeated || !b.repeated)
-    .map((b) => (b.role === 'code' ? fencedCode(b) : numberedBlockText(b)))
+  const blocks = (page.layout?.blocks ?? []).filter((b) => !filterRepeated || !b.repeated);
+  return blocks
+    .map((b, i) => {
+      const text = b.role === 'code' ? fencedCode(b) : numberedBlockText(b);
+      // A turned region was read upright; say so once, where it starts, since a render shows it turned.
+      const turned = b.rotation !== undefined && blocks[i - 1]?.rotation !== b.rotation;
+      return turned ? `${turnedRegionNote(b.rotation as number)}\n\n${text}` : text;
+    })
     .join('\n\n');
+}
+
+function turnedRegionNote(rotation: number): string {
+  const drawn = rotation === 180 ? 'upside down' : rotation === 90 ? 'running up the page' : 'running down the page';
+  return `_[Drawn turned on the page (${drawn}), read upright; rotation: ${rotation}°]_`;
 }
 
 /** Body text for a page. Markdown always runs the layout pass, so the
