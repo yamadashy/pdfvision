@@ -33,7 +33,7 @@ description: 通过 Model Context Protocol，为没有 shell 的宿主——Clau
 
 `source` 接受本地路径或 `http(s)` URL——没有单独的远程参数。
 
-这个 surface 比 CLI 刻意做得更小。没有 format、include、scale 或 cache 参数：凡是 pdfvision 能从文档本身判断的事，都由服务器决定。`read_pdf` 总是会运行 layout、form field、link 和 annotation 提取，只是省略那些一无所获的 section。这让常驻的 tool schema 保持精简，也不给模型留下配置出错的余地。
+这个 surface 比 CLI 刻意做得更小。没有 format、include、scale 或 cache 参数：凡是 pdfvision 能从文档本身判断的事，都由服务器决定。`read_pdf` 总是会运行 layout、form field、link 和 annotation 提取，只是省略那些一无所获的 section。这让常驻的 tool schema 保持精简，也不给模型留下配置出错的余地。 Repeated running headers and footers are stripped from the page bodies and named once in the response header with their page counts.
 
 ## 会话如何进行
 

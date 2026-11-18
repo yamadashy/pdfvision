@@ -6,6 +6,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 - **Title:** Beamer deck with a frame built up over four overlay pages
 - **Author:** pdfvision playground
 - **Creator:** pdfvision
+- **Repeated page chrome (removed from page bodies):** "Introduction Explicit methods Implicit methods Summary" (6 pages); "Ana Ferreira" (6 pages); "Stability of time-stepping" (6 pages); "Explicit Euler for the heat equation" (4 pages); "Forward difference in time, central difference in space" (4 pages); "3 / 24" (4 pages)
 
 ## Overview
 

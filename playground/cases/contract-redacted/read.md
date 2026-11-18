@@ -6,6 +6,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 - **Title:** Services agreement with redactions and review annotations
 - **Author:** pdfvision playground
 - **Creator:** pdfvision
+- **Repeated page chrome (removed from page bodies):** "Page 1 of 2" … "Page 2 of 2" (2 pages)
 
 ## Overview
 
@@ -89,10 +90,10 @@ early-termination fee of USD 120,000.
 
 ### Annotations
 
-| Type | Name | Contents | Title | File | Flags | BBox | Color | Border | Shape | QuadBoxes |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---: |
-| StrikeOut |  | Replace with 1.0% per month, per our standard terms. | J. Ortiz |  |  | 229.59,457.84,69.37,13.08 | 220,40,40 |  |  | 1 |
-| Highlight |  |  | J. Ortiz |  |  | 379.19,533.64,130.12,13.08 | 255,236,61 |  |  | 1 |
+| Type | Name | Contents | Marked Text | Title | File | Flags | BBox | Color | Border | Shape | QuadBoxes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---: |
+| StrikeOut |  | Replace with 1.0% per month, per our standard terms. | 1.5% per month | J. Ortiz |  |  | 229.59,457.84,69.37,13.08 | 220,40,40 |  |  | 1 |
+| Highlight |  |  | thirty (30) days’ written notice | J. Ortiz |  |  | 379.19,533.64,130.12,13.08 | 255,236,61 |  |  | 1 |
 
 ### Warnings
 
@@ -155,9 +156,9 @@ Date: November 5, 2026
 
 ### Annotations
 
-| Type | Name | Contents | Title | File | Flags | BBox | Color | Border | Shape | QuadBoxes |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---: |
-| Text | Comment | Cap is too low for a 24-month term. Ask for 2x annual fees. — J. Ortiz, Client Legal | J. Ortiz |  |  | 554,147.8,22,22 | 243,223,92 |  |  | 0 |
+| Type | Name | Contents | Marked Text | Title | File | Flags | BBox | Color | Border | Shape | QuadBoxes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---: |
+| Text | Comment | Cap is too low for a 24-month term. Ask for 2x annual fees. — J. Ortiz, Client Legal |  | J. Ortiz |  |  | 554,147.8,22,22 | 243,223,92 |  |  | 0 |
 
 ### Warnings
 

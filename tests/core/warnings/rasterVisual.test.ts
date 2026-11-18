@@ -65,6 +65,22 @@ describe('detectPageWarnings', () => {
       imageBoxIndex: 0,
     });
     expect(out[0].message).toContain('36.0%');
+    // #278: the warning names the follow-up, with the image's own region.
+    expect(out[0].message).toMatch(
+      /render that region \(--render-region 0,0,600,600\) or OCR the page \(--ocr\) to read it$/,
+    );
+  });
+
+  it('names the image region clipped to the page, in raw units on a UserUnit page', () => {
+    const out = detectPageWarnings({
+      ...page([block(700, 50, 200, 200, { text: 'bullet panel' })], 1000, 1000),
+      userUnit: 2,
+      imageCount: 1,
+      imageBoxes: [{ x: -20, y: 100, width: 620, height: 600 }],
+      quality: { nativeTextStatus: 'ok' },
+    });
+    const warning = out.find((w) => w.code === 'large_raster_low_text_overlap');
+    expect(warning?.message).toContain('(--render-region 0,100,600,600)');
   });
 
   it('emits only raster no-native-text warning for empty full-page raster scans', () => {
@@ -289,6 +305,7 @@ describe('detectPageWarnings', () => {
     });
     expect(out[0].imageBoxIndex).toBeUndefined();
     expect(out[0].message).toContain('64.0%');
+    expect(out[0].message).toContain('render that region (--render-region 0,0,800,800) or OCR the page (--ocr)');
   });
 
   it('does not aggregate tiny raster icons into a large-raster warning', () => {

@@ -146,7 +146,9 @@ each listing every item including the faint ones — so question 2 gets all of
 page 4, two of which the audience cannot see yet. Worse, what *is* visible on every overlay page is
 dropped as repeated chrome: the frame title \`${FRAME_TITLE}\`, the first item
 \`${ITEM_TEXT[0]}\`, the navigation bar, and the footer — so the first bullet never
-appears on pages 3–6, and the \`3 / ${TOTAL_FRAMES}\` counter is missing (question 5 unanswerable;
+appears in the bodies of pages 3–6. The header names each stripped string once with its page
+count (issue #259), so the first bullet and the \`3 / ${TOTAL_FRAMES}\` counter are in the response,
+but not which pages carried them (question 5 still unanswerable per page;
 pages 1 and 2 keep \`1 / ${TOTAL_FRAMES}\` and \`2 / ${TOTAL_FRAMES}\` because their counters differ). Nothing
 says the pages are overlays of one frame (question 1 only by noticing the duplicates).
 

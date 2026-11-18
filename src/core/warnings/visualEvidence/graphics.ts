@@ -235,8 +235,8 @@ export function detectLargeRasterLowTextOverlap(
     const captionContext = caption ? ` near caption "${caption}"` : '';
     const message =
       textBoxes.length > 0
-        ? `${imageLabel} covers ${(imageAreaRatio * 100).toFixed(1)}% of the page${captionContext} with little native-text overlap (${(textOverlapRatio * 100).toFixed(2)}%) — labels, chart text, or map text inside the image will not appear in native text`
-        : `${imageLabel} covers ${(imageAreaRatio * 100).toFixed(1)}% of the page while native text is ${page.quality.nativeTextStatus === 'empty_but_visual_content' ? 'empty' : 'sparse'} — labels, chart text, or map text inside the image will not appear in native text`;
+        ? `${imageLabel} covers ${(imageAreaRatio * 100).toFixed(1)}% of the page${captionContext} with little native-text overlap (${(textOverlapRatio * 100).toFixed(2)}%) — labels, chart text, or map text inside the image will not appear in native text; ${rasterNextStep(image, page)}`
+        : `${imageLabel} covers ${(imageAreaRatio * 100).toFixed(1)}% of the page while native text is ${page.quality.nativeTextStatus === 'empty_but_visual_content' ? 'empty' : 'sparse'} — labels, chart text, or map text inside the image will not appear in native text; ${rasterNextStep(image, page)}`;
     out.push({
       code: 'large_raster_low_text_overlap',
       severity: 'warning',
@@ -323,8 +323,28 @@ function detectAggregateRasterLowTextOverlap(
   out.push({
     code: 'large_raster_low_text_overlap',
     severity: 'warning',
-    message: `${candidates.length} raster images together cover ${(aggregateAreaRatio * 100).toFixed(1)}% of the page ${textContext} — labels, chart text, map text, or drawing text inside the images will not appear in native text`,
+    message: `${candidates.length} raster images together cover ${(aggregateAreaRatio * 100).toFixed(1)}% of the page ${textContext} — labels, chart text, map text, or drawing text inside the images will not appear in native text; ${rasterNextStep(unionOf(candidates), page)}`,
   });
+}
+
+/** The follow-up that reads what the image shows: its region rendered, or the page OCR'd. */
+function rasterNextStep(image: BoxLike, page: Pick<PageResult, 'width' | 'height' | 'userUnit'>): string {
+  const x = Math.max(0, image.x);
+  const y = Math.max(0, image.y);
+  const right = Math.min(page.width, image.x + image.width);
+  const bottom = Math.min(page.height, image.y + image.height);
+  // Detectors see physical points; --render-region takes raw page units.
+  const toRaw = 1 / (page.userUnit ?? 1);
+  const region = [x, y, right - x, bottom - y].map((n) => Math.round(n * toRaw * 100) / 100).join(',');
+  return `render that region (--render-region ${region}) or OCR the page (--ocr) to read it`;
+}
+
+function unionOf(boxes: readonly BoxLike[]): BoxLike {
+  const x = Math.min(...boxes.map((box) => box.x));
+  const y = Math.min(...boxes.map((box) => box.y));
+  const right = Math.max(...boxes.map((box) => box.x + box.width));
+  const bottom = Math.max(...boxes.map((box) => box.y + box.height));
+  return { x, y, width: right - x, height: bottom - y };
 }
 
 function canCompareNativeTextAgainstRaster(status: PageResult['quality']['nativeTextStatus']): boolean {

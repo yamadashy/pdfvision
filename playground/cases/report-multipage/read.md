@@ -7,6 +7,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 - **Author:** pdfvision playground
 - **Creator:** pdfvision
 - **Outline:** 4 top-level entries
+- **Repeated page chrome (removed from page bodies):** "Fleet Electrification Programme — Q3 2026 Status Report" (4 pages); "Confidential — Harbourline Logistics internal use only" (3 pages); "Page 1 of 4" … "Page 3 of 4" (3 pages)
 
 ## Overview
 

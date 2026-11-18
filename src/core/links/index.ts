@@ -1,5 +1,5 @@
 import type { PageLink, PageLinkAttachment, PageLinkTarget, PageLinkType } from '../../types/index.js';
-import { type LabelLine, linkText } from './text.js';
+import { type BoxLike, type LabelLine, linkText } from './text.js';
 
 interface PdfLinkAnnotation {
   subtype?: unknown;
@@ -21,6 +21,8 @@ interface PdfLinkAttachment {
 interface BuildLinksOptions {
   resolveDestinationPage?: (target: PageLinkTarget) => number | undefined | Promise<number | undefined>;
   labelLines?: readonly LabelLine[];
+  /** Page text whose glyphs fall inside a box (see `graphics/regionGlyphText.ts`). */
+  textUnder?: (box: BoxLike) => string | undefined;
 }
 
 type Rect = [number, number, number, number];
@@ -52,14 +54,7 @@ export async function buildLinks(
   for (const annotation of annotations) {
     if (!isLinkAnnotation(annotation)) continue;
     const ann = annotation as PdfLinkAnnotation;
-    const rect = linkRect(ann.rect) as Rect;
     const target = linkTarget(ann) as NonNullable<ReturnType<typeof linkTarget>>;
-
-    const [x1, y1, x2, y2] = rect;
-    const minX = Math.min(x1, x2);
-    const maxX = Math.max(x1, x2);
-    const minY = Math.min(y1, y2);
-    const maxY = Math.max(y1, y2);
 
     let page: number | undefined;
     if (target.type === 'destination' && options.resolveDestinationPage) {
@@ -70,13 +65,8 @@ export async function buildLinks(
       page = resolvedPageCache.get(cacheKey);
     }
 
-    const box = {
-      x: round2(minX - viewMinX),
-      y: round2(pageHeight - (maxY - viewMinY)),
-      width: round2(maxX - minX),
-      height: round2(maxY - minY),
-    };
-    const text = linkText(box, options.labelLines ?? []);
+    const box = linkBox(linkRect(ann.rect) as Rect, pageHeight, viewMinX, viewMinY);
+    const text = linkText(box, options.labelLines ?? [], options.textUnder?.(box));
     links.push({
       ...target,
       ...(page !== undefined && { page }),
@@ -87,6 +77,25 @@ export async function buildLinks(
   return links.sort(
     (a, b) => a.y - b.y || a.x - b.x || linkTargetText(a.target).localeCompare(linkTargetText(b.target)),
   );
+}
+
+/** The displayed-frame box of a link annotation, or undefined when it is not one. */
+export function linkRegion(annotation: unknown, pageHeight: number, viewMinX = 0, viewMinY = 0): BoxLike | undefined {
+  if (!isLinkAnnotation(annotation)) return undefined;
+  return linkBox(linkRect((annotation as PdfLinkAnnotation).rect) as Rect, pageHeight, viewMinX, viewMinY);
+}
+
+function linkBox([x1, y1, x2, y2]: Rect, pageHeight: number, viewMinX: number, viewMinY: number): BoxLike {
+  const minX = Math.min(x1, x2);
+  const maxX = Math.max(x1, x2);
+  const minY = Math.min(y1, y2);
+  const maxY = Math.max(y1, y2);
+  return {
+    x: round2(minX - viewMinX),
+    y: round2(pageHeight - (maxY - viewMinY)),
+    width: round2(maxX - minX),
+    height: round2(maxY - minY),
+  };
 }
 
 export function isLinkAnnotation(annotation: unknown): boolean {

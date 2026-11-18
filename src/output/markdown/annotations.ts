@@ -29,11 +29,13 @@ export function appendAnnotations(lines: string[], page: PageResult, omitEmpty =
   }
 
   lines.push('');
-  lines.push('| Type | Name | Contents | Title | File | Flags | BBox | Color | Border | Shape | QuadBoxes |');
-  lines.push('| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---: |');
+  lines.push(
+    '| Type | Name | Contents | Marked Text | Title | File | Flags | BBox | Color | Border | Shape | QuadBoxes |',
+  );
+  lines.push('| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---: |');
   for (const annotation of page.annotations) {
     lines.push(
-      `| ${escapeTableCell(annotation.subtype)} | ${escapeTableCell(annotation.name ?? '')} | ${escapeTableCell(annotation.contents ?? '')} | ${escapeTableCell(annotation.title ?? '')} | ${escapeTableCell(annotationFileAttachment(annotation))} | ${annotationFlags(annotation)} | ${formatBox(annotation)} | ${annotationColor(annotation)} | ${escapeTableCell(annotationBorder(annotation))} | ${escapeTableCell(annotationShape(annotation))} | ${annotation.quadBoxes?.length ?? 0} |`,
+      `| ${escapeTableCell(annotation.subtype)} | ${escapeTableCell(annotation.name ?? '')} | ${escapeTableCell(annotation.contents ?? '')} | ${escapeTableCell(annotation.markedText ?? '')} | ${escapeTableCell(annotation.title ?? '')} | ${escapeTableCell(annotationFileAttachment(annotation))} | ${annotationFlags(annotation)} | ${formatBox(annotation)} | ${annotationColor(annotation)} | ${escapeTableCell(annotationBorder(annotation))} | ${escapeTableCell(annotationShape(annotation))} | ${annotation.quadBoxes?.length ?? 0} |`,
     );
   }
 }

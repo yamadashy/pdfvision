@@ -6,6 +6,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 - **Title:** News article printed from a browser, cookie banner on every page
 - **Author:** pdfvision playground
 - **Creator:** pdfvision
+- **Repeated page chrome (removed from page bodies):** "11/14/26, 9:42 AM" (2 pages); "How a 40-person office cut its paper use by 60% in a year \| Fernleaf Journal" (2 pages); "We use cookies to measure traffic and personalise ads. By continuing to browse you agree to our Coo…" (2 pages); "https://journal.fernleaf.example/2026/11/office-paper-use-60-percent?utm\_source=newsletter" (2 pages)
 
 ## Overview
 
@@ -62,12 +63,12 @@ Accept all
 | url | Subscribe | https://journal.fernleaf.example/subscribe |  | 480.49,42,59.51,20 |
 | url | Workplace | https://journal.fernleaf.example/workplace |  | 252,46,44.73,12.5 |
 | url | Sustainability | https://journal.fernleaf.example/sustainability |  | 310.73,46,55.96,12.5 |
-| url |  | https://journal.fernleaf.example/money |  | 380.69,46,28.32,12.5 |
-| url | Money Podcasts | https://journal.fernleaf.example/podcasts |  | 423.01,46,38.6,12.5 |
-| url | Halvorsen & Weir counted | https://halvorsenweir.example/ |  | 238.46,470.75,79.83,14 |
-| url | a 2025 survey by the Office Resource Council. | https://officeresourcecouncil.example.org/reports/2025-print-survey |  | 179.93,501.75,202.94,14 |
-| url | print-release software that | https://journal.fernleaf.example/2026/03/print-release-explained |  | 292.65,609.75,95.49,14 |
-| url | Cookie Policy. | https://journal.fernleaf.example/cookies |  | 228.39,708,51.06,11.5 |
+| url | Money | https://journal.fernleaf.example/money |  | 380.69,46,28.32,12.5 |
+| url | Podcasts | https://journal.fernleaf.example/podcasts |  | 423.01,46,38.6,12.5 |
+| url | Halvorsen & Weir | https://halvorsenweir.example/ |  | 238.46,470.75,79.83,14 |
+| url | a 2025 survey by the Office Resource Council | https://officeresourcecouncil.example.org/reports/2025-print-survey |  | 179.93,501.75,202.94,14 |
+| url | print-release software | https://journal.fernleaf.example/2026/03/print-release-explained |  | 292.65,609.75,95.49,14 |
+| url | Cookie Policy | https://journal.fernleaf.example/cookies |  | 228.39,708,51.06,11.5 |
 
 ---
 
@@ -139,8 +140,8 @@ Accept all
 
 | Type | Text | Target | TargetPage | BBox |
 | --- | --- | --- | ---: | --- |
-| url | at greenoffice.example.org/toolkit. | https://clk.adpartner-network.example/r?cid=55120&dest=greenoffice-toolkit |  | 300.91,143,138.45,14 |
+| url | greenoffice.example.org/toolkit | https://clk.adpartner-network.example/r?cid=55120&dest=greenoffice-toolkit |  | 300.91,143,138.45,14 |
 | url | Hot-desking two years on: what the occupancy data says | https://journal.fernleaf.example/2026/09/hot-desking-occupancy-data |  | 86,562.91,249.01,14 |
 | url | The hidden energy bill of always-on office kit | https://journal.fernleaf.example/2026/06/standby-power-offices |  | 86,582.91,201.63,14 |
 | url | Is a paperless planning application finally possible? | https://journal.fernleaf.example/2026/10/paperless-planning |  | 86,602.91,227.08,14 |
-| url | Cookie Policy. | https://journal.fernleaf.example/cookies |  | 228.39,708,51.06,11.5 |
+| url | Cookie Policy | https://journal.fernleaf.example/cookies |  | 228.39,708,51.06,11.5 |

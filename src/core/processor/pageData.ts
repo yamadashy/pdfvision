@@ -51,6 +51,8 @@ export interface PageData {
   _warningImageBoxes?: ImageBox[];
   vectorBoxes?: VectorBox[];
   _warningVectorBoxes?: VectorBox[];
+  /** Vector fills in a visible non-white colour, for the vector-bar warning. */
+  _warningColouredFills?: VectorBox[];
   _warningAnnotations?: PageAnnotation[];
   _visualRegionInput?: BuildVisualRegionsInput;
   hasVisibleAnnotationAppearance?: boolean;

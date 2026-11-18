@@ -35,7 +35,9 @@ each listing every item including the faint ones — so question 2 gets all of
 page 4, two of which the audience cannot see yet. Worse, what *is* visible on every overlay page is
 dropped as repeated chrome: the frame title `Explicit Euler for the heat equation`, the first item
 `Forward difference in time, central difference in space`, the navigation bar, and the footer — so the first bullet never
-appears on pages 3–6, and the `3 / 24` counter is missing (question 5 unanswerable;
+appears in the bodies of pages 3–6. The header names each stripped string once with its page
+count (issue #259), so the first bullet and the `3 / 24` counter are in the response,
+but not which pages carried them (question 5 still unanswerable per page;
 pages 1 and 2 keep `1 / 24` and `2 / 24` because their counters differ). Nothing
 says the pages are overlays of one frame (question 1 only by noticing the duplicates).
 

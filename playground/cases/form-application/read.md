@@ -80,20 +80,20 @@ Application ID: ________ Reviewed by: ________
 
 | Type | Name | Label | Value | Export | Options | Flags | BBox |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| text | full_name |  | Elena Marsh |  |  | print | 200,148.5,358,18 |
-| text | organization |  | Tidewater Youth Theatre |  |  | print | 200,175.5,358,18 |
-| text | email |  | elena.marsh@tidewater.example |  |  | print | 200,202.5,358,18 |
+| text | full_name | Full name * (left) | Elena Marsh |  |  | print | 200,148.5,358,18 |
+| text | organization | Organization (left) | Tidewater Youth Theatre |  |  | print | 200,175.5,358,18 |
+| text | email | Email * (left) | elena.marsh@tidewater.example |  |  | print | 200,202.5,358,18 |
 | text | mailing_address | Mailing address * (above) | 214 Harbor Street, Unit 3 Port Avalon, CA 95012 |  |  | print | 54,269.5,504,34 |
-| text | project_title |  | Summer Stage: Shakespeare in the Park |  |  | print | 200,344.5,358,18 |
+| text | project_title | Project title * (left) | Summer Stage: Shakespeare in the Park |  |  | print | 200,344.5,358,18 |
 | text | start_month | Project start date * (left) | 03 |  |  | print | 200,371.5,28,18 |
-| text | start_day |  | 01 |  |  | print | 238,371.5,28,18 |
-| text | start_year |  | 2027 |  |  | print | 276,371.5,46,18 |
+| text | start_day | Project start date * (left) | 01 |  |  | print | 238,371.5,28,18 |
+| text | start_year | Project start date * (left) | 2027 |  |  | print | 276,371.5,46,18 |
 | radio | program_category | Visual arts (right) | unchecked | Visual |  | print | 200,409.5,11,11 |
 | radio | program_category | Performing arts (right) | checked | Performing |  | print | 275.37,409.5,11,11 |
 | radio | program_category | Literary arts (right) | unchecked | Literary |  | print | 369.75,409.5,11,11 |
 | radio | program_category | Media arts (right) | unchecked | Media |  | print | 450.8,409.5,11,11 |
 | text | requested_amount | Amount requested (USD) * (left) | 12,500 |  |  | print | 200,433.5,358,18 |
-| choice | county |  | Bayview |  | Alder, Bayview, Coastline, Redwood | print, combo | 200,487.5,150,18 |
+| choice | county | County served (left) | Bayview |  | Alder, Bayview, Coastline, Redwood | print, combo | 200,487.5,150,18 |
 | checkbox | confirm_accurate | I confirm that the information in this application is accurate. (right) | checked | Yes |  | print | 54,549.5,11,11 |
 | checkbox | is_nonprofit | The organization is a registered nonprofit. (right) | checked | Yes |  | print | 54,567.5,11,11 |
 
@@ -101,4 +101,4 @@ _4 further fields, none filled (2 checkbox, 2 text)._
 
 ### Warnings
 
-> **warning** (reading_order_divergence): form label "Media arts" appears after "Expected participants" visually but earlier in the native text stream — native form text order diverges from what a human reads; the body above is that reading order, rebuilt from the layout — render the page when exact sequence is critical
+> **warning** (reading_order_divergence): form label "Media arts" appears after "County served" visually but earlier in the native text stream — native form text order diverges from what a human reads; the body above is that reading order, rebuilt from the layout — render the page when exact sequence is critical

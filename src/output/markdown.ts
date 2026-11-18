@@ -8,6 +8,7 @@ import { appendLinks } from './markdown/links.js';
 import { appendOverview, formatPhysicalSize } from './markdown/overview.js';
 import { appendJavaScriptActions, appendOcr, appendPageImage, appendWarnings } from './markdown/pageArtifacts.js';
 import { appendSearchMatches } from './markdown/pageSections.js';
+import { repeatedChromeSummary } from './markdown/repeatedChrome.js';
 import { appendStructureItem, appendStructureTables, structureNodeCount } from './markdown/structure.js';
 import { appendVisualRegions } from './markdown/visualRegions.js';
 
@@ -156,6 +157,10 @@ export function formatMarkdownSections(
   }
   if (result.outlineCount !== undefined && result.outline === undefined) {
     lines.push(`- **Outline:** ${result.outlineCount} top-level ${result.outlineCount === 1 ? 'entry' : 'entries'}`);
+  }
+  if (options.stripRepeated) {
+    const chrome = repeatedChromeSummary(result.pages);
+    if (chrome) lines.push(chrome);
   }
 
   if (result.pageLabels && result.pageLabels.length === 0) {
