@@ -177,19 +177,21 @@ effects. Standard errors, in parentheses, are clustered by state (Panel A) or by
 
 ### Layout tables
 
-#### Table 1 (18 rows × 7 columns, bbox 72,121.99,463.94,297)
+#### Table 1 (20 rows × 7 columns, bbox 72,121.99,463.94,297)
 
 | C1 | C2 | C3 | C4 | C5 | C6 | C7 |
 | --- | --- | --- | --- | --- | --- | --- |
 |  | Log teen employment |  |  | Log weekly hours |  |  |
 |  | (1) | (2) | (3) | (4) | (5) | (6) |
-| Panel A. All counties Log minimum wage | -0.142*** | -0.097*** | -0.061** | -0.088*** | -0.054** | -0.031 |
+| Panel A. All counties |  |  |  |  |  |  |
+| Log minimum wage | -0.142*** | -0.097*** | -0.061** | -0.088*** | -0.054** | -0.031 |
 |  | (0.031) | (0.029) | (0.027) | (0.024) | (0.022) | (0.025) |
 | Log county population | 0.412*** | 0.398*** | 0.377*** | 0.106* | 0.094 | 0.088 |
 |  | (0.058) | (0.061) | (0.063) | (0.057) | (0.060) | (0.062) |
 | Observations | 48,912 | 48,912 | 48,912 | 48,640 | 48,640 | 48,640 |
 | R^2 | 0.912 | 0.918 | 0.921 | 0.743 | 0.751 | 0.756 |
-| Panel B. Contiguous border-county pairs Log minimum wage | -0.049* | -0.041 | -0.022 | -0.037* | -0.029 | -0.012 |
+| Panel B. Contiguous border-county pairs |  |  |  |  |  |  |
+| Log minimum wage | -0.049* | -0.041 | -0.022 | -0.037* | -0.029 | -0.012 |
 |  | (0.026) | (0.027) | (0.030) | (0.020) | (0.021) | (0.023) |
 | Log county population | 0.351*** | 0.344*** | 0.339*** | 0.071 | 0.066 | 0.063 |
 |  | (0.072) | (0.074) | (0.077) | (0.066) | (0.068) | (0.069) |

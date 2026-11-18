@@ -29,6 +29,21 @@ export function linesAsTableCells(lines: readonly LayoutLine[]): LayoutLine[] {
   return lines.flatMap((line) => segmentsByLine.get(line) ?? [line]);
 }
 
+/**
+ * The text runs a line was joined from, kept so a header cell that line
+ * building joined across a narrow gap can be split at the columns below it
+ * (`Plan start  Plan end` over two date columns).
+ */
+const partsByLine = new WeakMap<LayoutLine, LayoutLine[]>();
+
+export function recordLineParts(line: LayoutLine, parts: LayoutLine[]): void {
+  if (parts.length >= 2) partsByLine.set(line, parts);
+}
+
+export function lineParts(line: LayoutLine): readonly LayoutLine[] {
+  return partsByLine.get(line) ?? [line];
+}
+
 /** Split `items` before every item in `splitBefore`. */
 export function splitAtSpans<T>(items: readonly T[], splitBefore: ReadonlySet<T>): T[][] {
   const parts: T[][] = [];

@@ -200,4 +200,12 @@ export interface LayoutTableCell {
    * columns, and merged value cells, cover more than one.
    */
   columnSpan?: number;
+  /**
+   * Number of rows one merged cell covers, set on each of those rows' copies
+   * of it. Only tables read from a ruled grid carry it: a cell whose row
+   * rules stop short of it (a parameter beside several condition rows) is
+   * repeated in every row it spans so each row reads on its own; this says
+   * the repeats are one cell. Omitted when 1.
+   */
+  rowSpan?: number;
 }

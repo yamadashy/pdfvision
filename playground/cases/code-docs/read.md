@@ -12,8 +12,8 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 | Page | Chars | Images | Coverage | Size (pt) | Vectors | Blocks | Fields | Links | Annots |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 1260 | 0 | 14% | 612×792 | 10 | 45 | 0 | 0 | 0 |
-| 2 | 1415 | 0 | 14% | 612×792 | 17 | 34 | 0 | 0 | 0 |
+| 1 | 1260 | 0 | 14% | 612×792 | 10 | 46 | 0 | 0 | 0 |
+| 2 | 1415 | 0 | 14% | 612×792 | 17 | 38 | 0 | 0 | 0 |
 
 ---
 
@@ -32,7 +32,10 @@ to the pipeline. Use two spaces per level, never tabs.
 
 Example
 
-1 pipeline:
+1
+
+pipeline:
+
 2
 
 name: nightly-export
@@ -97,11 +100,11 @@ Custom stages
 
 A custom stage is a subclass of Stage registered under a name with @register :
 
-1 from tidepool import Stage, register
+1
 2
 3
-4 @register("dedupe")
-5 class Dedupe(Stage):
+4
+5
 6
 7
 8
@@ -114,19 +117,21 @@ A custom stage is a subclass of Stage registered under a name with @register :
 15
 16
 
+from tidepool import Stage, register
+
+@register("dedupe")
+class Dedupe(Stage):
 """Drop rows already seen in this run."""
 
 def run(self, rows):
 seen = set()
 for row in rows:
-
-self.log.info("dedupe finished")
-
 key = (row["id"], row["ts"])
 if key in seen:
 continue
 seen.add(key)
 yield row
+self.log.info("dedupe finished")
 
 1/2
 
@@ -150,7 +155,14 @@ Every stage accepts the options below. In the source of this page the table is w
 
 which renders as:
 
-Option Type Default Description
+Option
+
+Type
+
+Default
+
+Description
+
 name
 
 string

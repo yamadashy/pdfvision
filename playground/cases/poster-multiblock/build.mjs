@@ -178,12 +178,13 @@ ${BLOCKS.map((column, c) => `_Column ${c + 1}_\n\n${column.map((block) => `**${b
 Questions 1, 3 and 5 are answerable from \`read.md\`; question 2's farm and reason come from the
 prose (\`Detection was lowest on the Kilbrack farm, where tree cover…\`).
 
-**Known gap (#242):** layout table 2 (4 × 6) fuses Table 1 with Methods prose on
-the left and the Acknowledgements on the right (\`| We flew a quadcopter carrying a radiometric |
-Collar sensor | 0.72 | 0.69 | 0.70 | Funded by the Corrib Valley Agri-Innovation Fund (grant |\`); its
-\`Visual check\` row has lost its label, which \`layout_table_uncertain\` now points out (a row with values
-but no label, overlapped by label text). Layout table 1 (2 × 7) is prose and chart labels from all four
-columns; \`layout_table_uncertain\` flags that one too.
+Layout table 2 is Table 1 exactly, header row included (\`| Method | Precision | Recall | F1 |\`,
+\`| Visual check | 0.95 | 0.61 | 0.74 |\`): its rules bound it, so the Methods and Acknowledgements
+prose beside it stays out (#252), and the label that row grouping had given to the prose is put
+back on its row. Question 1 is answered from it.
+
+**Known gap (#242):** layout table 1 (2 × 7) is prose and chart labels from all four columns;
+\`layout_table_uncertain\` flags it.
 
 **Known gap (no issue yet):**
 - The four poster columns are read one after another, each panel whole, and Table 1 reads row by row

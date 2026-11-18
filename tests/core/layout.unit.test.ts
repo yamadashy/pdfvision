@@ -2706,7 +2706,9 @@ describe('buildLayout — multi-column reading order', () => {
     expect(cells.some((text) => text.includes('following table presents'))).toBe(false);
     expect(tableRows[0]).toContainEqual(['Total liabilities and stockholders’ equity', '$ 4,002,814', '$ 3,875,393']);
     expect(tableRows[1]?.[0]).toEqual(['December 31, (in millions)', '2024', '2023']);
-    expect(tableRows[1]).toContainEqual(['Assets Trading assets', '$ 3,885', '$ 2,170']);
+    // `Assets` is a section heading over its rows, not the wrapped head of `Trading assets`.
+    expect(tableRows[1]).toContainEqual(['Assets']);
+    expect(tableRows[1]).toContainEqual(['Trading assets', '$ 3,885', '$ 2,170']);
   });
 
   it('splits dense recurring numeric gutters inside table rows', () => {

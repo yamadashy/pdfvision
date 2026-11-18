@@ -6,6 +6,7 @@ import { classifyHeadings } from './headings.js';
 import { buildLayoutLinesWithGutters } from './lines.js';
 import { orderLayoutBlocks } from './regionOrder.js';
 import { detectLayoutRegions, type LayoutGraphics } from './regions.js';
+import { tableRules } from './tableRules.js';
 import { detectLayoutTables } from './tables.js';
 import { compareLayoutBlocks, extractVerticalCjkBlocks } from './verticalText.js';
 import { findWovenContinuation } from './wovenLines.js';
@@ -40,10 +41,13 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0, pageHeight = 0, gr
 
   const vertical = extractVerticalCjkBlocks(spans);
 
-  const { lines, columnGutters } = buildLayoutLinesWithGutters(vertical.remainingSpans, pageWidth);
+  const rules = tableRules(graphics?.vectorBoxes);
+  const { lines, columnGutters } = buildLayoutLinesWithGutters(vertical.remainingSpans, pageWidth, rules.vertical);
   // A "table" whose every column boundary is a detected prose gutter is the
   // page's text columns read across (#242), not a table.
-  const detectedTables = detectLayoutTables(lines)?.filter((table) => !isProseColumnTable(table, columnGutters));
+  const detectedTables = detectLayoutTables(lines, rules, graphics?.vectorBoxes)?.filter(
+    (table) => !isProseColumnTable(table, columnGutters),
+  );
   const tables = detectedTables && detectedTables.length > 0 ? detectedTables : undefined;
 
   // Cluster lines into blocks. Splits when:

@@ -663,6 +663,40 @@ describe('layout table value cells', () => {
     expect(isTableValueCell('※7 26,269')).toBe(true);
   });
 
+  it('reads a value carrying several lettered notes as a value (#258)', () => {
+    expect(isTableValueCell('(9,350) (a)(b)')).toBe(true);
+    expect(isTableValueCell('(9,350) (a) (b)')).toBe(true);
+    expect(isTableValueCell('9,350 (a), (b)')).toBe(true);
+    expect(isTableValueCell('(a)(b)')).toBe(false);
+    expect(isTableValueCell('Total (a)(b)')).toBe(false);
+  });
+
+  it('keeps the label and first value of a row whose adjustment carries several notes (#258)', () => {
+    const rows: string[][] = [
+      ['Research and development', '88,140', '(14,220) (a)', '73,920', '259,600', '(41,050) (a)', '218,550'],
+      ['Sales and marketing', '97,310', '(11,860) (a)', '85,450', '284,170', '(33,940) (a)', '250,230'],
+      ['General and administrative', '41,780', '(9,350) (a)(b)', '32,430', '125,410', '(27,600) (a)(b)', '97,810'],
+      ['Restructuring charges', '27,240', '(27,240) (b)', '—', '38,620', '(38,620) (b)', '—'],
+      ['Total operating expenses', '254,470', '(62,670)', '191,800', '707,800', '(141,210)', '566,590'],
+    ];
+    // Right edges of the value columns; adjustments are left-aligned.
+    const rights = [322, 0, 492, 582, 0, 752];
+    const lefts = [0, 383, 0, 0, 643, 0];
+    const spans = rows.flatMap(([label, ...values], index) => {
+      const y = 140 + index * 15;
+      return [
+        span(label, 52, y, label.length * 4.2),
+        ...values.map((value, column) => {
+          const width = value.length * 4.2;
+          return span(value, lefts[column] || rights[column] - width, y, width);
+        }),
+      ];
+    });
+    const table = buildLayout(spans, 792, 612).tables?.[0];
+    expect(texts(table)).toContainEqual(rows[2]);
+    expect(texts(table)).toContainEqual(rows[3]);
+  });
+
   it('does not read a bare marker or starred words as a value', () => {
     expect(isTableValueCell('***')).toBe(false);
     expect(isTableValueCell('△')).toBe(false);
