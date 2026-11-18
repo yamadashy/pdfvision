@@ -11,7 +11,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 ## Page 1
 
-_chars: 3297 · images: 0 · coverage: 29% · vectors: 19 · tables: 1 · warnings: 1 · size: 612×792pt_
+_chars: 3297 · images: 0 · coverage: 29% · vectors: 19 · tables: 1 · size: 612×792pt_
 
 Adaptive Token Pruning for Efficient Long-Document Retrieval
 
@@ -142,6 +142,13 @@ arXiv:2611.04217v1 [cs.IR] 12 Nov 2026
 | Static pruning (k = 512) | 38.9 | 55.1 | 97 |
 | ATP (ours) | 40.8 | 58.3 | 88 |
 
-### Warnings
+### Chart values
 
-> **warning** (vector_chart_labels): vector chart at 329,271,229,150 has 17 text labels (values such as "182", labels such as "Full attention"), read together bar by bar — which value belongs to which bar, series or category is shown only by the drawing; render the region (--render-region 329,271,229,150) before pairing or quoting values
+_Values paired with their series by colour: the legend swatch matches the line, slice or bar segment the value is set on._
+
+#### Bar chart at 358.5,290.54,184,121.46
+
+| Series | LongDocQA | MultiNews-R | LegalBench-S |
+| --- | --- | --- | --- |
+| Full attention | 182 | 156 | 241 |
+| ATP (ours) | 88 | 79 | 121 |

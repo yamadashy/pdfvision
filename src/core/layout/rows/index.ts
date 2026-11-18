@@ -46,6 +46,8 @@ export interface AlignedRowContext {
   verticalRules?: readonly TableRule[];
   /** The page's painted regions, for blocks as they stand before rows are read. */
   regions?: (blocks: readonly LayoutBlock[]) => readonly LayoutRegion[];
+  /** Blocks read some other way, kept as they are. */
+  exclude?: ReadonlySet<LayoutBlock>;
 }
 
 const OVERLAP_TOLERANCE_PT = 1;
@@ -54,7 +56,7 @@ export function readAlignedRows(blocks: readonly LayoutBlock[], context: Aligned
   const unchanged: AlignedRows = { blocks: [...blocks], runs: [] };
   const ownerOf = new Map<LayoutLine, LayoutBlock>();
   for (const block of blocks) {
-    if (!isEligibleBlock(block)) continue;
+    if (!isEligibleBlock(block) || context.exclude?.has(block)) continue;
     for (const line of block.lines) ownerOf.set(line, block);
   }
   if (ownerOf.size < MIN_RUN_ROWS * 2) return unchanged;

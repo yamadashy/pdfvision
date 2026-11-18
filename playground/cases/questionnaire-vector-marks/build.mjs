@@ -36,8 +36,9 @@ export const meta = {
   title: 'Filled-in health questionnaire (問診票) whose answers are drawn marks',
   stresses:
     'no form fields; yes/no answers as ticks stroked over □ boxes; single choices as filled ○ among empty ones; a five-point scale grid with one filled circle per row; option labels all present as text; free-text answers as ordinary text',
-  status: 'known-gap',
-  issue: 303,
+  status: 'ok',
+  showcase: true,
+  hard: 'Every option label is text and the answers are only strokes — a tick over a □, a dot in a ○ — so the text alone reads as a blank form; a rating grid has no text beside its circles at all.',
   families: ['vector-meaning', 'interactive', 'scripts'],
   page: { size: 'A4' },
 };
@@ -65,14 +66,17 @@ ${SCALE_ROWS.map((row) => `- ${row.q} — **${SCALE[row.answer]}**`).join('\n')}
 5. How often does the patient have trouble falling asleep at night? — ときどき
 6. Could the patient be pregnant? — No (いいえ)
 
-**Known gap (#303):** no answer except the free text survives, and nothing on the page
-warns. The ticks and filled circles leave no trace, so every option reads as equally present:
-questions 2–6 have no answer (question 1 is answered only through the free-text \`内容:ペニシリン系の
-抗生物質\`). Sections 1 and 2 read row by row, each question or habit on one line with its options
-(\`(2) 薬や食べ物でアレルギーが出たことがありますか はい いいえ 内容:ペニシリン系の抗生物質\`, \`飲酒 飲まない
-週1〜2日 週3〜5日 ほぼ毎日\`, #301), but nothing says which option is marked; the scale grid's five headings
-come before its four rows with no cells. A reader that assumes "nothing marked" would also be wrong:
-the form is complete.
+Fixed in #303: the drawn answers are reported as content. \`### Choice marks\` gives one row per row
+of boxes — the question at its left, the marked option, the options left empty — so every question
+above is answered from it: \`(3) これまでに手術を受けたことがありますか | いいえ | はい\`,
+\`喫煙 | 以前吸っていた | 吸わない / 吸う(1日 本)\`, and the rating grid by its column headings
+(\`夜、眠りにつきにくい | ときどき | まったくない / あまりない / どちらとも / よくある\`). A tick is a stroked
+open V with its longer arm rising right, a selected circle holds a filled dot; the boxes and circles carry
+no text.
+
+The body reads sections 1 and 2 row by row, each question or habit on one line with its options
+(\`(2) 薬や食べ物でアレルギーが出たことがありますか はい いいえ 内容:ペニシリン系の抗生物質\`, #301); the choice
+table does not depend on that order.
 `;
 
 function box(doc, x, y) {

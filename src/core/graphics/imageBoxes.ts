@@ -37,6 +37,10 @@ export interface ImageOps {
   paintImageMaskXObjectRepeat: number;
   paintImageMaskXObjectGroup: number;
   paintInlineImageXObjectGroup: number;
+  /** Stroke-colour setters, line width and the path ops that stroke: read only to keep path shapes. */
+  strokeColorOps?: ReadonlySet<number>;
+  setLineWidth?: number;
+  pathStrokeOps?: ReadonlySet<number>;
   /** pdf.js's form of a 1×1 image mask: a filled unit square under the CTM (dvips draws rules this way). */
   paintSolidColorImageMask?: number;
 }

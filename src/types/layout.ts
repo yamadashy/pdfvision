@@ -49,6 +49,20 @@ export interface LayoutLine {
    * glyph stacks that are meant to be read top-to-bottom.
    */
   writingMode?: 'vertical';
+  /**
+   * The margin line number printed on this line's baseline (pleading paper,
+   * a bill, a manuscript in review mode). The number column itself is left
+   * out of the text; see {@link PageLayout.lineNumbers}. Omitted for lines
+   * that sit between two numbers or on a page without line numbers.
+   */
+  lineNumber?: number;
+  /**
+   * Indentation depth of a nested list or index line, relative to the
+   * least indented line of its list: `1` for a subentry, `2` for a
+   * sub-subentry. The text starts with two spaces per level. Omitted at
+   * depth 0 and for ordinary paragraphs.
+   */
+  indent?: number;
 }
 
 /**
@@ -143,6 +157,16 @@ export interface LayoutBlock {
    * after `headings` no longer see those duplicates.
    */
   repeated?: boolean;
+  /**
+   * Present when the block's text is drawn turned on the page — a sideways
+   * table or text box, or a whole sheet set sideways without `/Rotate` —
+   * and was read in its own upright frame. The value is the clockwise turn
+   * of the page that shows the text upright, counted as `/Rotate` counts
+   * it: `90` is text running up the page, `270` down, `180` upside down.
+   * Bboxes stay in the page frame, so a block of turned lines is tall and
+   * narrow, and a render shows the text turned.
+   */
+  rotation?: 90 | 180 | 270;
 }
 
 /**
@@ -174,13 +198,84 @@ export interface PageLayout {
    * amendment changed. The text carries no marker of its own.
    */
   markedText?: LayoutMarkedText[];
+  /**
+   * Arrows drawn between boxes of text (a flowchart, a process diagram):
+   * the relation exists only as strokes. Each entry is one connector whose
+   * ends touch two different boxes, directed by its arrowhead.
+   */
+  connections?: LayoutConnection[];
+  /**
+   * Chart values paired with their series by colour: a legend swatch's
+   * colour matched to a line, slice or bar segment, and the value label
+   * set on that mark. Only charts where most labels pair soundly appear.
+   */
+  charts?: LayoutChart[];
+  /**
+   * The page's margin line numbers: a column of consecutive integers on the
+   * line grid beside the text. The numbers are left out of the text and set
+   * on the lines they number as {@link LayoutLine.lineNumber}.
+   */
+  lineNumbers?: { first: number; last: number };
+}
+
+export interface LayoutChart {
+  kind: 'line' | 'pie' | 'bar';
+  /** Value labels on the chart that could not be paired soundly (omitted when none): render the chart for those. */
+  unpaired?: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  values: LayoutChartValue[];
+}
+
+export interface LayoutChartValue {
+  /** The value label as printed. */
+  value: string;
+  /** The legend name whose colour the value's mark is painted in. */
+  series: string;
+  /** The axis label under the point or bar, or the label at the left of a horizontal bar. */
+  category?: string;
+  /** The value label's bbox. */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface LayoutConnection {
+  /** Text of the box the arrow leaves (lines joined with a space). */
+  from: string;
+  /** Text of the box the arrowhead points at. */
+  to: string;
+  /** Short text set beside the connector and nearer it than any other (`Yes`, `No`). */
+  label?: string;
+  /** True when the connector has an arrowhead at both ends. */
+  bidirectional?: boolean;
+  /** The connector's bbox. */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 export interface LayoutMarkedText {
-  /** `side_line`: a thin vector rule just right of the glyphs of a vertical column. */
-  mark: 'side_line';
-  /** The marked glyphs in reading order; a passage running on into the next column is one entry. */
+  /**
+   * - `side_line`: a thin vector rule just right of the glyphs of a vertical column.
+   * - `checked` / `unchecked`: a drawn square box with a tick, cross or fill inside it, or empty.
+   * - `selected` / `unselected`: a drawn circle with a dot (or tick, cross) inside it, or empty.
+   *
+   * Choice entries appear only on a page where at least one drawn box or circle holds a mark;
+   * their bbox is the box's, and `text` is the option's label.
+   */
+  mark: 'side_line' | 'checked' | 'unchecked' | 'selected' | 'unselected';
+  /**
+   * The marked glyphs in reading order (a passage running on into the next column is one entry),
+   * or a choice's option label: the text right after its box, or a rating grid's column heading.
+   */
   text: string;
+  /** A choice's row label: the text at the left of the row the box stands on (usually the question). */
+  group?: string;
   x: number;
   y: number;
   width: number;
@@ -200,6 +295,14 @@ export interface LayoutTable {
    */
   columnCount: number;
   rows: LayoutTableRow[];
+  /**
+   * Present when the table is drawn turned on the page and was read in its
+   * own upright frame; see {@link LayoutBlock.rotation}. Rows and columns
+   * are the table's own, and every bbox is in the page frame: a row's
+   * `y`/`height` then span the table's extent along the page, and its
+   * cells' boxes say where the row runs.
+   */
+  rotation?: 90 | 180 | 270;
 }
 
 export interface LayoutTableRow {

@@ -168,9 +168,10 @@ after it, at the page foot (it used to come before the footnote, at the end of t
 
 The chart's text is kept together before its caption (#256): the axis ticks, then bar by bar
 \`Full attention / 182 / 88 / LongDocQA\`, \`ATP (ours) / 156 / 79 / MultiNews-R\`,
-\`241 / 121 / LegalBench-S\`, and \`vector_chart_labels\` names the chart region to render, since the
-legend entries still sit with the wrong groups and the text alone cannot pair a value with its
-series — question 3 needs that render. The author line now comes before the affiliations, and
+\`241 / 121 / LegalBench-S\`, with the legend entries still among the wrong groups. \`### Chart values\`
+pairs each value with its series by colour (the value stands over a bar in the legend swatch's colour)
+and its benchmark under the bar pair: \`| ATP (ours) | 88 | 79 | 121 |\`, so question 3 is answered and
+\`vector_chart_labels\` is no longer raised (#302). The author line now comes before the affiliations, and
 Table 1 reads row by row in the body (\`Full attention / 41.2 / 58.7 / 182\`).
 The left column is correctly read before the right one; the rotated arXiv stamp in the margin is
 read upright at the end of the page, after the body (question 4 is answerable).

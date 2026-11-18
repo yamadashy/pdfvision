@@ -11,53 +11,47 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 ## Page 1
 
-_chars: 688 · images: 0 · coverage: 15% · vectors: 5 · size: 612×792pt_
+_chars: 688 · images: 0 · coverage: 15% · vectors: 5 · tables: 1 · warnings: 2 · size: 612×792pt_
 
 Chapter 4. Field trials
 
 57
 
+_[Drawn turned on the page (running up the page), read upright; rotation: 90°]_
+
 Table 4.3: Field trial yields by variety and site, 2025 season (t/ha). Dashes mark plots lost to flooding.
 
-Mean
-
-Farley
-
-Elsted
-
-Upland sites
-
-Dunhill
-
-Carrow
-
-Lowland sites
-
-Brenmoor
-
-8.33 8.45 8.86 7.15 7.44 6.87 9.26 9.14
-
-7.80 — 8.15 6.75 7.03 6.48 8.62 8.70
-
-7.12 7.40 7.66 6.42 6.88 6.20 8.10 8.35
-
-7.64 7.95 8.02 6.90 7.21 6.65 8.41 8.88
-
-9.10 8.66 9.73 7.61 7.92 7.30 9.95 9.40
-
-8.87 9.21 9.48 7.35 — 7.09 10.02 9.66
+Lowland sites Upland sites
+Variety Type Ashby Brenmoor Carrow Dunhill Elsted Farley Mean
+Aldora winter 9.42 8.87 9.10 7.64 7.12 7.80 8.33
+Brisk winter 9.05 9.21 8.66 7.95 7.40 — 8.45
+Calder winter 10.11 9.48 9.73 8.02 7.66 8.15 8.86
+Dorran spring 7.88 7.35 7.61 6.90 6.42 6.75 7.15
+Elvet spring 8.14 — 7.92 7.21 6.88 7.03 7.44
+Fennick spring 7.52 7.09 7.30 6.65 6.20 6.48 6.87
+Galloway hybrid 10.48 10.02 9.95 8.41 8.10 8.62 9.26
+Hestia hybrid 9.87 9.66 9.40 8.88 8.35 8.70 9.14
 
 Means are over the plots harvested. Site soils: see Appendix B.
 
-Ashby
+### Layout tables
 
-Type
+#### Table 1 (10 rows × 9 columns, bbox 138.83,84,171,636, rotation 90°)
 
-Variety
+| C1 | C2 | C3 | C4 | C5 | C6 | C7 | C8 | C9 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+|  |  |  | Lowland sites |  |  | Upland sites |  |  |
+| Variety | Type | Ashby | Brenmoor | Carrow | Dunhill | Elsted | Farley | Mean |
+| Aldora | winter | 9.42 | 8.87 | 9.10 | 7.64 | 7.12 | 7.80 | 8.33 |
+| Brisk | winter | 9.05 | 9.21 | 8.66 | 7.95 | 7.40 | — | 8.45 |
+| Calder | winter | 10.11 | 9.48 | 9.73 | 8.02 | 7.66 | 8.15 | 8.86 |
+| Dorran | spring | 7.88 | 7.35 | 7.61 | 6.90 | 6.42 | 6.75 | 7.15 |
+| Elvet | spring | 8.14 | — | 7.92 | 7.21 | 6.88 | 7.03 | 7.44 |
+| Fennick | spring | 7.52 | 7.09 | 7.30 | 6.65 | 6.20 | 6.48 | 6.87 |
+| Galloway | hybrid | 10.48 | 10.02 | 9.95 | 8.41 | 8.10 | 8.62 | 9.26 |
+| Hestia | hybrid | 9.87 | 9.66 | 9.40 | 8.88 | 8.35 | 8.70 | 9.14 |
 
-9.42 9.05 10.11 7.88 8.14 7.52 10.48 9.87
+### Warnings
 
-winter winter winter spring spring spring hybrid hybrid
-
-Fennick Galloway
-Aldora Brisk Calder Dorran Elvet Hestia
+> **warning** (layout_table_uncertain): layout table 1 (bbox 138.83,84,171,636) did not resolve into one consistent grid: 8 lines with numbers inside the table belong to no row — its cells may sit in the wrong row or column or be missing; render that region (--render-region 138.83,84,171,636) before trusting the table
+> **warning** (rotated_text_read_upright): 96% of the page's text is drawn turned (running up the page) with no /Rotate to match, so pdfvision read it in its own upright frame — its layout blocks and tables carry rotation: 90 and keep page-frame bboxes (region 92.67,84,243.48,636); --render and --render-region show that text turned, so turn the image 90° clockwise to read it

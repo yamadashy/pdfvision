@@ -1,10 +1,13 @@
 import type { DocumentResult, PageResult } from '../types/index.js';
 import { appendAnnotations } from './markdown/annotations.js';
+import { appendCharts } from './markdown/charts.js';
 import { fencedCode } from './markdown/codeBlocks.js';
+import { appendConnections } from './markdown/connections.js';
 import { appendLayers, appendOutline, appendViewer } from './markdown/documentSections.js';
 import { appendFormFields } from './markdown/formFields.js';
 import { escapeInline, escapeTableCell, jsActionCount } from './markdown/helpers.js';
 import { appendLayoutTables } from './markdown/layoutTables.js';
+import { lineNumbersNote, numberedBlockText } from './markdown/lineNumbers.js';
 import { appendLinks } from './markdown/links.js';
 import { appendMarkedText } from './markdown/markedText.js';
 import { appendOverview, formatPhysicalSize } from './markdown/overview.js';
@@ -55,10 +58,20 @@ function hint(supplied: string | undefined, fallback: string): string {
 }
 
 function layoutBody(page: PageResult, filterRepeated: boolean): string {
-  return (page.layout?.blocks ?? [])
-    .filter((b) => !filterRepeated || !b.repeated)
-    .map((b) => (b.role === 'code' ? fencedCode(b) : b.text))
+  const blocks = (page.layout?.blocks ?? []).filter((b) => !filterRepeated || !b.repeated);
+  return blocks
+    .map((b, i) => {
+      const text = b.role === 'code' ? fencedCode(b) : numberedBlockText(b);
+      // A turned region was read upright; say so once, where it starts, since a render shows it turned.
+      const turned = b.rotation !== undefined && blocks[i - 1]?.rotation !== b.rotation;
+      return turned ? `${turnedRegionNote(b.rotation as number)}\n\n${text}` : text;
+    })
     .join('\n\n');
+}
+
+function turnedRegionNote(rotation: number): string {
+  const drawn = rotation === 180 ? 'upside down' : rotation === 90 ? 'running up the page' : 'running down the page';
+  return `_[Drawn turned on the page (${drawn}), read upright; rotation: ${rotation}°]_`;
 }
 
 /** Body text for a page. Markdown always runs the layout pass, so the
@@ -295,6 +308,11 @@ export function formatMarkdownSections(
       `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${pageLabelFragment}${nonPrintFragment}${renderFragment}${rotationFragment}${vectorsFragment}${vectorBoxesFragment}${layoutTablesFragment}${visualRegionsFragment}${formFieldsFragment}${linksFragment}${annotationsFragment}${structureFragment}${jsActionsFragment}${nativeFragment}${visualFragment}${warningsFragment}${matchesFragment} · size: ${formatPhysicalSize(page)}_`,
     );
     const body = pageBody(page, options);
+    const numbersNote = usesLayoutBody(page, options) ? lineNumbersNote(page.layout) : undefined;
+    if (body && numbersNote) {
+      lines.push('');
+      lines.push(numbersNote);
+    }
     if (body) {
       lines.push('');
       lines.push(body);
@@ -303,6 +321,8 @@ export function formatMarkdownSections(
       appendLayoutTables(lines, page.layout.tables);
     }
     if (options.layout && page.layout?.markedText) appendMarkedText(lines, page.layout.markedText);
+    if (options.layout && page.layout?.connections) appendConnections(lines, page.layout.connections);
+    if (options.layout && page.layout?.charts) appendCharts(lines, page.layout.charts);
     // Only render the match table for pages that actually matched. A
     // zero-match page under --search used to emit a noisy
     // `### Search matches / _No search matches found._` block on every

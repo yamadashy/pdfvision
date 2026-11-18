@@ -38,10 +38,12 @@ function appendLayout(out: string[], page: PageResult): void {
     return;
   }
 
-  out.push('<layout>');
+  const numbers = page.layout.lineNumbers;
+  out.push(numbers ? `<layout firstLineNumber="${numbers.first}" lastLineNumber="${numbers.last}">` : '<layout>');
   appendLayoutBlocks(out, page);
   appendLayoutTables(out, page);
   appendMarkedText(out, page);
+  appendConnections(out, page);
   out.push('</layout>');
 }
 
@@ -50,10 +52,26 @@ function appendMarkedText(out: string[], page: PageResult): void {
   out.push('<markedText>');
   for (const item of page.layout.markedText) {
     out.push(
-      `<mark kind="${item.mark}" x="${item.x}" y="${item.y}" width="${item.width}" height="${item.height}">${escapeText(item.text)}</mark>`,
+      `<mark kind="${item.mark}"${item.group !== undefined ? ` group="${escapeAttr(item.group)}"` : ''} x="${item.x}" y="${item.y}" width="${item.width}" height="${item.height}">${escapeText(item.text)}</mark>`,
     );
   }
   out.push('</markedText>');
+}
+
+function appendConnections(out: string[], page: PageResult): void {
+  if (!page.layout?.connections || page.layout.connections.length === 0) return;
+  out.push('<connections>');
+  for (const item of page.layout.connections) {
+    const attrs = [
+      `from="${escapeAttr(item.from)}"`,
+      `to="${escapeAttr(item.to)}"`,
+      ...(item.label !== undefined ? [`label="${escapeAttr(item.label)}"`] : []),
+      ...(item.bidirectional ? ['bidirectional="true"'] : []),
+      `x="${item.x}" y="${item.y}" width="${item.width}" height="${item.height}"`,
+    ];
+    out.push(`<connection ${attrs.join(' ')}/>`);
+  }
+  out.push('</connections>');
 }
 
 function appendLayoutBlocks(out: string[], page: PageResult): void {
@@ -69,6 +87,7 @@ function appendLayoutBlocks(out: string[], page: PageResult): void {
     if (block.level !== undefined) blockAttrs.push(`level="${block.level}"`);
     if (block.roleConfidence !== undefined) blockAttrs.push(`roleConfidence="${block.roleConfidence}"`);
     if (block.writingMode) blockAttrs.push(`writingMode="${block.writingMode}"`);
+    if (block.rotation !== undefined) blockAttrs.push(`rotation="${block.rotation}"`);
     if (block.repeated) blockAttrs.push('repeated="true"');
     out.push(`<block ${blockAttrs.join(' ')}>`);
     for (const line of block.lines) {
@@ -80,6 +99,8 @@ function appendLayoutBlocks(out: string[], page: PageResult): void {
         `fontSize="${line.fontSize}"`,
       ];
       if (line.writingMode) lineAttrs.push(`writingMode="${line.writingMode}"`);
+      if (line.lineNumber !== undefined) lineAttrs.push(`lineNumber="${line.lineNumber}"`);
+      if (line.indent !== undefined) lineAttrs.push(`indent="${line.indent}"`);
       out.push(`<line ${lineAttrs.join(' ')}>${escapeText(line.text)}</line>`);
     }
     out.push('</block>');
@@ -91,8 +112,9 @@ function appendLayoutTables(out: string[], page: PageResult): void {
 
   out.push('<tables>');
   for (const table of page.layout.tables) {
+    const rotation = table.rotation !== undefined ? ` rotation="${table.rotation}"` : '';
     out.push(
-      `<table x="${table.x}" y="${table.y}" width="${table.width}" height="${table.height}" rowCount="${table.rowCount}" columnCount="${table.columnCount}">`,
+      `<table x="${table.x}" y="${table.y}" width="${table.width}" height="${table.height}" rowCount="${table.rowCount}" columnCount="${table.columnCount}"${rotation}>`,
     );
     for (const row of table.rows) {
       out.push(`<row y="${row.y}" height="${row.height}">`);

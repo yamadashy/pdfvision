@@ -51,6 +51,7 @@ export interface PageWarning {
     | 'raster_image_no_native_text'
     | 'tabular_numeric_layout'
     | 'vector_chart_labels'
+    | 'vector_outlined_text'
     | 'display_math_layout'
     | 'layout_table_uncertain'
     | 'dot_leader_noise'
@@ -67,6 +68,7 @@ export interface PageWarning {
     | 'optional_content_text_may_include_hidden_layers'
     | 'reading_order_divergence'
     | 'rotated_page_read_unrotated'
+    | 'rotated_text_read_upright'
     | 'xfa_form'
     | 'xfa_fields_only'
     | 'xfa_static_content';

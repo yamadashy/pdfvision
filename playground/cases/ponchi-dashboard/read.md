@@ -11,7 +11,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 ## Page 1
 
-_chars: 945 · images: 0 · coverage: 15% · vectors: 100 · tables: 1 · warnings: 1 · size: 841.89×595.28pt_
+_chars: 945 · images: 0 · coverage: 15% · vectors: 100 · tables: 1 · size: 841.89×595.28pt_
 
 地域デジタル人材育成プログラム(仮称)の概要
 
@@ -207,6 +207,39 @@ _chars: 945 · images: 0 · coverage: 15% · vectors: 100 · tables: 1 · warnin
 |  | 6.0 |  |  |  |
 | 12.8 | 中堅企業 | 41% | 33% | 26% |
 
-### Warnings
+### Connections
 
-> **warning** (vector_chart_labels): vector chart at 40,308,784,250 has 58 text labels (values such as "8.2", labels such as "デジタル人材の不足数(推計)"), read together row by row — which value belongs to which bar, series or category is shown only by the drawing; render the region (--render-region 40,308,784,250) before pairing or quoting values
+_Arrows drawn between boxes of text; the text above does not show them._
+
+- 地方ではデジタル人材が慢性的に不足 (2026年には14.6万人が不足する見込み) → 1 オンライン研修プラットフォームの整備 動画教材・演習環境を無償で提供 — bbox 270,124,15,0
+- 研修機会が都市部に集中し、地方部の 受講者数は都市部の3分の1以下 → 2 地域の大学・高専と連携した実践講座 週末・夜間の通学型講座を全国50か所で開講 — bbox 270,171,15,0
+- 中小企業の約半数がDXに未着手 (相談できる専門家が身近にいない) → 3 中小企業への専門家派遣(伴走支援) 1社あたり最大6か月、課題の特定から実装まで — bbox 270,218,15,0
+- 地域で指導者・講師を確保できない (講師の約7割が首都圏在住) → 4 講師育成・認定制度の創設 地域在住の実務家を講師として認定・登録 — bbox 270,265,15,0
+
+### Chart values
+
+_Values paired with their series by colour: the legend swatch matches the line, slice or bar segment the value is set on._
+
+#### Pie chart at 648,396,100,100
+
+| Series | Value |
+| --- | --- |
+| 在職者 | 45% |
+| 離職者・求職者 | 25% |
+| 学生 | 20% |
+| その他 | 10% |
+
+#### Line chart at 254.36,380.77,163.29,140.62
+
+| Series | 2021 | 2022 | 2023 | 2024 | 2025 |
+| --- | --- | --- | --- | --- | --- |
+| 都市部 | 3.1 | 3.8 | 4.6 | 5.2 | 6.0 |
+| 地方部 | 0.9 | 1.1 | 1.4 | 1.6 | 1.9 |
+
+#### Bar chart at 502,350,114,130
+
+| Series | 大企業 | 中堅企業 | 中小企業 | 小規模事業者 |
+| --- | --- | --- | --- | --- |
+| 取組済 | 62% | 41% | 22% |  |
+| 検討中 | 28% | 33% | 30% |  |
+| 未着手 | 10% | 26% | 48% | 70% |
