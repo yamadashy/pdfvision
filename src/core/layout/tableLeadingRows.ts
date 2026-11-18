@@ -2,7 +2,7 @@ import type { LayoutLine } from '../../types/index.js';
 import { type BBox, unionBox } from './geometry.js';
 import { isCaptionHeadingText } from './headingText.js';
 import { isCompactTableLabelCell } from './tableCandidateRows.js';
-import { isCurrencyOnlyCell, isTableNumericCell, numericColumnMatchRight } from './tableCells.js';
+import { isCurrencyOnlyCell, isTableNumericCell, isTableValueCell, numericColumnMatchRight } from './tableCells.js';
 import {
   medianNumber,
   recurringNumericColumnRights,
@@ -53,30 +53,107 @@ export function attachLeadingTableRows(
   const leadingRows: LayoutLine[][] = [];
   let nextIncluded = rows[0];
 
+  const isLeading = (row: LayoutLine[]) =>
+    isLeadingTableRow(row, tableBox, leadingColumnRights, dateHeaderColumnRights, labelLeft, leadingRows.length > 0);
+  let gapRow: LayoutLine[] | undefined;
   for (let index = firstBaseIndex - 1; index >= 0; index--) {
     const candidate = allRows[index];
     if (!candidate || !nextIncluded) break;
-
-    const verticalGap = rowY(nextIncluded) - rowBottom(candidate);
-    if (verticalGap < -TABLE_LEADING_ROW_MAX_OVERLAP_PT || verticalGap > TABLE_LEADING_ROW_MAX_GAP_PT) break;
+    // A label line already folded into the first row (its wrapped head)
+    // is that row's, not a row above it.
+    if (leadingRows.length === 0 && isFoldedInto(candidate, nextIncluded)) continue;
+    if (!isWithinLeadingGap(candidate, nextIncluded)) break;
+    if (isLeading(candidate)) {
+      leadingRows.unshift(candidate);
+      nextIncluded = candidate;
+      continue;
+    }
+    // A single line between the column header and the rows below it is the
+    // header's own: the second line of a wrapped header cell (`消去又は` /
+    // `全社`, joined to its cell later by joinWrappedHeaderRows), or a group
+    // label set under the header (`Open source`). Taken only when the header
+    // row above it is.
+    const header = allRows[index - 1];
     if (
-      !isLeadingTableRow(
-        candidate,
-        tableBox,
-        leadingColumnRights,
-        dateHeaderColumnRights,
-        labelLeft,
-        leadingRows.length > 0,
-      )
+      candidate.length !== 1 ||
+      !isHeaderGapLine(candidate[0]) ||
+      !header ||
+      header.length < 2 ||
+      !isHeaderTextRow(header) ||
+      !isWithinLeadingGap(header, candidate) ||
+      !isLeading(header)
     ) {
       break;
     }
-
     leadingRows.unshift(candidate);
     nextIncluded = candidate;
+    gapRow = candidate;
   }
 
+  if (gapRow) markHeaderRowsAbove(leadingRows, gapRow);
   return leadingRows.length > 0 ? [...leadingRows, ...rows] : rows;
+}
+
+const headerRowsAboveGap = new WeakSet<object>();
+
+/**
+ * Rows above a gap line taken with the header are the header, whatever
+ * their cells hold (a `2022 | 2023` year row is not the table's first
+ * data row): column assignment starts the body below them.
+ */
+export function markHeaderRowsAbove<T extends object>(rows: readonly T[], gapRow: T): void {
+  for (const row of rows) {
+    if (row === gapRow) break;
+    headerRowsAboveGap.add(row);
+  }
+}
+
+export function markHeaderRow(row: object): void {
+  headerRowsAboveGap.add(row);
+}
+
+export function isHeaderRowAboveGap(row: object): boolean {
+  return headerRowsAboveGap.has(row);
+}
+
+/** Where the body may start at the earliest: below the last row marked as header. */
+export function headerRowsEnd(rows: readonly object[]): number {
+  let end = 0;
+  rows.forEach((row, index) => {
+    if (headerRowsAboveGap.has(row)) end = index + 1;
+  });
+  return end;
+}
+
+/** A line that may sit between a column header and the table's rows: short, a label, not a caption. */
+export function isHeaderGapLine(line: LayoutLine): boolean {
+  return isCompactLeadingTableCell(line) && !isTableNumericCell(line.text) && !isCaptionHeadingText(line.text);
+}
+
+/**
+ * A header row is words, not mostly values: the line above a gap line may
+ * otherwise be the last row of the table before this one.
+ */
+export function isHeaderTextRow(row: readonly LayoutLine[]): boolean {
+  return row.filter((line) => isTableValueCell(line.text)).length * 2 < row.length;
+}
+
+function isWithinLeadingGap(row: LayoutLine[], below: LayoutLine[]): boolean {
+  const verticalGap = rowY(below) - rowBottom(row);
+  return verticalGap >= -TABLE_LEADING_ROW_MAX_OVERLAP_PT && verticalGap <= TABLE_LEADING_ROW_MAX_GAP_PT;
+}
+
+function isFoldedInto(row: readonly LayoutLine[], owner: readonly LayoutLine[]): boolean {
+  return row.every((line) =>
+    owner.some(
+      (cell) =>
+        cell !== line &&
+        line.x >= cell.x - 1 &&
+        line.y >= cell.y - 1 &&
+        line.x + line.width <= cell.x + cell.width + 1 &&
+        line.y + line.height <= cell.y + cell.height + 1,
+    ),
+  );
 }
 
 function firstRowNumericColumnRights(rows: LayoutLine[][], minColumns: number): number[] {

@@ -1,5 +1,6 @@
 import type { LayoutTable, LayoutTableCell, LayoutTableRow } from '../../types/index.js';
 import { round2 } from './geometry.js';
+import { isHeaderRowAboveGap } from './tableLeadingRows.js';
 
 export const SPLIT_HEADER_MAX_ROWS = 10;
 const SPLIT_HEADER_MAX_VERTICAL_GAP_PT = 8;
@@ -21,7 +22,18 @@ export function mergeSplitHeaderTables(tables: LayoutTable[]): LayoutTable[] {
     if (duplicateRowIndex === undefined) return table;
 
     const headerRows = splitHeaderRows(header.rows, duplicateRowIndex, table);
-    if (headerRows.length === 0) return table;
+    if (headerRows.length === 0) {
+      // A table that took its header over a gap line already holds every
+      // multi-cell row of the stack (above them only a title or units line):
+      // the stack is its top read again, not a table of its own.
+      const redundant =
+        table.rows[0] !== undefined &&
+        isHeaderRowAboveGap(table.rows[0]) &&
+        header.rows.slice(0, duplicateRowIndex).every((row) => row.cells.length < 2) &&
+        header.rows.slice(duplicateRowIndex).every((row) => isWithinTable(row, table));
+      if (redundant) removed.add(headerIndex);
+      return table;
+    }
 
     removed.add(headerIndex);
     return rebuildTable([...headerRows, ...table.rows]);
@@ -47,6 +59,11 @@ function splitHeaderRows(
     next = row;
   }
   return candidates.filter((row) => isSplitHeaderRow(row, table));
+}
+
+function isWithinTable(row: LayoutTableRow, table: LayoutTable): boolean {
+  const center = row.y + row.height / 2;
+  return center >= table.y && center <= table.y + table.height;
 }
 
 function isSplitHeaderRow(row: LayoutTableRow, table: LayoutTable): boolean {
