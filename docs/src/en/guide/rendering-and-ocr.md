@@ -46,7 +46,7 @@ The rendered image path is returned in `pages[].image`, so an agent can pass it 
 pdfvision document.pdf --pages 2 --render --render-region 120,180,360,240 --render-output ./regions
 ```
 
-`--render-region` takes a rectangle in raw page-view units of the page as displayed, with a top-left origin. A layout, image, or visual-region bbox passes unchanged; the renderer applies UserUnit and render scale when producing pixels.
+`--render-region` takes a rectangle in raw page-view units of the page as displayed, with a top-left origin — or as stored on a page flagged `rotated_page_read_unrotated`, matching its bboxes. A layout, image, or visual-region bbox passes unchanged; the renderer applies UserUnit and render scale when producing pixels.
 
 The same crop flow works after `--search`, because search matches can carry bounding boxes. See [Search and Region Zoom](./search-and-region-zoom.md).
 

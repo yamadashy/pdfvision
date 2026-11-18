@@ -41,7 +41,7 @@ description: pdfvision CLI 選項參考，涵蓋 PDF 輸入、輸出格式、渲
 | `-r, --render` | 將每個選中頁面渲染為 PNG，並在頁面結果中附加影像路徑。 |
 | `--render-output <dir>` | 指定頁面 PNG 或視覺區域 PNG 的輸出目錄。需要 `--render` 或 `--render-visual-regions`。 |
 | `--render-scale <n>` | 設定 `--render`、`--render-visual-regions` 或 `--ocr` 的 rasterization 倍率。預設 `2`，範圍 `(0, 4]`。三個 flag 皆未指定時會報錯。 |
-| `--render-region <x,y,width,height>` | Render one page sub-rectangle in raw page-view units of the page as displayed. 需要 `--render` 或 `--ocr`，且 `--pages` 必須剛好解析為一個頁面。 |
+| `--render-region <x,y,width,height>` | Render one page sub-rectangle in raw page-view units of the page as displayed (as stored on a page flagged `rotated_page_read_unrotated`). 需要 `--render` 或 `--ocr`，且 `--pages` 必須剛好解析為一個頁面。 |
 
 座標使用左上原點：`x` 向右增加，`y` 向下增加。layout block、image box、vector box、search match 和 visual region 使用相同的原始 page-view units。物理點數 = 原始值 × `pages[].userUnit`（省略時按 1）；像素數 = 原始區域 × UserUnit × render scale。
 
@@ -55,7 +55,7 @@ description: pdfvision CLI 選項參考，涵蓋 PDF 輸入、輸出格式、渲
 | `--vector-boxes` | 在 `pages[].vectorBoxes` 中輸出向量繪製 bbox。 |
 | `--visual-regions` | 輸出圖、圖表、表格、表單、註解以及 raster/vector 群集的可裁切區域。 |
 | `--render-visual-regions` | 渲染視覺區域裁切圖，並附加路徑、content ratio 和更緊的 rendered content box。隱含 `--visual-regions`。 |
-| `--strip-repeated` | 從 Markdown 移除重複區塊。需要 `--layout`；JSON/TOON 保留 `repeated: true`，XML 保留 `repeated="true"` 區塊屬性。 The document header then names each stripped string once with its page count, so text found only in a running header or footer is not lost. |
+| `--strip-repeated` | 從 Markdown 移除重複區塊。需要 `--layout`；JSON/TOON 保留 `repeated: true`，XML 保留 `repeated="true"` 區塊屬性。 The document header then names the stripped strings once with their page counts — up to eight, those on the most pages first, each clipped at 100 characters, with a count of the rest — so a fact found only in a running header or footer is still in the output; read without `--strip-repeated` (or the JSON `repeated: true` blocks) for every string in full. |
 
 ## 搜尋
 

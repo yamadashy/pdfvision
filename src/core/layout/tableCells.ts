@@ -45,9 +45,15 @@ const TABLE_NOTE_MARKER_PREFIX_PATTERN = /^※\s*\d+\s+(?=\S)/u;
 const TABLE_TRIANGLE_NEGATIVE_PATTERN = /^[△▲]\s*(?=\d)/u;
 const TABLE_TRAILING_CURRENCY_PATTERN = /\s*[$¥€£]$/u;
 
-/** A number, including one written negative with a leading triangle (`△1,234`). */
+/**
+ * A number, including one written negative with a leading triangle
+ * (`△1,234`) or marked with significance stars (`0.12***`) — a regression
+ * table can star every coefficient it reports.
+ */
 export function isSignedTableNumericCell(text: string): boolean {
-  return isTableNumericCell(text.trim().replace(TABLE_TRIANGLE_NEGATIVE_PATTERN, ''));
+  return isTableNumericCell(
+    text.trim().replace(TABLE_SIGNIFICANCE_SUFFIX_PATTERN, '').replace(TABLE_TRIANGLE_NEGATIVE_PATTERN, ''),
+  );
 }
 
 /** A dash-like or `n/a` marker standing in for an empty value. */

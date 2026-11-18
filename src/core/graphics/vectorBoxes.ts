@@ -83,7 +83,9 @@ export function buildVectorBoxes(
 ): VectorBox[] {
   const boxes: VectorBox[] = [];
   let ctm: Matrix6 = [1, 0, 0, 1, 0, 0];
-  let fillColor: string | undefined;
+  // PDF starts every page with a black fill colour, and pdf.js emits no
+  // colour op for it, so a default-black bar must not read as uncoloured.
+  let fillColor: string | undefined = '#000000';
   let pendingClipBox: VectorBox | undefined;
   const stack: GraphicsState[] = [];
 

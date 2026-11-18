@@ -3,7 +3,8 @@
  * character, word, or longer string; its bbox covers the whole item rather
  * than individual glyph outlines, and adjacent items are not merged or split
  * in public spans. The rounded aggregate axis-aligned bbox uses raw
- * page-view units in the displayed (post-/Rotate) page frame, with `(0, 0)`
+ * page-view units in the displayed (post-/Rotate) page frame (the stored
+ * frame on a page flagged `rotated_page_read_unrotated`), with `(0, 0)`
  * at the top-left and y increasing downward. Multiply by `pages[].userUnit`
  * (or 1 when omitted) for physical points. These are page coordinates, not
  * PNG pixels; rendered pixels equal raw lengths × UserUnit × render scale.

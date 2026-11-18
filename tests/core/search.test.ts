@@ -1,5 +1,6 @@
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { buildFormFields } from '../../src/core/formFields/index.js';
 import { attachFormFieldTextAppearance } from '../../src/core/formFields/types.js';
 import { buildLayout } from '../../src/core/layout/index.js';
 import { markExplicitSpaceBefore } from '../../src/core/layout/spanMetadata.js';
@@ -868,6 +869,37 @@ describe('processDocument search', () => {
       context: 'Single line, combs: abcdefghijklmnopqrstuvwxyz',
     });
     expect(JSON.stringify(field)).not.toContain('maxLen');
+  });
+
+  it('subdivides a comb widget along the axis its cells run on a rotated page', () => {
+    // A horizontal 4-cell comb stored on a /Rotate 90 or 270 page shows as a
+    // tall 20×80 widget; its cells run down (90) or up (270) the displayed page.
+    const annotation = {
+      subtype: 'Widget',
+      fieldName: 'Code',
+      fieldType: 'Tx',
+      fieldValue: 'abcd',
+      comb: true,
+      maxLen: 4,
+      rect: [100, 100, 120, 180],
+    };
+    const compiled = compileSearch('a', {});
+    if (!compiled) throw new Error('expected compiled search');
+    const firstCell = (frameRotation: 0 | 90 | 180 | 270) => {
+      const fields = buildFormFields([annotation], 300, 0, 0, [], { frameRotation });
+      return searchPage([], undefined, 1, 300, 300, compiled, undefined, fields)[0]?.bbox;
+    };
+    expect(firstCell(90)).toEqual({ x: 100, y: 120, width: 20, height: 20 });
+    expect(firstCell(270)).toEqual({ x: 100, y: 180, width: 20, height: 20 });
+
+    const wide = { ...annotation, rect: [100, 100, 180, 120] };
+    const fields180 = buildFormFields([wide], 300, 0, 0, [], { frameRotation: 180 });
+    expect(searchPage([], undefined, 1, 300, 300, compiled, undefined, fields180)[0]?.bbox).toEqual({
+      x: 160,
+      y: 180,
+      width: 20,
+      height: 20,
+    });
   });
 
   it('keeps visible FreeText annotation matches when the same text appears elsewhere', () => {

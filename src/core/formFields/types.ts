@@ -5,6 +5,11 @@ const FORM_FIELD_TEXT_APPEARANCE = Symbol('pdfvision.formFieldTextAppearance');
 export interface FormFieldTextAppearance {
   comb?: boolean;
   maxLen?: number;
+  /**
+   * Clockwise turn from the widget's stored x axis to the reported frame, so
+   * comb cells run down (90), right to left (180) or up (270) the page.
+   */
+  rotation?: 0 | 90 | 180 | 270;
 }
 
 export type FormFieldWithTextAppearance = FormField & {

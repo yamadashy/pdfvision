@@ -212,6 +212,49 @@ describe('symbol_font_substitution', () => {
     expect(warningsFor(spans)).toEqual([]);
   });
 
+  it('counts a number written without its leading zero (APA-style .001) as the number beside the slot', () => {
+    const spans = [
+      ...prose(100),
+      ...lineSpans(
+        [
+          ['shifts of (', BODY],
+          ['2', SYM],
+          ['.5, ', BODY],
+          ['2', SYM],
+          ['.25 and p ', BODY],
+          [',', SYM],
+          ['.001', BODY],
+        ],
+        120,
+      ),
+    ];
+    const out = warningsFor(spans);
+    expect(out).toHaveLength(1);
+    expect(out[0].message).toContain('3 single-glyph runs in font font2');
+  });
+
+  it('clips the suggested render region to the page so the command it prints is accepted', () => {
+    const line = lineSpans(
+      [
+        ['(', BODY],
+        ['2', SYM],
+        ['52%, p ', BODY],
+        [',', SYM],
+        [' 0.001), unchanged (', BODY],
+        ['2', SYM],
+        ['2%', BODY],
+      ],
+      120,
+    ).map((span) => ({ ...span, x: span.x - 80 }));
+    const out = warningsFor([...prose(100), ...line]);
+    expect(out).toHaveLength(1);
+    const region = /--render-region ([^)]+)\)/u.exec(out[0].message)?.[1].split(',').map(Number) ?? [];
+    expect(region).toHaveLength(4);
+    expect(region[0]).toBe(0);
+    expect(region[1]).toBeGreaterThanOrEqual(0);
+    expect(region[2]).toBeGreaterThan(0);
+  });
+
   it('ignores pages whose producer positions every glyph separately', () => {
     const glyphs: Part[] = [];
     for (const ch of 'care (52%, p 0.001) and 7.1 9.8 years') glyphs.push([ch, BODY]);

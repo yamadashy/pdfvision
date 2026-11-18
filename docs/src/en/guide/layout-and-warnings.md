@@ -75,7 +75,7 @@ Common warning families include:
 - overlapping text or off-page text boxes.
 - body text crowded against repeated headers or footers.
 - flattened numeric tables.
-- layout table hints whose cells did not resolve into one consistent grid (`layout_table_uncertain`), including a wrapped label whose first lines could belong to the row above as well as to its own values.
+- layout table hints whose cells did not resolve into one consistent grid (`layout_table_uncertain`), including a wrapped label whose first lines could belong to the row above as well as to its own values, and a label set in two lines around its values' line.
 - vector chart labels kept together but not paired with their bars (`vector_chart_labels`), naming the chart region to render.
 - signs set in a symbol font whose character map reports them as ordinary characters, so `−52%` reads as `252%` (`symbol_font_substitution`).
 - native-vs-visual reading order divergence.

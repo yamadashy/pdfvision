@@ -30,25 +30,34 @@ export function textMatrixFontSize(transform: readonly number[], fallback = 0): 
 export function textRunGeometryFromTransform(input: TextRunGeometryInput): TextRunGeometry {
   const [a = 0, b = 0, c = 0, d = 0, e = 0, f = 0] = input.transform;
   const fontSize = textMatrixFontSize(input.transform, input.height);
-  if (input.dir === 'ttb' && Math.abs(b) <= VECTOR_EPSILON && Math.abs(c) <= VECTOR_EPSILON) {
-    return {
-      x: round2(e - input.viewMinX),
-      y: round2(input.pageHeight - (f - input.viewMinY)),
-      width: round2(input.width > 0 ? input.width : fontSize),
-      height: round2(input.height > 0 ? input.height : fontSize),
-      fontSize: round2(fontSize),
-    };
-  }
-
   const baseline = unitVector(a, b) ?? [1, 0];
   const normal = unitVector(c, d) ?? [-baseline[1], baseline[0]];
-  const glyphHeight = input.height > 0 ? input.height : fontSize;
-  const points = [
-    [e, f],
-    [e + baseline[0] * input.width, f + baseline[1] * input.width],
-    [e + normal[0] * glyphHeight, f + normal[1] * glyphHeight],
-    [e + baseline[0] * input.width + normal[0] * glyphHeight, f + baseline[1] * input.width + normal[1] * glyphHeight],
-  ];
+  let points: number[][];
+  if (input.dir === 'ttb') {
+    // pdf.js reports a vertical run's advance in `height` and its origin at
+    // the run's top: the box spans `width` along the baseline axis and
+    // `height` against the normal. Built from the matrix axes, it turns with
+    // a display frame (/Rotate) instead of reading as horizontal text.
+    const across = input.width > 0 ? input.width : fontSize;
+    const down = input.height > 0 ? input.height : fontSize;
+    points = [
+      [e, f],
+      [e + baseline[0] * across, f + baseline[1] * across],
+      [e - normal[0] * down, f - normal[1] * down],
+      [e + baseline[0] * across - normal[0] * down, f + baseline[1] * across - normal[1] * down],
+    ];
+  } else {
+    const glyphHeight = input.height > 0 ? input.height : fontSize;
+    points = [
+      [e, f],
+      [e + baseline[0] * input.width, f + baseline[1] * input.width],
+      [e + normal[0] * glyphHeight, f + normal[1] * glyphHeight],
+      [
+        e + baseline[0] * input.width + normal[0] * glyphHeight,
+        f + baseline[1] * input.width + normal[1] * glyphHeight,
+      ],
+    ];
+  }
   const xs = points.map((p) => p[0]);
   const ys = points.map((p) => p[1]);
   const minX = Math.min(...xs);

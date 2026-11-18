@@ -50,7 +50,8 @@ export interface ProcessDocumentOptions {
   renderScale?: number;
   /**
    * Sub-rectangle of the page to rasterise instead of the full page. It uses
-   * raw displayed (post-/Rotate) page-view units, with a top-left origin and y growing
+   * raw displayed (post-/Rotate) page-view units (stored on a page flagged
+   * `rotated_page_read_unrotated`), with a top-left origin and y growing
    * downward, matching `pages[].spans`, `layout.blocks`, and `imageBoxes`.
    * Physical points equal raw values × the page's `userUnit` (or 1 when
    * omitted); pixels equal raw region × UserUnit × render scale.

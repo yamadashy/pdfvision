@@ -232,14 +232,17 @@ function isHeadingAboveLabel(
  * cell starting where it does on a row with more cells.
  */
 export function labelColumnRight(label: LayoutLine, allRows: readonly LayoutLine[][]): number {
-  let right = label.x + label.width;
-  for (const row of allRows) {
+  const firsts = allRows.flatMap((row) => {
     const first = row[0];
-    if (!first || row.length < 2 || Math.abs(first.x - label.x) > TABLE_DROPPED_LABEL_X_TOLERANCE_PT) continue;
-    if (isTableValueCell(first.text)) continue;
-    right = Math.max(right, first.x + first.width);
-  }
-  return right;
+    if (!first || row.length < 2 || Math.abs(first.x - label.x) > TABLE_DROPPED_LABEL_X_TOLERANCE_PT) return [];
+    if (isTableValueCell(first.text)) return [];
+    if (!row.some((line) => line !== first && isTableValueCell(line.text))) return [];
+    return [first];
+  });
+  // The first such row is where a header sits (\`(In millions, except per-share
+  // amounts) | 2024 | 2023\`), and its first cell can run far past the labels.
+  const body = firsts.length > 2 ? firsts.slice(1) : firsts;
+  return Math.max(label.x + label.width, ...body.map((first) => first.x + first.width));
 }
 
 /**

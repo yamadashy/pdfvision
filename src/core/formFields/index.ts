@@ -31,6 +31,8 @@ interface PdfAnnotation {
 
 interface BuildFormFieldsOptions {
   widgetAppearanceCaptions?: ReadonlyMap<string, string>;
+  /** Rotation of the reading frame the annotation rects were mapped into. */
+  frameRotation?: 0 | 90 | 180 | 270;
 }
 
 type Rect = [number, number, number, number];
@@ -101,7 +103,7 @@ export function buildFormFields(
       ...(actions !== undefined && { actions }),
       ...(resetForm !== undefined && { resetForm }),
     };
-    const textAppearance = formFieldTextAppearance(ann);
+    const textAppearance = formFieldTextAppearance(ann, options.frameRotation);
     if (textAppearance) attachFormFieldTextAppearance(field, textAppearance);
     fields.push(field);
   }
@@ -140,13 +142,16 @@ function fieldCaption(
   return normalized.length > 0 ? normalized : undefined;
 }
 
-function formFieldTextAppearance(annotation: PdfAnnotation): FormFieldTextAppearance | undefined {
+function formFieldTextAppearance(
+  annotation: PdfAnnotation,
+  rotation: FormFieldTextAppearance['rotation'],
+): FormFieldTextAppearance | undefined {
   if (annotation.fieldType !== 'Tx') return undefined;
   if (annotation.comb !== true) return undefined;
   if (typeof annotation.maxLen !== 'number' || !Number.isInteger(annotation.maxLen) || annotation.maxLen <= 0) {
     return undefined;
   }
-  return { comb: true, maxLen: annotation.maxLen };
+  return { comb: true, maxLen: annotation.maxLen, ...(rotation && { rotation }) };
 }
 
 function formResetAction(value: unknown): FormFieldResetFormAction | undefined {

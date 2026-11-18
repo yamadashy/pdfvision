@@ -42,7 +42,8 @@ export interface PageOverview {
   /**
    * Mirror of {@link PageResult.rotation}, present only for rotated pages
    * so multi-page consumers can spot pages stored turned; their geometry
-   * and size are already reported as displayed. XML currently
+   * and size are already reported as displayed, except on a page flagged
+   * `rotated_page_read_unrotated`, which keeps its stored frame. XML currently
    * omits this overview attribute; JSON, decoded TOON, and the library retain it.
    */
   rotation?: number;

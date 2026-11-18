@@ -11,9 +11,16 @@ import type { LayoutLine } from '../../types/index.js';
 const segmentsByLine = new WeakMap<LayoutLine, LayoutLine[]>();
 
 export function recordGutterSegments(line: LayoutLine, segments: LayoutLine[]): void {
-  // Single letters set far apart are letter-spacing or stacked subscripts
-  // (`V` `O L S`), not words that could each head a column.
-  if (segments.length < 2 || segments.some((segment) => [...segment.text.trim()].length < 2)) return;
+  // Single letters set far apart in a run are letter-spacing or stacked
+  // subscripts (`V` `O L S`), not words that could each head a column; one
+  // short header among words (`Region  N  Installed`) still is a column.
+  const single = (segment: LayoutLine) => [...segment.text.trim()].length < 2;
+  if (
+    segments.length < 2 ||
+    segments.some((segment, index) => index > 0 && single(segment) && single(segments[index - 1]))
+  )
+    return;
+  if (segments.every(single)) return;
   segmentsByLine.set(line, segments);
 }
 
