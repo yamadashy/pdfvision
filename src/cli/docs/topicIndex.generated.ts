@@ -30,6 +30,7 @@ export const CLI_WARNING_CODES: readonly string[] = [
   "dense_vector_graphics",
   "dot_leader_noise",
   "duplicate_text_layer",
+  "faint_text",
   "font_mapping_warning",
   "glyph_garbage_text",
   "invisible_text",

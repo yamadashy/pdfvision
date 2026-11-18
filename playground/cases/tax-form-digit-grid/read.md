@@ -188,7 +188,6 @@ _chars: 895 · images: 0 · coverage: 12% · vectors: 254 · tables: 1 · warnin
 所得金額等
 
 所得から差し
-
 引かれる金額
 
 ※ 金額の頭には「¥」を付けないでください。

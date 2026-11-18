@@ -2,7 +2,7 @@
 
 - **Stresses:** syntax-coloured code with a line-number gutter where indentation (placed as x offsets) carries meaning in YAML and Python; admonition box; inline code; Markdown table source next to the rendered table; shell session with prompts
 - **Families:** structure, tables
-- **Status:** known-gap
+- **Status:** ok
 
 Two pages of the tidepool docs (v2.4), breadcrumb “Guides › Pipelines › Configuring pipelines”, footer `https://docs.tidepool.example/guides/pipelines/`.
 
@@ -97,21 +97,16 @@ numbers apart from the code, and does not merge the Markdown source with the ren
 4. What is the default for `retries`, and what does `timeout` default to? — `0`; `30m`
 5. Which command checks the configuration without running anything, and which previews the run? — `tidepool validate tidepool.yaml`; `tidepool run nightly-export --dry-run`
 
-**Known gap (no issue yet):** no warning on either page, and both code blocks lose what makes
-them code: every line comes out flush left. The YAML block, drawn on a tinted panel, is read
-line by line, each line number on its own before its line (`1` / `pipeline:` / `2` /
-`name: nightly-export` / …): the gutter rule between them splits the numbers off. Its order is
-right, but with the indentation gone question 2 still rests on line order alone (`notify`
-follows the `load` stage's `image`, and nothing says it is a pipeline-level key). In the Python
-block the gutter is read as a column of its own (`1` … `16`, then the code, `from tidepool …`
-first); question 3 cannot be answered — `self.log.info("dedupe finished")` follows
-`yield row` at the same (zero) indentation, so nothing distinguishes once-per-run from
-once-per-row.
+**Reads correctly (#269):** both code blocks come back as fenced code with their indentation,
+one line per row, and the line-number gutter left out of the code and named above the fence
+(`_Lines 1–16 (line numbers left out of the code):_`). `TARGET` and `THREADS` sit under
+`env:` of the `transform` stage and `notify:` is indented two spaces, a sibling of
+`stages:` (questions 1 and 2); `self.log.info("dedupe finished")` is at the method body's level
+after the `for` loop (question 3). The Markdown source and the shell session are fenced too,
+the session with its aligned columns (`[extract]    would run …`), so questions 4 and 5 are
+answered from them.
 
-The rest holds up. The Markdown source comes back intact and separate from the rendered table,
-so question 4 is answered from the source; the rendered table itself is read row by row, its
-column rules splitting the header line into its labels (`Option` / `Type` / `Default` /
-`Description`, then `name` / `string` / `—` / …), with no layout table. The shell
-session keeps its prompts and order (question 5), though `[extract]` and `[load]` are split from
-their `would run …` text (each is still followed by its own). The breadcrumb and URL lines are
+What remains is outside #269: the rendered options table is read row by row, its column rules
+splitting the header line into its labels (`Option` / `Type` / `Default` / `Description`,
+then `name` / `string` / `—` / …), with no layout table, and the breadcrumb and URL lines are
 dropped as repeated chrome and named once in the header (issue #259).

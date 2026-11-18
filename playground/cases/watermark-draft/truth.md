@@ -57,8 +57,9 @@ The move affects 18 roles at Fremont. All affected staff will be offered positio
 **Current reading (ok):** all five questions are answerable from `read.md`. The watermark does
 *not* fuse into the memo's lines here: it comes out as a separate `DRAFT` paragraph on each page
 (after the header fields on page 1, after the timeline on page 2), and the
-stamp as `SAMPLE` between the CC and Date values. Neither is labelled as a watermark or
-stamp, but their presence answers question 1. The survey's failure (`Sample invoiceInvoice
+stamp as `SAMPLE` between the CC and Date values. The watermark is named on each page by a
+`faint_text` warning (drawn faint, "elsewhere a watermark or dimmed text", with its bbox); the
+stamp is not labelled. Their presence answers question 1. The survey's failure (`Sample invoiceInvoice
 number`) did not reproduce with a watermark drawn behind the text at this angle and size.
 
 The letter-spaced small-caps headings read as words (`BACKGROUND`, `PROPOSAL`,
@@ -67,6 +68,6 @@ block is read as a label column then a value column (`TO:` … `RE:`, then the f
 `SAMPLE` between the third and fourth), so question 2 depends on counting. The timeline
 table is not detected; it is read column by column, each column whole (`Milestone` /
 `Committee approval` / `Dock works complete at Hayward` / …, then `Owner` / …, then
-`Target date` / …), so question 4 is answered by position within the columns. The only warnings
-are `text_overlap` (“block bboxes overlap … may visually collide”), caused by
-the watermark; they name no next step.
+`Target date` / …), so question 4 is answered by position within the columns. Besides
+`faint_text`, the only warnings are `text_overlap` (“block bboxes overlap … may visually
+collide”), caused by the watermark; they name no next step.

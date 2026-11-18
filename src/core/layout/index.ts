@@ -1,4 +1,5 @@
 import type { LayoutBlock, LayoutLine, PageLayout, TextSpan } from '../../types/index.js';
+import { extractCodeBlocks } from './codeBlocks.js';
 import { isProseColumnTable } from './columnGutters.js';
 import { isStandaloneNumericLineAfterProse } from './columns.js';
 import { unionBox } from './geometry.js';
@@ -8,6 +9,7 @@ import { orderLayoutBlocks } from './regionOrder.js';
 import { detectLayoutRegions, type LayoutGraphics } from './regions.js';
 import { tableRules } from './tableRules.js';
 import { detectLayoutTables } from './tables.js';
+import { isVerticalPage, orderVerticalPage } from './vertical/pageOrder.js';
 import { compareLayoutBlocks, extractVerticalCjkBlocks } from './verticalText.js';
 import { findWovenContinuation } from './wovenLines.js';
 
@@ -36,13 +38,20 @@ const SHORT_LARGER_LINE_MAX_CHARS = 100;
  * `graphics` (the page's vector and image boxes) lets frames, rule bands
  * and figures keep their text together in the reading order.
  */
-export function buildLayout(spans: TextSpan[], pageWidth = 0, pageHeight = 0, graphics?: LayoutGraphics): PageLayout {
+export function buildLayout(
+  spans: TextSpan[],
+  pageWidth = 0,
+  pageHeight = 0,
+  graphics?: LayoutGraphics,
+  monospaceFonts?: ReadonlySet<string>,
+): PageLayout {
   if (spans.length === 0) return { blocks: [] };
 
   const vertical = extractVerticalCjkBlocks(spans);
+  const code = extractCodeBlocks(vertical.remainingSpans, monospaceFonts);
 
   const rules = tableRules(graphics?.vectorBoxes);
-  const { lines, columnGutters } = buildLayoutLinesWithGutters(vertical.remainingSpans, pageWidth, rules.vertical);
+  const { lines, columnGutters } = buildLayoutLinesWithGutters(code.remainingSpans, pageWidth, rules.vertical);
   // A "table" whose every column boundary is a detected prose gutter is the
   // page's text columns read across (#242), not a table.
   const detectedTables = detectLayoutTables(lines, rules, graphics?.vectorBoxes)?.filter(
@@ -113,7 +122,14 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0, pageHeight = 0, gr
       lines: group,
     })),
     ...vertical.blocks,
+    ...code.blocks,
   ].sort(compareLayoutBlocks);
+
+  if (isVerticalPage(blocks)) {
+    const ordered = orderVerticalPage(blocks);
+    classifyHeadings(ordered, pageWidth, pageHeight);
+    return { blocks: ordered, ...(tables !== undefined && { tables }) };
+  }
 
   classifyHeadings(blocks, pageWidth, pageHeight);
   const ordered =

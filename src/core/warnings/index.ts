@@ -11,6 +11,7 @@ import {
   detectPageEdgeTextTruncated,
   suppressOffPageForTruncatedBlocks,
 } from './edge.js';
+import { detectFaintText } from './faintText.js';
 import {
   detectFontMappingWarning,
   detectGlyphGarbageText,
@@ -124,6 +125,7 @@ function detectPageWarningsInPhysicalPoints(page: PageResult, context: PageWarni
   detectRotatedPageReadUnrotated(page, context, warnings);
   detectTextUnderOpaqueFill(page, context, warnings);
   detectTextMatchesBackground(page, context, warnings);
+  detectFaintText(page, context, warnings);
   detectRasterBackedTextLayer(page, context, warnings);
   detectRasterTextLayerSymbolNoise(page, context, warnings);
   detectRasterTextLayerWordFragmentation(page, context, warnings);

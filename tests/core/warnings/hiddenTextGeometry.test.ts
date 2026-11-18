@@ -168,6 +168,50 @@ describe('text_matches_background', () => {
   });
 });
 
+describe('faint_text', () => {
+  it('names items drawn at overlay opacity and leaves revealed ones alone', async () => {
+    const warnings = await warningsFor((doc) => {
+      doc.fillColor('#3333b2').text('Forward difference in time', 72, 100, { lineBreak: false });
+      doc.save().fillOpacity(0.15).fillColor('#3333b2');
+      doc.text('Each step costs O(N)', 72, 120, { lineBreak: false });
+      doc.text('Stable only if lambda <= 1/2', 72, 140, { lineBreak: false });
+      doc.restore();
+    });
+
+    const warning = warnings.find((item) => item.code === 'faint_text');
+    expect(warning?.severity).toBe('warning');
+    expect(warning?.message).toContain('2 extracted native text passages are drawn faint');
+    expect(warning?.message).toContain('"Each step costs O(N)"');
+    expect(warning?.message).toContain('"Stable only if lambda <= 1/2"');
+    expect(warning?.message).not.toContain('Forward difference');
+    expect(codes(warnings)).not.toContain('text_matches_background');
+  });
+
+  it('names light grey on white but not ordinary grey, and leaves invisible text to text_matches_background', async () => {
+    const warnings = await warningsFor((doc) => {
+      doc.fillColor('#999999').text('Ordinary grey caption', 72, 100, { lineBreak: false });
+      doc.fillColor('#cccccc').text('Dimmed aside text', 72, 120, { lineBreak: false });
+      doc.fillColor('white').text('White hidden text', 72, 140, { lineBreak: false });
+    });
+
+    const faint = warnings.find((item) => item.code === 'faint_text')?.message;
+    expect(faint).toContain('aside text"');
+    expect(faint).not.toContain('Ordinary grey');
+    expect(faint).not.toContain('White hidden');
+    expect(warnings.find((item) => item.code === 'text_matches_background')?.message).toContain('hidden text"');
+  });
+
+  it('stays silent over images and for full-contrast text', async () => {
+    const warnings = await warningsFor((doc) => {
+      doc.image(darkPng(), 60, 90, { width: 300, height: 30 });
+      doc.save().fillOpacity(0.15).fillColor('black').text('Faint over photo', 72, 100, { lineBreak: false }).restore();
+      doc.fillColor('black').text(LINE, 72, 200, { lineBreak: false });
+    });
+
+    expect(codes(warnings)).not.toContain('faint_text');
+  });
+});
+
 describe('glyph placement from the operator list', () => {
   const OP = {
     save: 1,

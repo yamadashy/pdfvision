@@ -2,7 +2,8 @@
 
 - **Stresses:** 4:3 pages; overlay pages whose unrevealed items are drawn at 15% opacity; an \only formula swap on the last overlay; repeated navigation bar and footer with a frame counter that does not advance
 - **Families:** hidden-overlap, page-geometry, structure
-- **Status:** known-gap
+- **Status:** ok
+- **Showcase:** every overlay page carries the text of all four items, the unrevealed ones only drawn at 15% opacity, and the content shared by the steps of one frame looks like repeated page chrome
 
 Six PDF pages, three frames. Every page has the section navigation bar (Introduction · Explicit methods · Implicit methods · Summary)
 and a footer: Ana Ferreira | Stability of time-stepping | frame counter.
@@ -29,19 +30,16 @@ faint ones are not yet shown), and that the formula changes on page 6.
 4. What is the stability condition for explicit Euler? — λ = Δt/Δx² ≤ 1/2
 5. What frame number does the footer show on page 5? — 3 / 24
 
-**Known gap (no issue yet):** pages 3, 4 and 5 come back with identical text and no warning,
-each listing every item including the faint ones — so question 2 gets all of
-`Each step costs O(N) …`, `Error is O(Δt + Δx2) …` and `Stable only if λ = Δt / Δx2 ≤ 1/2` on
-page 4, two of which the audience cannot see yet. Worse, what *is* visible on every overlay page is
-dropped as repeated chrome: the frame title `Explicit Euler for the heat equation`, the first item
-`Forward difference in time, central difference in space`, the navigation bar, and the footer — so the first bullet never
-appears in the bodies of pages 3–6. The header names each stripped string once with its page
-count (issue #259), so the first bullet and the `3 / 24` counter are in the response,
-but not which pages carried them (question 5 still unanswerable per page;
-pages 1 and 2 keep `1 / 24` and `2 / 24` because their counters differ). Nothing
-says the pages are overlays of one frame (question 1 only by noticing the duplicates).
-
-Question 3 is answerable by comparing pages: page 6 ends `Δt ≤ Δx2 / 2 ⇒ halving Δx quarters Δt`,
-pages 3–5 end with the update rule, read with its scripts marked:
-`u_j^{n+1} = u_j^n + λ (u_{j+1}^n − 2u_j^n + u_{j−1}^n)` (#241). Question 4 is answered from the last item
-(`Δx2` for Δx²).
+**Reads correctly, the faint items flagged (#270):** pages 3, 4 and 5 still carry the text of every
+item (it is in the file), but each names the items still faint on that step in a `faint_text`
+warning — page 3 the last three, page 4 `Error is O(Δt + Δx2) …` and `Stable only if λ = Δt / Δx2 ≤ 1/2`,
+page 5 the last one, page 6 none — "usually an item not yet revealed on this overlay step", with a
+bbox each, so question 2 is answered: page 4 shows the first two. The four overlay pages are
+recognised as steps of one frame for the chrome pass, so what they share is their body: the frame
+title, the first item and the `3 / 24` counter stay in every one of pages 3–6, and only the
+navigation bar, author and talk title (on all three frames) are stripped and named once in the
+header (question 5). Nothing states the overlay grouping in words, but the identical title and
+counter on pages 3–6 plus the warning give question 1. Question 3 is answered by comparing pages:
+page 6 ends `Δt ≤ Δx^2 / 2 ⇒ halving Δx quarters Δt`, pages 3–5 with the update rule
+`u_j^{n+1} = u_j^n + λ (u_{j+1}^n − 2u_j^n + u_{j−1}^n)` (#241). Question 4 is answered from the
+last item.

@@ -12,8 +12,8 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 | Page | Chars | Images | Coverage | Size (pt) | Vectors | Blocks | Fields | Links | Annots |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 1260 | 0 | 14% | 612×792 | 10 | 46 | 0 | 0 | 0 |
-| 2 | 1415 | 0 | 14% | 612×792 | 17 | 38 | 0 | 0 | 0 |
+| 1 | 1260 | 0 | 14% | 612×792 | 10 | 12 | 0 | 0 | 0 |
+| 2 | 1415 | 0 | 14% | 612×792 | 17 | 35 | 0 | 0 | 0 |
 
 ---
 
@@ -32,106 +32,49 @@ to the pipeline. Use two spaces per level, never tabs.
 
 Example
 
-1
-
+_Lines 1–16 (line numbers left out of the code):_
+```
 pipeline:
-
-2
-
-name: nightly-export
-
-3
-
-schedule: "0 2 * * *"
-
-4
-
-stages:
-
-5
-
-- name: extract
-
-6
-
-image: tidepool/pg-dump:16
-
-7
-
-retries: 3
-
-8
-
-- name: transform
-
-9
-
-image: tidepool/dbt:1.8
-
-10
-
-env:
-
-11
-
-TARGET: warehouse
-
-12
-
-THREADS: "8"
-
-13
-
-- name: load
-
-14
-
-image: tidepool/s3-sync:2
-
-15
-
-notify:
-
-16
-
-on_failure: "#data-alerts"
+  name: nightly-export
+  schedule: "0 2 * * *"
+  stages:
+    - name: extract
+      image: tidepool/pg-dump:16
+      retries: 3
+    - name: transform
+      image: tidepool/dbt:1.8
+      env:
+        TARGET: warehouse
+        THREADS: "8"
+    - name: load
+      image: tidepool/s3-sync:2
+  notify:
+    on_failure: "#data-alerts"
+```
 
 Custom stages
 
 A custom stage is a subclass of Stage registered under a name with @register :
 
-1
-2
-3
-4
-5
-6
-7
-8
-9
-10
-11
-12
-13
-14
-15
-16
-
+_Lines 1–16 (line numbers left out of the code):_
+```
 from tidepool import Stage, register
+
 
 @register("dedupe")
 class Dedupe(Stage):
-"""Drop rows already seen in this run."""
+    """Drop rows already seen in this run."""
 
-def run(self, rows):
-seen = set()
-for row in rows:
-key = (row["id"], row["ts"])
-if key in seen:
-continue
-seen.add(key)
-yield row
-self.log.info("dedupe finished")
+    def run(self, rows):
+        seen = set()
+        for row in rows:
+            key = (row["id"], row["ts"])
+            if key in seen:
+                continue
+            seen.add(key)
+            yield row
+        self.log.info("dedupe finished")
+```
 
 1/2
 
@@ -145,6 +88,7 @@ Stage options
 
 Every stage accepts the options below. In the source of this page the table is written as:
 
+```
 | Option | Type | Default | Description |
 |---------|----------|:-------:|------------------------------|
 | `name` | string | — | Unique stage name; used in logs. |
@@ -152,6 +96,7 @@ Every stage accepts the options below. In the source of this page the table is w
 | `retries` | integer | 0 | Extra attempts after a failure. |
 | `timeout` | duration | 30m | Kill the stage after this long. |
 | `env` | map | {} | Environment variables for the stage. |
+```
 
 which renders as:
 
@@ -208,18 +153,15 @@ Validating and dry-running
 Check a configuration with tidepool validate , then preview a run with --dry-run , which prints
 what each stage would execute without starting any container:
 
+```
 $ tidepool validate tidepool.yaml
-OK 3 stages, schedule "0 2 * * *" (daily 02:00 UTC)
+OK  3 stages, schedule "0 2 * * *" (daily 02:00 UTC)
 $ tidepool run nightly-export --dry-run
-[extract]
-
-would run tidepool/pg-dump:16 (retries=3)
-[transform] would run tidepool/dbt:1.8 (TARGET=warehouse, THREADS=8)
-[load]
-
-would run tidepool/s3-sync:2
-
+[extract]    would run tidepool/pg-dump:16 (retries=3)
+[transform]  would run tidepool/dbt:1.8 (TARGET=warehouse, THREADS=8)
+[load]       would run tidepool/s3-sync:2
 $ echo $?
 0
+```
 
 2/2

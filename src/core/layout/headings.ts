@@ -310,7 +310,7 @@ export function classifyHeadings(blocks: LayoutBlock[], pageWidth = 0, pageHeigh
   };
 
   for (const b of blocks) {
-    if (!isHeadingCandidateText(b.text)) continue;
+    if (b.role === 'code' || !isHeadingCandidateText(b.text)) continue;
     const repFont = b.lines[0]?.fontSize ?? bodyFontSize;
     const ratio = repFont / bodyFontSize;
 

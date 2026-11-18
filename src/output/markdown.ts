@@ -1,5 +1,6 @@
 import type { DocumentResult, PageResult } from '../types/index.js';
 import { appendAnnotations } from './markdown/annotations.js';
+import { fencedCode } from './markdown/codeBlocks.js';
 import { appendLayers, appendOutline, appendViewer } from './markdown/documentSections.js';
 import { appendFormFields } from './markdown/formFields.js';
 import { escapeInline, escapeTableCell, jsActionCount } from './markdown/helpers.js';
@@ -55,7 +56,7 @@ function hint(supplied: string | undefined, fallback: string): string {
 function layoutBody(page: PageResult, filterRepeated: boolean): string {
   return (page.layout?.blocks ?? [])
     .filter((b) => !filterRepeated || !b.repeated)
-    .map((b) => b.text)
+    .map((b) => (b.role === 'code' ? fencedCode(b) : b.text))
     .join('\n\n');
 }
 
