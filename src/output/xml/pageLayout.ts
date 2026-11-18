@@ -41,7 +41,19 @@ function appendLayout(out: string[], page: PageResult): void {
   out.push('<layout>');
   appendLayoutBlocks(out, page);
   appendLayoutTables(out, page);
+  appendMarkedText(out, page);
   out.push('</layout>');
+}
+
+function appendMarkedText(out: string[], page: PageResult): void {
+  if (!page.layout?.markedText || page.layout.markedText.length === 0) return;
+  out.push('<markedText>');
+  for (const item of page.layout.markedText) {
+    out.push(
+      `<mark kind="${item.mark}" x="${item.x}" y="${item.y}" width="${item.width}" height="${item.height}">${escapeText(item.text)}</mark>`,
+    );
+  }
+  out.push('</markedText>');
 }
 
 function appendLayoutBlocks(out: string[], page: PageResult): void {

@@ -78,23 +78,23 @@ _chars: 945 · images: 0 · coverage: 15% · vectors: 100 · tables: 1 · warnin
 
 (万人)
 
-14.6
-
-12.8
-
-11.3
-
-9.5
-
 8.2
 
 2022
 
+9.5
+
 2023
+
+11.3
 
 2024
 
+12.8
+
 2025
+
+14.6
 
 2026
 
@@ -209,4 +209,4 @@ _chars: 945 · images: 0 · coverage: 15% · vectors: 100 · tables: 1 · warnin
 
 ### Warnings
 
-> **warning** (vector_chart_labels): vector chart at 40,308,784,250 has 58 text labels (values such as "14.6", labels such as "デジタル人材の不足数(推計)"), read together row by row — which value belongs to which bar, series or category is shown only by the drawing; render the region (--render-region 40,308,784,250) before pairing or quoting values
+> **warning** (vector_chart_labels): vector chart at 40,308,784,250 has 58 text labels (values such as "8.2", labels such as "デジタル人材の不足数(推計)"), read together row by row — which value belongs to which bar, series or category is shown only by the drawing; render the region (--render-region 40,308,784,250) before pairing or quoting values

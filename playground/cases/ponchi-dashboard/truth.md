@@ -55,9 +55,8 @@ to its bar, point or segment; nothing in the text says which label belongs to wh
 and `vector_chart_labels` names the chart panel to render, but within a chart the values are
 read row by row from the top, with no series or category link:
 
-- Bar chart: `14.6 / 12.8 / 11.3 / 9.5 / 8.2` then `2022 … 2026`. Pairing the two lists in order
-  gives 14.6 → 2022, so question 1 is answered wrongly unless the agent reverses one list (or
-  assumes the bars rise monotonically); the warning says to render.
+- Bar chart: read bar by bar inside its frame, the title first: `(万人)` / `8.2` / `2022` /
+  `9.5` / `2023` / … / `14.6` / `2026`, so question 1 (12.8 → 2025) is answered by adjacency (#265).
 - Line chart: `都市部 / 地方部` then `6.0 / 5.2 / 4.6 / 3.8 / 3.1 / 1.9 / 1.6 / 1.4 / 1.1 / 0.9` then
   the years. Which value belongs to 地方部 is never stated; question 2 needs the guess that the
   smaller series is 地方部.
@@ -70,9 +69,10 @@ read row by row from the top, with no series or category link:
 - Flow: question 4 is answerable — the flow is read row by row across its three columns
   (課題 1, 施策 1, the first 効果 box, then 課題 2, …), each box whole
   (`中小企業のDX取組率を` / `60%に引き上げ` together), so each issue sits next to the measure
-  with its number; the arrows leave no trace.
+  with its number; the arrows leave no trace. Vector boxes carry only bounding boxes, not path shapes,
+  so an arrowhead cannot yet be told from any small filled box; left open (#265).
 - `①〜④` come back NFKC-normalised as `1〜4` (intended). The rotated band label
   `令和9年度 概算要求 重点施策` reads correctly.
 
-The title, lead, flow text and source note are reliable from `read.md`; questions 1, 2 and 5
-need the render the warning names.
+The title, lead, flow text, bar chart and source note are reliable from `read.md`; questions 2
+and 5 need the render the warning names.

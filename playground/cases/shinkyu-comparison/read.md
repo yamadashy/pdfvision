@@ -62,3 +62,18 @@ _chars: 513 · images: 0 · coverage: 10% · rotation: 90° · vectors: 15 · si
 第四条及び第五条 (略)
 
 - 1 -
+
+### Marked text
+
+_Passages marked only by a drawn line beside them; the text above carries no marker._
+
+| Mark | Text | BBox |
+| --- | --- | --- |
+| side line | 自動車その他の移動手段 | 591,150.8,10,110 |
+| side line | 法第八条第一項 | 537,130.8,10,70 |
+| side line | 五年 | 474,250.8,10,20 |
+| side line | (運営状況の評価の方法) | 411,70.8,10,120 |
+| side line | 第三条の二 法第八条の二の評価は、利用者の満足度、図書館資料の貸出件数その他の地域図書館の運営の状況を示す指標を用いて行うものとする。 | 339,60.8,64,220 |
+| side line | 自動車 | 591,398.8,10,30 |
+| side line | 法第八条 | 555,378.8,10,40 |
+| side line | 三年 | 474,498.8,10,20 |

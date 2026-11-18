@@ -36,11 +36,13 @@ Full-width digits and brackets may come back NFKC-normalised (`２` → `2`, `�
 4. 第二条第三号「協議会」で引用する条文はどう変わったか。 — 「法第八条」から「法第八条第一項」へ
 5. 第一条は改正されるか。 — 改正されない（両欄とも（略））
 
-**Reads correctly (#261), side lines aside:** the rotated page is read exactly as the same drawing
+**Reads correctly (#261, #265):** the rotated page is read exactly as the same drawing
 stored landscape, as two tiers: the title and （傍線部分は改正部分）, then `改正後` and the whole upper half
 column by column right to left, then `改正前` and the lower half, then `- 1 -`. Every provision
 comes back whole and in order, with its label, caption and blank em boxes kept
 (`第一条 (略)`, `(定義)`, `二 移動図書館 自動車その他の移動手段を用` / `いて図書館資料の…`,
-`第三条の二 法第八条の二の評価は、…`). The side lines are not reported, so what changed is read by
-comparing the two halves provision by provision, which the order now allows. No warning fires.
-All five questions are answered from `read.md`.
+`第三条の二 法第八条の二の評価は、…`). The side lines are reported under `### Marked text`, one
+passage each, exactly the <u>…</u> passages above: `自動車その他の移動手段`, `法第八条第一項`, `五年`,
+`(運営状況の評価の方法)`, the whole of 第三条の二 as one passage across its four columns, and on the
+改正前 side `自動車`, `法第八条`, `三年`. No warning fires. All five questions are answered from
+`read.md`, questions 1–4 straight from the marked passages.

@@ -23,7 +23,9 @@ pdfvision document.pdf --layout --format json
 - 直排 CJK 文字復原。On a page set in vertical writing, each column is one line, columns read right to left and tiers (段) top to bottom, and a two-page spread reads its right page first; 縦中横 digits, vertical dashes and brackets, and a column-head number with its blank em box (`第八条 市町村の…`) stay in their column.
 - code blocks: monospaced rows set apart from the page's prose and on one character grid become `role: "code"` blocks with their indentation rebuilt as leading spaces and any line-number gutter left out of the text (reported as `codeLineNumbers`); Markdown fences them.
 - two-dimensional math read onto one line: a fraction (a vector rule with a run centred above and below it and a relation beside it) reads `(c (1 + z))/H_0`, a big operator with its limits `∑_{k=1}^N`, a matrix between vector brackets `[[a, b], [c, d]]`, and an equation number joins its equation (`… , (1)`). A formula of that shape that cannot be read soundly keeps its fragments and is named by `display_math_layout`.
+- `pages[].layout.markedText`: passages marked only by a drawn line beside them — the side lines (傍線) of a vertical 新旧対照表 that show what an amendment changed — listed with their bounding boxes (Markdown: a `### Marked text` table with `--layout`).
 - a justified line stretched so far that its word spaces look like column gutters is read as one line when a prose line beside it fills the same measure.
+- a column chart set in its own frame reads value then category for each bar.
 
 當原生文字流與視覺閱讀順序不同，Markdown 輸出可以使用恢復後的 layout order。
 

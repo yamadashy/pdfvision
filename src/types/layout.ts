@@ -168,6 +168,23 @@ export interface PageLayout {
    * when their row position makes the relationship clear.
    */
   tables?: LayoutTable[];
+  /**
+   * Passages marked only by painted geometry: a side line (傍線) drawn
+   * beside part of a vertical column, the way a 新旧対照表 marks what an
+   * amendment changed. The text carries no marker of its own.
+   */
+  markedText?: LayoutMarkedText[];
+}
+
+export interface LayoutMarkedText {
+  /** `side_line`: a thin vector rule just right of the glyphs of a vertical column. */
+  mark: 'side_line';
+  /** The marked glyphs in reading order; a passage running on into the next column is one entry. */
+  text: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 export interface LayoutTable {

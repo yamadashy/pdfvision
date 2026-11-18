@@ -8,6 +8,7 @@ import { buildLayoutLinesWithGutters } from './lines.js';
 import { assembleDisplayMath } from './math/index.js';
 import { orderLayoutBlocks } from './regionOrder.js';
 import { detectLayoutRegions, type LayoutGraphics } from './regions.js';
+import { sideLineMarks } from './sideLines.js';
 import { tableRules } from './tableRules.js';
 import { detectLayoutTables } from './tables.js';
 import { isVerticalPage, orderVerticalPage } from './vertical/pageOrder.js';
@@ -130,7 +131,7 @@ export function buildLayout(
   if (isVerticalPage(blocks)) {
     const ordered = orderVerticalPage(blocks);
     classifyHeadings(ordered, pageWidth, pageHeight);
-    return { blocks: ordered, ...(tables !== undefined && { tables }) };
+    return withMarks({ blocks: ordered, ...(tables !== undefined && { tables }) }, math.spans, graphics);
   }
 
   classifyHeadings(blocks, pageWidth, pageHeight);
@@ -138,5 +139,11 @@ export function buildLayout(
     pageWidth > 0
       ? orderLayoutBlocks(blocks, detectLayoutRegions(blocks, graphics, pageWidth, pageHeight), pageWidth, pageHeight)
       : blocks;
-  return { blocks: ordered, ...(tables !== undefined && { tables }) };
+  return withMarks({ blocks: ordered, ...(tables !== undefined && { tables }) }, math.spans, graphics);
+}
+
+function withMarks(layout: PageLayout, spans: readonly TextSpan[], graphics: LayoutGraphics | undefined): PageLayout {
+  if (!layout.blocks.some((block) => block.writingMode === 'vertical')) return layout;
+  const markedText = sideLineMarks(layout.blocks, spans, graphics?.vectorBoxes);
+  return markedText.length > 0 ? { ...layout, markedText } : layout;
 }
