@@ -4,13 +4,16 @@ import { isProseColumnTable } from './columnGutters.js';
 import { isStandaloneNumericLineAfterProse } from './columns.js';
 import { unionBox } from './geometry.js';
 import { classifyHeadings } from './headings.js';
+import { indentNestedLines } from './indentation.js';
 import { buildLayoutLinesWithGutters } from './lines.js';
+import { extractMarginLineNumbers, type MarginNumberColumn, numberLines } from './marginLineNumbers.js';
 import { assembleDisplayMath } from './math/index.js';
 import { orderLayoutBlocks } from './regionOrder.js';
-import { detectLayoutRegions, type LayoutGraphics } from './regions.js';
+import { detectLayoutRegions, type LayoutGraphics, type LayoutRegion } from './regions.js';
 import { sideLineMarks } from './sideLines.js';
 import { tableRules } from './tableRules.js';
 import { detectLayoutTables } from './tables.js';
+import { extractTitleGrids } from './titleGrid.js';
 import { findTurnedRegions, readTurnedRegion, type TurnedRegion } from './turnedRegions.js';
 import { isVerticalPage, orderVerticalPage } from './vertical/pageOrder.js';
 import { compareLayoutBlocks, extractVerticalCjkBlocks } from './verticalText.js';
@@ -94,15 +97,22 @@ function buildUprightLayout(
   const math = assembleDisplayMath(spans, mathBoxes, pageWidth);
   const vertical = extractVerticalCjkBlocks(math.spans);
   const code = extractCodeBlocks(vertical.remainingSpans, monospaceFonts);
+  const margin = extractMarginLineNumbers(code.remainingSpans, pageHeight);
+  const grid = extractTitleGrids(margin.remainingSpans);
 
   const rules = tableRules(graphics?.vectorBoxes);
-  const { lines, columnGutters } = buildLayoutLinesWithGutters(code.remainingSpans, pageWidth, rules.vertical);
+  const { lines, columnGutters } = buildLayoutLinesWithGutters(grid.remainingSpans, pageWidth, rules.vertical);
   // A "table" whose every column boundary is a detected prose gutter is the
   // page's text columns read across (#242), not a table.
   const detectedTables = detectLayoutTables(lines, rules, graphics?.vectorBoxes)?.filter(
     (table) => !isProseColumnTable(table, columnGutters),
   );
   const tables = detectedTables && detectedTables.length > 0 ? detectedTables : undefined;
+  numberLines(lines, margin.columns);
+  numberLines(
+    grid.blocks.flatMap((block) => block.lines),
+    margin.columns,
+  );
 
   // Cluster lines into blocks. Splits when:
   //   - vertical gap > 1× prev line height (paragraph break / section break)
@@ -168,6 +178,7 @@ function buildUprightLayout(
     })),
     ...vertical.blocks,
     ...code.blocks,
+    ...grid.blocks,
   ].sort(compareLayoutBlocks);
 
   if (isVerticalPage(blocks)) {
@@ -179,9 +190,37 @@ function buildUprightLayout(
   classifyHeadings(blocks, pageWidth, pageHeight);
   const ordered =
     pageWidth > 0
-      ? orderLayoutBlocks(blocks, detectLayoutRegions(blocks, graphics, pageWidth, pageHeight), pageWidth, pageHeight)
+      ? orderLayoutBlocks(
+          blocks,
+          [...detectLayoutRegions(blocks, graphics, pageWidth, pageHeight), ...gridRegions(grid.gridBlocks)],
+          pageWidth,
+          pageHeight,
+        )
       : blocks;
-  return withMarks({ blocks: ordered, ...(tables !== undefined && { tables }) }, math.spans, graphics);
+  indentNestedLines(ordered);
+  return withMarks(
+    { blocks: ordered, ...(tables !== undefined && { tables }), ...lineNumberRange(margin.columns) },
+    math.spans,
+    graphics,
+  );
+}
+
+function lineNumberRange(columns: readonly MarginNumberColumn[]): Pick<PageLayout, 'lineNumbers'> {
+  const values = columns.flatMap((column) => column.numbers.map((number) => number.value));
+  return values.length > 0 ? { lineNumbers: { first: Math.min(...values), last: Math.max(...values) } } : {};
+}
+
+/** A title grid reads as one unit, row by row (see `extractTitleGrids`). */
+function gridRegions(grids: readonly LayoutBlock[][]): LayoutRegion[] {
+  return grids.map((cells) => ({
+    kind: 'figure',
+    blocks: [...cells],
+    ...unionBox(cells),
+    graphicCount: 0,
+    marks: 0,
+    verticalMarks: false,
+    bars: false,
+  }));
 }
 
 function withMarks(layout: PageLayout, spans: readonly TextSpan[], graphics: LayoutGraphics | undefined): PageLayout {

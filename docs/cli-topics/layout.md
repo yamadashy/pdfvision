@@ -14,6 +14,7 @@ interface PageLayout {
   blocks: LayoutBlock[];     // in approximate reading order (multi-column aware)
   tables?: LayoutTable[];    // row-major hints for aligned numeric tables
   markedText?: LayoutMarkedText[]; // passages marked only by a drawn line beside them (see below)
+  lineNumbers?: { first: number; last: number }; // margin line numbers, left out of the text (`pdfvision docs schema`)
 }
 
 interface LayoutMarkedText {
@@ -39,6 +40,8 @@ interface LayoutLine {
   x: number; y: number; width: number; height: number;
   fontSize: number;          // most common fontSize across the spans in this line
   writingMode?: 'vertical';  // present for top-to-bottom CJK glyph stacks, including body text
+  lineNumber?: number;       // the margin number printed on this line's baseline
+  indent?: number;           // list / index depth; `text` starts with two spaces per level
 }
 
 interface LayoutTable {

@@ -48,24 +48,24 @@ MOE^1 (±)
 
 All households
 Type of Household
-Family households
-Married-couple
-Female householder, no spouse present
-Male householder, no spouse present
-Nonfamily households
+  Family households
+    Married-couple
+    Female householder, no spouse present
+    Male householder, no spouse present
+  Nonfamily households
 Age of Householder
-Under years
-to years^2
-to years
-to years
-to years
-to years
-years and older
+  Under years
+      to years^2
+      to years
+      to years
+      to years
+      to years
+    years and older
 Region
-Northeast
-Midwest
-South
-West
+  Northeast
+  Midwest
+  South
+  West
 
 * An asterisk following the percent change indicates that the change is statistically different from zero at the 90 percent confidence level.
 Z Represents or rounds to zero.

@@ -38,7 +38,8 @@ function appendLayout(out: string[], page: PageResult): void {
     return;
   }
 
-  out.push('<layout>');
+  const numbers = page.layout.lineNumbers;
+  out.push(numbers ? `<layout firstLineNumber="${numbers.first}" lastLineNumber="${numbers.last}">` : '<layout>');
   appendLayoutBlocks(out, page);
   appendLayoutTables(out, page);
   appendMarkedText(out, page);
@@ -81,6 +82,8 @@ function appendLayoutBlocks(out: string[], page: PageResult): void {
         `fontSize="${line.fontSize}"`,
       ];
       if (line.writingMode) lineAttrs.push(`writingMode="${line.writingMode}"`);
+      if (line.lineNumber !== undefined) lineAttrs.push(`lineNumber="${line.lineNumber}"`);
+      if (line.indent !== undefined) lineAttrs.push(`indent="${line.indent}"`);
       out.push(`<line ${lineAttrs.join(' ')}>${escapeText(line.text)}</line>`);
     }
     out.push('</block>');

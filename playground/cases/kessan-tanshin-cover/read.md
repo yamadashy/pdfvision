@@ -11,7 +11,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 ## Page 1
 
-_chars: 1240 · images: 0 · coverage: 21% · vectors: 43 · tables: 5 · warnings: 1 · size: 595.28×841.89pt_
+_chars: 1240 · images: 0 · coverage: 21% · vectors: 43 · tables: 5 · size: 595.28×841.89pt_
 
 2026年11月14日
 
@@ -227,7 +227,7 @@ TEL
 
 ### Layout tables
 
-#### Table 1 (8 rows × 10 columns, bbox 45,93.36,505.28,144.5)
+#### Table 1 (10 rows × 10 columns, bbox 45,93.36,505.28,144.5)
 
 | C1 | C2 | C3 | C4 | C5 | C6 | C7 | C8 | C9 | C10 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -236,8 +236,10 @@ TEL
 | 代表者 | (役職名)代表取締役社長 (氏名)山本 健一 |  |  |  |  |  |  |  |  |
 | 問合せ先責任者 | (役職名)取締役経理部長 (氏名)佐藤 由美 |  |  |  | TEL | 06-0000-1234 |  |  |  |
 | 半期報告書提出予定日 | 2026年11月13日 |  |  |  | 配当支払開始予定日 2026年12月5日 |  |  |  |  |
+| 決算補足説明資料作成の有無 有 |  |  |  |  |  |  |  |  |  |
 | 決算説明会開催の有無 | 有(機関投資家・アナリスト向け) |  |  |  |  |  |  |  |  |
 |  |  |  |  |  |  |  |  | (百万円未満切捨て) |  |
+| 1. 2027年3月期第2四半期(中間期)の連結業績(2026年4月1日~2026年9月30日) |  |  |  |  |  |  |  |  |  |
 | (1) 連結経営成績(累計) |  |  |  |  |  |  | (%表示は対前年同四半期増減率) |  |  |
 
 #### Table 2 (4 rows × 9 columns, bbox 45,241,505.28,66)
@@ -275,7 +277,3 @@ TEL
 | 2026年3月期 | ― | 30.00 | ― | 35.00 | 65.00 |
 | 2027年3月期 | ― | 32.00 |  |  |  |
 | 2027年3月期(予想) |  |  | ― | 33.00 | 65.00 |
-
-### Warnings
-
-> **warning** (layout_table_uncertain): layout table 1 (bbox 45,93.36,505.28,144.5) did not resolve into one consistent grid: 1 line with numbers inside the table belongs to no row — its cells may sit in the wrong row or column or be missing; render that region (--render-region 45,93.36,505.28,144.5) before trusting the table

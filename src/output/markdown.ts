@@ -5,6 +5,7 @@ import { appendLayers, appendOutline, appendViewer } from './markdown/documentSe
 import { appendFormFields } from './markdown/formFields.js';
 import { escapeInline, escapeTableCell, jsActionCount } from './markdown/helpers.js';
 import { appendLayoutTables } from './markdown/layoutTables.js';
+import { lineNumbersNote, numberedBlockText } from './markdown/lineNumbers.js';
 import { appendLinks } from './markdown/links.js';
 import { appendMarkedText } from './markdown/markedText.js';
 import { appendOverview, formatPhysicalSize } from './markdown/overview.js';
@@ -58,7 +59,7 @@ function layoutBody(page: PageResult, filterRepeated: boolean): string {
   const blocks = (page.layout?.blocks ?? []).filter((b) => !filterRepeated || !b.repeated);
   return blocks
     .map((b, i) => {
-      const text = b.role === 'code' ? fencedCode(b) : b.text;
+      const text = b.role === 'code' ? fencedCode(b) : numberedBlockText(b);
       // A turned region was read upright; say so once, where it starts, since a render shows it turned.
       const turned = b.rotation !== undefined && blocks[i - 1]?.rotation !== b.rotation;
       return turned ? `${turnedRegionNote(b.rotation as number)}\n\n${text}` : text;
@@ -305,6 +306,11 @@ export function formatMarkdownSections(
       `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${pageLabelFragment}${nonPrintFragment}${renderFragment}${rotationFragment}${vectorsFragment}${vectorBoxesFragment}${layoutTablesFragment}${visualRegionsFragment}${formFieldsFragment}${linksFragment}${annotationsFragment}${structureFragment}${jsActionsFragment}${nativeFragment}${visualFragment}${warningsFragment}${matchesFragment} · size: ${formatPhysicalSize(page)}_`,
     );
     const body = pageBody(page, options);
+    const numbersNote = usesLayoutBody(page, options) ? lineNumbersNote(page.layout) : undefined;
+    if (body && numbersNote) {
+      lines.push('');
+      lines.push(numbersNote);
+    }
     if (body) {
       lines.push('');
       lines.push(body);
