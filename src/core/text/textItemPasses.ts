@@ -1,3 +1,4 @@
+import { joinBaselineRuns } from './baselineRuns.js';
 import { mapSymbolFontText, type PageFontTextHints } from './fontTextHints.js';
 import { joinJustifiedGlyphRuns, removeTrackingSpaces } from './letterSpacing.js';
 import { collapseOverdrawnText } from './overdraw.js';
@@ -16,6 +17,7 @@ export function prepareTextItems(items: readonly unknown[], hints: PageFontTextH
   prepared = collapseOverdrawnText(prepared);
   if (hints.size > 0) prepared = removeTrackingSpaces(prepared, hints);
   prepared = joinJustifiedGlyphRuns(prepared);
+  prepared = joinBaselineRuns(prepared);
   // An OCR layer's glyph boxes jitter in size and baseline; nothing in them is a script.
   return attachScripts(prepared, (fontName) => hints.get(fontName)?.invisible !== true);
 }
