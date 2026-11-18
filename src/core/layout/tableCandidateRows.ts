@@ -83,7 +83,7 @@ function canTrimSidePanelTableSuffix(row: LayoutLine[], start: number, suffix: L
   if (previousCell && isCurrencyOnlyCell(previousCell.text)) return false;
   const startsWithCompactLabel =
     firstSuffixCell !== undefined &&
-    !isTableNumericCell(firstSuffixCell.text) &&
+    !isTableValueCell(firstSuffixCell.text) &&
     isCompactTableLabelCell(firstSuffixCell);
   if (start === 1) return startsWithCompactLabel && isProseBeforeSidePanel(row[0]);
   if (!startsWithCompactLabel && previousCell && isTableNumericCell(previousCell.text)) return false;

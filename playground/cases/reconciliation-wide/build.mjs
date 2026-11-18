@@ -151,17 +151,12 @@ ${Object.entries(FOOTNOTES)
 4. Which footnotes apply to the general and administrative adjustment, and what do they cover? — (a) stock-based compensation and (b) restructuring / acquisition-related costs
 5. Was the quarter's GAAP operating result a profit or a loss? — a loss of ${format(-q.operating.values[0])} thousand, shown as ${format(q.operating.values[0])}
 
-**Current reading (ok — covered by warnings):** the layout table gets the three-level header right
+**Current reading (ok):** the layout table gets the three-level header right
 (group, date, column names over the right columns), keeps \`$\` with its value, keeps \`(…)\` and
-\`—\`, and attaches \`(a)\`/\`(b)\`/\`(c)\` to the value they follow. Questions 1, 2, 3 and 5 are answered
-from it. Two rows lose their label and their first value: \`|  |  | (9,350) (a)(b) | 32,430 | …\` is
-General and administrative without \`${cell(ROWS[5], 0, 0)}\`, and \`|  |  | (27,240) (b) | — | …\` is
-Restructuring charges without \`${cell(ROWS[6], 0, 0)}\` — the two rows whose adjustment carries a
-\`(b)\` marker. Question 4 is answerable only by row order. The table carries
-\`layout_table_uncertain\` (“2 lines with numbers inside the table belong to no row; 1 row has values
-but no label … render that region before trusting the table”), and the column-by-column page body carries
-\`tabular_numeric_layout\`; in that body the \`—\` placeholders of the Adjustments columns are
-pulled out of row order.
+\`—\`, and attaches \`(a)\`/\`(b)\`/\`(c)\` to the value they follow, including the two markers of
+\`(9,350) (a)(b)\` (#258): every row keeps its label and all six values. All five questions are
+answered from it. The column-by-column page body carries \`tabular_numeric_layout\`; in that body
+the \`—\` placeholders of the Adjustments columns are pulled out of row order.
 `;
 
 const LABEL_X = 40;

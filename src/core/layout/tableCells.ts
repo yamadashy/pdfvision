@@ -26,7 +26,8 @@ export function isTableNumericCell(text: string): boolean {
 }
 
 const TABLE_PLACEHOLDER_PATTERN = /^(?:[-‐‑‒–—―−]{1,3}|n\/a|n\.a\.)$/iu;
-const TABLE_FOOTNOTE_SUFFIX_PATTERN = /\s+\([a-z]\)$/u;
+// One or more lettered notes on a value: `(a)`, `(a)(b)`, `(a), (b)`.
+const TABLE_FOOTNOTE_SUFFIX_PATTERN = /\s+\([a-z]\)(?:\s*,?\s*\([a-z]\))*$/u;
 // Significance stars and dagger marks set right after a coefficient (`-0.142***`).
 const TABLE_SIGNIFICANCE_SUFFIX_PATTERN = /(?<=[\d)])(?:\*{1,3}|[†‡§]{1,2})$/u;
 const TABLE_LEADING_CURRENCY_PATTERN = /^[$¥€£]\s*/u;

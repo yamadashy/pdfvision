@@ -11,7 +11,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 ## Page 1
 
-_chars: 1748 · images: 0 · coverage: 24% · vectors: 40 · tables: 1 · warnings: 2 · size: 792×612pt_
+_chars: 1748 · images: 0 · coverage: 24% · vectors: 40 · tables: 1 · warnings: 1 · size: 792×612pt_
 
 NORTHBRIDGE SYSTEMS, INC.
 
@@ -198,8 +198,8 @@ As Adjusted
 | Gross profit | 253,660 | 6,410 | 260,070 | 724,910 | 18,870 | 743,780 |
 | Research and development | 88,140 | (14,220) (a) | 73,920 | 259,600 | (41,050) (a) | 218,550 |
 | Sales and marketing | 97,310 | (11,860) (a) | 85,450 | 284,170 | (33,940) (a) | 250,230 |
-|  |  | (9,350) (a)(b) | 32,430 | 125,410 | (27,600) (a)(b) | 97,810 |
-|  |  | (27,240) (b) | — | 38,620 | (38,620) (b) | — |
+| General and administrative | 41,780 | (9,350) (a)(b) | 32,430 | 125,410 | (27,600) (a)(b) | 97,810 |
+| Restructuring charges | 27,240 | (27,240) (b) | — | 38,620 | (38,620) (b) | — |
 | Total operating expenses | 254,470 | (62,670) | 191,800 | 707,800 | (141,210) | 566,590 |
 | Operating income (loss) | (810) | 69,080 | 68,270 | 17,110 | 160,080 | 177,190 |
 | Other income, net | 3,120 | — | 3,120 | 8,940 | — | 8,940 |
@@ -210,5 +210,4 @@ As Adjusted
 
 ### Warnings
 
-> **warning** (layout_table_uncertain): layout table 1 (bbox 40,92.6,712,259.5) did not resolve into one consistent grid: 2 lines with numbers inside the table belong to no row; 1 row has values but no label while label text overlaps it from the line above or below, so a label set around its values may be split across rows — its cells may sit in the wrong row or column or be missing; render that region (--render-region 40,92.6,712,259.5) before trusting the table
 > **warning** (tabular_numeric_layout): page contains 64 short numeric lines in 6 aligned columns and 14 shared numeric rows — table rows/columns may be flattened in native text; inspect the render or geometry when values matter
