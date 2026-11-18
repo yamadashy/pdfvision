@@ -5,6 +5,7 @@ import { isStandaloneNumericLineAfterProse } from './columns.js';
 import { unionBox } from './geometry.js';
 import { classifyHeadings } from './headings.js';
 import { buildLayoutLinesWithGutters } from './lines.js';
+import { extractMarginLineNumbers, type MarginNumberColumn, numberLines } from './marginLineNumbers.js';
 import { assembleDisplayMath } from './math/index.js';
 import { orderLayoutBlocks } from './regionOrder.js';
 import { detectLayoutRegions, type LayoutGraphics, type LayoutRegion } from './regions.js';
@@ -57,7 +58,8 @@ export function buildLayout(
   const math = assembleDisplayMath(spans, mathBoxes, pageWidth);
   const vertical = extractVerticalCjkBlocks(math.spans);
   const code = extractCodeBlocks(vertical.remainingSpans, monospaceFonts);
-  const grid = extractTitleGrids(code.remainingSpans);
+  const margin = extractMarginLineNumbers(code.remainingSpans, pageHeight);
+  const grid = extractTitleGrids(margin.remainingSpans);
 
   const rules = tableRules(graphics?.vectorBoxes);
   const { lines, columnGutters } = buildLayoutLinesWithGutters(grid.remainingSpans, pageWidth, rules.vertical);
@@ -67,6 +69,11 @@ export function buildLayout(
     (table) => !isProseColumnTable(table, columnGutters),
   );
   const tables = detectedTables && detectedTables.length > 0 ? detectedTables : undefined;
+  numberLines(lines, margin.columns);
+  numberLines(
+    grid.blocks.flatMap((block) => block.lines),
+    margin.columns,
+  );
 
   // Cluster lines into blocks. Splits when:
   //   - vertical gap > 1× prev line height (paragraph break / section break)
@@ -151,7 +158,16 @@ export function buildLayout(
           pageHeight,
         )
       : blocks;
-  return withMarks({ blocks: ordered, ...(tables !== undefined && { tables }) }, math.spans, graphics);
+  return withMarks(
+    { blocks: ordered, ...(tables !== undefined && { tables }), ...lineNumberRange(margin.columns) },
+    math.spans,
+    graphics,
+  );
+}
+
+function lineNumberRange(columns: readonly MarginNumberColumn[]): Pick<PageLayout, 'lineNumbers'> {
+  const values = columns.flatMap((column) => column.numbers.map((number) => number.value));
+  return values.length > 0 ? { lineNumbers: { first: Math.min(...values), last: Math.max(...values) } } : {};
 }
 
 /** A title grid reads as one unit, row by row (see `extractTitleGrids`). */

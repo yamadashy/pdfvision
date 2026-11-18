@@ -49,6 +49,13 @@ export interface LayoutLine {
    * glyph stacks that are meant to be read top-to-bottom.
    */
   writingMode?: 'vertical';
+  /**
+   * The margin line number printed on this line's baseline (pleading paper,
+   * a bill, a manuscript in review mode). The number column itself is left
+   * out of the text; see {@link PageLayout.lineNumbers}. Omitted for lines
+   * that sit between two numbers or on a page without line numbers.
+   */
+  lineNumber?: number;
 }
 
 /**
@@ -174,6 +181,12 @@ export interface PageLayout {
    * amendment changed. The text carries no marker of its own.
    */
   markedText?: LayoutMarkedText[];
+  /**
+   * The page's margin line numbers: a column of consecutive integers on the
+   * line grid beside the text. The numbers are left out of the text and set
+   * on the lines they number as {@link LayoutLine.lineNumber}.
+   */
+  lineNumbers?: { first: number; last: number };
 }
 
 export interface LayoutMarkedText {

@@ -5,6 +5,7 @@ import { appendLayers, appendOutline, appendViewer } from './markdown/documentSe
 import { appendFormFields } from './markdown/formFields.js';
 import { escapeInline, escapeTableCell, jsActionCount } from './markdown/helpers.js';
 import { appendLayoutTables } from './markdown/layoutTables.js';
+import { lineNumbersNote, numberedBlockText } from './markdown/lineNumbers.js';
 import { appendLinks } from './markdown/links.js';
 import { appendMarkedText } from './markdown/markedText.js';
 import { appendOverview, formatPhysicalSize } from './markdown/overview.js';
@@ -57,7 +58,7 @@ function hint(supplied: string | undefined, fallback: string): string {
 function layoutBody(page: PageResult, filterRepeated: boolean): string {
   return (page.layout?.blocks ?? [])
     .filter((b) => !filterRepeated || !b.repeated)
-    .map((b) => (b.role === 'code' ? fencedCode(b) : b.text))
+    .map((b) => (b.role === 'code' ? fencedCode(b) : numberedBlockText(b)))
     .join('\n\n');
 }
 
@@ -295,6 +296,11 @@ export function formatMarkdownSections(
       `_chars: ${page.charCount} · images: ${page.imageCount} · coverage: ${coveragePct}%${pageLabelFragment}${nonPrintFragment}${renderFragment}${rotationFragment}${vectorsFragment}${vectorBoxesFragment}${layoutTablesFragment}${visualRegionsFragment}${formFieldsFragment}${linksFragment}${annotationsFragment}${structureFragment}${jsActionsFragment}${nativeFragment}${visualFragment}${warningsFragment}${matchesFragment} · size: ${formatPhysicalSize(page)}_`,
     );
     const body = pageBody(page, options);
+    const numbersNote = usesLayoutBody(page, options) ? lineNumbersNote(page.layout) : undefined;
+    if (body && numbersNote) {
+      lines.push('');
+      lines.push(numbersNote);
+    }
     if (body) {
       lines.push('');
       lines.push(body);
