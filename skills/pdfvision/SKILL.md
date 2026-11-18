@@ -52,7 +52,7 @@ Use opt-ins only when default native-text extraction is insufficient. Caveats: `
 | `--map` | **Unknown or long document, before reading it.** Page count, outline, per-page quality + warning codes by page range; no bodies. Markdown only |
 | `--no-cache` | Force re-extraction |
 
-Japanese/Chinese furigana/ruby is attached inline as `base《ruby》` automatically (searchable both ways; see `pdfvision docs flags`).
+Japanese/Chinese furigana/ruby is attached inline as `base《ruby》` automatically (searchable both ways; see `pdfvision docs flags`). Raised and lowered runs are written as `^…` / `_…` (`10^19`, `P_{drop}`, `^1` footnote markers), never flattened into the neighbouring digits (`pdfvision docs schema`).
 
 ## Density Overview and one-shot dispatch
 

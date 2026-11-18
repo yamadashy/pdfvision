@@ -4,6 +4,7 @@ import {
   isLikelySparseNumericLegendFragment,
   isLikelyTinyNumericVectorGrid,
 } from '../layout/numericVectorGrid.js';
+import { isTableCheckMarkCell } from '../layout/tableCells.js';
 
 const TABULAR_NUMERIC_MIN_LINES = 12;
 const TABULAR_NUMERIC_MIN_LINE_RATIO = 0.25;
@@ -174,6 +175,8 @@ function distinctRowCenters(lines: LayoutLine[]): number[] {
 function isTabularNumericLine(line: LayoutLine): boolean {
   const text = line.text.trim();
   if (text.length === 0 || text.length > 80) return false;
+  // A yes/no mark column is one of the table's value columns.
+  if (isTableCheckMarkCell(text)) return true;
   if (!/\d/u.test(text)) return false;
   const nonNumeric = text.replace(/[0-9.,()%$¥€£+\-\s]/gu, '');
   return nonNumeric.length === 0;

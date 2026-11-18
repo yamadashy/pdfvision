@@ -11,7 +11,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 ## Page 1
 
-_chars: 4730 · images: 0 · coverage: 32% · vectors: 21 · warnings: 1 · size: 612×792pt_
+_chars: 4741 · images: 0 · coverage: 32% · vectors: 21 · warnings: 1 · size: 612×792pt_
 
 RESEARCH ARTICLE
 
@@ -23,11 +23,10 @@ cross-sectional study of hospital staff
 Citation: Marwick L, Bannerman O,
 Ramaswamy P, Feldt J (2026)
 
-Lena Marwick1, Osei Bannerman1,2, Priya Ramaswamy2, Jonas Feldt1*
+Lena Marwick^1, Osei Bannerman^{1,2}, Priya Ramaswamy^2, Jonas Feldt^{1*}
 
-1 Institute of Occupational Health, Ravelin University Medical Centre, Ravelin, Norway
-2 Department of Microbiology, Kestrel Bay Hospital, Kestrel Bay, Ireland
-
+^1 Institute of Occupational Health, Ravelin University Medical Centre, Ravelin, Norway
+^2 Department of Microbiology, Kestrel Bay Hospital, Kestrel Bay, Ireland
 * jonas.feldt@ravelin.example.no
 
 Abstract
@@ -92,7 +91,7 @@ Table 1. Characteristics of participants by shift pattern.
 
 Age, years, mean (SD)
 Female, n (%)
-BMI, kg/m2, mean (SD)
+BMI, kg/m^2, mean (SD)
 Sleep, h/day, median
 Diet quality score
 Antibiotics past year, n (%) 31 (14.6)
@@ -206,4 +205,4 @@ Night ≥ 5 y
 
 ### Warnings
 
-> **warning** (reading_order_divergence): heading "Night-shift work and gut microbial diver" leads the visual reading order but only appears 93% of the way through the native text stream — native text order diverges from what a human reads; the layout-rebuilt order is unreliable here too — side-by-side blocks "Circadian disruption alters host meta..." and "Night-shift work and gut microbial di..." are interleaved line by line; render the page to read it in sequence
+> **warning** (reading_order_divergence): heading "Night-shift work and gut microbial diver" leads the visual reading order but only appears 92% of the way through the native text stream — native text order diverges from what a human reads; the layout-rebuilt order is unreliable here too — side-by-side blocks "Circadian disruption alters host meta..." and "Night-shift work and gut microbial di..." are interleaved line by line; render the page to read it in sequence

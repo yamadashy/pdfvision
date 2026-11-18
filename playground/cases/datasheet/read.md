@@ -13,7 +13,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 | Page | Chars | Images | Coverage | Size (pt) | Vectors | Tables | Blocks | Warnings | Fields | Links | Annots |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | 1 | 1511 | 0 | 17% | 612×792 | 22 | 2 | 40 | 0 | 0 | 0 | 0 |
-| 2 | 1041 | 0 | 7% | 612×792 | 219 | 1 | 74 | 2 | 0 | 0 | 0 |
+| 2 | 1071 | 0 | 7% | 612×792 | 219 | 1 | 55 | 2 | 0 | 0 | 0 |
 
 ---
 
@@ -153,13 +153,11 @@ mA
 
 ## Page 2
 
-_chars: 1041 · images: 0 · coverage: 7% · vectors: 219 · tables: 1 · warnings: 2 · size: 612×792pt_
+_chars: 1071 · images: 0 · coverage: 7% · vectors: 219 · tables: 1 · warnings: 2 · size: 612×792pt_
 
 6 Electrical Characteristics
 
-At T = 25°C, V = 5 V, R = 10 kΩ connected to V / 2 (unless otherwise noted)
-
-A S L S
+At T_A = 25°C, V_S = 5 V, R_L = 10 kΩ connected to V_S / 2 (unless otherwise noted)
 
 PARAMETER
 
@@ -191,71 +189,39 @@ D (SOIC-8) plastic small-outline package
 
 SYMBOL
 
-V
+V_{OS}
 
-OS
+dV_{OS}/dT T_A = –40°C to +125°C
 
-dV /dT T = –40°C to +125°C
+I_B
 
-OS
+e_n
 
-I
+V_O
 
-B
+I_{SC}
 
-e
-
-n
-
-V
-
-O L S
-
-I
-
-SC
-
-I
-
-Q
+I_Q
 
 PSRR
 
-T = 25°C
+T_A = 25°C
+T_A = –40°C to +125°C
 
-A
-
-TA = –40°C to +125°C
-
-A
-
-T = 25°C
-
-A
-
-TA = –40°C to +125°C
+T_A = 25°C
+T_A = –40°C to +125°C
 
 f = 1 kHz
 f = 10 kHz
 
-R = 10 kΩ to V / 2,
-T = –40°C to +125°C
+R_L = 10 kΩ to V_S / 2,
+T_A = –40°C to +125°C
+V_S = 5 V
 
-A
-
-V = 5 V
-
-S
-
-I = 0 mA
-
-O
-
-IO = 0 mA,
-TA = –40°C to +125°C
-V = 2.7 V to 5.5 V
-
-S
+I_O = 0 mA
+I_O = 0 mA,
+T_A = –40°C to +125°C
+V_S = 2.7 V to 5.5 V
 
 TEST CONDITIONS
 
@@ -320,16 +286,16 @@ dB
 
 ### Layout tables
 
-#### Table 1 (4 rows × 6 columns, bbox 44,265.03,487.63,109.36)
+#### Table 1 (4 rows × 7 columns, bbox 44,265.03,487.63,109.36)
 
-| C1 | C2 | C3 | C4 | C5 | C6 |
-| --- | --- | --- | --- | --- | --- |
-| OUTPUT Voltage output swing | V O L S R = 10 kΩ to V / 2, |  | 8 | 25 | mV |
-| POWER SUPPLY Quiescent current per | I Q I = 0 mA O |  | 0.85 | 1.1 | mA |
-|  | TA = –40°C to +125°C |  |  |  |  |
-|  |  | 80 | 96 |  | dB |
+| C1 | C2 | C3 | C4 | C5 | C6 | C7 |
+| --- | --- | --- | --- | --- | --- | --- |
+| OUTPUT Voltage output swing from rail | V_O | R_L = 10 kΩ to V_S / 2, T_A = –40°C to +125°C |  | 8 | 25 | mV |
+| POWER SUPPLY Quiescent current per | I_Q | I_O = 0 mA |  | 0.85 | 1.1 | mA |
+|  |  | T_A = –40°C to +125°C |  |  |  |  |
+|  |  |  | 80 | 96 |  | dB |
 
 ### Warnings
 
-> **warning** (layout_table_uncertain): layout table 1 (bbox 44,265.03,487.63,109.36) did not resolve into one consistent grid: 6 lines with numbers inside the table belong to no row — its cells may sit in the wrong row or column or be missing; render that region (--render-region 44,265.03,487.63,109.36) before trusting the table
+> **warning** (layout_table_uncertain): layout table 1 (bbox 44,265.03,487.63,109.36) did not resolve into one consistent grid: 5 lines with numbers inside the table belong to no row — its cells may sit in the wrong row or column or be missing; render that region (--render-region 44,265.03,487.63,109.36) before trusting the table
 > **warning** (reading_order_divergence): layout line "INPUT BIAS CURRENT" appears after "Offset voltage drift" visually but earlier in the native text stream — native line order diverges from what a human reads; the body above is that reading order, rebuilt from the layout — render the page when exact sequence is critical

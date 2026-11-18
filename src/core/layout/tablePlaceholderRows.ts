@@ -1,5 +1,5 @@
 import type { LayoutLine } from '../../types/index.js';
-import { isCurrencyOnlyCell, isTableValueCell } from './tableCells.js';
+import { hasTableValueEvidence, isCurrencyOnlyCell, isTableValueCell } from './tableCells.js';
 import type { IndexedLayoutRow } from './tableContinuations.js';
 import { rowBottom, rowY } from './tableRows.js';
 
@@ -72,7 +72,7 @@ function isLabelOnlyRow(row: readonly LayoutLine[], valueRow: readonly LayoutLin
 function isPlaceholderOnlyRow(row: readonly LayoutLine[]): boolean {
   const values = row.filter((line) => isTableValueCell(line.text));
   if (values.length < PLACEHOLDER_ROW_MIN_VALUES) return false;
-  if (values.some((line) => /\d/u.test(line.text))) return false;
+  if (values.some((line) => hasTableValueEvidence(line.text))) return false;
   // Anything else is the row's label, left of the values; text among or
   // beyond the values is not a placeholder row.
   const firstValueLeft = Math.min(...values.map((line) => line.x));

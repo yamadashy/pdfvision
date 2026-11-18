@@ -13,7 +13,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 | Page | Chars | Images | Coverage | Size (pt) | Rotation | Vectors | Tables | Blocks | Warnings | Fields | Links | Annots |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 1167 | 0 | 12% | 595.28×841.89 | — | 3 | 0 | 11 | 0 | 0 | 0 | 0 |
+| 1 | 1169 | 0 | 12% | 595.28×841.89 | — | 3 | 0 | 11 | 0 | 0 | 0 | 0 |
 | 2 | 1816 | 0 | 35% | 595.28×841.89 | — | 42 | 1 | 14 | 1 | 0 | 0 | 0 |
 | 3 | 763 | 0 | 11% | 595.28×841.89 | — | 10 | 1 | 19 | 1 | 0 | 0 | 0 |
 | 4 | 902 | 0 | 13% | 841.89×595.28 | 90° | 9 | 1 | 35 | 3 | 0 | 0 | 0 |
@@ -22,7 +22,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 ## Page 1
 
-_chars: 1167 · images: 0 · coverage: 12% · vectors: 3 · size: 595.28×841.89pt_
+_chars: 1169 · images: 0 · coverage: 12% · vectors: 3 · size: 595.28×841.89pt_
 
 1 Executive summary
 
@@ -42,9 +42,9 @@ Key points this quarter:
 1. Chargers installed rose from 212 to 513 in the quarter, against a year-end target of 696.
 2. Average charger utilisation reached 63%, above the 55% planning assumption.
 3. Two depots remain blocked on grid upgrades; both have dates confirmed by the network operator.
-4. Spend to date is EUR 18.4 million of the EUR 31.0 million budget1.
+4. Spend to date is EUR 18.4 million of the EUR 31.0 million budget^1.
 
-1 Budget figures exclude grid-connection fees, which the network operators invoice separately.
+^1 Budget figures exclude grid-connection fees, which the network operators invoice separately.
 
 ---
 

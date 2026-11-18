@@ -2,7 +2,7 @@
 
 - **Stresses:** pinout diagram with pin names as text around a vector outline; ruled tables with merged parameter cells over several condition rows, written column by column; subscript symbols; package drawing whose dimensions are outlines with no text
 - **Families:** tables, vector-meaning, structure
-- **Status:** known-gap (#241)
+- **Status:** known-gap
 
 **KX4562 Dual 5-V Low-Noise Rail-to-Rail Operational Amplifier** (KESTREL MICRODEVICES, KMD-DS-0457B – MARCH 2026).
 
@@ -81,17 +81,16 @@ Page 1 reads well: the pinout comes back as a 4 × 4 layout table (`| IN A− | 
 question 2 is answerable, and the absolute-maximum table keeps its values (question 1), with its
 `MIN | MAX | UNIT` header row and the `Output short-circuit duration | Continuous` row (#262).
 
-**Known gap (#241):** every subscript on page 2 is split off its symbol. The condition note reads
-`At T = 25°C, V = 5 V, R = 10 kΩ connected to V / 2` followed by a stray `A S L S` line; symbols
-read `V` / `OS`, `dV /dT` / `OS`, `I` / `B`; and conditions read `T = 25°C` / `A`, `I = 0 mA` / `O`
-(a few condition lines keep theirs: `TA = –40°C to +125°C`, `IO = 0 mA,`).
+Subscripts on page 2 stay on their symbols, written `_X` (#241): the condition note reads
+`At T_A = 25°C, V_S = 5 V, R_L = 10 kΩ connected to V_S / 2`, symbols read `V_{OS}`, `dV_{OS}/dT`,
+`I_B`, `e_n`, and conditions `T_A = 25°C`, `I_O = 0 mA`.
 
 **Known gap (no issue yet):**
 - The electrical-characteristics table is read as separate column streams — all parameters, then
   symbols, conditions, and one list each for MIN, TYP, MAX and UNIT, with blank cells simply absent
   (MAX: `±1.5` / `±2.5` / `±10` / `±800` / `25` / `1.1` / `1.4`). Questions 3 and 4 are answerable only by
   matching positions across lists that have different lengths. The only layout table is a fragment
-  of the last rows (`| POWER SUPPLY Quiescent current per | I Q I = 0 mA O | | 0.85 | 1.1 | mA |`);
+  of the last rows (`| POWER SUPPLY Quiescent current per | I_Q | I_O = 0 mA | | 0.85 | 1.1 | mA |`);
   `layout_table_uncertain` names a render region that covers that fragment only, and
   `reading_order_divergence` says to render the page "when exact sequence is critical".
 - The package outline's dimensions are vector outlines with no text, and nothing says so: page 2 has

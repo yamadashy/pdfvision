@@ -100,6 +100,28 @@ describe('extractPageText', () => {
     expect(result.spans.map((span) => span.text)).toEqual(['Whole phrase', 'left', 'right']);
   });
 
+  it('corrects overdrawn copies, symbol-font codes and scripts in both page text and spans', () => {
+    const result = extractPageText({
+      content: {
+        items: [
+          positionedTextItem('Bold', 50, 100, 10, 20),
+          positionedTextItem('Bold', 50.2, 100, 10, 20),
+          positionedTextItem(' 10', 70, 100, 10, 15),
+          { ...positionedTextItem('19', 85, 100, 6.5, 6.5), hasEOL: true },
+          { ...positionedTextItem('3', 50, 120, 10, 7), fontName: 'g_dingbats', hasEOL: true },
+        ],
+      },
+      flags: BASE_FLAGS,
+      pageHeight: 800,
+      viewMinX: 0,
+      viewMinY: 0,
+      fontHints: new Map([['g_dingbats', { charMap: new Map([['3', '✓']]) }]]),
+    });
+
+    expect(result.text.split(/\n+/u)).toEqual(['Bold 10^19', '✓']);
+    expect(result.spans.map((span) => span.text)).toEqual(['Bold', ' 10^19', '✓']);
+  });
+
   it('keeps identical raw text at distinct transforms as distinct public spans', () => {
     const result = extractPageText({
       content: {
