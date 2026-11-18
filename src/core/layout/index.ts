@@ -1,4 +1,5 @@
 import type { LayoutBlock, LayoutLine, PageLayout, TextSpan } from '../../types/index.js';
+import { extractCodeBlocks } from './codeBlocks.js';
 import { isProseColumnTable } from './columnGutters.js';
 import { isStandaloneNumericLineAfterProse } from './columns.js';
 import { unionBox } from './geometry.js';
@@ -36,12 +37,19 @@ const SHORT_LARGER_LINE_MAX_CHARS = 100;
  * `graphics` (the page's vector and image boxes) lets frames, rule bands
  * and figures keep their text together in the reading order.
  */
-export function buildLayout(spans: TextSpan[], pageWidth = 0, pageHeight = 0, graphics?: LayoutGraphics): PageLayout {
+export function buildLayout(
+  spans: TextSpan[],
+  pageWidth = 0,
+  pageHeight = 0,
+  graphics?: LayoutGraphics,
+  monospaceFonts?: ReadonlySet<string>,
+): PageLayout {
   if (spans.length === 0) return { blocks: [] };
 
   const vertical = extractVerticalCjkBlocks(spans);
+  const code = extractCodeBlocks(vertical.remainingSpans, monospaceFonts);
 
-  const { lines, columnGutters } = buildLayoutLinesWithGutters(vertical.remainingSpans, pageWidth);
+  const { lines, columnGutters } = buildLayoutLinesWithGutters(code.remainingSpans, pageWidth);
   // A "table" whose every column boundary is a detected prose gutter is the
   // page's text columns read across (#242), not a table.
   const detectedTables = detectLayoutTables(lines)?.filter((table) => !isProseColumnTable(table, columnGutters));
@@ -110,6 +118,7 @@ export function buildLayout(spans: TextSpan[], pageWidth = 0, pageHeight = 0, gr
       lines: group,
     })),
     ...vertical.blocks,
+    ...code.blocks,
   ].sort(compareLayoutBlocks);
 
   if (isVerticalPage(blocks)) {

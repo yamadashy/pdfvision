@@ -76,8 +76,19 @@ export interface LayoutBlock {
    * block is semantically non-heading). Caption / list / other roles are
    * not detected today; this field will gain values as heuristics are
    * added rather than be retroactively renamed.
+   *
+   * `'code'` marks a code block: monospaced rows set apart from the page's
+   * proportional prose, whose tokens sit on one character grid. Its `text`
+   * keeps the indentation the grid shows as leading spaces, one line per
+   * row (blank rows included), and leaves out a line-number gutter, which
+   * is reported in {@link codeLineNumbers}. Markdown fences it.
    */
-  role?: 'heading';
+  role?: 'heading' | 'code';
+  /**
+   * The first and last numbers of the line-number gutter dropped from a
+   * `role: 'code'` block's text. Present only when such a gutter was found.
+   */
+  codeLineNumbers?: { first: number; last: number };
   /**
    * Approximate heading hierarchy, present only when `role === 'heading'`:
    *   - `1` — major title (fontSize ≥ 1.40× body median, or a

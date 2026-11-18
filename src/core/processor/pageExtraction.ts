@@ -89,6 +89,7 @@ export async function extractPageData(
     nonPrintableSourceText,
     textArea,
     spans,
+    monospaceFonts,
     searchSpans,
   } = extractPageText({
     content,
@@ -156,7 +157,13 @@ export async function extractPageData(
     flags.links ||
     flags.needFormFieldsForSearch ||
     flags.needLinksForSearch
-      ? buildLayout(spans, round2(width), round2(height), { vectorBoxes: allVectorBoxes, imageBoxes: allBoxes })
+      ? buildLayout(
+          spans,
+          round2(width),
+          round2(height),
+          { vectorBoxes: allVectorBoxes, imageBoxes: allBoxes },
+          monospaceFonts,
+        )
       : undefined;
   const layout = flags.layout ? internalLayout : undefined;
   const annotations = annotationsInFrame(await page.getAnnotations({ intent: 'display' }), frame);

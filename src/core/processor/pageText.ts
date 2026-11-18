@@ -24,6 +24,8 @@ import { normalizeText, normalizeTextForNonPrintableStats, textItemDedupeKey } f
 
 interface TextContentLike {
   items: unknown[];
+  /** pdf.js per-font text styles; `fontFamily` is `monospace` for fixed-pitch fonts. */
+  styles?: Readonly<Record<string, unknown>>;
 }
 
 interface TextItemLike {
@@ -59,6 +61,7 @@ interface PageTextIntakeResult {
   joinItems: JoinItem[];
   textArea: number;
   spans: TextSpan[];
+  monospaceFonts: ReadonlySet<string>;
   verticalJoinSpans: TextSpan[];
   verticalJoinSpanIndices: ReadonlyMap<TextSpan, number>;
 }
@@ -75,6 +78,8 @@ export interface ExtractedPageText {
   nonPrintableSourceText: string;
   textArea: number;
   spans: TextSpan[];
+  /** Span `fontName` aliases whose font pdf.js reports as fixed-pitch. */
+  monospaceFonts: ReadonlySet<string>;
   searchSpans?: TextSpan[];
 }
 
@@ -96,14 +101,15 @@ export function extractPageText({
     flags.needSpansForWarnings ||
     flags.needFormFieldsForSearch;
 
-  const { joinItems, textArea, spans, verticalJoinSpans, verticalJoinSpanIndices } = collectPageTextItems({
-    content: { items: prepareTextItems(content.items, fontHints) },
-    flags,
-    pageHeight,
-    viewMinX,
-    viewMinY,
-    wantSpans,
-  });
+  const { joinItems, textArea, spans, monospaceFonts, verticalJoinSpans, verticalJoinSpanIndices } =
+    collectPageTextItems({
+      content: { items: prepareTextItems(content.items, fontHints), styles: content.styles },
+      flags,
+      pageHeight,
+      viewMinX,
+      viewMinY,
+      wantSpans,
+    });
   const rawText = composeRawPageText({
     joinItems,
     verticalJoinSpans,
@@ -119,6 +125,7 @@ export function extractPageText({
     nonPrintableSourceText,
     textArea,
     spans,
+    monospaceFonts,
     ...(flags.needSpansForSearch && {
       searchSpans: spans,
     }),
@@ -238,10 +245,19 @@ function collectPageTextItems({
     }
   }
 
+  const monospaceFonts = new Set<string>();
+  for (const [rawFontName, alias] of pageFontAliases) {
+    const style = content.styles?.[rawFontName];
+    if (style && typeof style === 'object' && (style as { fontFamily?: unknown }).fontFamily === 'monospace') {
+      monospaceFonts.add(alias);
+    }
+  }
+
   return {
     joinItems,
     textArea,
     spans,
+    monospaceFonts,
     verticalJoinSpans,
     verticalJoinSpanIndices,
   };

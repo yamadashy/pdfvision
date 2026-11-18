@@ -50,6 +50,10 @@ function appendLayoutBlocks(out: string[], page: PageResult): void {
   for (const block of page.layout.blocks) {
     const blockAttrs = [`x="${block.x}"`, `y="${block.y}"`, `width="${block.width}"`, `height="${block.height}"`];
     if (block.role) blockAttrs.push(`role="${block.role}"`);
+    if (block.codeLineNumbers) {
+      blockAttrs.push(`firstLineNumber="${block.codeLineNumbers.first}"`);
+      blockAttrs.push(`lastLineNumber="${block.codeLineNumbers.last}"`);
+    }
     if (block.level !== undefined) blockAttrs.push(`level="${block.level}"`);
     if (block.roleConfidence !== undefined) blockAttrs.push(`roleConfidence="${block.roleConfidence}"`);
     if (block.writingMode) blockAttrs.push(`writingMode="${block.writingMode}"`);
