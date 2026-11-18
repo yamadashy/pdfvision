@@ -24,6 +24,7 @@ const SERIES_MIN_VERTICES = 3;
 const PIE_MIN_SLICES = 3;
 const PIE_MIN_DIAMETER_PT = 24;
 const SWATCH_MAX_PT = 30;
+const MAX_PIE_CANDIDATES = 1500;
 const SWATCH_LINE_MAX_PT = 40;
 
 export interface SeriesLine {
@@ -90,18 +91,22 @@ export function findChartMarks(set: VectorShapeSet | undefined): ChartMarks {
       }
     }
     if (shape.fill !== undefined && !isBlankFill(shape.fill) && shape.subpaths.length === 1) {
-      const polygon = vertices(shape);
       if (shape.width <= SWATCH_MAX_PT && shape.height <= SWATCH_MAX_PT && shape.width >= 3 && shape.height >= 3) {
         if (Math.max(shape.width, shape.height) <= Math.min(shape.width, shape.height) * 1.3) {
           marks.swatches.push({ colour: shape.fill, kind: 'fill', ...boxOf(shape) });
         }
       }
-      if (polygon.length >= 3 && (shape.curves > 0 || polygon.length >= 6)) {
-        fills.push({ polygon, colour: shape.fill, ...boxOf(shape) });
+      // A slice reaches from a pie's centre (or hole) to its rim; glyph-sized fills cannot.
+      if (Math.max(shape.width, shape.height) >= PIE_MIN_DIAMETER_PT / 2) {
+        const polygon = vertices(shape);
+        if (polygon.length >= 3 && (shape.curves > 0 || polygon.length >= 6)) {
+          fills.push({ polygon, colour: shape.fill, ...boxOf(shape) });
+        }
       }
     }
   }
-  marks.pies = findPies(fills);
+  // A page of thousands of large fills is a map or an illustration, not a pie chart.
+  marks.pies = fills.length <= MAX_PIE_CANDIDATES ? findPies(fills) : [];
   return marks;
 }
 
@@ -143,13 +148,16 @@ function findPies(
     if (used.has(i)) continue;
     // Slices of one pie touch: grow the group from overlapping boxes.
     const group = [i];
+    const inGroup = new Set(group);
     for (let k = 0; k < group.length; k++) {
       const a = fills[group[k]];
       for (let j = 0; j < fills.length; j++) {
-        if (used.has(j) || group.includes(j)) continue;
+        if (used.has(j) || inGroup.has(j)) continue;
         const b = fills[j];
-        if (a.x <= b.x + b.width && b.x <= a.x + a.width && a.y <= b.y + b.height && b.y <= a.y + a.height)
+        if (a.x <= b.x + b.width && b.x <= a.x + a.width && a.y <= b.y + b.height && b.y <= a.y + a.height) {
           group.push(j);
+          inGroup.add(j);
+        }
       }
       if (group.length > 40) break;
     }

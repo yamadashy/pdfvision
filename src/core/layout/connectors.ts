@@ -92,7 +92,8 @@ export function detectConnections(
     if (!leaves(line.points, a.box) || !leaves([...line.points].reverse(), b.box)) continue;
     // A tail that starts on another line is a branch of it, not a line from the box beside.
     const tail = headAtEnd ? start : end;
-    if (!(headAtEnd && headAtStart) && polylines.some((other) => other !== line && startsOn(tail, other.points))) continue;
+    if (!(headAtEnd && headAtStart) && polylines.some((other) => other !== line && startsOn(tail, other.points)))
+      continue;
     // A connector drawn twice (a halo pass, then the line) is one arrow.
     if (found.some((item) => item.from === a && item.to === b && sameBox(item.line.box, line.box))) continue;
     if (headAtEnd) found.push({ from: a, to: b, line, both: headAtStart !== undefined });
@@ -326,7 +327,10 @@ function crossesNode(points: readonly Point[], nodes: readonly Node[]): boolean 
 
 function insideBy(p: Point, box: BBox, margin: number): boolean {
   return (
-    p.x > box.x + margin && p.x < box.x + box.width - margin && p.y > box.y + margin && p.y < box.y + box.height - margin
+    p.x > box.x + margin &&
+    p.x < box.x + box.width - margin &&
+    p.y > box.y + margin &&
+    p.y < box.y + box.height - margin
   );
 }
 
