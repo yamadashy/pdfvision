@@ -2,6 +2,7 @@ import type { FormField, FormFieldChoiceOption, FormFieldResetFormAction, FormFi
 import { annotationFlagNames } from '../annotations/index.js';
 import { normalizeJavaScriptActions } from '../document/viewer.js';
 import { findFieldLabel, type LabelLine } from './labels.js';
+import { findClearRowLeftLabel, inheritSplitBoxLabels } from './rowLabels.js';
 import { attachFormFieldTextAppearance, type FormFieldTextAppearance } from './types.js';
 
 interface PdfAnnotation {
@@ -109,9 +110,10 @@ export function buildFormFields(
   // options merged into one layout line) can be penalized in favor of
   // the span that stops at the sibling.
   for (const field of fields) {
-    const label = findFieldLabel(field, labelLines, fields);
+    const label = findFieldLabel(field, labelLines, fields) ?? findClearRowLeftLabel(field, labelLines, fields);
     if (label) field.label = label;
   }
+  inheritSplitBoxLabels(fields, labelLines);
   return fields.sort((a, b) => a.y - b.y || a.x - b.x || a.name.localeCompare(b.name));
 }
 

@@ -84,6 +84,7 @@ visual regions は multimodal model への橋渡しとして使えます。
 - スキャン風ページでの低信頼 OCR。
 - 画像内ラベルを視覚モデルで読むべき大きなラスター領域。
 - フォーム、グラフ、ダイアグラムのような密なベクターページ。
+- coloured bars stacked in text rows, such as Gantt task bars or a horizontal bar chart, whose dates, durations, values or status are not in the text (`text_row_vector_bars`); the warning names the region to render.
 
 ### Hidden Native Text
 

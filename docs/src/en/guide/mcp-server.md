@@ -33,7 +33,7 @@ The server is a subcommand of the main binary, not a separate package:
 
 `source` takes a local path or an `http(s)` URL — there is no separate remote parameter.
 
-The surface is deliberately smaller than the CLI. There is no format, include, scale, or cache parameter: anything pdfvision can decide from the document itself, the server decides. `read_pdf` always runs layout, form fields, links, and annotations, and simply omits sections that found nothing. This keeps the permanently-resident tool schemas small and leaves the model nothing to misconfigure.
+The surface is deliberately smaller than the CLI. There is no format, include, scale, or cache parameter: anything pdfvision can decide from the document itself, the server decides. `read_pdf` always runs layout, form fields, links, and annotations, and simply omits sections that found nothing. This keeps the permanently-resident tool schemas small and leaves the model nothing to misconfigure. Repeated running headers and footers are stripped from the page bodies and named once in the response header with their page counts.
 
 ## How a Session Flows
 

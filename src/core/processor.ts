@@ -254,6 +254,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     const optionalContentTextByPage = new Map<number, boolean>();
     const warningImageBoxesByPage = new Map<number, ImageBox[]>();
     const warningVectorBoxesByPage = new Map<number, VectorBox[]>();
+    const warningColouredFillsByPage = new Map<number, VectorBox[]>();
     const warningAnnotationsByPage = new Map<number, PageAnnotation[]>();
     const warningSpansByPage = new Map<number, TextSpan[]>();
     const invisibleTextByPage = new Map<number, InvisibleTextEvidence>();
@@ -289,6 +290,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       optionalContentTextByPage.set(pageNum, data.optionalContentText);
       warningImageBoxesByPage.set(pageNum, data._warningImageBoxes ?? []);
       warningVectorBoxesByPage.set(pageNum, data._warningVectorBoxes ?? []);
+      if (data._warningColouredFills) warningColouredFillsByPage.set(pageNum, data._warningColouredFills);
       warningAnnotationsByPage.set(pageNum, data._warningAnnotations ?? []);
       warningSpansByPage.set(pageNum, data._warningSpans ?? []);
       if (data._invisibleText) invisibleTextByPage.set(pageNum, data._invisibleText);
@@ -371,6 +373,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
         hasHiddenOptionalContent,
         imageBoxes: warningImageBoxesByPage.get(p.page),
         vectorBoxes: warningVectorBoxesByPage.get(p.page),
+        colouredFills: warningColouredFillsByPage.get(p.page),
         annotations: warningAnnotationsByPage.get(p.page),
         spans: warningSpansByPage.get(p.page),
         invisibleText: invisibleTextByPage.get(p.page),

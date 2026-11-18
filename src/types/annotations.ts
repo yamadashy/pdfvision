@@ -54,6 +54,12 @@ export interface PageAnnotation {
   name?: string;
   /** Comment / markup contents when the PDF provides them. */
   contents?: string;
+  /**
+   * Page text under a Highlight, Underline, Squiggly, or StrikeOut
+   * annotation's quads, read from glyph positions. Absent when no glyph
+   * sits inside them or the page's glyphs could not be placed.
+   */
+  markedText?: string;
   /** Annotation title / author label when the PDF provides it. */
   title?: string;
   /** RGB annotation color, 0..255 per channel. */

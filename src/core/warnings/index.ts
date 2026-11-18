@@ -40,6 +40,7 @@ import {
   detectRasterImageWithoutNativeText,
   detectRasterTextLayerSymbolNoise,
   detectRasterTextLayerWordFragmentation,
+  detectTextRowVectorBars,
   detectVectorGraphicsWithoutNativeText,
   detectVisibleAnnotationTextMissingFromNative,
 } from './visualEvidence.js';
@@ -69,6 +70,8 @@ export interface PageWarningContext {
   /** Internal vector bboxes used for warnings even when public
    *  `pages[].vectorBoxes` was not requested. */
   vectorBoxes?: VectorBox[];
+  /** Internal boxes of vector fills painted in a visible non-white colour. */
+  colouredFills?: VectorBox[];
   /** Internal annotations used for warnings even when public
    *  `pages[].annotations` was not requested. */
   annotations?: PageAnnotation[];
@@ -130,6 +133,7 @@ function detectPageWarningsInPhysicalPoints(page: PageResult, context: PageWarni
   detectVectorGraphicsWithoutNativeText(page, context, warnings);
   detectRasterImageWithoutNativeText(page, context, warnings);
   detectLargeRasterLowTextOverlap(page, context, warnings);
+  detectTextRowVectorBars(page, context, warnings);
   detectVisibleAnnotationTextMissingFromNative(page, context, warnings);
   detectOptionalContentTextHiddenLayerRisk(context, warnings);
   detectDuplicateTextLayer(page, context, warnings);

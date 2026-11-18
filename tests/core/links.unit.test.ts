@@ -225,6 +225,35 @@ describe('buildLinks', () => {
     ]);
   });
 
+  it('prefers glyph text inside the rectangle over a clipped label line', async () => {
+    const asked: unknown[] = [];
+    const links = await buildLinks(
+      [{ subtype: 'Link', url: 'https://example.com/money', rect: [380, 734, 409, 746] }],
+      792,
+      0,
+      0,
+      {
+        labelLines: [{ text: 'Money Podcasts', x: 380, y: 46, width: 81, height: 12 }],
+        textUnder: (box) => {
+          asked.push(box);
+          return ' Money ';
+        },
+      },
+    );
+
+    expect(asked).toEqual([{ x: 380, y: 46, width: 29, height: 12 }]);
+    expect(links[0].text).toBe('Money');
+  });
+
+  it('falls back to label lines when no glyph text is available', async () => {
+    const links = await buildLinks([{ subtype: 'Link', dest: 'page.2', rect: [93, 684.6, 136.2, 710.4] }], 792, 0, 0, {
+      labelLines: [{ text: 'Hello', x: 100.5, y: 87, width: 26.48, height: 12 }],
+      textUnder: () => undefined,
+    });
+
+    expect(links[0].text).toBe('Hello');
+  });
+
   it('truncates very long visible link text', async () => {
     const longText = 'Chapter '.repeat(60).trim();
     const links = await buildLinks(

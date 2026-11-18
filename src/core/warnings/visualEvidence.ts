@@ -12,6 +12,7 @@ export {
   detectHighConfidenceOcrNativeMismatch,
   detectHighConfidenceOcrNativeSpacingLoss,
 } from './visualEvidence/ocrNative.js';
+export { detectTextRowVectorBars } from './visualEvidence/rowBars.js';
 export {
   detectLowConfidenceOcr,
   detectRasterBackedTextLayer,

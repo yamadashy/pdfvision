@@ -121,11 +121,10 @@ Unchecked boxes and empty text fields are collapsed into “_4 further fields, n
 (2 checkbox, 2 text)_” — question 4 follows from the two checked declarations being listed by
 label, question 5 from every \`*\` label having a filled field.
 
-Defect without a warning: the label column is empty for left-labelled fields whose printed
-label ends far from the box (\`full_name\`, \`organization\`, \`email\`, \`project_title\`,
-\`county\`, and \`start_day\`/\`start_year\`), while \`requested_amount\` (longer label, smaller
-gap) gets \`Amount requested (USD) * (left)\`. Here the field names carry the meaning; on a form
-with generic names (\`Text1\`, \`Text2\`) the values could not be attributed. The radio labels'
+Every left-labelled field carries its printed label, including those whose label ends far
+from the box at the left margin (\`full_name\` → \`Full name *\`, \`county\` → \`County served\`), and
+the three split date boxes all carry \`Project start date *\` (issue #255), so values stay
+attributable on a form whose field names are generic. The radio labels'
 body order diverges (\`Media arts\` after \`Signature of applicant\`) and is covered by a
 \`reading_order_divergence\` warning that says to render.
 `;

@@ -45,6 +45,40 @@ const PAGE_HEIGHT = 792;
 const PAGE_WIDTH = 612;
 
 describe('buildVectorBoxes', () => {
+  it('collects fills in a visible non-white colour, not strokes, white, or near-white fills', () => {
+    const coloured: { x: number; y: number; width: number; height: number }[] = [];
+    const rect = (y: number) => new Float32Array([100, y, 200, y + 10]);
+    const boxes = buildVectorBoxes(
+      [
+        OP.setFillRGBColor,
+        OP.constructPath,
+        OP.constructPath,
+        OP.setFillRGBColor,
+        OP.constructPath,
+        OP.setFillRGBColor,
+        OP.constructPath,
+      ],
+      [
+        ['#3a9a5b'],
+        [OP.fill, [], rect(700)],
+        [OP.stroke, [], rect(680)],
+        ['#ffffff'],
+        [OP.fill, [], rect(660)],
+        ['#f6f7f9'],
+        [OP.fill, [], rect(640)],
+      ],
+      ops,
+      PAGE_WIDTH,
+      PAGE_HEIGHT,
+      0,
+      0,
+      coloured,
+    );
+
+    expect(boxes).toHaveLength(4);
+    expect(coloured).toEqual([{ x: 100, y: 82, width: 100, height: 10 }]);
+  });
+
   it('emits painted path bboxes in top-left coordinates', () => {
     const boxes = buildVectorBoxes(
       [OP.save, OP.transform, OP.constructPath, OP.restore],
