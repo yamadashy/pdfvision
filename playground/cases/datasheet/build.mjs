@@ -137,6 +137,7 @@ export const meta = {
   stresses:
     'pinout diagram with pin names as text around a vector outline; ruled tables with merged parameter cells over several condition rows, written column by column; subscript symbols; package drawing whose dimensions are outlines with no text',
   status: 'known-gap',
+  issue: 296,
   families: ['tables', 'vector-meaning', 'structure'],
 };
 
@@ -205,7 +206,7 @@ Subscripts on page 2 stay on their symbols, written \`_X\` (#241): the condition
 \`At T_A = 25°C, V_S = 5 V, R_L = 10 kΩ connected to V_S / 2\`, symbols read \`V_{OS}\`, \`dV_{OS}/dT\`,
 \`I_B\`, \`e_n\`, and conditions \`T_A = 25°C\`, \`I_O = 0 mA\`.
 
-**Known gap (no issue yet):**
+**Known gap (#296):**
 - Fixed in #277: the electrical-characteristics table is read from its rules as one 18 × 7 layout
   table, the header row included, each value under MIN, TYP or MAX (\`| Input offset voltage | V_{OS} | T_A = –40°C to +125°C | | | ±2.5 | mV |\`),
   and each merged parameter and symbol cell repeated in every condition row it spans
