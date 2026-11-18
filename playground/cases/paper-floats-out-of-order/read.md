@@ -91,41 +91,11 @@ Age, years, mean (SD)
 38.6 (8.9)
 
 0.006
-
-Female, n (%)
-
-163 (76.9) 149 (75.3)
-
-0.70
-
-BMI, kg/m^2, mean (SD)
-
-25.1 (3.9)
-
-26.4 (4.2)
-
-0.001
-
-7.1
-
-6.2
-
-<0.001
-
-Sleep, h/day, median
-Diet quality score
-
-61 (12)
-
-57 (13)
-
-0.002
-
-Antibiotics past year, n (%) 31 (14.6)
-
-33 (16.7)
-
-0.57
+Female, n (%) 163 (76.9) 149 (75.3) 0.70
+BMI, kg/m^2, mean (SD) 25.1 (3.9) 26.4 (4.2) 0.001
+Sleep, h/day, median 7.1 6.2 <0.001
+Diet quality score 61 (12) 57 (13) 0.002
+Antibiotics past year, n (%) 31 (14.6) 33 (16.7) 0.57
 
 SD, standard deviation; BMI, body mass index.
 

@@ -22,9 +22,11 @@ export interface LayoutGraphics {
  *   reading-order rules inside the region.
  * - `figure`: the region holds only short labels (chart values, axis
  *   ticks, legend entries, table cells); they are read top to bottom.
+ * - `rows`: not painted, but text set as rows (see rows/index.ts); its
+ *   blocks already hold one row per line and are read top to bottom.
  */
 export interface LayoutRegion extends BBox {
-  kind: 'frame' | 'figure';
+  kind: 'frame' | 'figure' | 'rows';
   blocks: LayoutBlock[];
   /** Number of painted boxes the region was built from. */
   graphicCount: number;
@@ -80,13 +82,15 @@ export function isLabelLikeBlock(block: LayoutBlock): boolean {
  * Regions of the page that painted geometry sets apart, each with the
  * text blocks it holds. Regions never share a block; where candidates
  * nest, every candidate is returned so callers can order nested regions
- * inside their parent — see {@link outermostRegions}.
+ * inside their parent — see {@link outermostRegions}. `bars: false` skips
+ * the bar-chart test, for a caller that does not read `bars`.
  */
 export function detectLayoutRegions(
   blocks: readonly LayoutBlock[],
   graphics: LayoutGraphics | undefined,
   pageWidth: number,
   pageHeight: number,
+  { bars = true }: { bars?: boolean } = {},
 ): LayoutRegion[] {
   if (!graphics || pageWidth <= 0 || pageHeight <= 0) return [];
   const vectors = (graphics.vectorBoxes ?? []).filter(isFiniteBox);
@@ -105,7 +109,7 @@ export function detectLayoutRegions(
   const regions: LayoutRegion[] = [];
   const seen = new Set<string>();
   for (const candidate of candidates) {
-    const region = evaluateCandidate(candidate, textBlocks, pageWidth, pageHeight, vectors);
+    const region = evaluateCandidate(candidate, textBlocks, pageWidth, pageHeight, vectors, bars);
     if (!region) continue;
     const key = region.blocks
       .map((block) => textBlocks.indexOf(block))
@@ -143,6 +147,7 @@ function evaluateCandidate(
   pageWidth: number,
   pageHeight: number,
   vectors: readonly BBox[],
+  bars: boolean,
 ): LayoutRegion | undefined {
   const pageArea = pageWidth * pageHeight;
   const { box } = candidate;
@@ -199,7 +204,8 @@ function evaluateCandidate(
   region.verticalMarks =
     orderMarks.length >= MIN_FIGURE_GRAPHICS - 1 &&
     orderMarks.filter((mark) => mark.height > mark.width).length >= orderMarks.length * VERTICAL_MARK_SHARE;
-  region.bars = hasBars(marks, 'width', 'height', region.width) || hasBars(marks, 'height', 'width', region.height);
+  region.bars =
+    bars && (hasBars(marks, 'width', 'height', region.width) || hasBars(marks, 'height', 'width', region.height));
   return region;
 }
 

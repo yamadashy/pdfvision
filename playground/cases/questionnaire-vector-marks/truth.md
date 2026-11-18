@@ -38,8 +38,8 @@ reports which option is marked:
 **Known gap (#303):** no answer except the free text survives, and nothing on the page
 warns. The ticks and filled circles leave no trace, so every option reads as equally present:
 questions 2–6 have no answer (question 1 is answered only through the free-text `内容:ペニシリン系の
-抗生物質`). The layout makes it worse: section 1 is read column by column — the five questions, then
-`はい` ×5, `いいえ` ×5 and the `内容:` answers — with section 2's options interleaved by column
-(`吸わない` / `飲まない` / `以前吸っていた` / `週1〜2日` / …) and spliced between them, so even the
-row an option belongs to is lost; the scale grid's five headings come before its four rows with no
-cells. A reader that assumes "nothing marked" would also be wrong: the form is complete.
+抗生物質`). Sections 1 and 2 read row by row, each question or habit on one line with its options
+(`(2) 薬や食べ物でアレルギーが出たことがありますか はい いいえ 内容:ペニシリン系の抗生物質`, `飲酒 飲まない
+週1〜2日 週3〜5日 ほぼ毎日`, #301), but nothing says which option is marked; the scale grid's five headings
+come before its four rows with no cells. A reader that assumes "nothing marked" would also be wrong:
+the form is complete.

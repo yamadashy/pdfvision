@@ -1,4 +1,5 @@
 import type { LayoutBlock, PageResult, PageWarning } from '../../types/index.js';
+import { cellLines, rowCells } from '../layout/rows/index.js';
 import { horizontalOverlap } from '../warningTextOverlap/index.js';
 import { detectColumnListReadingOrderDivergence } from './readingOrder/columnLists.js';
 import { READING_ORDER_REMEDY, READING_ORDER_REMEDY_EXACT } from './readingOrder/remedy.js';
@@ -283,9 +284,14 @@ function detectLineReadingOrderDivergence(page: PageResult, blocks: LayoutBlock[
   for (let blockIndex = 0; blockIndex < blocks.length; blockIndex++) {
     const block = blocks[blockIndex];
     if (block.repeated || block.lines.length < LINE_READING_ORDER_MIN_LINES) continue;
+    // A row joined from cells is probed by its first cell: the cells come
+    // from wherever the stream wrote each column.
     const probes = block.lines
       .map((line) =>
-        collapseReadingOrderWhitespace(line.text.normalize('NFKC')).slice(0, LINE_READING_ORDER_PROBE_CHARS),
+        collapseReadingOrderWhitespace(rowCells(line)[0].text.normalize('NFKC')).slice(
+          0,
+          LINE_READING_ORDER_PROBE_CHARS,
+        ),
       )
       .filter((probe) => probe.length >= LINE_READING_ORDER_MIN_PROBE_CHARS);
     if (probes.length < LINE_READING_ORDER_MIN_LINES || new Set(probes).size !== probes.length) continue;
@@ -330,18 +336,12 @@ function detectLocalMathReadingOrderDivergence(page: PageResult, blocks: LayoutB
   for (let i = 0; i < blocks.length; i++) {
     const block = blocks[i];
     if (block.repeated) continue;
+    // Cells joined into a row come from wherever the stream wrote each
+    // column; only the text inside one cell can be locally reordered.
     if (!hasLocalReadingOrderMathSignal(block.text)) continue;
-    const blockChars = compactReadingOrderChars(block.text);
-    if (
-      blockChars.length < LOCAL_READING_ORDER_MIN_COMPACT_CHARS ||
-      blockChars.length > LOCAL_READING_ORDER_MAX_COMPACT_CHARS
-    ) {
-      continue;
-    }
-    const compactBlock = blockChars.join('');
-    if (nativeChars.join('').includes(compactBlock)) continue;
-    if (!containsReorderedCharacterWindow(nativeChars, blockChars)) continue;
-    const probe = block.text.replace(/\s+/gu, ' ').trim().slice(0, LOCAL_READING_ORDER_PROBE_CHARS);
+    const text = locallyOrderedTexts(block).find((candidate) => hasLocallyReorderedChars(nativeChars, candidate));
+    if (text === undefined) continue;
+    const probe = text.replace(/\s+/gu, ' ').trim().slice(0, LOCAL_READING_ORDER_PROBE_CHARS);
     out.push({
       code: 'reading_order_divergence',
       severity: 'warning',
@@ -350,6 +350,24 @@ function detectLocalMathReadingOrderDivergence(page: PageResult, blocks: LayoutB
     });
     return;
   }
+}
+
+function locallyOrderedTexts(block: LayoutBlock): string[] {
+  const cells = cellLines([block]);
+  return cells.length > block.lines.length ? cells.map((cell) => cell.text) : [block.text];
+}
+
+function hasLocallyReorderedChars(nativeChars: readonly string[], text: string): boolean {
+  if (!hasLocalReadingOrderMathSignal(text)) return false;
+  const blockChars = compactReadingOrderChars(text);
+  if (
+    blockChars.length < LOCAL_READING_ORDER_MIN_COMPACT_CHARS ||
+    blockChars.length > LOCAL_READING_ORDER_MAX_COMPACT_CHARS
+  ) {
+    return false;
+  }
+  if (nativeChars.join('').includes(blockChars.join(''))) return false;
+  return containsReorderedCharacterWindow(nativeChars, blockChars);
 }
 
 function hasLocalReadingOrderMathSignal(text: string): boolean {

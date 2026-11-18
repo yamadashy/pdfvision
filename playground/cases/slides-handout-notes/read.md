@@ -12,7 +12,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 | Page | Chars | Images | Coverage | Size (pt) | Vectors | Tables | Blocks | Fields | Links | Annots |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 438 | 0 | 6% | 612×792 | 34 | 1 | 24 | 0 | 0 | 0 |
+| 1 | 438 | 0 | 6% | 612×792 | 34 | 1 | 14 | 0 | 0 | 0 |
 | 2 | 543 | 0 | 6% | 612×792 | 6 | 0 | 10 | 0 | 0 | 0 |
 
 ---
@@ -41,27 +41,10 @@ Most errors are in 600 fast-moving SKUs
 
 Pilot results (Aisles 11–14)
 
-Before
-
-Pilot
-
-Record accuracy
-
-95.8%
-
-98.9%
-
-Count hours / week
-
-0
-
-14
-
-Stock-outs / month
-
-23
-
-9
+Before Pilot
+Record accuracy 95.8% 98.9%
+Count hours / week 0 14
+Stock-outs / month 23 9
 
 3
 

@@ -11,7 +11,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 | Page | Chars | Images | Coverage | Size (pt) | Blocks | Warnings | Fields | Links | Annots |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 754 | 1 | 10% | 612×792 | 17 | 1 | 0 | 0 | 0 |
+| 1 | 754 | 1 | 10% | 612×792 | 12 | 1 | 0 | 0 | 0 |
 | 2 | 0 | 1 | 0% | 612×792 | 0 | 1 | 0 | 0 | 0 |
 
 ---
@@ -37,19 +37,10 @@ Dear Mr. Pruett,
 Following the move-out inspection on September 18, 2026, we have itemized the
 deductions from your security deposit of $1,850.00 as follows:
 
-Carpet cleaning, bedroom 2
-
-Unpaid utility balance (September)
-
-Total deductions
-Amount retumed
-
-$145.00
-
-$81.25
-
-$244.75
-$1,605.25
+Carpet cleaning, bedroom 2 $145.00
+Unpaid utility balance (September) $81.25
+Total deductions $244.75
+Amount retumed $1,605.25
 
 A check for the amount returned is enclosed. If you dispute any item, please
 write to us within l4 days of the date of this letter.

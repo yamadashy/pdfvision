@@ -6,6 +6,7 @@ import type {
   PageResult,
   PageWarning,
 } from '../../types/index.js';
+import { cellLines } from '../layout/rows/index.js';
 import { isTableValueCell } from '../layout/tableCells.js';
 import { isClearlyCloser } from '../layout/tableLabelWraps.js';
 
@@ -27,7 +28,7 @@ const WRAP_FULL_LINE_SLACK_RATIO = 0.15;
 export function detectLayoutTableUncertainty(page: PageResult, out: PageWarning[]): void {
   const tables = page.layout?.tables;
   if (!tables || tables.length === 0) return;
-  const lines = page.layout?.blocks.flatMap((block) => block.lines) ?? [];
+  const lines = cellLines(page.layout?.blocks ?? []);
   const toRaw = 1 / (page.userUnit ?? 1);
 
   for (const [tableIndex, table] of tables.entries()) {

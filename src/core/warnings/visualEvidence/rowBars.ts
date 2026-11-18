@@ -1,4 +1,5 @@
 import type { LayoutLine, PageResult, PageWarning, VectorBox } from '../../../types/index.js';
+import { cellLines } from '../../layout/rows/index.js';
 import { shortTextSample } from '../textSamples.js';
 import { type BoxLike, clippedArea } from './types.js';
 
@@ -44,9 +45,7 @@ export function detectTextRowVectorBars(
   const fills = context.colouredFills;
   if (!fills || fills.length < MIN_BAR_ROWS) return;
   if (out.some((warning) => warning.code === 'dense_vector_graphics')) return;
-  const lines = (page.layout?.blocks ?? [])
-    .flatMap((block) => block.lines)
-    .filter((line) => line.text.trim().length > 0);
+  const lines = cellLines(page.layout?.blocks ?? []).filter((line) => line.text.trim().length > 0);
   if (lines.length === 0) return;
 
   const textRight = Math.max(...lines.map((line) => line.x + line.width));

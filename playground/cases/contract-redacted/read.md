@@ -12,8 +12,8 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 | Page | Chars | Images | Coverage | Size (pt) | Vectors | Blocks | Warnings | Fields | Links | Annots |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 1704 | 0 | 16% | 612×792 | 3 | 28 | 1 | 0 | 0 | 2 |
-| 2 | 1057 | 0 | 10% | 612×792 | 3 | 16 | 1 | 0 | 1 | 1 |
+| 1 | 1704 | 0 | 16% | 612×792 | 3 | 8 | 1 | 0 | 0 | 2 |
+| 2 | 1057 | 0 | 10% | 612×792 | 3 | 8 | 1 | 0 | 1 | 1 |
 
 ---
 
@@ -30,62 +30,30 @@ between:
 (2) Blue Fern Retail, Inc., 1180 Mercer Street, Suite 400, Seattle, WA 98109 (“Client”);
 
 1. Definitions
-1.1
 
-“Services” means the data-engineering and analytics services described in Schedule A.
-
-1.2
-
-“Deliverables” means all reports, dashboards and code that Provider delivers to Client in performing
+1.1 “Services” means the data-engineering and analytics services described in Schedule A.
+1.2 “Deliverables” means all reports, dashboards and code that Provider delivers to Client in performing
 the Services.
-
-1.3
-
-“Confidential Information” means any non-public information disclosed by one party to the other, in
+1.3 “Confidential Information” means any non-public information disclosed by one party to the other, in
 any form, that is marked or would reasonably be understood as confidential.
-
 2. Services
-2.1
-
-Provider shall perform the Services with reasonable skill and care and in accordance with the service
+2.1 Provider shall perform the Services with reasonable skill and care and in accordance with the service
 levels in Schedule B.
-
-2.2
-
-Client shall give Provider timely access to the systems, data and personnel reasonably required for the
+2.2 Client shall give Provider timely access to the systems, data and personnel reasonably required for the
 Services.
-
 3. Fees and Payment
-3.1
-
-Client shall pay Provider a fixed monthly fee of
-
-(the “Fees”), invoiced monthly in
+3.1 Client shall pay Provider a fixed monthly fee of (the “Fees”), invoiced monthly in
 
 advance.
 
-3.2
-
-Invoices are payable within thirty (30) days of the invoice date.
-
-3.3
-
-Late payments bear interest at 1.5% per month until paid in full.
-
+3.2 Invoices are payable within thirty (30) days of the invoice date.
+3.3 Late payments bear interest at 1.5% per month until paid in full.
 4. Term and Termination
-4.1
-
-This Agreement starts on the Effective Date and continues for an initial term of twenty-four (24)
+4.1 This Agreement starts on the Effective Date and continues for an initial term of twenty-four (24)
 months (the “Initial Term”).
-
-4.2
-
-Either party may terminate this Agreement for material breach on thirty (30) days’ written notice if the
+4.2 Either party may terminate this Agreement for material breach on thirty (30) days’ written notice if the
 breach is not cured within that period.
-
-4.3
-
-Client may terminate this Agreement for convenience after month twelve (12) upon payment of an
+4.3 Client may terminate this Agreement for convenience after month twelve (12) upon payment of an
 early-termination fee of USD 120,000.
 
 ### Annotations
@@ -106,30 +74,17 @@ early-termination fee of USD 120,000.
 _chars: 1057 · images: 0 · coverage: 10% · vectors: 3 · links: 1 · annotations: 1 · warnings: 1 · size: 612×792pt_
 
 5. Confidentiality
-5.1
 
-Each party shall keep the other party’s Confidential Information confidential and use it only to
+5.1 Each party shall keep the other party’s Confidential Information confidential and use it only to
 perform this Agreement, for the term and three (3) years after.
-
 6. Limitation of Liability
-6.1
-
-Provider’s aggregate liability under this Agreement shall not exceed USD 250,000 in any contract year.
-
-6.2
-
-Neither party is liable for indirect or consequential loss, including loss of profit, revenue or data.
-
+6.1 Provider’s aggregate liability under this Agreement shall not exceed USD 250,000 in any contract year.
+6.2 Neither party is liable for indirect or consequential loss, including loss of profit, revenue or data.
 7. Notices
-7.1
-
-Notices to Provider shall be submitted through https://contracts.corvane.example/notices and notices to
+7.1 Notices to Provider shall be submitted through https://contracts.corvane.example/notices and notices to
 Client sent by courier to the address above.
-
 8. Governing Law
-8.1
-
-This Agreement is governed by the laws of the State of Washington, and the courts of King County
+8.1 This Agreement is governed by the laws of the State of Washington, and the courts of King County
 have exclusive jurisdiction.
 
 IN WITNESS WHEREOF, the parties have executed this Agreement on the dates written below.

@@ -29,62 +29,15 @@ emergency visits were essentially unchanged (22%, p 1⁄4 0.91).
 
 Table 2. Primary and secondary outcomes at 12 months.
 
-Remote monitoring
-
-Outcome
-
-HbA1c at 12 months, %
-Systolic BP, mmHg
-Weight change, kg
-Hospital admissions, n (%)
-Emergency visits, n (%)
-Adverse events, n (%)
-Sites with .25 patients, n (%)
-
-(n 1⁄4 412)
-
-7.1 þ 0.9
-
-131 þ 14
-
-22.4 þ 3.1
-
-38 (9%)
-61 (15%)
-22 (5%)
-9 (64%)
-
-Usual care
-(n 1⁄4 398)
-
-7.6 þ 1.1
-
-134 þ 15
-+0.3 þ 2.8
-79 (20%)
-64 (16%)
-19 (5%)
-8 (57%)
-
-Change
-
-20.5
-23
-22.7
-252%
-22%
-+11%
-+7%
-
-p
-
-,0.001
-0.03
-0.004
-,0.001
-0.91
-0.62
-0.71
+Remote monitoring Usual care
+Outcome (n 1⁄4 412) (n 1⁄4 398) Change p
+HbA1c at 12 months, % 7.1 þ 0.9 7.6 þ 1.1 20.5 ,0.001
+Systolic BP, mmHg 131 þ 14 134 þ 15 23 0.03
+Weight change, kg 22.4 þ 3.1 +0.3 þ 2.8 22.7 0.004
+Hospital admissions, n (%) 38 (9%) 79 (20%) 252% ,0.001
+Emergency visits, n (%) 61 (15%) 64 (16%) 22% 0.91
+Adverse events, n (%) 22 (5%) 19 (5%) +11% 0.62
+Sites with .25 patients, n (%) 9 (64%) 8 (57%) +7% 0.71
 
 Values are mean þ SD or n (%). Change is the difference in means, or the relative change in proportions. Insulin doses were titrated in steps of 2
 3 2 IU. BP, blood pressure.

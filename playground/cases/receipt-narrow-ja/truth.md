@@ -29,11 +29,8 @@ One 164 × 640 pt page (58 mm wide). Store: まるみ屋 青葉台店, 2026年11
 4. 軽減税率（8%）の対象でない商品はどれか。 — 食器用洗剤 詰替、ゴミ袋45L 20枚
 5. 8%対象の消費税額とお釣りはいくらか。 — 内消費税 ¥106、お釣り ¥980
 
-**Reads correctly, with a fragile totals block:** the item lines come out in order, each name followed
-by its price, the quantity line under its item and the discount right after the chicken
-(`※国産若鶏もも肉` / `¥498` / `値引(タイムセール)` / `-100`), so questions 2–4 are answered directly.
-The totals block is read as two runs, eight labels (`小計` / `合計 10点` / `(8%対象` / `(内消費税` /
-… / `お釣り`) and then eight amounts (`¥2,120` / `¥2,020` / `¥1,444)` / `¥106)` / …), so questions 1
-and 5 are answered by pairing the two runs in order; they line up one to one, and the closing
-parentheses on the per-rate amounts help, but nothing but order ties `(内消費税` (twice) to `¥106)`
-and `¥52)`.
+**Reads correctly:** every line of the receipt reads with its price on one line, the quantity line
+under its item carrying the price (`2コ × 単158 ¥316`) and the discount right after the chicken
+(`値引(タイムセール) -100`), so questions 2–4 are answered directly. The totals block reads the same
+way, each label with its amount (`(内消費税 ¥106)`, `お釣り ¥980`), so questions 1 and 5 no longer
+rest on pairing a run of labels with a run of amounts by counting (#301).

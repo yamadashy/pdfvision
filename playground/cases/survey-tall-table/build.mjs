@@ -139,10 +139,10 @@ own) right before \`Atlas-1 [50]\`. So all five questions are answered from the 
 and the closed-source count come from the group rows. The RLHF marks decode to ✓ and ✗
 (\`| Heron-3-405B [35] | Jul-2024 | 405 | 15.6T | 128k | ✓ |\`, #275).
 
-The page body still reads the open-source half column by column (all models, then all dates, …),
-as the survey reported for the real page, and the closed-source half row by row (#297);
+The page body reads both halves row by row, one line per model (\`Heron-70B [15] Jul-2023 70 2.0T 4k ✓\`,
+#297), where the real page this re-creates read the open-source half column by column;
 \`tabular_numeric_layout\` says rows and columns may be flattened in the native text, and the table
-carries them.
+carries each value's column.
 `;
 
 const LEFT = 72;

@@ -95,11 +95,10 @@ the figure that sits between its halves on the page. `reading_order_divergence` 
 and says the body above is that reading order, rebuilt from the layout — now true (#272 made it
 say the order was unreliable while the sidebar and abstract were interleaved).
 
-Table 1 is not detected as a layout table, but the band between its rules is read row by row:
-`Age, years, mean (SD)` / `41.2 (9.8)` / `38.6 (8.9)` / `0.006`, and so on. Two flaws remain: the
-first two values of `Female, n (%)` share one line (`163 (76.9) 149 (75.3)`), and the sleep row's
-label is joined to the next row's label, so its values `7.1` / `6.2` / `<0.001` come just before
-`Sleep, h/day, median` / `Diet quality score`; question 4 is answerable, but only by noticing
-that. Figure 1's labels are read bar by bar (`3.87` / `Day shift`, `3.58` / `Night < 5 y`,
+Table 1 is not detected as a layout table, but its rows below `Age, years, mean (SD)` read one row
+per line, label first (`Sleep, h/day, median 7.1 6.2 <0.001`, #301), so question 4 is answered
+directly; the chart's tick labels on the same baselines stay with the chart. The header and the age
+row still read cell by cell, in order (`Age, years, mean (SD)` / `41.2 (9.8)` / `38.6 (8.9)` /
+`0.006`). Figure 1's labels are read bar by bar (`3.87` / `Day shift`, `3.58` / `Night < 5 y`,
 `3.24` / `Night ≥ 5 y`) after the axis, and `vector_chart_labels` names the chart region to
 render.

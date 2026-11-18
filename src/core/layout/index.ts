@@ -8,6 +8,7 @@ import { buildLayoutLinesWithGutters } from './lines.js';
 import { assembleDisplayMath } from './math/index.js';
 import { orderLayoutBlocks } from './regionOrder.js';
 import { detectLayoutRegions, type LayoutGraphics } from './regions.js';
+import { alignedRowRegions, readAlignedRows } from './rows/index.js';
 import { sideLineMarks } from './sideLines.js';
 import { tableRules } from './tableRules.js';
 import { detectLayoutTables } from './tables.js';
@@ -122,15 +123,23 @@ export function buildLayout(
     }
   }
 
-  const blocks: LayoutBlock[] = [
-    ...blockGroups.map((group) => ({
-      text: group.map((l) => l.text).join('\n'),
-      ...unionBox(group),
-      lines: group,
-    })),
-    ...vertical.blocks,
-    ...code.blocks,
-  ].sort(compareLayoutBlocks);
+  const rows = readAlignedRows(
+    [
+      ...blockGroups.map((group) => ({
+        text: group.map((l) => l.text).join('\n'),
+        ...unionBox(group),
+        lines: group,
+      })),
+      ...vertical.blocks,
+      ...code.blocks,
+    ],
+    {
+      gutters: columnGutters,
+      verticalRules: rules.vertical,
+      regions: (pending) => detectLayoutRegions(pending, graphics, pageWidth, pageHeight, { bars: false }),
+    },
+  );
+  const blocks: LayoutBlock[] = rows.blocks.sort(compareLayoutBlocks);
 
   if (isVerticalPage(blocks)) {
     const ordered = orderVerticalPage(blocks);
@@ -141,7 +150,15 @@ export function buildLayout(
   classifyHeadings(blocks, pageWidth, pageHeight);
   const ordered =
     pageWidth > 0
-      ? orderLayoutBlocks(blocks, detectLayoutRegions(blocks, graphics, pageWidth, pageHeight), pageWidth, pageHeight)
+      ? orderLayoutBlocks(
+          blocks,
+          [
+            ...(rows.regions ?? detectLayoutRegions(blocks, graphics, pageWidth, pageHeight)),
+            ...alignedRowRegions(rows.runs),
+          ],
+          pageWidth,
+          pageHeight,
+        )
       : blocks;
   return withMarks({ blocks: ordered, ...(tables !== undefined && { tables }) }, math.spans, graphics);
 }

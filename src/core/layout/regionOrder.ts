@@ -15,7 +15,7 @@ import { compareLayoutBlocks } from './verticalText.js';
  * instead of joining whichever column their x happens to match. The
  * unit's own blocks are then ordered inside it: a `frame` by the same
  * rules as the page (with any regions nested in it), a `figure` top to
- * bottom.
+ * bottom, `rows` (each row already one line) top to bottom.
  */
 export function orderLayoutBlocks(
   blocks: LayoutBlock[],
@@ -66,6 +66,7 @@ export function orderLayoutBlocks(
 
 function orderUnit(unit: LayoutRegion, regions: readonly LayoutRegion[]): LayoutBlock[] {
   const members = [...unit.blocks].sort(compareLayoutBlocks);
+  if (unit.kind === 'rows') return members;
   const inner = regions.filter((region) => region !== unit);
   // A panel holding several charts is read chart by chart, not row by row
   // across all of them.

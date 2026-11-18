@@ -59,33 +59,10 @@ each document, so short documents lose few tokens.
 
 Table 1: Retrieval quality and query latency on LongDocQA.
 
-Method
-
-nDCG@10 R@100 Latency (ms)
-
-Full attention
-
-41.2
-
-58.7
-
-182
-
-Static pruning (k = 512)
-
-38.9
-
-55.1
-
-97
-
-ATP (ours)
-
-40.8
-
-58.3
-
-88
+Method nDCG@10 R@100 Latency (ms)
+Full attention 41.2 58.7 182
+Static pruning (k = 512) 38.9 55.1 97
+ATP (ours) 40.8 58.3 88
 
 250
 

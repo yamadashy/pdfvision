@@ -4,6 +4,7 @@ import {
   isLikelySparseNumericLegendFragment,
   isLikelyTinyNumericVectorGrid,
 } from '../layout/numericVectorGrid.js';
+import { cellLines } from '../layout/rows/index.js';
 import { isTableCheckMarkCell } from '../layout/tableCells.js';
 
 const TABULAR_NUMERIC_MIN_LINES = 12;
@@ -23,7 +24,7 @@ const DOT_LEADER_NOISE_MIN_LINES = 8;
 const DOT_LEADER_NOISE_MIN_DOTS = 80;
 
 export function detectTabularNumericLayout(blocks: LayoutBlock[], out: PageWarning[]): void {
-  const allLines = blocks.flatMap((block) => block.lines);
+  const allLines = cellLines(blocks);
   if (allLines.length === 0) return;
 
   const numericLines = allLines.filter(isTabularNumericLine);
