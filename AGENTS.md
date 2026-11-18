@@ -42,7 +42,7 @@ pdfvision/
 │   │   ├── annotations/      # PDF annotation normalization and geometry
 │   │   ├── document/         # Document-level metadata, outline, layers, attachments
 │   │   ├── formFields/       # Form field extraction, labels, and stacked controls
-│   │   ├── geometry/         # Displayed (post-/Rotate) page frame every geometry field uses
+│   │   ├── geometry/         # Page frame every geometry field uses: displayed (post-/Rotate), or stored under rotated_page_read_unrotated
 │   │   ├── graphics/         # Image and vector operation analysis
 │   │   ├── io/               # OS tmpdir cache and remote input helpers
 │   │   ├── layout/           # Text layout reconstruction and repeated chrome

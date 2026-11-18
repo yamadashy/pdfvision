@@ -53,7 +53,7 @@ interface PageOverview {
   nonPrintableRatio: number;      // 0..1, pre-C0-strip NUL / control / noncharacter fraction
   nonPrintableCount: number;      // raw count — stays discriminable when the 3dp ratio rounds to 0
   renderContentRatio?: number;    // 0..1, fraction of pixels differing from the page's dominant background (present iff --render or --ocr)
-  rotation?: number;               // clockwise page rotation in degrees; present only for rotated pages; geometry is already turned
+  rotation?: number;               // clockwise page rotation in degrees; present only for rotated pages; geometry is already turned, except under rotated_page_read_unrotated
   userUnit?: number;               // PDF /UserUnit; omitted when 1; physical points = raw page-view value * userUnit
   quality: PageQuality;           // derived classification — see below
   warningCount?: number;          // mirror of pages[N].warnings.length, omitted when no rule fired
@@ -64,7 +64,7 @@ interface PageOverview {
   linkCount?: number;             // furniture presence count; automatic when non-zero, present-with-0 when the matching flag ran
   annotationCount?: number;       // furniture presence count; automatic when non-zero, present-with-0 when the matching flag ran
   structureNodeCount?: number;    // count of tagged-PDF structure nodes; present iff --structure
-  width: number;                  // raw units, displayed (post-/Rotate) frame
+  width: number;                  // raw units, displayed (post-/Rotate) frame; stored under rotated_page_read_unrotated
   height: number;
 }
 ```
@@ -99,7 +99,7 @@ interface PageResult {
   nonPrintableCount: number;     // pre-C0-strip raw count alongside the ratio
   renderContentRatio?: number;   // pixel fraction differing from the page's dominant background (present iff --render or --ocr)
   quality: PageQuality;          // derived per-page classification — agent-side dispatch lives on this field
-  rotation?: number;              // clockwise page rotation in degrees; present only for rotated pages; geometry is already turned
+  rotation?: number;              // clockwise page rotation in degrees; present only for rotated pages; geometry is already turned, except under rotated_page_read_unrotated
   userUnit?: number;              // PDF /UserUnit; omitted when 1; mirrored in overview[]
   width: number;
   height: number;

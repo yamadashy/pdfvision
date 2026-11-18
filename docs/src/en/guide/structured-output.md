@@ -75,8 +75,8 @@ The overview is especially useful for long documents because it lets the agent c
 Each `pages[]` entry includes:
 
 - `text` and optional `rawText`.
-- page dimensions in raw page-view units of the page as displayed (after `/Rotate`), plus optional `userUnit` when it is not 1.
-- optional page rotation in degrees when the PDF page is rotated; every other field is already reported in the rotated, displayed frame.
+- page dimensions in raw page-view units of the page as displayed (after `/Rotate`; as stored under the same exception), plus optional `userUnit` when it is not 1.
+- optional page rotation in degrees when the PDF page is rotated; every other field is already reported in the rotated, displayed frame, except on a page flagged `rotated_page_read_unrotated`, which keeps its stored frame.
 - density fields mirrored from the overview.
 - optional `formFieldCount`, `linkCount`, and `annotationCount` presence signals, omitted when zero.
 - optional `image` path when `--render` is used.

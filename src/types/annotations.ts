@@ -14,6 +14,10 @@ export interface PageAnnotationFileAttachment {
   size: number;
 }
 
+/**
+ * A point in the page's reported frame: displayed (post-/Rotate), or stored
+ * on a page flagged `rotated_page_read_unrotated`; top-left origin.
+ */
 export interface PageAnnotationPoint {
   x: number;
   y: number;
