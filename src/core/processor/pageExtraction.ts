@@ -210,7 +210,7 @@ export async function extractPageData(
                 })),
               ]
             : [],
-          { widgetAppearanceCaptions },
+          { widgetAppearanceCaptions, frameRotation: frame.rotation },
         )
       : undefined;
   const formFields = flags.formFields ? allFormFields : undefined;
@@ -310,7 +310,7 @@ export async function extractPageData(
     nonPrintableRatio: npStats.ratio,
     nonPrintableCount: npStats.count,
     ...(rotation !== undefined && { rotation }),
-    ...(readUnrotated && { _readUnrotated: true }),
+    ...(readUnrotated && { _readUnrotated: { sidewaysTextShare: frame.sidewaysTextShare ?? 0 } }),
     ...(userUnit !== undefined && { userUnit }),
     // Round to 2dp; raw page-view dimensions are commonly integers (Letter
     // 612×792 at UserUnit 1) but encrypted/cropped PDFs can carry fractions.

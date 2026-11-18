@@ -258,7 +258,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     const warningAnnotationsByPage = new Map<number, PageAnnotation[]>();
     const warningSpansByPage = new Map<number, TextSpan[]>();
     const invisibleTextByPage = new Map<number, InvisibleTextEvidence>();
-    const readUnrotatedPages = new Set<number>();
+    const readUnrotatedPages = new Map<number, { sidewaysTextShare: number }>();
     const opaqueFillTextByPage = new Map<number, OpaqueFillTextEvidence>();
     const visualRegionInputsByPage = new Map<number, BuildVisualRegionsInput>();
     const annotationAppearanceByPage = new Map<number, boolean>();
@@ -294,7 +294,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       warningAnnotationsByPage.set(pageNum, data._warningAnnotations ?? []);
       warningSpansByPage.set(pageNum, data._warningSpans ?? []);
       if (data._invisibleText) invisibleTextByPage.set(pageNum, data._invisibleText);
-      if (data._readUnrotated) readUnrotatedPages.add(pageNum);
+      if (data._readUnrotated) readUnrotatedPages.set(pageNum, data._readUnrotated);
       if (data._opaqueFillText) opaqueFillTextByPage.set(pageNum, data._opaqueFillText);
       if (data._visualRegionInput) visualRegionInputsByPage.set(pageNum, data._visualRegionInput);
       if (data.hasVisibleAnnotationAppearance) annotationAppearanceByPage.set(pageNum, true);
@@ -377,7 +377,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
         annotations: warningAnnotationsByPage.get(p.page),
         spans: warningSpansByPage.get(p.page),
         invisibleText: invisibleTextByPage.get(p.page),
-        readUnrotated: readUnrotatedPages.has(p.page),
+        readUnrotated: readUnrotatedPages.get(p.page),
         opaqueFillText: opaqueFillTextByPage.get(p.page),
         pdfJsWarnings,
       };

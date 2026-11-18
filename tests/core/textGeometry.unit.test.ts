@@ -154,6 +154,47 @@ describe('textRunGeometryFromTransform', () => {
     });
   });
 
+  // A stored 200×300 page shown with /Rotate 90 maps stored (x, y) to (y, 200 − x).
+  // A vertical run stored at x 40–52, y 140–200 lands at x 140–200, y 148–160.
+  it('turns a vertical run with the display frame instead of reading it as horizontal', () => {
+    const vertical = textRunGeometryFromTransform({
+      transform: [0, -12, 12, 0, 200, 160],
+      width: 12,
+      height: 60,
+      pageHeight: 200,
+      viewMinX: 0,
+      viewMinY: 0,
+      dir: 'ttb',
+    });
+    expect(vertical).toEqual({ x: 140, y: 40, width: 60, height: 12, fontSize: 12 });
+
+    // Horizontal text on the same page keeps its usual box.
+    const horizontal = textRunGeometryFromTransform({
+      transform: [0, -12, 12, 0, 100, 160],
+      width: 48,
+      height: 12,
+      pageHeight: 200,
+      viewMinX: 0,
+      viewMinY: 0,
+    });
+    expect(horizontal).toEqual({ x: 100, y: 40, width: 12, height: 48, fontSize: 12 });
+  });
+
+  it('keeps a vertical run on its stored box when the display frame turns it 180°', () => {
+    // Stored 200×300 page at /Rotate 180: (x, y) → (200 − x, 300 − y). The run
+    // stored at x 40–52, y 140–200 lands at x 148–160, y 100–160 (top 140).
+    const geometry = textRunGeometryFromTransform({
+      transform: [-12, 0, 0, -12, 160, 100],
+      width: 12,
+      height: 60,
+      pageHeight: 300,
+      viewMinX: 0,
+      viewMinY: 0,
+      dir: 'ttb',
+    });
+    expect(geometry).toEqual({ x: 148, y: 140, width: 12, height: 60, fontSize: 12 });
+  });
+
   it('falls back to reported item height when the text matrix has no scale', () => {
     expect(textMatrixFontSize([0, 0, 0, 0, 100, 100], 12)).toBe(12);
   });

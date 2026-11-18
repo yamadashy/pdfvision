@@ -34,6 +34,11 @@ export interface DisplayFrame {
    * so their output stays bit-for-bit what it was before rotation support.
    */
   transform?: Matrix6;
+  /**
+   * On a rotated page read in its stored frame, the share of characters
+   * upright only after `/Rotate` — the text that reads sideways here.
+   */
+  sidewaysTextShare?: number;
 }
 
 export function normalizeRotation(rotation: number | undefined): DisplayFrame['rotation'] {
