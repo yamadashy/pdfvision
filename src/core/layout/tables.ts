@@ -104,7 +104,7 @@ export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefin
         overlapOfSmaller(existing, table) >= 0.5 || (lastRow !== undefined && isInnerRow(existing, lastRow)),
     );
     if (existingIndex < 0) result.push(table);
-    else result[existingIndex] = withHeaderRowsFrom(result[existingIndex], table);
+    else result[existingIndex] = withTrailingRowsFrom(withHeaderRowsFrom(result[existingIndex], table), table);
   }
   for (const table of sparseSingleRowTables) {
     // A header stack that starts among the body rows of a table already
@@ -316,6 +316,27 @@ function withHeaderRowsFrom(table: LayoutTable, other: LayoutTable): LayoutTable
   const rows = [...header, ...table.rows];
   const box = unionBox(rows.flatMap((row) => row.cells));
   return { ...table, ...box, rowCount: rows.length, rows };
+}
+
+/**
+ * The aligned-text pass bridges sparse rows of the grid (a group heading, a
+ * row whose values are still words), so it can run past the last row the
+ * numeric pass kept for the same table. Those rows are the table's too.
+ */
+function withTrailingRowsFrom(table: LayoutTable, other: LayoutTable): LayoutTable {
+  const last = table.rows.at(-1);
+  if (!last) return table;
+  const trailing = other.rows.filter((row) => row.y + row.height / 2 > last.y + last.height);
+  if (trailing.length === 0) return table;
+  const rows = [...table.rows, ...trailing];
+  const box = unionBox(rows.flatMap((row) => row.cells));
+  return {
+    ...table,
+    ...box,
+    rowCount: rows.length,
+    columnCount: Math.max(table.columnCount, ...trailing.map((row) => row.cells.length)),
+    rows,
+  };
 }
 
 function isSplitHeaderOf(stack: LayoutTable, table: LayoutTable): boolean {
