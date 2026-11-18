@@ -11,14 +11,14 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 | Page | Chars | Images | Coverage | Size (pt) | Vectors | Blocks | Warnings | Fields | Links | Annots |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 1213 | 0 | 29% | 612×792 | 3 | 13 | 4 | 0 | 0 | 0 |
-| 2 | 876 | 0 | 26% | 612×792 | 3 | 9 | 4 | 0 | 0 | 0 |
+| 1 | 1213 | 0 | 29% | 612×792 | 3 | 13 | 5 | 0 | 0 | 0 |
+| 2 | 876 | 0 | 26% | 612×792 | 3 | 9 | 5 | 0 | 0 | 0 |
 
 ---
 
 ## Page 1
 
-_chars: 1213 · images: 0 · coverage: 29% · vectors: 3 · warnings: 4 · size: 612×792pt_
+_chars: 1213 · images: 0 · coverage: 29% · vectors: 3 · warnings: 5 · size: 612×792pt_
 
 BRIGHTWATER LOGISTICS
 
@@ -64,6 +64,7 @@ BRIGHTWATER LOGISTICS · Internal · Page 1 of 2
 
 ### Warnings
 
+> **warning** (faint_text): 1 extracted native text passage is drawn faint, at low contrast against the paint behind it: "DRAFT" (bbox 83.13,143.87,431.08,492.82) — a reader sees it greyed out, while the text above carries it like any other line; on a slide deck this is usually an item not yet revealed on this overlay step, elsewhere a watermark or dimmed text; render a listed bbox (--render-region x,y,w,h) before treating it as content the page shows
 > **warning** (text_overlap): block bboxes overlap (792.7pt²) — text from different blocks may visually collide
 > **warning** (text_overlap): block bboxes overlap (14308.2pt²) — text from different blocks may visually collide
 > **warning** (text_overlap): block bboxes overlap (7294.3pt²) — text from different blocks may visually collide
@@ -73,7 +74,7 @@ BRIGHTWATER LOGISTICS · Internal · Page 1 of 2
 
 ## Page 2
 
-_chars: 876 · images: 0 · coverage: 26% · vectors: 3 · warnings: 4 · size: 612×792pt_
+_chars: 876 · images: 0 · coverage: 26% · vectors: 3 · warnings: 5 · size: 612×792pt_
 
 TIMELINE
 
@@ -113,6 +114,7 @@ BRIGHTWATER LOGISTICS · Internal · Page 2 of 2
 
 ### Warnings
 
+> **warning** (faint_text): 1 extracted native text passage is drawn faint, at low contrast against the paint behind it: "DRAFT" (bbox 83.13,143.87,431.08,492.82) — a reader sees it greyed out, while the text above carries it like any other line; on a slide deck this is usually an item not yet revealed on this overlay step, elsewhere a watermark or dimmed text; render a listed bbox (--render-region x,y,w,h) before treating it as content the page shows
 > **warning** (text_overlap): block bboxes overlap (4304.5pt²) — text from different blocks may visually collide
 > **warning** (text_overlap): block bboxes overlap (1135.3pt²) — text from different blocks may visually collide
 > **warning** (text_overlap): block bboxes overlap (1833.6pt²) — text from different blocks may visually collide

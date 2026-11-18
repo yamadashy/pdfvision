@@ -6,7 +6,7 @@ import {
   recordPaint,
   recordUnboundedPaint,
 } from './backgroundPaints.js';
-import { isDarkColor, isIndistinguishable, parseHexColor, type Rgb } from './paintColor.js';
+import { isDarkColor, isFaint, isIndistinguishable, parseHexColor, type Rgb } from './paintColor.js';
 import { numericQuad, type Quad, rectanglePathBox } from './rectanglePath.js';
 import {
   advanceRun,
@@ -67,6 +67,12 @@ export interface TextGlyphEvidence extends GlyphGeometry {
    * be told apart from the known paint (or blank page) behind it.
    */
   matchesBackground?: boolean;
+  /**
+   * The glyph is visible but faint: after alpha compositing it stands only a
+   * little apart from the known paint behind it (an overlay item not yet
+   * revealed, drawn at 15% opacity; light grey on white).
+   */
+  faint?: boolean;
 }
 
 export interface OpaqueFillTextEvidence {
@@ -199,7 +205,7 @@ export function collectOpaqueFillTextEvidence(
     const key = `${fillColor}|${fillAlpha}`;
     let candidate = candidateColors.get(key);
     if (candidate === undefined) {
-      candidate = hasCandidateBackground(background, (behind) => isIndistinguishable(color, fillAlpha, behind));
+      candidate = hasCandidateBackground(background, (behind) => isFaint(color, fillAlpha, behind));
       candidateColors.set(key, candidate);
     }
     return candidate ? color : undefined;
@@ -343,6 +349,9 @@ export function collectOpaqueFillTextEvidence(
         if (behind && isIndistinguishable(textColor, fillAlpha, behind)) {
           glyph.matchesBackground = true;
           matchedBackground = true;
+        } else if (behind && isFaint(textColor, fillAlpha, behind)) {
+          glyph.faint = true;
+          matchedBackground = true;
         }
       }
     } else if (ops.clipOps.has(fn)) {
@@ -433,7 +442,9 @@ function placeRunsNear(
 
 function matchedGlyphBoxes(glyphRuns: ReadonlyArray<TextGlyphEvidence[] | undefined>): PageBox[] {
   const boxes: PageBox[] = [];
-  for (const run of glyphRuns) for (const glyph of run ?? []) if (glyph.matchesBackground) boxes.push(glyph.box);
+  for (const run of glyphRuns) {
+    for (const glyph of run ?? []) if (glyph.matchesBackground || glyph.faint) boxes.push(glyph.box);
+  }
   return boxes;
 }
 
@@ -442,7 +453,12 @@ function boxesTouch(a: PageBox, b: PageBox): boolean {
 }
 
 function clearBackgroundMatches(glyphRuns: Array<TextGlyphEvidence[] | undefined>): void {
-  for (const run of glyphRuns) for (const glyph of run ?? []) delete glyph.matchesBackground;
+  for (const run of glyphRuns) {
+    for (const glyph of run ?? []) {
+      delete glyph.matchesBackground;
+      delete glyph.faint;
+    }
+  }
 }
 
 export function normalizeComparableText(text: string): string {

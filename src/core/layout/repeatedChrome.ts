@@ -60,13 +60,17 @@ export function markRepeatedBlocks(pages: PageResult[]): void {
     }
   }
 
-  const minOccurrences = Math.max(2, Math.ceil(pagesWithLayout.length / 2));
+  // Overlay steps of one slide count once: content shared by every step of
+  // a frame is the frame's body, not page chrome.
+  const unitOf = overlayUnits(pagesWithLayout);
+  const unitCount = new Set(unitOf).size;
+  const minOccurrences = Math.max(2, Math.ceil(unitCount / 2));
   const repeatedBlocks = new Map<number, Set<number>>();
   const repeatedLines = new Map<number, Map<number, Set<number>>>();
   for (const refs of groups.values()) {
     if (refs.length < minOccurrences) continue;
-    const seenPages = new Set(refs.map((r) => r.pageIndex));
-    if (seenPages.size < minOccurrences) continue;
+    const seenUnits = new Set(refs.map((r) => unitOf[r.pageIndex]));
+    if (seenUnits.size < minOccurrences) continue;
     for (const ref of refs) {
       if (ref.lineIndex === undefined) {
         addIndexSetValue(repeatedBlocks, ref.pageIndex, ref.blockIndex);
@@ -93,6 +97,51 @@ export function markRepeatedBlocks(pages: PageResult[]): void {
       splitRepeatedChromeLines(page, blockIndex, blockLines.get(blockIndex) ?? new Set<number>());
     }
   }
+}
+
+const OVERLAY_MIN_SHARED_BLOCKS = 3;
+const OVERLAY_MIN_BLOCK_SIMILARITY = 0.7;
+const OVERLAY_SIZE_TOLERANCE_PT = 1;
+
+/**
+ * One unit id per page: consecutive pages of one size whose blocks are
+ * mostly the same text are the overlay steps of one slide (Beamer builds a
+ * frame up over several pages, each repeating the previous step's content)
+ * and share a unit.
+ */
+export function overlayUnits(pages: readonly PageResult[]): number[] {
+  const units: number[] = [];
+  let unit = 0;
+  for (let index = 0; index < pages.length; index++) {
+    if (index > 0 && !isOverlayStep(pages[index - 1], pages[index])) unit++;
+    units.push(unit);
+  }
+  return units;
+}
+
+function isOverlayStep(previous: PageResult, page: PageResult): boolean {
+  if (page.page !== previous.page + 1) return false;
+  if (
+    Math.abs(page.width - previous.width) > OVERLAY_SIZE_TOLERANCE_PT ||
+    Math.abs(page.height - previous.height) > OVERLAY_SIZE_TOLERANCE_PT
+  ) {
+    return false;
+  }
+  const a = blockTextSet(previous);
+  const b = blockTextSet(page);
+  let shared = 0;
+  for (const text of a) if (b.has(text)) shared++;
+  const union = a.size + b.size - shared;
+  return shared >= OVERLAY_MIN_SHARED_BLOCKS && union > 0 && shared / union >= OVERLAY_MIN_BLOCK_SIMILARITY;
+}
+
+function blockTextSet(page: PageResult): Set<string> {
+  const texts = new Set<string>();
+  for (const block of page.layout?.blocks ?? []) {
+    const text = block.text.replace(/\s+/g, ' ').trim();
+    if (text.length > 0) texts.add(text);
+  }
+  return texts;
 }
 
 function addRepeatedChromeGroup(

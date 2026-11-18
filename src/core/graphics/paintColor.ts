@@ -42,6 +42,20 @@ export function isIndistinguishable(foreground: Rgb, alpha: number, background: 
   );
 }
 
+/**
+ * Per-channel distance below which composited text is faint: still drawn,
+ * but at a fraction of full contrast. Beamer's covered overlay items
+ * (15% opacity) land around 30-40, #ccc on white at 51; #bbb (68), #999 captions (102)
+ * stay above it.
+ */
+const MAX_FAINT_CHANNEL_DISTANCE = 56;
+
+/** True when `foreground` at `alpha` over `background` differs from it only faintly (or not at all). */
+export function isFaint(foreground: Rgb, alpha: number, background: Rgb): boolean {
+  const coverage = Math.min(1, Math.max(0, alpha));
+  return foreground.every((channel, i) => coverage * Math.abs(channel - background[i]) <= MAX_FAINT_CHANNEL_DISTANCE);
+}
+
 function srgbToLinear(channel: number): number {
   const normalized = channel / 255;
   return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
