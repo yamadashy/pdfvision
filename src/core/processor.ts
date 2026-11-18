@@ -13,6 +13,7 @@ import type {
 } from '../types/index.js';
 import type { InvisibleTextEvidence } from './graphics/invisibleText.js';
 import type { OpaqueFillTextEvidence } from './graphics/opaqueFillText.js';
+import type { VectorFigureEvidence } from './graphics/vectorFigures.js';
 import { getCacheDir, pdfFingerprint } from './io/cache.js';
 import { buildCacheKey } from './processor/cacheKey.js';
 import { extractDocumentFeatures } from './processor/documentFeatures.js';
@@ -255,6 +256,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
     const warningImageBoxesByPage = new Map<number, ImageBox[]>();
     const warningVectorBoxesByPage = new Map<number, VectorBox[]>();
     const warningColouredFillsByPage = new Map<number, VectorBox[]>();
+    const warningVectorFiguresByPage = new Map<number, VectorFigureEvidence>();
     const warningAnnotationsByPage = new Map<number, PageAnnotation[]>();
     const warningSpansByPage = new Map<number, TextSpan[]>();
     const invisibleTextByPage = new Map<number, InvisibleTextEvidence>();
@@ -291,6 +293,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
       warningImageBoxesByPage.set(pageNum, data._warningImageBoxes ?? []);
       warningVectorBoxesByPage.set(pageNum, data._warningVectorBoxes ?? []);
       if (data._warningColouredFills) warningColouredFillsByPage.set(pageNum, data._warningColouredFills);
+      if (data._warningVectorFigures) warningVectorFiguresByPage.set(pageNum, data._warningVectorFigures);
       warningAnnotationsByPage.set(pageNum, data._warningAnnotations ?? []);
       warningSpansByPage.set(pageNum, data._warningSpans ?? []);
       if (data._invisibleText) invisibleTextByPage.set(pageNum, data._invisibleText);
@@ -374,6 +377,7 @@ export async function processDocument(filePath: string, options: ProcessDocument
         imageBoxes: warningImageBoxesByPage.get(p.page),
         vectorBoxes: warningVectorBoxesByPage.get(p.page),
         colouredFills: warningColouredFillsByPage.get(p.page),
+        vectorFigures: warningVectorFiguresByPage.get(p.page),
         annotations: warningAnnotationsByPage.get(p.page),
         spans: warningSpansByPage.get(p.page),
         invisibleText: invisibleTextByPage.get(p.page),

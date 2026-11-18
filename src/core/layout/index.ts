@@ -1,7 +1,10 @@
 import type { LayoutBlock, LayoutLine, PageLayout, TextSpan } from '../../types/index.js';
+import { dropLegendRows, readChartValues } from './chartValues.js';
+import { choiceMarks } from './choiceMarks.js';
 import { extractCodeBlocks } from './codeBlocks.js';
 import { isProseColumnTable } from './columnGutters.js';
 import { isStandaloneNumericLineAfterProse } from './columns.js';
+import { detectConnections } from './connectors.js';
 import { unionBox } from './geometry.js';
 import { classifyHeadings } from './headings.js';
 import { buildLayoutLinesWithGutters } from './lines.js';
@@ -64,7 +67,11 @@ export function buildLayout(
   const detectedTables = detectLayoutTables(lines, rules, graphics?.vectorBoxes)?.filter(
     (table) => !isProseColumnTable(table, columnGutters),
   );
-  const tables = detectedTables && detectedTables.length > 0 ? detectedTables : undefined;
+  // A chart's legend row is not a table header; its values pair with their series by colour instead.
+  const chartReading = readChartValues(spans, graphics?.chartMarks, graphics?.vectorShapes, graphics?.textColours);
+  const keptTables = dropLegendRows(detectedTables, chartReading.legends, graphics?.vectorShapes);
+  const tables = keptTables && keptTables.length > 0 ? keptTables : undefined;
+  const charts = chartReading.charts.length > 0 ? chartReading.charts : undefined;
 
   // Cluster lines into blocks. Splits when:
   //   - vertical gap > 1× prev line height (paragraph break / section break)
@@ -135,7 +142,13 @@ export function buildLayout(
   if (isVerticalPage(blocks)) {
     const ordered = orderVerticalPage(blocks);
     classifyHeadings(ordered, pageWidth, pageHeight);
-    return withMarks({ blocks: ordered, ...(tables !== undefined && { tables }) }, math.spans, graphics);
+    return withMarks(
+      { blocks: ordered, ...(tables !== undefined && { tables }), ...(charts !== undefined && { charts }) },
+      math.spans,
+      graphics,
+      pageWidth,
+      pageHeight,
+    );
   }
 
   classifyHeadings(blocks, pageWidth, pageHeight);
@@ -143,11 +156,33 @@ export function buildLayout(
     pageWidth > 0
       ? orderLayoutBlocks(blocks, detectLayoutRegions(blocks, graphics, pageWidth, pageHeight), pageWidth, pageHeight)
       : blocks;
-  return withMarks({ blocks: ordered, ...(tables !== undefined && { tables }) }, math.spans, graphics);
+  return withMarks(
+    { blocks: ordered, ...(tables !== undefined && { tables }), ...(charts !== undefined && { charts }) },
+    math.spans,
+    graphics,
+    pageWidth,
+    pageHeight,
+  );
 }
 
-function withMarks(layout: PageLayout, spans: readonly TextSpan[], graphics: LayoutGraphics | undefined): PageLayout {
-  if (!layout.blocks.some((block) => block.writingMode === 'vertical')) return layout;
-  const markedText = sideLineMarks(layout.blocks, spans, graphics?.vectorBoxes);
-  return markedText.length > 0 ? { ...layout, markedText } : layout;
+/** Meaning carried only by vector marks beside the text: side lines, drawn answers, arrows between boxes. */
+function withMarks(
+  layout: PageLayout,
+  spans: readonly TextSpan[],
+  graphics: LayoutGraphics | undefined,
+  pageWidth: number,
+  pageHeight: number,
+): PageLayout {
+  const markedText = [
+    ...(layout.blocks.some((block) => block.writingMode === 'vertical')
+      ? sideLineMarks(layout.blocks, spans, graphics?.vectorBoxes)
+      : []),
+    ...choiceMarks(spans, graphics?.vectorShapes),
+  ];
+  const connections = detectConnections(layout.blocks, graphics?.vectorShapes, pageWidth, pageHeight);
+  return {
+    ...layout,
+    ...(markedText.length > 0 && { markedText }),
+    ...(connections.length > 0 && { connections }),
+  };
 }

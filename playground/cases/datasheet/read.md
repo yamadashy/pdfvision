@@ -10,10 +10,10 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 ## Overview
 
-| Page | Chars | Images | Coverage | Size (pt) | Vectors | Tables | Blocks | Fields | Links | Annots |
-| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 1511 | 0 | 17% | 612×792 | 22 | 2 | 40 | 0 | 0 | 0 |
-| 2 | 1071 | 0 | 7% | 612×792 | 219 | 1 | 80 | 0 | 0 | 0 |
+| Page | Chars | Images | Coverage | Size (pt) | Vectors | Tables | Blocks | Warnings | Fields | Links | Annots |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 1511 | 0 | 17% | 612×792 | 22 | 2 | 40 | 0 | 0 | 0 | 0 |
+| 2 | 1071 | 0 | 7% | 612×792 | 219 | 1 | 80 | 1 | 0 | 0 | 0 |
 
 ---
 
@@ -153,7 +153,7 @@ mA
 
 ## Page 2
 
-_chars: 1071 · images: 0 · coverage: 7% · vectors: 219 · tables: 1 · size: 612×792pt_
+_chars: 1071 · images: 0 · coverage: 7% · vectors: 219 · tables: 1 · warnings: 1 · size: 612×792pt_
 
 6 Electrical Characteristics
 
@@ -334,3 +334,7 @@ D (SOIC-8) plastic small-outline package
 | Quiescent current per amplifier | I_Q | I_O = 0 mA |  | 0.85 | 1.1 | mA |
 | Quiescent current per amplifier | I_Q | I_O = 0 mA, T_A = –40°C to +125°C |  |  | 1.4 | mA |
 | Power-supply rejection ratio | PSRR | V_S = 2.7 V to 5.5 V | 80 | 96 |  | dB |
+
+### Warnings
+
+> **warning** (vector_outlined_text): vector drawing at 118,455,430,142 holds about 119 letter-shaped outlines in 14 rows with no text behind them — labels, dimensions or values drawn as outlines are missing from the text; render the region (--render-region 118,455,430,142) to read them

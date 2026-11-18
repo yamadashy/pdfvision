@@ -42,6 +42,7 @@ function appendLayout(out: string[], page: PageResult): void {
   appendLayoutBlocks(out, page);
   appendLayoutTables(out, page);
   appendMarkedText(out, page);
+  appendConnections(out, page);
   out.push('</layout>');
 }
 
@@ -50,10 +51,26 @@ function appendMarkedText(out: string[], page: PageResult): void {
   out.push('<markedText>');
   for (const item of page.layout.markedText) {
     out.push(
-      `<mark kind="${item.mark}" x="${item.x}" y="${item.y}" width="${item.width}" height="${item.height}">${escapeText(item.text)}</mark>`,
+      `<mark kind="${item.mark}"${item.group !== undefined ? ` group="${escapeAttr(item.group)}"` : ''} x="${item.x}" y="${item.y}" width="${item.width}" height="${item.height}">${escapeText(item.text)}</mark>`,
     );
   }
   out.push('</markedText>');
+}
+
+function appendConnections(out: string[], page: PageResult): void {
+  if (!page.layout?.connections || page.layout.connections.length === 0) return;
+  out.push('<connections>');
+  for (const item of page.layout.connections) {
+    const attrs = [
+      `from="${escapeAttr(item.from)}"`,
+      `to="${escapeAttr(item.to)}"`,
+      ...(item.label !== undefined ? [`label="${escapeAttr(item.label)}"`] : []),
+      ...(item.bidirectional ? ['bidirectional="true"'] : []),
+      `x="${item.x}" y="${item.y}" width="${item.width}" height="${item.height}"`,
+    ];
+    out.push(`<connection ${attrs.join(' ')}/>`);
+  }
+  out.push('</connections>');
 }
 
 function appendLayoutBlocks(out: string[], page: PageResult): void {

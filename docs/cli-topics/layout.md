@@ -13,14 +13,23 @@ Reference for `-f json`, `-f xml`, and `-f toon` consumers.
 interface PageLayout {
   blocks: LayoutBlock[];     // in approximate reading order (multi-column aware)
   tables?: LayoutTable[];    // row-major hints for aligned numeric tables
-  markedText?: LayoutMarkedText[]; // passages marked only by a drawn line beside them (see below)
+  markedText?: LayoutMarkedText[]; // text marked only by drawn geometry: side lines, ticked boxes
+  connections?: LayoutConnection[]; // arrows between boxes of text
+  charts?: LayoutChart[];    // chart values paired with their series by colour
 }
 
 interface LayoutMarkedText {
-  mark: 'side_line';         // a thin vector rule just right of a vertical column's glyphs (傍線)
-  text: string;              // the marked glyphs in reading order; one passage across a column break
-  x: number; y: number; width: number; height: number;
+  mark: 'side_line'          // a thin vector rule just right of a vertical column's glyphs (傍線)
+    | 'checked' | 'unchecked' | 'selected' | 'unselected'; // a drawn □ / ○ with or without a tick, cross or dot
+  text: string;              // marked glyphs (one passage across a column break), or the option's label
+  group?: string;            // choices: the text at the row's left (the question)
+  x: number; y: number; width: number; height: number; // choices: the box's bbox
 }
+
+interface LayoutConnection { from: string; to: string; label?: string; bidirectional?: true; x: number; y: number; width: number; height: number }
+interface LayoutChart { kind: 'line' | 'pie' | 'bar'; unpaired?: number; x: number; y: number; width: number; height: number; values: LayoutChartValue[] }
+interface LayoutChartValue { value: string; series: string; category?: string; x: number; y: number; width: number; height: number }
+// How each is found and where it stops: `pdfvision docs visual` ("Meaning drawn as vector marks").
 
 interface LayoutBlock {
   text: string;              // line texts joined with \n

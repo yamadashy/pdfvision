@@ -62,6 +62,7 @@ export const CLI_WARNING_CODES: readonly string[] = [
   "tiny_native_text_noise",
   "vector_chart_labels",
   "vector_graphics_no_native_text",
+  "vector_outlined_text",
   "xfa_fields_only",
   "xfa_form",
   "xfa_static_content",

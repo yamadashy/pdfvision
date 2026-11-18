@@ -101,6 +101,22 @@ export function buildImageOps(ops: Record<string, number>): ImageOps {
     paintImageMaskXObjectGroup: ops.paintImageMaskXObjectGroup,
     paintInlineImageXObjectGroup: ops.paintInlineImageXObjectGroup,
     paintSolidColorImageMask: ops.paintSolidColorImageMask,
+    strokeColorOps: new Set<number>([
+      ops.setStrokeColor,
+      ops.setStrokeColorN,
+      ops.setStrokeRGBColor,
+      ops.setStrokeCMYKColor,
+      ops.setStrokeColorSpace,
+    ]),
+    setLineWidth: ops.setLineWidth,
+    pathStrokeOps: new Set<number>([
+      ops.stroke,
+      ops.closeStroke,
+      ops.fillStroke,
+      ops.eoFillStroke,
+      ops.closeFillStroke,
+      ops.closeEOFillStroke,
+    ]),
   };
 }
 

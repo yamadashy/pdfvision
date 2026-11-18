@@ -38,8 +38,9 @@ export const meta = {
   title: 'Annual report page with a line chart, a donut and a stacked bar chart',
   stresses:
     'line chart with a value label at every point and series told apart only by colour and dash, two series crossing; donut with percentages in the slices and names only in a legend; 100% stacked bars with a percentage per segment and a legend above',
-  status: 'known-gap',
-  issue: 302,
+  status: 'ok',
+  showcase: true,
+  hard: 'Series identity is only colour: two lines cross, the donut keeps its names in a legend beside it, and the stacked bars put their legend over the bars where a table reader takes it for a header.',
   families: ['vector-meaning'],
 };
 
@@ -85,20 +86,17 @@ ${table(
 4. Which payment method accounts for 9% of trips? — Cash
 5. What share of weekday trips in 2025 were for school? — 20%
 
-**Known gap (#302):** the page has no warning at all, and none of the three charts can be
-read without the render.
-- Figure 3: the legend (\`Red Line Blue Line\` / \`Green Line\`) comes first, then the fifteen values
-  sorted top to bottom with the y-axis ticks among them (\`58.9\` / \`60\` / \`55.4\` / \`51.7\` / \`52.3\` /
-  …); nothing says which line a value is on or which year it is, and the \`2025\` axis label is
-  emitted later, inside Figure 4. Questions 1 and 2 have no answer; \`vector_chart_labels\` does not
-  fire because the chart has no bars.
-- Figure 4: the slice percentages come out in an order unrelated to the legend
-  (\`7%\` / \`9%\` / \`38%\` / \`19%\` / \`2025\` / \`27%\`) and the legend names follow later, so
-  questions 3 and 4 have no answer.
-- Figure 5: the body reads each bar's percentages in legend order, which answers question 5, but
-  the page's only layout table gives the bars a shifted header: \`| Work | School Shopping | Other | | |\`
-  over \`| 2025 | 39% | 20% | 18% | 23% |\`, which puts \`Work\` over the year column and labels
-  39% (Work) as \`School Shopping\`. An agent that trusts the table answers question 5 with 39%.
+Fixed in #302: \`### Chart values\` pairs every value with its series through colour — the legend
+swatch's colour is the line's, the slice's or the bar segment's the value is set on.
+- Figure 3: a series × year grid (\`| Blue Line | 35.0 | 42.1 | 51.7 | 55.4 | 58.9 |\`); where two
+  series' points crowd, the label's own text colour decides, so questions 1 and 2 are answered.
+- Figure 4: \`Transit app | 27%\`, \`Cash | 9%\` (questions 3 and 4); the \`2025\` in the hole is on no slice.
+- Figure 5: \`| School | 18% | 19% | 20% |\` under the years (question 5). The layout table no longer
+  takes the legend row as its header: it is the three year rows, \`| 2025 | 39% | 20% | 18% | 23% |\`.
+
+Every label on the three charts pairs, so \`vector_chart_labels\` is not raised. The body still lists
+Figure 3's values top to bottom with the axis ticks among them, and puts the \`2025\` axis label
+inside Figure 4; the chart values do not depend on that order.
 `;
 
 function lineChart(doc, h, x, y, w, ht) {

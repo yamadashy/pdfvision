@@ -1,6 +1,7 @@
 import type { ImageBox, PageAnnotation, PageResult, PageWarning, TextSpan, VectorBox } from '../../types/index.js';
 import type { InvisibleTextEvidence } from '../graphics/invisibleText.js';
 import type { OpaqueFillTextEvidence } from '../graphics/opaqueFillText.js';
+import type { VectorFigureEvidence } from '../graphics/vectorFigures.js';
 import { detectTextOverlap } from '../warningTextOverlap/index.js';
 import { detectTextMatchesBackground } from './backgroundMatchText.js';
 import { detectDisplayMathLayout } from './displayMath.js';
@@ -23,6 +24,7 @@ import {
 } from './glyphText.js';
 import { detectInvisibleText } from './invisibleText.js';
 import { detectLayoutTableUncertainty } from './layoutTables.js';
+import { detectVectorOutlinedText } from './outlinedText.js';
 import { warningInputsInPhysicalPoints } from './physicalGeometry.js';
 import { qualifyUnreliableLayoutOrder } from './readingOrder/rebuildConsistency.js';
 import { detectFormLabelReadingOrderDivergence, detectReadingOrderDivergence } from './readingOrder.js';
@@ -75,6 +77,8 @@ export interface PageWarningContext {
   vectorBoxes?: VectorBox[];
   /** Internal boxes of vector fills painted in a visible non-white colour. */
   colouredFills?: VectorBox[];
+  /** Line-chart series, pies and outlined-text regions read from path shapes. */
+  vectorFigures?: VectorFigureEvidence;
   /** Internal annotations used for warnings even when public
    *  `pages[].annotations` was not requested. */
   annotations?: PageAnnotation[];
@@ -135,6 +139,7 @@ function detectPageWarningsInPhysicalPoints(page: PageResult, context: PageWarni
   detectHighConfidenceOcrNativeSpacingLoss(page, context, warnings);
   detectDenseVectorGraphics(page, context, warnings);
   detectVectorGraphicsWithoutNativeText(page, context, warnings);
+  detectVectorOutlinedText(page, context, warnings);
   detectRasterImageWithoutNativeText(page, context, warnings);
   detectLargeRasterLowTextOverlap(page, context, warnings);
   detectTextRowVectorBars(page, context, warnings);
@@ -177,6 +182,7 @@ function detectPageWarningsInPhysicalPoints(page: PageResult, context: PageWarni
     context.vectorBoxes ?? page.vectorBoxes,
     context.imageBoxes ?? page.imageBoxes,
     warnings,
+    context.vectorFigures,
   );
   detectLayoutTableUncertainty(page, warnings);
   const readingOrderFrom = warnings.length;

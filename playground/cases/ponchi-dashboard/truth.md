@@ -2,7 +2,7 @@
 
 - **Stresses:** A4 landscape CJK slide; about twenty rounded boxes joined by arrows; four vector charts whose values are free data labels; 100% stacked bar and donut labels with no series link; rotated label on a vertical band
 - **Families:** vector-meaning, reading-order, vertical-rotated, scripts
-- **Status:** known-gap
+- **Status:** known-gap (#302)
 
 One A4 landscape slide from a fictional ministry (国土産業振興省 地域政策局), labelled `資料２`,
 dated 令和8年11月, page number `2` at the bottom right.
@@ -51,28 +51,18 @@ to its bar, point or segment; nothing in the text says which label belongs to wh
 4. 「地域で指導者・講師を確保できない」という課題に対応する施策は？ — ④ 講師育成・認定制度の創設
 5. 支援対象者の内訳で最も割合が大きいのは何で、何%か？ — 在職者、45%
 
-**Known gap (no issue yet):** the four charts are read chart by chart, each with its title,
-and `vector_chart_labels` names the chart panel to render, but within a chart the values are
-read row by row from the top, with no series or category link:
+Partly fixed (#302, #265): `### Chart values` pairs three of the four charts with their series by
+colour, each legend scoped to its own panel (取組済 and 在職者 share a colour across panels):
+- Line chart: `| 地方部 | 0.9 | 1.1 | 1.4 | 1.6 | 1.9 |` under the years — question 2.
+- Stacked bars: `| 未着手 | 10% | 26% | 48% | 70% |` under the company sizes — question 3. The
+  小規模事業者 row's `9%` and `21%` come out as one text item and are left blank.
+- Donut: `在職者 | 45%` — question 5.
+- Bar chart (one series, no legend): read bar by bar inside its frame, the title first: `(万人)` /
+  `8.2` / `2022` / … / `14.6` / `2026`, so question 1 (12.8 → 2025) is answered by adjacency.
+- Flow: `### Connections` lists the four 課題 → 施策 arrows, so question 4 is answered from the drawing;
+  the block arrow into the 効果 column joins columns, not boxes, and is not listed.
 
-- Bar chart: read bar by bar inside its frame, the title first: `(万人)` / `8.2` / `2022` /
-  `9.5` / `2023` / … / `14.6` / `2026`, so question 1 (12.8 → 2025) is answered by adjacency (#265).
-- Line chart: `都市部 / 地方部` then `6.0 / 5.2 / 4.6 / 3.8 / 3.1 / 1.9 / 1.6 / 1.4 / 1.1 / 0.9` then
-  the years. Which value belongs to 地方部 is never stated; question 2 needs the guess that the
-  smaller series is 地方部.
-- Stacked bars: each company size is followed by its segments (`大企業 / 62% / 28% 10%`,
-  `中小企業 22% / 30% / 48%`), so question 3 (48%) is answerable by position, with the legend
-  (`取組済 / 検討中 / 未着手`) after the bars. The layout table (`Table 1 (6 rows × 5 columns)`)
-  still spans the bar, line and stacked charts and mixes `12.8 | 中堅企業 | 41% | 33% | 26%` into one row.
-- Donut: `10% / 在職者 / 20% / 離職者・求職者 / 3万人 / 45% / 目標 / 学生 / その他 / 25%` — the
-  percentages are not tied to the legend names, so question 5 is a guess.
-- Flow: question 4 is answerable — the flow is read row by row across its three columns
-  (課題 1, 施策 1, the first 効果 box, then 課題 2, …), each box whole
-  (`中小企業のDX取組率を` / `60%に引き上げ` together), so each issue sits next to the measure
-  with its number; the arrows leave no trace. Vector boxes carry only bounding boxes, not path shapes,
-  so an arrowhead cannot yet be told from any small filled box; left open (#265).
-- `①〜④` come back NFKC-normalised as `1〜4` (intended). The rotated band label
-  `令和9年度 概算要求 重点施策` reads correctly.
-
-The title, lead, flow text, bar chart and source note are reliable from `read.md`; questions 2
-and 5 need the render the warning names.
+**Known gap (#302):** the layout table (`Table 1 (6 rows × 5 columns)`) still spans the bar, line and
+stacked charts and mixes `12.8 | 中堅企業 | 41% | 33% | 26%` into one row, and `vector_chart_labels`
+still names the whole chart row (the stacked chart has blanks). `①〜④` come back NFKC-normalised as
+`1〜4` (intended). The rotated band label `令和9年度 概算要求 重点施策` reads correctly.

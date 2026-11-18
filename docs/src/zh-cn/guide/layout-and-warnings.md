@@ -24,6 +24,9 @@ pdfvision document.pdf --layout --format json
 - code blocks: monospaced rows set apart from the page's prose and on one character grid become `role: "code"` blocks with their indentation rebuilt as leading spaces and any line-number gutter left out of the text (reported as `codeLineNumbers`); Markdown fences them.
 - two-dimensional math read onto one line: a fraction (a vector rule with a run centred above and below it and a relation beside it) reads `(c (1 + z))/H_0`, a big operator with its limits `∑_{k=1}^N`, a matrix between vector brackets `[[a, b], [c, d]]`, and an equation number joins its equation (`… , (1)`). A formula of that shape that cannot be read soundly keeps its fragments and is named by `display_math_layout`.
 - `pages[].layout.markedText`: passages marked only by a drawn line beside them — the side lines (傍線) of a vertical 新旧対照表 that show what an amendment changed — listed with their bounding boxes (Markdown: a `### Marked text` table with `--layout`).
+- answers drawn on a form: a tick or cross over a drawn □, a dot in a ○, reported in `layout.markedText` as `checked` / `unchecked` / `selected` / `unselected` with the option's label and the question at the row's left (Markdown: `### Choice marks`), on pages where at least one box is marked.
+- arrows between boxes of text (a flowchart, a process diagram) in `layout.connections` as `from` → `to` with the label beside the arrow (Markdown: `### Connections`, `- A → B (Yes)`), when both ends touch boxes of text and an arrowhead gives the direction.
+- chart values paired with their series by colour in `layout.charts`: a legend swatch's colour matched to a line, slice or bar segment and the value label set on it, with the axis category (Markdown: `### Chart values`, a series × category grid); a layout-table row made of a chart's legend names is dropped instead of becoming a shifted header. See `pdfvision docs visual`.
 - a justified line stretched so far that its word spaces look like column gutters is read as one line when a prose line beside it fills the same measure.
 - a column chart set in its own frame reads value then category for each bar.
 
@@ -81,7 +84,8 @@ visual regions 可以作为到多模态模型的桥梁：
 - 正文挤到重复页眉或页脚附近。
 - 被压平的数字表格。
 - layout table hints whose cells did not resolve into one consistent grid (`layout_table_uncertain`), including a wrapped label whose first lines could belong to the row above as well as to its own values, and a label set in two lines around its values' line.
-- vector chart labels kept together but not paired with their bars (`vector_chart_labels`), naming the chart region to render.
+- vector chart labels (bar, line and pie charts) kept together but not paired with their bars, points or slices (`vector_chart_labels`), naming the chart region to render; not raised when every value was paired by colour.
+- words or values drawn as letter-shaped outlines with no text behind them, such as a package drawing's dimensions (`vector_outlined_text`), naming the region to render.
 - display math (a fraction or bracketed matrix) that could not be read onto one line (`display_math_layout`), naming the region to render.
 - signs set in a symbol font whose character map reports them as ordinary characters, so `−52%` reads as `252%` (`symbol_font_substitution`).
 - rotated pages read in their stored orientation because `/Rotate` would turn their text sideways (`rotated_page_read_unrotated`).

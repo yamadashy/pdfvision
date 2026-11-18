@@ -85,6 +85,11 @@ export interface OpaqueFillTextEvidence {
   glyphRuns?: Array<TextGlyphEvidence[] | undefined>;
 }
 
+/** A shown text run's page box and the colour it was filled in. */
+export interface TextColourRun extends PageBox {
+  colour: string;
+}
+
 interface GraphicsState {
   ctm: Matrix6;
   fillColor: string | undefined;
@@ -124,6 +129,8 @@ export function collectOpaqueFillTextEvidence(
   viewMinX: number,
   viewMinY: number,
   resolveFont?: FontGeometryResolver,
+  /** Receives each placed text run's box and fill colour (chart labels keyed by colour read them). */
+  textColours?: TextColourRun[],
 ): OpaqueFillTextEvidence | undefined {
   const textRuns: string[] = [];
   const glyphRuns: Array<TextGlyphEvidence[] | undefined> = [];
@@ -337,6 +344,9 @@ export function collectOpaqueFillTextEvidence(
       glyphRuns.push(undefined);
       if (!placement) continue;
       placedRuns++;
+      if (textColours && fillColor && textColours.length < MAX_EVIDENCE_TEXT_RUNS) {
+        textColours.push({ ...placement.box, colour: fillColor });
+      }
       const textColor = backgroundMatchCandidateColor();
       if (!textColor) continue;
       // The paint behind the glyphs is only known now, so a candidate run is placed immediately.

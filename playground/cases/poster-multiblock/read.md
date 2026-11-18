@@ -235,6 +235,24 @@ observers who scored 9,200 cow-hours.
 | Drone, muzzle | 0.76 | 0.79 | 0.77 |
 | Drone, eye | 0.83 | 0.87 | 0.85 |
 
+### Chart values
+
+_Values paired with their series by colour: the legend swatch matches the line, slice or bar segment the value is set on._
+
+#### Line chart at 1828.59,660.05,597.81,294.5
+
+| Series | 07:00 | 10:00 | 13:00 | 16:00 | 19:00 |
+| --- | --- | --- | --- | --- | --- |
+| Eye | 0.84 | 0.88 | 0.93 | 0.91 | 0.86 |
+| Muzzle | 0.71 | 0.75 | 0.80 | 0.78 | 0.73 |
+
+#### Bar chart at 1032.5,901,568,364
+
+| Series | Northfield | Ardmore | Kilbrack |
+| --- | --- | --- | --- |
+| Drone | 91 | 89 | 78 |
+| Visual check | 64 | 58 | 61 |
+
 ### Warnings
 
 > **warning** (tabular_numeric_layout): page contains 38 short numeric lines in 5 aligned columns and 4 shared numeric rows — table rows/columns may be flattened in native text; inspect the render or geometry when values matter

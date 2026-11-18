@@ -138,11 +138,41 @@ Annual Ridership Report 2025
 
 ### Layout tables
 
-#### Table 1 (4 rows × 5 columns, bbox 69.1,555.19,428.71,85.36)
+#### Table 1 (3 rows × 5 columns, bbox 69.1,580.05,428.71,60.5)
 
 | C1 | C2 | C3 | C4 | C5 |
 | --- | --- | --- | --- | --- |
-| Work | School Shopping | Other |  |  |
 | 2023 | 46% | 18% | 15% | 21% |
 | 2024 | 43% | 19% | 17% | 21% |
 | 2025 | 39% | 20% | 18% | 23% |
+
+### Chart values
+
+_Values paired with their series by colour: the legend swatch matches the line, slice or bar segment the value is set on._
+
+#### Pie chart at 78.04,371.45,143.96,144
+
+| Series | Value |
+| --- | --- |
+| Contactless bank card | 38% |
+| Transit app | 27% |
+| Monthly pass | 19% |
+| Cash | 9% |
+| Paper ticket | 7% |
+
+#### Line chart at 77.19,169.77,463.62,123.48
+
+| Series | 2021 | 2022 | 2023 | 2024 | 2025 |
+| --- | --- | --- | --- | --- | --- |
+| Red Line | 41.2 | 46.8 | 49.5 | 50.1 | 52.3 |
+| Blue Line | 35.0 | 42.1 | 51.7 | 55.4 | 58.9 |
+| Green Line | 22.4 | 24.0 | 23.1 | 26.8 | 27.5 |
+
+#### Bar chart at 96,577.45,440,70
+
+| Series | 2023 | 2024 | 2025 |
+| --- | --- | --- | --- |
+| Work | 46% | 43% | 39% |
+| School | 18% | 19% | 20% |
+| Shopping | 15% | 17% | 18% |
+| Other | 21% | 21% | 23% |

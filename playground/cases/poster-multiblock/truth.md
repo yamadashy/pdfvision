@@ -2,7 +2,7 @@
 
 - **Stresses:** A0 page; full-width banner over four columns of titled blocks of unequal height; vector charts with text tick labels, legends and value labels; table inside a column; QR-like vector square
 - **Families:** reading-order, page-geometry, vector-meaning, tables
-- **Status:** known-gap (#302)
+- **Status:** ok
 
 **Thermal drones spot heat stress in dairy cattle before it shows**
 
@@ -108,15 +108,14 @@ back on its row. Question 1 is answered from it.
 Two lines of each poster column read across as a 2 × 7 table of prose and chart labels are no
 longer reported as a table (#242): every row holds running text and it straddles the columns' gutters.
 
-**Known gap (#302):**
-- The four poster columns are read one after another, each panel whole, and Table 1 reads row by row
-  in the body (`Visual check` / `0.95` / `0.61` / `0.74`). The charts' labels stay inside their
-  panel, but no warning names the figures (only the generic `tabular_numeric_layout`): Figure 2's
-  values come row by row from the top (`1.0` / `0.93` / `0.91` / `0.88` / …), with the time axis
-  after them, so question 4 (0.93 for Eye at 13:00) cannot be attributed. Figure 1's plot is read bar by
-  bar after its legend `Drone` / `Visual check`: `100` (the top tick), then each farm's pair
-  `91` / `64`, `89` / `58`, `78` / `61`, with the farm names after the axis ticks; the
-  Kilbrack drone rate (78%) is recoverable by position (third pair, first of the legend), not by label.
+Fixed in #302: the four poster columns are read one after another, each panel whole, and Table 1
+reads row by row in the body (`Visual check` / `0.95` / `0.61` / `0.74`). Both charts are paired
+with their series by colour under `### Chart values`: Figure 2 as a series × hour grid
+(`| Eye | 0.84 | 0.88 | 0.93 | 0.91 | 0.86 |`, question 4), Figure 1 as a series × farm grid
+(`| Drone | 91 | 89 | 78 |`, the value over each bar, the farm under each pair). Figure 2's black value
+labels are paired by geometry: each sits over or under its own point, far from the other line. The body
+still reads Figure 2's values row by row from the top, with the time axis after them; every value
+pairs, so `vector_chart_labels` is not raised.
 
 The widely justified first line of Results reads as one line (`The drone flagged 87% of the`, #268):
 the line below fills the same measure, so its stretched spaces are word spaces, not gutters.

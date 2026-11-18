@@ -2,7 +2,8 @@
 
 - **Stresses:** terminators, process boxes and decision diamonds with real text; vector connectors with arrowheads; Yes/No labels beside the connectors; a branch that loops back; two branches that merge into one box; shapes written before connectors
 - **Families:** vector-meaning, reading-order
-- **Status:** known-gap (#265)
+- **Status:** ok
+- **Showcase:** The flow exists only as strokes: connectors leave diamonds sideways, one loops back up as an elbow, two branches merge, and every Yes/No sits beside its connector, not in any box.
 
 One Letter page: a section heading, a flowchart and its caption, and a note. The flowchart, as steps:
 
@@ -26,14 +27,11 @@ Note below the figure: Store credit and repairs are recorded in the same log as 
 4. Which step comes right after a refund? — Send confirmation email
 5. When is a repair offered instead of a refund? — When a used item, within 30 days, has a fault that is not from manufacture
 
-**Known gap (#265):** nothing on the page warns, and the flow cannot be recovered from the text. The
-labels come out as three loose groups in an order that follows neither the flow nor the page: the
-left branch first (`Inspect the item` / `Fault from manufacture?` / `No` / `Offer a repair at our
-cost` / `No` / `Yes`), then the caption in the middle of the figure, then the centre column
-(`Start` … `End`, with `Yes` after each diamond), then `No` / `No` / `Email the customer for the
-receipt` / `Offer store credit`. Every Yes/No is cut from its connector, the loop back to *Log the
-refund request* and the two merges into *Refund* and *End* exist only as strokes, and the order puts
-*Offer store credit* after *End*. Question 4 is answerable (the centre column happens to read in flow
-order); questions 1, 2, 3 and 5 need the render, and no warning says so: `vector_chart_labels` and
-`text_row_vector_bars` do not cover diagrams, and the page is under the `dense_vector_graphics`
-threshold.
+Fixed in #265: `### Connections` lists all sixteen arrows as `from → to (label)`, each label the
+`Yes`/`No` nearest its connector: `Bought within 30 days? → Offer store credit (No)`,
+`Email the customer for the receipt → Log the refund request` (the loop back),
+`Fault from manufacture? → Refund to the original payment method (Yes)` and
+`Offer a repair at our cost → End` (the merges). Every question is answered from it.
+
+The body still reads the labels as three loose groups (the left branch, the caption, the centre
+column, then the right branch, `No` / `No` after `End`); the connections do not depend on that order.

@@ -174,13 +174,78 @@ export interface PageLayout {
    * amendment changed. The text carries no marker of its own.
    */
   markedText?: LayoutMarkedText[];
+  /**
+   * Arrows drawn between boxes of text (a flowchart, a process diagram):
+   * the relation exists only as strokes. Each entry is one connector whose
+   * ends touch two different boxes, directed by its arrowhead.
+   */
+  connections?: LayoutConnection[];
+  /**
+   * Chart values paired with their series by colour: a legend swatch's
+   * colour matched to a line, slice or bar segment, and the value label
+   * set on that mark. Only charts where most labels pair soundly appear.
+   */
+  charts?: LayoutChart[];
+}
+
+export interface LayoutChart {
+  kind: 'line' | 'pie' | 'bar';
+  /** Value labels on the chart that could not be paired soundly (omitted when none): render the chart for those. */
+  unpaired?: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  values: LayoutChartValue[];
+}
+
+export interface LayoutChartValue {
+  /** The value label as printed. */
+  value: string;
+  /** The legend name whose colour the value's mark is painted in. */
+  series: string;
+  /** The axis label under the point or bar, or the label at the left of a horizontal bar. */
+  category?: string;
+  /** The value label's bbox. */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface LayoutConnection {
+  /** Text of the box the arrow leaves (lines joined with a space). */
+  from: string;
+  /** Text of the box the arrowhead points at. */
+  to: string;
+  /** Short text set beside the connector and nearer it than any other (`Yes`, `No`). */
+  label?: string;
+  /** True when the connector has an arrowhead at both ends. */
+  bidirectional?: boolean;
+  /** The connector's bbox. */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 export interface LayoutMarkedText {
-  /** `side_line`: a thin vector rule just right of the glyphs of a vertical column. */
-  mark: 'side_line';
-  /** The marked glyphs in reading order; a passage running on into the next column is one entry. */
+  /**
+   * - `side_line`: a thin vector rule just right of the glyphs of a vertical column.
+   * - `checked` / `unchecked`: a drawn square box with a tick, cross or fill inside it, or empty.
+   * - `selected` / `unselected`: a drawn circle with a dot (or tick, cross) inside it, or empty.
+   *
+   * Choice entries appear only on a page where at least one drawn box or circle holds a mark;
+   * their bbox is the box's, and `text` is the option's label.
+   */
+  mark: 'side_line' | 'checked' | 'unchecked' | 'selected' | 'unselected';
+  /**
+   * The marked glyphs in reading order (a passage running on into the next column is one entry),
+   * or a choice's option label: the text right after its box, or a rating grid's column heading.
+   */
   text: string;
+  /** A choice's row label: the text at the left of the row the box stands on (usually the question). */
+  group?: string;
   x: number;
   y: number;
   width: number;

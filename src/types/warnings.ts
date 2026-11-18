@@ -51,6 +51,7 @@ export interface PageWarning {
     | 'raster_image_no_native_text'
     | 'tabular_numeric_layout'
     | 'vector_chart_labels'
+    | 'vector_outlined_text'
     | 'display_math_layout'
     | 'layout_table_uncertain'
     | 'dot_leader_noise'
