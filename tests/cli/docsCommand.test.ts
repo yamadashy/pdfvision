@@ -110,3 +110,66 @@ describe('suggestion confidence', () => {
     });
   });
 });
+
+describe('warning code lookup', () => {
+  const CODES = ['text_overlap', 'off_page', 'large_raster_low_text_overlap', 'xfa_form', 'xfa_fields_only'];
+  const resolve = (argv: string[]) => resolveDocsCommand(argv, KNOWN, CODES);
+
+  it('prints one entry for `docs warnings <code>`', () => {
+    expect(resolve(['docs', 'warnings', 'off_page'])).toEqual({ kind: 'warnings', codes: ['off_page'] });
+  });
+
+  it('keeps the request order and drops repeats for several codes', () => {
+    expect(resolve(['docs', 'warnings', 'xfa_form', 'off_page', 'xfa_form'])).toEqual({
+      kind: 'warnings',
+      codes: ['xfa_form', 'off_page'],
+    });
+  });
+
+  it('still prints the whole topic for a bare `docs warnings`', () => {
+    expect(resolve(['docs', 'warnings'])).toEqual({ kind: 'topic', name: 'warnings' });
+  });
+
+  it.each([[['docs', 'warning', 'off_page']], [['docs', 'off_page']], [['docs', 'warnings', 'OFF-PAGE']]])(
+    'forgives the natural slip %j',
+    (argv) => {
+      expect(resolve(argv)).toEqual({ kind: 'warnings', codes: ['off_page'] });
+    },
+  );
+
+  it('fails on an unknown code instead of printing a partial answer', () => {
+    expect(resolve(['docs', 'warnings', 'off_page', 'offpage'])).toMatchObject({
+      kind: 'error',
+      message: expect.stringContaining('Unknown warning code "offpage"'),
+    });
+  });
+
+  it('lists every plausible code for a shared word', () => {
+    const command = resolve(['docs', 'warnings', 'overlap']);
+    expect(command).toMatchObject({ kind: 'error' });
+    expect(command).toMatchObject({ message: expect.stringContaining('"text_overlap"') });
+    expect(command).toMatchObject({ message: expect.stringContaining('"large_raster_low_text_overlap"') });
+  });
+
+  it('suggests a code within a typo of the input', () => {
+    expect(resolve(['docs', 'warnings', 'xfa_fom'])).toMatchObject({
+      message: expect.stringContaining('"xfa_form"'),
+    });
+  });
+
+  it('points back at the index when nothing is close', () => {
+    const command = resolve(['docs', 'warnings', 'kubernetes']);
+    expect(command).toMatchObject({ kind: 'error', message: expect.stringContaining('pdfvision docs warnings') });
+    expect(command).not.toMatchObject({ message: expect.stringContaining('Close matches') });
+  });
+
+  it('does not let a bare code shadow a topic of the same name', () => {
+    expect(resolveDocsCommand(['docs', 'ocr'], KNOWN, ['ocr'])).toEqual({ kind: 'topic', name: 'ocr' });
+  });
+});
+
+describe('renderTopicIndex warning hint', () => {
+  it('tells the reader how to look up one warning code', () => {
+    expect(renderTopicIndex('1.2.3')).toContain('pdfvision docs warnings <code>');
+  });
+});

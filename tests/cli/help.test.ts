@@ -1,7 +1,8 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { run } from '../../src/cli/cli.js';
-import { CLI_TOPIC_BODIES } from '../../src/cli/docs/topicBodies.generated.js';
-import { CLI_TOPIC_INDEX } from '../../src/cli/docs/topicIndex.generated.js';
+import { CLI_TOPIC_BODIES, CLI_WARNING_ENTRIES } from '../../src/cli/docs/topicBodies.generated.js';
+import { CLI_TOPIC_INDEX, CLI_WARNING_CODES } from '../../src/cli/docs/topicIndex.generated.js';
 import { CLI_PARSE_OPTIONS } from '../../src/cli/optionSpec.js';
 
 /**
@@ -167,24 +168,97 @@ describe('topics', () => {
 
 /**
  * A generous ceiling, not a target: it exists so a topic cannot quietly
- * become a second 20 KB help. `warnings` is the current outlier at ~51 KB
- * because it carries both the shape and the catalog of every code; the
- * ceiling was raised from 48 KB when the hidden-text, symbol-font and
- * rotated-page warnings landed together. Split the topic before raising it
- * again.
+ * become a second 20 KB help. `warnings` once reached ~53 KB because it
+ * carried the shape and the full catalog of every code, so an agent holding
+ * one code paid ~12k tokens to look it up. The catalog now lives in one entry
+ * per code (`pdfvision docs warnings <code>`) and the topic keeps only the
+ * shape, the code index, and the raw signals. The largest remaining topics
+ * sit around 23 KB; when one needs more, split it the same way rather than
+ * raising this.
  */
-const TOPIC_BYTE_CEILING = 56 * 1024;
+const TOPIC_BYTE_CEILING = 28 * 1024;
+
+/**
+ * One warning entry is what an agent pays for a single code, so it gets its
+ * own, much smaller ceiling. The largest entries (`text_under_opaque_fill`,
+ * `xfa_form`) are ~4 KB because their limits are the contract; an entry that
+ * outgrows this is carrying material that belongs to more than one code.
+ */
+const WARNING_ENTRY_BYTE_CEILING = 6 * 1024;
+
+/**
+ * Read from the type rather than from the generator, so a code added to the
+ * union without an entry — or an entry left behind for a removed code — fails
+ * here instead of shipping documentation for the wrong set.
+ */
+function pageWarningCodes(): string[] {
+  const source = readFileSync(new URL('../../src/types/warnings.ts', import.meta.url), 'utf8');
+  const union = /interface PageWarning \{[\s\S]*?\n {2}code:([\s\S]*?);/.exec(source)?.[1] ?? '';
+  return [...union.matchAll(/'([a-z0-9_]+)'/g)].map((match) => match[1]).sort();
+}
+
+describe('warning entries', () => {
+  it('reads a non-trivial code union from the type', () => {
+    expect(pageWarningCodes().length).toBeGreaterThan(30);
+  });
+
+  it('has exactly one entry per PageWarning code', () => {
+    expect([...CLI_WARNING_CODES].sort()).toEqual(pageWarningCodes());
+    expect(Object.keys(CLI_WARNING_ENTRIES).sort()).toEqual(pageWarningCodes());
+  });
+
+  it('indexes every code in the warnings topic', () => {
+    expect(CLI_TOPIC_BODIES.warnings).not.toContain('<!-- warning-index -->');
+    for (const code of CLI_WARNING_CODES) {
+      expect(CLI_TOPIC_BODIES.warnings).toContain(`- \`${code}\` [`);
+    }
+  });
+
+  it.each(CLI_WARNING_CODES)('keeps the %s entry under its ceiling', (code) => {
+    expect(Buffer.byteLength(CLI_WARNING_ENTRIES[code], 'utf8')).toBeLessThanOrEqual(WARNING_ENTRY_BYTE_CEILING);
+  });
+
+  it('prints one entry, not the topic, for `docs warnings <code>`', async () => {
+    const { stdout } = await capture(['docs', 'warnings', 'text_overlap']);
+    expect(stdout).toBe(CLI_WARNING_ENTRIES.text_overlap);
+    expect(stdout).toContain('# Warning `text_overlap`');
+    expect(stdout).not.toContain('## Code index');
+  });
+
+  it('prints several entries in the order asked', async () => {
+    const { stdout } = await capture(['docs', 'warnings', 'off_page', 'text_overlap']);
+    expect(stdout.indexOf('`off_page`')).toBeLessThan(stdout.indexOf('`text_overlap`'));
+    expect(stdout).toContain(CLI_WARNING_ENTRIES.off_page);
+    expect(stdout).toContain(CLI_WARNING_ENTRIES.text_overlap);
+  });
+
+  it('exits 1 on an unknown code and names the close matches', async () => {
+    const { stdout, stderr } = await capture(['docs', 'warnings', 'text_overlapp']);
+    expect(stdout).toBe('');
+    expect(stderr).toContain('Unknown warning code "text_overlapp"');
+    expect(stderr).toContain('"text_overlap"');
+  });
+});
+
+function prefixKeys(record: Record<string, string>, prefix: string): Record<string, string> {
+  return Object.fromEntries(Object.entries(record).map(([key, value]) => [`${prefix}${key}`, value]));
+}
 
 describe('no topic grows into a second oversized help', () => {
   it.each(CLI_TOPIC_INDEX.map((topic) => topic.name))('keeps %s under the ceiling', (name) => {
     expect(Buffer.byteLength(CLI_TOPIC_BODIES[name], 'utf8')).toBeLessThanOrEqual(TOPIC_BYTE_CEILING);
   });
 
-  it('resolves every cross-reference to a topic that exists', () => {
+  it('resolves every cross-reference to a topic or warning code that exists', () => {
     const names = new Set(CLI_TOPIC_INDEX.map((topic) => topic.name));
-    for (const [name, body] of Object.entries(CLI_TOPIC_BODIES)) {
+    const codes = new Set(CLI_WARNING_CODES);
+    const documents = { ...CLI_TOPIC_BODIES, ...prefixKeys(CLI_WARNING_ENTRIES, 'warnings/') };
+    for (const [name, body] of Object.entries(documents)) {
       for (const [, target] of body.matchAll(/pdfvision docs ([a-z][a-z0-9-]*)/g)) {
         expect({ topic: name, target, known: names.has(target) }).toEqual({ topic: name, target, known: true });
+      }
+      for (const [, code] of body.matchAll(/pdfvision docs warnings ([a-z][a-z0-9_]*)/g)) {
+        expect({ topic: name, code, known: codes.has(code) }).toEqual({ topic: name, code, known: true });
       }
     }
   });

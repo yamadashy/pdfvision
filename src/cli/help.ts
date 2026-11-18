@@ -80,7 +80,8 @@ Options
   -h, --help              Show this help
 
 Subcommands
-  docs [topic]            Documentation for the installed version. Bare \`docs\` lists topics.
+  docs [topic]            Documentation for the installed version. Bare \`docs\` lists topics;
+                          \`docs warnings <code>\` explains one warning code.
   clear-cache             Remove cached extractions, renders, remote PDFs, and OCR data.
   mcp                     Serve pdfvision over the Model Context Protocol on stdio, for hosts
                           that cannot run a shell. See "pdfvision mcp --help".
@@ -183,13 +184,17 @@ export const DOCS_HELP_TEXT = `pdfvision docs - documentation for the installed 
 Usage:
   pdfvision docs           List the topics, with a line each on when to read them.
   pdfvision docs <topic>   Print one topic.
+  pdfvision docs warnings <code> [<code>...]
+                           Print just the entry for each warning code: what it means,
+                           when it fires, its limits, and the next step.
 
 The topics ship inside the binary, so they always describe the version you are
-running and need no network access. An unknown topic exits 1 rather than
-falling back to the list, since a silent fallback reads as "this topic is empty".
+running and need no network access. An unknown topic or warning code exits 1
+rather than falling back to the list, since a silent fallback reads as "this
+topic is empty"; the error names the closest matches.
 
 A file actually named \`docs\` must be passed as \`./docs\`.
 
 Exit codes
   0  A topic or the index was printed, including --help and --version
-  1  Unknown topic, or more than one topic requested`;
+  1  Unknown topic or warning code, or more than one topic requested`;
