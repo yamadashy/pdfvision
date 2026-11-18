@@ -18,17 +18,17 @@ CONDENSED CONSOLIDATED STATEMENTS OF OPERATIONS
 (In millions, except per-share amounts)
 
 Net sales:
-Products
-Services
-Total net sales
+  Products
+  Services
+    Total net sales
 Cost of sales:
-Products
-Services
-Total cost of sales
+  Products
+  Services
+    Total cost of sales
 Gross margin
 Earnings per share:
-Basic
-Diluted
+  Basic
+  Diluted
 
 Three Months Ended
 

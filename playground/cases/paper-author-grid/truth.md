@@ -2,7 +2,8 @@
 
 - **Stresses:** title over a grid of three-line author blocks (name, affiliation, email) in two rows of unequal length; one block with no affiliation; footnote marks after names; arXiv identifier rotated 90° in the left margin; narrow single-column abstract
 - **Families:** reading-order, structure, vertical-rotated
-- **Status:** known-gap (#300)
+- **Status:** ok
+- **Showcase:** The author blocks share baselines across the row, so neighbouring emails sit closer than a column gutter and the stacks look like text columns; each mark is a raised run in another font.
 
 Letter page. Reading order: the title **Sparse Routing Is All You Need for Long Context**, the author grid, the abstract, the introduction,
 then the footnotes and the venue line. The sideways margin stamp `arXiv:2611.04172v2 [cs.LG] 9 Nov 2026`
@@ -33,16 +34,8 @@ Abstract: Long-context language models spend most of their compute attending to 
 5. How many fewer attention FLOPs does the Sparse Router use at matched exact match? — 6.2 times fewer (31.4 exact match)
 6. What is Priya Ramaswamy's affiliation? — Halcyon Research
 
-Questions 2, 3, 4 and 5 are answerable from `read.md`; the footnotes, the abstract and the margin
-stamp read cleanly (the stamp last, whole).
-
-**Known gap (#300):** the author grid is read as loose fragments in a mixed order, and
-nothing warns about it (the only warning is a `reading_order_divergence` about `1 Introduction`).
-`Priya Ramaswamy` (second row) follows `Mireille Ostrander`'s block directly with her email but
-without her affiliation; her `Halcyon Research` line is left orphaned between two `*` marks, so
-question 6 has no answer. `Dmitri Halvorsen`'s email is glued onto Ines Valcárcel's line
-(`ivalcarcel@halcyon.ai dhalvorsen@halcyon.ai`) and his name comes after Yusra Haddad's block,
-so question 1 needs a guess between two addresses. Every footnote mark (`*`, `*†`, `*‡`) is cut
-from its name and emitted as a line of its own, so which author is † or ‡ is lost from the grid
-(question 3 is still answerable from the footnote text plus the affiliation). The `Abstract` and
-`1 Introduction` headings are emitted together before the abstract text.
+All six questions are answerable from `read.md`. Each author block comes out whole, in grid order
+(the first row left to right, then the second), with its marks on the name (`Oskar Lindqvist*†`,
+`Yusra Haddad*‡`), so every affiliation and email sits under its own name. `Abstract` heads the
+abstract and `1 Introduction` the introduction, with no warning; the footnotes, the venue line and
+the margin stamp (last, whole) read cleanly.

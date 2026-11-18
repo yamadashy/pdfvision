@@ -2,7 +2,8 @@
 
 - **Stresses:** numbers 1–28 in the left margin of every page, written before the text; double and single margin rules; attorney block on the first lines; caption box with a column of ")" between the parties and the case number; double-spaced body set on the numbered lines; footer title under a rule
 - **Families:** structure, reading-order, tables
-- **Status:** known-gap (#304)
+- **Status:** ok
+- **Showcase:** The margin numbers are page-template text written before the body, on a grid the single-spaced blocks do not follow, so reading by stream or by position interleaves them with the text they number.
 
 Two Letter pages of pleading paper. The margin numbers 1–28 on each page are line references, not
 content: a good reading drops them or keeps them apart from the text, and must never glue them into
@@ -30,17 +31,11 @@ Signed: Dated November 18, 2026, Okafor & Vance LLP, by /s/ Lena M. Okafor, Atto
 5. How many pages has the defendant produced, out of how many? — 214 pages out of an estimated 3,000
 6. Cite, as page:line, the line that states the sanctions amount, and the line where the hearing notice begins. — 1:25 (`sanctions of $4,850 …`); 1:16 (`PLEASE TAKE NOTICE …`)
 
-Questions 1–5 are answerable from `read.md`.
-
-**Known gap (#304):** the margin numbers are emitted as lines of their own in among the text,
-in runs whose position does not follow the line they number, and nothing marks them as line
-references. On page 1 the numbers `10` … `17` come out as one run before `v.` and the start of
-the body, so `PLEASE TAKE NOTICE …` (line 16) and `thereafter as …` (17) have no number near
-them; `21` / `22` and `25` / `26` come out as pairs before two text lines, so the nearest preceding
-number gives 1:26 for `sanctions of $4,850 …` (line 25) in question 6. Pleadings are cited by page and line, so this
-is the reading an agent would quote. The caption box also splits the body: the right half of the
-caption (`) NOTICE OF MOTION …` / `) Judge: …`) and the party roles `Plaintiff,` / `Defendants.`
-are emitted between `… or as soon` and `thereafter as the matter may be heard …`, and the court's
-two lines come out in reverse order (`COUNTY OF RAVENMOOR` before `SUPERIOR COURT …`). On page 2
-the numbers 3–28 are one run between `Dated: November 18, 2026` and the firm name that shares its
-line; the only warning is a `reading_order_divergence` naming that run.
+All six questions are answerable from `read.md`. The margin numbers are left out of the text and
+each line set on a numbered line starts with its number, under a note naming the range
+(`Margin line numbers 1–28 …`), so question 6 reads straight off the page: `25 sanctions of $4,850 …`
+and `16 PLEASE TAKE NOTICE …`. The single-spaced attorney block and caption lines that fall between
+two numbers carry none, as on the page. The body runs unbroken from `TO DEFENDANT …` (15) to
+`… presented at the hearing.` (28), the court's two lines read in order, and the caption reads its
+left half (parties) and then its right half (`) Case No.` … `) Judge: …`). On page 2 the date and
+the firm name share line 2 and the signature block reads 4–6.

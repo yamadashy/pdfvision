@@ -13,23 +13,16 @@ Reference for `-f json`, `-f xml`, and `-f toon` consumers.
 interface PageLayout {
   blocks: LayoutBlock[];     // in approximate reading order (multi-column aware)
   tables?: LayoutTable[];    // row-major hints for aligned numeric tables
-  markedText?: LayoutMarkedText[]; // text marked only by drawn geometry: side lines, ticked boxes
-  connections?: LayoutConnection[]; // arrows between boxes of text
-  charts?: LayoutChart[];    // chart values paired with their series by colour
+  markedText?: LayoutMarkedText[]; // side lines (below), drawn choices
+  connections?: LayoutConnection[]; charts?: LayoutChart[]; // marks, arrows, charts: `pdfvision docs visual`
+  lineNumbers?: { first: number; last: number }; // margin line numbers, left out of the text (`pdfvision docs schema`)
 }
 
 interface LayoutMarkedText {
-  mark: 'side_line'          // a thin vector rule just right of a vertical column's glyphs (傍線)
-    | 'checked' | 'unchecked' | 'selected' | 'unselected'; // a drawn □ / ○ with or without a tick, cross or dot
-  text: string;              // marked glyphs (one passage across a column break), or the option's label
-  group?: string;            // choices: the text at the row's left (the question)
-  x: number; y: number; width: number; height: number; // choices: the box's bbox
+  mark: 'side_line';         // a thin vector rule just right of a vertical column's glyphs (傍線)
+  text: string;              // the marked glyphs in reading order; one passage across a column break
+  x: number; y: number; width: number; height: number;
 }
-
-interface LayoutConnection { from: string; to: string; label?: string; bidirectional?: true; x: number; y: number; width: number; height: number }
-interface LayoutChart { kind: 'line' | 'pie' | 'bar'; unpaired?: number; x: number; y: number; width: number; height: number; values: LayoutChartValue[] }
-interface LayoutChartValue { value: string; series: string; category?: string; x: number; y: number; width: number; height: number }
-// How each is found and where it stops: `pdfvision docs visual` ("Meaning drawn as vector marks").
 
 interface LayoutBlock {
   text: string;              // line texts joined with \n
@@ -40,6 +33,7 @@ interface LayoutBlock {
   codeLineNumbers?: { first: number; last: number }; // role === 'code' only: the line-number gutter left out of `text`
   level?: 1 | 2 | 3;         // present iff role === 'heading': 1=title, 2=section, 3=subsection candidate
   repeated?: boolean;        // chrome (running header / footer / page number / watermark), usually detected across pages
+  rotation?: 90 | 180 | 270; // text drawn turned on the page, read in its own upright frame (see below)
 }
 
 interface LayoutLine {
@@ -47,6 +41,8 @@ interface LayoutLine {
   x: number; y: number; width: number; height: number;
   fontSize: number;          // most common fontSize across the spans in this line
   writingMode?: 'vertical';  // present for top-to-bottom CJK glyph stacks, including body text
+  lineNumber?: number;       // the margin number printed on this line's baseline
+  indent?: number;           // list / index depth; `text` starts with two spaces per level
 }
 
 interface LayoutTable {
@@ -54,6 +50,7 @@ interface LayoutTable {
   rowCount: number;
   columnCount: number;       // geometric columns the cells were assigned to
   rows: LayoutTableRow[];
+  rotation?: 90 | 180 | 270; // a turned table, read in its own frame; rows/cells are its own (see below)
 }
 
 interface LayoutTableRow {
@@ -71,6 +68,8 @@ interface LayoutTableCell {
 ```
 
 `--layout` adds an alternate reading-order view with geometry and role hints; it never replaces native text. In JSON/XML/TOON, `pages[].layout` appears only with `--layout` while `pages[].text` stays the unchanged pdf.js stream, so blocks and raw text can be diffed against each other. Markdown is the exception: it always runs the layout pass internally, so its per-page body is the layout-rebuilt reading order whenever any block exists and falls back to `pages[].text` only when there is none; `--layout` there gates only the structural extras — the per-page layout table sections and the Overview `Blocks` / `Tables` columns. Note there is no `pages[].layout.lines` — lines live under `blocks[].lines`.
+
+Turned text (`rotation`): a region drawn a quarter or half turn on an upright page — a sideways table or text box, a landscape sheet set onto a portrait page without `/Rotate` — is read as a rotated page is, so its lines, row order and tables come out as a reader turning the page sees them. `rotation` is the clockwise page turn that shows it upright, as `/Rotate` counts it (`90` runs up the page). Bboxes stay in the page frame; a turned table's rows span its extent along the page, and its cells say where each row runs. Markdown notes where such a region starts; `rotated_text_read_upright` fires when it is most of the page. It needs three table rows or two long unbroken lines, so a turned axis title, tick labels, margin stamp or header cell keeps the handling above.
 
 Multi-column reading order: `blocks[]` reads top-to-bottom of the left column before the right column. A line never runs across a column gutter that the page as a whole shows: a vertical strip that stays clear line after line while the next column's lines keep starting at the same x. That holds however narrow the gutter (dense three-column registers use about 12pt, no wider than their widest word spaces) and when the columns sit on their own baselines, so a line no longer absorbs the first word or the short last line of the neighbouring column: the text on each side of such a gutter is grouped into lines separately. A lone bullet or icon set larger than the text does not set a line's height, so it neither pulls the next line into its own nor ends up on a line by itself. Cell splitting for tables inside a column reads the page-wide row as before, and an aligned-text table whose every column boundary is one of these prose gutters (the text columns read across) is not reported. Text rotated a quarter turn in the page margin, such as print-production lines and arXiv stamps, is read after the page body instead of inside a paragraph, and no longer splits a column's indented first lines into a column of their own. The layout pass also treats recurring narrow gutters and recurring right-side panel starts as column/table breaks, including landscape pages where a numeric side panel means the main body columns cover only part of the physical page width. It preserves tight Latin and Arabic word spaces when pdf.js emits words as separate spans, keeps short display-spaced CJK title rows on one line (for example `科 学`), keeps indented singleton lines attached to the nearest surviving column instead of turning them into page-wide separators, avoids letting tall drop caps absorb following paragraph lines, keeps narrow standalone numeric page labels separate from surrounding prose, and moves small bottom permission/footer notes after the main two-column body, ahead of a page number set below them. It also detects body-sized one-glyph CJK vertical runs, compact display CJK glyph stacks, and tall CJK spans that are visually vertical, keeps tatechuyoko digit groups inline in the same vertical column when geometry and source order agree, joins each column top-to-bottom, groups adjacent body columns right-to-left with `\n` between columns, and marks those blocks/lines with `writingMode: "vertical"` so consumers do not mistake them for horizontal rows. Once long body columns show a page is vertical, every column of it is rebuilt: 縦中横 digit groups, vertical dashes and leaders, NFKC-normalised brackets (`(略)`), and a column-head number or label separated from its text by one blank em box stay in their column (the blank box reads as a space: `第八条 市町村の…`, `3 前二項に…`), and short columns are accepted when they stand beside accepted ones. A page whose text is mostly vertical columns is ordered as it is set: tiers (段) top to bottom wherever no column crosses a horizontal gap, then blocks right to left at a gap clearly wider than the column pitch (a spread's gutter, the space after a title column), then column by column right to left; a column-head number or article label left as a separate item above its column starts that column. In a 新旧対照表 the side lines (傍線) beside the changed passages of vertical text are the only sign of what an amendment changed, so `markedText` lists each passage a side line marks — a thin vector rule hugging a column's glyph edge, much nearer to it than to the next column, and running no further than its tier (a rule centred between columns or a frame round the sheet is ignored); Markdown prints them as a `### Marked text` table after the body with `--layout`. Furigana/ruby attaches to layout text as `base《ruby》` when the adjacent vertical ruby column or above-line horizontal kana run maps to an unambiguous CJK base range; otherwise it remains excluded rather than becoming standalone layout noise. Short medium-size note-reference marks in the right gutter of a vertical body column are also excluded rather than becoming standalone layout blocks. `pages[].text` applies the same body-sized vertical-run detector only as a stream-order join: it joins a detected column when the source item order already matches top-to-bottom geometry, and falls back per run rather than reordering. Standalone level-1 / level-2 headings act as column separators; level-3 candidates stay inside their column so subsection breaks don't scramble reading order. Block clustering is still heuristic — table cells may merge into a single block.
 
@@ -110,7 +109,7 @@ interface TextSpan {
 }
 ```
 
-Each public span corresponds to one retained positioned pdf.js text item, whose `text` may be one character, a word, or a longer string. Adjacent items are not merged or split in public `spans[]`, except by the text corrections described under `text` in `pdfvision docs schema`: an overdrawn copy is dropped or trimmed to its new part, a justified CJK line set one glyph per item becomes one span, and a superscript or subscript joins the span it is attached to (`10^19`, its bbox widened to cover the script); layout/search may reconstruct lines or slice match boxes without changing that granularity. The rounded bbox is the item's aggregate axis-aligned envelope, not individual glyph outlines. Deduplication runs before normalization. Its key uses raw `str`, raw `fontName` (or empty), width, effective height, and every transform component rounded to three decimals (`no-transform` when absent). Effective height is a positive reported height, otherwise the largest finite non-zero text-matrix scale, otherwise zero. `fontSize` uses that largest usable matrix scale first and falls back to the reported/effective item height only when both matrix scales are unusable. Matching keys keep the first item and OR `hasEOL`; the same raw text at different transforms remains distinct, while different raw items may normalize to identical public text. Items without a transform, likely prepress-production text, whitespace-only items, and items empty after normalization are omitted. `fontName` is a stable page-local alias. Geometry can substantially enlarge output.
+Each public span corresponds to one retained positioned pdf.js text item, whose `text` may be one character, a word, or a longer string. Adjacent items are not merged or split in public `spans[]`, except by the text corrections described under `text` in `pdfvision docs schema`: an overdrawn copy is dropped or trimmed to its new part, a justified CJK line set one glyph per item becomes one span, so does a name set one glyph per item along a curve or turned line (its bbox covers every glyph), and a superscript or subscript joins the span it is attached to (`10^19`, its bbox widened to cover the script); layout/search may reconstruct lines or slice match boxes without changing that granularity. The rounded bbox is the item's aggregate axis-aligned envelope, not individual glyph outlines. Deduplication runs before normalization. Its key uses raw `str`, raw `fontName` (or empty), width, effective height, and every transform component rounded to three decimals (`no-transform` when absent). Effective height is a positive reported height, otherwise the largest finite non-zero text-matrix scale, otherwise zero. `fontSize` uses that largest usable matrix scale first and falls back to the reported/effective item height only when both matrix scales are unusable. Matching keys keep the first item and OR `hasEOL`; the same raw text at different transforms remains distinct, while different raw items may normalize to identical public text. Items without a transform, likely prepress-production text, whitespace-only items, and items empty after normalization are omitted. `fontName` is a stable page-local alias. Geometry can substantially enlarge output.
 
 ## Two-dimensional math
 

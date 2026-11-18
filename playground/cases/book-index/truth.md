@@ -2,7 +2,7 @@
 
 - **Stresses:** letter headings; main entries, subentries and sub-subentries told apart only by indentation; turnover lines indented deeper; italic see / see also; bold and f/t locators; an entry whose subentries continue into the next column under a "(continued)" line; running head with the page number
 - **Families:** structure, reading-order
-- **Status:** known-gap (#305)
+- **Status:** ok
 
 One 396 × 612 pt book page: the running head `Index` and page number `412`, then an index in two
 columns, read left column then right. Each subentry belongs to the nearest main entry above it with
@@ -72,13 +72,12 @@ Bold locators mark the defining page; `f` and `t` mark a figure or a table on th
 5. On which pages is free allocation in emissions trading discussed? — 63–65 and 202
 6. What does the locator "regional, 54" index — regional what? — the regional distributional effects of carbon pricing (a sub-subentry under *distributional effects of*, beside *on low-income households*)
 
-Questions 1–5 are answerable from `read.md`: the columns are read in order, the `emissions trading
-(continued)` line keeps *free allocation* with its entry, turnover lines stay in place, and
-alphabetical order shows where a main entry starts.
-
-**Known gap (#305):** every indentation level is dropped — main entries, subentries,
-sub-subentries and turnover lines all come out flush left, and nothing says the page is an indented
-list. For question 6, `on low-income households, 52, 53t` / `regional, 54` / `hybrid schemes, 47`
-reads as three siblings under *carbon pricing*, so *regional* is taken as a kind of carbon pricing
-rather than a regional distributional effect; the same flattening makes `compared with cuts to
-payroll` / `taxes, 56–57` look like entries of their own.
+All six questions are answerable from `read.md`: the columns are read in order, the `emissions
+trading (continued)` line keeps *free allocation* with its entry, and every line keeps its indent as
+two leading spaces per step of the column's smallest indent — main entries flush, subentries at one
+level, sub-subentries at two. For question 6, `regional, 54` sits at the second level under
+`distributional effects of`, beside `on low-income households`, and `hybrid schemes, 47` is back at
+the first. Turnover lines are set deeper than any subentry, so they read at the third level
+(`      233t`, `      compared with cuts to payroll` / `      taxes, 56–57`), below the entry they
+continue; nothing joins them to it, so an agent must read a line one level deeper than the deepest
+subentry as a turnover.

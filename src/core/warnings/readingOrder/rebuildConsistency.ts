@@ -53,7 +53,10 @@ export function qualifyUnreliableLayoutOrder(blocks: readonly LayoutBlock[], out
 /** Why the layout order is not a reading order, or undefined when nothing
  *  shows it is wrong. Exported for unit tests. */
 export function describeInconsistentLayoutOrder(blocks: readonly LayoutBlock[]): string | undefined {
-  const body = blocks.filter((block) => !block.repeated && block.writingMode !== 'vertical');
+  // Vertical columns and turned regions are laid out along their own axes; these page-frame checks do not apply.
+  const body = blocks.filter(
+    (block) => !block.repeated && block.writingMode !== 'vertical' && block.rotation === undefined,
+  );
   return describeWovenBlocks(body) ?? describeFusedColumnBlock(body);
 }
 

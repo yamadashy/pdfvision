@@ -33,5 +33,6 @@ Fixed in #265: `### Connections` lists all sixteen arrows as `from → to (label
 `Fault from manufacture? → Refund to the original payment method (Yes)` and
 `Offer a repair at our cost → End` (the merges). Every question is answered from it.
 
-The body still reads the labels as three loose groups (the left branch, the caption, the centre
-column, then the right branch, `No` / `No` after `End`); the connections do not depend on that order.
+The body still reads the labels as three loose groups (the left branch with `Refund to the original
+payment method` after `Offer a repair at our cost`, the caption, the centre column, then the right
+branch, `No` / `No` after `End`); the connections do not depend on that order.

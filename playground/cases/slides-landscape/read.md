@@ -39,7 +39,7 @@ Net revenue retention rose for a third straight quarter
 
 • NRR reached 118%, up from 112% in Q2
 
-– Expansion led by the Analytics Pro tier
+  – Expansion led by the Analytics Pro tier
 
 • Gross churn held at 4.1% of ARR
 

@@ -52,6 +52,7 @@ export const CLI_WARNING_CODES: readonly string[] = [
   "raw_embedded_source_text",
   "reading_order_divergence",
   "rotated_page_read_unrotated",
+  "rotated_text_read_upright",
   "rtl_script_text",
   "symbol_font_substitution",
   "tabular_numeric_layout",

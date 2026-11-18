@@ -5,7 +5,7 @@ import {
   horizontalRubyReadingText,
 } from '../layout/horizontalRuby.js';
 import { mergeSameOffsetRubyTextAttachments } from '../layout/rubyMerge.js';
-import { markExplicitSpaceBefore } from '../layout/spanMetadata.js';
+import { markExplicitSpaceBefore, markSpanTurn, type QuarterTurn } from '../layout/spanMetadata.js';
 import {
   extractBodyVerticalCjkRunAnalysis,
   extractTallVerticalRuns,
@@ -222,6 +222,8 @@ function collectPageTextItems({
         ...(typeof item.fontName === 'string' && { fontName: stablePageFontName(item.fontName, pageFontAliases) }),
       };
       if (pendingExplicitSpace && previousSpanOnLine) markExplicitSpaceBefore(span);
+      const turn = transform && item.dir !== 'ttb' ? quarterTurn(transform) : undefined;
+      if (turn !== undefined) markSpanTurn(span, turn);
       spans.push(span);
       previousSpanOnLine = span;
       pendingExplicitSpace = false;
@@ -261,6 +263,20 @@ function collectPageTextItems({
     verticalJoinSpans,
     verticalJoinSpanIndices,
   };
+}
+
+// A baseline within this many degrees of a quarter turn reads as sideways (or upside-down) text.
+const QUARTER_TURN_TOLERANCE_DEG = 3;
+
+/** The quarter turn a text matrix sets its baseline to, or undefined when it is not one or is mirrored. */
+function quarterTurn(transform: readonly number[]): QuarterTurn | undefined {
+  const [a = 0, b = 0, c = 0, d = 0] = transform;
+  if (!(Math.hypot(a, b) > 1e-6) || !(a * d - b * c > 0)) return undefined;
+  const angle = ((((Math.atan2(b, a) * 180) / Math.PI) % 360) + 360) % 360;
+  for (const turn of [90, 180, 270] as const) {
+    if (Math.abs(angle - turn) <= QUARTER_TURN_TOLERANCE_DEG) return turn;
+  }
+  return undefined;
 }
 
 function composeRawPageText({ joinItems, verticalJoinSpans, verticalJoinSpanIndices }: RawPageTextInput): string {

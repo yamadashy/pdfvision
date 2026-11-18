@@ -7,13 +7,17 @@ import { isStandaloneNumericLineAfterProse } from './columns.js';
 import { detectConnections } from './connectors.js';
 import { unionBox } from './geometry.js';
 import { classifyHeadings } from './headings.js';
+import { indentNestedLines } from './indentation.js';
 import { buildLayoutLinesWithGutters } from './lines.js';
+import { extractMarginLineNumbers, type MarginNumberColumn, numberLines } from './marginLineNumbers.js';
 import { assembleDisplayMath } from './math/index.js';
 import { orderLayoutBlocks } from './regionOrder.js';
-import { detectLayoutRegions, type LayoutGraphics } from './regions.js';
+import { detectLayoutRegions, type LayoutGraphics, type LayoutRegion } from './regions.js';
 import { sideLineMarks } from './sideLines.js';
 import { tableRules } from './tableRules.js';
 import { detectLayoutTables } from './tables.js';
+import { extractTitleGrids } from './titleGrid.js';
+import { findTurnedRegions, readTurnedRegion, type TurnedRegion } from './turnedRegions.js';
 import { isVerticalPage, orderVerticalPage } from './vertical/pageOrder.js';
 import { compareLayoutBlocks, extractVerticalCjkBlocks } from './verticalText.js';
 import { findWovenContinuation } from './wovenLines.js';
@@ -41,7 +45,9 @@ const SHORT_LARGER_LINE_MAX_CHARS = 100;
  * enables bottom-note detection inside column runs; 0 keeps the legacy
  * column sort for synthetic callers that do not know page bounds.
  * `graphics` (the page's vector and image boxes) lets frames, rule bands
- * and figures keep their text together in the reading order.
+ * and figures keep their text together in the reading order. Text drawn
+ * turned on the page is laid out in its own upright frame first — see
+ * {@link findTurnedRegions}.
  */
 export function buildLayout(
   spans: TextSpan[],
@@ -49,6 +55,41 @@ export function buildLayout(
   pageHeight = 0,
   graphics?: LayoutGraphics,
   monospaceFonts?: ReadonlySet<string>,
+): PageLayout {
+  const turned = findTurnedRegions(spans, pageWidth, pageHeight);
+  if (!turned) return buildUprightLayout(spans, pageWidth, pageHeight, graphics, monospaceFonts);
+  let layout = buildUprightLayout(turned.upright, pageWidth, pageHeight, graphics, monospaceFonts);
+  for (const region of turned.regions) {
+    const read = readTurnedRegion(region, pageWidth, pageHeight, graphics, (local, width, height, localGraphics) =>
+      buildUprightLayout(local, width, height, localGraphics, monospaceFonts),
+    );
+    layout = withTurnedRegion(layout, region, read);
+  }
+  return layout;
+}
+
+/**
+ * Place a turned region's blocks and tables among the page's, before the
+ * first that starts below the region's top.
+ */
+function withTurnedRegion(layout: PageLayout, region: TurnedRegion, read: PageLayout): PageLayout {
+  const blocks = [...layout.blocks];
+  const blockAt = blocks.findIndex((block) => block.y > region.y);
+  blocks.splice(blockAt < 0 ? blocks.length : blockAt, 0, ...read.blocks);
+  const tables = [...(layout.tables ?? [])];
+  if (read.tables) {
+    const tableAt = tables.findIndex((table) => table.y > region.y);
+    tables.splice(tableAt < 0 ? tables.length : tableAt, 0, ...read.tables);
+  }
+  return { ...layout, blocks, ...(tables.length > 0 && { tables }) };
+}
+
+function buildUprightLayout(
+  spans: TextSpan[],
+  pageWidth: number,
+  pageHeight: number,
+  graphics: LayoutGraphics | undefined,
+  monospaceFonts: ReadonlySet<string> | undefined,
 ): PageLayout {
   if (spans.length === 0) return { blocks: [] };
 
@@ -59,9 +100,11 @@ export function buildLayout(
   const math = assembleDisplayMath(spans, mathBoxes, pageWidth);
   const vertical = extractVerticalCjkBlocks(math.spans);
   const code = extractCodeBlocks(vertical.remainingSpans, monospaceFonts);
+  const margin = extractMarginLineNumbers(code.remainingSpans, pageHeight);
+  const grid = extractTitleGrids(margin.remainingSpans);
 
   const rules = tableRules(graphics?.vectorBoxes);
-  const { lines, columnGutters } = buildLayoutLinesWithGutters(code.remainingSpans, pageWidth, rules.vertical);
+  const { lines, columnGutters } = buildLayoutLinesWithGutters(grid.remainingSpans, pageWidth, rules.vertical);
   // A "table" whose every column boundary is a detected prose gutter is the
   // page's text columns read across (#242), not a table.
   const detectedTables = detectLayoutTables(lines, rules, graphics?.vectorBoxes)?.filter(
@@ -72,6 +115,11 @@ export function buildLayout(
   const keptTables = dropLegendRows(detectedTables, chartReading.legends, graphics?.vectorShapes);
   const tables = keptTables && keptTables.length > 0 ? keptTables : undefined;
   const charts = chartReading.charts.length > 0 ? chartReading.charts : undefined;
+  numberLines(lines, margin.columns);
+  numberLines(
+    grid.blocks.flatMap((block) => block.lines),
+    margin.columns,
+  );
 
   // Cluster lines into blocks. Splits when:
   //   - vertical gap > 1× prev line height (paragraph break / section break)
@@ -137,6 +185,7 @@ export function buildLayout(
     })),
     ...vertical.blocks,
     ...code.blocks,
+    ...grid.blocks,
   ].sort(compareLayoutBlocks);
 
   if (isVerticalPage(blocks)) {
@@ -154,15 +203,44 @@ export function buildLayout(
   classifyHeadings(blocks, pageWidth, pageHeight);
   const ordered =
     pageWidth > 0
-      ? orderLayoutBlocks(blocks, detectLayoutRegions(blocks, graphics, pageWidth, pageHeight), pageWidth, pageHeight)
+      ? orderLayoutBlocks(
+          blocks,
+          [...detectLayoutRegions(blocks, graphics, pageWidth, pageHeight), ...gridRegions(grid.gridBlocks)],
+          pageWidth,
+          pageHeight,
+        )
       : blocks;
+  indentNestedLines(ordered);
   return withMarks(
-    { blocks: ordered, ...(tables !== undefined && { tables }), ...(charts !== undefined && { charts }) },
+    {
+      blocks: ordered,
+      ...(tables !== undefined && { tables }),
+      ...(charts !== undefined && { charts }),
+      ...lineNumberRange(margin.columns),
+    },
     math.spans,
     graphics,
     pageWidth,
     pageHeight,
   );
+}
+
+function lineNumberRange(columns: readonly MarginNumberColumn[]): Pick<PageLayout, 'lineNumbers'> {
+  const values = columns.flatMap((column) => column.numbers.map((number) => number.value));
+  return values.length > 0 ? { lineNumbers: { first: Math.min(...values), last: Math.max(...values) } } : {};
+}
+
+/** A title grid reads as one unit, row by row (see `extractTitleGrids`). */
+function gridRegions(grids: readonly LayoutBlock[][]): LayoutRegion[] {
+  return grids.map((cells) => ({
+    kind: 'figure',
+    blocks: [...cells],
+    ...unionBox(cells),
+    graphicCount: 0,
+    marks: 0,
+    verticalMarks: false,
+    bars: false,
+  }));
 }
 
 /** Meaning carried only by vector marks beside the text: side lines, drawn answers, arrows between boxes. */
