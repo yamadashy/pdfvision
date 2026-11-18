@@ -64,6 +64,7 @@ export const meta = {
   stresses:
     'GHS hazard pictograms as text-free vector diamonds; signal word and H/P statement codes; composition table with chemical formulas set with real subscripts and CAS numbers; units with superscripts; ions with superscript charges in prose; white-on-dark section bars; repeated product line and page count',
   status: 'known-gap',
+  issue: 301,
   families: ['vector-meaning', 'math', 'tables', 'structure'],
 };
 
@@ -106,7 +107,7 @@ Questions 1, 2 and 4 are answerable from \`read.md\`: the composition table read
 subscripts marked (\`H_3NSO_3\`, \`NaC_12H_25SO_4\`), and the density keeps its superscript
 (\`1.18 g/cm^3\`).
 
-**Known gap (no issue yet):**
+**Known gap (#301):**
 - The hazard pictograms leave no trace and nothing warns, so question 3 has no answer (the signal
   word and H-statements hint at corrosion, not at which pictograms are printed).
 - The two-column code/text lists of section 2 are pulled apart and re-sequenced: \`H290\` / \`H314\` /

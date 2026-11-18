@@ -2,7 +2,7 @@
 
 - **Stresses:** no form fields; yes/no answers as ticks stroked over □ boxes; single choices as filled ○ among empty ones; a five-point scale grid with one filled circle per row; option labels all present as text; free-text answers as ordinary text
 - **Families:** vector-meaning, interactive, scripts
-- **Status:** known-gap
+- **Status:** known-gap (#303)
 
 One A4 page, a completed questionnaire. Patient: 佐倉 みのり, born 1988年4月12日, filled in 2026年11月18日.
 All options are printed; the answers are only marks (a tick over a □, a filled ○). A correct reading
@@ -35,7 +35,7 @@ reports which option is marked:
 5. How often does the patient have trouble falling asleep at night? — ときどき
 6. Could the patient be pregnant? — No (いいえ)
 
-**Known gap (no issue yet):** no answer except the free text survives, and nothing on the page
+**Known gap (#303):** no answer except the free text survives, and nothing on the page
 warns. The ticks and filled circles leave no trace, so every option reads as equally present:
 questions 2–6 have no answer (question 1 is answered only through the free-text `内容:ペニシリン系の
 抗生物質`). The layout makes it worse: section 1 is read column by column — the five questions, then

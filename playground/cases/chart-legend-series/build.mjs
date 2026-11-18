@@ -39,6 +39,7 @@ export const meta = {
   stresses:
     'line chart with a value label at every point and series told apart only by colour and dash, two series crossing; donut with percentages in the slices and names only in a legend; 100% stacked bars with a percentage per segment and a legend above',
   status: 'known-gap',
+  issue: 302,
   families: ['vector-meaning'],
 };
 
@@ -84,7 +85,7 @@ ${table(
 4. Which payment method accounts for 9% of trips? — Cash
 5. What share of weekday trips in 2025 were for school? — 20%
 
-**Known gap (no issue yet):** the page has no warning at all, and none of the three charts can be
+**Known gap (#302):** the page has no warning at all, and none of the three charts can be
 read without the render.
 - Figure 3: the legend (\`Red Line Blue Line\` / \`Green Line\`) comes first, then the fifteen values
   sorted top to bottom with the y-axis ticks among them (\`58.9\` / \`60\` / \`55.4\` / \`51.7\` / \`52.3\` /

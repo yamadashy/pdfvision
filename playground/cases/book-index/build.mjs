@@ -73,6 +73,7 @@ export const meta = {
   stresses:
     'letter headings; main entries, subentries and sub-subentries told apart only by indentation; turnover lines indented deeper; italic see / see also; bold and f/t locators; an entry whose subentries continue into the next column under a "(continued)" line; running head with the page number',
   status: 'known-gap',
+  issue: 305,
   families: ['structure', 'reading-order'],
   page: { size: [W, H] },
 };
@@ -102,7 +103,7 @@ Questions 1–5 are answerable from \`read.md\`: the columns are read in order, 
 (continued)\` line keeps *free allocation* with its entry, turnover lines stay in place, and
 alphabetical order shows where a main entry starts.
 
-**Known gap (no issue yet):** every indentation level is dropped — main entries, subentries,
+**Known gap (#305):** every indentation level is dropped — main entries, subentries,
 sub-subentries and turnover lines all come out flush left, and nothing says the page is an indented
 list. For question 6, \`on low-income households, 52, 53t\` / \`regional, 54\` / \`hybrid schemes, 47\`
 reads as three siblings under *carbon pricing*, so *regional* is taken as a kind of carbon pricing

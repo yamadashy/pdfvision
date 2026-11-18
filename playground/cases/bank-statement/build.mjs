@@ -54,6 +54,7 @@ export const meta = {
   stresses:
     'transaction table with no vertical rules and zebra-striped rows; every row leaves either Paid out or Paid in empty; running balance column; descriptions wrapping onto a reference line; table continued on page 2 with a repeated header and a balance-brought-forward row; summary box',
   status: 'known-gap',
+  issue: 308,
   families: ['tables', 'structure'],
 };
 
@@ -81,7 +82,7 @@ Questions 2–5 are answerable from \`read.md\`, and page 2 is read well: its ro
 table with every amount in its own column (\`| Oct 22 | Interest paid | | 1.83 | 3,656.74 |\`), the
 wrapped references on rows of their own, and a \`layout_table_uncertain\` warning that names the region.
 
-**Known gap (no issue yet):** page 1 — the same table, under the same header, with twelve rows — is not
+**Known gap (#308):** page 1 — the same table, under the same header, with twelve rows — is not
 detected as a table and nothing warns. Its body gives each row as date / description / one amount /
 balance (\`Oct 14\` / \`Card refund — Pelham Rail\` / \`Delay repay\` / \`12.40\` / \`4,284.75\`), so whether
 an amount was paid out or paid in is lost; it can only be worked out by differencing consecutive

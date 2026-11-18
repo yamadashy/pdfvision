@@ -2,7 +2,7 @@
 
 - **Stresses:** street names rotated along strokes at 0°, 90°, about 38° and about −69°; a road and a river named along a curve one glyph at a time; numbered markers keyed to a legend; north arrow and scale bar; landscape page
 - **Families:** vertical-rotated, vector-meaning, page-geometry
-- **Status:** known-gap
+- **Status:** known-gap (#307)
 
 One Letter landscape page: the title **Wendbury town centre** with a map on the left and a legend on
 the right. The map's labels, each read as a whole name:
@@ -27,7 +27,7 @@ Questions 1, 3 and 5 are answerable from `read.md`: the straight street names, r
 back whole (`Tanner’s Lane`, `Station Avenue`, `Abbey Road`), and the legend lines carry their
 numbers except one.
 
-**Known gap (no issue yet):** the page has no warning. The two names set along the curve, one glyph
+**Known gap (#307):** the page has no warning. The two names set along the curve, one glyph
 per text object, are cut into fragments and interleaved with other labels: `QUAYS` … `Abbey Road` /
 `6` / `Station Avenue` / `Riv e r  W` / `end` / `ID E  W A L K`, so question 2 rests on guessing
 that `QUAYS` and `ID E W A L K` are one name and `Riv e r W` + `end` another (a search for

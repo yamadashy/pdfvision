@@ -2,7 +2,7 @@
 
 - **Stresses:** A0 page; full-width banner over four columns of titled blocks of unequal height; vector charts with text tick labels, legends and value labels; table inside a column; QR-like vector square
 - **Families:** reading-order, page-geometry, vector-meaning, tables
-- **Status:** known-gap
+- **Status:** known-gap (#302)
 
 **Thermal drones spot heat stress in dairy cattle before it shows**
 
@@ -108,7 +108,7 @@ back on its row. Question 1 is answered from it.
 Two lines of each poster column read across as a 2 × 7 table of prose and chart labels are no
 longer reported as a table (#242): every row holds running text and it straddles the columns' gutters.
 
-**Known gap (no issue yet):**
+**Known gap (#302):**
 - The four poster columns are read one after another, each panel whole, and Table 1 reads row by row
   in the body (`Visual check` / `0.95` / `0.61` / `0.74`). The charts' labels stay inside their
   panel, but no warning names the figures (only the generic `tabular_numeric_layout`): Figure 2's

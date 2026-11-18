@@ -34,6 +34,7 @@ export const meta = {
   stresses:
     'street names rotated along strokes at 0°, 90°, about 38° and about −69°; a road and a river named along a curve one glyph at a time; numbered markers keyed to a legend; north arrow and scale bar; landscape page',
   status: 'known-gap',
+  issue: 307,
   families: ['vertical-rotated', 'vector-meaning', 'page-geometry'],
   page: { size: 'LETTER', layout: 'landscape' },
 };
@@ -62,7 +63,7 @@ Questions 1, 3 and 5 are answerable from \`read.md\`: the straight street names,
 back whole (\`Tanner’s Lane\`, \`Station Avenue\`, \`Abbey Road\`), and the legend lines carry their
 numbers except one.
 
-**Known gap (no issue yet):** the page has no warning. The two names set along the curve, one glyph
+**Known gap (#307):** the page has no warning. The two names set along the curve, one glyph
 per text object, are cut into fragments and interleaved with other labels: \`QUAYS\` … \`Abbey Road\` /
 \`6\` / \`Station Avenue\` / \`Riv e r  W\` / \`end\` / \`ID E  W A L K\`, so question 2 rests on guessing
 that \`QUAYS\` and \`ID E W A L K\` are one name and \`Riv e r W\` + \`end\` another (a search for

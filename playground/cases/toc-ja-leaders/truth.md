@@ -2,7 +2,7 @@
 
 - **Stresses:** A4; part headings with no page number; chapters and parenthesised sections at growing indents; dot leaders; page numbers right-aligned under a 頁 column head; labels, leaders and page numbers written as three separate passes
 - **Families:** structure, scripts
-- **Status:** known-gap
+- **Status:** known-gap (#301)
 
 A4 page: the title 目次, the column head 頁 above the page numbers, 18 entries and a note.
 Each entry with a page number must be read with its number; part headings (第n部) have none.
@@ -68,7 +68,7 @@ Then a second list, **図表目次**, set without leaders (label at the left, pa
 5. 中山間地域の路線バスについての節は何ページから何ページまでか。 — 7ページから（次の項目が11ページなので）10ページまで
 6. 「運転士の年齢階級別構成比」の表は何ページにあるか。 — 16ページ（表1-3）
 
-**Known gap (no issue yet):** no entry is read with its page number on one line, and nothing warns.
+**Known gap (#301):** no entry is read with its page number on one line, and nothing warns.
 Each label and its leader come out as one line and the page number as the next paragraph, but the
 number column drifts by one row in places: `第1部 地域交通の現状` is followed by `1` (the number of
 the line above), `第2部` by `15` and `第3部` by `38`, so a reader pairing "label, then number"

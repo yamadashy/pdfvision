@@ -2,7 +2,7 @@
 
 - **Stresses:** numbers 1–28 in the left margin of every page, written before the text; double and single margin rules; attorney block on the first lines; caption box with a column of ")" between the parties and the case number; double-spaced body set on the numbered lines; footer title under a rule
 - **Families:** structure, reading-order, tables
-- **Status:** known-gap
+- **Status:** known-gap (#304)
 
 Two Letter pages of pleading paper. The margin numbers 1–28 on each page are line references, not
 content: a good reading drops them or keeps them apart from the text, and must never glue them into
@@ -32,7 +32,7 @@ Signed: Dated November 18, 2026, Okafor & Vance LLP, by /s/ Lena M. Okafor, Atto
 
 Questions 1–5 are answerable from `read.md`.
 
-**Known gap (no issue yet):** the margin numbers are emitted as lines of their own in among the text,
+**Known gap (#304):** the margin numbers are emitted as lines of their own in among the text,
 in runs whose position does not follow the line they number, and nothing marks them as line
 references. On page 1 the numbers `10` … `17` come out as one run before `v.` and the start of
 the body, so `PLEASE TAKE NOTICE …` (line 16) and `thereafter as …` (17) have no number near

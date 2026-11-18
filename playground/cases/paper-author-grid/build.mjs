@@ -35,6 +35,7 @@ export const meta = {
   stresses:
     'title over a grid of three-line author blocks (name, affiliation, email) in two rows of unequal length; one block with no affiliation; footnote marks after names; arXiv identifier rotated 90° in the left margin; narrow single-column abstract',
   status: 'known-gap',
+  issue: 300,
   families: ['reading-order', 'structure', 'vertical-rotated'],
 };
 
@@ -69,7 +70,7 @@ Abstract: ${ABSTRACT}
 Questions 2, 3, 4 and 5 are answerable from \`read.md\`; the footnotes, the abstract and the margin
 stamp read cleanly (the stamp last, whole).
 
-**Known gap (no issue yet):** the author grid is read as loose fragments in a mixed order, and
+**Known gap (#300):** the author grid is read as loose fragments in a mixed order, and
 nothing warns about it (the only warning is a \`reading_order_divergence\` about \`1 Introduction\`).
 \`Priya Ramaswamy\` (second row) follows \`Mireille Ostrander\`'s block directly with her email but
 without her affiliation; her \`Halcyon Research\` line is left orphaned between two \`*\` marks, so

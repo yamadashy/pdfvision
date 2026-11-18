@@ -2,7 +2,7 @@
 
 - **Stresses:** portrait page with no /Rotate whose caption and table are drawn turned 90° counter-clockwise; upright running head and page number; two-level header with site groups; em-dash empty cells; table note
 - **Families:** tables, vertical-rotated, page-geometry
-- **Status:** known-gap
+- **Status:** known-gap (#306)
 
 One portrait Letter page. Upright: the running head `Chapter 4. Field trials` and the page number
 `57`. Everything else is turned 90° counter-clockwise (read by turning the page a quarter clockwise):
@@ -31,7 +31,7 @@ Means are over the plots harvested. Site soils: see Appendix B.
 4. Is Dunhill a lowland or an upland site? — Upland
 5. What is Dorran's yield at Elsted? — 6.42 t/ha
 
-**Known gap (no issue yet):** the sideways table is read transposed and out of order, with no warning
+**Known gap (#306):** the sideways table is read transposed and out of order, with no warning
 (`rotated_page_read_unrotated` covers `/Rotate` pages, not rotated content on an upright page). Each
 table column comes out as one line, starting from the right-hand end of the table: the headers
 `Mean` / `Farley` / `Elsted` / `Upland sites` / `Dunhill` / `Carrow` / `Lowland sites` / `Brenmoor`,
