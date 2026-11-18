@@ -225,9 +225,7 @@ Defects without a warning: the proper redaction is only partly readable. 3.1 rea
 invoiced monthly in\` / \`advance.\` — the value is simply absent (no box is reported, there is no warning, and the line
 is broken where the box sits), so question 1 gets “not stated” where the page shows a redaction:
 the reading cannot establish that anything was redacted. Annotations are listed per page
-with author, contents, colour and bbox, and the link with its target, so question 4 is answerable
-— but the highlight and strike-out rows do not quote the text they mark (\`1.5% per month\`,
-\`thirty (30) days’ written notice\`); only the strike-out's comment reveals what it is about.
+with author, contents, colour and bbox, and the link with its target, so question 4 is answerable.
 Bold defined terms are not marked in the output. Question 5 is answered correctly.
 `;
 
