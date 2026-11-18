@@ -55,7 +55,7 @@ description: pdfvision CLI 选项参考，涵盖 PDF 输入、输出格式、渲
 | `--vector-boxes` | 在 `pages[].vectorBoxes` 中输出矢量绘制 bbox。 |
 | `--visual-regions` | 输出图、图表、表格、表单、注释以及栅格/矢量集群的可裁剪区域。 |
 | `--render-visual-regions` | 渲染视觉区域裁剪图，并附加路径、content ratio 和更紧的 rendered content box。隐含 `--visual-regions`。 |
-| `--strip-repeated` | 从 Markdown 移除重复块。需要 `--layout`；JSON/TOON 保留 `repeated: true`，XML 保留 `repeated="true"` 块属性。 The document header then names each stripped string once with its page count, so text found only in a running header or footer is not lost. |
+| `--strip-repeated` | 从 Markdown 移除重复块。需要 `--layout`；JSON/TOON 保留 `repeated: true`，XML 保留 `repeated="true"` 块属性。 The document header then names the stripped strings once with their page counts — up to eight, those on the most pages first, each clipped at 100 characters, with a count of the rest — so a fact found only in a running header or footer is still in the output; read without `--strip-repeated` (or the JSON `repeated: true` blocks) for every string in full. |
 
 ## 搜索
 

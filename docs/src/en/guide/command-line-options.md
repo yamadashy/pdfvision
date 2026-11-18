@@ -55,7 +55,7 @@ Coordinates use a top-left origin: `x` grows right, `y` grows downward. The same
 | `--vector-boxes` | Emit vector drawing boxes in `pages[].vectorBoxes`. |
 | `--visual-regions` | Emit crop-ready regions for figures, charts, diagrams, tables, forms, annotations, and raster/vector clusters. |
 | `--render-visual-regions` | Render visual-region crops and attach crop paths, content ratios, and tighter rendered content boxes. Implies `--visual-regions`. |
-| `--strip-repeated` | Remove repeated headers, footers, and page-number blocks from Markdown. Requires `--layout`; JSON/TOON retain `repeated: true`, and XML uses a `repeated="true"` block attribute. The document header then names each stripped string once with its page count, so text found only in a running header or footer is not lost. |
+| `--strip-repeated` | Remove repeated headers, footers, and page-number blocks from Markdown. Requires `--layout`; JSON/TOON retain `repeated: true`, and XML uses a `repeated="true"` block attribute. The document header then names the stripped strings once with their page counts — up to eight, those on the most pages first, each clipped at 100 characters, with a count of the rest — so a fact found only in a running header or footer is still in the output; read without `--strip-repeated` (or the JSON `repeated: true` blocks) for every string in full. |
 
 ## Search
 

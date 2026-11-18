@@ -121,9 +121,10 @@ The short `pdfvision --help` lists the flags reached for most often. This topic 
                           pass tagged as `repeated`) from the rendered Markdown body so
                           LLM readers don't have to wade through the same footer N times.
                           Markdown only; JSON/TOON preserve block `repeated: true`, while XML
-                          uses `<block repeated="true">`. The document header names each
-                          stripped string once with its page count, so a footer-only fact
-                          (`Confidential`, a print date) is still in the output. Requires --layout.
+                          uses `<block repeated="true">`. The document header names up to
+                          eight stripped strings (clipped at 100 characters) with their page
+                          counts and counts the rest, so a footer-only fact (`Confidential`,
+                          a print date) is still in the output. Requires --layout.
       --map               Emit a map of the document instead of its contents: page count,
                           metadata, outline, and per-page native-text quality plus warning
                           codes folded into page ranges. No page bodies. The cheap first

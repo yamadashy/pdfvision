@@ -55,7 +55,7 @@ description: PDF 入力、出力形式、レンダリング、OCR、検索、レ
 | `--vector-boxes` | ベクター描画の bbox を `pages[].vectorBoxes` に出します。 |
 | `--visual-regions` | 図、チャート、表、フォーム、注釈、ラスター/ベクタークラスターのクロップ可能な領域を出します。 |
 | `--render-visual-regions` | 視覚領域クロップを PNG としてレンダリングし、パス、content ratio、より狭い content box を付けます。`--visual-regions` を含みます。 |
-| `--strip-repeated` | Markdown から繰り返しブロックを除きます。`--layout` が必要です。JSON/TOON は `repeated: true`、XML は `repeated="true"` 属性を保持します。 The document header then names each stripped string once with its page count, so text found only in a running header or footer is not lost. |
+| `--strip-repeated` | Markdown から繰り返しブロックを除きます。`--layout` が必要です。JSON/TOON は `repeated: true`、XML は `repeated="true"` 属性を保持します。 The document header then names the stripped strings once with their page counts — up to eight, those on the most pages first, each clipped at 100 characters, with a count of the rest — so a fact found only in a running header or footer is still in the output; read without `--strip-repeated` (or the JSON `repeated: true` blocks) for every string in full. |
 
 ## 検索
 
