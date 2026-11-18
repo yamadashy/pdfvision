@@ -87,9 +87,15 @@ export function detectSymbolFontSubstitution(page: PageResult, spans: readonly T
       .flatMap((slot) => (slot ? [sampleOf(slot)] : []))
       .filter((sample, index, all) => all.indexOf(sample) === index)
       .slice(0, SAMPLE_LIMIT);
-    const region = unionRegion(slots.map((slot) => slot.span))
-      .map((n) => round2(n * toRaw))
-      .join(',');
+    // A slot can sit partly off the page; --render-region rejects a negative
+    // origin, so the printed command must stay inside the visible page.
+    const [ux, uy, uw, uh] = unionRegion(slots.map((slot) => slot.span));
+    const x0 = Math.max(0, ux);
+    const y0 = Math.max(0, uy);
+    const x1 = Math.min(page.width, ux + uw);
+    const y1 = Math.min(page.height, uy + uh);
+    if (!(x1 > x0 && y1 > y0)) continue;
+    const region = [x0, y0, x1 - x0, y1 - y0].map((n) => round2(n * toRaw)).join(',');
     out.push({
       code: 'symbol_font_substitution',
       severity: 'warning',
@@ -117,7 +123,8 @@ function signSlot(span: TextSpan, spans: readonly TextSpan[]): SignSlot | undefi
       if (!right || other.x < right.x) right = other;
     }
   }
-  const besideNumber = /\p{Nd}$/u.test(left?.text.trimEnd() ?? '') || /^\p{Nd}/u.test(right?.text.trimStart() ?? '');
+  // `.001` is how APA style writes a p-value bound, so a leading decimal point counts.
+  const besideNumber = /\p{Nd}$/u.test(left?.text.trimEnd() ?? '') || /^\.?\p{Nd}/u.test(right?.text.trimStart() ?? '');
   return besideNumber ? { span, left, right } : undefined;
 }
 

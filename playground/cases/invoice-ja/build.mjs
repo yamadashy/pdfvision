@@ -125,9 +125,14 @@ on the ${yen(ITEMS[2].price)} row — the join adds a space at the wrap), so que
 from the layout table; fixed in #251, before which the second line was glued onto the
 ${itemName(ITEMS[3])} row.
 
-**Known gap (#252):** the layout table absorbs the recipient/issuer header block into its first
-five rows (issuer address lines out of order, postcode/TEL/登録番号 missing from the table,
-present in the body). The page body reads the item table row by row (\`クラウドサーバー利用料\` / \`3\` / \`台\` /
+The item table is read from its drawn cells (#252, #277): it starts at its header row
+(\`| 品名 | 数量 | 単位 | 単価 | 金額 |\`) and holds the six items, and the tax summary comes back as
+the two grids it is drawn as (\`税率区分 | 対象金額(税抜) | 消費税額\` and \`小計 | 556,560\` …).
+
+**Known gap (no issue yet):** the recipient/issuer block above the item grid is still reported as
+a 5 × 5 layout table of its own, with the issuer address lines out of order
+(\`東京都港区芝公園九丁目8番7号 | みなとビル5階\`) and postcode/TEL/登録番号 missing from it (present in
+the body); it used to be the item table's first five rows. The page body reads the item table row by row (\`クラウドサーバー利用料\` / \`3\` / \`台\` /
 \`30,000\` / \`90,000\`); only the wrapped item name's second line comes after its row's values.
 It used to list the 金額 column as \`120,000 / 350,000 / 90,000\`, out of row order. Questions 1–5 are answerable from \`read.md\`. Full-width punctuation comes back
 NFKC-normalised (\`（\` → \`(\`, \`：\` → \`:\`); that is intended.

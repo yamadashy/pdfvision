@@ -277,9 +277,14 @@ export function columnGutterSide(gutter: ColumnGutter, span: BBox): 'L' | 'R' | 
 }
 
 /**
- * Whether every boundary between neighbouring columns of `table` is one of
- * the prose gutters: the table is then the page's text columns read across
- * row by row. A real table has at least one column boundary of its own.
+ * Whether `table` is the page's text columns read across row by row:
+ *
+ * - every boundary between neighbouring columns is one of the prose
+ *   gutters (a real table has at least one column boundary of its own); or
+ * - most of its rows hold a prose line, and on several rows prose lines
+ *   sit on both sides of a prose gutter crossing it. One more boundary of
+ *   its own (a wide justified word gap, a figure's labels beside the
+ *   prose) does not make such a table real.
  */
 export function isProseColumnTable(table: LayoutTable, gutters: readonly ColumnGutter[]): boolean {
   if (gutters.length === 0 || table.columnCount < 2) return false;
@@ -287,6 +292,7 @@ export function isProseColumnTable(table: LayoutTable, gutters: readonly ColumnG
   const bottom = table.y + table.height;
   const local = gutters.filter((gutter) => gutter.top < bottom && gutter.bottom > top);
   if (local.length === 0) return false;
+  if (straddlesProseGutter(table, local)) return true;
   for (let column = 0; column < table.columnCount - 1; column++) {
     let leftEdge = Number.NEGATIVE_INFINITY;
     let rightStart = Number.POSITIVE_INFINITY;
@@ -307,4 +313,38 @@ export function isProseColumnTable(table: LayoutTable, gutters: readonly ColumnG
     if (!onGutter) return false;
   }
   return true;
+}
+
+const PROSE_CELL_MIN_WORDS = 5;
+const PROSE_CELL_MIN_EM = 12;
+const PROSE_TABLE_MIN_ROW_SHARE = 0.5;
+const PROSE_TABLE_MIN_STRADDLING_ROWS = 3;
+
+function straddlesProseGutter(table: LayoutTable, gutters: readonly ColumnGutter[]): boolean {
+  const proseRows = table.rows.filter((row) => row.cells.some(isProseCell));
+  if (proseRows.length < Math.max(PROSE_TABLE_MIN_STRADDLING_ROWS, table.rows.length * PROSE_TABLE_MIN_ROW_SHARE)) {
+    return false;
+  }
+  return gutters.some((gutter) => {
+    if (gutter.left <= table.x || gutter.right >= table.x + table.width) return false;
+    const straddling = proseRows.filter((row) => {
+      const center = row.y + row.height / 2;
+      if (center < gutter.top || center > gutter.bottom) return false;
+      const prose = row.cells.filter(isProseCell);
+      return (
+        prose.some((cell) => rightOf(cell) <= gutter.left + EDGE_TOLERANCE_PT) &&
+        prose.some((cell) => cell.x >= gutter.right - EDGE_TOLERANCE_PT)
+      );
+    });
+    return straddling.length >= PROSE_TABLE_MIN_STRADDLING_ROWS;
+  });
+}
+
+/** A cell holding a line of running text: several words, many em wide. */
+function isProseCell(cell: BBox & { text: string }): boolean {
+  const words = cell.text
+    .trim()
+    .split(/\s+/u)
+    .filter((word) => LETTER_RE.test(word));
+  return words.length >= PROSE_CELL_MIN_WORDS && cell.width >= Math.max(cell.height, 1) * PROSE_CELL_MIN_EM;
 }

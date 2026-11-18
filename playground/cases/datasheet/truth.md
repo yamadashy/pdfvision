@@ -86,14 +86,12 @@ Subscripts on page 2 stay on their symbols, written `_X` (#241): the condition n
 `I_B`, `e_n`, and conditions `T_A = 25°C`, `I_O = 0 mA`.
 
 **Known gap (no issue yet):**
-- The electrical-characteristics table has no complete layout table: the only one is a fragment of
-  the last rows, `OUTPUT` to `PSRR` (`| POWER SUPPLY Quiescent current per | I_Q | I_O = 0 mA | | 0.85 | 1.1 | mA |`),
-  and `layout_table_uncertain` names a render region that covers that fragment only. The page body
-  reads the grid row by row between its rules, subscripts in place (`OFFSET VOLTAGE` /
-  `Input offset voltage` / `V_{OS}` / `T_A = 25°C` / `±0.3` / `±1.5` / `mV`, then `±2.5` / `mV`), so
-  questions 3 and 4 are answerable from it, but a blank cell is simply absent, so which of MIN, TYP
-  and MAX a lone value fills is not in the text, and the second offset-voltage condition is read
-  with the next row (`Offset voltage drift` / `T_A = –40°C to +125°C` / `dV_{OS}/dT T_A = –40°C to +125°C`).
+- Fixed in #277: the electrical-characteristics table is read from its rules as one 18 × 7 layout
+  table, the header row included, each value under MIN, TYP or MAX (`| Input offset voltage | V_{OS} | T_A = –40°C to +125°C | | | ±2.5 | mV |`),
+  and each merged parameter and symbol cell repeated in every condition row it spans
+  (`Quiescent current per amplifier | I_Q` on both of its rows), so questions 3 and 4 are answered
+  from it. The page body reads the grid row by row; the symbol and the condition beside it are now
+  separate lines (`dV_{OS}/dT` / `T_A = –40°C to +125°C`), split at the column rule between them.
 - The package outline's dimensions are vector outlines with no text, and nothing says so: page 2 has
   219 vector operations but no `vector_graphics_no_native_text` or figure warning, and the only text
   near it is `7 Package Outline` / `D (SOIC-8) plastic small-outline package`. Question 5 cannot be

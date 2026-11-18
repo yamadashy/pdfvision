@@ -13,7 +13,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 | Page | Chars | Images | Coverage | Size (pt) | Vectors | Blocks | Fields | Links | Annots |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | 1 | 1260 | 0 | 14% | 612×792 | 10 | 12 | 0 | 0 | 0 |
-| 2 | 1415 | 0 | 14% | 612×792 | 17 | 31 | 0 | 0 | 0 |
+| 2 | 1415 | 0 | 14% | 612×792 | 17 | 35 | 0 | 0 | 0 |
 
 ---
 
@@ -100,7 +100,14 @@ Every stage accepts the options below. In the source of this page the table is w
 
 which renders as:
 
-Option Type Default Description
+Option
+
+Type
+
+Default
+
+Description
+
 name
 
 string

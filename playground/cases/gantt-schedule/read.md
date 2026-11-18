@@ -264,7 +264,7 @@ Page 1 of 1
 
 | C1 | C2 | C3 | C4 | C5 |
 | --- | --- | --- | --- | --- |
-| ID | Task | Owner | Plan start Plan end |  |
+| ID | Task | Owner | Plan start | Plan end |
 | 1 | Discovery |  |  |  |
 | 1.1 | Stakeholder interviews | P. Nair | 9/7/26 | 9/18/26 |
 | 1.2 | Current-state audit | J. Brandt | 9/14/26 | 9/25/26 |

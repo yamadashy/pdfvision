@@ -14,10 +14,18 @@ export function hasTableValueEvidence(text: string): boolean {
   return /\d/u.test(text) || isTableCheckMarkCell(text);
 }
 
+// A clock time is a timetable's value (`6:05`, `12:30 pm`, `07:15:00`).
+const TABLE_CLOCK_TIME_PATTERN = /^\d{1,2}:\d{2}(?::\d{2})?(?:\s?[ap]\.?m\.?)?$/iu;
+
+export function isTableClockTimeCell(text: string): boolean {
+  return TABLE_CLOCK_TIME_PATTERN.test(text.trim());
+}
+
 export function isTableNumericCell(text: string): boolean {
   const trimmed = text.trim();
   if (isTableCheckMarkCell(trimmed)) return true;
   if (trimmed.length === 0 || !/\d/u.test(trimmed)) return false;
+  if (TABLE_CLOCK_TIME_PATTERN.test(trimmed)) return true;
   const withoutRatioSuffix = trimmed.replace(/(?<=\d)\s*[xX]$/u, '');
   const withoutScoreWords = withoutRatioSuffix
     .replace(/\b(?:below|under|over|above|about|approximately)\s+(?=\d)/giu, '')
@@ -26,7 +34,8 @@ export function isTableNumericCell(text: string): boolean {
 }
 
 const TABLE_PLACEHOLDER_PATTERN = /^(?:[-‐‑‒–—―−]{1,3}|n\/a|n\.a\.)$/iu;
-const TABLE_FOOTNOTE_SUFFIX_PATTERN = /\s+\([a-z]\)$/u;
+// One or more lettered notes on a value: `(a)`, `(a)(b)`, `(a), (b)`.
+const TABLE_FOOTNOTE_SUFFIX_PATTERN = /\s+\([a-z]\)(?:\s*,?\s*\([a-z]\))*$/u;
 // Significance stars and dagger marks set right after a coefficient (`-0.142***`).
 const TABLE_SIGNIFICANCE_SUFFIX_PATTERN = /(?<=[\d)])(?:\*{1,3}|[†‡§]{1,2})$/u;
 const TABLE_LEADING_CURRENCY_PATTERN = /^[$¥€£]\s*/u;
@@ -36,9 +45,15 @@ const TABLE_NOTE_MARKER_PREFIX_PATTERN = /^※\s*\d+\s+(?=\S)/u;
 const TABLE_TRIANGLE_NEGATIVE_PATTERN = /^[△▲]\s*(?=\d)/u;
 const TABLE_TRAILING_CURRENCY_PATTERN = /\s*[$¥€£]$/u;
 
-/** A number, including one written negative with a leading triangle (`△1,234`). */
+/**
+ * A number, including one written negative with a leading triangle
+ * (`△1,234`) or marked with significance stars (`0.12***`) — a regression
+ * table can star every coefficient it reports.
+ */
 export function isSignedTableNumericCell(text: string): boolean {
-  return isTableNumericCell(text.trim().replace(TABLE_TRIANGLE_NEGATIVE_PATTERN, ''));
+  return isTableNumericCell(
+    text.trim().replace(TABLE_SIGNIFICANCE_SUFFIX_PATTERN, '').replace(TABLE_TRIANGLE_NEGATIVE_PATTERN, ''),
+  );
 }
 
 /** A dash-like or `n/a` marker standing in for an empty value. */

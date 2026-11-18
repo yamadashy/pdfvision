@@ -197,9 +197,11 @@ function regionText(clusters: readonly GlyphCluster[], boxes: readonly PageBox[]
   if (inside.every((cluster) => cluster.whitespace)) return undefined;
 
   const lines = groupLines(inside);
-  const rtl = inside.some((cluster) => RTL_SCRIPT.test(cluster.text));
   let out = '';
   for (const line of lines) {
+    // Each line takes its own direction: an English line above a Hebrew one
+    // still reads left to right.
+    const rtl = line.some((cluster) => RTL_SCRIPT.test(cluster.text));
     line.sort((a, b) => (rtl ? b.base.box.x - a.base.box.x : a.base.box.x - b.base.box.x) || a.order - b.order);
     const lineText = joinLine(line, rtl);
     if (lineText.length === 0) continue;

@@ -83,11 +83,15 @@ function canTrimSidePanelTableSuffix(row: LayoutLine[], start: number, suffix: L
   if (previousCell && isCurrencyOnlyCell(previousCell.text)) return false;
   const startsWithCompactLabel =
     firstSuffixCell !== undefined &&
-    !isTableNumericCell(firstSuffixCell.text) &&
+    !isTableValueCell(firstSuffixCell.text) &&
     isCompactTableLabelCell(firstSuffixCell);
   if (start === 1) return startsWithCompactLabel && isProseBeforeSidePanel(row[0]);
   if (!startsWithCompactLabel && previousCell && isTableNumericCell(previousCell.text)) return false;
-  return startsWithCompactLabel || row.slice(0, start).some(isProseBeforeSidePanel);
+  const prefix = row.slice(0, start);
+  // A label with its own values before the gap is a second table beside
+  // this one, not a side panel; the row is kept whole and split later.
+  if (startsWithCompactLabel && isLikelyTableRow(prefix) && isTableLikeSuffix(prefix)) return false;
+  return startsWithCompactLabel || prefix.some(isProseBeforeSidePanel);
 }
 
 function canTrimTrailingProseTablePrefix(prefix: LayoutLine[], trailing: LayoutLine[]): boolean {

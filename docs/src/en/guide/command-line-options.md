@@ -41,7 +41,7 @@ JSON-style paths below are exact for JSON, decoded TOON, and `processDocument()`
 | `-r, --render` | Render each selected page as a PNG and attach the image path to the page result. |
 | `--render-output <dir>` | Write rendered page PNGs or visual-region PNGs into a directory. Requires `--render` or `--render-visual-regions`. |
 | `--render-scale <n>` | Set rasterization scale for `--render`, `--render-visual-regions`, or `--ocr`. Default: `2`; accepts decimals in `(0, 4]`. OCR uses at least scale 2 for recognition quality. Errors when none of the three flags is present. |
-| `--render-region <x,y,width,height>` | Render one page sub-rectangle in raw page-view units of the page as displayed. Requires `--render` or `--ocr`, and exactly one selected page. |
+| `--render-region <x,y,width,height>` | Render one page sub-rectangle in raw page-view units of the page as displayed (as stored on a page flagged `rotated_page_read_unrotated`). Requires `--render` or `--ocr`, and exactly one selected page. |
 
 Coordinates use a top-left origin: `x` grows right, `y` grows downward. The same raw page-view units are used by layout blocks, image boxes, vector boxes, search matches, and visual regions. Physical points = raw value × `pages[].userUnit` (or 1 when omitted); pixels = raw region × UserUnit × render scale.
 
@@ -55,7 +55,7 @@ Coordinates use a top-left origin: `x` grows right, `y` grows downward. The same
 | `--vector-boxes` | Emit vector drawing boxes in `pages[].vectorBoxes`. |
 | `--visual-regions` | Emit crop-ready regions for figures, charts, diagrams, tables, forms, annotations, and raster/vector clusters. |
 | `--render-visual-regions` | Render visual-region crops and attach crop paths, content ratios, and tighter rendered content boxes. Implies `--visual-regions`. |
-| `--strip-repeated` | Remove repeated headers, footers, and page-number blocks from Markdown. Requires `--layout`; JSON/TOON retain `repeated: true`, and XML uses a `repeated="true"` block attribute. The document header then names each stripped string once with its page count, so text found only in a running header or footer is not lost. |
+| `--strip-repeated` | Remove repeated headers, footers, and page-number blocks from Markdown. Requires `--layout`; JSON/TOON retain `repeated: true`, and XML uses a `repeated="true"` block attribute. The document header then names the stripped strings once with their page counts — up to eight, those on the most pages first, each clipped at 100 characters, with a count of the rest — so a fact found only in a running header or footer is still in the output; read without `--strip-repeated` (or the JSON `repeated: true` blocks) for every string in full. |
 
 ## Search
 

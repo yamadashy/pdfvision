@@ -11,7 +11,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 ## Page 1
 
-_chars: 6973 · images: 0 · coverage: 44% · vectors: 1 · tables: 1 · size: 612×792pt_
+_chars: 6973 · images: 0 · coverage: 44% · vectors: 1 · size: 612×792pt_
 
 48216
 
@@ -204,24 +204,3 @@ micrograms per 100 grams.
 PrtDate Nov 03 2026 18:22 Job 304118 PO 00000 Frm 00012 Fmt 4700 Sfmt 4700 E:\CR\FM\05NOR1.SGM 05NOR1
 
 kmalloy on DSK7QP2VN1PROD with RULES
-
-### Layout tables
-
-#### Table 1 (14 rows × 5 columns, bbox 42,204.11,531.47,150.5)
-
-| C1 | C2 | C3 | C4 | C5 |
-| --- | --- | --- | --- | --- |
-| designated harbor areas. This rule sets a single |  |  | described in § 214.12(c). | FOR FURTHER INFORMATION CONTACT: |
-| maximum mooring length for each harbor class, |  |  | For the reasons stated in the preamble, the | Anselm Grieve, Shellfish Sanitation Program, |
-| requires annual inspection of ground tackle, and |  |  | Department amends 14 CCR part 214 as follows: | telephone 555–0178. |
-| replaces the paper waiting list with an electronic |  |  |  | SUPPLEMENTARY INFORMATION: |
-| list administered by each harbor office. The |  |  | § 214.12 Permit conditions. |  |
-|  |  |  | (a) General. A mooring permit authorizes one | Samples taken on October 27 and November |
-| changes respond to comments received on the |  |  |  | 2, 2026, at stations N–4 and N–7 contained |
-| proposed rule and to a rise in mooring failures |  |  | vessel to occupy one mooring at the location | paralytic shellfish toxin at 112 and 146 |
-| during winter storms. |  |  | stated on the permit. The permit may not be | micrograms per 100 grams of tissue. The action |
-| DATES: This rule is effective January 4, 2027. |  |  | transferred, sublet or used for a vessel other than | level is 80 micrograms per 100 grams. |
-| their stated expiration. |  |  | (b) Maximum length. The overall length of the | by the Department of Health on November 3, |
-| Delia Fairweather, Office of Harbor |  |  | (2) In a Class B harbor, 15 meters; and | Because the toxin poses an immediate risk to |
-| Management, Department of Coastal Resources, |  |  | (3) In a Class C harbor, 20 meters, unless the | people who eat shellfish from the beds, the |
-| telephone | 555–0142, | email | harbor master approves a longer vessel for a | Department finds good cause to waive prior |

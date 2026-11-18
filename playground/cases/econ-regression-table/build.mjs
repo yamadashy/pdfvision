@@ -145,9 +145,10 @@ fixed-effect rows (\`State linear trends | No | Yes | Yes | No | Yes | Yes\`), e
 model's column, with \`Log teen employment\` over (1)–(3) and \`Log weekly hours\` over (4)–(6); so
 questions 3 and 4 are answerable from the table too. Fixed in #262: before it, Panel A's
 \`Log minimum wage\` row (every value starred) and the fixed-effect rows (word values) were left
-out, under a \`layout_table_uncertain\` warning. Each panel heading is folded into the label of
-the panel's first row (\`Panel A. All counties Log minimum wage\`), the panel is still readable from
-it. \`R²\` reads \`R^2\`.
+out, under a \`layout_table_uncertain\` warning. Each panel heading is a row of its own
+above the panel's rows (\`| Panel A. All counties | | … |\`, then \`| Log minimum wage | -0.142*** | …\`);
+it used to be folded into the first row's label (\`Panel A. All counties Log minimum wage\`).
+\`R²\` reads \`R^2\`.
 `;
 
 const LEFT = 72;

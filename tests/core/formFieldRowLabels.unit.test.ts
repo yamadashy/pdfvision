@@ -52,6 +52,12 @@ describe('form field labels far left of an aligned field column', () => {
     });
   });
 
+  it('does not take a bare instruction reference as a text field label', () => {
+    const fields = buildFormFields([textField('a1', 200, 148.5)], 792, 0, 0, [line('See instructions', 54, 152.5, 62)]);
+
+    expect(labels(fields).a1).toBeUndefined();
+  });
+
   it('ignores a line off the field row and the option text of a checkbox', () => {
     const fields = buildFormFields(
       [
@@ -94,6 +100,35 @@ describe('split boxes share the label before the first box', () => {
     ]);
 
     expect(labels(fields).Text2).toBe('ST (left)');
+  });
+
+  it('does not pass a label to an adjacent field whose name rejects it', () => {
+    const fields = buildFormFields(
+      [textField('email_address', 200, 300, 100), textField('phone_number', 312, 300, 100)],
+      792,
+      0,
+      0,
+      [line('Email address', 54, 304, 56)],
+    );
+
+    expect(labels(fields)).toEqual({ email_address: 'Email address (left)', phone_number: undefined });
+  });
+
+  it('does not pass a label across another widget between the boxes', () => {
+    const fields = buildFormFields(
+      [
+        textField('Text1', 200, 100, 28),
+        { subtype: 'Widget', fieldName: 'Check1', fieldType: 'Btn', checkBox: true, rect: rect(230, 104, 10, 10) },
+        textField('Text2', 242, 100, 28),
+      ],
+      792,
+      0,
+      0,
+      [line('Code', 54, 104, 20)],
+    );
+
+    expect(labels(fields).Text1).toBe('Code (left)');
+    expect(labels(fields).Text2).toBeUndefined();
   });
 
   it('does not pass a label to an adjacent box of another height', () => {

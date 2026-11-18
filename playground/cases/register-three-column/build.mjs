@@ -190,7 +190,7 @@ export const meta = {
   title: 'Government register page in three columns',
   stresses:
     'three dense justified columns; run-in bold captions; numbered paragraphs with indented first lines; a section heading in one column; rotated print-production line in the margin; running head with date and page number',
-  status: 'known-gap',
+  status: 'ok',
   issue: 242,
   families: ['reading-order', 'structure'],
 };
@@ -226,9 +226,10 @@ column although the three columns sit on separate baselines with 12 pt gutters, 
 stays with its paragraph, the toxin sentence of question 6 reads in one piece, and the rotated
 margin stamp is read after the body instead of inside a paragraph (#273).
 
-**Known gap (#242):** no warning on the page. A 14 × 5 "layout table" is reported whose rows are
-prose lines from all three columns (\`| designated harbor areas. This rule sets a single | | |
-described in § 214.12(c). | FOR FURTHER INFORMATION CONTACT: |\`).
+No layout table is reported: the 14 × 5 "table" of prose lines from all three columns (#242)
+was the three text columns read across, with one more boundary of its own where a justified line
+is cut at its wide word spaces; most of its rows hold running text on both sides of a column
+gutter, so it is dropped.
 
 The columns are read one after another, each top to bottom (#274). The justified contact line
 \`telephone 555–0142, email\` is set with word spaces of about 35 pt and cut at them; its pieces

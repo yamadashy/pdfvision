@@ -2,7 +2,7 @@
 
 - **Stresses:** two independent grids sharing row baselines; dot leaders; rotated trip-number headers; times written column by column; blank and — cells; footnote symbols; bold for p.m.
 - **Families:** tables, vertical-rotated
-- **Status:** known-gap
+- **Status:** ok
 
 **Route 14 — Harbour Station – Northgate Terminal**, NORTHBOUND. Effective September 7, 2026.
 
@@ -51,21 +51,12 @@ _SATURDAY, SUNDAY & HOLIDAYS_
 4. Which weekday trips run on school days only? — 1405 (7:05) and 1413 (3:25 pm)
 5. When is the last weekend bus to Northgate Library, and does it continue to the terminal? — 6:48 pm; no, trip 1513 ends at Northgate Library
 
-Every question can be worked out from `read.md`, but only by counting positions in column lists
-and with no warning that this is necessary; nothing marks the bold p.m. times.
-
-**Known gap (no issue yet):** the page has no warnings at all.
-- The single layout table (9 × 11) fuses the two grids into one, drops the `Harbour Station` row and
-  the rotated trip-number header, and merges trip columns into one cell where a column starts with
-  blanks or the grids' columns crowd: the weekday `1409` and `1411` times share one cell
-  (`7:42 12:12`), and from `St Brendan’s Hospital` down the weekend trips 1501–1507 collapse into one
-  cell (`| 8:30 10:00 10:30 12:30 | |`) while above it they are split differently
-  (`| 8:22 | 9:52 10:22 12:22 |`). Reading that table by column gives wrong trip/time pairs.
-- The body gives every trip number first (both grids' headers, interleaved with the agency name
-  and phone line), then each grid stop by stop: the stop name with its first times, then the rest
-  of that stop's row (`Customs House … 6:08 6:38 7:08` / `7:23` / `12:08` / `3:28` / `5:38`). A stop
-  served by fewer trips has fewer times, and nothing says which trip a lone time belongs to; it used
-  to give each trip as a column list headed by its trip number. Question 2 needs the weekend row
-  of the stop, read left to right.
+**Current reading (ok, #276):** two layout tables, one per grid, each with its trip-number header
+row (`| Trip | 1401 | 1403 | … |`) and every time in its trip's column: a gap wider than a word
+space between two clock times is a column boundary, the dot leader stays with its stop name, and
+the two grids are told apart because their tinted row bands stop at the gutter between them. A
+trip that does not serve a stop leaves its cell empty (`| Harbour Station … | 6:05 | 6:35 | 7:05§ | 7:20 |  | 12:05 |`),
+so every question is answered by reading the right table across a row or down a column.
 - Bold is lost, so the p.m. legend (`Times in bold are p.m.`) cannot be applied: `5:35` and `6:15`
   read the same as the a.m. times (question 5's “pm” comes only from the order of the trips).
+- The body still gives every trip number first, then each grid stop by stop.

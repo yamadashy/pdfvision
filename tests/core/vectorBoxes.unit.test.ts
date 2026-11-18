@@ -79,6 +79,31 @@ describe('buildVectorBoxes', () => {
     expect(coloured).toEqual([{ x: 100, y: 82, width: 100, height: 10 }]);
   });
 
+  it('counts a fill painted before any colour is set as PDF default black', () => {
+    const coloured: { x: number; y: number; width: number; height: number }[] = [];
+    buildVectorBoxes(
+      [OP.constructPath, OP.save, OP.setFillRGBColor, OP.restore, OP.constructPath],
+      [
+        [OP.fill, [], new Float32Array([100, 700, 200, 710])],
+        [],
+        ['#ffffff'],
+        [],
+        [OP.fill, [], new Float32Array([100, 680, 200, 690])],
+      ],
+      ops,
+      PAGE_WIDTH,
+      PAGE_HEIGHT,
+      0,
+      0,
+      coloured,
+    );
+
+    expect(coloured).toEqual([
+      { x: 100, y: 82, width: 100, height: 10 },
+      { x: 100, y: 102, width: 100, height: 10 },
+    ]);
+  });
+
   it('emits painted path bboxes in top-left coordinates', () => {
     const boxes = buildVectorBoxes(
       [OP.save, OP.transform, OP.constructPath, OP.restore],

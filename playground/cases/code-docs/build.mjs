@@ -139,8 +139,9 @@ after the \`for\` loop (question 3). The Markdown source and the shell session a
 the session with its aligned columns (\`[extract]    would run …\`), so questions 4 and 5 are
 answered from them.
 
-What remains is outside #269: the rendered options table is still flattened column by column
-(\`name\` / \`string\` / \`—\` / …) with no layout table, and the breadcrumb and URL lines are
+What remains is outside #269: the rendered options table is read row by row, its column rules
+splitting the header line into its labels (\`Option\` / \`Type\` / \`Default\` / \`Description\`,
+then \`name\` / \`string\` / \`—\` / …), with no layout table, and the breadcrumb and URL lines are
 dropped as repeated chrome and named once in the header (issue #259).
 `;
 

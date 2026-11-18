@@ -83,7 +83,7 @@ export interface PageWarningContext {
   /** Invisible text-show operations found in the page operator list. */
   invisibleText?: InvisibleTextEvidence;
   /** The page has a /Rotate that would turn its upright text sideways, so it was read unrotated. */
-  readUnrotated?: boolean;
+  readUnrotated?: { sidewaysTextShare: number };
   /** Ordered text-show and later opaque dark-fill evidence from the page operator list. */
   opaqueFillText?: OpaqueFillTextEvidence;
   /** Non-fatal pdf.js warnings captured during parsing/rendering. */

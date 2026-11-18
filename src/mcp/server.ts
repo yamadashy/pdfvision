@@ -71,7 +71,7 @@ const renderSchema = z.object({
     .length(4)
     .optional()
     .describe(
-      'Explicit [x, y, width, height] crop in raw page-view units of the page as displayed (top-left origin, y grows down) — the coordinate space every response prints. Single page only.',
+      'Explicit [x, y, width, height] crop in raw page-view units of the page as displayed, or as stored when rotated_page_read_unrotated fires (top-left origin, y grows down) — the coordinate space every response prints. Single page only.',
     ),
   password: PASSWORD,
 });

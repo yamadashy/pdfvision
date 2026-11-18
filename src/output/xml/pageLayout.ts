@@ -88,6 +88,7 @@ function appendLayoutTables(out: string[], page: PageResult): void {
         const cellAttrs = [`x="${cell.x}"`, `y="${cell.y}"`, `width="${cell.width}"`, `height="${cell.height}"`];
         if (cell.column !== undefined) cellAttrs.push(`column="${cell.column}"`);
         if (cell.columnSpan !== undefined) cellAttrs.push(`columnSpan="${cell.columnSpan}"`);
+        if (cell.rowSpan !== undefined) cellAttrs.push(`rowSpan="${cell.rowSpan}"`);
         out.push(`<cell ${cellAttrs.join(' ')}>${escapeText(cell.text)}</cell>`);
       }
       out.push('</row>');

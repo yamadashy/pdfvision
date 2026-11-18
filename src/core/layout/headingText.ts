@@ -1,7 +1,9 @@
 const CAPTION_IDENTIFIER_ATOM = '[A-Za-z\\p{N}０-９一二三四五六七八九十]+';
 const CAPTION_NUMBER_PATTERN = `${CAPTION_IDENTIFIER_ATOM}(?:(?:[.-]${CAPTION_IDENTIFIER_ATOM})|(?:-?\\(${CAPTION_IDENTIFIER_ATOM}\\)))*\\.?`;
+// A Latin keyword is followed by a space, a period, or a digit, so
+// `Tableware` and `Platelets` are words rather than `Table ware` captions.
 const CAPTION_HEADING_PATTERN = new RegExp(
-  `^\\s*(?:fig(?:ure)?\\.?|table|plate|図表|図|表)\\s*(${CAPTION_NUMBER_PATTERN})(?=\\s|[:：．、]|$)`,
+  `^\\s*(?:(?:fig(?:ure)?\\.|(?:fig(?:ure)?|table|plate)(?=[\\s\\p{N}０-９]))|図表|図|表)\\s*(${CAPTION_NUMBER_PATTERN})(?=\\s|[:：．、]|$)`,
   'iu',
 );
 

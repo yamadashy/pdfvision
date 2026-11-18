@@ -1,4 +1,5 @@
 import type { LayoutLine } from '../../types/index.js';
+import { isCaptionHeadingText } from './headingText.js';
 import { isCompactTableLabelCell } from './tableCandidateRows.js';
 import { isTableValueCell } from './tableCells.js';
 import type { IndexedLayoutRow } from './tableContinuations.js';
@@ -81,42 +82,71 @@ function bridgeRows(
 /**
  * Fold the rows between two table rows that are wrapped lines of their
  * cells: into the row above, top down, then into the row below, bottom up.
- * A wrapped line starts where a text cell of its row starts and sits
- * clearly closer to that row than to the row on its far side. Returns the
- * rows that are not wrapped lines in `rest`.
+ * A wrapped line starts where a text cell of its row starts. A run of them
+ * is folded when the run as a whole sits clearly closer to that row than to
+ * the row on its far side — the lines of one wrapped cell are set at their
+ * own line pitch, so each one alone can be as close to the next line as to
+ * its row. Returns the rows that are not wrapped lines in `rest`.
  */
 export function foldWrappedLines<T extends { row: LayoutLine[] }>(
   above: LayoutLine[],
   between: readonly T[],
   below: LayoutLine[],
 ): { above: LayoutLine[]; rest: T[]; below: LayoutLine[] } {
-  const chain = [above, ...between.map(({ row }) => row), below];
+  const rows = between.map(({ row }) => row);
+  const chain = [above, ...rows, below];
   let top = above;
   let first = 0;
-  while (first < between.length && wrapsInto(between[first].row, top, chain[first + 2])) {
-    top = foldInto(top, between[first].row);
-    first++;
+  while (first < between.length) {
+    const run = wrappedRunLength(rows, first, 1, top, (end) => chain[end + 2]);
+    if (run === 0) break;
+    for (let k = 0; k < run; k++) top = foldInto(top, rows[first + k]);
+    first += run;
   }
   let bottom = below;
   let last = between.length - 1;
-  while (last >= first && wrapsInto(between[last].row, bottom, chain[last])) {
-    bottom = foldInto(bottom, between[last].row);
-    last--;
+  while (last >= first) {
+    const run = wrappedRunLength(rows, last, -1, bottom, (end) => chain[end], first);
+    if (run === 0) break;
+    for (let k = 0; k < run; k++) bottom = foldInto(bottom, rows[last - k]);
+    last -= run;
   }
   return { above: top, rest: between.slice(first, last + 1), below: bottom };
 }
 
 /**
- * Whether `row` is the wrapped continuation of cells of `owner`: each of
- * its cells starts where a cell of `owner` starts, and it sits clearly
- * closer to `owner` than to `other`, the row on its far side.
+ * Length of the shortest run of rows from `start` (walking `step`) that are
+ * wrapped lines of `owner`'s cells and, taken together, sit clearly closer
+ * to `owner` than to the row past the run; 0 when there is none.
  */
-function wrapsInto(row: readonly LayoutLine[], owner: readonly LayoutLine[], other: readonly LayoutLine[]): boolean {
-  if (!row.every((line) => cellAbove(line, owner) !== undefined)) return false;
-  const ownerIsAbove = rowY([...owner]) < rowY([...row]);
-  const near = ownerIsAbove ? rowY([...row]) - rowBottom([...owner]) : rowY([...owner]) - rowBottom([...row]);
-  const far = ownerIsAbove ? rowY([...other]) - rowBottom([...row]) : rowY([...row]) - rowBottom([...other]);
-  return isClearlyCloser(near, far);
+function wrappedRunLength(
+  rows: readonly LayoutLine[][],
+  start: number,
+  step: 1 | -1,
+  owner: readonly LayoutLine[],
+  beyond: (end: number) => readonly LayoutLine[],
+  stop = 0,
+): number {
+  const gap = (upper: readonly LayoutLine[], lower: readonly LayoutLine[]) => rowY([...lower]) - rowBottom([...upper]);
+  let widest = step === 1 ? gap(owner, rows[start]) : gap(rows[start], owner);
+  for (let k = 0; ; k++) {
+    const end = start + step * k;
+    if (end < stop || end >= rows.length) return 0;
+    const row = rows[end];
+    if (!isWrappedLineOf(row, owner)) return 0;
+    if (k > 0) widest = Math.max(widest, step === 1 ? gap(rows[end - 1], row) : gap(row, rows[end + 1]));
+    const far = step === 1 ? gap(row, beyond(end)) : gap(beyond(end), row);
+    if (isClearlyCloser(widest, far)) return k + 1;
+  }
+}
+
+/**
+ * Whether each cell of `row` starts where a text cell of `owner` starts. A
+ * caption (`Table 1 (continued)`) names a table and is never a cell line.
+ */
+function isWrappedLineOf(row: readonly LayoutLine[], owner: readonly LayoutLine[]): boolean {
+  if (row.some((line) => isCaptionHeadingText(line.text))) return false;
+  return row.every((line) => cellAbove(line, owner) !== undefined);
 }
 
 function cellAbove(line: LayoutLine, owner: readonly LayoutLine[]): LayoutLine | undefined {
@@ -143,6 +173,7 @@ function isOnGrid(
   // text running across columns (side-by-side prose), not a sparse row of
   // the grid such as a group heading.
   if (row.length >= Math.min(above.length, below.length)) return false;
+  if (row.some((line) => isCaptionHeadingText(line.text))) return false;
   const under = (line: LayoutLine, cells: readonly LayoutLine[]) =>
     cells.some((cell) => horizontalOverlap(line, cell) > 0);
   const cellsOnGrid = row.every(

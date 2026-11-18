@@ -80,7 +80,7 @@ Choose a compact hit by its `page`, `source`, and `context`, then pass its `regi
 pdfvision report.pdf --pages 3 --render --render-region 120,180,360,140 --render-output ./crops --json
 ```
 
-`--render-region` requires exactly one selected page. The region uses raw page-view units of the page as displayed, with a top-left origin; compact regions are already clamped, while a custom region must stay within the page bounds. Physical points = raw value × UserUnit; pixels = raw region × UserUnit × render scale. Read UserUnit from `pages[].userUnit` in the full report or the selected page's `pageUserUnits` entry in the compact report (1 when omitted).
+`--render-region` requires exactly one selected page. The region uses raw page-view units of the page as displayed, with a top-left origin (on a page flagged `rotated_page_read_unrotated`, the stored, unrotated page the report's bboxes use); compact regions are already clamped, while a custom region must stay within the page bounds. Physical points = raw value × UserUnit; pixels = raw region × UserUnit × render scale. Read UserUnit from `pages[].userUnit` in the full report or the selected page's `pageUserUnits` entry in the compact report (1 when omitted).
 
 Use `--render-scale` when the crop contains small labels, superscripts, dense table cells, or chart legends:
 

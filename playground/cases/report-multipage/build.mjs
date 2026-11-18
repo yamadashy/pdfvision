@@ -187,7 +187,7 @@ Note: ${VEHICLE_NOTE}
   .map((d) => d.name)
   .join(' and ')}
 
-**Current reading (ok — page 4 is covered by warnings):** questions 1, 2, 4 and 5 are answered from
+**Current reading (ok):** questions 1, 2, 4 and 5 are answered from
 \`read.md\`. Table 1 is detected on both pages with its rows intact and the header row
 \`${TABLE_HEAD.join(' | ')}\` as its first row, one label per column, on page 3 as well; the
 captions stay outside the table (fixed in #253, before which the caption and the header were glued
@@ -200,13 +200,14 @@ between \`Table 1 (continued)\` and the table's header row. The page bodies are 
 Page 4 (\`/Rotate 90\`) is read upright, exactly as the same page stored landscape would be: the
 running title is dropped as repeated chrome and the section name shows twice, as on page 3. The
 body reads the table row by row (\`Voltra e-Van 3.5\` / \`Large van\` / \`64\` / \`310\` / …) after the
-column headers; it used to be flattened column by column like pages 2–3. Layout table 1 merges two
-header pairs (\`Price Energy / 100 km\`, \`5-yr TCO CO2 saved\`) and keeps only the last data row
-whole; rows 1–5 carry the Energy-to-CO2 values with no model name. Question 3 is answerable by
-pairing positions in the \`Model\` and \`5-yr TCO\` lists (the third entry of each: Mobion City,
-61.8), not from the table. \`layout_table_uncertain\` names the table's render region and
-\`reading_order_divergence\` says to render the page, so the agent is told to check; the render is
-upright and correct.
+column headers; it used to be flattened column by column like pages 2–3. Layout table 1 reads the whole
+table: one header label per column (\`Price | Energy / 100 km\`, \`5-yr TCO | CO2 saved\`, split at the
+value columns under them, #253), the units row, and every model row whole
+(\`| Mobion City | Small van | 88 | 220 | 50 | 36.2 | EUR 4.90 | 880 | 61.8 | 6.2 |\`), so question 3
+is answered from it. It used to keep only the last row whole, the first five carrying the
+Energy-to-CO2 values with no model name, under \`layout_table_uncertain\`: a label with values of
+its own before the wide gap was taken for a side panel. \`reading_order_divergence\` still says to
+render the page; the render is upright and correct.
 `;
 
 const M = 56;

@@ -20,9 +20,11 @@ import {
   horizontalRubyTextAttachments,
   textWithHorizontalRuby,
 } from './horizontalRuby.js';
-import { recordGutterSegments, splitAtSpans } from './lineSegments.js';
+import { recordGutterSegments, recordLineParts, splitAtSpans } from './lineSegments.js';
 import { joinLineSpans } from './lineText.js';
 import { copySpanMetadata } from './spanMetadata.js';
+import { isTableClockTimeCell, isTableValueCell } from './tableCells.js';
+import { ruleBetween, type TableRule } from './tableRules.js';
 import { hasVerticalTextShape } from './verticalText.js';
 
 /** Fallback fontSize when both prev and cur report 0 (rare — usually
@@ -48,6 +50,26 @@ const SMALL_PUNCTUATION_LINE_LARGE_PEER_MIN_FONT_SIZE_PT = 10;
 const SMALL_PUNCTUATION_LINE_MAX_FONT_RATIO = 0.65;
 const LINE_OVERLAP_MAX_HORIZONTAL_GAP_RATIO = 2;
 const LINE_OVERLAP_MAX_HORIZONTAL_GAP_PT = 24;
+
+const CLOCK_TIME_GUTTER_MIN_GAP_RATIO = 0.5;
+const LEADER_END_PATTERN = /(?:[.·…]\s*){4,}$/u;
+/** A footnote or note mark set straight after a value (`7:05§`). */
+const VALUE_MARK_PATTERN = /^[§†‡*¶#]{1,2}$/u;
+const VALUE_MARK_MAX_GAP_PT = 1;
+
+/** Whether the spans up to `index` end in a clock time, possibly followed by a note mark. */
+function endsWithClockTime(xSorted: readonly TextSpan[], index: number): boolean {
+  const last = xSorted[index];
+  if (!last) return false;
+  if (isTableClockTimeCell(last.text)) return true;
+  const before = xSorted[index - 1];
+  return (
+    VALUE_MARK_PATTERN.test(last.text.trim()) &&
+    before !== undefined &&
+    isTableClockTimeCell(before.text) &&
+    last.x - (before.x + before.width) <= VALUE_MARK_MAX_GAP_PT
+  );
+}
 
 function canShareLine(a: TextSpan, b: TextSpan): boolean {
   return hasVerticalTextShape(a) === hasVerticalTextShape(b);
@@ -233,9 +255,14 @@ export function buildLayoutLines(spans: TextSpan[], pageWidth = 0): LayoutLine[]
   return buildLayoutLinesWithGutters(spans, pageWidth).lines;
 }
 
+/**
+ * `verticalRules` are painted vertical rules (ruled table column
+ * boundaries); a line never runs across one.
+ */
 export function buildLayoutLinesWithGutters(
   spans: TextSpan[],
   pageWidth = 0,
+  verticalRules: readonly TableRule[] = [],
 ): { lines: LayoutLine[]; columnGutters: ColumnGutter[] } {
   const horizontalRuby = extractHorizontalRubyAnalysis(spans);
   const horizontalRubySpans = new Set(horizontalRuby.rubySpans);
@@ -305,6 +332,12 @@ export function buildLayoutLinesWithGutters(
         isTableGutterNumericSpan(cur) &&
         (isRecurringTableGutterCandidate(groupBox, gap, fontSize, pageWidth) ||
           isTrailingCurrencyTableGutterCandidate(groupBox, prev, cur, gap, fontSize, pageWidth));
+      // Two clock times never share a cell, so a gap wider than a word space
+      // between them is a timetable column boundary, however narrow.
+      const clockTimeGutter =
+        isTableClockTimeCell(cur.text) &&
+        endsWithClockTime(xSorted, i - 1) &&
+        gap >= fontSize * CLOCK_TIME_GUTTER_MIN_GAP_RATIO;
       const columnGutter = gapCrossesColumnGutter(columnGutters, prev, cur);
       const misalignedLeftSidePanelBoundary = isMisalignedLeftSidePanelBoundaryCandidate(
         groupBox,
@@ -315,27 +348,40 @@ export function buildLayoutLinesWithGutters(
         pageWidth,
       );
       if (
-        !preserveCjkDisplaySpacing &&
-        (denseNumericTableGutter ||
-          columnGutter ||
-          (!preserveWideWordSpacing &&
-            (gap > segmentGap ||
-              recurringGutter ||
-              recurringSidePanelStart ||
-              recurringTableGutter ||
-              misalignedLeftSidePanelBoundary)))
+        ruleBetween(verticalRules, prev, cur) ||
+        (!preserveCjkDisplaySpacing &&
+          (denseNumericTableGutter ||
+            clockTimeGutter ||
+            columnGutter ||
+            (!preserveWideWordSpacing &&
+              (gap > segmentGap ||
+                recurringGutter ||
+                recurringSidePanelStart ||
+                recurringTableGutter ||
+                misalignedLeftSidePanelBoundary))))
       ) {
         subLines.push([cur]);
       } else {
         subLines[subLines.length - 1].push(cur);
         if (preserveWideWordSpacing && gap > segmentGap) gutterJoins.add(cur);
+        // A dot leader runs from a label to its value in another column: the
+        // reading text keeps them on one line, table detection sees two cells.
+        else if (LEADER_END_PATTERN.test(prev.text) && isTableValueCell(cur.text)) gutterJoins.add(cur);
       }
     }
-    const toLine = (sub: TextSpan[]): LayoutLine => ({
-      text: joinLineSpans(spansWithHorizontalRuby(sub, rubyAttachments)),
-      ...unionBox(sub),
-      fontSize: round2(mode(sub.map((s) => s.fontSize))),
-    });
+    const toLine = (sub: TextSpan[]): LayoutLine => {
+      const line = {
+        text: joinLineSpans(spansWithHorizontalRuby(sub, rubyAttachments)),
+        ...unionBox(sub),
+        fontSize: round2(mode(sub.map((s) => s.fontSize))),
+      };
+      if (sub.length >= 2)
+        recordLineParts(
+          line,
+          sub.map((span) => toLine([span])),
+        );
+      return line;
+    };
     return subLines.map((sub) => {
       const line = toLine(sub);
       if (gutterJoins.size > 0) recordGutterSegments(line, splitAtSpans(sub, gutterJoins).map(toLine));
