@@ -76,7 +76,7 @@ All three document counts are omitted when zero. Per-page `formFieldCount`, `lin
 
 OCR 不會覆蓋原生文字。使用方應比較 `page.text` 與 `page.ocr?.text` 後再選擇。
 
-Superscripts and subscripts are written inline as `^…` / `_…` in `text`, layout text, and spans — `^x` for one character or a digit run, `^{…}` otherwise (`10^19`, `P_{drop}`, `^1` for a footnote marker) — so an exponent never reads as trailing digits. Before that, copies of a run overdrawn to fake bold are kept once, spaces pdf.js inserts into letter-spaced text are removed, and ZapfDingbats/Symbol glyphs that pdf.js returns as character codes are decoded (`3` → `✓`). See `pdfvision docs schema`.
+Superscripts and subscripts are written inline as `^…` / `_…` in `text`, layout text, and spans — `^x` for one character or a digit run, `^{…}` otherwise (`10^19`, `P_{drop}`, `^1` for a footnote marker) — so an exponent never reads as trailing digits. Before that, copies of a run overdrawn to fake bold are kept once, spaces pdf.js inserts into letter-spaced text are removed, and ZapfDingbats/Symbol glyphs that pdf.js returns as character codes are decoded (`3` → `✓`). See `pdfvision docs schema`. Letter spacing set with the same `TJ` adjustment between every glyph of a word (`C L A S S`, a tracked Japanese line) is removed like character spacing.
 
 可選欄位是有意 opt-in 的。`--layout --form-fields` 的 JSON 與沒有請求這些 flags 的 JSON 不同。當請求了某個功能但沒有找到元素時，pdfvision 會盡量使用空陣列或 null-like 結構，幫助消費者區分「未請求」和「請求了但不存在」。
 

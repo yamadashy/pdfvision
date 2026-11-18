@@ -60,23 +60,16 @@ results.
 
 Results
 
-The
-
-drone
-
-flagged
-
-87%
-
-of
-
-the
+The drone flagged 87% of the
 observer-confirmed heat-stress events, with
 a median lead time of 38 minutes before the
+first visible panting.
 
 Drone
 
 Visual check
+
+100
 
 91
 
@@ -90,11 +83,9 @@ Visual check
 
 61
 
-first visible panting.
-
-100
-
 Events detected (%)
+
+Northfield
 
 75
 
@@ -104,13 +95,11 @@ Events detected (%)
 
 0
 
-Northfield
-
 Ardmore
 
-Figure 1. Detection rate by farm
-
 Kilbrack
+
+Figure 1. Detection rate by farm
 
 Detection was lowest on the Kilbrack farm,
 where tree cover hid cows from the camera
@@ -256,4 +245,4 @@ observers who scored 9,200 cow-hours.
 ### Warnings
 
 > **warning** (layout_table_uncertain): layout table 1 (bbox 90,659.28,3167.56,100) did not resolve into one consistent grid: 2 lines with numbers inside the table belong to no row — its cells may sit in the wrong row or column or be missing; render that region (--render-region 90,659.28,3167.56,100) before trusting the table
-> **warning** (tabular_numeric_layout): page contains 39 short numeric lines in 5 aligned columns and 4 shared numeric rows — table rows/columns may be flattened in native text; inspect the render or geometry when values matter
+> **warning** (tabular_numeric_layout): page contains 38 short numeric lines in 5 aligned columns and 4 shared numeric rows — table rows/columns may be flattened in native text; inspect the render or geometry when values matter

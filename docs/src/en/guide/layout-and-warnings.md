@@ -23,6 +23,7 @@ Layout output includes:
 - vertical CJK text recovery when text should be read as a vertical stack. On a page set in vertical writing, each column is one line, columns read right to left and tiers (段) top to bottom, and a two-page spread reads its right page first; 縦中横 digits, vertical dashes and brackets, and a column-head number with its blank em box (`第八条 市町村の…`) stay in their column.
 - code blocks: monospaced rows set apart from the page's prose and on one character grid become `role: "code"` blocks with their indentation rebuilt as leading spaces and any line-number gutter left out of the text (reported as `codeLineNumbers`); Markdown fences them.
 - two-dimensional math read onto one line: a fraction (a vector rule with a run centred above and below it and a relation beside it) reads `(c (1 + z))/H_0`, a big operator with its limits `∑_{k=1}^N`, a matrix between vector brackets `[[a, b], [c, d]]`, and an equation number joins its equation (`… , (1)`). A formula of that shape that cannot be read soundly keeps its fragments and is named by `display_math_layout`.
+- a justified line stretched so far that its word spaces look like column gutters is read as one line when a prose line beside it fills the same measure.
 
 Markdown output can use recovered layout order when the native text stream diverges from visual reading order. It also renders detected `layout.tables[]` as per-page layout table sections, preserving row/value relationships for financial statements and other numeric tables in chat-readable output.
 

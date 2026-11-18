@@ -194,8 +194,9 @@ back on its row. Question 1 is answered from it.
   after them, so question 4 (0.93 for Eye at 13:00) cannot be attributed; Figure 1's bar values come
   as \`91\` / \`89\` / \`78\` / \`64\` / \`58\` / \`61\` before the farm names, so the Kilbrack drone rate
   (78%) is not recoverable either.
-- The widely justified first line of Results is broken into single words: \`The\` / \`drone\` /
-  \`flagged\` / \`87%\` / \`of\` / \`the\` (now consecutive, before \`observer-confirmed heat-stress events\`).
+
+The widely justified first line of Results reads as one line (\`The drone flagged 87% of the\`, #268):
+the line below fills the same measure, so its stretched spaces are word spaces, not gutters.
 `;
 
 const MARGIN = 90;
