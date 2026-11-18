@@ -4,7 +4,7 @@ import { type BBox, unionBox } from '../geometry.js';
 import type { LayoutRegion } from '../regions.js';
 import type { TableRule } from '../tableRules.js';
 import { hasVerticalTextShape } from '../verticalText.js';
-import { joinRow } from './cells.js';
+import { joinRow, rowCells } from './cells.js';
 import { marginLineNumbers } from './lineNumbers.js';
 import { findRowRuns, groupRows } from './runs.js';
 import { center, MIN_RUN_ROWS, type RowRun } from './shared.js';
@@ -30,6 +30,8 @@ export { cellLines, lineCells, rowCells } from './cells.js';
 export interface AlignedRowRun extends BBox {
   /** The run's blocks in reading order: joined rows, and blocks kept whole inside it. */
   blocks: LayoutBlock[];
+  /** Lines of its blocks left above it (a list's heading), for reading indents. */
+  above: LayoutLine[];
 }
 
 export interface AlignedRows {
@@ -37,6 +39,12 @@ export interface AlignedRows {
   runs: AlignedRowRun[];
   /** The painted regions, when they were found and still hold for `blocks` (no run was read). */
   regions?: readonly LayoutRegion[];
+  /**
+   * Each run's first column as one block: the labels whose indents give
+   * each entry its depth, which the run's blocks (cut at headings, one row
+   * per line) no longer show whole.
+   */
+  sources?: readonly LayoutBlock[];
 }
 
 export interface AlignedRowContext {
@@ -90,7 +98,31 @@ export function readAlignedRows(blocks: readonly LayoutBlock[], context: Aligned
   if (runs.length === 0) return withRegions;
   const original = new Set(blocks);
   const added = runs.flatMap((run) => run.blocks).filter((block) => !original.has(block));
-  return { blocks: [...blocks.flatMap((block) => replaced.get(block) ?? [block]), ...added], runs };
+  return {
+    blocks: [...blocks.flatMap((block) => replaced.get(block) ?? [block]), ...added],
+    runs,
+    // Each run's first column, every line of the run in order with the lines
+    // its blocks left above it: indents read over the whole label column.
+    sources: runs.map((run) => {
+      // A row of values alone (under a label that wraps) is no entry of the column.
+      // A line under another column (a statement's detail line) is no entry of the first.
+      const columnRight = Math.min(
+        ...run.blocks.flatMap((block) =>
+          block.lines
+            .filter((line) => rowCells(line).length > 1)
+            .map((line) => {
+              const head = rowCells(line)[0];
+              return head.x + head.width;
+            }),
+        ),
+      );
+      const heads = run.blocks.flatMap((block) => block.lines.map((line) => rowCells(line)[0]));
+      const lines = [...run.above, ...heads]
+        .filter((line) => /\p{L}/u.test(line.text) && line.x < columnRight)
+        .sort((a, b) => a.y - b.y);
+      return { text: lines.map((line) => line.text).join('\n'), ...unionBox(lines), lines };
+    }),
+  };
 }
 
 /** The runs as layout regions, so the page orders each as one unit. */
@@ -192,6 +224,7 @@ function applyRun(
   const items: Item[] = run.rows.map((row) => ({ y: row.top, line: joinRow(row.cells) }));
   // A block's lines above the run (a list's heading) stay a block of their
   // own; its lines below the run are the last cell running on, and stay with it.
+  const above: LayoutLine[] = [];
   for (const block of touched) {
     const before: LayoutLine[] = [];
     for (const line of block.lines) {
@@ -200,6 +233,7 @@ function applyRun(
       else items.push({ y: line.y, line });
     }
     replaced.set(block, before.length > 0 ? [withLines(block, before)] : []);
+    above.push(...before);
   }
   for (const block of kept) items.push({ y: block.y, block });
   items.sort((a, b) => a.y - b.y);
@@ -219,7 +253,7 @@ function applyRun(
     if (item.block) blocks.push(item.block);
   }
   flush();
-  return { ...unionBox(blocks), blocks };
+  return { ...unionBox(blocks), blocks, above };
 }
 
 function withLines(block: Partial<LayoutBlock>, lines: LayoutLine[]): LayoutBlock {

@@ -26,10 +26,10 @@ Revenue $ 412,580 — $ 412,580 $ 1,186,240 — $ 1,186,240
 
 Cost of revenue 158,920 (6,410) (a) 152,510 461,330 (18,870) (a) 442,460
 Gross profit 253,660 6,410 260,070 724,910 18,870 743,780
-Research and development 88,140 (14,220) (a) 73,920 259,600 (41,050) (a) 218,550
-Sales and marketing 97,310 (11,860) (a) 85,450 284,170 (33,940) (a) 250,230
-General and administrative 41,780 (9,350) (a)(b) 32,430 125,410 (27,600) (a)(b) 97,810
-Restructuring charges 27,240 (27,240) (b) — 38,620 (38,620) (b) —
+  Research and development 88,140 (14,220) (a) 73,920 259,600 (41,050) (a) 218,550
+  Sales and marketing 97,310 (11,860) (a) 85,450 284,170 (33,940) (a) 250,230
+  General and administrative 41,780 (9,350) (a)(b) 32,430 125,410 (27,600) (a)(b) 97,810
+  Restructuring charges 27,240 (27,240) (b) — 38,620 (38,620) (b) —
 Total operating expenses 254,470 (62,670) 191,800 707,800 (141,210) 566,590
 Operating income (loss) (810) 69,080 68,270 17,110 160,080 177,190
 Other income, net 3,120 — 3,120 8,940 — 8,940

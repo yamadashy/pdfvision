@@ -29,6 +29,7 @@ const MIN_RULE_LENGTH_LINES = 1.5;
 const ALIGN_TOLERANCE_EM = 0.3;
 const ALIGNED_SHARE = 0.8;
 const ALIGN_WINDOW_ROWS = 12;
+const SIDE_HEAD_FONT_RATIO = 1.2;
 
 export interface Separators {
   /** Prose column gutters found while building lines. */
@@ -157,6 +158,10 @@ function isPairableRow(row: Row, { gutters, verticalRules, boxOf }: Separators):
   // A sentence broken off at the end of the first cell goes on in the next
   // line of its column, not in the next cell: prose beside a table.
   if (isProseFragment(row.cells[0].text)) return false;
+  // A side head set larger than the text beside it (`Part 2` / `Filers Who`
+  // down a worksheet's margin) heads that text; it is not a row's label.
+  const rest = row.cells.slice(1).map(emOf);
+  if (emOf(row.cells[0]) >= Math.max(...rest) * SIDE_HEAD_FONT_RATIO) return false;
   return row.cells.filter(isProseCell).length <= 1;
 }
 

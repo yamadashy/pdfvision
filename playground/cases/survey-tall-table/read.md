@@ -13,9 +13,9 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 _chars: 2178 · images: 0 · coverage: 37% · vectors: 6 · tables: 1 · warnings: 1 · size: 612×792pt_
 
-9
-
 A SURVEY OF OPEN AND CLOSED LANGUAGE MODELS, 2022–2026
+
+9
 
 TABLE 3: Statistics of the language models covered by this survey. “Params” is the largest released size; “–” means not disclosed.
 RLHF marks models whose release notes report reinforcement learning from human feedback.

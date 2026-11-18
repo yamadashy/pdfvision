@@ -228,6 +228,70 @@ describe('aligned rows — text that only shares baselines stays as it was', () 
     expect(without(spans)).toEqual(expect.arrayContaining([...left, ...right]));
   });
 
+  it('does not join a directory of people set in two columns, name over title', () => {
+    const left = ['Dana Deasy', 'Chief Information Officer', 'John Sherman', 'Principal Deputy CIO'];
+    const right = ['Matthew A. Kozma', 'Chief Information Officer', 'Michael E. Waschull', 'Deputy Chief Information'];
+    const spans = [
+      ...left.map((text, i) => span(text, 90, 225 + i * 14, 9)),
+      ...right.map((text, i) => span(text, 342, 225 + i * 14, 9)),
+    ];
+    expect(without(spans)).toEqual(expect.arrayContaining([...left, ...right]));
+  });
+
+  it('does not join the two halves of a glyph chart', () => {
+    const left = [
+      ['✫', 'a38 [x272B]'],
+      ['✬', 'a39 [x272C]'],
+      ['✭', 'a40 [x272D]'],
+    ];
+    const right = [
+      ['❞', 'a100 [x275E]'],
+      ['❡', 'a101 [x2761]'],
+      ['❢', 'a102 [x2762]'],
+    ];
+    const spans = [
+      ...left.flatMap(([glyph, code], i) => [span(glyph, 247, 100 + i * 14, 10, 10), span(code, 270, 100 + i * 14, 9)]),
+      ...right.flatMap(([glyph, code], i) => [
+        span(glyph, 384, 100 + i * 14, 10, 10),
+        span(code, 410, 100 + i * 14, 9),
+      ]),
+    ];
+    const read = without(spans);
+    expect(read.some((line) => line.includes('a38') && line.includes('a100'))).toBe(false);
+  });
+
+  it('does not join a numbered topic list set in columns, numbers apart from titles', () => {
+    const spans = [
+      span('and other grants', 221, 100, 8),
+      span('423 Social Security and equivalent', 221, 110, 8),
+      span('railroad retirement benefits', 221, 120, 8),
+      span('424 401(k) plans', 221, 130, 8),
+      span('602', 401, 100, 8),
+      span('608', 401, 110, 8),
+      span('610', 401, 130, 8),
+      span('Child and Dependent Care Credit', 426, 100, 8),
+      span('Excess Social Security and RRTA', 426, 110, 8),
+      span('tax withheld', 426, 120, 8),
+      span('Retirement Savings Contributions', 426, 130, 8),
+    ];
+    const read = without(spans);
+    expect(read.some((line) => line.includes('424 401(k) plans') && line.includes('610'))).toBe(false);
+  });
+
+  it('does not join a side head set larger than the text beside it', () => {
+    const left = ['Part 2', 'Filers Who', 'Answered'];
+    const right = [
+      '● No qualifying children who have valid SSNs',
+      '● 1 or more qualifying children',
+      'Yes. Leave line 5 blank.',
+    ];
+    const spans = [
+      ...left.map((text, i) => span(text, 61, 356 + i * 14, 11.5)),
+      ...right.map((text, i) => span(text, 168, 356 + i * 14, 9)),
+    ];
+    expect(without(spans)).toEqual(expect.arrayContaining([...left, ...right]));
+  });
+
   it('needs three rows', () => {
     const spans = [span('Name', 54, 100), span('Dana Cohen', 170, 100), span('City', 54, 114), span('Haifa', 170, 114)];
     expect(without(spans)).toEqual(expect.arrayContaining(['Name', 'Dana Cohen', 'City', 'Haifa']));
@@ -255,5 +319,38 @@ describe('aligned rows — text that only shares baselines stays as it was', () 
       span('0.78', 2245, 1020, 28),
     ];
     expect(without(spans, 3370)).toEqual(expect.arrayContaining(['100', '0.80', '91', '0.78']));
+  });
+});
+
+describe('aligned rows — depth of the labels', () => {
+  it('keeps the depth of a statement label read as a row with its values', () => {
+    const rows: [string, number, string, string][] = [
+      ['Net sales:', 0, '', ''],
+      ['Products', 1, '69,958', '67,184'],
+      ['Services', 1, '24,972', '22,314'],
+      ['Total net sales', 2, '94,930', '89,498'],
+      ['Cost of sales:', 0, '', ''],
+      ['Products', 1, '44,566', '42,586'],
+      ['Services', 1, '6,485', '6,485'],
+      ['Total cost of sales', 2, '51,051', '49,071'],
+    ];
+    const spans = rows.flatMap(([label, depth, a, b], r) => [
+      span(label, 72 + depth * 12, 100 + r * 12, 9),
+      ...(a ? [span(a, 400 - a.length * 4.5, 100 + r * 12, 9), span(b, 480 - b.length * 4.5, 100 + r * 12, 9)] : []),
+    ]);
+    const read = lines(buildLayout(spans, 612, 792).blocks);
+    expect(read).toContain('  Products 69,958 67,184');
+    expect(read).toContain('    Total net sales 94,930 89,498');
+  });
+
+  it('gives no depth to a detail line set under another column of the rows', () => {
+    const spans: TextSpan[] = [];
+    ['Oct 01', 'Oct 03', 'Oct 04', 'Oct 07'].forEach((date, r) => {
+      const y = 100 + r * 26;
+      spans.push(span(date, 54, y, 8.5, 25), span(`Card purchase ${r}`, 104, y, 8.5), span('12.40', 380, y, 8.5, 21));
+      spans.push(span(`Card ending 77${r}`, 112, y + 10.3, 7.5));
+    });
+    const read = lines(buildLayout(spans, 612, 792).blocks);
+    expect(read).toContain('Card ending 770');
   });
 });

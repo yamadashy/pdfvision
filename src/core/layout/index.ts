@@ -225,7 +225,7 @@ function buildUprightLayout(
           pageHeight,
         )
       : blocks;
-  indentNestedLines(ordered);
+  indentNestedLines(ordered, rows.sources);
   return withMarks(
     {
       blocks: ordered,

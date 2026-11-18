@@ -1,7 +1,9 @@
 import type { LayoutLine } from '../../../types/index.js';
+import { median } from '../geometry.js';
 import { emOf, type Interval, type Row, type RowRun } from './shared.js';
 
-const ALIKE_WIDTH_RATIO = 1.35;
+const KIND_LENGTH_RATIO = 1.6;
+const KIND_SHARE_TOLERANCE = 0.3;
 const ALIKE_FONT_RATIO = 1.2;
 const ALIKE_ROW_SHARE = 0.6;
 const PARALLEL_ROW_SHARE = 0.25;
@@ -28,7 +30,9 @@ export function hasRowStructure(run: RowRun): boolean {
   if (bands.length < 2) return false;
   let alike = true;
   for (let i = 1; i < bands.length && alike; i++) alike = areAlikeColumns(run.rows, bands[i - 1], bands[i]);
-  if (alike || isTwinList(run, bands) || isIndexColumns(cells, bands)) return false;
+  // Glyphs count here: a glyph chart's halves repeat glyph, name, glyph, name.
+  const allBands = columnBands(run.rows.flatMap((row) => row.cells));
+  if (alike || isTwinList(run, allBands) || isIndexColumns(cells, bands)) return false;
   const bandCells = bands.map((band) => cells.filter((cell) => inBand(cell, band)));
   if (bandCells.some(isFlowingText)) return false;
   // Sentences broken off at the line's end on both sides of a gap: two columns of prose.
@@ -57,14 +61,20 @@ export function isProseFragment(text: string): boolean {
  * few rows only.
  */
 function isTwinList(run: RowRun, bands: readonly Interval[]): boolean {
-  if (run.rows.length < TWIN_LIST_MIN_ROWS || bands.length < 4) return false;
-  const kinds = bands.map((band) => {
-    const cells = run.rows.flatMap((row) => row.cells.filter((cell) => inBand(cell, band)));
-    return cells.filter((cell) => isNumericText(cell.text)).length > cells.length / 2 ? 'number' : 'text';
-  });
+  if (bands.length < 4) return false;
+  const columns = bands.map((band) => run.rows.flatMap((row) => row.cells.filter((cell) => inBand(cell, band))));
+  const kinds = columns.map((cells) =>
+    cells.filter((cell) => isNumericText(cell.text)).length > cells.length / 2 ? 'number' : 'text',
+  );
+  const profiles = columns.map(profile);
   for (let period = 2; period <= bands.length / 2; period++) {
     if (bands.length % period !== 0 || !kinds.slice(0, period).includes('text')) continue;
-    if (kinds.every((kind, i) => i < period || kind === kinds[i - period])) return true;
+    const repeats = (i: number) => kinds[i] === kinds[i - period];
+    // A page-long run repeating the same kinds of column is two lists; a
+    // short one needs the repeated columns to hold the same kind of entry too.
+    const same = (i: number) =>
+      repeats(i) && (run.rows.length >= TWIN_LIST_MIN_ROWS || isSameKind(profiles[i], profiles[i - period]));
+    if (kinds.every((_, i) => i < period || same(i))) return true;
   }
   return false;
 }
@@ -77,6 +87,19 @@ function columnBands(cells: readonly LayoutLine[]): Interval[] {
     else bands.push({ left: cell.x, right: cell.x + cell.width });
   }
   return bands;
+}
+
+function entryIn(row: Row, band: Interval): LayoutLine | undefined {
+  const cells = row.cells.filter((cell) => inBand(cell, band));
+  const [first] = cells;
+  if (!first) return undefined;
+  if (cells.length === 1) return first;
+  const last = cells[cells.length - 1];
+  return {
+    ...first,
+    text: cells.map((cell) => cell.text.trim()).join(' '),
+    width: last.x + last.width - first.x,
+  };
 }
 
 function inBand(cell: LayoutLine, band: Interval): boolean {
@@ -92,9 +115,11 @@ function inBand(cell: LayoutLine, band: Interval): boolean {
  */
 function areAlikeColumns(rows: readonly Row[], a: Interval, b: Interval): boolean {
   const pairs: [LayoutLine, LayoutLine][] = [];
+  // Each side is the row's whole entry in that column: a glyph and its name
+  // set as two runs are one entry.
   for (const row of rows) {
-    const left = row.cells.filter((cell) => inBand(cell, a)).at(-1);
-    const right = row.cells.find((cell) => inBand(cell, b));
+    const left = entryIn(row, a);
+    const right = entryIn(row, b);
     if (left && right) pairs.push([left, right]);
   }
   if (pairs.length === 0) return false;
@@ -105,17 +130,83 @@ function areAlikeColumns(rows: readonly Row[], a: Interval, b: Interval): boolea
     ([left, right]) => isNumberedEntry(left.text) && (isNumberedEntry(right.text) || /^\d+$/u.test(right.text.trim())),
   );
   if (numbered.length >= pairs.length * ALIKE_ROW_SHARE) return true;
+  // A label and its value almost never start alike; text lists side by side often do.
   const textual = pairs.filter(([left, right]) => !isNumericText(left.text) && !isNumericText(right.text));
-  if (textual.length <= pairs.length / 2) return false;
-  // A label and its value almost never start alike; lists side by side often do.
-  const parallel = pairs.filter(([left, right]) => leadingToken(left.text) === leadingToken(right.text));
+  const parallel = textual.filter(([left, right]) => leadingToken(left.text) === leadingToken(right.text));
   if (parallel.length >= Math.max(MIN_PARALLEL_ROWS, pairs.length * PARALLEL_ROW_SHARE)) return true;
-  const sameWidth = textual.filter(
-    ([left, right]) =>
-      Math.max(left.width, right.width) <= Math.min(left.width, right.width) * ALIKE_WIDTH_RATIO &&
-      Math.max(emOf(left), emOf(right)) <= Math.min(emOf(left), emOf(right)) * ALIKE_FONT_RATIO,
+  // Columns of bare values (`46%` beside `18%`, years beside figures) are a
+  // table's value columns, whatever their likeness.
+  const values = pairs.filter(([left, right]) => !/\p{L}/u.test(left.text) && !/\p{L}/u.test(right.text));
+  if (values.length > pairs.length / 2) return false;
+  return isSameKind(profile(pairs.map(([left]) => left)), profile(pairs.map(([, right]) => right)));
+}
+
+/** What a column's cells are like, taken over the column as a whole. */
+interface ColumnProfile {
+  numberShare: number;
+  labelShare: number;
+  words: number;
+  ems: number;
+  fontSize: number;
+  lead: string;
+}
+
+function profile(cells: readonly LayoutLine[]): ColumnProfile {
+  const share = (test: (text: string) => boolean) =>
+    cells.filter((cell) => test(cell.text.trim())).length / Math.max(cells.length, 1);
+  const leads = new Map<string, number>();
+  for (const cell of cells) {
+    const lead = leadingClass(cell.text);
+    leads.set(lead, (leads.get(lead) ?? 0) + 1);
+  }
+  return {
+    numberShare: share(isNumericText),
+    labelShare: share((text) => /[:：]$/u.test(text)),
+    words: median(cells.map((cell) => Math.max(1, withoutLeadingGlyph(cell.text).split(/\s+/u).length))),
+    // Width scaled to the text after a leading glyph, which one side may carry as a run of its own.
+    ems: median(
+      cells.map((cell) => {
+        const text = cell.text.trim();
+        return ((cell.width / emOf(cell)) * withoutLeadingGlyph(text).length) / Math.max(text.length, 1);
+      }),
+    ),
+    fontSize: median(cells.map(emOf)),
+    lead: [...leads].sort((x, y) => y[1] - x[1])[0]?.[0] ?? '',
+  };
+}
+
+/**
+ * Two columns hold the same kind of entry when nothing tells them apart:
+ * neither is the numbers or the labels of the other, they run to about the
+ * same length in the same type, and their entries start alike (a capital,
+ * a digit, a bullet). A label and its value, a code and its statement, an
+ * item and its price differ on at least one count; two lists of names, two
+ * columns of a glyph chart or a topic list do not.
+ */
+function isSameKind(a: ColumnProfile, b: ColumnProfile): boolean {
+  const ratio = (x: number, y: number) => Math.max(x, y) / Math.max(Math.min(x, y), 0.001);
+  return (
+    Math.abs(a.numberShare - b.numberShare) <= KIND_SHARE_TOLERANCE &&
+    Math.abs(a.labelShare - b.labelShare) <= KIND_SHARE_TOLERANCE &&
+    ratio(a.words, b.words) <= KIND_LENGTH_RATIO &&
+    ratio(a.ems, b.ems) <= KIND_LENGTH_RATIO &&
+    ratio(a.fontSize, b.fontSize) <= ALIKE_FONT_RATIO &&
+    a.lead === b.lead
   );
-  return sameWidth.length >= pairs.length * ALIKE_ROW_SHARE;
+}
+
+/** A glyph, bullet or item number set before an entry's words marks the entry; the words are what it is. */
+function withoutLeadingGlyph(text: string): string {
+  return text.trim().replace(/^[^\p{L}\s]+\s+(?=\S)/u, '');
+}
+
+function leadingClass(text: string): string {
+  const first = [...withoutLeadingGlyph(text)][0] ?? '';
+  if (/\p{N}/u.test(first)) return 'digit';
+  if (/\p{Lu}/u.test(first)) return 'upper';
+  if (/\p{Ll}/u.test(first)) return 'lower';
+  if (/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(first)) return 'cjk';
+  return /\p{L}/u.test(first) ? 'letter' : 'symbol';
 }
 
 /**
@@ -140,7 +231,7 @@ function isIndexColumns(cells: readonly LayoutLine[], bands: readonly Interval[]
 
 function isNumberedEntry(text: string): boolean {
   // `Tax help 83`, or a numbered item such as `311 Power of attorney information`.
-  if (/^\d+\s+\p{L}/u.test(text.trim())) return true;
+  if (/^\d+\s+\S*\p{L}/u.test(text.trim())) return true;
   return /\p{L}.*\s\d+(?:[–-]\d+)?(?:,\s*\d+(?:[–-]\d+)?)*$/u.test(text.trim());
 }
 
