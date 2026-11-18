@@ -11,6 +11,7 @@ import type {
 } from '../../types/index.js';
 import type { InvisibleTextEvidence } from '../graphics/invisibleText.js';
 import type { OpaqueFillTextEvidence } from '../graphics/opaqueFillText.js';
+import type { VectorFigureEvidence } from '../graphics/vectorFigures.js';
 import type { BuildVisualRegionsInput } from '../visualRegions/index.js';
 
 export interface PageData {
@@ -53,6 +54,8 @@ export interface PageData {
   _warningVectorBoxes?: VectorBox[];
   /** Vector fills in a visible non-white colour, for the vector-bar warning. */
   _warningColouredFills?: VectorBox[];
+  /** Line-chart series, pies and outlined-text regions found from path shapes, for figure warnings. */
+  _warningVectorFigures?: VectorFigureEvidence;
   _warningAnnotations?: PageAnnotation[];
   _visualRegionInput?: BuildVisualRegionsInput;
   hasVisibleAnnotationAppearance?: boolean;

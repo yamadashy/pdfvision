@@ -13,7 +13,8 @@ Reference for `-f json`, `-f xml`, and `-f toon` consumers.
 interface PageLayout {
   blocks: LayoutBlock[];     // in approximate reading order (multi-column aware)
   tables?: LayoutTable[];    // row-major hints for aligned numeric tables
-  markedText?: LayoutMarkedText[]; // passages marked only by a drawn line beside them (see below)
+  markedText?: LayoutMarkedText[]; // side lines (below), drawn choices
+  connections?: LayoutConnection[]; charts?: LayoutChart[]; // marks, arrows, charts: `pdfvision docs visual`
   lineNumbers?: { first: number; last: number }; // margin line numbers, left out of the text (`pdfvision docs schema`)
 }
 

@@ -1,11 +1,14 @@
 import type { VectorBox } from '../../types/index.js';
 import type { ImageOps } from './imageBoxes.js';
+import { addVectorShape, type VectorShapeSet } from './vectorShapes.js';
 
 type Matrix6 = [number, number, number, number, number, number];
 type Quad = [number, number, number, number];
 interface GraphicsState {
   ctm: Matrix6;
   fillColor?: string;
+  strokeColor?: string;
+  lineWidth: number;
 }
 const MIN_VECTOR_BOX_SIZE = 0.5;
 
@@ -80,44 +83,55 @@ export function buildVectorBoxes(
   viewMinY: number,
   /** Receives the boxes of fills painted in a visible, non-white colour (internal warning evidence). */
   colouredFills?: VectorBox[],
+  /** Receives path-level shapes, within its own budget (internal detector evidence). */
+  shapes?: VectorShapeSet,
 ): VectorBox[] {
   const boxes: VectorBox[] = [];
   let ctm: Matrix6 = [1, 0, 0, 1, 0, 0];
   // PDF starts every page with a black fill colour, and pdf.js emits no
   // colour op for it, so a default-black bar must not read as uncoloured.
   let fillColor: string | undefined = '#000000';
+  let strokeColor: string | undefined = '#000000';
+  let lineWidth = 1;
   let pendingClipBox: VectorBox | undefined;
   const stack: GraphicsState[] = [];
+  const push = () => stack.push({ ctm: [...ctm] as Matrix6, fillColor, strokeColor, lineWidth });
+  const pop = () => {
+    const popped = stack.pop();
+    if (popped) {
+      ctm = popped.ctm;
+      fillColor = popped.fillColor;
+      strokeColor = popped.strokeColor;
+      lineWidth = popped.lineWidth;
+    }
+  };
 
   for (let i = 0; i < fnArray.length; i++) {
     const fn = fnArray[i];
     const args = argsArray[i];
 
     if (fn === ops.save) {
-      stack.push({ ctm: [...ctm] as Matrix6, fillColor });
+      push();
     } else if (fn === ops.restore) {
-      const popped = stack.pop();
-      if (popped) {
-        ctm = popped.ctm;
-        fillColor = popped.fillColor;
-      }
+      pop();
       pendingClipBox = undefined;
     } else if (fn === ops.transform) {
       const matrix = matrix6(args);
       if (matrix) ctm = multiply(ctm, matrix);
     } else if (fn === ops.formBegin) {
-      stack.push({ ctm: [...ctm] as Matrix6, fillColor });
+      push();
       const matrix = matrix6(args?.[0]);
       if (matrix) ctm = multiply(ctm, matrix);
     } else if (fn === ops.formEnd) {
-      const popped = stack.pop();
-      if (popped) {
-        ctm = popped.ctm;
-        fillColor = popped.fillColor;
-      }
+      pop();
       pendingClipBox = undefined;
     } else if (ops.fillColorOps.has(fn)) {
       fillColor = fillColorValue(args);
+    } else if (ops.strokeColorOps?.has(fn)) {
+      strokeColor = fillColorValue(args);
+    } else if (fn === ops.setLineWidth) {
+      const width = args?.[0];
+      if (typeof width === 'number' && Number.isFinite(width) && width >= 0) lineWidth = width;
     } else if (fn === ops.constructPath) {
       const pathOp = args?.[0];
       const bbox = numericQuad(args?.[2]);
@@ -128,6 +142,22 @@ export function buildVectorBoxes(
           boxes.push(box);
           if (colouredFills && ops.pathFillOps.has(pathOp) && isVisibleNonWhiteColor(fillColor)) {
             colouredFills.push(box);
+          }
+          if (shapes) {
+            const filled = ops.pathFillOps.has(pathOp);
+            const stroked = ops.pathStrokeOps ? ops.pathStrokeOps.has(pathOp) : !filled;
+            addVectorShape(
+              shapes,
+              args?.[1],
+              ctm,
+              {
+                ...(filled && { fill: fillColor ?? '' }),
+                ...(stroked && { stroke: strokeColor ?? '' }),
+                lineWidth: lineWidth > 0 ? lineWidth : 0.25,
+              },
+              { pageHeight, viewMinX, viewMinY },
+              boxes.length - 1,
+            );
           }
         }
       } else if (bbox) {

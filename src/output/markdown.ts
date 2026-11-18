@@ -1,6 +1,8 @@
 import type { DocumentResult, PageResult } from '../types/index.js';
 import { appendAnnotations } from './markdown/annotations.js';
+import { appendCharts } from './markdown/charts.js';
 import { fencedCode } from './markdown/codeBlocks.js';
+import { appendConnections } from './markdown/connections.js';
 import { appendLayers, appendOutline, appendViewer } from './markdown/documentSections.js';
 import { appendFormFields } from './markdown/formFields.js';
 import { escapeInline, escapeTableCell, jsActionCount } from './markdown/helpers.js';
@@ -319,6 +321,8 @@ export function formatMarkdownSections(
       appendLayoutTables(lines, page.layout.tables);
     }
     if (options.layout && page.layout?.markedText) appendMarkedText(lines, page.layout.markedText);
+    if (options.layout && page.layout?.connections) appendConnections(lines, page.layout.connections);
+    if (options.layout && page.layout?.charts) appendCharts(lines, page.layout.charts);
     // Only render the match table for pages that actually matched. A
     // zero-match page under --search used to emit a noisy
     // `### Search matches / _No search matches found._` block on every

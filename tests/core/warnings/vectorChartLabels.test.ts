@@ -86,4 +86,54 @@ describe('vector_chart_labels', () => {
     const out = detectPageWarnings(page(chartLabels), { vectorBoxes: shapes });
     expect(out.some((w) => w.code === 'vector_chart_labels')).toBe(false);
   });
+
+  // A line chart: plot frame, gridlines, and point labels; no bars.
+  const lineBoxes: VectorBox[] = [
+    { x: 80, y: 180, width: 460, height: 120 },
+    { x: 100, y: 200, width: 400, height: 0 },
+    { x: 100, y: 240, width: 400, height: 0 },
+    { x: 100, y: 205, width: 400, height: 60 },
+    { x: 100, y: 230, width: 400, height: 50 },
+  ];
+  const lineLabels = [
+    label('41.2', 96, 250, 14),
+    label('46.8', 196, 235, 14),
+    label('49.5', 296, 222, 14),
+    label('52.3', 396, 212, 14),
+    label('35.0', 96, 280, 14),
+    label('51.7', 296, 215, 14),
+  ];
+  const series = { seriesLines: [{ x: 100, y: 205, width: 400, height: 60 }], pies: [], outlinedText: [] };
+
+  it('names a line chart from its series line, though it has no bars', () => {
+    const out = detectPageWarnings(page(lineLabels), { vectorBoxes: lineBoxes, vectorFigures: series });
+    const warning = out.find((w) => w.code === 'vector_chart_labels');
+    expect(warning?.message).toContain('vector line chart at');
+    expect(warning?.message).toContain('line, point, series or category');
+  });
+
+  it('stays quiet for the same labels without a series line', () => {
+    const out = detectPageWarnings(page(lineLabels), { vectorBoxes: lineBoxes });
+    expect(out.some((w) => w.code === 'vector_chart_labels')).toBe(false);
+  });
+
+  it('stays quiet when every value of the chart was paired with its series by colour', () => {
+    const result = page(lineLabels);
+    const values = ['41.2', '46.8', '49.5', '52.3'].map((value, i) => ({
+      value,
+      series: 'Red',
+      category: String(2021 + i),
+      x: 96 + i * 100,
+      y: 220,
+      width: 14,
+      height: 8,
+    }));
+    result.layout = { blocks: lineLabels, charts: [{ kind: 'line', x: 90, y: 200, width: 420, height: 90, values }] };
+    const out = detectPageWarnings(result, { vectorBoxes: lineBoxes, vectorFigures: series });
+    expect(out.some((w) => w.code === 'vector_chart_labels')).toBe(false);
+    // One label left over keeps the warning.
+    result.layout.charts = [{ kind: 'line', unpaired: 1, x: 90, y: 200, width: 420, height: 90, values }];
+    const kept = detectPageWarnings(result, { vectorBoxes: lineBoxes, vectorFigures: series });
+    expect(kept.some((w) => w.code === 'vector_chart_labels')).toBe(true);
+  });
 });

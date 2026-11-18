@@ -1,5 +1,6 @@
 import type { FormField, LayoutBlock, LayoutTable, PageResult, TextSpan } from '../../types/index.js';
 import type { OpaqueFillTextEvidence } from '../graphics/opaqueFillText.js';
+import { scaleVectorFigureEvidence } from '../graphics/vectorFigures.js';
 import type { PageWarningContext } from './index.js';
 
 /**
@@ -32,6 +33,7 @@ export function warningInputsInPhysicalPoints(
           ...page.layout,
           blocks: page.layout.blocks.map((block) => scaleBlock(block, userUnit)),
           ...(page.layout.tables && { tables: page.layout.tables.map((table) => scaleTable(table, userUnit)) }),
+          ...(page.layout.charts && { charts: page.layout.charts.map((chart) => scaleBox(chart, userUnit)) }),
         },
       }),
       ...(page.imageBoxes && { imageBoxes: page.imageBoxes.map((box) => scaleBox(box, userUnit)) }),
@@ -44,6 +46,7 @@ export function warningInputsInPhysicalPoints(
       ...(context.imageBoxes && { imageBoxes: context.imageBoxes.map((box) => scaleBox(box, userUnit)) }),
       ...(context.vectorBoxes && { vectorBoxes: context.vectorBoxes.map((box) => scaleBox(box, userUnit)) }),
       ...(context.colouredFills && { colouredFills: context.colouredFills.map((box) => scaleBox(box, userUnit)) }),
+      ...(context.vectorFigures && { vectorFigures: scaleVectorFigureEvidence(context.vectorFigures, userUnit) }),
       ...(context.opaqueFillText && { opaqueFillText: scaleOpaqueFillText(context.opaqueFillText, userUnit) }),
     },
   };

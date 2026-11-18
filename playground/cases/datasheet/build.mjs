@@ -136,8 +136,7 @@ export const meta = {
   title: 'Op-amp datasheet, two pages',
   stresses:
     'pinout diagram with pin names as text around a vector outline; ruled tables with merged parameter cells over several condition rows, written column by column; subscript symbols; package drawing whose dimensions are outlines with no text',
-  status: 'known-gap',
-  issue: 296,
+  status: 'ok',
   families: ['tables', 'vector-meaning', 'structure'],
 };
 
@@ -206,17 +205,16 @@ Subscripts on page 2 stay on their symbols, written \`_X\` (#241): the condition
 \`At T_A = 25°C, V_S = 5 V, R_L = 10 kΩ connected to V_S / 2\`, symbols read \`V_{OS}\`, \`dV_{OS}/dT\`,
 \`I_B\`, \`e_n\`, and conditions \`T_A = 25°C\`, \`I_O = 0 mA\`.
 
-**Known gap (#296):**
+**Notes:**
 - Fixed in #277: the electrical-characteristics table is read from its rules as one 18 × 7 layout
   table, the header row included, each value under MIN, TYP or MAX (\`| Input offset voltage | V_{OS} | T_A = –40°C to +125°C | | | ±2.5 | mV |\`),
   and each merged parameter and symbol cell repeated in every condition row it spans
   (\`Quiescent current per amplifier | I_Q\` on both of its rows), so questions 3 and 4 are answered
   from it. The page body reads the grid row by row; the symbol and the condition beside it are now
   separate lines (\`dV_{OS}/dT\` / \`T_A = –40°C to +125°C\`), split at the column rule between them.
-- The package outline's dimensions are vector outlines with no text, and nothing says so: page 2 has
-  219 vector operations but no \`vector_graphics_no_native_text\` or figure warning, and the only text
-  near it is \`7 Package Outline\` / \`D (SOIC-8) plastic small-outline package\`. Question 5 cannot be
-  answered from \`read.md\`, and nothing points the agent to render that region.
+- Fixed in #296: the package outline's dimensions are vector outlines with no text, and the page now
+  says so: \`vector_outlined_text\` names the drawing (\`--render-region 118,455,430,142\`, about 119
+  letter-shaped outlines in 14 rows, the vertical \`4.90 ±0.10\` included). Question 5 needs that render.
 `;
 
 // --- drawing helpers ---------------------------------------------------------

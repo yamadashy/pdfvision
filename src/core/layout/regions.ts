@@ -1,4 +1,7 @@
 import type { LayoutBlock } from '../../types/index.js';
+import type { ChartMarks } from '../graphics/chartMarks.js';
+import type { TextColourRun } from '../graphics/opaqueFillText.js';
+import type { VectorShapeSet } from '../graphics/vectorShapes.js';
 import { withoutScriptMarkup } from '../text/scripts.js';
 import type { BBox } from './geometry.js';
 import { type Candidate, clusterBoxes, isFiniteBox, MIN_FIGURE_GRAPHICS, ruleBands } from './regionCandidates.js';
@@ -9,6 +12,12 @@ export interface LayoutGraphics {
   imageBoxes?: readonly BBox[];
   /** Rules painted as solid 1×1 image masks; only the math pass reads them. */
   maskRules?: readonly BBox[];
+  /** Path-level shapes of the page's small paths: choice marks, connectors and chart marks read them. */
+  vectorShapes?: VectorShapeSet;
+  /** Line-chart series, pies and legend swatches found from those shapes. */
+  chartMarks?: ChartMarks;
+  /** Each shown text run's box and fill colour. */
+  textColours?: readonly TextColourRun[];
 }
 
 /**

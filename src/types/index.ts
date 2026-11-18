@@ -34,6 +34,9 @@ export type {
 } from './form.js';
 export type {
   LayoutBlock,
+  LayoutChart,
+  LayoutChartValue,
+  LayoutConnection,
   LayoutLine,
   LayoutMarkedText,
   LayoutTable,

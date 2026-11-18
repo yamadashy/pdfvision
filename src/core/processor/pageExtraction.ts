@@ -15,12 +15,20 @@ import {
   textContentInFrame,
 } from '../geometry/displayFrameInputs.js';
 import { resolvePageFrame } from '../geometry/pageFrame.js';
+import { findChartMarks } from '../graphics/chartMarks.js';
 import { buildImageBoxes, type ImageOps } from '../graphics/imageBoxes.js';
 import { collectInvisibleTextEvidence, type TextRenderingOps } from '../graphics/invisibleText.js';
-import { collectOpaqueFillTextEvidence, type OpaqueFillTextOps } from '../graphics/opaqueFillText.js';
+import {
+  collectOpaqueFillTextEvidence,
+  type OpaqueFillTextOps,
+  type TextColourRun,
+} from '../graphics/opaqueFillText.js';
+import { findOutlinedText } from '../graphics/outlinedText.js';
 import type { FontGeometryInfo } from '../graphics/textGlyphs.js';
 import { buildSolidMaskRules, buildVectorBoxes } from '../graphics/vectorBoxes.js';
+import { vectorFigureEvidence } from '../graphics/vectorFigures.js';
 import { countVectorPaintOps } from '../graphics/vectorOps.js';
+import { emptyShapeSet } from '../graphics/vectorShapes.js';
 import { buildLayout } from '../layout/index.js';
 import { buildLinks, isLinkAnnotation } from '../links/index.js';
 import { nonPrintableStats } from '../quality/nonPrintable.js';
@@ -112,6 +120,7 @@ export async function extractPageData(
     rawOpList.argsArray as unknown[][],
     textRenderingOps,
   );
+  const textColours: TextColourRun[] = [];
   const opaqueFillText = collectOpaqueFillTextEvidence(
     opList.fnArray,
     opList.argsArray as unknown[][],
@@ -120,6 +129,7 @@ export async function extractPageData(
     xMin,
     yMin,
     resolveFont,
+    textColours,
   );
   const allBoxes = buildImageBoxes(opList.fnArray, opList.argsArray as unknown[][], ops, height, xMin, yMin);
   const imageCount = allBoxes.length;
@@ -134,6 +144,7 @@ export async function extractPageData(
     yMin,
   );
   const colouredVectorFills: VectorBox[] = [];
+  const vectorShapes = emptyShapeSet();
   const allVectorBoxes =
     vectorCount > 0
       ? buildVectorBoxes(
@@ -145,9 +156,12 @@ export async function extractPageData(
           xMin,
           yMin,
           colouredVectorFills,
+          vectorShapes,
         )
       : [];
   const vectorBoxes = flags.vectorBoxes ? allVectorBoxes : undefined;
+  const chartMarks = findChartMarks(vectorShapes);
+  const vectorFigures = vectorFigureEvidence(chartMarks, findOutlinedText(vectorShapes, spans, { width, height }));
   // Build layout internally for form-field labels and visual-region table
   // hints, but only expose pages[].layout when --layout is explicitly on.
   const internalLayout =
@@ -165,6 +179,9 @@ export async function extractPageData(
             vectorBoxes: allVectorBoxes,
             imageBoxes: allBoxes,
             maskRules: buildSolidMaskRules(opList.fnArray, opList.argsArray as unknown[][], ops, height, xMin, yMin),
+            vectorShapes,
+            chartMarks,
+            textColours,
           },
           monospaceFonts,
         )
@@ -345,6 +362,7 @@ export async function extractPageData(
     ...(vectorBoxes !== undefined && { vectorBoxes }),
     _warningVectorBoxes: allVectorBoxes,
     ...(colouredVectorFills.length > 0 && { _warningColouredFills: colouredVectorFills }),
+    ...(vectorFigures !== undefined && { _warningVectorFigures: vectorFigures }),
     ...(allPageAnnotations !== undefined && { _warningAnnotations: allPageAnnotations }),
     ...(visualRegionInput !== undefined && { _visualRegionInput: visualRegionInput }),
     ...(visibleAnnotationAppearance && { hasVisibleAnnotationAppearance: true }),
