@@ -1,4 +1,4 @@
-import { CLI_TOPIC_INDEX } from './docs/topicIndex.generated.js';
+import { CLI_TOPIC_INDEX, CLI_WARNING_CODES } from './docs/topicIndex.generated.js';
 import { resolveTerminalFlags } from './subcommandFlags.js';
 
 /**
@@ -13,11 +13,16 @@ import { resolveTerminalFlags } from './subcommandFlags.js';
 export type DocsCommand =
   | { kind: 'index' }
   | { kind: 'topic'; name: string }
+  | { kind: 'warnings'; codes: string[] }
   | { kind: 'help' }
   | { kind: 'version' }
   | { kind: 'error'; message: string };
 
 export const DOCS_SUBCOMMAND = 'docs';
+
+/** The topic whose arguments are warning codes rather than further topics. */
+const WARNINGS_TOPIC = 'warnings';
+const MAX_CODE_SUGGESTIONS = 3;
 
 function editDistance(a: string, b: string): number {
   let previous = Array.from({ length: b.length + 1 }, (_, i) => i);
@@ -60,6 +65,47 @@ function suggest(name: string, known: readonly string[]): string | undefined {
 }
 
 /**
+ * Codes are long and share words (`text_overlap`,
+ * `large_raster_low_text_overlap`), so a near miss is answered with every
+ * plausible code rather than a single guess: listing two right answers is
+ * cheaper for the caller than one wrong one.
+ */
+function suggestCodes(code: string, known: readonly string[]): string[] {
+  const containing = known.filter((candidate) => candidate.includes(code) || code.includes(candidate));
+  if (containing.length > 0) return containing.slice(0, MAX_CODE_SUGGESTIONS);
+  const threshold = Math.max(2, Math.floor(code.length / 3));
+  return known
+    .map((candidate) => ({ candidate, distance: editDistance(code, candidate) }))
+    .filter(({ distance }) => distance <= threshold)
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, MAX_CODE_SUGGESTIONS)
+    .map(({ candidate }) => candidate);
+}
+
+/** Case and dash-for-underscore are typing slips, not different codes. */
+function normalizeCode(arg: string): string {
+  return arg.toLowerCase().replaceAll('-', '_');
+}
+
+function resolveWarningCodes(args: readonly string[], knownCodes: readonly string[]): DocsCommand {
+  const codes: string[] = [];
+  for (const arg of args) {
+    const code = normalizeCode(arg);
+    if (knownCodes.includes(code)) {
+      if (!codes.includes(code)) codes.push(code);
+      continue;
+    }
+    const close = suggestCodes(code, knownCodes);
+    const hint = close.length > 0 ? ` Close matches: ${close.map((c) => `"${c}"`).join(', ')}.` : '';
+    return {
+      kind: 'error',
+      message: `Unknown warning code "${arg}".${hint} Run "pdfvision docs warnings" for every code.`,
+    };
+  }
+  return { kind: 'warnings', codes };
+}
+
+/**
  * Returns `undefined` when this is not a `docs` invocation, leaving the
  * arguments to the normal extraction CLI. A file named `docs` therefore has
  * to be passed as `./docs`, the same as `mcp` and `clear-cache`.
@@ -67,6 +113,7 @@ function suggest(name: string, known: readonly string[]): string | undefined {
 export function resolveDocsCommand(
   argv: readonly string[],
   known: readonly string[] = CLI_TOPIC_INDEX.map((topic) => topic.name),
+  knownCodes: readonly string[] = CLI_WARNING_CODES,
 ): DocsCommand | undefined {
   if (argv[0] !== DOCS_SUBCOMMAND) return undefined;
 
@@ -86,6 +133,13 @@ export function resolveDocsCommand(
       message: `"pdfvision docs" takes a topic, not options; got ${flags.map((arg) => `"${arg}"`).join(' ')}`,
     };
   }
+  // `warnings` takes codes, so an agent holding one reads a single entry
+  // instead of the whole catalog. The singular is accepted here because it
+  // is the natural thing to type before a code.
+  const [first, ...codeArgs] = topics;
+  if ((first === WARNINGS_TOPIC || first === 'warning') && codeArgs.length > 0) {
+    return resolveWarningCodes(codeArgs, knownCodes);
+  }
   if (topics.length > 1) {
     return {
       kind: 'error',
@@ -95,6 +149,11 @@ export function resolveDocsCommand(
 
   const name = topics[0];
   if (known.includes(name)) return { kind: 'topic', name };
+  // Topics are checked first, so a bare code cannot shadow one; answering it
+  // beats an error that only says where the answer is.
+  if (knownCodes.includes(normalizeCode(name))) {
+    return { kind: 'warnings', codes: [normalizeCode(name)] };
+  }
 
   const closest = suggest(name, known);
   return {
@@ -110,5 +169,5 @@ export function renderTopicIndex(version: string): string {
 
 ${rows}
 
-Run "pdfvision docs <topic>" to read one.`;
+Run "pdfvision docs <topic>" to read one, or "pdfvision docs warnings <code>" for one warning code.`;
 }

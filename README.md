@@ -235,7 +235,8 @@ Options
   -h, --help              Show this help
 
 Subcommands
-  docs [topic]            Documentation for the installed version. Bare `docs` lists topics.
+  docs [topic]            Documentation for the installed version. Bare `docs` lists topics;
+                          `docs warnings <code>` explains one warning code.
   clear-cache             Remove cached extractions, renders, remote PDFs, and OCR data.
   mcp                     Serve pdfvision over the Model Context Protocol on stdio, for hosts
                           that cannot run a shell. See "pdfvision mcp --help".

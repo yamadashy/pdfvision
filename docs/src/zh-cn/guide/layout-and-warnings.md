@@ -103,7 +103,7 @@ To avoid expected scan/OCR layers, `invisible_text` is suppressed when a full-pa
 pdfvision document.pdf -p 3 --render --format json
 ```
 
-A render establishes only what the page visibly shows. Neither a warning nor its absence validates whether redaction succeeded, and absence does not certify visibility, correctness, or safety. These detectors do not find arbitrary hidden text or prompt injection. See `pdfvision docs warnings` for full warning details, and [Security and Privacy](./security-and-privacy.md) before acting on or sharing PDF-derived content.
+A render establishes only what the page visibly shows. Neither a warning nor its absence validates whether redaction succeeded, and absence does not certify visibility, correctness, or safety. These detectors do not find arbitrary hidden text or prompt injection. See `pdfvision docs warnings <code>` for each detector's full details and limits, and [Security and Privacy](./security-and-privacy.md) before acting on or sharing PDF-derived content.
 
 警告不是最终判断，而是告诉智能体下一步应检查哪里。
 
@@ -117,5 +117,6 @@ A render establishes only what the page visibly shows. Neither a warning nor its
 - If `symbol_font_substitution` appears, do not report a sign, direction, bound, or p-value from native text: render the region the warning names and read the minus, `<`, `>`, `±`, and `=` signs from the image.
 - 如果出现 large raster 或 dense vector warning，在验证前假设标签可能是 visual-only。
 - 如果涉及 repeated chrome，避免混合页眉、页脚、页码和正文。
+- If a code's inline message is not enough, `pdfvision docs warnings <code>` prints that one code's meaning, limits, and next step; `pdfvision docs warnings` lists every code with a one-line gloss.
 
 重要习惯不是让整个提取失败，而是让智能体选择下一步观察。pdfvision 会返回足够的证据来支持这个选择。

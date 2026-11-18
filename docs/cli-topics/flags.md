@@ -7,7 +7,7 @@ description: Per-flag caveats and how to choose between overlapping structural f
 
 `pdfvision --help` carries the one-line-per-flag list for picking a flag fast. This topic holds the hard-won per-flag caveats — the edge cases that decide whether a flag is the right one for an unusual document. Read it only when choosing between overlapping structural flags (`--layout` vs `--visual-regions` vs `--image-boxes` vs `--form-fields`, etc.) for a document that does not behave like the common case.
 
-The default extraction is enough for most native-text PDFs (papers, exports from Word / Pages / Markdown tooling). It automatically surfaces non-zero form-field, link, annotation, top-level outline, attachment, and document JavaScript presence counts; use the corresponding opt-in flag when a count shows furniture that the task needs. Output field shapes live in `pdfvision docs schema` (document and page level), `layout`, `interactive`, `document-features`, `visual`, and `search`; OCR specifics in `pdfvision docs ocr`; warning-code interpretation in `pdfvision docs warnings`.
+The default extraction is enough for most native-text PDFs (papers, exports from Word / Pages / Markdown tooling). It automatically surfaces non-zero form-field, link, annotation, top-level outline, attachment, and document JavaScript presence counts; use the corresponding opt-in flag when a count shows furniture that the task needs. Output field shapes live in `pdfvision docs schema` (document and page level), `layout`, `interactive`, `document-features`, `visual`, and `search`; OCR specifics in `pdfvision docs ocr`; warning-code interpretation in `pdfvision docs warnings` (one code: `pdfvision docs warnings <code>`).
 
 ## `--layout` — reconstruct reading order, headings, table rows
 
@@ -130,7 +130,7 @@ Multimodal flows, typically after the density Overview already flagged the page 
 
 ## `--render-region <x,y,w,h>` — zoom into a sub-rectangle of one page
 
-Use when the agent already saw a suspect block via `--layout` / `warnings[]` and only wants visual confirmation of that bbox, not the whole page. Coordinates use raw units in the displayed (post-`/Rotate`) page frame with a top-left origin, the frame every bbox is reported in; single-page only. Physical points = raw value × `pages[].userUnit` (or 1 when omitted), while pixels = raw region × UserUnit × render scale. The bbox passes unchanged, and the crop comes back the way the page displays, on rotated pages too. (Exception: a page flagged `rotated_page_read_unrotated` — text upright only as stored — is reported and rendered unrotated; see `pdfvision docs warnings`.)
+Use when the agent already saw a suspect block via `--layout` / `warnings[]` and only wants visual confirmation of that bbox, not the whole page. Coordinates use raw units in the displayed (post-`/Rotate`) page frame with a top-left origin, the frame every bbox is reported in; single-page only. Physical points = raw value × `pages[].userUnit` (or 1 when omitted), while pixels = raw region × UserUnit × render scale. The bbox passes unchanged, and the crop comes back the way the page displays, on rotated pages too. (Exception: a page flagged `rotated_page_read_unrotated` — text upright only as stored — is reported and rendered unrotated; see `pdfvision docs warnings rotated_page_read_unrotated`.)
 
 ## `--search <query>` — find occurrences with bbox
 
