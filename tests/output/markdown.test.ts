@@ -85,6 +85,49 @@ describe('formatMarkdown', () => {
     expect(out).toMatch(/rotation: 90°/);
   });
 
+  it('notes once where a turned region starts, and gives a turned table its rotation', () => {
+    const block = (text: string, rotation?: 90 | 270) => ({
+      text,
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10,
+      lines: [],
+      ...(rotation && { rotation }),
+    });
+    const out = formatMarkdown(
+      makeResult({
+        pages: [
+          makePage({
+            page: 1,
+            text: 'x',
+            charCount: 1,
+            layout: {
+              blocks: [block('Running head'), block('Caption', 90), block('Cell', 90), block('Folio', 270)],
+              tables: [
+                {
+                  x: 1,
+                  y: 2,
+                  width: 3,
+                  height: 4,
+                  rowCount: 1,
+                  columnCount: 1,
+                  rows: [{ y: 2, height: 4, cells: [{ text: 'a', x: 1, y: 2, width: 3, height: 4 }] }],
+                  rotation: 90,
+                },
+              ],
+            },
+          }),
+        ],
+      }),
+      { layout: true },
+    );
+    expect(out).toContain(
+      'Running head\n\n_[Drawn turned on the page (running up the page), read upright; rotation: 90°]_\n\nCaption\n\nCell\n\n_[Drawn turned on the page (running down the page), read upright; rotation: 270°]_\n\nFolio',
+    );
+    expect(out).toContain('#### Table 1 (1 rows × 1 columns, bbox 1,2,3,4, rotation 90°)');
+  });
+
   it('emits a Markdown image link when the page has a rendered PNG path', () => {
     const out = formatMarkdown(
       makeResult({

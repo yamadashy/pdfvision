@@ -12,7 +12,10 @@ export function appendLayoutTables(lines: string[], tables: LayoutTables): void 
   for (const [index, table] of tables.entries()) {
     const columnCount = tableColumnCount(table);
     lines.push('');
-    lines.push(`#### Table ${index + 1} (${table.rowCount} rows × ${columnCount} columns, bbox ${formatBox(table)})`);
+    const rotation = table.rotation !== undefined ? `, rotation ${table.rotation}°` : '';
+    lines.push(
+      `#### Table ${index + 1} (${table.rowCount} rows × ${columnCount} columns, bbox ${formatBox(table)}${rotation})`,
+    );
     lines.push('');
     lines.push(`| ${Array.from({ length: columnCount }, (_, columnIndex) => `C${columnIndex + 1}`).join(' | ')} |`);
     lines.push(`| ${Array.from({ length: columnCount }, () => '---').join(' | ')} |`);
