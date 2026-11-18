@@ -13,7 +13,7 @@ import { splitSideBySideTables } from './sideBySideTables.js';
 import { detectSparseSingleRowTables } from './sparseTables.js';
 import { mergeSplitHeaderTables, SPLIT_HEADER_MAX_ROWS } from './splitHeaderTables.js';
 import { groupRowsWithBridges } from './tableBridgeRows.js';
-import { hasRegularTableRowCadence } from './tableCadence.js';
+import { hasRegularRowLeading, hasRegularTableRowCadence } from './tableCadence.js';
 import { tableCandidateRow } from './tableCandidateRows.js';
 import { isTableNumericCell, isTableValueCell, normalizeTableCurrencyCells } from './tableCells.js';
 import { assignTableColumns } from './tableColumns.js';
@@ -56,6 +56,7 @@ const ALIGNED_TEXT_TABLE_MIN_LABEL_ROW_RATIO = 0.5;
 const BORROWED_HEADER_MAX_ROWS = 4;
 const BORROWED_HEADER_MAX_GAP_PT = 12;
 const RULED_TABLE_REPLACE_OVERLAP = 0.3;
+const MAX_CELL_DETAIL_LINES = 2;
 
 /**
  * Tables drawn as a ruled grid are read from their rules; the tables the
@@ -154,7 +155,7 @@ function detectTextTables(lines: LayoutLine[], horizontalRules: readonly TableRu
   for (let index = 0; index < tables.length; index++) {
     const table = tables[index];
     const baseRows = table.map(({ row }) => row);
-    if (baseRows.length < 2 || !hasTableCadence(table, candidateIndexes)) continue;
+    if (baseRows.length < 2 || !hasTableCadence(table, candidateIndexes, allRowGroups)) continue;
     if (isTwoColumnNumericOnlyTable(baseRows) && baseRows.length < TWO_COLUMN_NUMERIC_TABLE_MIN_ROWS) continue;
     const nextTableFirstIndex = tables[index + 1]?.[0]?.index ?? allRowGroups.length;
     const rows = attachNumericContinuationRows(table, allRowGroups, nextTableFirstIndex);
@@ -210,10 +211,44 @@ function detectTextTables(lines: LayoutLine[], horizontalRules: readonly TableRu
 
 // Placeholder rows fill the gaps of the row pitch but carry no numbers, so
 // the rows also pass on the numbered rows alone, as before they were admitted.
-function hasTableCadence(table: IndexedLayoutRow[], candidateIndexes: ReadonlySet<number>): boolean {
+function hasTableCadence(
+  table: IndexedLayoutRow[],
+  candidateIndexes: ReadonlySet<number>,
+  allRows: readonly LayoutLine[][],
+): boolean {
   if (hasRegularTableRowCadence(table.map(({ row }) => row))) return true;
   const numbered = table.filter(({ index }) => candidateIndexes.has(index)).map(({ row }) => row);
-  return numbered.length < table.length && hasRegularTableRowCadence(numbered);
+  if (numbered.length < table.length && hasRegularTableRowCadence(numbered)) return true;
+  return hasRegularLeadingWithDetails(table, allRows);
+}
+
+/**
+ * Each row with the lines set under one of its cells: a single line of its
+ * own that starts under a cell other than the row's first (a statement's
+ * `Standing order ref LCL-0412`, set small and indented under its
+ * description), at most {@link MAX_CELL_DETAIL_LINES} of them. Rows that
+ * carry one sit a line further apart than rows that do not, so the pitch
+ * alternates while the space between rows stays the same.
+ */
+function withCellDetailLines(table: readonly IndexedLayoutRow[], allRows: readonly LayoutLine[][]): LayoutLine[][] {
+  return table.map(({ row, index }, position) => {
+    const next = table[position + 1]?.index ?? index + 1;
+    const cells = [...row].sort((a, b) => a.x - b.x).slice(1);
+    const details: LayoutLine[] = [];
+    for (let i = index + 1; i < next && details.length < MAX_CELL_DETAIL_LINES; i++) {
+      const [line, ...rest] = allRows[i] ?? [];
+      if (!line || rest.length > 0) break;
+      if (!cells.some((cell) => line.x >= cell.x - 1 && line.x < cell.x + cell.width)) break;
+      details.push(line);
+    }
+    return details.length > 0 ? [...row, ...details] : row;
+  });
+}
+
+/** Whether the rows keep one leading once their detail lines are counted, when some carry one. */
+function hasRegularLeadingWithDetails(table: readonly IndexedLayoutRow[], allRows: readonly LayoutLine[][]): boolean {
+  const rows = withCellDetailLines(table, allRows);
+  return rows.some((row, i) => row !== table[i].row) && hasRegularRowLeading(rows);
 }
 
 function isTwoColumnNumericOnlyTable(rows: LayoutLine[][]): boolean {
@@ -276,7 +311,7 @@ function detectAlignedTextTables(allRowGroups: LayoutLine[][]): {
     if (isLikelyTinyNumericChartFragment(baseRows.flat())) continue;
     if (isLikelySparseNumericLegendFragment(baseRows.flat())) continue;
     if (isLikelyMirroredChartAxisTable(baseRows.flat())) continue;
-    if (!isAlignedTextTableGroup(baseRows)) continue;
+    if (!isAlignedTextTableGroup(baseRows, allRowGroups)) continue;
     const rows = attachAlignedTextHeaderRows(group.rows, allRowGroups);
     if (isLikelyTinyNumericChartFragment(rows.flat())) continue;
     if (isLikelySparseNumericLegendFragment(rows.flat())) continue;
@@ -298,9 +333,17 @@ function alignedTextTableCandidateRow(row: LayoutLine[]): LayoutLine[] | undefin
   return row;
 }
 
-function isAlignedTextTableGroup(rows: LayoutLine[][]): boolean {
+function isAlignedTextTableGroup(rows: LayoutLine[][], allRows: readonly LayoutLine[][]): boolean {
   if (rows.length < ALIGNED_TEXT_TABLE_MIN_ROWS) return false;
-  if (!hasRegularTableRowCadence(rows)) return false;
+  if (
+    !hasRegularTableRowCadence(rows) &&
+    !hasRegularLeadingWithDetails(
+      rows.map((row) => ({ row, index: allRows.indexOf(row) })),
+      allRows,
+    )
+  ) {
+    return false;
+  }
   if (rows.filter(hasTextLabelCell).length < Math.ceil(rows.length * ALIGNED_TEXT_TABLE_MIN_LABEL_ROW_RATIO)) {
     return false;
   }

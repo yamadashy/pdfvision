@@ -8,7 +8,7 @@ import {
   TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROW_RATIO,
   TABLE_RECURRING_NUMERIC_COLUMN_MIN_ROWS,
 } from './tableColumnStats.js';
-import { rowY } from './tableRows.js';
+import { rowBottom, rowY } from './tableRows.js';
 
 const TABLE_ROW_CADENCE_MIN_MATCH_RATIO = 0.65;
 const TABLE_ROW_CADENCE_TOLERANCE_RATIO = 0.25;
@@ -28,6 +28,19 @@ export function hasRegularTableRowCadence(rows: LayoutLine[][]): boolean {
     return true;
   }
   return hasRecurringNumericColumns(rows);
+}
+
+/**
+ * The space between one row's last line and the next row's first is the
+ * same throughout, though rows that wrap a cell are a line taller: the
+ * pitch alternates, the leading does not. `rows` carry their wrapped lines.
+ */
+export function hasRegularRowLeading(rows: LayoutLine[][]): boolean {
+  const ordered = [...rows].sort((a, b) => rowY(a) - rowY(b));
+  const gaps: number[] = [];
+  for (let i = 1; i < ordered.length; i++) gaps.push(rowY(ordered[i]) - rowBottom(ordered[i - 1]));
+  if (gaps.length < 2 || gaps.some((gap) => gap <= 0)) return false;
+  return cadenceMatchRatio(gaps) >= TABLE_ROW_CADENCE_MIN_MATCH_RATIO;
 }
 
 // Nearly every row starts with a text label, all in one column.
