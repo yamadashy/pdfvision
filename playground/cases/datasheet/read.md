@@ -13,7 +13,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 | Page | Chars | Images | Coverage | Size (pt) | Vectors | Tables | Blocks | Warnings | Fields | Links | Annots |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | 1 | 1511 | 0 | 17% | 612×792 | 22 | 2 | 40 | 0 | 0 | 0 | 0 |
-| 2 | 1071 | 0 | 7% | 612×792 | 219 | 1 | 54 | 2 | 0 | 0 | 0 |
+| 2 | 1071 | 0 | 7% | 612×792 | 219 | 1 | 78 | 1 | 0 | 0 | 0 |
 
 ---
 
@@ -153,7 +153,7 @@ mA
 
 ## Page 2
 
-_chars: 1071 · images: 0 · coverage: 7% · vectors: 219 · tables: 1 · warnings: 2 · size: 612×792pt_
+_chars: 1071 · images: 0 · coverage: 7% · vectors: 219 · tables: 1 · warnings: 1 · size: 612×792pt_
 
 6 Electrical Characteristics
 
@@ -165,117 +165,141 @@ SYMBOL
 
 TEST CONDITIONS
 
-OFFSET VOLTAGE
-Input offset voltage
-
-Offset voltage drift
-INPUT BIAS CURRENT
-Input bias current
-
-NOISE
-Input voltage noise
-density
-
-OUTPUT
-Voltage output swing
-from rail
-Short-circuit current
-POWER SUPPLY
-Quiescent current per
-amplifier
-
-Power-supply rejection
-ratio
-
-V_{OS}
-T_A = –40°C to +125°C
-dV_{OS}/dT T_A = –40°C to +125°C
-
-I_B
-
-e_n
-
-V_O
-
-I_{SC}
-
-I_Q
-
-PSRR
-
-T_A = 25°C
-
-T_A = 25°C
-T_A = –40°C to +125°C
-
-f = 1 kHz
-f = 10 kHz
-
-R_L = 10 kΩ to V_S / 2,
-T_A = –40°C to +125°C
-V_S = 5 V
-
-I_O = 0 mA
-I_O = 0 mA,
-T_A = –40°C to +125°C
-V_S = 2.7 V to 5.5 V
-
 MIN
-
-80
 
 TYP
 
-±0.3
-
-1.2
-
-±1
-
-12
-9.5
-
-8
-
-±50
-
-0.85
-
-96
-
 MAX
-
-±1.5
-±2.5
-
-±10
-±800
-
-25
-
-1.1
-1.4
 
 UNIT
 
+OFFSET VOLTAGE
+Input offset voltage
+
+V_{OS}
+
+T_A = 25°C
+
+±0.3
+
+±1.5
+
 mV
+
+±2.5
+
 mV
+
+Offset voltage drift
+
+T_A = –40°C to +125°C
+dV_{OS}/dT T_A = –40°C to +125°C
+
+1.2
+
 μV/°C
 
-pA
+INPUT BIAS CURRENT
+Input bias current
+
+I_B
+
+T_A = 25°C
+
+±1
+
+±10
+
 pA
 
+T_A = –40°C to +125°C
+
+±800
+
+pA
+
+NOISE
+Input voltage noise
+
+e_n
+
+f = 1 kHz
+
+12
+
 nV/√Hz
+
+density
+
+f = 10 kHz
+
+9.5
+
 nV/√Hz
+
+OUTPUT
+Voltage output swing
+
+V_O
+
+R_L = 10 kΩ to V_S / 2,
+
+8
+
+25
 
 mV
 
-mA
+from rail
+
+T_A = –40°C to +125°C
+
+Short-circuit current
+
+I_{SC}
+
+V_S = 5 V
+
+±50
 
 mA
+
+POWER SUPPLY
+Quiescent current per
+
+I_Q
+
+I_O = 0 mA
+
+0.85
+
+1.1
+
 mA
+
+amplifier
+
+I_O = 0 mA,
+
+1.4
+
+mA
+
+T_A = –40°C to +125°C
+
+Power-supply rejection
+
+PSRR
+
+V_S = 2.7 V to 5.5 V
+
+80
+
+96
 
 dB
+
+ratio
 
 7 Package Outline
 
@@ -297,4 +321,3 @@ D (SOIC-8) plastic small-outline package
 ### Warnings
 
 > **warning** (layout_table_uncertain): layout table 1 (bbox 44,265.03,487.63,109.36) did not resolve into one consistent grid: 5 lines with numbers inside the table belong to no row — its cells may sit in the wrong row or column or be missing; render that region (--render-region 44,265.03,487.63,109.36) before trusting the table
-> **warning** (reading_order_divergence): layout line "INPUT BIAS CURRENT" appears after "Offset voltage drift" visually but earlier in the native text stream — native line order diverges from what a human reads; the body above is that reading order, rebuilt from the layout — render the page when exact sequence is critical

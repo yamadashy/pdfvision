@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildLayout } from '../../src/core/layout/index.js';
-import { detectLayoutRegions } from '../../src/core/layout/regions.js';
+import { detectLayoutRegions, isLabelLikeBlock } from '../../src/core/layout/regions.js';
 import type { LayoutBlock, TextSpan } from '../../src/types/index.js';
 
 function span(text: string, x: number, y: number, fontSize: number, width = text.length * fontSize * 0.5): TextSpan {
@@ -205,5 +205,23 @@ describe('buildLayout — regions on other page shapes', () => {
     expect(layout.blocks.map((block) => block.text).join('|')).toContain('地域図書館');
     const regions = detectLayoutRegions(layout.blocks, box, 595, 842);
     expect(regions.every((region) => region.blocks.every((block) => block.writingMode !== 'vertical'))).toBe(true);
+  });
+});
+
+describe('isLabelLikeBlock — script notation', () => {
+  // datasheet: a two-line condition cell whose subscripts are marked. The
+  // markers add characters, not content; counted, they made the cell
+  // "prose" and the ruled table lost its row-by-row reading.
+  it('measures a cell without its script markers', () => {
+    const lines = ['T_A = –40°C to +125°C', 'dV_{OS}/dT T_A = –40°C to +125°C'];
+    const block: LayoutBlock = {
+      text: lines.join('\n'),
+      x: 161,
+      y: 155,
+      width: 116,
+      height: 22,
+      lines: lines.map((text, i) => ({ text, x: 161, y: 155 + i * 14, width: 116, height: 8, fontSize: 7 })),
+    };
+    expect(isLabelLikeBlock(block)).toBe(true);
   });
 });

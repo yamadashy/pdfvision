@@ -1,4 +1,5 @@
 import type { LayoutBlock } from '../../types/index.js';
+import { withoutScriptMarkup } from '../text/scripts.js';
 import type { BBox } from './geometry.js';
 import { type Candidate, clusterBoxes, isFiniteBox, MIN_FIGURE_GRAPHICS, ruleBands } from './regionCandidates.js';
 
@@ -68,7 +69,9 @@ const BAR_BASE_TOLERANCE_PT = 1.5;
 
 export function isLabelLikeBlock(block: LayoutBlock): boolean {
   if (block.lines.length > LABEL_MAX_LINES) return false;
-  return block.text.replace(/\s+/gu, '').length <= LABEL_MAX_CHARS;
+  // `dV_{OS}/dT` is as short a cell as `dVOS/dT`; counting the script
+  // markers would turn a table's condition cell into prose.
+  return withoutScriptMarkup(block.text).replace(/\s+/gu, '').length <= LABEL_MAX_CHARS;
 }
 
 /**

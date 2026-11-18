@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { normalizeText } from '../../src/core/processor/textUtils.js';
-import { attachScripts, markUnicodeScripts } from '../../src/core/text/scripts.js';
+import { attachScripts, markUnicodeScripts, withoutScriptMarkup } from '../../src/core/text/scripts.js';
 import type { RawTextItem } from '../../src/core/text/textItems.js';
 
 /** A text item whose baseline is `y` (PDF space, up is positive). */
@@ -118,5 +118,13 @@ describe('markUnicodeScripts', () => {
   it('survives NFKC normalization, which would fold ² to 2', () => {
     expect(normalizeText('R² = 0.91')).toBe('R^2 = 0.91');
     expect(normalizeText('plain 2 text')).toBe('plain 2 text');
+  });
+});
+
+describe('withoutScriptMarkup', () => {
+  it('drops the markers and braces but keeps the script text', () => {
+    expect(withoutScriptMarkup('dV_{OS}/dT T_A = 25°C')).toBe('dVOS/dT TA = 25°C');
+    expect(withoutScriptMarkup('2.3 · 10^19 and e^{-f}')).toBe('2.3 · 1019 and e-f');
+    expect(withoutScriptMarkup('plain text')).toBe('plain text');
   });
 });
