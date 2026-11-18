@@ -24,8 +24,10 @@ manufacture?
 No
 
 Offer a repair
-
 at our cost
+
+Refund to the original
+payment method
 
 No
 
@@ -52,10 +54,6 @@ Yes
 Item unused?
 
 Yes
-
-Refund to the original
-
-payment method
 
 Send confirmation email
 

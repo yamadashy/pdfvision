@@ -7,10 +7,11 @@ import { classifyHeadings } from './headings.js';
 import { buildLayoutLinesWithGutters } from './lines.js';
 import { assembleDisplayMath } from './math/index.js';
 import { orderLayoutBlocks } from './regionOrder.js';
-import { detectLayoutRegions, type LayoutGraphics } from './regions.js';
+import { detectLayoutRegions, type LayoutGraphics, type LayoutRegion } from './regions.js';
 import { sideLineMarks } from './sideLines.js';
 import { tableRules } from './tableRules.js';
 import { detectLayoutTables } from './tables.js';
+import { extractTitleGrids } from './titleGrid.js';
 import { isVerticalPage, orderVerticalPage } from './vertical/pageOrder.js';
 import { compareLayoutBlocks, extractVerticalCjkBlocks } from './verticalText.js';
 import { findWovenContinuation } from './wovenLines.js';
@@ -56,9 +57,10 @@ export function buildLayout(
   const math = assembleDisplayMath(spans, mathBoxes, pageWidth);
   const vertical = extractVerticalCjkBlocks(math.spans);
   const code = extractCodeBlocks(vertical.remainingSpans, monospaceFonts);
+  const grid = extractTitleGrids(code.remainingSpans);
 
   const rules = tableRules(graphics?.vectorBoxes);
-  const { lines, columnGutters } = buildLayoutLinesWithGutters(code.remainingSpans, pageWidth, rules.vertical);
+  const { lines, columnGutters } = buildLayoutLinesWithGutters(grid.remainingSpans, pageWidth, rules.vertical);
   // A "table" whose every column boundary is a detected prose gutter is the
   // page's text columns read across (#242), not a table.
   const detectedTables = detectLayoutTables(lines, rules, graphics?.vectorBoxes)?.filter(
@@ -130,6 +132,7 @@ export function buildLayout(
     })),
     ...vertical.blocks,
     ...code.blocks,
+    ...grid.blocks,
   ].sort(compareLayoutBlocks);
 
   if (isVerticalPage(blocks)) {
@@ -141,9 +144,27 @@ export function buildLayout(
   classifyHeadings(blocks, pageWidth, pageHeight);
   const ordered =
     pageWidth > 0
-      ? orderLayoutBlocks(blocks, detectLayoutRegions(blocks, graphics, pageWidth, pageHeight), pageWidth, pageHeight)
+      ? orderLayoutBlocks(
+          blocks,
+          [...detectLayoutRegions(blocks, graphics, pageWidth, pageHeight), ...gridRegions(grid.gridBlocks)],
+          pageWidth,
+          pageHeight,
+        )
       : blocks;
   return withMarks({ blocks: ordered, ...(tables !== undefined && { tables }) }, math.spans, graphics);
+}
+
+/** A title grid reads as one unit, row by row (see `extractTitleGrids`). */
+function gridRegions(grids: readonly LayoutBlock[][]): LayoutRegion[] {
+  return grids.map((cells) => ({
+    kind: 'figure',
+    blocks: [...cells],
+    ...unionBox(cells),
+    graphicCount: 0,
+    marks: 0,
+    verticalMarks: false,
+    bars: false,
+  }));
 }
 
 function withMarks(layout: PageLayout, spans: readonly TextSpan[], graphics: LayoutGraphics | undefined): PageLayout {

@@ -8,6 +8,7 @@ import { mergeLineTexts, rowBottom, rowY } from './tableRows.js';
 
 const SPARSE_TABLE_MIN_NUMERIC_CELLS = 3;
 const SPARSE_TABLE_MIN_HEADER_ROWS = 3;
+const SPARSE_TABLE_MIN_HEADER_ROWS_UNDER_PROSE = 2;
 const SPARSE_TABLE_MAX_HEADER_SCAN_ROWS = 20;
 const SPARSE_TABLE_HEADER_MAX_GAP_PT = 18;
 const SPARSE_TABLE_LABEL_CONTINUATION_MAX_GAP_PT = 18;
@@ -27,10 +28,10 @@ export function detectSparseSingleRowTables(allRows: LayoutLine[][]): LayoutTabl
     const label = bodyRow.find(isTextLabelCell);
     if (!label) continue;
 
-    const headerRows = collectSparseTableHeaderRows(allRows, index, bodyRow, label);
-    if (!isSparseHeaderStack(headerRows, bodyRow, label)) continue;
+    const headerStack = collectSparseTableHeaderRows(allRows, index, bodyRow, label);
+    if (!isSparseHeaderStack(headerStack, bodyRow, label)) continue;
 
-    const rows = [...headerRows, bodyRow];
+    const rows = [...headerStack.rows, bodyRow];
     if (isLikelyTinyNumericChartFragment(rows.flat())) continue;
 
     tables.push(toSparseLayoutTable(rows));
@@ -69,8 +70,9 @@ function collectSparseTableHeaderRows(
   bodyIndex: number,
   bodyRow: LayoutLine[],
   bodyLabel: LayoutLine,
-): LayoutLine[][] {
+): HeaderStack {
   const headers: LayoutLine[][] = [];
+  const stack: HeaderStack = { rows: headers, underProse: false };
   let nextTop = rowY(bodyRow);
 
   for (let index = bodyIndex - 1; index >= 0 && bodyIndex - index <= SPARSE_TABLE_MAX_HEADER_SCAN_ROWS; index--) {
@@ -81,6 +83,12 @@ function collectSparseTableHeaderRows(
       continue;
     }
     if (isSectionHeadingRow(row)) break;
+    // A line of running text above the table is the page's prose, and what
+    // lies above it (an abstract, a title block) is not a column header.
+    if (isRunningTextRow(row)) {
+      stack.underProse = true;
+      break;
+    }
 
     const gap = nextTop - rowBottom(row);
     if (gap < -4 || gap > SPARSE_TABLE_HEADER_MAX_GAP_PT) break;
@@ -90,11 +98,21 @@ function collectSparseTableHeaderRows(
     nextTop = rowY(row);
   }
 
-  return headers;
+  return stack;
 }
 
-function isSparseHeaderStack(rows: LayoutLine[][], bodyRow: LayoutLine[], bodyLabel: LayoutLine): boolean {
-  if (rows.length < SPARSE_TABLE_MIN_HEADER_ROWS) return false;
+interface HeaderStack {
+  rows: LayoutLine[][];
+  /** The scan stopped at a line of running text directly above the header rows. */
+  underProse: boolean;
+}
+
+function isSparseHeaderStack({ rows, underProse }: HeaderStack, bodyRow: LayoutLine[], bodyLabel: LayoutLine): boolean {
+  // A stack set off from the prose above it needs less height to count:
+  // two header rows under a paragraph are the table's own.
+  if (rows.length < (underProse ? SPARSE_TABLE_MIN_HEADER_ROWS_UNDER_PROSE : SPARSE_TABLE_MIN_HEADER_ROWS)) {
+    return false;
+  }
   const bodyNumericCells = bodyRow.filter((line) => isTableNumericCell(line.text));
   const numericHeaderMatches = bodyNumericCells.filter((cell) =>
     rows.some((row) => row.some((line) => horizontallyRelated(line, cell))),
@@ -118,7 +136,12 @@ function isBodyLabelContinuationRow(row: LayoutLine[], label: LayoutLine, nextTo
   if (row.length !== 1) return false;
   const line = row[0];
   if (!line || !/[\p{L}]/u.test(line.text)) return false;
-  if (Math.abs(line.x - label.x) > Math.max(12, label.fontSize * 2)) return false;
+  const slack = Math.max(12, label.fontSize * 2);
+  if (Math.abs(line.x - label.x) > slack) return false;
+  // A wrapped label stays in its column; a line reaching well past the
+  // label's right edge is a full-width line over it (an abstract above a
+  // table set in the right-hand text column).
+  if (line.x + line.width > label.x + label.width + slack) return false;
   const gap = nextTop - (line.y + line.height);
   return gap >= -Math.max(12, line.height * 0.75) && gap <= SPARSE_TABLE_LABEL_CONTINUATION_MAX_GAP_PT;
 }
@@ -126,6 +149,17 @@ function isBodyLabelContinuationRow(row: LayoutLine[], label: LayoutLine, nextTo
 function isSectionHeadingRow(row: LayoutLine[]): boolean {
   if (row.length !== 1) return false;
   return /^\d+\.\s+\p{Lu}/u.test(row[0]?.text.trim() ?? '');
+}
+
+const RUNNING_TEXT_MIN_WORDS = 8;
+const RUNNING_TEXT_MIN_EM = 20;
+
+function isRunningTextRow(row: LayoutLine[]): boolean {
+  if (row.length !== 1) return false;
+  const [line] = row;
+  if (!line) return false;
+  const words = line.text.split(/\s+/u).filter((word) => /\p{L}/u.test(word)).length;
+  return words >= RUNNING_TEXT_MIN_WORDS && line.width >= Math.max(line.fontSize, 1) * RUNNING_TEXT_MIN_EM;
 }
 
 function isTextLabelCell(line: LayoutLine): boolean {
