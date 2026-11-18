@@ -7,23 +7,29 @@ import {
   isLikelyTinyNumericChartFragment,
   isLikelyTinyNumericVectorGrid,
 } from './numericVectorGrid.js';
+import { fitTableToRules } from './ruleBoundTables.js';
+import { detectRuledTables, type RuledTable, withHeaderRowsAbove } from './ruledTables.js';
+import { splitSideBySideTables } from './sideBySideTables.js';
 import { detectSparseSingleRowTables } from './sparseTables.js';
 import { mergeSplitHeaderTables, SPLIT_HEADER_MAX_ROWS } from './splitHeaderTables.js';
 import { groupRowsWithBridges } from './tableBridgeRows.js';
 import { hasRegularTableRowCadence } from './tableCadence.js';
 import { tableCandidateRow } from './tableCandidateRows.js';
-import { isTableNumericCell, normalizeTableCurrencyCells } from './tableCells.js';
+import { isTableNumericCell, isTableValueCell, normalizeTableCurrencyCells } from './tableCells.js';
 import { assignTableColumns } from './tableColumns.js';
 import {
   attachNumericContinuationRows,
   type IndexedLayoutRow,
   scanLabelContinuationRows,
+  splitHeadingRows,
 } from './tableContinuations.js';
 import { insertTableGroupLabelRows } from './tableGroupRows.js';
+import { splitJoinedHeaderCells } from './tableHeaderCells.js';
 import { foldCarriedLabelLines } from './tableLabelWraps.js';
 import { attachLeadingTableRows } from './tableLeadingRows.js';
 import { admitPlaceholderRows } from './tablePlaceholderRows.js';
 import { groupLinesByTableRow, rowBottom, rowY } from './tableRows.js';
+import type { TableRules } from './tableRules.js';
 
 export { isTableNumericCell } from './tableCells.js';
 
@@ -39,8 +45,47 @@ const ALIGNED_TEXT_TABLE_MAX_CELL_WIDTH_PT = 220;
 const ALIGNED_TEXT_TABLE_MIN_LABEL_ROW_RATIO = 0.5;
 const BORROWED_HEADER_MAX_ROWS = 4;
 const BORROWED_HEADER_MAX_GAP_PT = 12;
+const RULED_TABLE_REPLACE_OVERLAP = 0.3;
 
-export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefined {
+/**
+ * Tables drawn as a ruled grid are read from their rules; the tables the
+ * text detectors find in the same place give way to them. `boxes` (all of
+ * the page's vector boxes) tell two grids set side by side apart.
+ */
+export function detectLayoutTables(
+  lines: LayoutLine[],
+  rules: TableRules = { horizontal: [], vertical: [] },
+  boxes: readonly BBox[] = [],
+): LayoutTable[] | undefined {
+  const found = detectTextTables(lines)
+    ?.flatMap((table) => splitSideBySideTables(table, boxes))
+    .map((table) => splitJoinedHeaderCells(fitTableToRules(table, rules.horizontal, lines), lines));
+  const detected = found && found.length > 0 ? found : undefined;
+  const ruled = withoutFragmentGrids(detectRuledTables(lines, rules), detected ?? []);
+  if (ruled.length === 0) return detected;
+  const replaces = (grid: LayoutTable, table: LayoutTable) =>
+    overlapOfSmaller(grid, table) >= RULED_TABLE_REPLACE_OVERLAP;
+  // A text table reaching past the grid keeps its rows outside it.
+  const tables = (detected ?? []).flatMap((table) => {
+    const grids = ruled.filter(({ table: grid }) => replaces(grid, table)).map(({ table: grid }) => grid);
+    if (grids.length === 0) return [table];
+    // Text beside a drawn grid that line-ups glued onto it (an address
+    // block above an invoice's item grid) becomes a table of its own.
+    const outside = table.rows.filter((row) => !grids.some((grid) => isRowInside(row, grid)));
+    return outside.length >= 2 ? [withRows(table, outside)] : [];
+  });
+  for (const item of ruled) {
+    const replaced = (detected ?? []).filter((table) => replaces(item.table, table));
+    const grid = withHeaderRowsAbove(
+      item,
+      replaced.flatMap((table) => table.rows),
+    );
+    tables.push(grid);
+  }
+  return tables.sort((a, b) => a.y - b.y || a.x - b.x);
+}
+
+function detectTextTables(lines: LayoutLine[]): LayoutTable[] | undefined {
   // Rows are grouped from the lines as built, then split into the cells a
   // widely spaced line joined, so the split never changes which row a line is in.
   const allRowGroups = groupLinesByTableRow(lines).map((row) => linesAsTableCells(row).sort((a, b) => a.x - b.x));
@@ -61,7 +106,10 @@ export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefin
   const finalize = (table: LayoutTable) => {
     const withGroupLabels = insertTableGroupLabelRows(table, allRowGroups);
     const firstDataRow = withGroupLabels.rows.findIndex((row) => firstDataRows.has(row));
-    return assignTableColumns(withGroupLabels, firstDataRow >= 0 ? firstDataRow : undefined);
+    return splitJoinedHeaderCells(
+      assignTableColumns(withGroupLabels, firstDataRow >= 0 ? firstDataRow : undefined),
+      lines,
+    );
   };
   if (rowGroups.length < 2) {
     const fallback = [...alignedTextTables, ...sparseSingleRowTables].map(finalize);
@@ -94,7 +142,7 @@ export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefin
     if (isLikelyTinyNumericChartFragment(tableRows.flat())) continue;
     if (isLikelySparseNumericLegendFragment(tableRows.flat())) continue;
     if (isLikelyMirroredChartAxisTable(tableRows.flat())) continue;
-    result.push(toLayoutTable(tableRows));
+    result.push(toLayoutTable(splitHeadingRows(tableRows)));
   }
   for (const table of alignedTextTables) {
     // Overlapping mostly, or ending on a body row of it: the same table.
@@ -314,6 +362,51 @@ function withHeaderRowsFrom(table: LayoutTable, other: LayoutTable): LayoutTable
   }
   if (header.length === 0) return table;
   const rows = [...header, ...table.rows];
+  const box = unionBox(rows.flatMap((row) => row.cells));
+  return { ...table, ...box, rowCount: rows.length, rows };
+}
+
+/**
+ * Ruled grids that are pieces of one table found from its text: several
+ * grids inside it, the later ones opening on data rather than a header of
+ * their own (rules drawn around groups of rows, not around tables). The
+ * text table reads them as one; grids that each open on their own header
+ * are separate tables stacked closely, and stay.
+ */
+function withoutFragmentGrids(ruled: RuledTable[], detected: readonly LayoutTable[]): RuledTable[] {
+  const fragments = new Set<RuledTable>();
+  for (const table of detected) {
+    const inside = ruled
+      .filter(({ table: grid }) => overlapOfSmaller(grid, table) >= RULED_TABLE_REPLACE_OVERLAP)
+      .sort((a, b) => a.table.y - b.table.y);
+    if (inside.length < 2) continue;
+    // Grids side by side are separate tables, whatever the text detector joined.
+    if (
+      inside.some(({ table: grid }) => inside.some(({ table: other }) => other !== grid && !isStackedOver(grid, other)))
+    ) {
+      continue;
+    }
+    const opensOnData = inside.slice(1).filter(({ table: grid }) => startsWithValues(grid));
+    if (opensOnData.length * 2 >= inside.length - 1) for (const grid of inside) fragments.add(grid);
+  }
+  return ruled.filter((grid) => !fragments.has(grid));
+}
+
+function isStackedOver(a: BBox, b: BBox): boolean {
+  const overlap = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+  return overlap >= Math.min(a.width, b.width) * 0.5;
+}
+
+function startsWithValues(table: LayoutTable): boolean {
+  return table.rows[0]?.cells.some((cell) => isTableValueCell(cell.text)) ?? false;
+}
+
+function isRowInside(row: LayoutTableRow, box: BBox): boolean {
+  const center = row.y + row.height / 2;
+  return center > box.y && center < box.y + box.height;
+}
+
+function withRows(table: LayoutTable, rows: LayoutTableRow[]): LayoutTable {
   const box = unionBox(rows.flatMap((row) => row.cells));
   return { ...table, ...box, rowCount: rows.length, rows };
 }

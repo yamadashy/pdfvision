@@ -2,7 +2,7 @@
 
 - **Stresses:** A4; title faked bold by overdrawing the same text five times; two-column label/value block; bordered results tables with △ negatives, ％ rows and ― placeholders; one letter-spaced justified line in a paragraph
 - **Families:** encoding, scripts, tables, structure
-- **Status:** known-gap
+- **Status:** ok
 
 Dated 2026年11月14日. Title (overdrawn five times to fake bold; a correct reading has it once):
 
@@ -74,13 +74,12 @@ The overdrawn title reads once, `2027年3月期 第2四半期(中間期)決算�
 answers question 5, and the justified line reads `ると判断する一定の前提に基づいており、詳細は当社ウェブサイト`
 (#268), so 「判断する」 and 「当社ウェブサイト」 can be searched.
 
-**Known gap (no issue yet):** the results table, below. The rest is usable. The page body
-separates the company labels from their values (all labels, then all values, ahead of the results
-table), but layout table 5 pairs them correctly
+The page body separates the company labels from their values (all labels, then all values, ahead
+of the results table), but a layout table pairs them correctly
 (`| 問合せ先責任者 | (役職名)取締役経理部長 (氏名)佐藤 由美 | … | TEL | 06-0000-1234 |`), so questions 1
-and 4 are answered from it; it carries `layout_table_uncertain` because it runs on into the results
-header. The results table keeps only the units row of its header (`百万円 | % | …`, #253) and loses
-the item names, so its columns are `C1…C9` with no label above the amounts, and it merges one cell:
-`| 2027年3月期中間期 | 48,215 | 5.2 | 3,104 △12.4 |  | 3,380 |…` — question 2 is still answerable, but the
-operating-profit change sits in the amount column with the % column empty, and table 1 carries no
-warning. The dividend table, with its `―` placeholders, is read correctly (question 3).
+and 4 are answered from it. The results, balance-sheet and dividend tables are read from their
+ruled grids (#277): the results table has its item names (`売上高 | | 営業利益 | | 経常利益 | | 親会社株主に帰属 する中間純利益`,
+#253) above its units row, and `3,104` and `△12.4` are separate cells
+(`| 2027年3月期中間期 | 48,215 | 5.2 | 3,104 | △12.4 | 3,380 |…`), so question 2 reads the change from
+the % column; the dividend table keeps its `―` placeholders (question 3). Each item name sits on
+the first of the two columns under it.

@@ -25,6 +25,8 @@ const TABLE_DROPPED_LABEL_X_TOLERANCE_PT = 14;
 const TABLE_LABEL_CONTINUATION_PROSE_MIN_WORDS = 6;
 const TABLE_LABEL_CONTINUATION_PROSE_MIN_WIDTH_PT = 220;
 const TABLE_LABEL_CONTINUATION_MAX_ROWS = 4;
+const WORD_SPACE_EM = 0.25;
+const WRAP_FIT_MARGIN_EM = 0.5;
 
 export function attachNumericContinuationRows(
   table: IndexedLayoutRow[],
@@ -59,9 +61,14 @@ export function attachNumericContinuationRows(
         .slice(previousIncludedIndex + 1, index)
         .filter((line) => !isClaimedRow(line, above) && !isClaimedRow(line, included))
         .map((line) => ({ row: line }));
-      const folded = foldWrappedLines(above, between, row);
-      rows[rows.length - 1] = folded.above;
-      row = folded.below;
+      // A heading that had room for the label's next word is not its first
+      // line; the lines between stay rows of their own.
+      const last = between.at(-1);
+      if (!last || !isHeadingAboveLabel(last.row, row, allRows, index)) {
+        const folded = foldWrappedLines(above, between, row);
+        rows[rows.length - 1] = folded.above;
+        row = folded.below;
+      }
     }
     rows.push(row);
     previousIncluded = row;
@@ -158,7 +165,108 @@ export function scanLabelContinuationRows(
     return { row, header, carriedUp: { index, lines: continuations } };
   }
   const mergedLabel = mergeLineTexts([...continuations, label]);
+  // A label only wraps once its next word no longer fits on the line. A
+  // line above it that had room for that word (a group heading such as
+  // `Panel A. All counties`) is not its first line. The row is detected
+  // with it as before (it bridges the gap to the row above), and the
+  // heading is set back on a row of its own when the table is built.
+  const headings = headingLineCount(continuations, label, allRows, rowIndex);
+  if (headings > 0) {
+    const rest = continuations.slice(headings);
+    headingSplits.set(mergedLabel, {
+      heading: mergeLineTexts(continuations.slice(0, headings)),
+      label: rest.length > 0 ? mergeLineTexts([...rest, label]) : label,
+    });
+  }
   return { row: row.map((line) => (line === label ? mergedLabel : line)), header };
+}
+
+const headingSplits = new WeakMap<LayoutLine, { heading: LayoutLine; label: LayoutLine }>();
+
+function headingLineCount(
+  continuations: readonly LayoutLine[],
+  label: LayoutLine,
+  allRows: readonly LayoutLine[][],
+  rowIndex: number,
+): number {
+  if (isStandaloneLabelElsewhere(label, allRows, rowIndex)) return continuations.length;
+  const labelRight = labelColumnRight(label, allRows);
+  let start = continuations.length;
+  while (start > 0) {
+    const next = start < continuations.length ? continuations[start] : label;
+    if (!isWrappedHeadOf(continuations[start - 1], next, labelRight)) break;
+    start--;
+  }
+  return start;
+}
+
+/** Set the group headings folded into row labels back on rows of their own. */
+export function splitHeadingRows(rows: readonly LayoutLine[][]): LayoutLine[][] {
+  return rows.flatMap((row) => {
+    const index = row.findIndex((line) => headingSplits.has(line));
+    const split = index >= 0 ? headingSplits.get(row[index]) : undefined;
+    if (!split) return [row];
+    return [[split.heading], row.map((line, position) => (position === index ? split.label : line))];
+  });
+}
+
+function isHeadingAboveLabel(
+  candidate: readonly LayoutLine[],
+  row: readonly LayoutLine[],
+  allRows: readonly LayoutLine[][],
+  rowIndex: number,
+): boolean {
+  const label = firstTableLabelCell([...row]);
+  const [line] = candidate;
+  if (!label || !line || candidate.length !== 1 || !isRestorableTableLabelCell(line)) return false;
+  if (Math.abs(line.x - label.x) > TABLE_DROPPED_LABEL_X_TOLERANCE_PT) return false;
+  // A line reaching over the row's values spans the table: a heading, not a label line.
+  const valueLeft = Math.min(...row.filter((cell) => isTableValueCell(cell.text)).map((cell) => cell.x));
+  if (line.x + line.width > valueLeft) return true;
+  if (isStandaloneLabelElsewhere(label, allRows, rowIndex)) return true;
+  return !isWrappedHeadOf(line, label, labelColumnRight(label, allRows));
+}
+
+/**
+ * The right edge of the label column `label` starts: the widest first
+ * cell starting where it does on a row with more cells.
+ */
+export function labelColumnRight(label: LayoutLine, allRows: readonly LayoutLine[][]): number {
+  let right = label.x + label.width;
+  for (const row of allRows) {
+    const first = row[0];
+    if (!first || row.length < 2 || Math.abs(first.x - label.x) > TABLE_DROPPED_LABEL_X_TOLERANCE_PT) continue;
+    if (isTableValueCell(first.text)) continue;
+    right = Math.max(right, first.x + first.width);
+  }
+  return right;
+}
+
+/**
+ * Whether `head` can be the line a label wrapped from onto `next`: the
+ * first word of `next` would not have fitted after it inside the label
+ * column.
+ */
+export function isWrappedHeadOf(head: LayoutLine, next: LayoutLine, labelRight: number): boolean {
+  const text = next.text.trim();
+  const word = text.split(/\s+/u)[0] ?? '';
+  if (text.length === 0 || word.length === 0) return true;
+  const wordWidth = (next.width * word.length) / text.length;
+  const space = head.fontSize * WORD_SPACE_EM;
+  // Only a clear fit counts: widths here are estimates.
+  return head.x + head.width + space + wordWidth > labelRight - head.fontSize * WRAP_FIT_MARGIN_EM;
+}
+
+/** Whether `label`'s text is also a whole row label elsewhere on the page: a label complete on its own line. */
+function isStandaloneLabelElsewhere(label: LayoutLine, allRows: readonly LayoutLine[][], rowIndex: number): boolean {
+  const text = label.text.trim();
+  return allRows.some(
+    (row, index) =>
+      index !== rowIndex &&
+      row.length >= 2 &&
+      row[0]?.text.trim() === text &&
+      row.some((line) => line !== row[0] && isTableValueCell(line.text)),
+  );
 }
 
 function restoreDroppedLabelCell(

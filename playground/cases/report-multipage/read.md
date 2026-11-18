@@ -16,7 +16,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 | 1 | 1169 | 0 | 12% | 595.28×841.89 | — | 3 | 0 | 11 | 0 | 0 | 0 | 0 |
 | 2 | 1816 | 0 | 35% | 595.28×841.89 | — | 42 | 1 | 14 | 1 | 0 | 0 | 0 |
 | 3 | 763 | 0 | 11% | 595.28×841.89 | — | 10 | 1 | 20 | 1 | 0 | 0 | 0 |
-| 4 | 902 | 0 | 13% | 841.89×595.28 | 90° | 9 | 1 | 80 | 2 | 0 | 0 | 0 |
+| 4 | 902 | 0 | 13% | 841.89×595.28 | 90° | 9 | 1 | 80 | 1 | 0 | 0 | 0 |
 
 ---
 
@@ -452,7 +452,7 @@ Winter range tests start in December at the three northernmost depots.
 
 ## Page 4
 
-_chars: 902 · images: 0 · coverage: 13% · rotation: 90° · vectors: 9 · tables: 1 · warnings: 2 · size: 841.89×595.28pt_
+_chars: 902 · images: 0 · coverage: 13% · rotation: 90° · vectors: 9 · tables: 1 · warnings: 1 · size: 841.89×595.28pt_
 
 Appendix A — Vehicle cost comparison by model
 
@@ -618,16 +618,15 @@ Page 4 of 4
 
 | C1 | C2 | C3 | C4 | C5 | C6 | C7 | C8 | C9 | C10 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Model | Class | Units | Range | Battery | Price Energy / 100 km |  | Maint. | 5-yr TCO CO2 saved |  |
+| Model | Class | Units | Range | Battery | Price | Energy / 100 km | Maint. | 5-yr TCO | CO2 saved |
 |  |  |  | (km) | (kWh) | (EUR k) |  | (EUR/yr) | (EUR k) | (t/yr) |
-|  |  |  |  |  |  | EUR 7.10 | 1,150 | 91.2 | 9.8 |
-|  |  |  |  |  |  | EUR 6.80 | 1,240 | 89.6 | 9.1 |
-|  |  |  |  |  |  | EUR 4.90 | 880 | 61.8 | 6.2 |
-|  |  |  |  |  |  | EUR 7.40 | 1,100 | 96.5 | 10.4 |
-|  |  |  |  |  |  | EUR 5.10 | 900 | 66.0 | 6.5 |
+| Voltra e-Van 3.5 | Large van | 64 | 310 | 90 | 58.4 | EUR 7.10 | 1,150 | 91.2 | 9.8 |
+| Kestrel Cargo E | Large van | 41 | 285 | 75 | 54.9 | EUR 6.80 | 1,240 | 89.6 | 9.1 |
+| Mobion City | Small van | 88 | 220 | 50 | 36.2 | EUR 4.90 | 880 | 61.8 | 6.2 |
+| Arcadia eTransit | Large van | 22 | 340 | 100 | 63.0 | EUR 7.40 | 1,100 | 96.5 | 10.4 |
+| Mobion City LR | Small van | 35 | 275 | 64 | 39.8 | EUR 5.10 | 900 | 66.0 | 6.5 |
 | Northway 7.5t E | Light truck | 12 | 230 | 140 | 118.0 | EUR 14.20 | 2,600 | 182.4 | 21.7 |
 
 ### Warnings
 
-> **warning** (layout_table_uncertain): layout table 1 (bbox 60,89.6,722,130.86) did not resolve into one consistent grid: 21 lines with numbers inside the table belong to no row — its cells may sit in the wrong row or column or be missing; render that region (--render-region 60,89.6,722,130.86) before trusting the table
 > **warning** (tabular_numeric_layout): page contains 42 short numeric lines in 7 aligned columns and 6 shared numeric rows — table rows/columns may be flattened in native text; inspect the render or geometry when values matter

@@ -14,10 +14,18 @@ export function hasTableValueEvidence(text: string): boolean {
   return /\d/u.test(text) || isTableCheckMarkCell(text);
 }
 
+// A clock time is a timetable's value (`6:05`, `12:30 pm`, `07:15:00`).
+const TABLE_CLOCK_TIME_PATTERN = /^\d{1,2}:\d{2}(?::\d{2})?(?:\s?[ap]\.?m\.?)?$/iu;
+
+export function isTableClockTimeCell(text: string): boolean {
+  return TABLE_CLOCK_TIME_PATTERN.test(text.trim());
+}
+
 export function isTableNumericCell(text: string): boolean {
   const trimmed = text.trim();
   if (isTableCheckMarkCell(trimmed)) return true;
   if (trimmed.length === 0 || !/\d/u.test(trimmed)) return false;
+  if (TABLE_CLOCK_TIME_PATTERN.test(trimmed)) return true;
   const withoutRatioSuffix = trimmed.replace(/(?<=\d)\s*[xX]$/u, '');
   const withoutScoreWords = withoutRatioSuffix
     .replace(/\b(?:below|under|over|above|about|approximately)\s+(?=\d)/giu, '')

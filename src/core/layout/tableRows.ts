@@ -4,6 +4,7 @@ import { mode, round2, unionBox } from './geometry.js';
 const DECORATIVE_DOTTED_RULE_MIN_DOTS = 8;
 const TABLE_ROW_TOP_ALIGNMENT_RATIO = 0.5;
 const TABLE_ROW_VERTICAL_OVERLAP_RATIO = 0.35;
+const TABLE_ROW_MAX_HEIGHT_RATIO = 3;
 
 export function groupLinesByTableRow(lines: LayoutLine[]): LayoutLine[][] {
   const rows: LayoutLine[][] = [];
@@ -37,6 +38,9 @@ export function mergeLineTexts(lines: LayoutLine[]): LayoutLine {
 function canShareTableRow(a: LayoutLine, b: LayoutLine): boolean {
   const minHeight = Math.max(Math.min(a.height, b.height), 1);
   if (Math.abs(a.y - b.y) < minHeight * TABLE_ROW_TOP_ALIGNMENT_RATIO) return true;
+  // A line many times taller than the other (text rotated up the margin,
+  // an axis title) overlaps every row beside it; it does not join them.
+  if (Math.max(a.height, b.height) > minHeight * TABLE_ROW_MAX_HEIGHT_RATIO) return false;
   const overlap = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
   return overlap >= minHeight * TABLE_ROW_VERTICAL_OVERLAP_RATIO;
 }

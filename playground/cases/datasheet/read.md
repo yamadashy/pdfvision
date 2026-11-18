@@ -10,10 +10,10 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 ## Overview
 
-| Page | Chars | Images | Coverage | Size (pt) | Vectors | Tables | Blocks | Warnings | Fields | Links | Annots |
-| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 1511 | 0 | 17% | 612×792 | 22 | 2 | 40 | 0 | 0 | 0 | 0 |
-| 2 | 1071 | 0 | 7% | 612×792 | 219 | 1 | 78 | 1 | 0 | 0 | 0 |
+| Page | Chars | Images | Coverage | Size (pt) | Vectors | Tables | Blocks | Fields | Links | Annots |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 1511 | 0 | 17% | 612×792 | 22 | 2 | 40 | 0 | 0 | 0 |
+| 2 | 1071 | 0 | 7% | 612×792 | 219 | 1 | 80 | 0 | 0 | 0 |
 
 ---
 
@@ -153,7 +153,7 @@ mA
 
 ## Page 2
 
-_chars: 1071 · images: 0 · coverage: 7% · vectors: 219 · tables: 1 · warnings: 1 · size: 612×792pt_
+_chars: 1071 · images: 0 · coverage: 7% · vectors: 219 · tables: 1 · size: 612×792pt_
 
 6 Electrical Characteristics
 
@@ -186,14 +186,17 @@ T_A = 25°C
 
 mV
 
+T_A = –40°C to +125°C
+
 ±2.5
 
 mV
 
 Offset voltage drift
 
+dV_{OS}/dT
+
 T_A = –40°C to +125°C
-dV_{OS}/dT T_A = –40°C to +125°C
 
 1.2
 
@@ -309,15 +312,25 @@ D (SOIC-8) plastic small-outline package
 
 ### Layout tables
 
-#### Table 1 (4 rows × 7 columns, bbox 44,265.03,487.63,109.36)
+#### Table 1 (18 rows × 7 columns, bbox 40,107,532,283)
 
 | C1 | C2 | C3 | C4 | C5 | C6 | C7 |
 | --- | --- | --- | --- | --- | --- | --- |
-| OUTPUT Voltage output swing from rail | V_O | R_L = 10 kΩ to V_S / 2, T_A = –40°C to +125°C |  | 8 | 25 | mV |
-| POWER SUPPLY Quiescent current per | I_Q | I_O = 0 mA |  | 0.85 | 1.1 | mA |
-|  |  | T_A = –40°C to +125°C |  |  |  |  |
-|  |  |  | 80 | 96 |  | dB |
-
-### Warnings
-
-> **warning** (layout_table_uncertain): layout table 1 (bbox 44,265.03,487.63,109.36) did not resolve into one consistent grid: 5 lines with numbers inside the table belong to no row — its cells may sit in the wrong row or column or be missing; render that region (--render-region 44,265.03,487.63,109.36) before trusting the table
+| PARAMETER | SYMBOL | TEST CONDITIONS | MIN | TYP | MAX | UNIT |
+| OFFSET VOLTAGE |  |  |  |  |  |  |
+| Input offset voltage | V_{OS} | T_A = 25°C |  | ±0.3 | ±1.5 | mV |
+| Input offset voltage | V_{OS} | T_A = –40°C to +125°C |  |  | ±2.5 | mV |
+| Offset voltage drift | dV_{OS}/dT | T_A = –40°C to +125°C |  | 1.2 |  | μV/°C |
+| INPUT BIAS CURRENT |  |  |  |  |  |  |
+| Input bias current | I_B | T_A = 25°C |  | ±1 | ±10 | pA |
+| Input bias current | I_B | T_A = –40°C to +125°C |  |  | ±800 | pA |
+| NOISE |  |  |  |  |  |  |
+| Input voltage noise density | e_n | f = 1 kHz |  | 12 |  | nV/√Hz |
+| Input voltage noise density | e_n | f = 10 kHz |  | 9.5 |  | nV/√Hz |
+| OUTPUT |  |  |  |  |  |  |
+| Voltage output swing from rail | V_O | R_L = 10 kΩ to V_S / 2, T_A = –40°C to +125°C |  | 8 | 25 | mV |
+| Short-circuit current | I_{SC} | V_S = 5 V |  | ±50 |  | mA |
+| POWER SUPPLY |  |  |  |  |  |  |
+| Quiescent current per amplifier | I_Q | I_O = 0 mA |  | 0.85 | 1.1 | mA |
+| Quiescent current per amplifier | I_Q | I_O = 0 mA, T_A = –40°C to +125°C |  |  | 1.4 | mA |
+| Power-supply rejection ratio | PSRR | V_S = 2.7 V to 5.5 V | 80 | 96 |  | dB |

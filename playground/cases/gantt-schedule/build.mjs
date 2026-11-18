@@ -184,8 +184,9 @@ colour, the dependency arrows and the Today line. Without that render:
 The layout table (\`Table 1 (21 rows × 5 columns)\`) now holds every phase and task row through
 4.5, the tasks without dates included (\`4.2 | Penetration test | Vendor (TBD)\`), so the plan dates
 can be read per task; fixed in #262, before which it stopped after row 3.5 with no note. Its header
-row reads \`ID | Task | Owner | Plan start Plan end\`: the last two header labels are one line from
-line building, so the end-date column is unnamed. The page body reads the task grid row by row (\`1.1\` / \`Stakeholder interviews\` / \`P. Nair\` /
+row reads \`ID | Task | Owner | Plan start | Plan end\` (#253: the last two labels, one line in the
+page text, are split at the date columns under them; they used to share one cell, leaving the
+end-date column unnamed). The page body reads the task grid row by row (\`1.1\` / \`Stakeholder interviews\` / \`P. Nair\` /
 \`9/7/26\` / \`9/18/26\`), the tasks without dates included (\`4.2\` / \`Penetration test\` / \`Vendor (TBD)\`),
 so each task keeps its own dates there too; it used to give the Plan start / Plan end values as
 two column lists that skipped the blank cells, so aligning them by position shifted the dates of

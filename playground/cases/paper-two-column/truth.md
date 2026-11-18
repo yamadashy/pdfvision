@@ -53,14 +53,13 @@ The inline equation keeps its scripts (#241): `For a token i with embedding k_i 
 affiliation markers read `Lindqvist^2`, `^2Halden Research Labs`, and the footnote marker
 `experiments^1`.
 
-**Known gap (#242):** the abstract, the whole left column and the figure labels are also
-reported as an 8 × 47 “layout table” of prose fragments. No warning accompanies it.
+Table 1 is the only layout table, `Method | nDCG@10 | R@100 | Latency (ms)` over its three rows:
+its rules bound it, so `4 Related Work` from the right column stays out of it (#252) and the
+header line between its top rules is split at the columns below it (#253); the abstract and the
+two columns of prose are no longer reported as a table (#242, the rotated arXiv stamp beside the
+page used to join every row it overlapped). Question 2 is answered from it.
 
 **Known gap (no issue yet):**
-- The real Table 1 is detected without its header row (columns `C1…C5`), and it picks up a
-  fifth column holding `4 Related Work` from the right column. The header names appear in
-  the body as one line, `nDCG@10 R@100 Latency (ms)`, so question 2 is answerable by matching
-  column order.
 - The centred page number `1` is emitted at the end of the right column.
 
 The chart's text is kept together before its caption (#256): the axis ticks, then bar by bar
