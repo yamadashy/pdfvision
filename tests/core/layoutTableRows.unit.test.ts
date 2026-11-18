@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { isCaptionHeadingText } from '../../src/core/layout/headingText.js';
 import { buildLayout } from '../../src/core/layout/index.js';
 import { hasTableValueEvidence, isTableValueCell } from '../../src/core/layout/tableCells.js';
 import { detectPageWarnings } from '../../src/core/warnings/index.js';
@@ -217,6 +218,18 @@ describe('layout table rows — wrapped labels (#251)', () => {
     ]);
   });
 
+  it('measures the label column from body labels, not a wide header above them', () => {
+    const spans = [
+      span('(In millions, except per-share amounts)', 60, 86, 220),
+      span('2024', 448, 86, 22),
+      span('2023', 518, 86, 22),
+      ...uniformPitch('Proceeds from sale of marketable', 112),
+    ];
+    const layout = buildLayout(spans, 612, 792);
+    expect(texts(findTable(layout.tables, '5,228'))?.[0]?.[0]).toBe('(In millions, except per-share amounts)');
+    expect(uncertainty(spans)).toEqual([expect.stringContaining('1 wrapped label sits as close to the row above')]);
+  });
+
   it('does not flag it when the row above ends in a short line that could not have wrapped', () => {
     // A group heading above the first item of a group reads the same way.
     expect(uncertainty(uniformPitch('Net sales', 40))).toEqual([]);
@@ -330,6 +343,67 @@ describe('layout table rows — headers and captions (#253)', () => {
     expect(texts(table)?.[1]).not.toContain('L');
   });
 
+  it('splits a header that holds one single-letter column among words', () => {
+    const spans = report().map((item) => (item.text === 'Planned' ? { ...item, text: 'N', width: 5 } : item));
+    const table = findTable(buildLayout(spans, 612, 792).tables, 'Aarhus');
+
+    expect(texts(table)?.[0]).toEqual(['Depot', 'Region', 'N', 'Installed', 'Utilisation', 'Status']);
+  });
+
+  it('does not read a letter-spaced title as a row of cells', () => {
+    const spans = [...report(), ...'SUMMARY'.split('').map((ch, index) => span(ch, 60 + index * 12, 40, 5))];
+    const layout = buildLayout(spans, 612, 792);
+
+    expect(layout.blocks.flatMap((block) => block.lines.map((line) => line.text))).toContain('S U M M A R Y');
+    expect((layout.tables ?? []).flatMap((table) => texts(table)?.flat() ?? [])).not.toContain('S');
+  });
+
+  it('keeps the rows the aligned-text pass found past the end of the numeric table', () => {
+    // A region sub-heading, then a depot whose only figure is 0%: the
+    // numeric pass stops at Bordeaux, the aligned-text pass carries on.
+    const spans = report();
+    spans.push(span('Ireland', 186, 177, 31.5));
+    for (const [text, x, width] of [
+      ['Cork', 60, 18],
+      ['West', 186, 18],
+      ['TBD', 292, 14],
+      ['TBD', 357, 14],
+      ['0%', 437, 9],
+      ['Planned', 466, 31.5],
+    ] as const)
+      spans.push(span(text, x, 192, width));
+    const table = findTable(buildLayout(spans, 612, 792).tables, 'Aarhus');
+
+    expect(texts(table)?.at(-2)).toEqual(['Ireland']);
+    expect(texts(table)?.at(-1)).toEqual(['Cork', 'West', 'TBD', 'TBD', '0%', 'Planned']);
+  });
+
+  it('keeps a header whose first word only starts like a caption keyword', () => {
+    const spans = report().map((item) => (item.text === 'Depot' ? { ...item, text: 'Tableware', width: 40 } : item));
+    const table = findTable(buildLayout(spans, 612, 792).tables, 'Aarhus');
+
+    expect(texts(table)?.[0]?.[0]).toBe('Tableware');
+  });
+
+  it('tells a caption from a word that starts with a caption keyword', () => {
+    for (const text of [
+      'Table 1',
+      'Table A',
+      'Table IV',
+      'Table S1 (continued)',
+      'Fig. 3',
+      'Fig.3',
+      'Figure 2b',
+      'Table1',
+      '表1',
+    ]) {
+      expect(isCaptionHeadingText(text), text).toBe(true);
+    }
+    for (const text of ['Tableware', 'Tablets', 'Platelets', 'Figures']) {
+      expect(isCaptionHeadingText(text), text).toBe(false);
+    }
+  });
+
   it('keeps a `(continued)` caption out of a table whose header it precedes', () => {
     const spans = report().map((item) =>
       item.text.startsWith('Table 1') ? { ...item, text: 'Table 1 (continued)', width: 82 } : item,
@@ -424,6 +498,23 @@ describe('layout table rows — the rest of the grid (#262)', () => {
     ]);
   });
 
+  it('keeps the word-valued row that ends a table whose every coefficient is starred', () => {
+    const coefficient = (y: number, label: string, values: string[]) => [
+      span(label, 72, y, label.length * 4),
+      ...values.map((value, index) => span(value, 243 + index * 60, y, value.length * 4.2)),
+    ];
+    const spans = [
+      ...coefficient(100, 'Log minimum wage', ['-0.142***', '-0.097***', '-0.061**']),
+      ...coefficient(112.5, 'Log county population', ['0.412***', '0.398***', '0.094*']),
+      ...coefficient(125, 'Unemployment rate', ['-0.031**', '-0.028**', '-0.019*']),
+      ...coefficient(137.5, 'Share of teens', ['0.217***', '0.203***', '0.188***']),
+      ...coefficient(150, 'Fixed effects', ['Yes', 'Yes', 'Yes']),
+    ];
+    const table = findTable(buildLayout(spans, 612, 792).tables, '-0.142***');
+
+    expect(texts(table)?.at(-1)).toEqual(['Fixed effects', 'Yes', 'Yes', 'Yes']);
+  });
+
   it('does not attach a word row that lies outside the value columns or past the row pitch', () => {
     const spans = [
       span('Products', 50, 100, 40),
@@ -505,6 +596,60 @@ describe('layout table rows — the rest of the grid (#262)', () => {
       'Prior-year gains reversed, offset by remeasurement gains',
     ]);
     expect(texts(table)).toContainEqual(['Gross profit', '23,597', '18,364', '-5,233', 'Lower volumes and coal sales']);
+  });
+
+  it('joins a run of wrapped lines set at their own line pitch to the row they hang from', () => {
+    // Two continuation lines under a reason cell: each is as close to the
+    // next as to the cell, but the run as a whole sits tight to its row.
+    const spans: TextSpan[] = [];
+    const rows: [string, string, string, string[]][] = [
+      ['Revenue', '195,676', '186,176', ['Lower volumes']],
+      ['Gross profit', '23,597', '18,364', ['Lower volumes', 'and coal sales', 'in the period']],
+      ['SG&A', '-16,923', '-14,653', ['Deconsolidation']],
+      ['Impairments', '-296', '-39', ['Prior-year charge']],
+    ];
+    let y = 100;
+    for (const [label, a, b, reason] of rows) {
+      for (const [index, line] of reason.entries()) spans.push(span(line, 380, y + index * 10, line.length * 4.5));
+      spans.push(span(label, 63, y, label.length * 4.5));
+      spans.push(span(a, 229 - a.length * 4.5, y, a.length * 4.5));
+      spans.push(span(b, 289 - b.length * 4.5, y, b.length * 4.5));
+      y += reason.length * 10 + 15;
+    }
+    const table = findTable(buildLayout(spans, 612, 792).tables, 'SG&A');
+
+    expect(texts(table)).toContainEqual([
+      'Gross profit',
+      '23,597',
+      '18,364',
+      'Lower volumes and coal sales in the period',
+    ]);
+    expect(texts(table)?.at(-1)?.[0]).toBe('Impairments');
+  });
+
+  it('does not fold a caption set between two rows into the label above it', () => {
+    const spans: TextSpan[] = [];
+    const rows: [string, string, string][] = [
+      ['Products', '69,958', '67,184'],
+      ['Services', '24,972', '22,314'],
+      ['Licences', '9,402', '8,817'],
+      ['Total', '104,332', '98,315'],
+    ];
+    rows.forEach(([label, a, b], index) => {
+      const y = index < 2 ? 100 + index * 40 : 140 + (index - 1) * 15;
+      spans.push(span(label, 60, y, label.length * 4.5));
+      spans.push(span(a, 229 - a.length * 4.5, y, a.length * 4.5));
+      spans.push(span(b, 289 - b.length * 4.5, y, b.length * 4.5));
+    });
+    spans.push(span('Table 1 (continued)', 60, 112, 82));
+    const table = findTable(buildLayout(spans, 612, 792).tables, '69,958');
+
+    expect(table).toBeDefined();
+    expect(
+      texts(table)
+        ?.flat()
+        .some((text) => text.includes('Table 1')),
+    ).toBe(false);
   });
 });
 

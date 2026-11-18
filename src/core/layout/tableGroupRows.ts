@@ -1,5 +1,6 @@
 import type { LayoutLine, LayoutTable, LayoutTableRow } from '../../types/index.js';
 import { round2 } from './geometry.js';
+import { isCaptionHeadingText } from './headingText.js';
 import { isTableValueCell } from './tableCells.js';
 import { rowBottom, rowY } from './tableRows.js';
 
@@ -49,6 +50,8 @@ export function insertTableGroupLabelRows(table: LayoutTable, allRows: readonly 
 
 function isGroupLabelLine(line: LayoutLine, labelLeft: number, valueLeft: number): boolean {
   if (!/[\p{L}]/u.test(line.text) || isTableValueCell(line.text)) return false;
+  // `Table 1 (continued)` names the table; it is not a group of its rows.
+  if (isCaptionHeadingText(line.text)) return false;
   if (line.x < labelLeft - GROUP_LABEL_LEFT_TOLERANCE_PT) return false;
   return line.x + line.width <= valueLeft - GROUP_LABEL_VALUE_GAP_PT;
 }

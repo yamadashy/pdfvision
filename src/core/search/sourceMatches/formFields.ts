@@ -79,11 +79,13 @@ function formFieldWidgetBox(field: FormField): SearchMatch['bbox'] {
 
 function formFieldMatchBox(field: FormField, value: string, start: number, length: number): SearchMatch['bbox'] {
   const appearance = getFormFieldTextAppearance(field);
+  const rotation = appearance?.rotation ?? 0;
+  const vertical = rotation === 90 || rotation === 270;
   if (
     field.type !== 'text' ||
     !appearance?.comb ||
     !appearance.maxLen ||
-    field.width <= 0 ||
+    (vertical ? field.height : field.width) <= 0 ||
     field.value?.length !== value.length ||
     value.length > appearance.maxLen
   ) {
@@ -94,13 +96,15 @@ function formFieldMatchBox(field: FormField, value: string, start: number, lengt
   const clampedEnd = Math.max(clampedStart, Math.min(appearance.maxLen, start + length));
   if (clampedEnd <= clampedStart) return formFieldWidgetBox(field);
 
-  const cellWidth = field.width / appearance.maxLen;
-  return {
-    x: round2(field.x + cellWidth * clampedStart),
-    y: round2(field.y),
-    width: round2(cellWidth * (clampedEnd - clampedStart)),
-    height: round2(field.height),
-  };
+  const cell = (vertical ? field.height : field.width) / appearance.maxLen;
+  const span = cell * (clampedEnd - clampedStart);
+  // Cells follow the widget's stored x axis, which the page frame may have turned.
+  if (vertical) {
+    const from = rotation === 90 ? field.y + cell * clampedStart : field.y + field.height - cell * clampedEnd;
+    return { x: round2(field.x), y: round2(from), width: round2(field.width), height: round2(span) };
+  }
+  const from = rotation === 180 ? field.x + field.width - cell * clampedEnd : field.x + cell * clampedStart;
+  return { x: round2(from), y: round2(field.y), width: round2(span), height: round2(field.height) };
 }
 
 function formFieldMatchContext(field: FormField, value: string): string {

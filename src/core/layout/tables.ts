@@ -96,6 +96,9 @@ export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefin
     if (isLikelyMirroredChartAxisTable(tableRows.flat())) continue;
     result.push(toLayoutTable(tableRows));
   }
+  // Rows the aligned pass found past a table's end are added once every
+  // table has its header rows, so they can tell another table's header apart.
+  const trailingFrom: { index: number; aligned: LayoutTable }[] = [];
   for (const table of alignedTextTables) {
     // Overlapping mostly, or ending on a body row of it: the same table.
     const lastRow = table.rows.at(-1);
@@ -104,7 +107,10 @@ export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefin
         overlapOfSmaller(existing, table) >= 0.5 || (lastRow !== undefined && isInnerRow(existing, lastRow)),
     );
     if (existingIndex < 0) result.push(table);
-    else result[existingIndex] = withHeaderRowsFrom(result[existingIndex], table);
+    else {
+      result[existingIndex] = withHeaderRowsFrom(result[existingIndex], table);
+      trailingFrom.push({ index: existingIndex, aligned: table });
+    }
   }
   for (const table of sparseSingleRowTables) {
     // A header stack that starts among the body rows of a table already
@@ -122,6 +128,10 @@ export function detectLayoutTables(lines: LayoutLine[]): LayoutTable[] | undefin
     );
     if (existingIndex < 0) result.push(table);
     else result[existingIndex] = withHeaderRowsFrom(result[existingIndex], table);
+  }
+  for (const { index, aligned } of trailingFrom) {
+    const others = [...result.filter((_, i) => i !== index), ...alignedTextTables.filter((t) => t !== aligned)];
+    result[index] = withTrailingRowsFrom(result[index], aligned, others);
   }
   const merged = mergeSplitHeaderTables(result).map(finalize);
   return merged.length > 0 ? merged : undefined;
@@ -316,6 +326,39 @@ function withHeaderRowsFrom(table: LayoutTable, other: LayoutTable): LayoutTable
   const rows = [...header, ...table.rows];
   const box = unionBox(rows.flatMap((row) => row.cells));
   return { ...table, ...box, rowCount: rows.length, rows };
+}
+
+/**
+ * The aligned-text pass bridges sparse rows of the grid (a group heading, a
+ * row whose values are still words), so it can run past the last row the
+ * numeric pass kept for the same table. Those rows are the table's too.
+ */
+function withTrailingRowsFrom(table: LayoutTable, other: LayoutTable, tables: readonly LayoutTable[]): LayoutTable {
+  const last = table.rows.at(-1);
+  if (!last) return table;
+  const lastBottom = last.y + last.height;
+  // An aligned table that reaches into another table read the two as one;
+  // its rows past this table are that table's header or body, not ours,
+  // and so is a row that lies in another table the aligned pass found.
+  if (tables.some((existing) => existing.y + existing.height > lastBottom && existing.y < other.y + other.height)) {
+    return table;
+  }
+  const below = other.rows.filter((row) => row.y + row.height / 2 > lastBottom);
+  const stop = below.findIndex((row) => {
+    const center = row.y + row.height / 2;
+    return tables.some((existing) => center >= existing.y && center <= existing.y + existing.height);
+  });
+  const trailing = stop < 0 ? below : below.slice(0, stop);
+  if (trailing.length === 0) return table;
+  const rows = [...table.rows, ...trailing];
+  const box = unionBox(rows.flatMap((row) => row.cells));
+  return {
+    ...table,
+    ...box,
+    rowCount: rows.length,
+    columnCount: Math.max(table.columnCount, ...trailing.map((row) => row.cells.length)),
+    rows,
+  };
 }
 
 function isSplitHeaderOf(stack: LayoutTable, table: LayoutTable): boolean {

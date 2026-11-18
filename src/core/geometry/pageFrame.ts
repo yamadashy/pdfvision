@@ -50,7 +50,8 @@ export function chooseReadingFrame(view: readonly number[], rotation: number, it
   const displayedUpright = uprightShare(items, displayed.transform);
   const storedUpright = uprightShare(items, undefined);
   if (storedUpright === undefined || displayedUpright === undefined) return displayed;
-  return storedUpright >= 0.5 && displayedUpright < 0.5 ? stored : displayed;
+  if (!(storedUpright >= 0.5 && displayedUpright < 0.5)) return displayed;
+  return displayedUpright > 0 ? { ...stored, sidewaysTextShare: displayedUpright } : stored;
 }
 
 // tan(~11°): a baseline within this slope of left-to-right counts as upright.

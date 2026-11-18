@@ -44,7 +44,7 @@ pdfvision document.pdf --render --render-scale 3
 pdfvision document.pdf --pages 2 --render --render-region 120,180,360,240 --render-output ./regions
 ```
 
-`--render-region` takes a rectangle in raw page-view units of the page as displayed, with a top-left origin. 版面、影像或視覺區域 bbox 可原樣傳入；渲染器在產生像素時套用 UserUnit 與 render scale。
+`--render-region` takes a rectangle in raw page-view units of the page as displayed, with a top-left origin — or as stored on a page flagged `rotated_page_read_unrotated`, matching its bboxes. 版面、影像或視覺區域 bbox 可原樣傳入；渲染器在產生像素時套用 UserUnit 與 render scale。
 
 搜尋結果的 bbox 也可以使用同一裁切流程。參見 [搜尋與區域放大](./search-and-region-zoom.md)。
 

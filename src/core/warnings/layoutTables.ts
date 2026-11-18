@@ -108,7 +108,16 @@ function orphanLines(table: LayoutTable, lines: readonly LayoutLine[]): LayoutLi
  * page cannot confirm that.
  */
 function ambiguousLabelWraps(table: LayoutTable, lines: readonly LayoutLine[]): number {
-  const labels = table.rows.map((row) => row.cells[0]).filter((cell) => cell && !isTableValueCell(cell.text));
+  // The label column is measured on body labels: a header's first cell
+  // (`(In millions, except per-share amounts)`) can run far past them, and a
+  // header row can hold values (the years) like any body row. The first row
+  // is left out when others remain, since it is where a header sits.
+  const bodyRows = table.rows.filter(isBodyRow);
+  const labelRows = bodyRows.length > 2 && bodyRows[0] === table.rows[0] ? bodyRows.slice(1) : bodyRows;
+  const labels = labelRows
+    .map((row) => row.cells[0])
+    .filter((cell) => cell && !isTableValueCell(cell.text) && (cell.columnSpan ?? 1) === 1);
+  if (labels.length === 0) return 0;
   const labelLeft = Math.min(...labels.map((cell) => cell.x));
   const labelRight = Math.max(...labels.map((cell) => cell.x + cell.width));
   let count = 0;

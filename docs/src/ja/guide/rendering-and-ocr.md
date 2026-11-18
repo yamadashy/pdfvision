@@ -44,7 +44,7 @@ pdfvision document.pdf --render --render-scale 3
 pdfvision document.pdf --pages 2 --render --render-region 120,180,360,240 --render-output ./regions
 ```
 
-`--render-region` takes a rectangle in raw page-view units of the page as displayed, with a top-left origin. レイアウトブロックや視覚領域の bbox は変更せず渡せます。ピクセル化するときは、レンダラーが UserUnit と render scale を適用します。
+`--render-region` takes a rectangle in raw page-view units of the page as displayed, with a top-left origin — or as stored on a page flagged `rotated_page_read_unrotated`, matching its bboxes. レイアウトブロックや視覚領域の bbox は変更せず渡せます。ピクセル化するときは、レンダラーが UserUnit と render scale を適用します。
 
 検索結果の bbox からも同じ流れでクロップできます。詳しくは [検索と領域ズーム](./search-and-region-zoom.md) を参照してください。
 

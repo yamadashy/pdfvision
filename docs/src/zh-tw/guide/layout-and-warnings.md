@@ -75,7 +75,7 @@ visual regions 可以作為到多模態模型的橋樑：
 - 文字重疊或文字框超出頁面。
 - 正文擠到重複頁首或頁尾附近。
 - 被攤平的數字表格。
-- layout table hints whose cells did not resolve into one consistent grid (`layout_table_uncertain`), including a wrapped label whose first lines could belong to the row above as well as to its own values.
+- layout table hints whose cells did not resolve into one consistent grid (`layout_table_uncertain`), including a wrapped label whose first lines could belong to the row above as well as to its own values, and a label set in two lines around its values' line.
 - vector chart labels kept together but not paired with their bars (`vector_chart_labels`), naming the chart region to render.
 - signs set in a symbol font whose character map reports them as ordinary characters, so `−52%` reads as `252%` (`symbol_font_substitution`).
 - rotated pages read in their stored orientation because `/Rotate` would turn their text sideways (`rotated_page_read_unrotated`).

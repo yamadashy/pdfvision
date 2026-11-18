@@ -3,7 +3,8 @@
  * page. Emitted per match, not per page — so the same query found
  * three times on page 5 yields three SearchMatch entries with `page: 5`.
  *
- * The bbox uses raw displayed (post-/Rotate) page-view units (top-left origin, y grows
+ * The bbox uses raw displayed (post-/Rotate) page-view units (stored on a page
+ * flagged `rotated_page_read_unrotated`; top-left origin, y grows
  * downward), matching {@link TextSpan} / {@link LayoutBlock} / {@link ImageBox}.
  * It passes unchanged to a follow-up `renderRegion` call.
  */

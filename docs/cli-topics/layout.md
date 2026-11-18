@@ -81,7 +81,7 @@ Repeated chrome wins over heading classification. When a heading-shaped running 
 ```ts
 interface TextSpan {
   text: string;              // NFKC-normalized and C0-cleaned by default (disable with --no-normalize)
-  x: number; y: number;      // displayed (post-/Rotate) page frame, top-left origin
+  x: number; y: number;      // displayed (post-/Rotate) page frame, top-left origin; stored frame under rotated_page_read_unrotated
   width: number; height: number;
   fontSize: number;          // largest finite non-zero text-matrix scale; otherwise reported/effective item height
   fontName?: string;         // stable page-local alias e.g. "font1"
