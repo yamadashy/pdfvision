@@ -143,6 +143,16 @@ export interface LayoutBlock {
    * after `headings` no longer see those duplicates.
    */
   repeated?: boolean;
+  /**
+   * Present when the block's text is drawn turned on the page — a sideways
+   * table or text box, or a whole sheet set sideways without `/Rotate` —
+   * and was read in its own upright frame. The value is the clockwise turn
+   * of the page that shows the text upright, counted as `/Rotate` counts
+   * it: `90` is text running up the page, `270` down, `180` upside down.
+   * Bboxes stay in the page frame, so a block of turned lines is tall and
+   * narrow, and a render shows the text turned.
+   */
+  rotation?: 90 | 180 | 270;
 }
 
 /**
@@ -200,6 +210,14 @@ export interface LayoutTable {
    */
   columnCount: number;
   rows: LayoutTableRow[];
+  /**
+   * Present when the table is drawn turned on the page and was read in its
+   * own upright frame; see {@link LayoutBlock.rotation}. Rows and columns
+   * are the table's own, and every bbox is in the page frame: a row's
+   * `y`/`height` then span the table's extent along the page, and its
+   * cells' boxes say where the row runs.
+   */
+  rotation?: 90 | 180 | 270;
 }
 
 export interface LayoutTableRow {

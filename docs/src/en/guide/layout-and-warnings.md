@@ -24,6 +24,8 @@ Layout output includes:
 - code blocks: monospaced rows set apart from the page's prose and on one character grid become `role: "code"` blocks with their indentation rebuilt as leading spaces and any line-number gutter left out of the text (reported as `codeLineNumbers`); Markdown fences them.
 - two-dimensional math read onto one line: a fraction (a vector rule with a run centred above and below it and a relation beside it) reads `(c (1 + z))/H_0`, a big operator with its limits `∑_{k=1}^N`, a matrix between vector brackets `[[a, b], [c, d]]`, and an equation number joins its equation (`… , (1)`). A formula of that shape that cannot be read soundly keeps its fragments and is named by `display_math_layout`.
 - `pages[].layout.markedText`: passages marked only by a drawn line beside them — the side lines (傍線) of a vertical 新旧対照表 that show what an amendment changed — listed with their bounding boxes (Markdown: a `### Marked text` table with `--layout`).
+- turned text: a sideways table or text box on an upright page, or a landscape sheet set onto a portrait page without `/Rotate`, is read in its own upright frame — lines, row order and tables as a reader turning the page sees them. Its blocks and tables carry `rotation` (the clockwise turn that shows it upright, as `/Rotate` counts it) and keep page-frame bboxes; Markdown notes where the region starts. A turned axis title, margin stamp or header cell is left as before.
+- names set one glyph per text object along a curve or a turned line (map labels, seals) are joined in curve order into one run, so `QUAYSIDE WALK` reads and searches as written.
 - a justified line stretched so far that its word spaces look like column gutters is read as one line when a prose line beside it fills the same measure.
 - a column chart set in its own frame reads value then category for each bar.
 
@@ -86,6 +88,7 @@ Common warning families include:
 - signs set in a symbol font whose character map reports them as ordinary characters, so `−52%` reads as `252%` (`symbol_font_substitution`).
 - native-vs-visual reading order divergence.
 - rotated pages read in their stored orientation because `/Rotate` would turn their text sideways (`rotated_page_read_unrotated`).
+- most of a page drawn turned with no `/Rotate` to match, read in its own upright frame (`rotated_text_read_upright`): bboxes stay in the page frame, and a render shows the text turned.
 - glyph-garbage native text, private-use glyph strings, or localized mojibake.
 - right-to-left script text whose inter-word spaces or paired brackets may degrade.
 - OCR text layers over full-page scans, including symbol noise or word fragmentation.

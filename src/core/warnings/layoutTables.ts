@@ -8,6 +8,7 @@ import type {
 } from '../../types/index.js';
 import { isTableValueCell } from '../layout/tableCells.js';
 import { isClearlyCloser } from '../layout/tableLabelWraps.js';
+import { tableInOwnFrame } from '../layout/turnedRegions.js';
 
 const LINE_CLAIMED_MIN_AREA_RATIO = 0.5;
 const SHIFTED_COLUMN_MIN_ROWS = 2;
@@ -27,11 +28,22 @@ const WRAP_FULL_LINE_SLACK_RATIO = 0.15;
 export function detectLayoutTableUncertainty(page: PageResult, out: PageWarning[]): void {
   const tables = page.layout?.tables;
   if (!tables || tables.length === 0) return;
-  const lines = page.layout?.blocks.flatMap((block) => block.lines) ?? [];
+  const blocks = page.layout?.blocks ?? [];
+  const lines = blocks.flatMap((block) => block.lines);
   const toRaw = 1 / (page.userUnit ?? 1);
 
   for (const [tableIndex, table] of tables.entries()) {
-    const reasons = tableUncertaintyReasons(table, lines);
+    // A turned table is judged in the frame it was read in, against the lines read with it.
+    const framed =
+      table.rotation === undefined
+        ? { table, lines }
+        : tableInOwnFrame(
+            table,
+            blocks.filter((block) => block.rotation === table.rotation).flatMap((block) => block.lines),
+            page.width,
+            page.height,
+          );
+    const reasons = tableUncertaintyReasons(framed.table, framed.lines);
     if (reasons.length === 0) continue;
     const region = [table.x, table.y, table.width, table.height].map((n) => round2(n * toRaw)).join(',');
     out.push({

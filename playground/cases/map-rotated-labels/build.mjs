@@ -34,7 +34,7 @@ export const meta = {
   stresses:
     'street names rotated along strokes at 0°, 90°, about 38° and about −69°; a road and a river named along a curve one glyph at a time; numbered markers keyed to a legend; north arrow and scale bar; landscape page',
   status: 'known-gap',
-  issue: 307,
+  issue: 265,
   families: ['vertical-rotated', 'vector-meaning', 'page-geometry'],
   page: { size: 'LETTER', layout: 'landscape' },
 };
@@ -59,16 +59,13 @@ Station (5); the Ferry Pier (6) is on Quayside Walk, on the River Wend.
 4. Which street leads to the Railway Station? — Station Avenue (from the east end of Market Street) — only in the drawing
 5. What distance does the scale bar show? — 200 m
 
-Questions 1, 3 and 5 are answerable from \`read.md\`: the straight street names, rotated or not, come
-back whole (\`Tanner’s Lane\`, \`Station Avenue\`, \`Abbey Road\`), and the legend lines carry their
-numbers except one.
+Questions 1, 2, 3 and 5 are answerable from \`read.md\`: the straight street names, rotated or not, come
+back whole (\`Tanner’s Lane\`, \`Station Avenue\`, \`Abbey Road\`), and so do the two names set along the
+curve one glyph per text object (\`QUAYSIDE WALK\`, \`River Wend\`, #307), each one run in curve order
+with a bbox over every glyph; the legend lines carry their numbers except one.
 
-**Known gap (#307):** the page has no warning. The two names set along the curve, one glyph
-per text object, are cut into fragments and interleaved with other labels: \`QUAYS\` … \`Abbey Road\` /
-\`6\` / \`Station Avenue\` / \`Riv e r  W\` / \`end\` / \`ID E  W A L K\`, so question 2 rests on guessing
-that \`QUAYS\` and \`ID E W A L K\` are one name and \`Riv e r W\` + \`end\` another (a search for
-"Quayside" or "River Wend" finds nothing). The legend is split around the map's labels (entries 1–2
-before them, 3–6 after) and entry 5 comes apart (\`Railway Station\` / \`5\`). The map's own markers
+**Known gap (#265):** the page has no warning. The legend is split around the map's labels (entries
+1–2 before them, 3–6 after) and entry 5 comes apart (\`Railway Station\` / \`5\`). The map's own markers
 are bare numbers among street names, and question 4 — which street leads where — exists only in the
 drawing; nothing points the agent to render it (the page is far below \`dense_vector_graphics\`).
 `;

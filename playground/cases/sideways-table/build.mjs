@@ -34,8 +34,7 @@ export const meta = {
   title: 'Wide table set sideways on a portrait page',
   stresses:
     'portrait page with no /Rotate whose caption and table are drawn turned 90° counter-clockwise; upright running head and page number; two-level header with site groups; em-dash empty cells; table note',
-  status: 'known-gap',
-  issue: 306,
+  status: 'ok',
   families: ['tables', 'vertical-rotated', 'page-geometry'],
 };
 
@@ -65,17 +64,13 @@ ${NOTE}
 4. Is Dunhill a lowland or an upland site? — Upland
 5. What is Dorran's yield at Elsted? — 6.42 t/ha
 
-**Known gap (#306):** the sideways table is read transposed and out of order, with no warning
-(\`rotated_page_read_unrotated\` covers \`/Rotate\` pages, not rotated content on an upright page). Each
-table column comes out as one line, starting from the right-hand end of the table: the headers
-\`Mean\` / \`Farley\` / \`Elsted\` / \`Upland sites\` / \`Dunhill\` / \`Carrow\` / \`Lowland sites\` / \`Brenmoor\`,
-then six value lines (\`8.33 8.45 8.86 …\` is the Mean column), then the note, then \`Ashby\` / \`Type\` /
-\`Variety\`, the Ashby values, the types, and the variety names split over two lines in the wrong order:
-\`Fennick Galloway\` / \`Aldora Brisk Calder Dorran Elvet Hestia\`. No layout table is reported. Read
-in that order the variety list is Fennick, Galloway, Aldora, …, which puts Calder fifth and gives
-question 1 the wrong value; pairing the value lines with the headers means skipping the two group
-labels. Questions 2, 3 and 5 depend on the same reconstruction; question 4 is answerable only if the
-agent works out that \`Upland sites\` heads the three headers emitted before it.
+The caption, table and note are read in their own upright frame (#306): the body reads them in order
+after a \`Drawn turned on the page (running up the page), read upright; rotation: 90°\` note, layout
+table 1 carries \`rotation 90°\` with every row read along its baseline (questions 1, 2, 3 and 5 come
+straight from it), and \`rotated_text_read_upright\` says the render shows the text turned. Question 4
+rests on the group row: \`Lowland sites\` and \`Upland sites\` land in the middle column of the three
+each one centres over, without a \`columnSpan\` — the same as the table set upright, so not a rotation
+gap.
 `;
 
 export function draw(doc, h) {
