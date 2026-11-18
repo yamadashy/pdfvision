@@ -19,7 +19,7 @@ import { buildImageBoxes, type ImageOps } from '../graphics/imageBoxes.js';
 import { collectInvisibleTextEvidence, type TextRenderingOps } from '../graphics/invisibleText.js';
 import { collectOpaqueFillTextEvidence, type OpaqueFillTextOps } from '../graphics/opaqueFillText.js';
 import type { FontGeometryInfo } from '../graphics/textGlyphs.js';
-import { buildVectorBoxes } from '../graphics/vectorBoxes.js';
+import { buildSolidMaskRules, buildVectorBoxes } from '../graphics/vectorBoxes.js';
 import { countVectorPaintOps } from '../graphics/vectorOps.js';
 import { buildLayout } from '../layout/index.js';
 import { buildLinks, isLinkAnnotation } from '../links/index.js';
@@ -161,7 +161,11 @@ export async function extractPageData(
           spans,
           round2(width),
           round2(height),
-          { vectorBoxes: allVectorBoxes, imageBoxes: allBoxes },
+          {
+            vectorBoxes: allVectorBoxes,
+            imageBoxes: allBoxes,
+            maskRules: buildSolidMaskRules(opList.fnArray, opList.argsArray as unknown[][], ops, height, xMin, yMin),
+          },
           monospaceFonts,
         )
       : undefined;

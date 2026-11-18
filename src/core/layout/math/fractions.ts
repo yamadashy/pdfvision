@@ -52,8 +52,13 @@ const RADICAL_MAX_GAP_EM = 0.3;
 const MATH_PART_SIGNAL_RE = /[=<>≤≥≈≡∼≃≅∝≠+\-−±∓×·∗∘/^_()[\]∑∏∫√∂∇∞→⇒↦]/u;
 /** Signs math sets beside a fraction; brackets and hyphens are common in prose too. */
 const MATH_NEIGHBOUR_SIGNAL_RE = /[=<>≤≥≈≡∼≃≅∝≠+−±∓×·∗∘^_∑∏∫√∂∇∞→⇒↦]/u;
-/** A part that reads as one term needs no brackets: `H_0`, `E(z′)`, `2`. */
-const ATOMIC_PART_RE = /^[√∛∜]?[\p{L}\p{N}.′″'_^{}\p{M}]+(?:\([^()\s]*\))?$/u;
+/**
+ * A part that reads as one term needs no brackets: a number (`2`, `0.5`) or
+ * a symbol with its scripts and argument (`H_0`, `E(z′)`, `√t`). A number
+ * before a letter is a product (`2τ`), bracketed so `1/(2τ)` cannot read
+ * as `(1/2)τ`.
+ */
+const ATOMIC_PART_RE = /^[√∛∜]?(?:\p{N}+(?:\.\p{N}+)?|\p{L}[\p{L}\p{N}′″'_^{}\p{M}]*)(?:\([^()\s]*\))?$/u;
 
 /** Thin horizontal rules, narrowest first: a nested fraction is one term of the outer one. */
 export function fractionBars(boxes: readonly VectorBox[] | undefined, pageWidth: number): BBox[] {

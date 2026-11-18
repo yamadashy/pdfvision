@@ -100,6 +100,7 @@ export function buildImageOps(ops: Record<string, number>): ImageOps {
     paintImageMaskXObjectRepeat: ops.paintImageMaskXObjectRepeat,
     paintImageMaskXObjectGroup: ops.paintImageMaskXObjectGroup,
     paintInlineImageXObjectGroup: ops.paintInlineImageXObjectGroup,
+    paintSolidColorImageMask: ops.paintSolidColorImageMask,
   };
 }
 

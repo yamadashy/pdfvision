@@ -107,8 +107,8 @@ Each public span corresponds to one retained positioned pdf.js text item, whose 
 
 Display math is read onto one line from its geometry before lines are built, so it reads in layout text (and Markdown) as a formula rather than fragments on several lines:
 
-- a **fraction** — a thin vector rule with one tight run centred above it and one centred below it, both inside its ends, and text beside it on the math axis (`=`, `−`, an operator) — reads `num/den`, a part longer than one term in brackets: `d_L(z) = (c (1 + z))/H_0`; a nested fraction is one term of the outer one, and a radical sign just left of a part joins it (`α/√t`);
-- a **big operator** (`∑ ∏ ∫ …`) is put back on its line — math fonts draw it hanging from its baseline, so pdf.js boxes it a line too high — with its limits from above and below, or at its right as an integral sets them: `∑_{k=1}^N`, `∫_0^z`, `∫_M`;
+- a **fraction** — a thin rule (a vector path, or a 1×1 solid image mask as dvips paints rules) with one tight run centred above it and one centred below it, both inside its ends, and text beside it on the math axis (`=`, `−`, an operator) — reads `num/den`, a part longer than one term in brackets: `d_L(z) = (c (1 + z))/H_0`; a nested fraction is one term of the outer one, and a radical sign just left of a part joins it (`α/√t`);
+- a **big operator** (`∑ ∏ ∫ …`) is put back on the body-size line whose middle is nearest its own (a sum inside a numerator stays in the numerator, and is read before the fraction around it) — math fonts draw it hanging from its baseline, so pdf.js boxes it a line too high — with its limits from above and below, or at its right as an integral sets them: `∑_{k=1}^N`, `∫_0^z`, `∫_M`;
 - a **matrix** between a pair of vector bracket strokes, with a relation beside it, reads row by row: `Σ = [[0.042, −0.013], [−0.013, 0.027]]`;
 - an **equation number** at the right margin joins its line when the line holds such a term or a relation sign with a script: `… dz′/E(z′), (1)`.
 

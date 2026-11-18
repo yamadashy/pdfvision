@@ -119,9 +119,69 @@ describe('display math — big operators', () => {
     expect(lineTexts(spans)).toEqual(['F = ∫_M (R + 1) dV']);
   });
 
+  it('does not take an integral’s own limit for its line', () => {
+    // perelman p15: ∫ hanging a line high, its upper limit and a radical between it and the line's text.
+    const spans = [
+      span('∫', 110.9, 126.2, 11.96, 6.7),
+      span('τ_2', 122.8, 129.3, 7.97, 7.4),
+      span('τ_1', 117.5, 153.2, 7.97, 7.4),
+      span('τ(X) dτ =', 143.2, 142.4, 11.96, 50),
+      span('A paragraph line of body text under the equation.', 110.9, 190, 11.96, 280),
+      span('Another body line keeps the page median at text size.', 110.9, 205, 11.96, 280),
+    ];
+    expect(lineTexts(spans)[0]).toBe('∫_{τ_1}^{τ_2} τ(X) dτ =');
+  });
+
+  it('puts an inline integral on the line beside it, not on the line above whose words lie further out', () => {
+    // perelman p24: `that ∫ v is bounded`, the ∫ hanging toward the line above.
+    const spans = [
+      span('is bounded away for intervals', 119.5, 282.3, 11.96, 270),
+      span('t − t of the order of', 396.2, 282.3, 11.96, 103),
+      span('By monotonicity we conclude that', 181.1, 296.7, 11.96, 178.7),
+      span('∫', 364.3, 287.1, 11.96, 5.6),
+      span('v is bounded away from', 374.3, 296.7, 11.96, 125),
+    ];
+    const lines = lineTexts(spans);
+    expect(lines).toContain('By monotonicity we conclude that ∫ v is bounded away from');
+  });
+
+  it('reads a sum inside a numerator with the numerator, then the fraction around it', () => {
+    // biorxiv-like p24: ψ = (∑_{i=1}^p σ^2_i)/p, the sum set text-style with its limits at its right.
+    const spans = [
+      span('ψ =', 270, 339.6, 9.96, 20),
+      span('∑', 299.4, 325.7, 9.96, 10.5),
+      span('p', 309.9, 327.7, 6.97, 4.1),
+      span('i', 309.9, 335.7, 6.97, 2.8),
+      span('=1', 312.8, 335.7, 6.97, 10.1),
+      span('σ^2_i', 325, 332.7, 9.96, 10),
+      span('p', 315, 350, 9.96, 5),
+    ];
+    expect(lineTexts(spans, [bar(298, 336.9, 38)])).toEqual(['ψ = (∑_{i=1}^p σ^2_i)/p']);
+  });
+
+  it('does not take the pieces of a tall bar beside an integral for its line or its limits', () => {
+    // math-cat p3: ∫ with stacked limits, then |…| built from ∣ pieces one above another.
+    const pieces = [70.7, 76.7, 82.7, 88.6, 94.6, 100.6].map((y) => span('∣', 87.1, y + 9.96, 9.96, 3.3));
+    const spans = [
+      span('T /2', 71, 84.7, 6.97, 13.6),
+      span('∫', 70.6, 87.5, 9.96, 5.5),
+      ...pieces,
+      span('J(t) dt =', 90.5, 101.1, 9.96, 40),
+      span('−T /2', 63.4, 116.6, 6.97, 19.9),
+    ];
+    expect(lineTexts(spans).join('\n')).toContain('∫_{−T /2}^{T /2}');
+  });
+
   it('leaves an operator on its own baseline without limits as it is', () => {
     const spans = [span('the sum', 90, 140, 11, 36), span('∑', 130, 140, 11, 8), span('of terms', 141, 140, 11, 40)];
     expect(assembleDisplayMath(spans, [], 612).spans).toEqual(spans);
+  });
+});
+
+describe('display math — parts', () => {
+  it('brackets a number times a symbol so 1/(2τ) cannot read as (1/2)τ', () => {
+    const spans = [span('X +', 200, 140, 11, 16), span('1', 228, 132, 11, 5), span('2τ', 225, 152, 11, 11)];
+    expect(assembleDisplayMath(spans, [bar(222, 137, 17)], 612).spans.map((s) => s.text)).toContain('1/(2τ)');
   });
 });
 

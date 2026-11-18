@@ -16,8 +16,14 @@ import {
 /** The operator's own box is unreliable (math fonts draw it hanging from the baseline), so its line is looked for in a band this tall. */
 const BAND_ABOVE = 0.3;
 const BAND_BELOW = 2.2;
-const NEIGHBOUR_MAX_GAP_EM = 1.6;
+/** Text this close beside the operator is its line's; further out (a limit and a radical between) only when nothing is that close. */
+const NEIGHBOUR_NEAR_GAP_EM = 1.6;
+const NEIGHBOUR_MAX_GAP_EM = 2.5;
+/** The line beside an operator is set at body size; a smaller run there is a limit. */
+const NEIGHBOUR_MIN_BODY_RATIO = 0.86;
 const NEIGHBOUR_MIN_SIZE_RATIO = 0.35;
+/** A piece of a tall bracket or bar built from glyphs; it hangs beside a formula's line, not on it. */
+const DELIMITER_PIECE_RE = /^[∣|‖⎪⎜⎟⎢⎥⎡⎣⎤⎦⎛⎝⎞⎠⎧⎨⎩⎫⎬⎭]$/u;
 /** A limit or script of an operator is set smaller than its line. */
 const LIMIT_MAX_SIZE_RATIO = 0.86;
 const LIMIT_MIN_DROP_EM = 0.1;
@@ -37,8 +43,8 @@ const OFF_BASELINE_EM = 0.25;
  * limits: `∑_{k=1}^N`. Its line is the largest text beside it; its limits
  * are smaller runs above and below it, under its width or at its right.
  */
-export function operatorAt(op: TextSpan, pool: readonly TextSpan[]): Assembled | undefined {
-  const line = operatorLine(op, pool);
+export function operatorAt(op: TextSpan, pool: readonly TextSpan[], bodySize: number): Assembled | undefined {
+  const line = operatorLine(op, pool, bodySize);
   if (!line) return undefined;
   const size = em(line);
   const lineBaseline = baseline(line);
@@ -79,26 +85,42 @@ export function operatorAt(op: TextSpan, pool: readonly TextSpan[]): Assembled |
   return { parts, span: termOnLine(text, box.x, right(box), line) };
 }
 
-function operatorLine(op: TextSpan, pool: readonly TextSpan[]): TextSpan | undefined {
+function operatorLine(op: TextSpan, pool: readonly TextSpan[], bodySize: number): TextSpan | undefined {
   const opSize = em(op);
   const bandTop = op.y - BAND_ABOVE * op.height;
   const bandBottom = op.y + BAND_BELOW * op.height;
-  let best: { span: TextSpan; gap: number } | undefined;
+  // Of the text right beside it, the line whose middle is nearest the
+  // operator's: a sum set inside a numerator belongs to the numerator, not
+  // to the equation's line just below it. Text further out (past a limit
+  // and a radical) counts only when nothing is that close.
+  const opCentre = op.y + op.height / 2;
+  type Candidate = { span: TextSpan; distance: number; gap: number };
+  let best: Candidate | undefined;
+  let far: Candidate | undefined;
   for (const span of pool) {
-    if (span === op || isBigOperator(span) || isRadical(span)) continue;
+    if (span === op || isBigOperator(span) || isRadical(span) || DELIMITER_PIECE_RE.test(span.text.trim())) continue;
     const size = em(span);
-    if (size < opSize * NEIGHBOUR_MIN_SIZE_RATIO) continue;
+    if (size < opSize * NEIGHBOUR_MIN_SIZE_RATIO || size < bodySize * NEIGHBOUR_MIN_BODY_RATIO) continue;
     const centre = span.y + span.height / 2;
     if (centre < bandTop || centre > bandBottom) continue;
     const gap = span.x >= right(op) ? span.x - right(op) : op.x - right(span);
     if (gap < -0.3 * size || gap > NEIGHBOUR_MAX_GAP_EM * size) continue;
-    if (!best) best = { span, gap };
-    else {
-      const bestSize = em(best.span);
-      if (size > bestSize * 1.05 || (size >= bestSize * 0.95 && gap < best.gap)) best = { span, gap };
-    }
+    const candidate = { span, distance: Math.abs(centre - opCentre), gap };
+    if (gap <= NEIGHBOUR_NEAR_GAP_EM * size) best = better(best, candidate);
+    else far = better(far, candidate);
   }
-  return best?.span;
+  return (best ?? far)?.span;
+}
+
+/** The larger text, then the line whose middle is nearer the operator's, then the nearer one. */
+function better<T extends { span: TextSpan; distance: number; gap: number }>(best: T | undefined, next: T): T {
+  if (!best) return next;
+  const size = em(next.span);
+  const bestSize = em(best.span);
+  if (size > bestSize * 1.05) return next;
+  if (size < bestSize * 0.95) return best;
+  if (next.distance < best.distance - 0.5) return next;
+  return Math.abs(next.distance - best.distance) <= 0.5 && next.gap < best.gap ? next : best;
 }
 
 /** The limit pieces nearest the line on one side, chained when they share a baseline (`k` `=1`). */
@@ -111,7 +133,11 @@ function limitRun(
   if (candidates.length === 0) return undefined;
   const nearest = side === 'upper' ? Math.max(...candidates.map(baseline)) : Math.min(...candidates.map(baseline));
   const run = new Set(candidates.filter((span) => Math.abs(baseline(span) - nearest) <= SAME_BASELINE_EM * size));
-  const sameBaseline = pool.filter((span) => Math.abs(baseline(span) - nearest) <= SAME_BASELINE_EM * size);
+  // Pieces of a tall bracket beside the operator hang across every baseline; they are not a line.
+  const sameBaseline = pool.filter(
+    (span) =>
+      Math.abs(baseline(span) - nearest) <= SAME_BASELINE_EM * size && !DELIMITER_PIECE_RE.test(span.text.trim()),
+  );
   let grew = true;
   while (grew) {
     grew = false;

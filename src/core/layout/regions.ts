@@ -7,6 +7,8 @@ import { type Candidate, clusterBoxes, isFiniteBox, MIN_FIGURE_GRAPHICS, ruleBan
 export interface LayoutGraphics {
   vectorBoxes?: readonly BBox[];
   imageBoxes?: readonly BBox[];
+  /** Rules painted as solid 1×1 image masks; only the math pass reads them. */
+  maskRules?: readonly BBox[];
 }
 
 /**

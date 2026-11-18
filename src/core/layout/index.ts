@@ -49,7 +49,11 @@ export function buildLayout(
 ): PageLayout {
   if (spans.length === 0) return { blocks: [] };
 
-  const math = assembleDisplayMath(spans, graphics?.vectorBoxes, pageWidth);
+  const mathBoxes =
+    graphics?.maskRules && graphics.maskRules.length > 0
+      ? [...(graphics.vectorBoxes ?? []), ...graphics.maskRules]
+      : graphics?.vectorBoxes;
+  const math = assembleDisplayMath(spans, mathBoxes, pageWidth);
   const vertical = extractVerticalCjkBlocks(math.spans);
   const code = extractCodeBlocks(vertical.remainingSpans, monospaceFonts);
 

@@ -1,12 +1,13 @@
 import type { TextSpan, VectorBox } from '../../../types/index.js';
 import type { BBox } from '../geometry.js';
+import { median } from '../geometry.js';
 import { markMathTerm } from '../spanMetadata.js';
 import { hasVerticalTextShape } from '../verticalText.js';
 import { attachEquationNumbers, hasEquationNumber } from './equationNumbers.js';
 import { fractionAt, fractionBars } from './fractions.js';
 import { bracketBoxes, matrixBrackets } from './matrices.js';
 import { operatorAt } from './operators.js';
-import { type Assembled, boxOf, isBigOperator, isRadical, replaceParts } from './shared.js';
+import { type Assembled, boxOf, em, isBigOperator, isRadical, replaceParts } from './shared.js';
 
 export interface DisplayMathResult {
   spans: TextSpan[];
@@ -61,22 +62,35 @@ export function assembleDisplayMath(
   };
 
   const unread: { region: BBox; parts: readonly TextSpan[] }[] = [];
-  for (const bar of bars) {
-    const fraction = fractionAt(bar, pool);
-    if (fraction?.assembled) apply(fraction.assembled, boxOf([...fraction.assembled.parts, bar]));
-    else if (fraction?.unread) unread.push(fraction.unread);
-  }
+  // Fractions are read before operators, so a numerator is never taken for
+  // an operator's limit; a fraction whose numerator holds an operator is
+  // read again once the operator is on its line.
+  const readFractions = (candidates: readonly BBox[], final: boolean): BBox[] => {
+    const left: BBox[] = [];
+    for (const bar of candidates) {
+      const fraction = fractionAt(bar, pool);
+      if (fraction?.assembled) apply(fraction.assembled, boxOf([...fraction.assembled.parts, bar]));
+      else {
+        left.push(bar);
+        if (final && fraction?.unread) unread.push(fraction.unread);
+      }
+    }
+    return left;
+  };
+  const leftBars = readFractions(bars, !hasOperator);
   const rules = (vectorBoxes ?? []).filter((box) => box.height <= 1.6 && box.width > box.height * 2);
   for (const matrix of matrixBrackets(brackets, pool, rules)) {
     if (matrix.assembled) apply(matrix.assembled, matrix.region);
     else unread.push({ region: matrix.region, parts: [] });
   }
   if (hasOperator) {
+    const bodySize = median(pool.filter((span) => !isSeated(span)).map(em));
     for (const op of pool.filter(isSeated)) {
       if (!pool.includes(op)) continue;
-      const assembled = operatorAt(op, pool);
+      const assembled = operatorAt(op, pool, bodySize);
       if (assembled) apply(assembled, boxOf(assembled.parts));
     }
+    readFractions(leftBars, true);
   }
 
   // A piece left unread inside an outer term that was read after all is not unread.
