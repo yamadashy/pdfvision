@@ -104,12 +104,10 @@ stamp is not labelled. Their presence answers question 1. The survey's failure (
 number\`) did not reproduce with a watermark drawn behind the text at this angle and size.
 
 The letter-spaced small-caps headings read as words (\`BACKGROUND\`, \`PROPOSAL\`,
-\`RECOMMENDATIONS\`, #268). Defects without a warning: the header
-block is read as a label column then a value column (\`TO:\` … \`RE:\`, then the five values, with
-\`SAMPLE\` between the third and fourth), so question 2 depends on counting. The timeline
-table is not detected; it is read column by column, each column whole (\`Milestone\` /
-\`Committee approval\` / \`Dock works complete at Hayward\` / …, then \`Owner\` / …, then
-\`Target date\` / …), so question 4 is answered by position within the columns. Besides
+\`RECOMMENDATIONS\`, #268). The header block reads
+each label with its value (\`FROM: Lena Marsh, Director of Facilities\`), and the timeline table,
+not detected as a layout table, reads row by row (\`Committee approval Executive Committee December 9,
+2026\`), so questions 2 and 4 are answered directly (#301). Besides
 \`faint_text\`, the only warnings are \`text_overlap\` (“block bboxes overlap … may visually
 collide”), caused by the watermark; they name no next step.
 `;

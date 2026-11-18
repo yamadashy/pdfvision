@@ -8,6 +8,7 @@ import {
   isLikelyBodySentenceFragment,
   isNumberedHeadingText,
 } from './headingText.js';
+import { lineCells } from './rows/index.js';
 import { isTableNumericCell } from './tableCells.js';
 
 export { isNumberedHeadingText } from './headingText.js';
@@ -90,7 +91,7 @@ function collectBodyFontSamples(blocks: readonly LayoutBlock[]): { all: number[]
   const filtered: number[] = [];
   for (const block of blocks) {
     const supplementalNote = isSupplementalNoteBlock(block.text);
-    for (const line of block.lines) {
+    for (const line of lineCells(block.lines)) {
       appendWeightedFontSamples(all, line);
       if (supplementalNote || isTinyNumericAnnotationLine(line)) continue;
       appendWeightedFontSamples(filtered, line);

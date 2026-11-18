@@ -74,8 +74,8 @@ The overdrawn title reads once, `2027年3月期 第2四半期(中間期)決算�
 answers question 5, and the justified line reads `ると判断する一定の前提に基づいており、詳細は当社ウェブサイト`
 (#268), so 「判断する」 and 「当社ウェブサイト」 can be searched.
 
-The page body separates the company labels from their values (all labels, then all values, ahead
-of the results table), but a layout table pairs them correctly
+The page body reads each company label with its value (`コード番号 6789 URL https://www.minami-seiki.example`,
+#301), and a layout table pairs them as cells
 (`| 問合せ先責任者 | (役職名)取締役経理部長 (氏名)佐藤 由美 | … | TEL | 06-0000-1234 |`), so questions 1
 and 4 are answered from it. The results, balance-sheet and dividend tables are read from their
 ruled grids (#277): the results table has its item names (`売上高 | | 営業利益 | | 経常利益 | | 親会社株主に帰属 する中間純利益`,

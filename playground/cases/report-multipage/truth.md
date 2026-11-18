@@ -103,12 +103,12 @@ into the first data cell and the columns had no names). The two halves are still
 separate tables. The running title, the confidentiality line and `Page N of 4` are
 dropped from the page bodies as repeated chrome and named once in the header (issue #259); the varying
 section name in the header is kept, so page 3 shows `3 Risks and mitigations` twice, the first time
-between `Table 1 (continued)` and the table's header row. The page bodies are flattened column by column under `tabular_numeric_layout`.
+between `Table 1 (continued)` and the table's header row. The page bodies read the table one row per line (`Gdansk North 19 0 — Grid upgrade`, #297) under `tabular_numeric_layout`.
 
 Page 4 (`/Rotate 90`) is read upright, exactly as the same page stored landscape would be: the
 running title is dropped as repeated chrome and the section name shows twice, as on page 3. The
-body reads the table row by row (`Voltra e-Van 3.5` / `Large van` / `64` / `310` / …) after the
-column headers; it used to be flattened column by column like pages 2–3. Layout table 1 reads the whole
+body reads the table one row per line (`Voltra e-Van 3.5 Large van 64 310 …`) after the
+column headers; as pages 2–3 now do too. Layout table 1 reads the whole
 table: one header label per column (`Price | Energy / 100 km`, `5-yr TCO | CO2 saved`, split at the
 value columns under them, #253), the units row, and every model row whole
 (`| Mobion City | Small van | 88 | 220 | 50 | 36.2 | EUR 4.90 | 880 | 61.8 | 6.2 |`), so question 3

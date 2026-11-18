@@ -81,8 +81,8 @@ Every raised and lowered run is marked (#241): \`2.3 · 10^19\`, \`|∇f|^2\`, \
 \`model.^1\`, \`P_{drop} = 0.1\`, and the footnote reads \`^1 Measured on eight P100 GPUs.\`; the layout
 table carries \`P_{drop}\` and \`2.3 · 10^19\` in its cells.
 
-In the page body the table is read row by row between its rules (\`Model\` / \`Train steps\` /
-\`FLOPs\` / \`P_{drop}\`, then \`base\` and its values, then \`big\` and its values), and the
+In the page body the table is read one row per line between its rules (\`Model Train steps FLOPs
+P_{drop}\`, \`base 1.0 · 10^5 3.3 · 10^18 0.1\`, \`big …\`, #297), and the
 footnote is the last text on the page (#257: it used to be emitted between two table columns,
 which were read one after another).
 `;

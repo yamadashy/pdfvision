@@ -66,16 +66,13 @@ Caption: ${CAPTION}
 4. おはなし会の定員と申込方法は。 — 各回20人（先着順）、申込不要・参加無料
 5. 館長は誰で、何と話しているか。 — 浜野さん。「波の音を聞きながら本を読む時間を、冬にも楽しんでほしい」
 
-**Reads correctly, with one defect in the horizontal table:** the vertical article is read column by
-column, right to left, after the masthead, and the horizontal box after it, so all five questions are
-answered from \`read.md\`. The headline picks up spaces between glyph groups (\`海辺 の図書館、\` /
-\`冬も開いて います\`). The schedule table is not reported as a table, and its cells come out partly
-right to left, as if the vertical article's direction applied to it: the header is \`対象\` / \`内容\` /
-\`時間\` / \`日にち\`, the first two rows put the 対象 cell first and the rest left to right
-(\`小学生\` / \`1月11日(日) 14:00〜14:40 冬の星と昔話\`), and the last row is reversed again
-(\`中学生以上\` / \`10:30〜11:30 大人のための朗読会\` / \`2月8日(日)\`), with the photo placeholder's
-\`(写真)\` between rows. The cell contents are distinct enough here (dates, times, audiences) to pair
-correctly; a table whose columns were alike would not be.
+**Reads correctly:** the vertical article is read column by column, right to left, after the masthead,
+and the horizontal box after it, so all five questions are answered from \`read.md\`. The headline picks
+up spaces between glyph groups (\`海辺 の図書館、\` / \`冬も開いて います\`). The schedule table is not
+reported as a layout table, but its rows read left to right, one line each, header first
+(\`日にち 時間 内容 対象\` / \`2月8日(日) 10:30〜11:30 大人のための朗読会 中学生以上\`), and the photo
+placeholder's \`(写真)\` after them (#309). The masthead still reads its right-hand date before the
+title on its left.
 `;
 
 export function draw(doc, h) {

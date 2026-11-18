@@ -15,7 +15,7 @@ import { compareLayoutBlocks } from './verticalText.js';
  * instead of joining whichever column their x happens to match. The
  * unit's own blocks are then ordered inside it: a `frame` by the same
  * rules as the page (with any regions nested in it), a `figure` top to
- * bottom.
+ * bottom, `rows` (each row already one line) top to bottom.
  */
 export function orderLayoutBlocks(
   blocks: LayoutBlock[],
@@ -53,7 +53,7 @@ export function orderLayoutBlocks(
     unitOf.set(stand, unit);
     items.push(stand);
   }
-  items.sort(compareLayoutBlocks);
+  sortOnBaselines(items);
 
   const stands = new Set(unitOf.keys());
   const ordered = reorderForColumns(items, pageWidth, pageHeight, stands);
@@ -64,8 +64,45 @@ export function orderLayoutBlocks(
   });
 }
 
+/**
+ * Top to bottom, and one-line items set on one baseline left to right:
+ * by top edge alone, a cell drawn half a point higher (its font sits a
+ * little differently) comes before the label to its left. Needed once
+ * rows are read as units, which leaves such a row's label and options
+ * as items of the page without a column pass to put them back in order.
+ */
+function sortOnBaselines(items: LayoutBlock[]): void {
+  items.sort(compareLayoutBlocks);
+  let start = 0;
+  for (let i = 1; i <= items.length; i++) {
+    if (i < items.length && isOneLine(items[i]) && isOneLine(items[start]) && sharesBaseline(items[start], items[i]))
+      continue;
+    const group = items.slice(start, i).sort((a, b) => a.x - b.x);
+    items.splice(start, group.length, ...group);
+    start = i;
+  }
+}
+
+function isOneLine(block: LayoutBlock): boolean {
+  return block.writingMode === undefined && block.lines.length === 1;
+}
+
+/**
+ * Set on one baseline in one size: top and bottom within a fraction of a
+ * point. Items a point or more apart (a page number beside a footer line)
+ * keep their top-down order, which later passes rely on.
+ */
+function sharesBaseline(a: LayoutBlock, b: LayoutBlock): boolean {
+  const tolerance = Math.max(BASELINE_MIN_TOLERANCE_PT, Math.min(a.height, b.height) * BASELINE_TOLERANCE);
+  return Math.abs(a.y - b.y) <= tolerance && Math.abs(a.y + a.height - (b.y + b.height)) <= tolerance;
+}
+
+const BASELINE_TOLERANCE = 0.08;
+const BASELINE_MIN_TOLERANCE_PT = 0.6;
+
 function orderUnit(unit: LayoutRegion, regions: readonly LayoutRegion[]): LayoutBlock[] {
   const members = [...unit.blocks].sort(compareLayoutBlocks);
+  if (unit.kind === 'rows') return members;
   const inner = regions.filter((region) => region !== unit);
   // A panel holding several charts is read chart by chart, not row by row
   // across all of them.

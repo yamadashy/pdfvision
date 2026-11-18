@@ -2,7 +2,7 @@
 
 - **Stresses:** GHS hazard pictograms as text-free vector diamonds; signal word and H/P statement codes; composition table with chemical formulas set with real subscripts and CAS numbers; units with superscripts; ions with superscript charges in prose; white-on-dark section bars; repeated product line and page count
 - **Families:** vector-meaning, math, tables, structure
-- **Status:** known-gap (#301)
+- **Status:** known-gap (#241)
 
 Two Letter pages of an SDS for **KALKO HX-40 Descaler**, sections 1–3 on page 1 and 9–10 on page 2.
 
@@ -44,18 +44,14 @@ hypochlorites (OCl⁻) and sulfites (SO₃²⁻); mixing with hypochlorite bleac
 5. Which ion's name and charge appear for sulfites, and what gas does mixing with bleach release? — SO₃²⁻ (sulfite, charge 2−); chlorine (Cl₂)
 6. What does hazard statement H335 say, and which statement is H314? — H335: May cause respiratory irritation; H314: Causes severe skin burns and eye damage
 
-Questions 1, 2 and 4 are answerable from `read.md`: the composition table reads row by row with the
-subscripts marked (`H_3NSO_3`, `NaC_12H_25SO_4`), and the density keeps its superscript
-(`1.18 g/cm^3`).
+Questions 1, 2, 4 and 6 are answerable from `read.md`: the composition table reads row by row with the
+subscripts marked (`H_3NSO_3`, `NaC_12H_25SO_4`), the density keeps its superscript
+(`1.18 g/cm^3`), and the two-column lists read as rows: each H- and P-statement code on one line
+with its text (`H335 May cause respiratory irritation.`), as are section 1's labels with their values
+and section 9's properties (#301).
 
-**Known gap (#301):**
+**Known gaps:**
 - The hazard pictograms leave no trace and nothing warns, so question 3 has no answer (the signal
   word and H-statements hint at corrosion, not at which pictograms are printed).
-- The two-column code/text lists of section 2 are pulled apart and re-sequenced: `H290` / `H314` /
-  `May cause respiratory irritation.` / `Precautionary statements` / `P280` / `H335` /
-  `P301+P330+P331` / `P305+P351+P338` / … / `May be corrosive to metals.` / `Causes severe skin
-  burns and eye damage.` / …, so H314 sits right before H335's text and H335 among the P-codes;
-  question 6 is answered wrongly by anyone pairing neighbours. Section 1's labels likewise come out
-  as one block before their values (pairable only by counting).
 - A subscript followed by a superscript charge is merged into one subscript: `SO_32−` for SO₃²⁻ (the
   single charge `OCl^−` is right), so question 5's charge reads as part of the subscript (#241).

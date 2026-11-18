@@ -13,6 +13,7 @@ import { extractMarginLineNumbers, type MarginNumberColumn, numberLines } from '
 import { assembleDisplayMath } from './math/index.js';
 import { orderLayoutBlocks } from './regionOrder.js';
 import { detectLayoutRegions, type LayoutGraphics, type LayoutRegion } from './regions.js';
+import { alignedRowRegions, readAlignedRows } from './rows/index.js';
 import { sideLineMarks } from './sideLines.js';
 import { tableRules } from './tableRules.js';
 import { detectLayoutTables } from './tables.js';
@@ -177,16 +178,26 @@ function buildUprightLayout(
     }
   }
 
-  const blocks: LayoutBlock[] = [
-    ...blockGroups.map((group) => ({
-      text: group.map((l) => l.text).join('\n'),
-      ...unionBox(group),
-      lines: group,
-    })),
-    ...vertical.blocks,
-    ...code.blocks,
-    ...grid.blocks,
-  ].sort(compareLayoutBlocks);
+  // A title grid's cells are read as a grid (see `extractTitleGrids`), never joined into rows.
+  const rows = readAlignedRows(
+    [
+      ...blockGroups.map((group) => ({
+        text: group.map((l) => l.text).join('\n'),
+        ...unionBox(group),
+        lines: group,
+      })),
+      ...vertical.blocks,
+      ...code.blocks,
+      ...grid.blocks,
+    ],
+    {
+      gutters: columnGutters,
+      verticalRules: rules.vertical,
+      regions: (pending) => detectLayoutRegions(pending, graphics, pageWidth, pageHeight, { bars: false }),
+      exclude: new Set(grid.blocks),
+    },
+  );
+  const blocks: LayoutBlock[] = rows.blocks.sort(compareLayoutBlocks);
 
   if (isVerticalPage(blocks)) {
     const ordered = orderVerticalPage(blocks);
@@ -205,12 +216,16 @@ function buildUprightLayout(
     pageWidth > 0
       ? orderLayoutBlocks(
           blocks,
-          [...detectLayoutRegions(blocks, graphics, pageWidth, pageHeight), ...gridRegions(grid.gridBlocks)],
+          [
+            ...(rows.regions ?? detectLayoutRegions(blocks, graphics, pageWidth, pageHeight)),
+            ...gridRegions(grid.gridBlocks),
+            ...alignedRowRegions(rows.runs),
+          ],
           pageWidth,
           pageHeight,
         )
       : blocks;
-  indentNestedLines(ordered);
+  indentNestedLines(ordered, rows.sources);
   return withMarks(
     {
       blocks: ordered,

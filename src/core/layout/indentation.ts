@@ -1,5 +1,6 @@
 import type { LayoutBlock, LayoutLine } from '../../types/index.js';
 import { median } from './geometry.js';
+import { rowCells } from './rows/index.js';
 
 /**
  * Keep the depth of nested lists and index entries in the text. Which entry
@@ -23,13 +24,29 @@ import { median } from './geometry.js';
  * deeper than any subentry stays deeper; each level is two leading spaces
  * in the text and `indent` on the line.
  */
-export function indentNestedLines(blocks: readonly LayoutBlock[]): void {
+export function indentNestedLines(blocks: readonly LayoutBlock[], sources: readonly LayoutBlock[] = []): void {
   const depths = new Map<LayoutLine, number>();
-  for (const block of blocks) {
+  // Rows read across label and value columns (see rows/index.ts) take the
+  // depth their label had in its own column.
+  for (const block of sources) {
+    if (isRightAligned(block.lines)) continue;
     const lineDepths = blockLineDepths(block);
     if (!lineDepths) continue;
     block.lines.forEach((line, index) => {
       if (lineDepths[index] > 0) depths.set(line, lineDepths[index]);
+    });
+  }
+  for (const block of blocks) {
+    for (const line of block.lines) {
+      const depth = rowCells(line).length > 1 ? depths.get(rowCells(line)[0]) : undefined;
+      if (depth !== undefined) depths.set(line, depth);
+    }
+  }
+  for (const block of blocks) {
+    const lineDepths = blockLineDepths(block);
+    if (!lineDepths) continue;
+    block.lines.forEach((line, index) => {
+      if (lineDepths[index] > 0 && !depths.has(line)) depths.set(line, lineDepths[index]);
     });
   }
   for (const [block, depth] of itemBlockDepths(blocks)) {
@@ -52,6 +69,7 @@ export function indentNestedLines(blocks: readonly LayoutBlock[]): void {
 }
 
 const MAX_DEPTH = 6;
+const RIGHT_ALIGNED_SHARE = 0.8;
 const MAX_INDENT_EM = 8;
 const INDENT_TOLERANCE_EM = 0.25;
 const INDENT_TOLERANCE_MIN_PT = 1.5;
@@ -121,7 +139,37 @@ function toleranceFor(lines: readonly LayoutLine[]): { tolerance: number; em: nu
 /** Depth of each line inside one block, or undefined when the block is not a nested list or index. */
 function blockLineDepths(block: LayoutBlock): number[] | undefined {
   if (!isIndentable(block) || block.lines.length < 2) return undefined;
-  const lines = block.lines;
+  // A row joined from cells is judged by its first cell: the entry, not the
+  // values or page number set to its right. A row of values alone (under a
+  // label that wraps) has no entry and takes no depth.
+  const heads = block.lines.map((line) => rowCells(line)[0]);
+  const rowHeads = heads.filter((_, index) => rowCells(block.lines[index]).length > 1);
+  // A line set under another column of the rows (a statement's detail line)
+  // is no entry of the first column either.
+  const columnRight = Math.min(...rowHeads.map((head) => head.x + head.width));
+  const keep = heads.map((head) => rowHeads.length === 0 || (/\p{L}/u.test(head.text) && head.x < columnRight));
+  const kept = heads.filter((_, index) => keep[index]);
+  if (rowHeads.length > 0 && isRightAligned(kept)) return undefined;
+  const depths = lineDepths(kept);
+  if (!depths) return undefined;
+  let next = 0;
+  return keep.map((kept) => (kept ? depths[next++] : 0));
+}
+
+/**
+ * Labels set flush right against what follows them (a pinout's pin names)
+ * start wherever their width puts them; that is no indent.
+ */
+function isRightAligned(lines: readonly LayoutLine[]): boolean {
+  if (lines.length < 2) return false;
+  const rights = lines.map((line) => line.x + line.width);
+  const at = median(rights);
+  const { tolerance } = toleranceFor(lines);
+  return rights.filter((right) => Math.abs(right - at) <= tolerance).length >= lines.length * RIGHT_ALIGNED_SHARE;
+}
+
+function lineDepths(lines: readonly LayoutLine[]): number[] | undefined {
+  if (lines.length < 2) return undefined;
   const { tolerance, em } = toleranceFor(lines);
   const base = Math.min(...lines.map((line) => line.x));
   const offsets = lines.map((line) => line.x - base);

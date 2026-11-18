@@ -19,29 +19,9 @@ The big model was trained for 2.3 · 10^19 FLOPs, about seven times the base mod
 Gradients are clipped when |∇f|^2 exceeds 10^4, and each sample is weighted by e^{-f}.
 Residual dropout uses P_{drop} = 0.1 for the base model and 0.3 for the big one.
 
-Model
-
-Train steps
-
-FLOPs
-
-P_{drop}
-
-base
-
-1.0 · 10^5
-
-3.3 · 10^18
-
-0.1
-
-big
-
-3.0 · 10^5
-
-2.3 · 10^19
-
-0.3
+Model Train steps FLOPs P_{drop}
+base 1.0 · 10^5 3.3 · 10^18 0.1
+big 3.0 · 10^5 2.3 · 10^19 0.3
 
 ^1 Measured on eight P100 GPUs.
 

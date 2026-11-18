@@ -56,7 +56,10 @@ describe('clock times and dot leaders in layout tables', () => {
 
   it('keeps the dot leader with its label in the page text', () => {
     const lines = buildLayout(timetable(28, WEEKDAY), 792, 612).blocks.flatMap((block) => block.lines);
-    expect(lines.some((line) => /^Harbour Station \.+ 6:05$/.test(line.text))).toBe(true);
+    // The stop's row reads as one line: name, leader, then each trip's time.
+    expect(lines.some((line) => /^Harbour Station \.+ 6:05 6:35 7:05 7:20 7:42 12:05 3:25$/.test(line.text))).toBe(
+      true,
+    );
   });
 });
 

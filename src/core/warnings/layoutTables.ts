@@ -6,6 +6,7 @@ import type {
   PageResult,
   PageWarning,
 } from '../../types/index.js';
+import { cellLines } from '../layout/rows/index.js';
 import { isTableValueCell } from '../layout/tableCells.js';
 import { isClearlyCloser } from '../layout/tableLabelWraps.js';
 import { tableInOwnFrame } from '../layout/turnedRegions.js';
@@ -29,7 +30,7 @@ export function detectLayoutTableUncertainty(page: PageResult, out: PageWarning[
   const tables = page.layout?.tables;
   if (!tables || tables.length === 0) return;
   const blocks = page.layout?.blocks ?? [];
-  const lines = blocks.flatMap((block) => block.lines);
+  const lines = cellLines(blocks);
   const toRaw = 1 / (page.userUnit ?? 1);
 
   for (const [tableIndex, table] of tables.entries()) {
@@ -39,7 +40,7 @@ export function detectLayoutTableUncertainty(page: PageResult, out: PageWarning[
         ? { table, lines }
         : tableInOwnFrame(
             table,
-            blocks.filter((block) => block.rotation === table.rotation).flatMap((block) => block.lines),
+            cellLines(blocks.filter((block) => block.rotation === table.rotation)),
             page.width,
             page.height,
           );

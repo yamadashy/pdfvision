@@ -74,8 +74,9 @@ above is answered from it: \`(3) これまでに手術を受けたことがあ�
 open V with its longer arm rising right, a selected circle holds a filled dot; the boxes and circles carry
 no text.
 
-The body still reads section 1 column by column (the five questions, then \`はい\` ×5, \`いいえ\` ×5)
-and splices section 2's options between them; the choice table does not depend on that order.
+The body reads sections 1 and 2 row by row, each question or habit on one line with its options
+(\`(2) 薬や食べ物でアレルギーが出たことがありますか はい いいえ 内容:ペニシリン系の抗生物質\`, #301); the choice
+table does not depend on that order.
 `;
 
 function box(doc, x, y) {

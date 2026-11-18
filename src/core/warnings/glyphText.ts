@@ -1,4 +1,5 @@
 import type { LayoutLine, PageResult, PageWarning } from '../../types/index.js';
+import { lineCells } from '../layout/rows/index.js';
 import {
   codePointLength,
   countNonPrintableCodePoints,
@@ -252,7 +253,7 @@ function findSingleDisplayNonPrintableGlyph(page: PageResult): { blockIndex: num
   const blocks = page.layout?.blocks ?? [];
   for (let blockIndex = 0; blockIndex < blocks.length; blockIndex++) {
     const block = blocks[blockIndex];
-    for (const line of block.lines) {
+    for (const line of lineCells(block.lines)) {
       if (countNonPrintableCodePoints(line.text) !== 1) continue;
       if (!isDisplayLine(line)) continue;
       return { blockIndex };

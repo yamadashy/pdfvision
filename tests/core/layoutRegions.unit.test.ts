@@ -88,16 +88,12 @@ describe('buildLayout — rule bands and bottom notes (#257)', () => {
     const blocks = buildLayout(spans, 612, 792, rules).blocks;
     const order = texts(blocks).flatMap((text) => text.split('\n'));
     expect(order.at(-1)).toBe('1 Measured on eight P100 GPUs.');
-    expect(order.slice(order.indexOf('Model'), order.indexOf('Model') + 9)).toEqual([
-      'Model',
-      'Train steps',
-      'FLOPs',
-      'base',
-      '1.0e5',
-      '3.3e18',
-      'big',
-      '3.0e5',
-      '2.3e19',
+    // Each row of the table is one line, its cells in order (#297).
+    const header = order.indexOf('Model Train steps FLOPs');
+    expect(order.slice(header, header + 3)).toEqual([
+      'Model Train steps FLOPs',
+      'base 1.0e5 3.3e18',
+      'big 3.0e5 2.3e19',
     ]);
   });
 

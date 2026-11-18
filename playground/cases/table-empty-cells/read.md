@@ -19,72 +19,14 @@ English-to-French newstest2014 tests at a fraction of the training cost.
 BLEU
 
 Training Cost (EFLOPs)
-
-Model
-
-EN-DE
-
-EN-FR
-
-EN-DE
-
-EN-FR
-
-ByteNet
-
-23.75
-
-Deep-Att + PosUnk
-
-39.2
-
-100
-
-GNMT + RL
-
-24.6
-
-39.92
-
-23
-
-140
-
-ConvS2S
-
-25.16
-
-40.46
-
-9.6
-
-150
-
-MoE
-
-26.03
-
-40.56
-
-20
-
-120
-
-Transformer (base model)
-
-27.3
-
-38.1
-
-3.3
-
-Transformer (big)
-
-28.4
-
-41.8
-
-23
+Model EN-DE EN-FR EN-DE EN-FR
+ByteNet 23.75
+Deep-Att + PosUnk 39.2 100
+GNMT + RL 24.6 39.92 23 140
+ConvS2S 25.16 40.46 9.6 150
+MoE 26.03 40.56 20 120
+Transformer (base model) 27.3 38.1 3.3
+Transformer (big) 28.4 41.8 23
 
 ### Layout tables
 

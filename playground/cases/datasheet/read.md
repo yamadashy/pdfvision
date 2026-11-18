@@ -12,7 +12,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 | Page | Chars | Images | Coverage | Size (pt) | Vectors | Tables | Blocks | Warnings | Fields | Links | Annots |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 1511 | 0 | 17% | 612×792 | 22 | 2 | 40 | 0 | 0 | 0 | 0 |
+| 1 | 1511 | 0 | 17% | 612×792 | 22 | 2 | 19 | 0 | 0 | 0 | 0 |
 | 2 | 1071 | 0 | 7% | 612×792 | 219 | 1 | 80 | 1 | 0 | 0 | 0 |
 
 ---
@@ -39,37 +39,10 @@ KX4562 Dual 5-V Low-Noise Rail-to-Rail Operational Amplifier
 
 Over operating free-air temperature range (unless otherwise noted)
 
-OUT A
-
-1
-
-8
-
-V+
-
-IN A−
-
-2
-
-7
-
-OUT B
-
-IN A+
-
-3
-
-6
-
-IN B−
-
-V−
-
-4
-
-5
-
-IN B+
+OUT A 1 8 V+
+IN A− 2 7 OUT B
+IN A+ 3 6 IN B−
+V− 4 5 IN B+
 
 D Package, 8-Pin SOIC (Top View)
 
@@ -90,38 +63,14 @@ supports active filters well into the audio range. The device is
 offered in an 8-pin SOIC package and is specified over the
 extended industrial temperature range.
 
-Supply voltage, VS = (V+) – (V−)
-Input voltage, any pin
-Input current, any pin
-Output short-circuit duration
-Operating temperature, TA
-Junction temperature, TJ
-Storage temperature, Tstg
-
 MIN MAX UNIT
-0
-(V−) – 0.3
-–10
-
-–55
-
-–65
-
-6
-(V+) + 0.3
-10
-Continuous
-150
-150
-150
-
-V
-V
-mA
-
-°C
-°C
-°C
+Supply voltage, VS = (V+) – (V−) 0 6 V
+Input voltage, any pin (V−) – 0.3 (V+) + 0.3 V
+Input current, any pin –10 10 mA
+Output short-circuit duration Continuous
+Operating temperature, TA –55 150 °C
+Junction temperature, TJ 150 °C
+Storage temperature, Tstg –65 150 °C
 
 1
 

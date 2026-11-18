@@ -2,7 +2,7 @@
 
 - **Stresses:** transaction table with no vertical rules and zebra-striped rows; every row leaves either Paid out or Paid in empty; running balance column; descriptions wrapping onto a reference line; table continued on page 2 with a repeated header and a balance-brought-forward row; summary box
 - **Families:** tables, structure
-- **Status:** known-gap (#308)
+- **Status:** ok
 
 Two Letter pages. Account holder Ms R. Adeyemi, account 40-11-22 ••••4417, statement period 1–31 October
 2026. Summary: opening balance £2,418.37, paid in £3,574.23, paid out £2,364.17,
@@ -42,15 +42,14 @@ Transactions (page 1 holds the first 12; page 2 starts with *Balance brought for
 4. How much was spent at Fenmore Grocers in October? — £250.84 (86.12 + 73.65 + 91.07)
 5. What is the reference of the Northwave Energy direct debit? — NWE 55190023
 
-Questions 2–5 are answerable from `read.md`, and page 2 is read well: its rows are a 15 × 5 layout
-table with every amount in its own column (`| Oct 22 | Interest paid | | 1.83 | 3,656.74 |`), the
-wrapped references on rows of their own, and a `layout_table_uncertain` warning that names the region.
+All five questions are answerable from `read.md`. Both pages carry the transactions as a layout table
+under the repeated header, every amount in its own column (page 1: `| Oct 14 | Card refund — Pelham Rail
+| | 12.40 | 4,284.75 |`; page 2: `| Oct 22 | Interest paid | | 1.83 | 3,656.74 |`), the references on
+rows of their own, and a `layout_table_uncertain` warning naming the region, since Paid out and Paid in
+are never filled in the same row. The body reads each transaction as one line
+(`Oct 14 Card refund — Pelham Rail 12.40 4,284.75`), which keeps date, description and amounts
+together but not which amount column a value sits in: that is the table's job.
 
-**Known gap (#308):** page 1 — the same table, under the same header, with twelve rows — is not
-detected as a table and nothing warns. Its body gives each row as date / description / one amount /
-balance (`Oct 14` / `Card refund — Pelham Rail` / `Delay repay` / `12.40` / `4,284.75`), so whether
-an amount was paid out or paid in is lost; it can only be worked out by differencing consecutive
-balances. Question 1 (and any question about the money in or out on page 1, such as the Oct 07
-transfer) needs that arithmetic; an agent that sums "the amounts" for spending counts the salary and
-the refund too. Some wrapped references are also emitted after the amounts instead of under the
-description (`94.50` / `4,373.15` / `Ref NWE 55190023`).
+Page 1 was once missed because the rows that carry a reference line sit a line further apart than the
+others, so the row pitch alternates; the summary box above it played no part (#308). The two pages'
+tables are still two tables: nothing links page 2's to page 1's beyond the repeated header.
