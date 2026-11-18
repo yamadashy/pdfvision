@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { sortColumnRun } from '../../src/core/layout/columnBottomNotes.js';
 import { isProseColumnTable } from '../../src/core/layout/columnGutters.js';
 import { buildLayout } from '../../src/core/layout/index.js';
 import { mergeSplitHeaderTables } from '../../src/core/layout/splitHeaderTables.js';
@@ -441,5 +442,49 @@ describe('isProseColumnTable — short tables (#242)', () => {
         gutters,
       ),
     ).toBe(false);
+  });
+});
+
+describe('sortColumnRun — the page foot under column bottom notes', () => {
+  const block = (text: string, x: number, y: number, fontSize: number, width = 240): LayoutBlock => ({
+    text,
+    x,
+    y,
+    width,
+    height: fontSize,
+    lines: [{ text, x, y, width, height: fontSize, fontSize }],
+  });
+
+  it('reads a footnote at the foot of a column before the page number below it', () => {
+    const left = block('Left column body text that runs on for a while.', 54, 400, 10);
+    const right = block('Right column body text that runs on for a while.', 315, 300, 10);
+    const note = block('^1Code and probe weights: https://example.org/atp', 54, 714.5, 8, 158);
+    const folio = block('1', 303.5, 744.8, 10, 5);
+    const pending = [left, right, folio, note];
+    const columnOf = new Map<LayoutBlock, number>([
+      [left, 0],
+      [note, 0],
+      [right, 1],
+      [folio, 1],
+    ]);
+    sortColumnRun(pending, columnOf, 792);
+    expect(pending.map((b) => b.text)).toEqual([left.text, right.text, note.text, '1']);
+  });
+
+  it('keeps the column order when there is no bottom note', () => {
+    const left = block('Left column body text that runs on for a while.', 54, 400, 10);
+    const right = block('Right column body text that runs on for a while.', 315, 300, 10);
+    const folio = block('1', 303.5, 744.8, 10, 5);
+    const pending = [right, folio, left];
+    sortColumnRun(
+      pending,
+      new Map([
+        [left, 0],
+        [right, 1],
+        [folio, 1],
+      ]),
+      792,
+    );
+    expect(pending.map((b) => b.text)).toEqual([left.text, right.text, '1']);
   });
 });

@@ -11,14 +11,31 @@ export function sortColumnRun(
   pageHeight: number,
 ): void {
   const bottomNotes = new Set(detectColumnBottomNotes(pending, columnOf, pageHeight));
+  // The notes are moved after the columns, but not past a folio below them
+  // (a page number under a footnote): that still comes last.
+  const notesBottom =
+    bottomNotes.size > 0
+      ? Math.max(...[...bottomNotes].map((block) => block.y + block.height))
+      : Number.POSITIVE_INFINITY;
+  const foot = new Set(
+    pending.filter((block) => !bottomNotes.has(block) && block.y >= notesBottom && isFolioBlock(block)),
+  );
+  const rank = (block: LayoutBlock) => (foot.has(block) ? 2 : bottomNotes.has(block) ? 1 : 0);
   pending.sort((a, b) => {
-    const aBottomNote = bottomNotes.has(a);
-    const bBottomNote = bottomNotes.has(b);
-    if (aBottomNote !== bBottomNote) return aBottomNote ? 1 : -1;
+    if (rank(a) !== rank(b)) return rank(a) - rank(b);
     const ca = columnOf.get(a) ?? 0;
     const cb = columnOf.get(b) ?? 0;
     return ca - cb || a.y - b.y;
   });
+}
+
+const FOLIO_MAX_CHARS = 8;
+
+/** A page number or a short folio line (`12`, `- 12 -`, `Page 3`). */
+function isFolioBlock(block: LayoutBlock): boolean {
+  return (
+    block.lines.length === 1 && /\p{N}/u.test(block.text) && block.text.replace(/\s/g, '').length <= FOLIO_MAX_CHARS
+  );
 }
 
 function detectColumnBottomNotes(
