@@ -206,13 +206,14 @@ Subscripts on page 2 stay on their symbols, written \`_X\` (#241): the condition
 \`I_B\`, \`e_n\`, and conditions \`T_A = 25°C\`, \`I_O = 0 mA\`.
 
 **Known gap (no issue yet):**
-- The electrical-characteristics table is read as separate column streams — all parameters, then
-  symbols, conditions, and one list each for MIN, TYP, MAX and UNIT, with blank cells simply absent
-  (MAX: \`±1.5\` / \`±2.5\` / \`±10\` / \`±800\` / \`25\` / \`1.1\` / \`1.4\`). Questions 3 and 4 are answerable only by
-  matching positions across lists that have different lengths. The only layout table is a fragment
-  of the last rows (\`| POWER SUPPLY Quiescent current per | I_Q | I_O = 0 mA | | 0.85 | 1.1 | mA |\`);
-  \`layout_table_uncertain\` names a render region that covers that fragment only, and
-  \`reading_order_divergence\` says to render the page "when exact sequence is critical".
+- The electrical-characteristics table has no complete layout table: the only one is a fragment of
+  the last rows, \`OUTPUT\` to \`PSRR\` (\`| POWER SUPPLY Quiescent current per | I_Q | I_O = 0 mA | | 0.85 | 1.1 | mA |\`),
+  and \`layout_table_uncertain\` names a render region that covers that fragment only. The page body
+  reads the grid row by row between its rules, subscripts in place (\`OFFSET VOLTAGE\` /
+  \`Input offset voltage\` / \`V_{OS}\` / \`T_A = 25°C\` / \`±0.3\` / \`±1.5\` / \`mV\`, then \`±2.5\` / \`mV\`), so
+  questions 3 and 4 are answerable from it, but a blank cell is simply absent, so which of MIN, TYP
+  and MAX a lone value fills is not in the text, and the second offset-voltage condition is read
+  with the next row (\`Offset voltage drift\` / \`T_A = –40°C to +125°C\` / \`dV_{OS}/dT T_A = –40°C to +125°C\`).
 - The package outline's dimensions are vector outlines with no text, and nothing says so: page 2 has
   219 vector operations but no \`vector_graphics_no_native_text\` or figure warning, and the only text
   near it is \`7 Package Outline\` / \`D (SOIC-8) plastic small-outline package\`. Question 5 cannot be

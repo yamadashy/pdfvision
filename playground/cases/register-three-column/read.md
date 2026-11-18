@@ -22,8 +22,10 @@ RESOURCES
 14 CCR Part 214
 [Docket No. DCR–2026–0147]
 RIN 2210–AC63
+
 Small Craft Mooring Permits in
 Designated Harbor Areas
+
 AGENCY: Department of Coastal Resources
 (DCR).
 ACTION: Final rule.
@@ -45,65 +47,8 @@ Delia Fairweather, Office of Harbor
 Management, Department of Coastal Resources,
 telephone
 
-inspection.
-3. Waiting lists. Several commenters asked
-that applicants already on a paper list keep their
-place. The final rule carries existing places over
-to the electronic list in the order of the original
-application date.
-III. Regulatory Analyses
-This rule is not a significant regulatory action.
-The Department estimates that annual inspection
-will cost a permit holder between $90 and $160 a
-year, depending on depth, and that the electronic
-list will save harbor offices about 1,100 staff
-hours a year. The rule imposes no new reporting
-burden beyond the inspection certificate
-described in § 214.12(c).
-For the reasons stated in the preamble, the
-Department amends 14 CCR part 214 as follows:
-§ 214.12 Permit conditions.
-(a) General. A mooring permit authorizes one
-vessel to occupy one mooring at the location
-stated on the permit. The permit may not be
-transferred, sublet or used for a vessel other than
-the one named on it.
-(b) Maximum length. The overall length of the
-permitted vessel may not exceed—
-(1) In a Class A harbor, 12 meters;
-(2) In a Class B harbor, 15 meters; and
-(3) In a Class C harbor, 20 meters, unless the
+555–0142, email
 
-AGENCY: Department of Fisheries and Wildlife
-(DFW).
-ACTION: Temporary rule; closure.
-SUMMARY: The Department is closing the
-Northern Shellfish Beds to recreational harvest
-of clams and oysters because routine sampling
-found paralytic shellfish toxin above the action
-level. The closure protects public health and will
-remain in place until two consecutive weekly
-samples fall below that level.
-DATES: Effective 12:01 a.m. on November 6,
-2026, until the Department announces the
-reopening.
-FOR FURTHER INFORMATION CONTACT:
-Anselm Grieve, Shellfish Sanitation Program,
-telephone 555–0178.
-SUPPLEMENTARY INFORMATION:
-Samples taken on October 27 and November
-2, 2026, at stations N–4 and N–7 contained
-paralytic shellfish toxin at 112 and 146
-micrograms per 100 grams of tissue. The action
-level is 80 micrograms per 100 grams.
-Commercial harvest in the same beds was closed
-by the Department of Health on November 3,
-2026.
-Because the toxin poses an immediate risk to
-people who eat shellfish from the beds, the
-Department finds good cause to waive prior
-
-555–0142,
 harbors@dcr.example.gov.
 SUPPLEMENTARY INFORMATION:
 I. Background
@@ -143,8 +88,34 @@ biennial inspection, citing the winter storms of
 had not been inspected for more than eighteen
 months. The final rule requires annual
 
-email
-
+inspection.
+3. Waiting lists. Several commenters asked
+that applicants already on a paper list keep their
+place. The final rule carries existing places over
+to the electronic list in the order of the original
+application date.
+III. Regulatory Analyses
+This rule is not a significant regulatory action.
+The Department estimates that annual inspection
+will cost a permit holder between $90 and $160 a
+year, depending on depth, and that the electronic
+list will save harbor offices about 1,100 staff
+hours a year. The rule imposes no new reporting
+burden beyond the inspection certificate
+described in § 214.12(c).
+For the reasons stated in the preamble, the
+Department amends 14 CCR part 214 as follows:
+§ 214.12 Permit conditions.
+(a) General. A mooring permit authorizes one
+vessel to occupy one mooring at the location
+stated on the permit. The permit may not be
+transferred, sublet or used for a vessel other than
+the one named on it.
+(b) Maximum length. The overall length of the
+permitted vessel may not exceed—
+(1) In a Class A harbor, 12 meters;
+(2) In a Class B harbor, 15 meters; and
+(3) In a Class C harbor, 20 meters, unless the
 harbor master approves a longer vessel for a
 mooring at the outer edge of the field.
 (c) Inspection. (1) The permit holder must
@@ -184,6 +155,34 @@ WILDLIFE
 Temporary Closure of the Northern
 Shellfish Beds to Recreational Harvest
 
+AGENCY: Department of Fisheries and Wildlife
+(DFW).
+ACTION: Temporary rule; closure.
+SUMMARY: The Department is closing the
+Northern Shellfish Beds to recreational harvest
+of clams and oysters because routine sampling
+found paralytic shellfish toxin above the action
+level. The closure protects public health and will
+remain in place until two consecutive weekly
+samples fall below that level.
+DATES: Effective 12:01 a.m. on November 6,
+2026, until the Department announces the
+reopening.
+FOR FURTHER INFORMATION CONTACT:
+Anselm Grieve, Shellfish Sanitation Program,
+telephone 555–0178.
+SUPPLEMENTARY INFORMATION:
+Samples taken on October 27 and November
+2, 2026, at stations N–4 and N–7 contained
+paralytic shellfish toxin at 112 and 146
+micrograms per 100 grams of tissue. The action
+level is 80 micrograms per 100 grams.
+Commercial harvest in the same beds was closed
+by the Department of Health on November 3,
+2026.
+Because the toxin poses an immediate risk to
+people who eat shellfish from the beds, the
+Department finds good cause to waive prior
 notice and comment and to make this rule
 effective less than 30 days after publication.
 § 631.40 Northern Shellfish Beds closure.

@@ -57,7 +57,7 @@ export const meta = {
   title: 'Superscripts and subscripts',
   stresses:
     'exponents, a superscript square, a negative exponent, a subscript, and a footnote marker drawn as raised/lowered small text',
-  status: 'known-gap',
+  status: 'ok',
   families: ['math'],
 };
 
@@ -81,9 +81,10 @@ Every raised and lowered run is marked (#241): \`2.3 · 10^19\`, \`|∇f|^2\`, \
 \`model.^1\`, \`P_{drop} = 0.1\`, and the footnote reads \`^1 Measured on eight P100 GPUs.\`; the layout
 table carries \`P_{drop}\` and \`2.3 · 10^19\` in its cells.
 
-**Known gap (no issue yet):** in the page body the table is flattened column by column
-(no \`tabular_numeric_layout\` warning, the table is small) and the footnote at the foot
-of the page is emitted inside that run, between \`big\` and \`Train steps\`.
+In the page body the table is read row by row between its rules (\`Model\` / \`Train steps\` /
+\`FLOPs\` / \`P_{drop}\`, then \`base\` and its values, then \`big\` and its values), and the
+footnote is the last text on the page (#257: it used to be emitted between two table columns,
+which were read one after another).
 `;
 
 const LEFT = 90;

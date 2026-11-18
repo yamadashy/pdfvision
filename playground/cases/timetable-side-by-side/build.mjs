@@ -138,10 +138,12 @@ and with no warning that this is necessary; nothing marks the bold p.m. times.
   (\`7:42 12:12\`), and from \`St Brendan’s Hospital\` down the weekend trips 1501–1507 collapse into one
   cell (\`| 8:30 10:00 10:30 12:30 | |\`) while above it they are split differently
   (\`| 8:22 | 9:52 10:22 12:22 |\`). Reading that table by column gives wrong trip/time pairs.
-- The body gives the first three weekday trips on the stop-name lines, then every other trip as a
-  column list headed by its trip number (\`1407\` / \`7:23\` / \`7:27\` / \`—\` / \`7:31\` / …), with the 7:20
-  departure of trip 1407 left on the Harbour Station line. The weekend stop names come with no
-  times; question 2 needs the \`1501\` list.
+- The body gives every trip number first (both grids' headers, interleaved with the agency name
+  and phone line), then each grid stop by stop: the stop name with its first times, then the rest
+  of that stop's row (\`Customs House … 6:08 6:38 7:08\` / \`7:23\` / \`12:08\` / \`3:28\` / \`5:38\`). A stop
+  served by fewer trips has fewer times, and nothing says which trip a lone time belongs to; it used
+  to give each trip as a column list headed by its trip number. Question 2 needs the weekend row
+  of the stop, read left to right.
 - Bold is lost, so the p.m. legend (\`Times in bold are p.m.\`) cannot be applied: \`5:35\` and \`6:15\`
   read the same as the a.m. times (question 5's “pm” comes only from the order of the trips).
 `;

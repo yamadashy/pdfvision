@@ -87,19 +87,19 @@ columns (#273): the Introduction's second line `one in five hospital employees i
 stays in its sentence, and the left column is read whole, `Introduction` through `…invited
 between January and`, before the right column.
 
-`reading_order_divergence` fires on the title and says the layout-rebuilt order is unreliable too,
-naming the sidebar and abstract blocks that are interleaved line by line, and tells the reader to
-render the page. That is true, and the render answers question 4 and the order problems below,
-so the case is `ok` (#272: the warning used to claim "the body above is that reading order,
-rebuilt from the layout"). The rebuilt body itself is still wrong around the abstract and the
-floats (#274):
-- The sidebar is interleaved with the abstract line by line (`Circadian disruption … in working` /
-  `diversity: a cross-sectional study of` / `adults is poorly characterised. …`).
-- Table 1 is not detected as a table: its row labels come first, then the values column by column
-  (`41.2 (9.8)` / `163 (76.9) 149 (75.3)` / `25.1 (3.9)` / `7.1` / `61 (12)` / `38.6 (8.9)` / …),
-  with the first two value columns partly fused and the left column's text between the labels and
-  the values. Question 4 is answerable only by counting positions in each value list (the fourth
-  value of each column), which an agent cannot do safely when `163 (76.9) 149 (75.3)` shares a line.
-- The right column is read after Table 1's values and the figure (#274), so the sentence
-  `…invited between January and` / `June 2025. Night-shift workers were eligible…` is cut by
-  Table 1's values, the footer date `September 30, 2026`, the axis ticks and the caption.
+The rebuilt body is in visual reading order (#274): the abstract is one paragraph, followed by
+the sidebar as a whole (its lines used to alternate with the abstract's), then the left column
+with Table 1 at its top, then the right column with Figure 1 at its top, so the sentence
+`…invited between January and` / `June 2025. Night-shift workers were eligible…` is broken only by
+the figure that sits between its halves on the page. `reading_order_divergence` fires on the title
+and says the body above is that reading order, rebuilt from the layout — now true (#272 made it
+say the order was unreliable while the sidebar and abstract were interleaved).
+
+Table 1 is not detected as a layout table, but the band between its rules is read row by row:
+`Age, years, mean (SD)` / `41.2 (9.8)` / `38.6 (8.9)` / `0.006`, and so on. Two flaws remain: the
+first two values of `Female, n (%)` share one line (`163 (76.9) 149 (75.3)`), and the sleep row's
+label is joined to the next row's label, so its values `7.1` / `6.2` / `<0.001` come just before
+`Sleep, h/day, median` / `Diet quality score`; question 4 is answerable, but only by noticing
+that. Figure 1's labels are read bar by bar (`3.87` / `Day shift`, `3.58` / `Night < 5 y`,
+`3.24` / `Night ≥ 5 y`) after the axis, and `vector_chart_labels` names the chart region to
+render.

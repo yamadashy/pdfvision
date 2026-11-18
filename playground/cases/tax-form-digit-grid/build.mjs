@@ -144,17 +144,18 @@ Circled numbers may come back NFKC-normalised (\`①\` → \`1\`).
 4. 還付金はどの口座に振り込まれるか。 — ${BANK.name} ${BANK.branch}、${BANK.kind}預金、口座番号 ${BANK.number}
 5. 申告者の氏名の読みは何か。 — ${TAXPAYER.furigana.replace('　', ' ')}
 
-**Current reading (ok, via warnings):** the page body follows the drawing order of template and
-overlay, so amounts stand far from their labels (\`6 2 4 0 0 0 0\` comes right after the filing
-date). The layout table pairs most of them correctly — \`| 給与 | ア | 6 2 4 0 0 0 0 | 課税される所得金額(4-8) 9 | | 3 2 6 3 0 0 0 |\`,
+**Current reading (ok, via warnings):** the page body reads the header fields label by label
+(\`氏 名\` / \`青木 美咲\`) and the income and deduction rows row by row (\`合計(1から3まで)\` / \`4\` /
+\`4 6 9 5 0 0 0\`), each amount right after its label and line number (\`給与\` / \`ア\` /
+\`6 2 4 0 0 0 0\` first); it used to follow the drawing order of template and overlay, with every amount far from its label. The layout table pairs most of them correctly — \`| 給与 | ア | 6 2 4 0 0 0 0 | 課税される所得金額(4-8) 9 | | 3 2 6 3 0 0 0 |\`,
 \`| 源泉徴収税額 | 15 | 2 5 1 3 0 0 |\`, \`| 還付される税金 | 17 | 2 2 5 9 6 |\` — and the stacked band
 labels are rebuilt as words (\`収入金額等\`, \`所得から差し\` / \`引かれる金額\`), never spliced into the
 rows. But the 所得金額等 rows ① to ④ lose their labels and line numbers in the table
 (\`| | | 4 6 9 5 0 0 0 | …\`), and 申告納税額 ⑯ is missing from it. \`layout_table_uncertain\` says
 exactly that (“8 lines with numbers inside the table belong to no row … render that region
 (--render-region …) before trusting the table”) and \`dense_vector_graphics\` says to inspect the
-render. Questions 1, 3, 4 and 5 are answered from \`read.md\` (\`預金の種類 レ普通\`, \`アオキ ミサキ\`);
-question 2 needs the suggested region render. Circled numbers come back NFKC-normalised
+render. All five questions are answered from \`read.md\` (\`預金の種類 レ普通\`, \`アオキ ミサキ\`, and
+question 2 from the body row \`合計(1から3まで)\` / \`4\` / \`4 6 9 5 0 0 0\`, which the table lacks). Circled numbers come back NFKC-normalised
 (\`④\` → \`4\`).
 `;
 

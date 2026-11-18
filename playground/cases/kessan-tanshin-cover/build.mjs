@@ -191,8 +191,9 @@ The overdrawn title reads once, \`2027年3月期 第2四半期(中間期)決算�
 answers question 5, and the justified line reads \`ると判断する一定の前提に基づいており、詳細は当社ウェブサイト\`
 (#268), so 「判断する」 and 「当社ウェブサイト」 can be searched.
 
-**Known gap (no issue yet):** the results table, below. The rest is usable. The page body separates the company labels from their values (labels first,
-values after the results table header), but layout table 5 pairs them correctly
+**Known gap (no issue yet):** the results table, below. The rest is usable. The page body
+separates the company labels from their values (all labels, then all values, ahead of the results
+table), but layout table 5 pairs them correctly
 (\`| 問合せ先責任者 | (役職名)取締役経理部長 (氏名)佐藤 由美 | … | TEL | 06-0000-1234 |\`), so questions 1
 and 4 are answered from it; it carries \`layout_table_uncertain\` because it runs on into the results
 header. The results table keeps only the units row of its header (\`百万円 | % | …\`, #253) and loses

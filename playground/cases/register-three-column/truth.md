@@ -142,11 +142,11 @@ margin stamp is read after the body instead of inside a paragraph (#273).
 prose lines from all three columns (`| designated harbor areas. This rule sets a single | | |
 described in § 214.12(c). | FOR FURTHER INFORMATION CONTACT: |`).
 
+The columns are read one after another, each top to bottom (#274). The justified contact line
+`telephone 555–0142, email` is set with word spaces of about 35 pt and cut at them; its pieces
+used to end the column run, so the columns were read segment by segment. Now `email` is put
+back after `555–0142,` and the line reads `telephone` / `555–0142, email` in its place, so
+column 1 runs to `…The final rule requires annual` and column 2 continues with `inspection.`
+
 **Known gap (no issue yet):**
-- The columns are read segment by segment rather than one after another: column 1 down to
-  `telephone`, the top of column 2 (opening with `inspection.`, the end of column 1's last
-  sentence), the top of column 3, then the rest of column 1, the stray word `email`, the rest of
-  column 2 and the rest of column 3. The justified contact line `telephone 555–0142, email` is set
-  with word spaces of about 35 pt, so it is cut at them, and the lone `email` fragment, aligned
-  with no column, ends the column run.
 - The running head is emitted page number first (`48216`, then the date line), which is harmless.

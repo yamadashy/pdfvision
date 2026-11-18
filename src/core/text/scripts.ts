@@ -292,6 +292,18 @@ function renderGroup(group: Group): string {
   return `${group.kind === 'sup' ? '^' : '_'}${body}`;
 }
 
+const SCRIPT_MARKUP_RE = /[\^_](?:\{([^{}]*)\})?/gu;
+
+/**
+ * The text with the script notation taken out (`V_{OS}` → `VOS`), for
+ * heuristics that judge a run by how much it says. The markers lengthen a
+ * label without adding to it; a literal `^` or `_` is dropped too, which a
+ * length measure can afford.
+ */
+export function withoutScriptMarkup(text: string): string {
+  return text.replace(SCRIPT_MARKUP_RE, (_marker, body: string | undefined) => body ?? '');
+}
+
 const UNICODE_SUPERSCRIPTS = new Map(
   Array.from('⁰0¹1²2³3⁴4⁵5⁶6⁷7⁸8⁹9⁺+⁻−⁼=⁽(⁾)ⁿnⁱi'.matchAll(/(.)(.)/gu), (m) => [m[1], m[2]]),
 );

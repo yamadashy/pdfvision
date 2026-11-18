@@ -29,9 +29,9 @@ Numerical Methods for PDEs
 
 Lecture 5: Stability of time-stepping schemes
 
-Department of Applied Mathematics, Lisbon Polytechnic
-
 Ana Ferreira
+
+Department of Applied Mathematics, Lisbon Polytechnic
 
 18 November 2026
 

@@ -15,8 +15,8 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | 1 | 1169 | 0 | 12% | 595.28×841.89 | — | 3 | 0 | 11 | 0 | 0 | 0 | 0 |
 | 2 | 1816 | 0 | 35% | 595.28×841.89 | — | 42 | 1 | 14 | 1 | 0 | 0 | 0 |
-| 3 | 763 | 0 | 11% | 595.28×841.89 | — | 10 | 1 | 19 | 1 | 0 | 0 | 0 |
-| 4 | 902 | 0 | 13% | 841.89×595.28 | 90° | 9 | 1 | 35 | 3 | 0 | 0 | 0 |
+| 3 | 763 | 0 | 11% | 595.28×841.89 | — | 10 | 1 | 20 | 1 | 0 | 0 | 0 |
+| 4 | 902 | 0 | 13% | 841.89×595.28 | 90° | 9 | 1 | 80 | 2 | 0 | 0 | 0 |
 
 ---
 
@@ -361,27 +361,16 @@ On track
 
 _chars: 763 · images: 0 · coverage: 11% · vectors: 10 · tables: 1 · warnings: 1 · size: 595.28×841.89pt_
 
-Table 1 (continued)
-
 3 Risks and mitigations
 
+Table 1 (continued)
 Depot Region Planned Installed Utilisation Status
 Szczecin
-
 Turku
 Utrecht
 Valenciennes
 Wroclaw
 Zeebrugge
-Total
-
-3 Risks and mitigations
-
-Grid capacity
-
-Installer availability
-
-Cold-weather range
 
 South
 South
@@ -390,21 +379,12 @@ North
 East
 East
 
-Two depots wait on transformer upgrades scheduled for November and
-January.
-
-A second installation contractor was onboarded in August to recover the four-
-week delay.
-
-Winter range tests start in December at the three northernmost depots.
-
 19
 14
 21
 16
 11
 18
-696
 
 12
 11
@@ -412,7 +392,6 @@ Winter range tests start in December at the three northernmost depots.
 0
 6
 10
-513
 
 74%
 54%
@@ -427,6 +406,28 @@ Complete
 Grid upgrade
 On track
 On track
+
+Total
+
+696
+
+513
+
+3 Risks and mitigations
+
+Grid capacity
+
+Installer availability
+
+Cold-weather range
+
+Two depots wait on transformer upgrades scheduled for November and
+January.
+
+A second installation contractor was onboarded in August to recover the four-
+week delay.
+
+Winter range tests start in December at the three northernmost depots.
 
 ### Layout tables
 
@@ -451,7 +452,7 @@ On track
 
 ## Page 4
 
-_chars: 902 · images: 0 · coverage: 13% · rotation: 90° · vectors: 9 · tables: 1 · warnings: 3 · size: 841.89×595.28pt_
+_chars: 902 · images: 0 · coverage: 13% · rotation: 90° · vectors: 9 · tables: 1 · warnings: 2 · size: 841.89×595.28pt_
 
 Appendix A — Vehicle cost comparison by model
 
@@ -459,105 +460,150 @@ Appendix A — Vehicle cost comparison by model
 
 Model
 
-Voltra e-Van 3.5
-
-Kestrel Cargo E
-Mobion City
-Arcadia eTransit
-Mobion City LR
-Northway 7.5t E
-
 Class
-
-Large van
-
-Large van
-Small van
-Large van
-Small van
-Light truck
 
 Units
 
-64
-
-41
-88
-22
-35
-12
-
 Range
-(km)
-
-310
-
-285
-220
-340
-275
-230
 
 Battery
-(kWh)
-
-90
-
-75
-50
-100
-64
-140
 
 Price Energy / 100 km
-(EUR k)
-
-58.4
-
-54.9
-36.2
-63.0
-39.8
-118.0
-
-EUR 7.10
-
-EUR 6.80
-EUR 4.90
-EUR 7.40
-EUR 5.10
-EUR 14.20
 
 Maint.
-(EUR/yr)
-
-1,150
-
-1,240
-880
-1,100
-900
-2,600
 
 5-yr TCO CO2 saved
+
+(km)
+
+(kWh)
+
 (EUR k)
 
-91.2
+(EUR/yr)
 
-89.6
-61.8
-96.5
-66.0
-182.4
+(EUR k)
 
 (t/yr)
 
+Voltra e-Van 3.5
+
+Large van
+
+64
+
+310
+
+90
+
+58.4
+
+EUR 7.10
+
+1,150
+
+91.2
+
 9.8
 
+Kestrel Cargo E
+
+Large van
+
+41
+
+285
+
+75
+
+54.9
+
+EUR 6.80
+
+1,240
+
+89.6
+
 9.1
+
+Mobion City
+
+Small van
+
+88
+
+220
+
+50
+
+36.2
+
+EUR 4.90
+
+880
+
+61.8
+
 6.2
+
+Arcadia eTransit
+
+Large van
+
+22
+
+340
+
+100
+
+63.0
+
+EUR 7.40
+
+1,100
+
+96.5
+
 10.4
+
+Mobion City LR
+
+Small van
+
+35
+
+275
+
+64
+
+39.8
+
+EUR 5.10
+
+900
+
+66.0
+
 6.5
+
+Northway 7.5t E
+
+Light truck
+
+12
+
+230
+
+140
+
+118.0
+
+EUR 14.20
+
+2,600
+
+182.4
+
 21.7
 
 TCO includes purchase, energy at contracted depot tariffs, maintenance and insurance over five years at 28,000 km per year; it excludes residual value.
@@ -584,5 +630,4 @@ Page 4 of 4
 ### Warnings
 
 > **warning** (layout_table_uncertain): layout table 1 (bbox 60,89.6,722,130.86) did not resolve into one consistent grid: 21 lines with numbers inside the table belong to no row — its cells may sit in the wrong row or column or be missing; render that region (--render-region 60,89.6,722,130.86) before trusting the table
-> **warning** (reading_order_divergence): layout block "Price Energy / 100 km (EUR k)" appears with reordered characters in the native text stream — superscripts, radicals, or inline math may read differently in pages[].text; the body above is that reading order, rebuilt from the layout — render the page when exact sequence is critical
 > **warning** (tabular_numeric_layout): page contains 42 short numeric lines in 7 aligned columns and 6 shared numeric rows — table rows/columns may be flattened in native text; inspect the render or geometry when values matter

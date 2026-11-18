@@ -54,19 +54,20 @@ affiliation markers read `Lindqvist^2`, `^2Halden Research Labs`, and the footno
 `experiments^1`.
 
 **Known gap (#242):** the abstract, the whole left column and the figure labels are also
-reported as an 8 × 50 “layout table” of prose fragments. No warning accompanies it.
+reported as an 8 × 47 “layout table” of prose fragments. No warning accompanies it.
 
 **Known gap (no issue yet):**
 - The real Table 1 is detected without its header row (columns `C1…C5`), and it picks up a
   fifth column holding `4 Related Work` from the right column. The header names appear in
   the body as one line, `nDCG@10 R@100 Latency (ms)`, so question 2 is answerable by matching
   column order.
-- The chart's legend, value labels and benchmark names are emitted at the end of the right
-  column, after §4, interleaved as `Full attention / 182 / 88 / LongDocQA / ATP (ours) / 156 / 79 /
-  MultiNews-R / 241 / 121 / LegalBench-S`; the axis ticks come before the caption. Question 3
-  is answerable only by assuming each pair precedes its benchmark name — the legend entry
-  `ATP (ours)` sits next to the MultiNews-R pair, not the ATP bars. No warning covers the chart.
-- The centred page number `1` is emitted inside the left column, between Table 1 and the axis ticks.
+- The centred page number `1` is emitted at the end of the right column.
 
+The chart's text is kept together before its caption (#256): the axis ticks, then bar by bar
+`Full attention / 182 / 88 / LongDocQA`, `ATP (ours) / 156 / 79 / MultiNews-R`,
+`241 / 121 / LegalBench-S`, and `vector_chart_labels` names the chart region to render, since the
+legend entries still sit with the wrong groups and the text alone cannot pair a value with its
+series — question 3 needs that render. The author line now comes before the affiliations, and
+Table 1 reads row by row in the body (`Full attention / 41.2 / 58.7 / 182`).
 The left column is correctly read before the right one; the rotated arXiv stamp in the margin is
 read upright at the end of the page, after the body (question 4 is answerable).

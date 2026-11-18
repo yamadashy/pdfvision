@@ -11,7 +11,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 ## Page 1
 
-_chars: 3297 · images: 0 · coverage: 29% · vectors: 19 · tables: 2 · size: 612×792pt_
+_chars: 3297 · images: 0 · coverage: 29% · vectors: 19 · tables: 2 · warnings: 1 · size: 612×792pt_
 
 Adaptive Token Pruning for Efficient Long-Document Retrieval
 
@@ -60,30 +60,36 @@ each document, so short documents lose few tokens.
 Table 1: Retrieval quality and query latency on LongDocQA.
 
 Method
-Full attention
-Static pruning (k = 512)
-ATP (ours)
 
 nDCG@10 R@100 Latency (ms)
+
+Full attention
+
 41.2
-38.9
-40.8
 
 58.7
-55.1
-58.3
 
 182
-97
-88
 
-1
+Static pruning (k = 512)
+
+38.9
+
+55.1
+
+97
+
+ATP (ours)
+
+40.8
+
+58.3
+
+88
 
 250
 
 200
-
-Latency (ms)
 
 150
 
@@ -92,6 +98,30 @@ Latency (ms)
 50
 
 0
+
+Full attention
+
+182
+
+88
+
+LongDocQA
+
+ATP (ours)
+
+156
+
+79
+
+MultiNews-R
+
+241
+
+121
+
+LegalBench-S
+
+Latency (ms)
 
 Figure 1: Median query latency (ms) per benchmark for full
 attention and ATP. Lower is better.
@@ -118,27 +148,7 @@ Static truncation is the usual answer to document length.
 ATP is closest to attention-based pruning for re-rankers, but
 it runs once, at indexing time.
 
-Full attention
-
-182
-
-88
-
-LongDocQA
-
-ATP (ours)
-
-156
-
-79
-
-MultiNews-R
-
-241
-
-121
-
-LegalBench-S
+1
 
 ^1Code and probe weights: https://example.org/atp
 
@@ -166,3 +176,7 @@ arXiv:2611.04217v1 [cs.IR] 12 Nov 2026
 |  |  |  |  | query latency while keeping nDCG@10 within 0.4 points of full attention, and it outperforms static length |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
 |  |  | truncation at every budget we test. |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
 | arXiv:2611.04217v1 [cs.IR] 12 Nov 2026 | time. | 2 Method | 1 Introduction | contribute to a match. | measured end to end. | threshold per document; | Our contributions are as follows: | For a token i with embedding k_i we compute | s_i = q^Tk_i / √d and keep the token when s_i ≥ τ. | function words and boilerplate dominate; | Retrieval over long documents such as contracts, filings and | technical manuals is increasingly served by late-interaction | models, which keep one embedding per token. Their quality | comes at a cost: index size and query latency grow linearly | with document length, and most of the stored tokens never | on a held-out query set, so the probe adds no cost at query | Let d be the embedding width and q a probe vector learned | • an analysis of which tokens are pruned, showing that | • experiments on three benchmarks with latency | • a pruning rule that needs only a probe vector and a | Latency (ms) | 250 | 200 | 150 | 100 | 50 | 0 | 3 Experiments | 182 | attention and ATP. Lower is better. | LongDocQA | Full attention | 88 | Our experiments^1 follow prior late-interaction work. | Figure 1: Median query latency (ms) per benchmark for full | We evaluate on LongDocQA, MultiNews-R and | LegalBench-S, whose documents average 3.1k, 2.4k and | 6.8k tokens. All systems share the same encoder and the | same approximate nearest-neighbour index; latency is the | 156 | ATP (ours) | MultiNews-R | 79 | 241 | LegalBench-S | 121 |
+
+### Warnings
+
+> **warning** (vector_chart_labels): vector chart at 329,271,229,150 has 17 text labels (values such as "182", labels such as "Full attention"), read together bar by bar — which value belongs to which bar, series or category is shown only by the drawing; render the region (--render-region 329,271,229,150) before pairing or quoting values

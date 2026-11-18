@@ -43,7 +43,7 @@ within each half the columns are not reassembled into provisions: labels, captio
 their one-line endings (`する。`, `をいう。`) are separated by other provisions' columns. The
 rest is the vertical-text column cutting of #261: every `(略)` and the `(定義)` caption come
 back one glyph per line, so 第一条 and its caption interleave as `第 / ( / 一 / 定 / 条 / 義 / )`; the narrow `改正後` / `改正前` labels come back one
-glyph per line after their half; the item numbers detach (`三`, `二 一`); and in each half the
+glyph per line, both between the two halves; the item numbers detach (`三`, `二 一`); and in each half the
 definition terms `移動図書館` / `協議会` stand apart from their definitions, with
 `自動車を用いて図書館資料の` and `法第八条に規定する図書館協議会` displaced to the end of the 改正前
 half. The side lines are not reported. `reading_order_divergence` fires on the title ("render

@@ -15,7 +15,13 @@ _chars: 1643 · images: 0 · coverage: 14% · vectors: 83 · size: 595.28×841.8
 
 QUICK START GUIDE
 
+BRIGHTWELL
+
+KT-17 Electric Kettle
+
 Model KT-17 · 1.7 L · 220–240 V ~ 50/60 Hz · 2000 W
+
+クイックスタートガイド
 
 2
 
@@ -51,17 +57,11 @@ Parts
 
 8 Power cord (stores under the base)
 
-BRIGHTWELL
-
-KT-17 Electric Kettle
-クイックスタートガイド
-
 Getting started
 
 1
 
 REMOVE ALL PACKAGING
-
 Take the limescale filter (3) out of the spout, rinse it and the inside of the kettle body (4) with clean water, then refit
 the filter.
 
@@ -95,14 +95,14 @@ drinks.
 
 WARNING — Risk of scalding
 
+Never open the lid while the water is boiling or lift the kettle off the base mid-boil.
+Do not fill above MAX: boiling water may be ejected from the spout.
+
 EN Unplug the base before cleaning and never immerse it in water.
 
 JA お手入れの前に電源プラグを抜き、電源ベースを水に浸けないでください。
 FR Débranchez le socle avant le nettoyage et ne le plongez jamais dans l’eau.
 
 Brightwell Home Appliances Ltd. · support.brightwell-home.example
-
-Never open the lid while the water is boiling or lift the kettle off the base mid-boil.
-Do not fill above MAX: boiling water may be ejected from the spout.
 
 QSG-KT17 Rev. B 09/2026

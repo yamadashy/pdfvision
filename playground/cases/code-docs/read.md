@@ -12,8 +12,8 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 | Page | Chars | Images | Coverage | Size (pt) | Vectors | Blocks | Fields | Links | Annots |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 1260 | 0 | 14% | 612×792 | 10 | 20 | 0 | 0 | 0 |
-| 2 | 1415 | 0 | 14% | 612×792 | 17 | 17 | 0 | 0 | 0 |
+| 1 | 1260 | 0 | 14% | 612×792 | 10 | 45 | 0 | 0 | 0 |
+| 2 | 1415 | 0 | 14% | 612×792 | 17 | 34 | 0 | 0 | 0 |
 
 ---
 
@@ -27,7 +27,6 @@ A pipeline is declared in tidepool.yaml at the root of your project. Each entry 
 container image, in order; a stage starts only after the previous one succeeds.
 
 Note
-
 Indentation is significant. Keys indented under a stage belong to that stage; keys at the level of stages belong
 to the pipeline. Use two spaces per level, never tabs.
 
@@ -35,38 +34,64 @@ Example
 
 1 pipeline:
 2
-3
-4
-5
-6
-7
-8
-9
-10
-11
-12
-13
-14
-15
-16
 
 name: nightly-export
+
+3
+
 schedule: "0 2 * * *"
+
+4
+
 stages:
+
+5
+
 - name: extract
+
+6
+
 image: tidepool/pg-dump:16
+
+7
+
 retries: 3
+
+8
+
 - name: transform
+
+9
+
 image: tidepool/dbt:1.8
+
+10
+
 env:
 
-- name: load
-image: tidepool/s3-sync:2
-notify:
-on_failure: "#data-alerts"
+11
 
 TARGET: warehouse
+
+12
+
 THREADS: "8"
+
+13
+
+- name: load
+
+14
+
+image: tidepool/s3-sync:2
+
+15
+
+notify:
+
+16
+
+on_failure: "#data-alerts"
 
 Custom stages
 
@@ -85,23 +110,23 @@ A custom stage is a subclass of Stage registered under a name with @register :
 11
 12
 13
+14
+15
+16
 
 """Drop rows already seen in this run."""
 
 def run(self, rows):
 seen = set()
 for row in rows:
+
+self.log.info("dedupe finished")
+
 key = (row["id"], row["ts"])
 if key in seen:
 continue
-
-14
-15
-16
-
 seen.add(key)
 yield row
-self.log.info("dedupe finished")
 
 1/2
 
@@ -127,27 +152,43 @@ which renders as:
 
 Option Type Default Description
 name
-image
-retries
-timeout
-env
 
 string
-string
-integer
-duration
-map
 
 —
-—
-0
-30m
-{}
 
 Unique stage name; used in logs.
+
+image
+
+string
+
+—
+
 Container image to run.
+
+retries
+
+integer
+
+0
+
 Extra attempts after a failure.
+
+timeout
+
+duration
+
+30m
+
 Kill the stage after this long.
+
+env
+
+map
+
+{}
+
 Environment variables for the stage.
 
 Validating and dry-running
@@ -163,9 +204,10 @@ $ tidepool run nightly-export --dry-run
 would run tidepool/pg-dump:16 (retries=3)
 [transform] would run tidepool/dbt:1.8 (TARGET=warehouse, THREADS=8)
 [load]
-$ echo $?
-0
 
 would run tidepool/s3-sync:2
+
+$ echo $?
+0
 
 2/2

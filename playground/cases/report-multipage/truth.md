@@ -107,8 +107,8 @@ between `Table 1 (continued)` and the table's header row. The page bodies are fl
 
 Page 4 (`/Rotate 90`) is read upright, exactly as the same page stored landscape would be: the
 running title is dropped as repeated chrome and the section name shows twice, as on page 3. The
-body is flattened column by column like pages 2–3 — each column header (`Model`, `Range (km)`,
-`5-yr TCO CO2 saved (EUR k)` …) followed by its six values in row order. Layout table 1 merges two
+body reads the table row by row (`Voltra e-Van 3.5` / `Large van` / `64` / `310` / …) after the
+column headers; it used to be flattened column by column like pages 2–3. Layout table 1 merges two
 header pairs (`Price Energy / 100 km`, `5-yr TCO CO2 saved`) and keeps only the last data row
 whole; rows 1–5 carry the Energy-to-CO2 values with no model name. Question 3 is answerable by
 pairing positions in the `Model` and `5-yr TCO` lists (the third entry of each: Mobion City,

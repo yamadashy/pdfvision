@@ -156,7 +156,7 @@ export async function extractPageData(
     flags.links ||
     flags.needFormFieldsForSearch ||
     flags.needLinksForSearch
-      ? buildLayout(spans, round2(width), round2(height))
+      ? buildLayout(spans, round2(width), round2(height), { vectorBoxes: allVectorBoxes, imageBoxes: allBoxes })
       : undefined;
   const layout = flags.layout ? internalLayout : undefined;
   const annotations = annotationsInFrame(await page.getAnnotations({ intent: 'display' }), frame);

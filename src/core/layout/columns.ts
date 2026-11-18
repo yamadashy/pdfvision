@@ -1,5 +1,5 @@
 import type { LayoutBlock, LayoutLine } from '../../types/index.js';
-import { sortColumnRun } from './columnBottomNotes.js';
+import { refineColumnMembership, walkColumnRuns } from './columnSegments.js';
 import { median, unionBox } from './geometry.js';
 import { isNumberedHeadingText } from './headings.js';
 import { containsCjkScript, hasVerticalTextShape } from './verticalText.js';
@@ -39,19 +39,30 @@ const ROTATED_MARGIN_MAX_TEXT_SHARE = 0.2;
  *      surviving column, or any surviving column has < 2 blocks — a
  *      lone block sitting at a different x is just an indent, not a
  *      column.
- *   6. Walk the y-ordered blocks; whenever a run of narrow column
+ *   6. Refine membership (columnSegments.ts): a band nested inside a
+ *      column's band is the same column narrowed around an inset, and a
+ *      stray narrow block inside one column's band joins that column.
+ *   7. Walk the y-ordered blocks; whenever a run of narrow column
  *      blocks sits between two spanning blocks (or the page edge),
- *      reorder that run by (column index, y).
+ *      reorder that run by (column index, y). A separator cuts only the
+ *      columns it crosses.
  */
-export function reorderForColumns(blocks: LayoutBlock[], pageWidth: number, pageHeight = 0): LayoutBlock[] {
-  if (blocks.length < 4 || pageWidth <= 0) return blocks;
+export function reorderForColumns(
+  blocks: LayoutBlock[],
+  pageWidth: number,
+  pageHeight = 0,
+  units: ReadonlySet<LayoutBlock> = new Set(),
+): LayoutBlock[] {
+  if (blocks.length < 3 || pageWidth <= 0) return blocks;
 
   const spanThreshold = pageWidth * 0.6;
   const xEpsilon = pageWidth * 0.05;
 
   const rotatedMargin = rotatedMarginBlocks(blocks);
   const narrow = blocks.filter((b) => b.width < spanThreshold && b.writingMode !== 'vertical' && !rotatedMargin.has(b));
-  if (narrow.length < 4) return blocks;
+  // Three blocks make a column layout only when one of them fills a column
+  // (a heading over two column-length paragraphs).
+  if (narrow.length < 3 || (narrow.length === 3 && !narrow.some(isColumnSizedBlock))) return blocks;
 
   // Cluster narrow blocks by left edge x. Sorted ascending so each new
   // block joins the most recent column whose representative x is within
@@ -112,11 +123,17 @@ export function reorderForColumns(blocks: LayoutBlock[], pageWidth: number, page
   }
 
   // Surviving columns are the initial clusters minus promoted blocks.
-  // Each surviving column needs ≥ 2 members and we need ≥ 2 surviving
+  // Each surviving column needs ≥ 2 members (or a region unit) and we need ≥ 2 surviving
   // columns; otherwise this isn't a real multi-column layout.
-  const survivingColumns = initialColumns.map((c) => c.filter((b) => !promoted.has(b))).filter((c) => c.length >= 2);
+  // A framed panel stands in for a whole column of text, and so does one
+  // paragraph that fills a column (once interleaved lines are rebuilt into
+  // blocks, a column can be a single block), so either counts as a column.
+  const survivingColumns = initialColumns
+    .map((c) => c.filter((b) => !promoted.has(b)))
+    .filter(
+      (c) => c.length >= 2 || c.some((b) => units.has(b) || (isColumnSizedBlock(b) && hasBlockBeside(b, narrow))),
+    );
   if (survivingColumns.length < 2) return blocks;
-
   const columnOf = new Map<LayoutBlock, number>();
   for (let ci = 0; ci < survivingColumns.length; ci++) {
     for (const b of survivingColumns[ci]) columnOf.set(b, ci);
@@ -129,28 +146,18 @@ export function reorderForColumns(blocks: LayoutBlock[], pageWidth: number, page
     if (nearestColumn !== undefined) columnOf.set(b, nearestColumn);
   }
 
-  // Walk in current (y-ordered) order. Buffer column-member blocks;
-  // flush sorted by (column, y) whenever we hit a clearly-spanning
-  // block or a promoted standalone heading.
-  const out: LayoutBlock[] = [];
-  let pending: LayoutBlock[] = [];
-  const flush = () => {
-    if (pending.length === 0) return;
-    sortColumnRun(pending, columnOf, pageHeight);
-    out.push(...pending);
-    pending = [];
-  };
-  for (const b of blocks) {
-    if (rotatedMargin.has(b)) continue;
-    const isSeparator = !columnOf.has(b) || promoted.has(b);
-    if (isSeparator) {
-      flush();
-      out.push(b);
-    } else {
-      pending.push(b);
-    }
-  }
-  flush();
+  const { extents, spliced } = refineColumnMembership(narrow, columnOf, survivingColumns.length, promoted, units);
+
+  // Walk in current (y-ordered) order. Buffer column-member blocks and
+  // emit them sorted by (column, y) whenever a clearly-spanning block or a
+  // promoted standalone heading crosses their column.
+  const out = walkColumnRuns(
+    blocks.filter((b) => !rotatedMargin.has(b) && !spliced.has(b)),
+    columnOf,
+    extents,
+    (b) => !columnOf.has(b) || promoted.has(b),
+    pageHeight,
+  );
   out.push(...blocks.filter((b) => rotatedMargin.has(b)));
   return out;
 }
@@ -184,6 +191,24 @@ function isRotatedLatinBlock(block: LayoutBlock): boolean {
   return block.lines.every((line) => hasVerticalTextShape(line));
 }
 
+const COLUMN_SIZED_MIN_LINES = 8;
+
+/** A single paragraph is a column only with text beside it; a long
+ *  paragraph indented under headings is not a column of its own. */
+function hasBlockBeside(block: LayoutBlock, others: readonly LayoutBlock[]): boolean {
+  return others.some((other) => {
+    if (other === block) return false;
+    const disjoint = other.x + other.width <= block.x || block.x + block.width <= other.x;
+    if (!disjoint) return false;
+    const overlap = Math.min(block.y + block.height, other.y + other.height) - Math.max(block.y, other.y);
+    return overlap > Math.min(block.height, other.height) * 0.5;
+  });
+}
+
+function isColumnSizedBlock(block: LayoutBlock): boolean {
+  return block.lines.length >= COLUMN_SIZED_MIN_LINES;
+}
+
 function nearestColumnByX(
   block: LayoutBlock,
   columnAnchors: readonly number[],
@@ -201,12 +226,21 @@ function nearestColumnByX(
   return bestDistance <= maxDistance ? bestIndex : undefined;
 }
 
-export function mergeAdjacentColumnBlocks(blocks: LayoutBlock[], pageWidth = 0): LayoutBlock[] {
+export function mergeAdjacentColumnBlocks(
+  blocks: LayoutBlock[],
+  pageWidth = 0,
+  unmergeable: ReadonlySet<LayoutBlock> = new Set(),
+): LayoutBlock[] {
   if (blocks.length < 2) return blocks;
   const out: LayoutBlock[] = [];
   for (const block of blocks) {
     const prev = out[out.length - 1];
-    if (prev && canMergeAdjacentBodyBlocks(prev, block, pageWidth)) {
+    if (
+      prev &&
+      !unmergeable.has(prev) &&
+      !unmergeable.has(block) &&
+      canMergeAdjacentBodyBlocks(prev, block, pageWidth)
+    ) {
       prev.lines.push(...block.lines);
       prev.text = prev.lines.map((l) => l.text).join('\n');
       const box = unionBox(prev.lines);
@@ -224,6 +258,9 @@ export function mergeAdjacentColumnBlocks(blocks: LayoutBlock[], pageWidth = 0):
 function canMergeAdjacentBodyBlocks(a: LayoutBlock, b: LayoutBlock, pageWidth = 0): boolean {
   if (a.role || b.role) return false;
   if (a.writingMode || b.writingMode) return false;
+  // A rotated axis title is one line as tall as a paragraph; its height
+  // says nothing about the gap to the caption under it.
+  if (a.lines.some(hasVerticalTextShape) || b.lines.some(hasVerticalTextShape)) return false;
   if (pageWidth > 0 && (a.width >= pageWidth * 0.6 || b.width >= pageWidth * 0.6)) return false;
   const prevLine = a.lines.at(-1);
   const nextLine = b.lines[0];

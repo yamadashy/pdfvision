@@ -24,10 +24,6 @@ d_L(z) =
 
 ,
 
-7
-
-(1)
-
 0 E(z′) 
 where E(z) is the dimensionless expansion rate. Given the measured distances d_k and their
 standard deviations σ_k, the likelihood over the N = 47 events of the catalogue is
@@ -42,6 +38,10 @@ H_0
 σ^2_k
 
 ,
+
+7
+
+(1)
 
 (2)
 

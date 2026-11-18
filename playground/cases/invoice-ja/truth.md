@@ -53,7 +53,7 @@ from the layout table; fixed in #251, before which the second line was glued ont
 
 **Known gap (#252):** the layout table absorbs the recipient/issuer header block into its first
 five rows (issuer address lines out of order, postcode/TEL/登録番号 missing from the table,
-present in the body). The page body, which the `tabular_numeric_layout` warning tells the reader
-not to trust for values, lists the 金額 column as `120,000 / 350,000 / 90,000` — out of row
-order. Questions 1–5 are answerable from `read.md`. Full-width punctuation comes back
+present in the body). The page body reads the item table row by row (`クラウドサーバー利用料` / `3` / `台` /
+`30,000` / `90,000`); only the wrapped item name's second line comes after its row's values.
+It used to list the 金額 column as `120,000 / 350,000 / 90,000`, out of row order. Questions 1–5 are answerable from `read.md`. Full-width punctuation comes back
 NFKC-normalised (`（` → `(`, `：` → `:`); that is intended.

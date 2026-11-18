@@ -67,13 +67,16 @@ colour, the dependency arrows and the Today line. Without that render:
   is printed with nothing to attach it to.
 - Question 4 is answered wrongly as the plan end `10/30/26`.
 - Question 5: dependency arrows leave no trace; an agent can only guess from dates.
-- Question 3 is recoverable by luck of the stream order: `Today` is emitted between the week
-  headers `10/26` and `11/2`, after `2.3 | Design review | R. Solis | 10/23/26 | 10/23/26`.
+- Question 3 cannot be answered from the text: `Today` is printed with the legend after the task
+  list, with nothing tying it to a date (it used to fall, by luck of the stream order, between the
+  week headers `10/26` and `11/2`).
 
 The layout table (`Table 1 (21 rows × 5 columns)`) now holds every phase and task row through
 4.5, the tasks without dates included (`4.2 | Penetration test | Vendor (TBD)`), so the plan dates
 can be read per task; fixed in #262, before which it stopped after row 3.5 with no note. Its header
 row reads `ID | Task | Owner | Plan start Plan end`: the last two header labels are one line from
-line building, so the end-date column is unnamed. In the page body the Plan start / Plan end
-values come back as two column lists that skip the blank cells of Penetration test and Hypercare, so aligning them to the task list by position shifts the dates of every task
-after QA regression (Penetration test would get UAT's `12/7/26`); the layout table does not.
+line building, so the end-date column is unnamed. The page body reads the task grid row by row (`1.1` / `Stakeholder interviews` / `P. Nair` /
+`9/7/26` / `9/18/26`), the tasks without dates included (`4.2` / `Penetration test` / `Vendor (TBD)`),
+so each task keeps its own dates there too; it used to give the Plan start / Plan end values as
+two column lists that skipped the blank cells, so aligning them by position shifted the dates of
+every task after QA regression.

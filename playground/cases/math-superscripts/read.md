@@ -20,23 +20,30 @@ Gradients are clipped when |∇f|^2 exceeds 10^4, and each sample is weighted by
 Residual dropout uses P_{drop} = 0.1 for the base model and 0.3 for the big one.
 
 Model
-base
-big
-
-^1 Measured on eight P100 GPUs.
 
 Train steps
-1.0 · 10^5
-3.0 · 10^5
 
 FLOPs
-3.3 · 10^18
-2.3 · 10^19
 
 P_{drop}
 
+base
+
+1.0 · 10^5
+
+3.3 · 10^18
+
 0.1
+
+big
+
+3.0 · 10^5
+
+2.3 · 10^19
+
 0.3
+
+^1 Measured on eight P100 GPUs.
 
 ### Layout tables
 
