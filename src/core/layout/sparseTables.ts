@@ -29,6 +29,10 @@ export function detectSparseSingleRowTables(allRows: LayoutLine[][]): LayoutTabl
     if (!label) continue;
 
     const headerStack = collectSparseTableHeaderRows(allRows, index, bodyRow, label);
+    // The shorter header stack allowed under prose holds only for a table
+    // whose single data row is really its last: a row with numbers right
+    // below means the table goes on, and the regular passes read it.
+    if (headerStack.underProse && isFollowedByDataRow(allRows, index, bodyRow)) headerStack.underProse = false;
     if (!isSparseHeaderStack(headerStack, bodyRow, label)) continue;
 
     const rows = [...headerStack.rows, bodyRow];
@@ -38,6 +42,13 @@ export function detectSparseSingleRowTables(allRows: LayoutLine[][]): LayoutTabl
   }
 
   return tables;
+}
+
+function isFollowedByDataRow(allRows: LayoutLine[][], index: number, bodyRow: LayoutLine[]): boolean {
+  const next = allRows[index + 1];
+  if (!next) return false;
+  if (rowY(next) - rowBottom(bodyRow) > SPARSE_TABLE_HEADER_MAX_GAP_PT) return false;
+  return next.filter((line) => isTableNumericCell(line.text)).length >= 2;
 }
 
 function isSparseSingleDataRow(row: LayoutLine[]): boolean {

@@ -246,5 +246,24 @@ describe('sparse single-row tables under prose', () => {
       ['∆W_q', 'W_q', 'Random', '∆W_q', 'W_q', 'Random'],
       ['||UW_qV||_F =', '0.32', '21.67', '0.02', '1.90', '37.71', '0.33'],
     ]);
+
+    // With a second data row below, the table is not cut to its first row.
+    const longer = [
+      ...spans,
+      w('||UW_vV||_F =', 155.8, 398.9, 55),
+      ...[
+        ['0.41', 241.8],
+        ['20.12', 273.6],
+        ['0.03', 316.1],
+        ['2.10', 356.4],
+        ['36.02', 388.1],
+        ['0.31', 430.6],
+      ].map(([text, x]) => w(text as string, x as number, 398.9, 18)),
+    ];
+    const cells = (buildLayout(longer, 612, 792).tables ?? []).flatMap((candidate) =>
+      candidate.rows.flatMap((row) => row.cells.map((cell) => cell.text)),
+    );
+    expect(cells).toContain('37.71');
+    expect(cells).toContain('36.02');
   });
 });
