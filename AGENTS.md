@@ -70,6 +70,7 @@ pdfvision/
 │   └── index.ts              # Library API entry
 ├── docs/
 │   └── cli-topics/           # Source of `pdfvision docs <topic>`; embedded at build time
+│       └── warnings/         # One entry per warning code (`pdfvision docs warnings <code>`)
 ├── tests/
 │   ├── core/                 # Unit and integration tests
 │   └── fixtures/sample.pdf   # Hand-crafted minimal PDF
@@ -142,7 +143,7 @@ pdfvision/
 
 The bundled agent skill is one file, `skills/pdfvision/SKILL.md`: the always-loaded decision surface. The on-demand detail lives in `docs/cli-topics/*.md`, which the installed CLI prints via `pdfvision docs <topic>`, and the skill routes to it by topic name. Those topics are shared with the CLI, so a detail written once serves an agent that installed the skill and one that only has the binary.
 
-- **New training-loop knowledge goes into `docs/cli-topics/*`**, not `SKILL.md`. Warning-code interpretation and raw density-signal thresholds → `warnings`; per-flag caveats → `flags`; field shapes → `schema` (plus `layout`, `interactive`, `visual`, `search`, `document-features` for their own flags); serialization contracts → `formats`; OCR specifics → `ocr`; the trust boundary → `security`.
+- **New training-loop knowledge goes into `docs/cli-topics/*`**, not `SKILL.md`. Warning-code interpretation → that code's entry, `docs/cli-topics/warnings/<code>.md` (printed by `pdfvision docs warnings <code>`; its frontmatter `summary` is also the code's line in the `warnings` index); raw density-signal thresholds and anything true of every code → `warnings`; per-flag caveats → `flags`; field shapes → `schema` (plus `layout`, `interactive`, `visual`, `search`, `document-features` for their own flags); serialization contracts → `formats`; OCR specifics → `ocr`; the trust boundary → `security`.
 - **`SKILL.md` changes only when the decision flow itself changes** — a new/removed flag in the compact table, a new `quality` status, or an update to the typical agent flow. Prose caveats and edge cases do not belong here.
 - **Do not write verification scaffolding into skill prose.** Current agent models re-check their own work unprompted; a line telling the reader to confirm something it can already see compounds that and spends tokens on both sides. Say what a signal means and what makes an answer conclusive — including when to stop — and leave the checking to the agent.
 - **`SKILL.md` has a 12 KB (12288-byte) ceiling, enforced by review.** It is a backstop against re-bloat, not a target: do not trim prose to sit under it, and do not treat remaining headroom as a reason to leave a real decision undocumented. What belongs in `SKILL.md` is settled by the two rules above; the size only catches the case where those rules were quietly ignored for long enough to matter. **Do not measure it while editing** — an editor who has just run `wc -c` starts compressing to fit, which is the behaviour this ceiling is meant to prevent, one wall further out. Check it when reviewing, not when writing.

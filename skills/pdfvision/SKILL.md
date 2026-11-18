@@ -72,7 +72,7 @@ Each page/overview row carries a derived `quality` field (observation only; the 
 
 `quality.visualStatus` (only with `--render` / `--ocr`): `ok` = clearly populated; `sparse` = faint marks only (text/annotation-only included), not blank — inspect `--render-region` / `--visual-regions`; `blank` = blank against its own dominant background (render failure or genuinely blank).
 
-`pages[].warnings[]` flags page anomalies with a self-explanatory `message` (all surface in default markdown). Read `pdfvision docs warnings` only when a code needs more than its message.
+`pages[].warnings[]` flags page anomalies with a self-explanatory `message` (all surface in default markdown). When a code needs more than its message, `pdfvision docs warnings <code>` prints just that code's meaning and next step; bare `pdfvision docs warnings` is the index.
 
 ## Caching
 

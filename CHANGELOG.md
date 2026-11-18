@@ -17,6 +17,7 @@ Notable user-facing changes to pdfvision are documented here.
 
 ### Changed
 
+- `pdfvision docs warnings <code>` prints the entry for one warning code — what it means, when it fires, its limits, and the next step — in a few hundred bytes to ~4 KB, and accepts several codes at once. `pdfvision docs warnings` is now a ~15 KB topic (down from ~53 KB): the shape, how to read severity, an index of every code with a one-line gloss, and the density Overview and raw signals. An agent holding one code used to pay roughly 12k tokens for the whole catalog. An unknown code exits 1 and names the closest codes; a bare `pdfvision docs <code>` and the singular `docs warning <code>` resolve too. ([#287](https://github.com/yamadashy/pdfvision/issues/287))
 - `large_raster_low_text_overlap` now ends with the next step, like its neighbours: `render that region (--render-region x,y,w,h) or OCR the page (--ocr) to read it`, with the image's own region clipped to the page (the union of the tiles for the tiled-image form). It used to stop at the diagnosis, leaving an agent that follows warning text with nothing to do on a slide whose content is a screenshot.
 - Documented the automatic attachment, JavaScript, and outline presence counts, including their source-document scope and the flags that expose details.
 - Updated the search-and-zoom guide to distinguish a match's tight `bbox` from the compact report's crop-ready `region`, then pass that region unchanged to `--render-region`.

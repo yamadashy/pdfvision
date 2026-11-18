@@ -99,8 +99,12 @@ export async function run(argv: string[] = process.argv.slice(2), options: RunOp
       console.log(renderTopicIndex(getVersion()));
       return;
     }
-    const { CLI_TOPIC_BODIES } = await import('./docs/topicBodies.generated.js');
-    console.log(CLI_TOPIC_BODIES[docsCommand.name]);
+    const { CLI_TOPIC_BODIES, CLI_WARNING_ENTRIES } = await import('./docs/topicBodies.generated.js');
+    console.log(
+      docsCommand.kind === 'warnings'
+        ? docsCommand.codes.map((code) => CLI_WARNING_ENTRIES[code]).join('\n\n---\n\n')
+        : CLI_TOPIC_BODIES[docsCommand.name],
+    );
     return;
   }
 
