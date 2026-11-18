@@ -245,8 +245,12 @@ function gridTable(grid: RuleGrid, lines: readonly LayoutLine[]): RuledTable | u
   }
   if (rows.length < MIN_ROWS || usedColumns.length < MIN_COLUMNS) return undefined;
   if (rows.filter((row) => row.cells.length >= 2).length < MIN_FILLED_ROWS) return undefined;
-  const valueRows = rows.filter((row) =>
-    row.cells.some((cell) => isRuledValueCell(cell.text) && hasTableValueEvidence(cell.text)),
+  // A drawn cell already bounds its value, so a row of cells with figures
+  // in them (\`316個\`, \`2020年5月12日\`) counts as a row of values too.
+  const valueRows = rows.filter(
+    (row) =>
+      row.cells.some((cell) => isRuledValueCell(cell.text) && hasTableValueEvidence(cell.text)) ||
+      row.cells.filter((cell) => /\d/u.test(cell.text)).length >= 2,
   );
   if (valueRows.length < MIN_VALUE_ROWS) return undefined;
   if (isMostlyEmptyColumnGrid(rows)) return undefined;

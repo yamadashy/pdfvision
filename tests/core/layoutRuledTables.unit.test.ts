@@ -169,4 +169,43 @@ describe('ruled layout tables', () => {
     expect(table?.rowCount).toBe(5);
     expect(table?.rows[1]?.cells.map((cell) => cell.text)).toEqual(['Beta', '240', '21.5']);
   });
+
+  it('keeps the whole table when rules are drawn around only some of its columns', () => {
+    const names = ['Revenue', 'Gross profit', 'Operating costs', 'Operating income', 'Net income'];
+    const boxes = [
+      ...Array.from({ length: names.length + 1 }, (_, i) => hRule(300, 118 + i * 16, 540)),
+      ...[300, 380, 540].map((x) => vRule(x, 118, 118 + names.length * 16)),
+    ];
+    const spans = names.flatMap((name, i) => [
+      span(name, 60, 122 + i * 16),
+      span(`${100 + i},000`, 180, 122 + i * 16, 28),
+      span(`${110 + i},500`, 240, 122 + i * 16, 28),
+      span(`+${i + 1},500`, 340, 122 + i * 16, 28),
+      span(`change ${i}`, 390, 122 + i * 16, 40),
+    ]);
+    const [table] = buildLayout(spans, 612, 792, { vectorBoxes: boxes }).tables ?? [];
+    expect(table?.rows[0]?.cells.map((cell) => cell.text)).toEqual([
+      'Revenue',
+      '100,000',
+      '110,500',
+      '+1,500',
+      'change 0',
+    ]);
+  });
+
+  it('reads a ruled grid whose cells hold figures inside words', () => {
+    const xs = [60, 200, 300, 400];
+    const rows = [
+      ['Resolution date', 'May 12, 2020', 'May 12, 2021'],
+      ['Number of options', '316 units', '335 units'],
+      ['Shares', '15,800 shares', '16,750 shares'],
+    ];
+    const boxes = [
+      ...Array.from({ length: rows.length + 1 }, (_, i) => hRule(60, 100 + i * 20, 400)),
+      ...xs.map((x) => vRule(x, 100, 100 + rows.length * 20)),
+    ];
+    const spans = rows.flatMap((row, i) => row.map((text, column) => span(text, xs[column] + 4, 106 + i * 20)));
+    const [table] = buildLayout(spans, 612, 792, { vectorBoxes: boxes }).tables ?? [];
+    expect(grid(table)).toEqual(rows.map((row) => row.map((text, column) => `${column}:${text}`)));
+  });
 });

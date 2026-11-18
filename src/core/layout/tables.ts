@@ -1,4 +1,4 @@
-import type { LayoutLine, LayoutTable, LayoutTableRow } from '../../types/index.js';
+import type { LayoutLine, LayoutTable, LayoutTableCell, LayoutTableRow } from '../../types/index.js';
 import { type BBox, round2, unionBox } from './geometry.js';
 import { linesAsTableCells } from './lineSegments.js';
 import {
@@ -61,7 +61,10 @@ export function detectLayoutTables(
     ?.flatMap((table) => splitSideBySideTables(table, boxes))
     .map((table) => splitJoinedHeaderCells(fitTableToRules(table, rules.horizontal, lines), lines));
   const detected = found && found.length > 0 ? found : undefined;
-  const ruled = withoutFragmentGrids(detectRuledTables(lines, rules), detected ?? []);
+  const ruled = withoutPartialGrids(
+    withoutFragmentGrids(detectRuledTables(lines, rules), detected ?? []),
+    detected ?? [],
+  );
   if (ruled.length === 0) return detected;
   const replaces = (grid: LayoutTable, table: LayoutTable) =>
     overlapOfSmaller(grid, table) >= RULED_TABLE_REPLACE_OVERLAP;
@@ -72,7 +75,7 @@ export function detectLayoutTables(
     // Text beside a drawn grid that line-ups glued onto it (an address
     // block above an invoice's item grid) becomes a table of its own.
     const outside = table.rows.filter((row) => !grids.some((grid) => isRowInside(row, grid)));
-    return outside.length >= 2 ? [withRows(table, outside)] : [];
+    return outside.filter((row) => row.cells.length >= 2).length >= 2 ? [withRows(table, outside)] : [];
   });
   for (const item of ruled) {
     const replaced = (detected ?? []).filter((table) => replaces(item.table, table));
@@ -380,16 +383,45 @@ function withoutFragmentGrids(ruled: RuledTable[], detected: readonly LayoutTabl
       .filter(({ table: grid }) => overlapOfSmaller(grid, table) >= RULED_TABLE_REPLACE_OVERLAP)
       .sort((a, b) => a.table.y - b.table.y);
     if (inside.length < 2) continue;
-    // Grids side by side are separate tables, whatever the text detector joined.
-    if (
-      inside.some(({ table: grid }) => inside.some(({ table: other }) => other !== grid && !isStackedOver(grid, other)))
-    ) {
-      continue;
-    }
+    // Grids only side by side are separate tables, whatever the text detector joined.
+    const stacked = inside.some(({ table: grid }) =>
+      inside.some(({ table: other }) => other !== grid && isStackedOver(grid, other)),
+    );
+    if (!stacked) continue;
     const opensOnData = inside.slice(1).filter(({ table: grid }) => startsWithValues(grid));
     if (opensOnData.length * 2 >= inside.length - 1) for (const grid of inside) fragments.add(grid);
   }
   return ruled.filter((grid) => !fragments.has(grid));
+}
+
+/**
+ * Ruled grids drawn around only some columns of a table found from its
+ * text (rules under the right-hand columns of a statement): values of
+ * that table's rows sit beside the grid, so the grid is not the table.
+ */
+function withoutPartialGrids(ruled: RuledTable[], detected: readonly LayoutTable[]): RuledTable[] {
+  const inOtherGrid = (cell: LayoutTableCell, grid: LayoutTable) =>
+    ruled.some(({ table: other }) => other !== grid && isCellInside(cell, other));
+  return ruled.filter(({ table: grid }) =>
+    detected.every((table) => {
+      if (overlapOfSmaller(grid, table) < RULED_TABLE_REPLACE_OVERLAP) return true;
+      return !table.rows.some((row) => {
+        if (!isRowInside(row, grid)) return false;
+        return row.cells.some((cell) => {
+          const center = cell.x + cell.width / 2;
+          return (
+            isTableValueCell(cell.text) && (center < grid.x || center > grid.x + grid.width) && !inOtherGrid(cell, grid)
+          );
+        });
+      });
+    }),
+  );
+}
+
+function isCellInside(cell: BBox, box: BBox): boolean {
+  const x = cell.x + cell.width / 2;
+  const y = cell.y + cell.height / 2;
+  return x > box.x && x < box.x + box.width && y > box.y && y < box.y + box.height;
 }
 
 function isStackedOver(a: BBox, b: BBox): boolean {
