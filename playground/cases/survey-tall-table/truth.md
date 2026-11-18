@@ -73,13 +73,11 @@ Running head: `A SURVEY OF OPEN AND CLOSED LANGUAGE MODELS, 2022–2026`; page 9
 5. How many models in the table are closed source? — 22
 
 The layout table keeps every model row intact (49 rows, each value under the right
-column), so questions 1 and 4 are answerable from it plus the header words in the body.
+column), so questions 1 and 4 are answerable from it plus the header words in the body. The RLHF
+marks decode to ✓ and ✗ (`| Heron-3-405B [35] | Jul-2024 | 405 | 15.6T | 128k | ✓ |`, #275), so
+question 3 is answerable from the table too.
 
 **Known gap (no issue yet):**
-- The RLHF marks decode to the dingbat font's character codes: every ✓ reads `3` and every ✗ reads
-  `7` (`| Heron-3-405B [35] | Jul-2024 | 405 | 15.6T | 128k | 3 |`). Nothing says these are glyphs
-  rather than numbers; the only warning, `tabular_numeric_layout`, is about flattened rows. Question 3
-  cannot be answered from `read.md` (an agent would have to guess that `3` means yes).
 - The layout table has no header (`C1 … C6`) and drops both group-label rows, so membership is
   only recoverable from the body text, where `Open source` comes after the header words and before
   the open-source model list, and `Closed source` before the first closed-source row. Question 2

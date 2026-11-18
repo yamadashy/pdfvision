@@ -57,9 +57,8 @@ export const meta = {
   title: 'Superscripts and subscripts',
   stresses:
     'exponents, a superscript square, a negative exponent, a subscript, and a footnote marker drawn as raised/lowered small text',
-  status: 'known-gap',
+  status: 'ok',
   families: ['math'],
-  issue: 241,
 };
 
 const power = ([mantissa, exponent]) => `${mantissa} · 10^${exponent}`;
@@ -78,13 +77,12 @@ ${TABLE_ROWS.map((row) => `| ${row.name} | ${power(row.steps)} | ${power(row.flo
 
 Footnote: \`[^${FOOTNOTE.marker}]: ${FOOTNOTE.text}\`
 
-**Known gap (#241):** raised and lowered runs are joined as ordinary characters with
-no warning — \`2.3 · 1019\`, \`|∇f|2\`, \`104\`, \`e-f\`, \`model.1\` — and the subscript of
-\`P_drop\` is split off its line, so the paragraph reads \`P = 0.1\` and \`drop\` lands on a
-line of its own; the table header reads \`P drop\`.
+Every raised and lowered run is marked (#241): \`2.3 · 10^19\`, \`|∇f|^2\`, \`10^4\`, \`e^{-f}\`,
+\`model.^1\`, \`P_{drop} = 0.1\`, and the footnote reads \`^1 Measured on eight P100 GPUs.\`; the layout
+table carries \`P_{drop}\` and \`2.3 · 10^19\` in its cells.
 
 In the page body the table is read row by row between its rules (\`Model\` / \`Train steps\` /
-\`FLOPs\` / \`P\` / \`drop\`, then \`base\` and its values, then \`big\` and its values), and the
+\`FLOPs\` / \`P_{drop}\`, then \`base\` and its values, then \`big\` and its values), and the
 footnote is the last text on the page (#257: it used to be emitted between two table columns,
 which were read one after another).
 `;

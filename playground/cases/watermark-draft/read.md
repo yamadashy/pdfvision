@@ -11,14 +11,14 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 | Page | Chars | Images | Coverage | Size (pt) | Vectors | Blocks | Warnings | Fields | Links | Annots |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 1232 | 0 | 29% | 612×792 | 3 | 13 | 4 | 0 | 0 | 0 |
-| 2 | 897 | 0 | 26% | 612×792 | 3 | 9 | 4 | 0 | 0 | 0 |
+| 1 | 1213 | 0 | 29% | 612×792 | 3 | 13 | 4 | 0 | 0 | 0 |
+| 2 | 876 | 0 | 26% | 612×792 | 3 | 9 | 4 | 0 | 0 | 0 |
 
 ---
 
 ## Page 1
 
-_chars: 1232 · images: 0 · coverage: 29% · vectors: 3 · warnings: 4 · size: 612×792pt_
+_chars: 1213 · images: 0 · coverage: 29% · vectors: 3 · warnings: 4 · size: 612×792pt_
 
 BRIGHTWATER LOGISTICS
 
@@ -36,14 +36,14 @@ Executive Committee
 Lena Marsh, Director of Facilities
 Owen Pratt, Chief Financial Officer; Site Managers
 
-S A M P L E
+SAMPLE
 
 November 12, 2026
 Consolidation of the Fremont and Hayward warehouses
 
 DRAFT
 
-BA C K G R O U N D
+BACKGROUND
 Brightwater currently runs two cross-dock warehouses eleven miles apart. Fremont handles
 inbound ocean freight; Hayward handles regional retail replenishment. Both leases expire in
 2028, and both buildings are below 60% utilisation outside the November peak.
@@ -51,7 +51,7 @@ inbound ocean freight; Hayward handles regional retail replenishment. Both lease
 Facilities and Finance were asked in August to assess whether a single site could absorb both
 flows without extending dock-to-stock times.
 
-PR O P O S A L
+PROPOSAL
 We propose to consolidate both operations into the Hayward building, which has the larger yard
 and can take four additional dock doors. Moving costs, racking and the dock works are estimated
 at $2.1 million one-off; lower rent, utilities and shuttle runs save about $1.4 million a year from
@@ -73,9 +73,9 @@ BRIGHTWATER LOGISTICS · Internal · Page 1 of 2
 
 ## Page 2
 
-_chars: 897 · images: 0 · coverage: 26% · vectors: 3 · warnings: 4 · size: 612×792pt_
+_chars: 876 · images: 0 · coverage: 26% · vectors: 3 · warnings: 4 · size: 612×792pt_
 
-TI M E L I N E
+TIMELINE
 
 Milestone
 Committee approval
@@ -97,12 +97,12 @@ September 30, 2027
 
 DRAFT
 
-RI S K S
+RISKS
 The main risk is the November peak: if the dock works slip past April, Hayward will run the
 2027 peak with its current eight doors. Operations recommends a fallback short-term lease on
 overflow space, budgeted within the one-off figure above.
 
-RE C O M M E N D AT I O N S
+RECOMMENDATIONS
 1. Approve the consolidation and the one-off budget of $2.1 million.
 2. Authorise Legal to open surrender talks with the Fremont landlord.
 3. Ask HR to brief affected staff no later than January 2027.

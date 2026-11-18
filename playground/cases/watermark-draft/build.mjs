@@ -98,18 +98,18 @@ ${RECOMMENDATIONS.map((r, i) => `${i + 1}. ${r}`).join('\n')}
 **Current reading (ok):** all five questions are answerable from \`read.md\`. The watermark does
 *not* fuse into the memo's lines here: it comes out as a separate \`DRAFT\` paragraph on each page
 (after the header fields on page 1, after the timeline on page 2), and the
-stamp as \`S A M P L E\` between the CC and Date values. Neither is labelled as a watermark or
+stamp as \`SAMPLE\` between the CC and Date values. Neither is labelled as a watermark or
 stamp, but their presence answers question 1. The survey's failure (\`Sample invoiceInvoice
 number\`) did not reproduce with a watermark drawn behind the text at this angle and size.
 
-Defects without a warning: the small-caps headings come back with spaces inserted by the
-character spacing, and the size change splits the first letters off: \`BA C K G R O U N D\`,
-\`PR O P O S A L\`, \`RE C O M M E N D AT I O N S\` — a search for “Recommendations” fails. The header
+The letter-spaced small-caps headings read as words (\`BACKGROUND\`, \`PROPOSAL\`,
+\`RECOMMENDATIONS\`, #268). Defects without a warning: the header
 block is read as a label column then a value column (\`TO:\` … \`RE:\`, then the five values, with
-\`S A M P L E\` between the third and fourth), so question 2 depends on counting. The timeline
-table is not detected, but its rows are read across (\`Milestone\` / \`Committee approval\` /
-\`Dock works complete at Hayward\` / …, then \`Owner\` / …, then \`Target date\` / …), so question 4 is
-answered by position within the rows. The only warnings are \`text_overlap\` (“block bboxes overlap … may visually collide”), caused by
+\`SAMPLE\` between the third and fourth), so question 2 depends on counting. The timeline
+table is not detected; it is read column by column, each column whole (\`Milestone\` /
+\`Committee approval\` / \`Dock works complete at Hayward\` / …, then \`Owner\` / …, then
+\`Target date\` / …), so question 4 is answered by position within the columns. The only warnings
+are \`text_overlap\` (“block bboxes overlap … may visually collide”), caused by
 the watermark; they name no next step.
 `;
 

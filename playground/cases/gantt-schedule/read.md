@@ -11,7 +11,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 ## Page 1
 
-_chars: 1216 · images: 0 · coverage: 14% · vectors: 117 · tables: 1 · size: 792×612pt_
+_chars: 1216 · images: 0 · coverage: 14% · vectors: 117 · tables: 1 · warnings: 1 · size: 792×612pt_
 
 Cobalt Ridge Health
 
@@ -285,3 +285,7 @@ Page 1 of 1
 | 4.3 | User acceptance testing | J. Brandt | 12/7/26 | 12/18/26 |
 | 4.4 | Go-live | R. Solis | 12/18/26 | 12/18/26 |
 | 4.5 | Hypercare | Support |  |  |
+
+### Warnings
+
+> **warning** (text_row_vector_bars): 13 filled bars sit in text rows (beside "9/18/26", "9/25/26") with no text inside them — the native text has the row labels and any printed values, but not what the bars' start, length or colour shows (dates, durations, status); render that region (--render-region 23,75.03,743.69,430.36) when the answer depends on them

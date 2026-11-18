@@ -17,7 +17,16 @@ const LINK_TEXT_MAX_CHARS = 240;
 const LINK_CLIPPED_TEXT_MAX_WIDTH_RATIO = 3;
 const LINK_CLIPPED_TEXT_MAX_EXTRA_WIDTH_PT = 12;
 
-export function linkText(link: BoxLike, lines: readonly LabelLine[]): string | undefined {
+/**
+ * `glyphText` is the text whose glyphs sit inside the link rectangle; it is
+ * exact where line text is not (pdf.js merges a nav bar or a sentence into
+ * one item, and clipping that item by proportion lends a neighbour's word to
+ * the link). The line-based reading is the fallback for pages whose glyphs
+ * could not be placed.
+ */
+export function linkText(link: BoxLike, lines: readonly LabelLine[], glyphText?: string): string | undefined {
+  const exact = glyphText?.replace(/\s+/g, ' ').trim();
+  if (exact) return truncateLinkText(exact);
   const parts = lines
     .filter((line) => line.text.trim().length > 0)
     .filter((line) => isLineCoveredByLink(line, link))

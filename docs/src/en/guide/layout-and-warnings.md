@@ -87,6 +87,7 @@ Common warning families include:
 - low-confidence OCR on scan-like pages.
 - large raster regions whose internal labels may need vision.
 - dense vector pages such as forms, charts, or diagrams.
+- coloured bars stacked in text rows, such as Gantt task bars or a horizontal bar chart, whose dates, durations, values or status are not in the text (`text_row_vector_bars`); the warning names the region to render.
 
 ### Hidden Native Text
 

@@ -68,6 +68,9 @@ function appendAnnotation(out: string[], annotation: NonNullable<PageResult['ann
   ];
   if (annotation.name !== undefined) annotationAttrs.push(`name="${escapeAttr(annotation.name)}"`);
   if (annotation.contents !== undefined) annotationAttrs.push(`contents="${escapeAttr(annotation.contents)}"`);
+  if (annotation.markedText !== undefined) {
+    annotationAttrs.push(`markedText="${escapeAttr(annotation.markedText)}"`);
+  }
   if (annotation.title !== undefined) annotationAttrs.push(`title="${escapeAttr(annotation.title)}"`);
   if (annotation.color !== undefined) annotationAttrs.push(`color="${annotation.color.join(',')}"`);
   if (annotation.modified !== undefined) annotationAttrs.push(`modified="${escapeAttr(annotation.modified)}"`);

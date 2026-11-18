@@ -76,6 +76,8 @@ All three document counts are omitted when zero. Per-page `formFieldCount`, `lin
 
 OCR 不会覆盖原生文本。使用方应比较 `page.text` 与 `page.ocr?.text` 后再选择。
 
+Superscripts and subscripts are written inline as `^…` / `_…` in `text`, layout text, and spans — `^x` for one character or a digit run, `^{…}` otherwise (`10^19`, `P_{drop}`, `^1` for a footnote marker) — so an exponent never reads as trailing digits. Before that, copies of a run overdrawn to fake bold are kept once, spaces pdf.js inserts into letter-spaced text are removed, and ZapfDingbats/Symbol glyphs that pdf.js returns as character codes are decoded (`3` → `✓`). See `pdfvision docs schema`.
+
 可选字段是有意 opt-in 的。`--layout --form-fields` 的 JSON 与没有请求这些 flags 的 JSON 不同。当请求了某个功能但没有找到元素时，pdfvision 会尽量使用空数组或 null-like 结构，帮助消费者区分“未请求”和“请求了但不存在”。
 
 ## Quality Fields
@@ -132,11 +134,11 @@ All boxes use raw page-view units of the page as displayed: the pdf.js `page.vie
 
 许多 PDF 的意义位于纯文本流之外。pdfvision 让这些功能保持 opt-in，以便轻量提取仍然很小，但在 viewer 体验有意义的文档中它们非常重要。
 
-使用 `--form-fields` 处理申请表、问卷和政府表单。它暴露 widget type、value、checked state、choices、flags、export values、actions、bbox 和附近标签，常用于区分空框、已选复选框和可见 choice field。
+使用 `--form-fields` 处理申请表、问卷和政府表单。它暴露 widget type、value、checked state、choices、flags、export values、actions、bbox 和附近标签，常用于区分空框、已选复选框和可见 choice field。 A label printed at the left margin is paired with a field in a column further right when nothing lies between them on that row, and the boxes of a split date share the label printed before the first box.
 
-使用 `--links` 与 `--outline` 处理导航密集的文档。links 是带 bbox 与 target 的页面级 annotation，outline 是保留层级和 resolved destination 的文档级书签。即使未请求 link output，link targets 也会被 `--search` 搜索。它们适用于引用、目录、手册和“指向哪里”也是证据一部分的报告。
+使用 `--links` 与 `--outline` 处理导航密集的文档。links 是带 bbox 与 target 的页面级 annotation，outline 是保留层级和 resolved destination 的文档级书签。即使未请求 link output，link targets 也会被 `--search` 搜索。它们适用于引用、目录、手册和“指向哪里”也是证据一部分的报告。 A link's `text` is the text whose glyphs sit inside its own rectangle, so side-by-side links and inline links in a sentence do not borrow their neighbours' words.
 
-使用 `--annotations` 处理评论、高亮、stamp、ink、shape、file-attachment icons 或可见 FreeText notes 可能改变页面含义的情况。FreeText annotations 也会被 `--search` 搜索，因为它们可能对人类可见，却不在 `pages[].text` 中。
+使用 `--annotations` 处理评论、高亮、stamp、ink、shape、file-attachment icons 或可见 FreeText notes 可能改变页面含义的情况。FreeText annotations 也会被 `--search` 搜索，因为它们可能对人类可见，却不在 `pages[].text` 中。 Highlight, Underline, Squiggly, and StrikeOut rows carry `markedText`, the page text under the markup, so an agent sees what was struck out or highlighted without matching boxes against text geometry.
 
 使用 `--viewer`、`--page-labels`、`--layers` 处理 PDF viewer state 有意义的情况。这些字段可以显示不同于物理页码的页码标签、open actions、viewer preferences、optional content groups、默认图层可见性和文档权限 flags。把它们视为关于 PDF 的观察值，而不是要执行的指令。
 

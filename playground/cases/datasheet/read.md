@@ -6,13 +6,14 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 - **Title:** Op-amp datasheet, two pages
 - **Author:** pdfvision playground
 - **Creator:** pdfvision
+- **Repeated page chrome (removed from page bodies):** "KX4562" (2 pages); "KESTREL MICRODEVICES" (2 pages); "KMD-DS-0457B – MARCH 2026" (2 pages); "Copyright © 2026, Kestrel Microdevices" (2 pages); "Product Folder Links: KX4562" (2 pages)
 
 ## Overview
 
 | Page | Chars | Images | Coverage | Size (pt) | Vectors | Tables | Blocks | Warnings | Fields | Links | Annots |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | 1 | 1511 | 0 | 17% | 612×792 | 22 | 2 | 40 | 0 | 0 | 0 | 0 |
-| 2 | 1041 | 0 | 7% | 612×792 | 219 | 1 | 93 | 2 | 0 | 0 | 0 |
+| 2 | 1071 | 0 | 7% | 612×792 | 219 | 1 | 54 | 2 | 0 | 0 | 0 |
 
 ---
 
@@ -152,13 +153,11 @@ mA
 
 ## Page 2
 
-_chars: 1041 · images: 0 · coverage: 7% · vectors: 219 · tables: 1 · warnings: 2 · size: 612×792pt_
+_chars: 1071 · images: 0 · coverage: 7% · vectors: 219 · tables: 1 · warnings: 2 · size: 612×792pt_
 
 6 Electrical Characteristics
 
-At T = 25°C, V = 5 V, R = 10 kΩ connected to V / 2 (unless otherwise noted)
-
-A S L S
+At T_A = 25°C, V_S = 5 V, R_L = 10 kΩ connected to V_S / 2 (unless otherwise noted)
 
 PARAMETER
 
@@ -166,169 +165,117 @@ SYMBOL
 
 TEST CONDITIONS
 
-MIN
-
-TYP
-
-MAX
-
-UNIT
-
 OFFSET VOLTAGE
 Input offset voltage
 
-V
-
-OS
-
-T = 25°C
-
-A
-
-±0.3
-
-±1.5
-
-mV
-
-±2.5
-
-mV
-
 Offset voltage drift
-
-TA = –40°C to +125°C
-dV /dT T = –40°C to +125°C
-
-OS
-
-A
-
-1.2
-
-μV/°C
-
 INPUT BIAS CURRENT
 Input bias current
 
-I
-
-B
-
-T = 25°C
-
-A
-
-±1
-
-±10
-
-pA
-
-TA = –40°C to +125°C
-
-±800
-
-pA
-
 NOISE
 Input voltage noise
-
-e
-
-n
-
-f = 1 kHz
-
-12
-
-nV/√Hz
-
 density
-
-f = 10 kHz
-
-9.5
-
-nV/√Hz
 
 OUTPUT
 Voltage output swing
-
-V
-
-O L S
-
-R = 10 kΩ to V / 2,
-
-8
-
-25
-
-mV
-
 from rail
-
-T = –40°C to +125°C
-
-A
-
 Short-circuit current
-
-I
-
-SC
-
-V = 5 V
-
-S
-
-±50
-
-mA
-
 POWER SUPPLY
 Quiescent current per
-
-I
-
-Q
-
-I = 0 mA
-
-O
-
-0.85
-
-1.1
-
-mA
-
 amplifier
 
-IO = 0 mA,
-
-1.4
-
-mA
-
-TA = –40°C to +125°C
-
 Power-supply rejection
+ratio
+
+V_{OS}
+T_A = –40°C to +125°C
+dV_{OS}/dT T_A = –40°C to +125°C
+
+I_B
+
+e_n
+
+V_O
+
+I_{SC}
+
+I_Q
 
 PSRR
 
-V = 2.7 V to 5.5 V
+T_A = 25°C
 
-S
+T_A = 25°C
+T_A = –40°C to +125°C
+
+f = 1 kHz
+f = 10 kHz
+
+R_L = 10 kΩ to V_S / 2,
+T_A = –40°C to +125°C
+V_S = 5 V
+
+I_O = 0 mA
+I_O = 0 mA,
+T_A = –40°C to +125°C
+V_S = 2.7 V to 5.5 V
+
+MIN
 
 80
 
+TYP
+
+±0.3
+
+1.2
+
+±1
+
+12
+9.5
+
+8
+
+±50
+
+0.85
+
 96
 
-dB
+MAX
 
-ratio
+±1.5
+±2.5
+
+±10
+±800
+
+25
+
+1.1
+1.4
+
+UNIT
+
+mV
+mV
+μV/°C
+
+pA
+pA
+
+nV/√Hz
+nV/√Hz
+
+mV
+
+mA
+
+mA
+mA
+
+dB
 
 7 Package Outline
 
@@ -338,16 +285,16 @@ D (SOIC-8) plastic small-outline package
 
 ### Layout tables
 
-#### Table 1 (4 rows × 6 columns, bbox 44,265.03,487.63,109.36)
+#### Table 1 (4 rows × 7 columns, bbox 44,265.03,487.63,109.36)
 
-| C1 | C2 | C3 | C4 | C5 | C6 |
-| --- | --- | --- | --- | --- | --- |
-| OUTPUT Voltage output swing | V O L S R = 10 kΩ to V / 2, |  | 8 | 25 | mV |
-| POWER SUPPLY Quiescent current per | I Q I = 0 mA O |  | 0.85 | 1.1 | mA |
-|  | TA = –40°C to +125°C |  |  |  |  |
-|  |  | 80 | 96 |  | dB |
+| C1 | C2 | C3 | C4 | C5 | C6 | C7 |
+| --- | --- | --- | --- | --- | --- | --- |
+| OUTPUT Voltage output swing from rail | V_O | R_L = 10 kΩ to V_S / 2, T_A = –40°C to +125°C |  | 8 | 25 | mV |
+| POWER SUPPLY Quiescent current per | I_Q | I_O = 0 mA |  | 0.85 | 1.1 | mA |
+|  |  | T_A = –40°C to +125°C |  |  |  |  |
+|  |  |  | 80 | 96 |  | dB |
 
 ### Warnings
 
-> **warning** (layout_table_uncertain): layout table 1 (bbox 44,265.03,487.63,109.36) did not resolve into one consistent grid: 6 lines with numbers inside the table belong to no row — its cells may sit in the wrong row or column or be missing; render that region (--render-region 44,265.03,487.63,109.36) before trusting the table
-> **warning** (reading_order_divergence): layout block "T = 25°C" appears with reordered characters in the native text stream — superscripts, radicals, or inline math may read differently in pages[].text; the body above is that reading order, rebuilt from the layout — render the page when exact sequence is critical
+> **warning** (layout_table_uncertain): layout table 1 (bbox 44,265.03,487.63,109.36) did not resolve into one consistent grid: 5 lines with numbers inside the table belong to no row — its cells may sit in the wrong row or column or be missing; render that region (--render-region 44,265.03,487.63,109.36) before trusting the table
+> **warning** (reading_order_divergence): layout line "INPUT BIAS CURRENT" appears after "Offset voltage drift" visually but earlier in the native text stream — native line order diverges from what a human reads; the body above is that reading order, rebuilt from the layout — render the page when exact sequence is critical

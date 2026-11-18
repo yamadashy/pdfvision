@@ -6,6 +6,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 - **Title:** Three-slide 16:9 deck with a screenshot slide
 - **Author:** pdfvision playground
 - **Creator:** pdfvision
+- **Repeated page chrome (removed from page bodies):** "Larkspur Analytics \| Confidential — internal use only" (3 pages)
 
 ## Overview
 
@@ -78,4 +79,4 @@ _chars: 55 · images: 1 · coverage: 2% · vectors: 3 · native: sparse_text_wit
 
 ### Warnings
 
-> **warning** (large_raster_low_text_overlap): large raster image covers 63.3% of the page with little native-text overlap (0.00%) — labels, chart text, or map text inside the image will not appear in native text
+> **warning** (large_raster_low_text_overlap): large raster image covers 63.3% of the page with little native-text overlap (0.00%) — labels, chart text, or map text inside the image will not appear in native text; render that region (--render-region 70,52,820,400) or OCR the page (--ocr) to read it

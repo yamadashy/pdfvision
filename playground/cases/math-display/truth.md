@@ -37,19 +37,16 @@ $H_0 = 68.2^{+6.1}_{-4.7}$ km s⁻¹ Mpc⁻¹.
 4. Over what range does the sum in Eq. (2) run, and what is in its denominator? — k = 1 to N (N = 47); σ_k squared
 5. What does Eq. (4) give for E(z)² at low redshift? — approximately 1 + 0.93 z (from 0.31(1+z)³ + 0.69)
 
-**Known gap (#241):** the page carries no warning at all, and every construct that leaves the
-baseline is broken apart. The stacked uncertainties lose their lower half to a later line:
-`lies at d = 410+160 Mpc (z = 0.09+0.03), with a primary mass of` followed, after a stray `L`,
-by `−180` and `−0.04` on lines of their own — the survey's LIGO failure. Question 1 reads as
-“410+160 Mpc” with an orphaned “−180” that could belong to either value. The mass survives as
-`36+5−4 M⊙` because its scripts happen to sort onto one line (question 2 is answerable by
-reading `+5−4` as a pair); `H = 68.2+6.1 km s−1 Mpc−1` loses `−4.7` and the subscript 0 to
-later lines. Subscripts on inline symbols drift away: `standard deviations σ ,` then `k`, and
-`with θ = (H , Ω )` then `0 m`.
+Inline scripts are marked and stay on their line (#241). The stacked uncertainties read
+`d_L = 410^+160_−180 Mpc (z = 0.09^{+0.03}_{−0.04})` (question 1), the mass `36^+5_−4 M⊙`
+(question 2), and `H_0 = 68.2^{+6.1}_{−4.7} km s^−1 Mpc^−1`; inline symbols keep their subscripts
+(`σ_k`, `θ = (H_0, Ω_m)`).
 
-The display equations are scattered across lines: Eq. (1) is
-`c (1 + z)∫z dz′` / `dL(z) =` / `H` / `0` / `0 E(z′)`, interleaved with the section heading and
-the page number `7`; Eq. (2) is `ln L(θ) = −` / `1 N (dk − μ (θ))2` / `∑` / `2 k` / `=1` / `σ2`,
-so question 4 has to be reassembled from fragments. The matrix (question 3) and the aligned
+**Known gap (#241, display equations):** the page carries no warning at all, and the display
+equations are scattered across lines: Eq. (1) is `c (1 + z)∫z dz′` / `d_L(z) =` / `0 E(z′)`,
+interleaved with the section heading, with its denominator `H_0` landing inside Eq. (2), which
+reads `1 N (d_k − μ_k(θ))^2` / `ln L(θ) = − ∑` / `2 k=1` / `σ^2_k` — so question 4 has to be
+reassembled from fragments. Eq. (1)'s number and the page number come after Eq. (2), as
+`7` / `(1)` / `(2)`, so Eq. (1)'s number is read away from its equation. The matrix (question 3) and the aligned
 derivation (question 5) come out row by row and are answerable: `0.042 −0.013` / `−0.013` /
 `0.027` and `≈ 1 + 0.93 z.`.

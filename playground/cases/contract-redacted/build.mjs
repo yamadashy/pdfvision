@@ -218,6 +218,8 @@ the hidden text reads ${CAP}”. Page 1 reads clause 4.3 as a normal clause and 
 point at \`--render-region\` for the listed bbox, and the render shows the black box and the blank.
 The warnings sit at the end of each page, after the annotation tables, so an agent has to read to the
 end of the page before quoting clause 6.1 or 4.3. (Issue #249.)
+The strike-out and highlight rows carry the text they mark in \`Marked Text\` (\`1.5% per month\`,
+\`thirty (30) days’ written notice\`), so question 4 needs no box-to-text matching. (Issue #260.)
 
 Defects without a warning: the proper redaction is only partly readable. 3.1 reads \`a fixed monthly fee of\` / \`(the “Fees”),
 invoiced monthly in\` / \`advance.\` — the value is simply absent (no box is reported, there is no warning, and the line

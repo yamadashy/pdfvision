@@ -1,3 +1,5 @@
+import { markUnicodeScripts } from '../text/scripts.js';
+
 interface LineSegment {
   content: string;
   ending: string;
@@ -8,14 +10,16 @@ interface LineSegment {
  * characters from the LLM-facing text. PDFs commonly embed compatibility
  * codepoints (e.g. CJK Compatibility Forms `⽬` U+2F6C, halfwidth/fullwidth
  * variants, ligatures `ﬁ`) that break grep / diff / structured extraction
- * for downstream agents. NFKC folds them to the canonical form.
+ * for downstream agents. NFKC folds them to the canonical form. Superscript
+ * and subscript characters are written as `^2` / `_2` first, because NFKC
+ * would fold `m²` to `m2`.
  *
  * TAB, LF, and CR are preserved because pdf.js uses them as visible text
  * separators. Other C0 controls are stripped, and control-only lines are
  * removed so they do not become stray blank lines.
  */
 export function normalizeText(s: string): string {
-  return stripC0ControlsAndCollapseEmptyLines(normalizeTextForNonPrintableStats(s));
+  return stripC0ControlsAndCollapseEmptyLines(normalizeTextForNonPrintableStats(markUnicodeScripts(s)));
 }
 
 export function normalizeTextForNonPrintableStats(s: string): string {

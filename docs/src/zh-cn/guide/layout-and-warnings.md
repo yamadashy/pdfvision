@@ -85,6 +85,7 @@ visual regions 可以作为到多模态模型的桥梁：
 - 扫描页上的低置信度 OCR。
 - 内部标签可能需要视觉模型读取的大型栅格区域。
 - 表单、图表或示意图这样的密集矢量页面。
+- coloured bars stacked in text rows, such as Gantt task bars or a horizontal bar chart, whose dates, durations, values or status are not in the text (`text_row_vector_bars`); the warning names the region to render.
 
 ### Hidden Native Text
 

@@ -76,6 +76,8 @@ All three document counts are omitted when zero. Per-page `formFieldCount`, `lin
 
 OCR はネイティブテキストを上書きしません。利用側が `page.text` と `page.ocr?.text` を比較して選びます。
 
+Superscripts and subscripts are written inline as `^…` / `_…` in `text`, layout text, and spans — `^x` for one character or a digit run, `^{…}` otherwise (`10^19`, `P_{drop}`, `^1` for a footnote marker) — so an exponent never reads as trailing digits. Before that, copies of a run overdrawn to fake bold are kept once, spaces pdf.js inserts into letter-spaced text are removed, and ZapfDingbats/Symbol glyphs that pdf.js returns as character codes are decoded (`3` → `✓`). See `pdfvision docs schema`.
+
 オプションフィールドは意図的に opt-in です。`--layout --form-fields` の JSON と、それらのフラグを付けていない JSON は別物です。要求した機能で要素が見つからなかった場合は、空配列や null-like な形を使い、「未要求」と「要求したが存在しない」を区別しやすくします。
 
 ## Quality Fields
@@ -134,11 +136,11 @@ All boxes use raw page-view units of the page as displayed: the pdf.js `page.vie
 
 PDF には plain text stream の外に意味があることがあります。pdfvision は軽量抽出を保つためにこれらを opt-in にしていますが、viewer 上の見え方に意味がある文書では重要です。
 
-`--form-fields` は申請書、アンケート、行政フォームで使います。widget type、value、checked state、choices、flags、export values、actions、bbox、近傍ラベルを出します。空の box と選択済み checkbox、または可視 choice field を区別するのに役立ちます。
+`--form-fields` は申請書、アンケート、行政フォームで使います。widget type、value、checked state、choices、flags、export values、actions、bbox、近傍ラベルを出します。空の box と選択済み checkbox、または可視 choice field を区別するのに役立ちます。 A label printed at the left margin is paired with a field in a column further right when nothing lies between them on that row, and the boxes of a split date share the label printed before the first box.
 
-`--links` と `--outline` はナビゲーションが多い文書で使います。links は page-level annotation と bbox/target、outline は階層と解決済み destination を保持します。link targets は link output を要求していなくても `--search` の対象になります。引用、目次、マニュアル、レポートで「どこを指しているか」が根拠の一部になる場合に有効です。
+`--links` と `--outline` はナビゲーションが多い文書で使います。links は page-level annotation と bbox/target、outline は階層と解決済み destination を保持します。link targets は link output を要求していなくても `--search` の対象になります。引用、目次、マニュアル、レポートで「どこを指しているか」が根拠の一部になる場合に有効です。 A link's `text` is the text whose glyphs sit inside its own rectangle, so side-by-side links and inline links in a sentence do not borrow their neighbours' words.
 
-`--annotations` はコメント、ハイライト、stamp、ink、shape、file attachment icon、可視 FreeText note が意味を変える可能性がある場合に使います。FreeText annotation は `pages[].text` に無いのに人間には見えることがあるため、annotation output を要求していなくても `--search` の対象になります。
+`--annotations` はコメント、ハイライト、stamp、ink、shape、file attachment icon、可視 FreeText note が意味を変える可能性がある場合に使います。FreeText annotation は `pages[].text` に無いのに人間には見えることがあるため、annotation output を要求していなくても `--search` の対象になります。 Highlight, Underline, Squiggly, and StrikeOut rows carry `markedText`, the page text under the markup, so an agent sees what was struck out or highlighted without matching boxes against text geometry.
 
 `--viewer`, `--page-labels`, `--layers` は PDF の viewer state が意味を持つときに使います。物理ページ番号と異なるページラベル、open action、viewer preferences、optional content groups、既定 layer visibility、document permission flags を観測できます。これらは PDF に関する観測であり、実行すべき命令ではありません。
 

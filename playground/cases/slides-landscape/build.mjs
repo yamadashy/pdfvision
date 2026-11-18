@@ -43,7 +43,9 @@ export const meta = {
   title: 'Three-slide 16:9 deck with a screenshot slide',
   stresses:
     'non-Letter landscape page size; repeated footer; nested bullets; vector chart with value labels; a slide whose content is only a raster image',
-  status: 'known-gap',
+  status: 'ok',
+  showcase: true,
+  hard: 'One slide is a screenshot with a table baked into its pixels, so its native text is only the footer and the slide number while the page looks full.',
   families: ['page-geometry', 'raster-text', 'vector-meaning'],
   page: { size: [W, H] },
 };
@@ -80,16 +82,16 @@ ${PIPELINE.rows.map((row) => `| ${row.join(' | ')} |`).join('\n')}
 4. What is the open pipeline in EMEA? — ${PIPELINE.rows[1][2]} (in the screenshot only; needs the render or OCR)
 5. Which point under “NRR reached 118%” explains the increase? — ${CONTENT_SLIDE.bullets[1].text} (nested under the first bullet)
 
-**Known gap (no issue yet):** questions 1, 2, 3 and 5 are answered from \`read.md\`; nesting
-survives as the \`–\` sub-bullet glyph, and each chart value label is followed by its quarter.
-Question 4 cannot be answered from \`read.md\`: the value is only in the screenshot. Page 3 carries
-\`large_raster_low_text_overlap\` (“large raster image covers 63.3% of the page … labels, chart
-text, or map text inside the image will not appear in native text”) and its native status is
-\`sparse_text_with_visual_content\`. Both say what is missing; neither names rendering the page
-or OCR as the next step.
+**Current reading (ok — page 3 is recovered through its warning):** questions 1, 2, 3 and 5 are
+answered from \`read.md\`; nesting survives as the \`–\` sub-bullet glyph, and each chart value
+label is followed by its quarter. Question 4's value is only in the screenshot. Page 3's native
+status is \`sparse_text_with_visual_content\` and it carries \`large_raster_low_text_overlap\`, which
+ends with the next step and the screenshot's own region: \`render that region (--render-region
+70,52,820,400) or OCR the page (--ocr) to read it\` (issue #278). That render shows the whole
+table, EMEA \`${PIPELINE.rows[1][2]}\` included.
 
-The footer is dropped from every page as repeated chrome, and nothing in the response says
-so; an agent asked whether the deck is marked confidential cannot tell from \`read.md\`.
+The footer is dropped from every page body as repeated chrome and named once in the header
+(issue #259), so an agent asked whether the deck is marked confidential can tell from \`read.md\`.
 `;
 
 function chrome(doc, h, number) {

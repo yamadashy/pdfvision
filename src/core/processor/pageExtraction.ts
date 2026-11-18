@@ -1,4 +1,5 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import type { VectorBox } from '../../types/index.js';
 import { buildAnnotations, hasVisibleAnnotationAppearance, isPageAnnotation } from '../annotations/index.js';
 import { resolveDestinationPage } from '../document/destinations.js';
 import { buildMarkedContentTextMap } from '../document/markedContentText.js';
@@ -24,7 +25,9 @@ import { buildLayout } from '../layout/index.js';
 import { buildLinks, isLinkAnnotation } from '../links/index.js';
 import { nonPrintableStats } from '../quality/nonPrintable.js';
 import { isRasterBackedTextLayer } from '../quality/rasterBackedTextLayer.js';
+import { collectFontTextHints, type FontNameInfo } from '../text/fontTextHints.js';
 import type { PageData, PageFlags } from './pageData.js';
+import { buildPageGlyphText } from './pageGlyphText.js';
 import { extractPageText } from './pageText.js';
 import { normalizeText, round2 } from './textUtils.js';
 
@@ -69,6 +72,17 @@ export async function extractPageData(
   const readUnrotated = rotation !== undefined && frame.rotation === 0;
   const userUnit = normalizePageUserUnit(page.userUnit);
 
+  // The operator list comes first: it loads the page's fonts into
+  // commonObjs and carries the glyph facts text content drops (symbol-font
+  // codes, character spacing), which correct the text before it is joined.
+  const rawOpList = await page.getOperatorList();
+  const fontHints = collectFontTextHints(
+    rawOpList.fnArray,
+    rawOpList.argsArray as unknown[],
+    opaqueFillTextOps,
+    cachedFontNames(page.commonObjs),
+  );
+
   const {
     text,
     rawText: preservedRaw,
@@ -82,6 +96,7 @@ export async function extractPageData(
     pageHeight: height,
     viewMinX: xMin,
     viewMinY: yMin,
+    fontHints,
   });
 
   // Always expand image-bbox per instance — counting ops would under-
@@ -89,8 +104,8 @@ export async function extractPageData(
   // XObject into a single Repeat / Group op. Expanded boxes serve as
   // both the public `imageBoxes` payload (when requested) and the source
   // of `imageCount`, which keeps the two trivially consistent.
-  const rawOpList = await page.getOperatorList();
   const opList = operatorListInFrame(rawOpList, ops.transform, frame);
+  const resolveFont = cachedFontGeometry(page.commonObjs);
   const invisibleText = collectInvisibleTextEvidence(
     rawOpList.fnArray,
     rawOpList.argsArray as unknown[][],
@@ -103,7 +118,7 @@ export async function extractPageData(
     height,
     xMin,
     yMin,
-    cachedFontGeometry(page.commonObjs),
+    resolveFont,
   );
   const allBoxes = buildImageBoxes(opList.fnArray, opList.argsArray as unknown[][], ops, height, xMin, yMin);
   const imageCount = allBoxes.length;
@@ -117,9 +132,19 @@ export async function extractPageData(
     xMin,
     yMin,
   );
+  const colouredVectorFills: VectorBox[] = [];
   const allVectorBoxes =
     vectorCount > 0
-      ? buildVectorBoxes(opList.fnArray, opList.argsArray as unknown[][], ops, width, height, xMin, yMin)
+      ? buildVectorBoxes(
+          opList.fnArray,
+          opList.argsArray as unknown[][],
+          ops,
+          width,
+          height,
+          xMin,
+          yMin,
+          colouredVectorFills,
+        )
       : [];
   const vectorBoxes = flags.vectorBoxes ? allVectorBoxes : undefined;
   // Build layout internally for form-field labels and visual-region table
@@ -140,6 +165,22 @@ export async function extractPageData(
   const annotationCount = annotations.filter(isPageAnnotation).length;
   const visibleAnnotationAppearance = hasVisibleAnnotationAppearance(annotations);
   const widgetAppearanceCaptions = annotations.some(hasPushButtonWidget) ? getWidgetAppearanceCaptions?.() : undefined;
+  const wantAnnotations =
+    flags.annotations || flags.visualRegions || flags.annotationAppearanceHints || flags.needAnnotationsForSearch;
+  const wantLinks = flags.links || flags.needLinksForSearch;
+  const glyphText = buildPageGlyphText({
+    annotations,
+    markup: wantAnnotations,
+    links: wantLinks,
+    fnArray: opList.fnArray,
+    argsArray: opList.argsArray as unknown[][],
+    ops: opaqueFillTextOps,
+    pageHeight: height,
+    viewMinX: xMin,
+    viewMinY: yMin,
+    resolveFont,
+    normalize: flags.normalize ? normalizeText : undefined,
+  });
   const allFormFields =
     flags.formFields || flags.visualRegions || flags.needFormFieldsForSearch
       ? buildFormFields(
@@ -174,30 +215,30 @@ export async function extractPageData(
       : undefined;
   const formFields = flags.formFields ? allFormFields : undefined;
   const internalFormFields = flags.needFormFieldsForSearch ? allFormFields : undefined;
-  const allLinks =
-    flags.links || flags.needLinksForSearch
-      ? await buildLinks(annotations, height, xMin, yMin, {
-          resolveDestinationPage: (target) => resolveDestinationPage(doc, target),
-          labelLines:
-            internalLayout?.blocks.flatMap((block) =>
-              (block.lines.length > 0 ? block.lines : [block]).map((item) => ({
-                text: item.text,
-                x: item.x,
-                y: item.y,
-                width: item.width,
-                height: item.height,
-              })),
-            ) ?? [],
-        })
-      : undefined;
+  const allLinks = wantLinks
+    ? await buildLinks(annotations, height, xMin, yMin, {
+        resolveDestinationPage: (target) => resolveDestinationPage(doc, target),
+        textUnder: glyphText ? (box) => glyphText([box]) : undefined,
+        labelLines:
+          internalLayout?.blocks.flatMap((block) =>
+            (block.lines.length > 0 ? block.lines : [block]).map((item) => ({
+              text: item.text,
+              x: item.x,
+              y: item.y,
+              width: item.width,
+              height: item.height,
+            })),
+          ) ?? [],
+      })
+    : undefined;
   const links = flags.links ? allLinks : undefined;
   const internalLinks = flags.needLinksForSearch ? allLinks : undefined;
-  const allPageAnnotations =
-    flags.annotations || flags.visualRegions || flags.annotationAppearanceHints || flags.needAnnotationsForSearch
-      ? buildAnnotations(annotations, height, xMin, yMin, {
-          normalizeText: flags.normalize ? normalizeText : undefined,
-        })
-      : undefined;
+  const allPageAnnotations = wantAnnotations
+    ? buildAnnotations(annotations, height, xMin, yMin, {
+        normalizeText: flags.normalize ? normalizeText : undefined,
+        textUnder: glyphText,
+      })
+    : undefined;
   const pageAnnotations = flags.annotations ? allPageAnnotations : undefined;
   const internalAnnotations = flags.needAnnotationsForSearch ? allPageAnnotations : undefined;
   const structure = flags.structure
@@ -292,6 +333,7 @@ export async function extractPageData(
     _warningImageBoxes: allBoxes,
     ...(vectorBoxes !== undefined && { vectorBoxes }),
     _warningVectorBoxes: allVectorBoxes,
+    ...(colouredVectorFills.length > 0 && { _warningColouredFills: colouredVectorFills }),
     ...(allPageAnnotations !== undefined && { _warningAnnotations: allPageAnnotations }),
     ...(visualRegionInput !== undefined && { _visualRegionInput: visualRegionInput }),
     ...(visibleAnnotationAppearance && { hasVisibleAnnotationAppearance: true }),
@@ -353,6 +395,33 @@ function cachedFontGeometry(
   return (loadedName) => {
     if (cache.has(loadedName)) return cache.get(loadedName);
     const info = fontGeometry(commonObjs, loadedName);
+    cache.set(loadedName, info);
+    return info;
+  };
+}
+
+/**
+ * Base font name and /Differences of a loaded font. Both are pdf.js "extra"
+ * font properties, exported because the document is opened with
+ * `fontExtraProperties` (see pdfJsSetup).
+ */
+function cachedFontNames(
+  commonObjs: { has(id: string): boolean; get(id: string): unknown } | undefined,
+): (loadedName: string) => FontNameInfo | undefined {
+  const cache = new Map<string, FontNameInfo | undefined>();
+  return (loadedName) => {
+    if (cache.has(loadedName)) return cache.get(loadedName);
+    let info: FontNameInfo | undefined;
+    try {
+      if (commonObjs?.has(loadedName)) {
+        const font = commonObjs.get(loadedName) as { name?: unknown; differences?: unknown } | null;
+        if (font && typeof font === 'object') {
+          info = { ...(typeof font.name === 'string' && { name: font.name }), differences: font.differences };
+        }
+      }
+    } catch {
+      info = undefined;
+    }
     cache.set(loadedName, info);
     return info;
   };

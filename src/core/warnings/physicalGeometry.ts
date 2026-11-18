@@ -43,6 +43,7 @@ export function warningInputsInPhysicalPoints(
       ...(context.spans && { spans: context.spans.map((span) => scaleSpan(span, userUnit)) }),
       ...(context.imageBoxes && { imageBoxes: context.imageBoxes.map((box) => scaleBox(box, userUnit)) }),
       ...(context.vectorBoxes && { vectorBoxes: context.vectorBoxes.map((box) => scaleBox(box, userUnit)) }),
+      ...(context.colouredFills && { colouredFills: context.colouredFills.map((box) => scaleBox(box, userUnit)) }),
       ...(context.opaqueFillText && { opaqueFillText: scaleOpaqueFillText(context.opaqueFillText, userUnit) }),
     },
   };

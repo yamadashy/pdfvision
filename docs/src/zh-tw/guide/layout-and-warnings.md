@@ -85,6 +85,7 @@ visual regions 可以作為到多模態模型的橋樑：
 - 掃描頁上的低信心 OCR。
 - 內部標籤可能需要視覺模型讀取的大型 raster 區域。
 - 表單、圖表或示意圖這樣的密集向量頁面。
+- coloured bars stacked in text rows, such as Gantt task bars or a horizontal bar chart, whose dates, durations, values or status are not in the text (`text_row_vector_bars`); the warning names the region to render.
 
 ### Hidden Native Text
 

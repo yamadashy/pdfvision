@@ -33,7 +33,7 @@ description: シェルを持たないホスト（Claude Desktop、Cursor、Cline
 
 `source` はローカルパスまたは `http(s)` URL を受け付けます — remote 用の別パラメータはありません。
 
-この surface は CLI より意図的に小さくしてあります。format、include、scale、cache のパラメータはありません: 文書自体から判断できることは、すべてサーバー側が判断します。`read_pdf` は常に layout、form field、link、annotation を実行し、何も見つからなかったセクションは単に省きます。これにより常駐する tool schema を小さく保ち、モデルが設定を誤る余地をなくしています。
+この surface は CLI より意図的に小さくしてあります。format、include、scale、cache のパラメータはありません: 文書自体から判断できることは、すべてサーバー側が判断します。`read_pdf` は常に layout、form field、link、annotation を実行し、何も見つからなかったセクションは単に省きます。これにより常駐する tool schema を小さく保ち、モデルが設定を誤る余地をなくしています。 Repeated running headers and footers are stripped from the page bodies and named once in the response header with their page counts.
 
 ## セッションの流れ
 

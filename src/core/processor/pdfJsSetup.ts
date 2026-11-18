@@ -16,6 +16,10 @@ export function buildPdfJsDocumentOptions({
   password,
 }: BuildPdfJsDocumentOptionsInput): Record<string, unknown> {
   const docOptions: Record<string, unknown> = pdfData ? { data: pdfData } : { url: filePath };
+  // Exports each font's base name, /Differences and every glyph's original
+  // character code, which text extraction needs to decode standard symbol
+  // fonts whose codes pdf.js passes through as text (see fontTextHints).
+  docOptions.fontExtraProperties = true;
   if (password !== undefined) {
     docOptions.password = password;
   }

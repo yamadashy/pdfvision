@@ -84,6 +84,8 @@ Each `pages[]` entry includes:
 
 OCR never overwrites native text. Consumers should compare `page.text` and `page.ocr?.text` and decide which signal is appropriate.
 
+Superscripts and subscripts are written inline as `^…` / `_…` in `text`, layout text, and spans — `^x` for one character or a digit run, `^{…}` otherwise (`10^19`, `P_{drop}`, `^1` for a footnote marker) — so an exponent never reads as trailing digits. Before that, copies of a run overdrawn to fake bold are kept once, spaces pdf.js inserts into letter-spaced text are removed, and ZapfDingbats/Symbol glyphs that pdf.js returns as character codes are decoded (`3` → `✓`). See `pdfvision docs schema`.
+
 Full feature payloads are intentionally opt-in; only the compact furniture presence counts above are automatic. A JSON result from `--layout --form-fields` is different from a result where those flags were not requested. When a feature was requested and no items were found, pdfvision uses empty arrays or null-like shapes where useful so consumers can distinguish "not requested" from "requested and absent".
 
 ## Quality Fields
@@ -144,11 +146,11 @@ For agent workflows, the most important pattern is to preserve the field that le
 
 Many PDFs contain information outside the plain text stream. pdfvision keeps full feature contents opt-in so lightweight extraction stays small, while automatic presence counts reveal when the corresponding flag may matter.
 
-Use `--form-fields` for applications, questionnaires, and government forms. It exposes widget type, value, checked state, choices, flags, export values, actions, bbox, and nearby labels. This is often the only reliable way to distinguish a blank box from a selected checkbox or a visible choice field.
+Use `--form-fields` for applications, questionnaires, and government forms. It exposes widget type, value, checked state, choices, flags, export values, actions, bbox, and nearby labels. This is often the only reliable way to distinguish a blank box from a selected checkbox or a visible choice field. A label printed at the left margin is paired with a field in a column further right when nothing lies between them on that row, and the boxes of a split date share the label printed before the first box.
 
-Use `--links` and `--outline` for navigation-heavy documents. Links are page-level annotations with bboxes and targets, while outlines are document-level bookmarks that preserve hierarchy and resolved destinations when available. Link targets are also searched by `--search`, even when link output itself is not requested. They are useful for citations, table-of-contents entries, manuals, and reports where "where this points" is part of the evidence.
+Use `--links` and `--outline` for navigation-heavy documents. Links are page-level annotations with bboxes and targets, while outlines are document-level bookmarks that preserve hierarchy and resolved destinations when available. Link targets are also searched by `--search`, even when link output itself is not requested. They are useful for citations, table-of-contents entries, manuals, and reports where "where this points" is part of the evidence. A link's `text` is the text whose glyphs sit inside its own rectangle, so side-by-side links and inline links in a sentence do not borrow their neighbours' words.
 
-Use `--annotations` when comments, highlights, stamps, ink, shapes, file-attachment icons, or visible FreeText notes may change the meaning of the page. FreeText annotations are also searched by `--search`, even when annotation output itself is not requested, because they can be visible to a human reader while absent from `pages[].text`.
+Use `--annotations` when comments, highlights, stamps, ink, shapes, file-attachment icons, or visible FreeText notes may change the meaning of the page. FreeText annotations are also searched by `--search`, even when annotation output itself is not requested, because they can be visible to a human reader while absent from `pages[].text`. Highlight, Underline, Squiggly, and StrikeOut rows carry `markedText`, the page text under the markup, so an agent sees what was struck out or highlighted without matching boxes against text geometry.
 
 Use `--viewer`, `--page-labels`, and `--layers` when the PDF's viewer state matters. These fields can show page labels that differ from physical page numbers, open actions, viewer preferences, optional content groups, default layer visibility, and document permission flags. Treat these as observations about the PDF, not instructions to execute or enforce.
 

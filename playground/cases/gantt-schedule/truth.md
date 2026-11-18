@@ -2,7 +2,7 @@
 
 - **Stresses:** task table whose right half is a week grid; durations, forecast slip, status, progress, milestones, today line and dependencies exist only as vector shapes
 - **Families:** vector-meaning, tables
-- **Status:** known-gap
+- **Status:** ok
 
 One Letter landscape page: **Cobalt Ridge Health — Patient Portal Relaunch — Project Schedule**, Project manager: Renata Solis, Schedule v7.
 Footer `Cobalt Ridge Health  |  PMO  |  Internal` and `Page 1 of 1`.
@@ -54,9 +54,12 @@ Dependency arrows (finish → start): Requirements sign-off → UX wireframes; D
 4. When is Data migration now expected to finish? — Nov 13, two weeks after its planned Oct 30 (bar only)
 5. What has to finish before QA regression can start? — API integration (dependency arrow only)
 
-**Known gap (no issue yet):** the page raises no warning (117 vector ops, no
-`dense_vector_graphics`, nothing saying that colour or bar extent carries data), so an agent has
-no reason to render it, and the text alone answers the bar-only questions wrongly or not at all:
+**Current reading (ok — recovered through a warning):** the text alone answers the bar-only
+questions wrongly or not at all, as listed below, but the page now carries
+`text_row_vector_bars` (issue #265): 13 filled bars sit in the task rows with no text inside them,
+the native text has only the row labels and printed values, and the next step is a render of the
+rows, the timescale and the legend (`--render-region 23,75.03,743.69,430.36`), which shows every bar, its
+colour, the dependency arrows and the Today line. Without that render:
 
 - Question 1 is answered from the plan dates, which drop Data migration (`10/5/26 | 10/30/26`)
   from the week of 11/9; its forecast bar runs through it.

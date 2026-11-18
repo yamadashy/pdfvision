@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildLayout } from '../../src/core/layout/index.js';
-import { isTableValueCell } from '../../src/core/layout/tableCells.js';
+import { hasTableValueEvidence, isTableValueCell } from '../../src/core/layout/tableCells.js';
 import { detectPageWarnings } from '../../src/core/warnings/index.js';
 import type { LayoutTable, PageResult, TextSpan } from '../../src/types/index.js';
 
@@ -523,5 +523,14 @@ describe('layout table value cells', () => {
     expect(isTableValueCell('△')).toBe(false);
     expect(isTableValueCell('※7')).toBe(false);
     expect(isTableValueCell('Model***')).toBe(false);
+  });
+
+  it('reads a lone check or cross mark as a value, and a marked phrase as text', () => {
+    expect(isTableValueCell('✓')).toBe(true);
+    expect(isTableValueCell('✗')).toBe(true);
+    expect(hasTableValueEvidence('✓')).toBe(true);
+    expect(isTableValueCell('✓ Approved')).toBe(false);
+    expect(isTableValueCell('✓✓')).toBe(false);
+    expect(hasTableValueEvidence('—')).toBe(false);
   });
 });

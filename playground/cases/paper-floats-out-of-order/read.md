@@ -11,7 +11,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 ## Page 1
 
-_chars: 4730 · images: 0 · coverage: 32% · vectors: 21 · warnings: 2 · size: 612×792pt_
+_chars: 4741 · images: 0 · coverage: 32% · vectors: 21 · warnings: 2 · size: 612×792pt_
 
 RESEARCH ARTICLE
 
@@ -20,11 +20,10 @@ Journal of Occupational Microbiome Research
 Night-shift work and gut microbial diversity: a
 cross-sectional study of hospital staff
 
-Lena Marwick1, Osei Bannerman1,2, Priya Ramaswamy2, Jonas Feldt1*
+Lena Marwick^1, Osei Bannerman^{1,2}, Priya Ramaswamy^2, Jonas Feldt^{1*}
 
-1 Institute of Occupational Health, Ravelin University Medical Centre, Ravelin, Norway
-2 Department of Microbiology, Kestrel Bay Hospital, Kestrel Bay, Ireland
-
+^1 Institute of Occupational Health, Ravelin University Medical Centre, Ravelin, Norway
+^2 Department of Microbiology, Kestrel Bay Hospital, Kestrel Bay, Ireland
 * jonas.feldt@ravelin.example.no
 
 Abstract
@@ -99,7 +98,7 @@ Female, n (%)
 
 0.70
 
-BMI, kg/m2, mean (SD)
+BMI, kg/m^2, mean (SD)
 
 25.1 (3.9)
 
@@ -213,5 +212,5 @@ September 30, 2026
 
 ### Warnings
 
-> **warning** (reading_order_divergence): heading "Night-shift work and gut microbial diver" leads the visual reading order but only appears 93% of the way through the native text stream — native text order diverges from what a human reads; the body above is that reading order, rebuilt from the layout — render the page when exact sequence is critical
+> **warning** (reading_order_divergence): heading "Night-shift work and gut microbial diver" leads the visual reading order but only appears 92% of the way through the native text stream — native text order diverges from what a human reads; the body above is that reading order, rebuilt from the layout — render the page when exact sequence is critical
 > **warning** (vector_chart_labels): vector chart at 385,310,185,105 has 12 text labels (values such as "3.87", labels such as "Day shift"), read together bar by bar — which value belongs to which bar, series or category is shown only by the drawing; render the region (--render-region 385,310,185,105) before pairing or quoting values

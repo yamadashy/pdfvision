@@ -2,7 +2,7 @@
 
 - **Stresses:** full-width header over two columns; superscript author markers; inline equation; vector chart with text labels; table caption above; footnote; rotated margin stamp
 - **Families:** reading-order, math, vector-meaning, vertical-rotated, structure
-- **Status:** known-gap (#241)
+- **Status:** known-gap (#242)
 
 Reading order: title, authors, affiliations, e-mails, abstract, then the **whole left column**
 (1 Introduction → bullets → 2 Method → equation → Table 1 → footnote) before the **right column**
@@ -48,15 +48,13 @@ Page number: 1.
 4. What is the paper's arXiv identifier? — arXiv:2611.04217v1
 5. What rule decides whether a token is kept? — s_i = q^T k_i / √d ≥ τ
 
-**Known gap (#241):** the subscripts and the superscript of the inline equation are joined as
-plain characters (`si = qTk / √d and keep the token when s ≥ τ.`) or split off as lone `i` lines
-(one after the equation, two more inside the Table 1 run): the body reads `For a token i with
-embedding k we compute` / `si = qTk / √d …` — question 5 cannot be answered correctly from
-`read.md`. Author and affiliation markers are joined too (`Lindqvist2`, `2Halden`),
-which still lets question 1 be answered.
+The inline equation keeps its scripts (#241): `For a token i with embedding k_i we compute` /
+`s_i = q^Tk_i / √d and keep the token when s_i ≥ τ.`, so question 5 is answerable; author and
+affiliation markers read `Lindqvist^2`, `^2Halden Research Labs`, and the footnote marker
+`experiments^1`.
 
 **Known gap (#242):** the abstract, the whole left column and the figure labels are also
-reported as an 8 × 50 “layout table” of prose fragments. No warning accompanies it.
+reported as an 8 × 47 “layout table” of prose fragments. No warning accompanies it.
 
 **Known gap (no issue yet):**
 - The real Table 1 is detected without its header row (columns `C1…C5`), and it picks up a

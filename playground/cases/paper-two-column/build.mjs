@@ -106,7 +106,7 @@ export const meta = {
     'full-width header over two columns; superscript author markers; inline equation; vector chart with text labels; table caption above; footnote; rotated margin stamp',
   status: 'known-gap',
   families: ['reading-order', 'math', 'vector-meaning', 'vertical-rotated', 'structure'],
-  issue: 241,
+  issue: 242,
 };
 
 const markers = AUTHORS.map((a) => `${a.name}^${a.mark}`).join(', ');
@@ -152,15 +152,13 @@ Page number: 1.
 4. What is the paper's arXiv identifier? — ${ARXIV.split(' ')[0]}
 5. What rule decides whether a token is kept? — ${EQUATION.rule}
 
-**Known gap (#241):** the subscripts and the superscript of the inline equation are joined as
-plain characters (\`si = qTk / √d and keep the token when s ≥ τ.\`) or split off as lone \`i\` lines
-(one after the equation, two more inside the Table 1 run): the body reads \`For a token i with
-embedding k we compute\` / \`si = qTk / √d …\` — question 5 cannot be answered correctly from
-\`read.md\`. Author and affiliation markers are joined too (\`Lindqvist2\`, \`2Halden\`),
-which still lets question 1 be answered.
+The inline equation keeps its scripts (#241): \`For a token i with embedding k_i we compute\` /
+\`s_i = q^Tk_i / √d and keep the token when s_i ≥ τ.\`, so question 5 is answerable; author and
+affiliation markers read \`Lindqvist^2\`, \`^2Halden Research Labs\`, and the footnote marker
+\`experiments^1\`.
 
 **Known gap (#242):** the abstract, the whole left column and the figure labels are also
-reported as an 8 × 50 “layout table” of prose fragments. No warning accompanies it.
+reported as an 8 × 47 “layout table” of prose fragments. No warning accompanies it.
 
 **Known gap (no issue yet):**
 - The real Table 1 is detected without its header row (columns \`C1…C5\`), and it picks up a

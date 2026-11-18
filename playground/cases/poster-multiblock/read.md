@@ -11,17 +11,17 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 ## Page 1
 
-_chars: 3124 · images: 0 · coverage: 23% · vectors: 221 · tables: 2 · warnings: 3 · size: 3370×2384pt_
+_chars: 3133 · images: 0 · coverage: 23% · vectors: 221 · tables: 2 · warnings: 3 · size: 3370×2384pt_
 
 International Conference on Precision Livestock Farming · Ghent · 2026
 
 Thermal drones spot heat stress in dairy cattle before it shows
 
-Aoife Brennan1, Kwame Asante2, Sofia Lindgren1, Rahul Menon1,3
+Aoife Brennan^1, Kwame Asante^2, Sofia Lindgren^1, Rahul Menon^{1,3}
 
-1 School of Agriculture and Food Science, Corrib Valley University
-2 Institute for Precision Livestock, Tamale Polytechnic
-3 Northfield Dairy Research Farm
+^1 School of Agriculture and Food Science, Corrib Valley University
+^2 Institute for Precision Livestock, Tamale Polytechnic
+^3 Northfield Dairy Research Farm
 
 Paper and code
 
