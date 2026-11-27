@@ -369,15 +369,12 @@ function readBars(
     const frame = panelOf(bar, legends.panels);
     groups.set(frame, [...(groups.get(frame) ?? []), bar]);
   }
-  // A value label belongs to the bars of its own panel: one over a bar in the panel below is not that bar's.
-  return [...groups].flatMap(([frame, group]) =>
-    readBarGroup(
-      group,
-      values.filter((span) => panelOf(span, legends.panels) === frame),
-      spans,
-      legends,
-    ),
-  );
+  // A label inside another chart's panel is that chart's: neither a value nor a category of this one.
+  const frames = [...groups.keys()].filter((frame): frame is BBox => frame !== undefined);
+  return [...groups].flatMap(([frame, group]) => {
+    const own = (span: TextSpan) => !frames.some((other) => other !== frame && contains(other, centreOf(span)));
+    return readBarGroup(group, values.filter(own), spans.filter(own), legends);
+  });
 }
 
 function readBarGroup(

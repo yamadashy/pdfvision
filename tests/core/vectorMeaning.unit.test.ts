@@ -721,6 +721,29 @@ describe('charts set side by side in panels (#302)', () => {
     expect(placed.map((v) => `${v.series} ${v.category}`)).toEqual(['Done East']);
   });
 
+  it('takes no categories from labels in another panel', () => {
+    const spans: TextSpan[] = [];
+    const shapes: VectorShape[] = [rectOutline(40, 60, 300, 124, '#b5bdc8'), rectOutline(40, 186, 300, 140, '#b5bdc8')];
+    // Upper panel: three columns with values inside and no category labels.
+    shapes.push(filledRect(60, 66, 8, 8, '#283593'), filledRect(140, 66, 8, 8, '#00838f'));
+    spans.push(span('Done', 72, 66, 8, 20), span('Planned', 152, 66, 8, 30));
+    [0, 1, 2].forEach((i) => {
+      const x = 130 + i * 50;
+      shapes.push(filledRect(x, 120 - i * 10, 20, 60 + i * 10, '#283593'));
+      spans.push(span(`${30 + i}`, x + 5, 150, 9, 10));
+    });
+    // Lower panel: columns at the same x, values inside just under the upper baseline.
+    shapes.push(filledRect(60, 310, 8, 8, '#6a1b9a'), filledRect(140, 310, 8, 8, '#ef6c00'));
+    spans.push(span('Yes', 72, 310, 8, 14), span('No', 152, 310, 8, 10));
+    [0, 1, 2].forEach((i) => {
+      const x = 130 + i * 50;
+      shapes.push(filledRect(x, 190, 20, 100, '#6a1b9a'));
+      spans.push(span(`${7 + i}`, x + 7, 194, 9, 6), span(`Q${i + 1}`, x + 4, 294, 8, 10));
+    });
+    const layout = layoutOf(spans, shapes);
+    expect((layout.charts ?? []).flatMap((c) => c.values.filter((v) => v.series === 'Done'))).toEqual([]);
+  });
+
   it('counts value labels that came as one text item as unpaired', () => {
     const a = stackedPanel(
       40,
