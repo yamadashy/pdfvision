@@ -181,18 +181,19 @@ function seriesOf(colour: string, key: Key, mark: BBox): string | undefined {
 function panelOf(mark: BBox, panels: readonly BBox[]): BBox | undefined {
   let best: BBox | undefined;
   for (const frame of panels) {
-    if (frame.width * frame.height < mark.width * mark.height * 2) continue;
-    if (
-      mark.x < frame.x - 1 ||
-      mark.y < frame.y - 1 ||
-      mark.x + mark.width > frame.x + frame.width + 1 ||
-      mark.y + mark.height > frame.y + frame.height + 1
-    ) {
-      continue;
-    }
+    if (frame.width * frame.height < mark.width * mark.height * 2 || !holdsBox(frame, mark)) continue;
     if (!best || frame.width * frame.height < best.width * best.height) best = frame;
   }
   return best;
+}
+
+function holdsBox(outer: BBox, inner: BBox): boolean {
+  return (
+    inner.x >= outer.x - 1 &&
+    inner.y >= outer.y - 1 &&
+    inner.x + inner.width <= outer.x + outer.width + 1 &&
+    inner.y + inner.height <= outer.y + outer.height + 1
+  );
 }
 
 function boxGap(a: BBox, b: BBox): number {
@@ -372,7 +373,9 @@ function readBars(
   // A label inside another chart's panel is that chart's: neither a value nor a category of this one.
   const frames = [...groups.keys()].filter((frame): frame is BBox => frame !== undefined);
   return [...groups].flatMap(([frame, group]) => {
-    const own = (span: TextSpan) => !frames.some((other) => other !== frame && contains(other, centreOf(span)));
+    // A frame round this group's own frame (the poster column round a plot) is not another chart's.
+    const others = frames.filter((other) => other !== frame && !(frame && holdsBox(other, frame)));
+    const own = (span: TextSpan) => !others.some((other) => contains(other, centreOf(span)));
     return readBarGroup(group, values.filter(own), spans.filter(own), legends);
   });
 }
