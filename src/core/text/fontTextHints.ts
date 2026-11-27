@@ -59,8 +59,13 @@ const MIN_KERN_TRACKED_GLYPHS = 4;
  * Latin stop ends it. Math set with even spacing (`a + b`, `. . .`) and a
  * row of single digits keep their spaces.
  */
-const KERN_TRACKED_CHAR_RE = /^[\p{L}\p{N}\p{M}\u3000-\u303f\u30fb\u30fc\uff01-\uff0f\uff1a-\uff20]+$/u;
+export const KERN_TRACKED_CHAR_RE = /^[\p{L}\p{N}\p{M}\u3000-\u303f\u30fb\u30fc\uff01-\uff0f\uff1a-\uff20]+$/u;
 const MIN_TRACKED_WORD_CHARS = 2;
+/**
+ * In text tracked with `Tc`, a `TJ` adjustment is pair kerning; one larger
+ * than this moves to a new word (`[(1) -2000 (Scope)]`, a matrix's entries).
+ */
+const MAX_KERN_IN_TRACKED_WORD = 200;
 const MAX_TRACKED_WORDS_PER_FONT = 2000;
 
 interface GlyphLike {
@@ -175,6 +180,10 @@ function recordTrackedWords(acc: FontAccumulator, glyphs: readonly unknown[]): v
     word = '';
   };
   for (const glyph of glyphs) {
+    if (typeof glyph === 'number') {
+      if (Math.abs(glyph) > MAX_KERN_IN_TRACKED_WORD) flush();
+      continue;
+    }
     if (!glyph || typeof glyph !== 'object') continue;
     const { unicode, isSpace } = glyph as GlyphLike;
     if (typeof unicode !== 'string') continue;

@@ -35,6 +35,8 @@ centred in its cell.
 3. What supply risk does the report name? — two suppliers provide most of the specialised wafers; a disruption would delay deliveries for up to two quarters
 4. Which report is this page from? — ANNUAL REPORT 2026
 
-The running label and both drawn headings read as words (`ANNUAL REPORT 2026`, `FINANCIAL HIGHLIGHTS`, `RISK FACTORS`,
-#268), so they can be searched. The typed label stays `S U S T A I N A B I L I T Y` and the weekday initials stay
-`S M T W T F S`: their spacing is real.
+The drawn headings read as words (`FINANCIAL HIGHLIGHTS`, `RISK FACTORS`, #268), so they can be searched,
+and so do the running label's words (`ANNUAL REPORT`). Its year stays `2 0 2 6`, on a line of its own:
+character spacing this wide is also how a matrix or a row of figures is spaced, so only words of letters
+are rejoined across glyphs pdf.js split apart; question 4 is still answered. The typed label stays
+`S U S T A I N A B I L I T Y` and the weekday initials stay `S M T W T F S`: their spacing is real.

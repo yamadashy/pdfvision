@@ -28,6 +28,16 @@ describe('tracked words from the operator list', () => {
     expect(hints.get('f1')?.trackedWords?.split('\u0000')).toEqual(['SUMMARY', 'OF']);
   });
 
+  it('ends a tracked word at a TJ adjustment larger than a pair kern', () => {
+    const hints = collectFontTextHints(
+      [3, 4, 5],
+      [['f1', 10], [1], [[...glyphs('1'), -2000, ...glyphs('Scope'), -40, ...glyphs('s')]]],
+      OPS,
+      () => undefined,
+    );
+    expect(hints.get('f1')?.trackedWords?.split('\u0000')).toEqual(['Scopes']);
+  });
+
   it('marks a font drawn only in an invisible rendering mode', () => {
     const ops = { ...OPS, setTextRenderingMode: 6 };
     const hints = collectFontTextHints(

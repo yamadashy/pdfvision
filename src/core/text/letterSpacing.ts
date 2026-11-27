@@ -1,4 +1,4 @@
-import type { PageFontTextHints } from './fontTextHints.js';
+import { KERN_TRACKED_CHAR_RE, type PageFontTextHints } from './fontTextHints.js';
 import {
   codePointLength,
   isRawTextItem,
@@ -28,7 +28,11 @@ import {
 
 const MIN_TRACKED_TOKENS = 2;
 const MAX_TRACKED_TOKEN_CHARS = 2;
-// Wider than any tracking seen in practice; keeps a tracked run from reaching into another column.
+// Past heading tracking; letters set further apart are a grid or a matrix, or another column.
+const MAX_TRACKED_LETTER_GAP_EM = 1.2;
+const LETTERS_RE = /^[\p{L}\p{M}]+$/u;
+const MIN_WIDE_TRACKED_WORD = 3;
+// Two tracked words a word space apart: the tracking on both sides of a space glyph.
 const MAX_TRACKED_ITEM_GAP_EM = 3;
 /** A word space in tracked text: the tracking on both sides of a space glyph no wider than this. */
 const MAX_SPACE_GLYPH_EM = 0.6;
@@ -58,18 +62,37 @@ interface Token {
 function joinTrackedItems(items: readonly unknown[], hints: PageFontTextHints): unknown[] {
   const replace = new Map<number, RawTextItem>();
   const drop = new Set<number>();
-  for (const chain of trackedTokenChains(items, hints)) {
+  const chains = trackedTokenChains(items, hints);
+  const others = chains.length > 0 ? textBoxes(items) : [];
+  for (const chain of chains) {
     const tracked = hints.get(chain[0].item.fontName as string)?.trackedWords as string;
     const groups: Token[][] = [];
     for (const token of chain) {
       const group = groups.at(-1);
+      const prev = group?.at(-1);
       const text = group?.map((entry) => entry.text).join('');
-      if (group && tracked.includes(text + token.text)) group.push(token);
+      const close =
+        prev &&
+        token.geometry.left - prev.geometry.right <= MAX_TRACKED_LETTER_GAP_EM * prev.geometry.fontSize &&
+        !others.some((box) => box.index !== prev.index && box.index !== token.index && isBetween(box, prev, token));
+      if (group && close && tracked.includes(text + token.text)) group.push(token);
       else groups.push([token]);
     }
-    const words = groups.filter(
+    const candidates = groups.filter(
       (group) => group.length >= MIN_TRACKED_TOKENS && isTrackedGroup(group.map((token) => token.text)),
     );
+    // Tracking this wide is also how a matrix or a row of figures is spaced
+    // (`a b 0`, `1 0 0`): only a word of letters reads as a word, and a short
+    // one only beside a longer one.
+    // A grid of one letter (a halftone cell diagram) is not a word either.
+    const lettered = candidates.filter((group) => {
+      const word = group.map((token) => token.text).join('');
+      return LETTERS_RE.test(word) && new Set(word).size > 1;
+    });
+    const anchored = lettered.some(
+      (group) => codePointLength(group.map((token) => token.text).join('')) >= MIN_WIDE_TRACKED_WORD,
+    );
+    const words = anchored ? lettered : [];
     for (const line of wordsOnOneLine(words)) {
       const first = line[0][0];
       const last = line[line.length - 1].at(-1) as Token;
@@ -85,6 +108,31 @@ function joinTrackedItems(items: readonly unknown[], hints: PageFontTextHints): 
     if (replacement) return [replacement];
     return drop.has(index) ? [] : [item];
   });
+}
+
+interface TextBox extends UprightGeometry {
+  index: number;
+}
+
+function textBoxes(items: readonly unknown[]): TextBox[] {
+  return items.flatMap((item, index) => {
+    if (!isRawTextItem(item) || item.str.trim().length === 0) return [];
+    const geometry = uprightGeometry(item);
+    return geometry ? [{ ...geometry, index }] : [];
+  });
+}
+
+/**
+ * Text of another item drawn in the gap between two letters (the `×` and
+ * `+` of `a × x + d × y`, set in another font): the letters are not one word.
+ */
+function isBetween(box: TextBox, prev: Token, next: Token): boolean {
+  const size = prev.geometry.fontSize;
+  return (
+    Math.abs(box.baseline - prev.geometry.baseline) <= size * 0.5 &&
+    box.right > prev.geometry.right &&
+    box.left < next.geometry.left
+  );
 }
 
 /**
@@ -135,7 +183,8 @@ function trackedTokenChains(items: readonly unknown[], hints: PageFontTextHints)
     const text = item.str.trim();
     const geometry = uprightGeometry(item);
     const tracked = typeof item.fontName === 'string' && hints.get(item.fontName)?.trackedWords;
-    const token = geometry && tracked && !text.includes(' ') ? { index, item, geometry, text } : undefined;
+    // Leader dots, bullets and math signs set with the same spacing keep their spaces.
+    const token = geometry && tracked && KERN_TRACKED_CHAR_RE.test(text) ? { index, item, geometry, text } : undefined;
     const prev = chain.at(-1);
     if (token && prev && !continuesTrackedChain(prev, token)) flush();
     if (token) chain.push(token);

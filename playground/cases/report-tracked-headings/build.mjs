@@ -70,9 +70,11 @@ centred in its cell.
 3. What supply risk does the report name? — two suppliers provide most of the specialised wafers; a disruption would delay deliveries for up to two quarters
 4. Which report is this page from? — ${LABEL}
 
-The running label and both drawn headings read as words (\`${LABEL}\`, \`${HEADINGS.placed}\`, \`${HEADINGS.kerned}\`,
-#268), so they can be searched. The typed label stays \`${TYPED}\` and the weekday initials stay
-\`${Array.from(CALENDAR.days).join(' ')}\`: their spacing is real.
+The drawn headings read as words (\`${HEADINGS.placed}\`, \`${HEADINGS.kerned}\`, #268), so they can be searched,
+and so do the running label's words (\`ANNUAL REPORT\`). Its year stays \`2 0 2 6\`, on a line of its own:
+character spacing this wide is also how a matrix or a row of figures is spaced, so only words of letters
+are rejoined across glyphs pdf.js split apart; question 4 is still answered. The typed label stays
+\`${TYPED}\` and the weekday initials stay \`${Array.from(CALENDAR.days).join(' ')}\`: their spacing is real.
 `;
 
 /** A paragraph of lines in the body font, PDF coordinates. */
