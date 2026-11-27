@@ -469,6 +469,17 @@ describe('chart values (#302)', () => {
       ),
     );
     expect(layoutOf(spans, [...shapes, ...dashes]).charts?.some((c) => c.kind === 'line')).toBeFalsy();
+    // The same series with its dashes filled as one path of small quads.
+    const filledDashes = shape(
+      [0, 1, 2, 3, 4, 5, 6, 7].map((i) => [
+        [100 + i * 25, 164 - i * 2],
+        [110 + i * 25, 164 - i * 2],
+        [110 + i * 25, 166 - i * 2],
+        [100 + i * 25, 166 - i * 2],
+      ]),
+      { fill: '#f4b183' },
+    );
+    expect(layoutOf(spans, [...shapes, filledDashes]).charts?.some((c) => c.kind === 'line')).toBeFalsy();
   });
 
   it('drops a stacked bar legend row from a layout table instead of making it the header', () => {
