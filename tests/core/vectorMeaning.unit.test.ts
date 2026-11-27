@@ -412,6 +412,62 @@ describe('chart values (#302)', () => {
     expect(layout.charts).toBeUndefined();
   });
 
+  it('pairs nothing when another series in the plot is drawn as separate dashes', () => {
+    const red = [
+      [100, 150],
+      [200, 140],
+      [300, 120],
+    ] as const;
+    const blue = [
+      [100, 180],
+      [200, 170],
+      [300, 160],
+    ] as const;
+    const shapes = [
+      stroked(red, '#c62828', 1.6),
+      stroked(blue, '#1565c0', 1.6),
+      stroked(
+        [
+          [100, 60],
+          [118, 60],
+        ],
+        '#c62828',
+        1.6,
+      ),
+      stroked(
+        [
+          [200, 60],
+          [218, 60],
+        ],
+        '#1565c0',
+        1.6,
+      ),
+    ];
+    const spans = [span('Red', 122, 56, 8), span('Blue', 222, 56, 8)];
+    red.forEach(([x, y], i) => {
+      spans.push(span(['41.2', '46.8', '49.5'][i], x - 7, y - 12, 7, 14));
+    });
+    blue.forEach(([x, y], i) => {
+      spans.push(span(['35.0', '37.1', '39.7'][i], x - 7, y + 4, 7, 14));
+    });
+    ['2021', '2022', '2023'].forEach((year, i) => {
+      spans.push(span(year, 100 + i * 100 - 8, 200, 7.5, 16));
+    });
+    expect(layoutOf(spans, shapes).charts?.some((c) => c.kind === 'line')).toBe(true);
+    // A third, unnamed series between them, each dash its own stroke.
+    const dashes = [0, 1, 2, 3, 4, 5, 6, 7].map((i) =>
+      stroked(
+        [
+          [100 + i * 25, 165 - i * 2],
+          [110 + i * 25, 164 - i * 2],
+        ],
+        '#f4b183',
+        1.6,
+      ),
+    );
+    expect(layoutOf(spans, [...shapes, ...dashes]).charts?.some((c) => c.kind === 'line')).toBeFalsy();
+  });
+
   it('drops a stacked bar legend row from a layout table instead of making it the header', () => {
     const key: Array<[string, string]> = [
       ['Work', '#283593'],
@@ -452,6 +508,203 @@ describe('chart values (#302)', () => {
       'School 36%',
       'Other 21%',
     ]);
+  });
+});
+
+describe('charts set side by side in panels (#302)', () => {
+  /** A framed panel holding a 100% stacked bar chart: legend on top, one row per category. */
+  const stackedPanel = (
+    x: number,
+    key: ReadonlyArray<readonly [string, string]>,
+    rows: ReadonlyArray<readonly [string, readonly number[]]>,
+    joined?: number,
+  ) => {
+    const spans: TextSpan[] = [];
+    const shapes: VectorShape[] = [rectOutline(x, 80, 250, 200, '#b5bdc8')];
+    key.forEach(([name, colour], i) => {
+      shapes.push(filledRect(x + 60 + i * 60, 96, 8, 8, colour));
+      spans.push(span(name, x + 72, 96, 8, 30));
+      spans[spans.length - 1].x = x + 72 + i * 60;
+    });
+    rows.forEach(([label, shares], r) => {
+      const top = 130 + r * 34;
+      spans.push(span(label, x + 10, top + 5, 8, 40));
+      let cursor = x + 60;
+      const texts: TextSpan[] = [];
+      shares.forEach((share, i) => {
+        const width = share * 1.8;
+        shapes.push(filledRect(cursor, top, width, 18, key[i][1]));
+        texts.push(span(`${share}%`, cursor + width / 2 - 6, top + 5, 8, 12));
+        cursor += width;
+      });
+      // Two neighbouring labels drawn as one text item.
+      if (r === joined) {
+        const [a, b, ...rest] = texts;
+        spans.push({ ...a, text: `${a.text} ${b.text}`, width: b.x + b.width - a.x }, ...rest);
+      } else {
+        spans.push(...texts);
+      }
+    });
+    return { spans, shapes };
+  };
+
+  const left = () =>
+    stackedPanel(
+      40,
+      [
+        ['Done', '#283593'],
+        ['Planned', '#00838f'],
+        ['None', '#9e9e9e'],
+      ],
+      [
+        ['Large', [62, 28, 10]],
+        ['Medium', [41, 33, 26]],
+        ['Small', [22, 30, 48]],
+        ['Micro', [9, 21, 70]],
+      ],
+    );
+
+  it('reads the labels of charts in neighbouring panels apart, never as one table row', () => {
+    const a = left();
+    const b = stackedPanel(
+      320,
+      [
+        ['Yes', '#6a1b9a'],
+        ['Maybe', '#ef6c00'],
+        ['No', '#5d4037'],
+      ],
+      [
+        ['North', [50, 30, 20]],
+        ['South', [45, 35, 20]],
+        ['East', [40, 25, 35]],
+        ['West', [35, 40, 25]],
+      ],
+    );
+    const layout = layoutOf([...a.spans, ...b.spans], [...a.shapes, ...b.shapes]);
+    for (const table of layout.tables ?? []) {
+      expect(table.x + table.width <= 290 || table.x >= 320).toBe(true);
+    }
+    expect(layout.charts?.flatMap((c) => c.values.filter((v) => v.category === 'East').map((v) => v.value))).toEqual([
+      '40%',
+      '25%',
+      '35%',
+    ]);
+  });
+
+  it('keeps a real table in the panel beside a chart, read on its own', () => {
+    const a = left();
+    const spans = [...a.spans];
+    const shapes = [...a.shapes, rectOutline(320, 80, 250, 200, '#b5bdc8')];
+    const head = ['Region', '2023', '2024'];
+    head.forEach((text, c) => {
+      spans.push(span(text, 340 + c * 80, 96, 8, text.length * 4.4));
+    });
+    [
+      ['North', '12.5', '13.1'],
+      ['South', '9.8', '10.4'],
+      ['East', '7.2', '7.9'],
+      ['West', '11.0', '11.6'],
+    ].forEach((row, r) => {
+      row.forEach((text, c) => {
+        spans.push(span(text, 340 + c * 80, 135 + r * 34, 8, text.length * 4.4));
+      });
+    });
+    const layout = layoutOf(spans, shapes);
+    const tables = layout.tables ?? [];
+    expect(tables.every((table) => table.x + table.width <= 290 || table.x >= 320)).toBe(true);
+    const real = tables.find((table) => table.x >= 320);
+    expect(real?.rows.map((row) => row.cells.map((cell) => cell.text).join(' | '))).toEqual([
+      'Region | 2023 | 2024',
+      'North | 12.5 | 13.1',
+      'South | 9.8 | 10.4',
+      'East | 7.2 | 7.9',
+      'West | 11.0 | 11.6',
+    ]);
+  });
+
+  it('reads a table drawn as a grid of cell boxes beside a chart panel whole', () => {
+    const a = left();
+    const spans = [...a.spans];
+    const shapes = [...a.shapes];
+    const grid = [
+      ['Metric', 'Q3', 'Y/Y'],
+      ['Revenue', '35,082', '+94%'],
+      ['Margin', '74.6%', '+0.6'],
+      ['Income', '21,869', '+110%'],
+      ['EPS', '0.78', '+111%'],
+    ];
+    grid.forEach((row, r) => {
+      row.forEach((text, c) => {
+        shapes.push(rectOutline(320 + c * 80, 88 + r * 34, 80, 34, '#555555'));
+        spans.push(span(text, 326 + c * 80, 101 + r * 34, 8, text.length * 4.4));
+      });
+    });
+    const layout = layoutOf(spans, shapes);
+    const tables = layout.tables ?? [];
+    expect(tables.every((table) => table.x + table.width <= 290 || table.x >= 320)).toBe(true);
+    const real = tables.find((table) => table.x >= 320);
+    expect(real?.rows.map((row) => row.cells.map((cell) => cell.text).join(' | '))).toEqual(
+      grid.map((row) => row.join(' | ')),
+    );
+  });
+
+  it('does not take a frame drawn tight round a legend for a chart panel', () => {
+    // A plot's boxed legend on the left, a table on the right sharing its baselines.
+    const spans: TextSpan[] = [];
+    const shapes: VectorShape[] = [];
+    [
+      ['plain-20', '#283593'],
+      ['ResNet-20', '#c62828'],
+    ].forEach(([name, colour], i) => {
+      shapes.push(filledRect(60, 104 + i * 14, 8, 8, colour));
+      spans.push(span(name, 72, 104 + i * 14, 8, 36));
+    });
+    const legendBox = rectOutline(54, 98, 60, 32);
+    ['metric', 'mAP@.5', 'mAP@[.5,.95]'].forEach((text, c) => {
+      spans.push(span(text, 300 + c * 80, 104, 8));
+    });
+    [
+      ['VGG-16', '41.5', '21.2'],
+      ['ResNet-101', '48.4', '27.2'],
+      ['ResNet-152', '49.1', '27.9'],
+    ].forEach((row, r) => {
+      row.forEach((text, c) => {
+        spans.push(span(text, 300 + c * 80, 118 + r * 14, 8));
+      });
+    });
+    ['0', '20', '40'].forEach((text, i) => {
+      spans.push(span(text, 60 + i * 20, 160, 7, 6));
+    });
+    const withBox = layoutOf(spans, [...shapes, legendBox]);
+    const withoutBox = layoutOf(spans, shapes);
+    const cells = withoutBox.tables?.flatMap((t) => t.rows.flatMap((r) => r.cells.map((c) => c.text)));
+    expect(cells).toEqual(expect.arrayContaining(['ResNet-20', 'VGG-16']));
+    expect(withBox.tables).toEqual(withoutBox.tables);
+  });
+
+  it('counts value labels that came as one text item as unpaired', () => {
+    const a = stackedPanel(
+      40,
+      [
+        ['Done', '#283593'],
+        ['Planned', '#00838f'],
+        ['None', '#9e9e9e'],
+      ],
+      [
+        ['Large', [62, 28, 10]],
+        ['Medium', [41, 33, 26]],
+        ['Small', [22, 30, 48]],
+        ['Micro', [19, 21, 60]],
+      ],
+      3,
+    );
+    const layout = layoutOf(a.spans, a.shapes);
+    const bar = layout.charts?.find((c) => c.kind === 'bar');
+    expect(bar?.unpaired).toBe(2);
+    expect(bar?.values.filter((v) => v.category === 'Micro').map((v) => `${v.series} ${v.value}`)).toEqual([
+      'None 60%',
+    ]);
+    expect(markdownOf(layout)).toContain('_2 more value labels on this chart could not be paired');
   });
 });
 

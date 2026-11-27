@@ -6,8 +6,8 @@ import { shortTextSample } from './textSamples.js';
 
 const MIN_LABELS = 4;
 const MIN_NUMERIC_LABELS = 2;
-/** Painted marks that carry no text — bars, plot markers. */
-const MIN_MARKS = 3;
+/** A chart read in part lies inside the figure it is warned on, within this margin. */
+const HOLD_MARGIN_PT = 2;
 const TABLE_COVER_RATIO = 0.5;
 const LINE_SPAN_SHARE = 0.7;
 const NUMERIC_LABEL = /^[-+−–]?\d[\d.,]*\s*[%‰]?$/u;
@@ -41,6 +41,7 @@ export function detectVectorChartLabels(
   const regions = detectLayoutRegions(blocks, { vectorBoxes, imageBoxes }, page.width, page.height);
   const tables = page.layout?.tables ?? [];
   const reported: BBox[] = [];
+  const read = page.layout?.charts ?? [];
   const figuresOnly = regions.filter((region) => region.kind === 'figure');
   // Bars first, in region order; then line and pie charts, the widest region first so the
   // reported box takes in the whole plot rather than one band of its labels.
@@ -51,33 +52,44 @@ export function detectVectorChartLabels(
       regions: [...figuresOnly].sort((a, b) => b.width * b.height - a.width * a.height),
     },
   ];
+  const report = (region: LayoutRegion, chart: { kind: ChartKind; mark?: BBox }): void => {
+    const area = chart.mark ? union(region, chart.mark) : region;
+    if (reported.some((other) => overlaps(other, area))) return;
+    const labels = region.blocks.map((block) => block.text.replace(/\s+/gu, ' ').trim());
+    const numeric = labels.filter((text) => NUMERIC_LABEL.test(text));
+    if (labels.length < MIN_LABELS || numeric.length < MIN_NUMERIC_LABELS) return;
+    if (numeric.length < labels.length * MIN_NUMERIC_SHARE) return;
+    const meanChars = labels.reduce((sum, text) => sum + text.length, 0) / labels.length;
+    if (meanChars > MAX_MEAN_LABEL_CHARS) return;
+    const word = labels.find((text) => /\p{L}/u.test(text));
+    // A line or a pie is itself the sign of a chart; a bar-like grid needs a word among its numbers.
+    if (chart.kind === 'bar' && word === undefined) return;
+    if (tables.some((table) => isTableOfRegion(region, table))) return;
+    // A chart whose every value label was paired with its series by colour is read; nothing is left to render for.
+    if (read.some((other) => isComplete(other) && overlaps(other, area))) return;
+    reported.push(area);
+    const box = [area.x, area.y, area.width, area.height].map((n) => Math.round(n)).join(',');
+    const samples = `values such as "${shortTextSample(numeric[0])}"${word !== undefined ? `, labels such as "${shortTextSample(word)}"` : ''}`;
+    out.push({
+      code: 'vector_chart_labels',
+      severity: 'warning',
+      blockIndex: blocks.indexOf(region.blocks[0]),
+      message: `vector ${chart.kind === 'bar' ? '' : `${chart.kind} `}chart at ${box} has ${labels.length} text labels (${samples}), read together ${chart.kind === 'bar' && region.verticalMarks ? 'bar by bar' : 'row by row'} — which value belongs to which ${chart.kind === 'pie' ? 'slice' : chart.kind === 'line' ? 'line, point' : 'bar'}, series or category is shown only by the drawing; render the region (--render-region ${box}) before pairing or quoting values`,
+    });
+  };
+  // A chart read only in part is a chart for certain: warn on the smallest figure holding it,
+  // its own panel rather than a row of charts it stands in.
+  for (const chart of read) {
+    if (isComplete(chart)) continue;
+    const holder = figuresOnly
+      .filter((region) => holds(region, chart))
+      .sort((a, b) => a.width * a.height - b.width * b.height)[0];
+    if (holder) report(holder, { kind: chart.kind, mark: chart });
+  }
   for (const pass of passes) {
     for (const region of pass.regions) {
-      const chart = chartKind(region, figures);
-      if (!chart || !pass.kinds.includes(chart.kind)) continue;
-      const area = chart.mark ? union(region, chart.mark) : region;
-      if (reported.some((other) => overlaps(other, area))) continue;
-      const labels = region.blocks.map((block) => block.text.replace(/\s+/gu, ' ').trim());
-      const numeric = labels.filter((text) => NUMERIC_LABEL.test(text));
-      if (labels.length < MIN_LABELS || numeric.length < MIN_NUMERIC_LABELS) continue;
-      if (numeric.length < labels.length * MIN_NUMERIC_SHARE) continue;
-      const meanChars = labels.reduce((sum, text) => sum + text.length, 0) / labels.length;
-      if (meanChars > MAX_MEAN_LABEL_CHARS) continue;
-      const word = labels.find((text) => /\p{L}/u.test(text));
-      // A line or a pie is itself the sign of a chart; a bar-like grid needs a word among its numbers.
-      if (chart.kind === 'bar' && word === undefined) continue;
-      if (tables.some((table) => isTableOfRegion(region, table))) continue;
-      // A chart whose every value label was paired with its series by colour is read; nothing is left to render for.
-      if ((page.layout?.charts ?? []).some((read) => isComplete(read) && overlaps(read, area))) continue;
-      reported.push(area);
-      const box = [area.x, area.y, area.width, area.height].map((n) => Math.round(n)).join(',');
-      const samples = `values such as "${shortTextSample(numeric[0])}"${word !== undefined ? `, labels such as "${shortTextSample(word)}"` : ''}`;
-      out.push({
-        code: 'vector_chart_labels',
-        severity: 'warning',
-        blockIndex: blocks.indexOf(region.blocks[0]),
-        message: `vector ${chart.kind === 'bar' ? '' : `${chart.kind} `}chart at ${box} has ${labels.length} text labels (${samples}), read together ${chart.kind === 'bar' && region.verticalMarks ? 'bar by bar' : 'row by row'} — which value belongs to which ${chart.kind === 'pie' ? 'slice' : chart.kind === 'line' ? 'line, point' : 'bar'}, series or category is shown only by the drawing; render the region (--render-region ${box}) before pairing or quoting values`,
-      });
+      const chart = chartKind(region, figures, pass.kinds);
+      if (chart) report(region, chart);
     }
   }
 }
@@ -104,15 +116,18 @@ function union(a: BBox, b: BBox): BBox {
 }
 
 /**
- * What makes the figure a chart: bars from its boxes, or, from the path
- * shapes, a series line running across most of it or a pie inside it.
+ * What makes the figure a chart: bars from its boxes (or, in a figure
+ * framed by one box, from the paths inside it), or, from the path shapes,
+ * a series line running across most of it or a pie inside it. A figure
+ * whose own boxes are bars is a bar chart or nothing.
  */
 function chartKind(
   region: LayoutRegion,
   figures: VectorFigureEvidence | undefined,
+  kinds: ReadonlyArray<ChartKind>,
 ): { kind: ChartKind; mark?: BBox } | undefined {
-  if (region.marks >= MIN_MARKS && region.bars) return { kind: 'bar' };
-  if (!figures) return undefined;
+  if (kinds.includes('bar')) return region.bars || region.framedBars ? { kind: 'bar' } : undefined;
+  if (region.bars || !figures) return undefined;
   // The labels of a line chart sit on and around its lines; most of a line's run lies within them.
   const line = figures.seriesLines.find(
     (candidate) => overlapShare(candidate, region) >= LINE_SPAN_SHARE && candidate.width >= region.width * 0.3,
@@ -138,6 +153,15 @@ function insideShare(inner: BBox, outer: BBox): number {
   const h = Math.min(inner.y + inner.height, outer.y + outer.height) - Math.max(inner.y, outer.y);
   if (w <= 0 || h <= 0) return 0;
   return (w * h) / Math.max(inner.width * inner.height, 1);
+}
+
+function holds(outer: BBox, inner: BBox): boolean {
+  return (
+    inner.x >= outer.x - HOLD_MARGIN_PT &&
+    inner.y >= outer.y - HOLD_MARGIN_PT &&
+    inner.x + inner.width <= outer.x + outer.width + HOLD_MARGIN_PT &&
+    inner.y + inner.height <= outer.y + outer.height + HOLD_MARGIN_PT
+  );
 }
 
 function overlaps(a: BBox, b: BBox): boolean {

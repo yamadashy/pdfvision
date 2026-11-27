@@ -11,7 +11,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 ## Page 1
 
-_chars: 945 · images: 0 · coverage: 15% · vectors: 100 · tables: 1 · size: 841.89×595.28pt_
+_chars: 945 · images: 0 · coverage: 15% · vectors: 100 · tables: 1 · warnings: 2 · size: 841.89×595.28pt_
 
 地域デジタル人材育成プログラム(仮称)の概要
 
@@ -196,16 +196,12 @@ _chars: 945 · images: 0 · coverage: 15% · vectors: 100 · tables: 1 · size: 
 
 ### Layout tables
 
-#### Table 1 (6 rows × 5 columns, bbox 52,317.44,706,83.26)
+#### Table 1 (2 rows × 4 columns, bbox 468,357.2,149.8,43.5)
 
-| C1 | C2 | C3 | C4 | C5 |
-| --- | --- | --- | --- | --- |
-| デジタル人材の不足数(推計) 研修受講者数の推移 | 企業規模別のDX取組状況 |  |  | 支援対象者の内訳(目標) |
-| (万人) (千人) | 都市部 地方部 |  |  |  |
-|  | 大企業 | 62% |  | 28% 10% |
-| 14.6 |  |  |  |  |
-|  | 6.0 |  |  |  |
-| 12.8 | 中堅企業 | 41% | 33% | 26% |
+| C1 | C2 | C3 | C4 |
+| --- | --- | --- | --- |
+| 大企業 | 62% |  | 28% 10% |
+| 中堅企業 | 41% | 33% | 26% |
 
 ### Connections
 
@@ -238,8 +234,15 @@ _Values paired with their series by colour: the legend swatch matches the line, 
 
 #### Bar chart at 502,350,114,130
 
+_2 more value labels on this chart could not be paired; render the region for them._
+
 | Series | 大企業 | 中堅企業 | 中小企業 | 小規模事業者 |
 | --- | --- | --- | --- | --- |
 | 取組済 | 62% | 41% | 22% |  |
 | 検討中 | 28% | 33% | 30% |  |
 | 未着手 | 10% | 26% | 48% | 70% |
+
+### Warnings
+
+> **warning** (vector_chart_labels): vector chart at 40,308,190,250 has 12 text labels (values such as "8.2", labels such as "デジタル人材の不足数(推計)"), read together bar by bar — which value belongs to which bar, series or category is shown only by the drawing; render the region (--render-region 40,308,190,250) before pairing or quoting values
+> **warning** (vector_chart_labels): vector chart at 436,308,190,250 has 16 text labels (values such as "62%", labels such as "企業規模別のDX取組状況"), read together row by row — which value belongs to which bar, series or category is shown only by the drawing; render the region (--render-region 436,308,190,250) before pairing or quoting values
