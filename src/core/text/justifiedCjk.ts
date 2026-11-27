@@ -19,6 +19,8 @@ const MIN_JUSTIFIED_GLYPHS = 6;
 // Digits and Latin letters in the line are spread with it.
 const MIN_JUSTIFIED_CJK_SHARE = 0.5;
 const MIN_JUSTIFIED_GAP_EM = 0.05;
+// Without drawn glyphs to show no space glyph lies in a gap, below this the joiners already treat CJK glyphs as touching.
+const MIN_UNPLACED_GAP_EM = 0.3;
 const MAX_JUSTIFIED_GAP_EM = 1.2;
 const GAP_TOLERANCE_EM = 0.08;
 const GAP_TOLERANCE_SHARE = 0.15;
@@ -61,7 +63,8 @@ export function readJustifiedCjkLine(run: MeasuredRun, neighbours: readonly Text
   const even = kinds.filter((kind) => kind.even && !kind.spaceGlyph).map((kind) => kind.gap);
   if (even.length < MIN_JUSTIFIED_GLYPHS - 1) return undefined;
   const median = [...even].sort((a, b) => a - b)[Math.floor(even.length / 2)];
-  if (median <= MIN_JUSTIFIED_GAP_EM * size || median > MAX_JUSTIFIED_GAP_EM * size) return undefined;
+  const floor = run.letters ? MIN_JUSTIFIED_GAP_EM : MIN_UNPLACED_GAP_EM;
+  if (median <= floor * size || median > MAX_JUSTIFIED_GAP_EM * size) return undefined;
   const tolerance = Math.max(GAP_TOLERANCE_EM * size, GAP_TOLERANCE_SHARE * median);
   const isWordSpace = (gap: number) =>
     gap >= median + MIN_WORD_SPACE_EM * size && gap <= median + MAX_WORD_SPACE_EM * size;

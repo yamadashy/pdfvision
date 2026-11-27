@@ -117,6 +117,12 @@ describe('removeTrackingSpaces', () => {
     expect(texts(apart).filter((text) => text.trim())).toEqual(['MEETING', 'NOTES']);
   });
 
+  it('does not join two tracked words over a token left out between them', () => {
+    const hints = new Map([['f1', { trackedWords: 'ABC\u0000DEF' }]]);
+    const items = Array.from('ABC0DEF', (char, i) => item(char, i * 11, 5, 700, 10));
+    expect(texts(removeTrackingSpaces(items, hints))).toEqual(['ABC', '0', 'DEF']);
+  });
+
   it('leaves single-glyph items that do not spell a tracked word', () => {
     const hints = new Map([['f1', { trackedWords: 'AGENDA' }]]);
     const cells = spread('ABCD', 72, 12, 0);
@@ -184,6 +190,26 @@ describe('joinJustifiedGlyphRuns', () => {
       expect(texts(joinJustifiedGlyphRuns([above, spaced], placed(3, 6))).at(-1)).toBe(
         'ると判断する 一定の前提に基づいて',
       );
+    });
+
+    it('keeps Latin letters centred in cells apart even when alternating widths give equal gaps', () => {
+      // M F M F centred in 14pt cells: lefts 3, 19, 31, 47, gaps all 8.
+      const cells = item('M F M F', 3, 48, 700, 10);
+      const lookup: LineGlyphLookup = (bands) =>
+        bands.map(() =>
+          [
+            ['M', 3, 11],
+            ['F', 19, 23],
+            ['M', 31, 39],
+            ['F', 47, 51],
+          ].map(([text, left, right]) => ({
+            text: text as string,
+            whitespace: false,
+            left: left as number,
+            right: right as number,
+          })),
+        );
+      expect(texts(joinJustifiedGlyphRuns([cells], lookup))).toEqual(['M F M F']);
     });
 
     it('leaves it alone when the glyphs cannot be placed', () => {

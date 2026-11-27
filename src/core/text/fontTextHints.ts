@@ -47,11 +47,13 @@ const MIN_KERN_TRACKING = 60;
 const MAX_KERN_TRACKING = 600;
 /**
  * Every adjustment of a tracked run is within this share of the first, or
- * within a pair kern of it: a typesetter that writes tracking and kerning
- * into one adjustment per pair gives `AV` more push than `OU`.
+ * within a pair kern of it (see kernTolerance): a typesetter that writes
+ * tracking and kerning into one adjustment per pair gives `AV` more push
+ * than `OU`.
  */
 const KERN_TRACKING_TOLERANCE = 0.1;
 const KERN_PAIR_TOLERANCE = 100;
+const KERN_PAIR_SHARE = 0.5;
 /** Fewer glyphs than this between equal adjustments can be single-letter words (`a b c`). */
 const MIN_KERN_TRACKED_GLYPHS = 4;
 /**
@@ -236,8 +238,7 @@ function recordKernTrackedWords(acc: FontAccumulator, glyphs: readonly unknown[]
       adjustment !== undefined &&
       -adjustment >= MIN_KERN_TRACKING &&
       -adjustment <= MAX_KERN_TRACKING &&
-      (kern === undefined ||
-        Math.abs(adjustment - kern) <= Math.max(Math.abs(kern) * KERN_TRACKING_TOLERANCE, KERN_PAIR_TOLERANCE));
+      (kern === undefined || Math.abs(adjustment - kern) <= kernTolerance(kern));
     if (glyphCount > 0 && tracked) {
       kern ??= adjustment;
       run += unicode;
@@ -253,6 +254,16 @@ function recordKernTrackedWords(acc: FontAccumulator, glyphs: readonly unknown[]
     previousWasGlyph = true;
   }
   flush(false);
+}
+
+/**
+ * How far a tracked run's adjustments may stray from its first: a pair kern,
+ * but never half the tracking itself, so a word move between two short
+ * words (`[(G) -80 (O) -180 (T) -80 (O)]`) is not taken for one.
+ */
+function kernTolerance(kern: number): number {
+  const tracking = Math.abs(kern);
+  return Math.max(tracking * KERN_TRACKING_TOLERANCE, Math.min(KERN_PAIR_TOLERANCE, tracking * KERN_PAIR_SHARE));
 }
 
 function withoutConflicts(charMap: Map<string, string>, mappedChars: ReadonlySet<string>): Map<string, string> {

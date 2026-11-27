@@ -6,7 +6,8 @@ import type { MeasuredRun } from './justifiedGlyphRuns.js';
  *
  * Tracking adds the same amount to every letter's advance, so the gaps
  * between letters are equal however wide each letter is. Letters set in
- * table cells, a comb field or a weekday header sit at one pitch instead,
+ * table cells, a comb field or a weekday header sit at one pitch instead
+ * (left edge to left edge, or centre to centre),
  * so their gaps follow the letters' widths; typed spacing (`A G E N D A`,
  * `options A B C`) draws a space glyph. A run is read as tracked words only
  * when its gaps are equal and its pitch clearly is not — the letters'
@@ -24,6 +25,8 @@ const GAP_TOLERANCE_EM = 0.02;
 /** Pitches between letters of a word differ by at least this, and by several times what the gaps do. */
 const MIN_PITCH_SPREAD_EM = 0.04;
 const MIN_PITCH_TO_GAP_SPREAD = 3;
+/** Centre-to-centre pitches differ by at least this: more than placement rounding. */
+const MIN_CENTRE_SPREAD_EM = 0.01;
 const MIN_WORD_SPACE_EM = 0.2;
 
 export function readTrackedLetters(run: MeasuredRun): string | undefined {
@@ -37,6 +40,7 @@ export function readTrackedLetters(run: MeasuredRun): string | undefined {
   const words: string[] = [units[0].text];
   const gaps: number[] = [];
   const pitches: number[] = [];
+  const centres: number[] = [];
   for (const [i, boundary] of boundaries.entries()) {
     const next = units[i + 1];
     if (boundary.spaceGlyph || boundary.gap >= tracking + MIN_WORD_SPACE_EM * size) {
@@ -47,13 +51,16 @@ export function readTrackedLetters(run: MeasuredRun): string | undefined {
     words[words.length - 1] += next.text;
     gaps.push(boundary.gap);
     pitches.push(next.left - units[i].left);
+    centres.push((next.left + next.right - units[i].left - units[i].right) / 2);
   }
   if (gaps.length < MIN_LETTER_GAPS || !words.some((word) => Array.from(word).length >= MIN_WORD_LETTERS)) {
     return undefined;
   }
-  const pitchSpread = spread(pitches);
-  if (pitchSpread < MIN_PITCH_SPREAD_EM * size || pitchSpread < MIN_PITCH_TO_GAP_SPREAD * spread(gaps))
-    return undefined;
+  // Equal gaps must fit clearly better than letters set at one pitch, left-aligned or centred in
+  // cells (alternating widths centred in cells also give equal gaps).
+  const gapSpread = MIN_PITCH_TO_GAP_SPREAD * spread(gaps);
+  if (spread(pitches) < Math.max(MIN_PITCH_SPREAD_EM * size, gapSpread)) return undefined;
+  if (spread(centres) < Math.max(MIN_CENTRE_SPREAD_EM * size, gapSpread)) return undefined;
   return words.join(' ');
 }
 

@@ -93,7 +93,7 @@ function joinTrackedItems(items: readonly unknown[], hints: PageFontTextHints): 
       (group) => codePointLength(group.map((token) => token.text).join('')) >= MIN_WIDE_TRACKED_WORD,
     );
     const words = anchored ? lettered : [];
-    for (const line of wordsOnOneLine(words)) {
+    for (const line of wordsOnOneLine(words, chain)) {
       const first = line[0][0];
       const last = line[line.length - 1].at(-1) as Token;
       const str = line.map((word) => word.map((token) => token.text).join('')).join(' ');
@@ -139,12 +139,15 @@ function isBetween(box: TextBox, prev: Token, next: Token): boolean {
  * Consecutive tracked words a word space apart: as far apart as tracking on
  * both sides of a space glyph, measured against the tracking inside them.
  */
-function wordsOnOneLine(words: readonly Token[][]): Token[][][] {
+function wordsOnOneLine(words: readonly Token[][], chain: readonly Token[]): Token[][][] {
+  const position = new Map(chain.map((token, i) => [token, i]));
   const lines: Token[][][] = [];
   for (const word of words) {
     const line = lines.at(-1);
     const prev = line?.at(-1);
-    if (line && prev && isWordSpace(prev, word)) line.push(word);
+    // Only words next to each other in the chain: a token left out between them would be dropped.
+    const adjacent = prev && position.get(word[0]) === (position.get(prev[prev.length - 1]) ?? -2) + 1;
+    if (line && prev && adjacent && isWordSpace(prev, word)) line.push(word);
     else lines.push([word]);
   }
   return lines;
@@ -152,7 +155,6 @@ function wordsOnOneLine(words: readonly Token[][]): Token[][][] {
 
 function isWordSpace(prev: readonly Token[], next: readonly Token[]): boolean {
   const last = prev[prev.length - 1];
-  if (next[0].index <= last.index) return false;
   const size = last.geometry.fontSize;
   const tracking = Math.max(innerGap(prev), innerGap(next));
   return next[0].geometry.left - last.geometry.right <= 2 * tracking + MAX_SPACE_GLYPH_EM * size;
