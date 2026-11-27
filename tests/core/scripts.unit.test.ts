@@ -51,6 +51,107 @@ describe('attachScripts', () => {
       item('Mpc', 332.02, 20, 298.58, 11),
     ];
     expect(texts(attachScripts(stacked)).join('')).toBe('= 410^+160_−180 Mpc');
+    // The decimal point of a stacked bound is its own run, often in another font.
+    const decimal = [
+      item('waves, 0.112', 84.61, 137.86, 489.43, 9.96),
+      item('+0', 222.47, 10.09, 493.7, 6.97),
+      item('.', 232.55, 2.37, 493.7, 6.97, { fontName: 'f2' }),
+      item('008', 234.92, 11.91, 493.7, 6.97),
+      eol(222.47, 486.78, 6.97),
+      item('−', 222.47, 6.23, 486.78, 6.97),
+      item('0', 228.69, 3.97, 486.78, 6.97),
+      item('.', 232.66, 2.37, 486.78, 6.97, { fontName: 'f2' }),
+      item('009', 235.03, 11.91, 486.78, 6.97),
+      item(',', 246.94, 2.77, 489.43, 9.96),
+    ];
+    expect(texts(attachScripts(decimal)).join('')).toBe('waves, 0.112^{+0.008}_{−0.009},');
+  });
+
+  it('keeps an index and the charge set after it as two scripts', () => {
+    const ion = [
+      item('sulfites (SO', 100, 50, 600, 9.5),
+      item('3', 150, 3.43, 598.29, 6.18),
+      item('2−', 153.43, 7.4, 603.61, 6.18),
+      item(')', 160.83, 3.16, 600, 9.5),
+    ];
+    expect(texts(attachScripts(ion)).join('')).toBe('sulfites (SO_3^{2−})');
+    // A second index of the same kind after the first is not chained on.
+    const repeated = [item('x', 100, 5, 600, 10), item('i', 105, 2, 597, 6.5), item('j', 107.5, 2, 597.2, 4.5)];
+    expect(texts(attachScripts(repeated))).toEqual(['x_i', 'j']);
+  });
+
+  it('nests a script of a script inside it', () => {
+    const sub = [
+      item('P', 100, 7, 600, 10),
+      item('d', 107, 3.5, 598.5, 7),
+      item('k', 110.5, 2.8, 597.3, 5),
+      item('j', 113.3, 2, 597.3, 5),
+      item(' ', 115.3, 2.5, 600, 10),
+      item('= 1', 117.8, 12, 600, 10),
+    ];
+    expect(texts(attachScripts(sub)).join('')).toBe('P_{d_{kj}} = 1');
+    const sup = [item('e', 100, 5, 600, 10), item('x', 105, 3, 604, 6.5), item('2', 108, 3, 607, 4.5)];
+    expect(texts(attachScripts(sup))).toEqual(['e^{x^2}']);
+    // The script goes on after the script of it, past an italic correction.
+    const space = [
+      item('R', 345.94, 7.19, 681.13, 9.96),
+      item('(', 353.14, 3.11, 685.25, 6.97),
+      item('P', 356.25, 5.07, 685.25, 6.97),
+      item(' ', 361.32, 1.07, 685.25, 6.97),
+      item('2', 362.4, 3.39, 688.25, 4.98),
+      item('·', 366.28, 2.37, 685.25, 6.97),
+      item('C)×D', 368.65, 21.5, 685.25, 6.97),
+      item(',', 391.42, 2.77, 681.13, 9.96),
+    ];
+    expect(texts(attachScripts(space)).join('')).toBe('R^{(P^2·C)×D},');
+  });
+
+  it('reads through the sliver of space TeX leaves before a script, not a word space', () => {
+    // dvips output: `F`, an italic correction, then `m` over `t` with a line break between.
+    const stacked = [
+      item('F', 231, 8.6, 203.4, 11.96),
+      item(' ', 239.6, 1.24, 203.4, 11.96),
+      item('m', 240.84, 7.49, 208.44, 7.97, { hasEOL: true }),
+      item('t', 239.64, 3.06, 200.52, 7.97),
+      item(' ', 242.7, 9.3, 200.52, 7.97),
+      item('= 2', 252, 18.34, 203.4, 11.96),
+    ];
+    expect(texts(attachScripts(stacked)).join('')).toBe('F^m_t = 2');
+    const marker = [
+      item('capacity of each GPU', 108, 210.01, 153.42, 9.96),
+      item(' ', 318.01, 2.49, 153.42, 9.96),
+      item('5', 320.5, 3.49, 157.03, 6.97),
+      item('.', 324.49, 2.49, 153.42, 9.96),
+    ];
+    expect(texts(attachScripts(marker)).join('')).toBe('capacity of each GPU ^5.');
+  });
+
+  it('leaves the numerator of an inline fraction for the math pass', () => {
+    // `log(P(female|Context)/P(male|Context))` set as a text-style fraction.
+    const fraction = [
+      item('log(', 120.19, 16.74, 320.09, 9.96),
+      item(' ', 136.93, 1.19, 320.09, 9.96),
+      item('P', 138.12, 5.07, 324.92, 6.97),
+      item(' ', 143.2, 1.07, 324.92, 6.97),
+      item('(female', 144.27, 25.44, 324.92, 6.97),
+    ];
+    expect(texts(attachScripts(fraction))).toEqual(['log(', ' ', 'P', ' ', '(female']);
+  });
+
+  it('takes an opening parenthesis into the script it opens', () => {
+    const items = [
+      item('P E', 235.51, 15.14, 446.27, 9.96),
+      item('(', 250.64, 3.11, 444.47, 6.97),
+      item('pos,', 253.76, 14.17, 444.47, 6.97),
+      item('2', 267.92, 3.97, 444.47, 6.97),
+      item('i', 271.89, 2.82, 444.47, 6.97),
+      item(')', 274.71, 3.11, 444.47, 6.97),
+      item(' ', 277.83, 3.27, 444.47, 6.97),
+      item('=', 281.09, 7.75, 446.27, 9.96),
+    ];
+    expect(texts(attachScripts(items)).join('')).toBe('P E_{(pos,2i)} =');
+    const lone = [item('x', 100, 5, 600, 10), item('(', 105, 2, 604, 6.5), item(' ', 107, 3, 600, 10)];
+    expect(texts(attachScripts(lone))).toEqual(['x', '(', ' ']);
   });
 
   it('keeps the word space a script run ends with', () => {
@@ -68,6 +169,18 @@ describe('attachScripts', () => {
       item('Measured on eight GPUs.', 95.17, 113.74, 87.85, 9),
     ];
     expect(texts(attachScripts(items)).join('')).toBe('^1 Measured on eight GPUs.');
+  });
+
+  it('leaves a text-style fraction after a word space for the math pass', () => {
+    // `½` set as 1 over 2 (the rule between them is a vector path).
+    const half = [
+      item('when b = ', 90, 40, 600, 10),
+      item('1', 130, 3.5, 604, 7),
+      eol(130, 597, 7),
+      item('2', 130, 3.5, 597, 7),
+      item('∇a', 134.5, 12, 600, 10),
+    ];
+    expect(texts(attachScripts(half))).toEqual(['when b = ', '1', '', '2', '∇a']);
   });
 
   it('leaves small caps, a spaced-apart raised label and long small print alone', () => {

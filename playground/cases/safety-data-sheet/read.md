@@ -13,7 +13,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 | Page | Chars | Images | Coverage | Size (pt) | Vectors | Blocks | Fields | Links | Annots |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | 1 | 1010 | 0 | 11% | 612×792 | 16 | 12 | 0 | 0 | 0 |
-| 2 | 585 | 0 | 6% | 612×792 | 10 | 7 | 0 | 0 | 0 |
+| 2 | 588 | 0 | 6% | 612×792 | 10 | 7 | 0 | 0 | 0 |
 
 ---
 
@@ -55,7 +55,7 @@ Sodium dodecyl sulfate 151-21-3 NaC_12H_25SO_4 1–3%
 
 ## Page 2
 
-_chars: 585 · images: 0 · coverage: 6% · vectors: 10 · size: 612×792pt_
+_chars: 588 · images: 0 · coverage: 6% · vectors: 10 · size: 612×792pt_
 
 SECTION 9: Physical and chemical properties
 
@@ -70,4 +70,4 @@ Solubility in water Completely miscible
 SECTION 10: Stability and reactivity
 
 Reacts with metals to release hydrogen (H_2).
-Incompatible with bases, hypochlorites (OCl^−) and sulfites (SO_32−); mixing with hypochlorite bleach releases chlorine (Cl_2).
+Incompatible with bases, hypochlorites (OCl^−) and sulfites (SO_3^{2−}); mixing with hypochlorite bleach releases chlorine (Cl_2).
