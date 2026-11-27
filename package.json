@@ -78,21 +78,21 @@
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.6.6",
+    "@biomejs/biome": "^2.6.8",
     "@expo-google-fonts/noto-sans-jp": "^0.4.4",
     "@secretlint/secretlint-rule-preset-recommend": "^13.1.0",
     "@types/node": "^26.6.6",
     "@types/pdfkit": "^0.17.7",
-    "@vitest/coverage-v8": "^5.1.0",
-    "es-module-lexer": "3.0.4",
-    "oxlint": "^1.92.0",
-    "pdfkit": "^0.20.2",
+    "@vitest/coverage-v8": "^5.1.1",
+    "es-module-lexer": "3.0.5",
+    "oxlint": "^1.94.0",
+    "pdfkit": "^0.21.0",
     "secretlint": "^13.1.0",
     "tsdown": "^0.23.7",
     "typescript": "^7.0.2",
     "vitepress": "^1.6.4",
-    "vitepress-plugin-llms": "^1.14.0",
-    "vitest": "^5.1.0",
-    "wrangler": "^4.158.0"
+    "vitepress-plugin-llms": "^1.15.0",
+    "vitest": "^5.1.1",
+    "wrangler": "^4.165.0"
   }
 }
