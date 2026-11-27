@@ -18,6 +18,8 @@ import { type BBox, round2 } from './geometry.js';
  */
 
 const NUMERIC = /^[-+−–]?\d[\d.,]*\s*[%‰]?$/u;
+/** Each value label in a text item (`9% 21%`, `9 % 21 %`). */
+const NUMERIC_LABELS = /[-+−–]?\d[\d.,]*(?:\s*[%‰])?/gu;
 /** Two value labels or more in one text item. */
 const NUMERIC_RUN = /^[-+−–]?\d[\d.,]*\s*[%‰]?(?:\s+[-+−–]?\d[\d.,]*\s*[%‰]?)+$/u;
 /** A legend name starts within this many ems right of its swatch. */
@@ -242,11 +244,13 @@ function readLines(
   if (unnamed.length > 0) return undefined;
   // A series drawn so it is not read as a line (dashes as separate strokes) still has its
   // values in the plot: a coloured stroke there in no named series' colour is one.
+  // A frame round the plot is closed and stands outside it; a dash is open and lies within.
   const unread = (shapes?.shapes ?? []).some(
     (shape) =>
       shape.stroke !== undefined &&
       isSaturated(shape.stroke) &&
-      overlapsBox(shape, plot) &&
+      shape.subpaths.every((subpath) => !subpath.closed) &&
+      contains(plot, centreOf(shape)) &&
       !named.some((item) => sameColour(item.line.colour, shape.stroke)),
   );
   if (unread) return undefined;
@@ -358,7 +362,15 @@ function readBars(
     const frame = panelOf(bar, legends.panels);
     groups.set(frame, [...(groups.get(frame) ?? []), bar]);
   }
-  return [...groups.values()].flatMap((group) => readBarGroup(group, values, spans, legends));
+  // A value label belongs to the bars of its own panel: one over a bar in the panel below is not that bar's.
+  return [...groups].flatMap(([frame, group]) =>
+    readBarGroup(
+      group,
+      values.filter((span) => panelOf(span, legends.panels) === frame),
+      spans,
+      legends,
+    ),
+  );
 }
 
 function readBarGroup(
@@ -394,7 +406,7 @@ function readBarGroup(
   // Neighbouring segments' labels can come as one text item (`9% 21%`): each is a value left unpaired.
   for (const span of spans) {
     if (!NUMERIC_RUN.test(span.text.trim()) || !bars.some((bar) => contains(bar, centreOf(span)))) continue;
-    unpaired += span.text.trim().split(/\s+/u).length;
+    unpaired += span.text.match(NUMERIC_LABELS)?.length ?? 0;
   }
   if (out.length < MIN_VALUES || out.length < (out.length + unpaired) * MIN_PAIRED_SHARE) return [];
   // Only charts whose categories all resolved are worth a table; partial ones stay with the warning.

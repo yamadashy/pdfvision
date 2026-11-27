@@ -106,8 +106,9 @@ export function splitTablesAtChartPanels(
   // table was: the rest of a chart's text is its labels, not a table. Any other panel the
   // table reached (a table's own frame) is read whole, once.
   const panelsRead = new Set<BBox>();
-  const pieces: LayoutTable[] = [];
+  const piecesOf = new Map<LayoutTable, LayoutTable[]>();
   for (const [table, zones] of zonesOf) {
+    const pieces: LayoutTable[] = [];
     for (const zone of zones) {
       if (zone === undefined || panels.charts.includes(zone)) {
         pieces.push(
@@ -118,17 +119,19 @@ export function splitTablesAtChartPanels(
         pieces.push(...(read(spans.filter((span) => zoneOf(span, panels) === zone)) ?? []));
       }
     }
+    piecesOf.set(
+      table,
+      pieces.sort((a, b) => a.y - b.y || a.x - b.x),
+    );
   }
-  // A table already read inside a panel that was read again is replaced by that reading.
-  const kept = tables.filter(
-    (table) =>
-      !zonesOf.has(table) &&
-      !table.rows.every((row) => row.cells.every((cell) => panelsRead.has(zoneOf(cell, panels) as BBox))),
-  );
-  const at = tables.findIndex((table) => zonesOf.has(table));
-  const before = kept.filter((table) => tables.indexOf(table) < at);
-  const after = kept.filter((table) => tables.indexOf(table) > at);
-  return [...before, ...pieces.sort((a, b) => a.y - b.y || a.x - b.x), ...after];
+  // Each fused table gives way to its pieces where it stood. A table already read inside a
+  // panel that was read again is replaced by that reading.
+  return tables.flatMap((table) => {
+    const pieces = piecesOf.get(table);
+    if (pieces) return pieces;
+    const replaced = table.rows.every((row) => row.cells.every((cell) => panelsRead.has(zoneOf(cell, panels) as BBox)));
+    return replaced ? [] : [table];
+  });
 }
 
 /** The chart panel round a box, else the other panel round it, else none. */

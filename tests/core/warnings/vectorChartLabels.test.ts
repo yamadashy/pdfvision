@@ -192,5 +192,19 @@ describe('vector_chart_labels', () => {
       .map((w) => w.message.match(/--render-region (\S+)\)/u)?.[1]);
     expect(regions).toContain('238,300,190,250');
     expect(regions).not.toContain('40,300,388,250');
+    // A chart read whole beside it in the same figure does not silence it.
+    const pie = {
+      kind: 'pie' as const,
+      x: 380,
+      y: 420,
+      width: 40,
+      height: 40,
+      values: [{ ...values[0], series: 'A' }],
+    };
+    result.layout.charts = [...(result.layout.charts ?? []), pie];
+    const beside = detectPageWarnings(result, { vectorBoxes: boxes })
+      .filter((w) => w.code === 'vector_chart_labels')
+      .map((w) => w.message.match(/--render-region (\S+)\)/u)?.[1]);
+    expect(beside).toContain('238,300,190,250');
   });
 });

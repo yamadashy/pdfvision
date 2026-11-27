@@ -454,6 +454,9 @@ describe('chart values (#302)', () => {
       spans.push(span(year, 100 + i * 100 - 8, 200, 7.5, 16));
     });
     expect(layoutOf(spans, shapes).charts?.some((c) => c.kind === 'line')).toBe(true);
+    // A coloured frame round the plot is not a series.
+    const framed = [...shapes, rectOutline(80, 40, 260, 180, '#2e7d32')];
+    expect(layoutOf(spans, framed).charts?.some((c) => c.kind === 'line')).toBe(true);
     // A third, unnamed series between them, each dash its own stroke.
     const dashes = [0, 1, 2, 3, 4, 5, 6, 7].map((i) =>
       stroked(
@@ -682,6 +685,31 @@ describe('charts set side by side in panels (#302)', () => {
     expect(withBox.tables).toEqual(withoutBox.tables);
   });
 
+  it('pairs a label only with the bars of its own panel', () => {
+    const spans: TextSpan[] = [];
+    // Upper panel: horizontal bars, labels inside; its last row ends just above the lower panel.
+    const shapes: VectorShape[] = [rectOutline(40, 60, 300, 124, '#b5bdc8'), rectOutline(40, 186, 300, 140, '#b5bdc8')];
+    shapes.push(filledRect(60, 66, 8, 8, '#283593'), filledRect(140, 66, 8, 8, '#00838f'));
+    spans.push(span('Done', 72, 66, 8, 20), span('Planned', 152, 66, 8, 30));
+    ['North', 'South', 'East'].forEach((name, r) => {
+      const top = 110 + r * 26;
+      spans.push(span(name, 72, top + 6, 8, 24));
+      shapes.push(filledRect(100, top, 90, 18, '#283593'), filledRect(190, top, 60, 18, '#00838f'));
+      spans.push(span(`${40 + r}%`, 138, top + 8, 9, 14), span(`${20 + r}%`, 213, top + 8, 9, 14));
+    });
+    // Lower panel: column bars in its own legend colours, the first standing right under the upper `42%`.
+    [0, 1, 2].forEach((i) => {
+      const x = 130 + i * 50;
+      shapes.push(filledRect(x, 188 + i * 10, 20, 102 - i * 10, '#6a1b9a'));
+      spans.push(span(`${7 + i}`, x + 7, 240, 9, 6), span(`Q${i + 1}`, x + 4, 294, 8, 10));
+    });
+    shapes.push(filledRect(60, 310, 8, 8, '#6a1b9a'), filledRect(140, 310, 8, 8, '#ef6c00'));
+    spans.push(span('Yes', 72, 310, 8, 14), span('No', 152, 310, 8, 10));
+    const layout = layoutOf(spans, shapes);
+    const placed = (layout.charts ?? []).flatMap((c) => c.values.filter((v) => v.value === '42%'));
+    expect(placed.map((v) => `${v.series} ${v.category}`)).toEqual(['Done East']);
+  });
+
   it('counts value labels that came as one text item as unpaired', () => {
     const a = stackedPanel(
       40,
@@ -705,6 +733,9 @@ describe('charts set side by side in panels (#302)', () => {
       'None 60%',
     ]);
     expect(markdownOf(layout)).toContain('_2 more value labels on this chart could not be paired');
+    // A space before each percent sign still makes two labels.
+    const spaced = a.spans.map((s) => (s.text === '19% 21%' ? { ...s, text: '19 % 21 %' } : s));
+    expect(layoutOf(spaced, a.shapes).charts?.find((c) => c.kind === 'bar')?.unpaired).toBe(2);
   });
 });
 

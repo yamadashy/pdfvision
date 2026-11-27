@@ -52,7 +52,7 @@ export function detectVectorChartLabels(
       regions: [...figuresOnly].sort((a, b) => b.width * b.height - a.width * a.height),
     },
   ];
-  const report = (region: LayoutRegion, chart: { kind: ChartKind; mark?: BBox }): void => {
+  const report = (region: LayoutRegion, chart: { kind: ChartKind; mark?: BBox }, partlyRead = false): void => {
     const area = chart.mark ? union(region, chart.mark) : region;
     if (reported.some((other) => overlaps(other, area))) return;
     const labels = region.blocks.map((block) => block.text.replace(/\s+/gu, ' ').trim());
@@ -66,7 +66,8 @@ export function detectVectorChartLabels(
     if (chart.kind === 'bar' && word === undefined) return;
     if (tables.some((table) => isTableOfRegion(region, table))) return;
     // A chart whose every value label was paired with its series by colour is read; nothing is left to render for.
-    if (read.some((other) => isComplete(other) && overlaps(other, area))) return;
+    // A chart read only in part is warned on even beside a complete one in the same figure.
+    if (!partlyRead && read.some((other) => isComplete(other) && overlaps(other, area))) return;
     reported.push(area);
     const box = [area.x, area.y, area.width, area.height].map((n) => Math.round(n)).join(',');
     const samples = `values such as "${shortTextSample(numeric[0])}"${word !== undefined ? `, labels such as "${shortTextSample(word)}"` : ''}`;
@@ -84,7 +85,7 @@ export function detectVectorChartLabels(
     const holder = figuresOnly
       .filter((region) => holds(region, chart))
       .sort((a, b) => a.width * a.height - b.width * b.height)[0];
-    if (holder) report(holder, { kind: chart.kind, mark: chart });
+    if (holder) report(holder, { kind: chart.kind, mark: chart }, true);
   }
   for (const pass of passes) {
     for (const region of pass.regions) {
