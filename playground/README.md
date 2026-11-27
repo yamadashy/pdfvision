@@ -40,6 +40,7 @@ cases/<case-name>/
   - `newPage(options?)` for multi-page cases (same size as the first page unless `options` says otherwise);
   - `rotateClockwise()` stores the current page with `/Rotate 90` and switches to the coordinates a reader sees, for landscape pages inside a portrait document;
   - `invisible(fn)` draws `fn`'s text in render mode 3, as OCR text layers are drawn;
+  - `textOperators(font, size, fn)` writes the text operators `fn` returns (`Tc`, one glyph per `Tj`, `TJ` adjustments) in PDF coordinates, for a case about how text is drawn;
   - `asset(name)` returns the bytes of `assets/<name>`.
 
   Use the standard fonts; `'NotoSansJP'` and `'NotoSansJP-Bold'` are registered for CJK or for symbols outside WinAnsi such as `∇`. Everything else pdfkit offers works directly on `doc`: AcroForm fields (`initForm`, `formText`, …; see `cases/form-application` for button fields with appearance states), annotations (`note`, `link`, `annotate`), `doc.outline`, `doc.file` attachments (pass `FIXED_DATE` from `lib/pdf.mjs` as their dates).

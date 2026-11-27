@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import type { LineGlyphLookup } from '../../src/core/graphics/lineGlyphs.js';
 import { collectFontTextHints } from '../../src/core/text/fontTextHints.js';
-import { joinJustifiedGlyphRuns, joinTrackedTokens, removeTrackingSpaces } from '../../src/core/text/letterSpacing.js';
+import { joinJustifiedGlyphRuns } from '../../src/core/text/justifiedGlyphRuns.js';
+import { joinTrackedTokens, removeTrackingSpaces } from '../../src/core/text/letterSpacing.js';
 import type { RawTextItem } from '../../src/core/text/textItems.js';
 
 const OPS = { save: 1, restore: 2, setFont: 3, setCharSpacing: 4, textShowOps: new Set([5]) };
@@ -76,6 +78,40 @@ describe('removeTrackingSpaces', () => {
     const hints = new Map([['f1', { trackedWords: 'SAMPLE' }]]);
     expect(texts(removeTrackingSpaces(items, hints))).toEqual(['SAMPLE', 'S A M P L E']);
   });
+
+  /** One item per glyph with a space item between, as pdf.js gives tracking past ~0.6 em. */
+  const spread = (text: string, x: number, pitch: number, wordGap: number) => {
+    const out: ReturnType<typeof item>[] = [];
+    let at = x;
+    for (const char of text) {
+      if (char === ' ') {
+        at += wordGap - pitch;
+        continue;
+      }
+      if (out.length > 0) out.push(item(' ', at - (pitch - 6), pitch - 6));
+      out.push(item(char, at, 6));
+      at += pitch;
+    }
+    return out;
+  };
+
+  it('rejoins a tracked word pdf.js split into one item per glyph', () => {
+    const hints = new Map([['f1', { trackedWords: 'AGENDA' }]]);
+    expect(texts(removeTrackingSpaces(spread('AGENDA', 72, 12, 0), hints))).toEqual(['AGENDA']);
+  });
+
+  it('keeps two tracked words a word space apart on one item, and words far apart in their own', () => {
+    const hints = new Map([['f1', { trackedWords: 'MEETING\u0000NOTES' }]]);
+    expect(texts(removeTrackingSpaces(spread('MEETING NOTES', 72, 12, 22), hints))).toEqual(['MEETING NOTES']);
+    const apart = removeTrackingSpaces(spread('MEETING NOTES', 72, 12, 200), hints);
+    expect(texts(apart).filter((text) => text.trim())).toEqual(['MEETING', 'NOTES']);
+  });
+
+  it('leaves single-glyph items that do not spell a tracked word', () => {
+    const hints = new Map([['f1', { trackedWords: 'AGENDA' }]]);
+    const cells = spread('ABCD', 72, 12, 0);
+    expect(texts(removeTrackingSpaces(cells, hints))).toEqual(texts(cells));
+  });
 });
 
 describe('joinJustifiedGlyphRuns', () => {
@@ -112,5 +148,38 @@ describe('joinJustifiedGlyphRuns', () => {
     const above = tight('A normal line of tightly set text here', 712);
     const letters = Array.from('ABCDEFGH', (char, i) => item(char, 55 + i * pitch, 6, 700));
     expect(joinJustifiedGlyphRuns([above, ...letters])).toHaveLength(1 + letters.length);
+  });
+
+  describe('a line pdf.js merged into one item with spaces inside', () => {
+    const line = 'ると判断する一定の前提に基づいて';
+    const above = tight('本資料に記載されている業績見通し等の将来に関する記', 712);
+    const merged = item(Array.from(line).join(' '), 55, 15 * pitch + 8, 700);
+    /** Glyphs as the operator list placed them: 8pt wide at `pitch`, plus `extra` before glyph `at`. */
+    const placed =
+      (extra = 0, at = -1): LineGlyphLookup =>
+      (bands) =>
+        bands.map(() =>
+          Array.from(line, (text, i) => {
+            const left = 55 + i * pitch + (i >= at && at >= 0 ? extra : 0);
+            return { text, whitespace: false, left, right: left + 8 };
+          }),
+        );
+
+    it('reads it when the drawn glyphs sit at one pitch', () => {
+      expect(texts(joinJustifiedGlyphRuns([above, merged], placed())).at(-1)).toBe(line);
+    });
+
+    it('keeps a gap clearly wider than the pitch as a space', () => {
+      const spaced = item(Array.from(line).join(' '), 55, 15 * pitch + 8 + 3, 700);
+      expect(texts(joinJustifiedGlyphRuns([above, spaced], placed(3, 6))).at(-1)).toBe(
+        'ると判断する 一定の前提に基づいて',
+      );
+    });
+
+    it('leaves it alone when the glyphs cannot be placed', () => {
+      expect(texts(joinJustifiedGlyphRuns([above, merged])).at(-1)).toBe(merged.str);
+      const none: LineGlyphLookup = (bands) => bands.map(() => undefined);
+      expect(texts(joinJustifiedGlyphRuns([above, merged], none)).at(-1)).toBe(merged.str);
+    });
   });
 });

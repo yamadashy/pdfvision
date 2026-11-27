@@ -1,4 +1,5 @@
 import type { TextSpan } from '../../types/index.js';
+import type { LineGlyphLookup } from '../graphics/lineGlyphs.js';
 import {
   extractHorizontalRubyAnalysis,
   type HorizontalRubyAssociation,
@@ -46,6 +47,8 @@ interface ExtractPageTextInput {
   viewMinY: number;
   /** Per-font facts from the operator list (symbol-font glyphs, tracked words). */
   fontHints?: PageFontTextHints;
+  /** Where glyphs on a line were drawn, for text spread glyph by glyph. */
+  lineGlyphs?: LineGlyphLookup;
 }
 
 interface RubyTextAttachment {
@@ -90,6 +93,7 @@ export function extractPageText({
   viewMinX,
   viewMinY,
   fontHints,
+  lineGlyphs,
 }: ExtractPageTextInput): ExtractedPageText {
   const wantSpans =
     flags.geometry ||
@@ -103,7 +107,7 @@ export function extractPageText({
 
   const { joinItems, textArea, spans, monospaceFonts, verticalJoinSpans, verticalJoinSpanIndices } =
     collectPageTextItems({
-      content: { items: prepareTextItems(content.items, fontHints), styles: content.styles },
+      content: { items: prepareTextItems(content.items, fontHints, lineGlyphs), styles: content.styles },
       flags,
       pageHeight,
       viewMinX,

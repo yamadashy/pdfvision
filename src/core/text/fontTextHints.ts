@@ -45,8 +45,13 @@ const MIN_TRACKING_EM = 0.05;
 /** TJ adjustments are in thousandths of an em; negative moves right. */
 const MIN_KERN_TRACKING = 60;
 const MAX_KERN_TRACKING = 600;
-/** Every adjustment of a tracked run is within this share of the first. */
+/**
+ * Every adjustment of a tracked run is within this share of the first, or
+ * within a pair kern of it: a typesetter that writes tracking and kerning
+ * into one adjustment per pair gives `AV` more push than `OU`.
+ */
 const KERN_TRACKING_TOLERANCE = 0.1;
+const KERN_PAIR_TOLERANCE = 100;
 /** Fewer glyphs than this between equal adjustments can be single-letter words (`a b c`). */
 const MIN_KERN_TRACKED_GLYPHS = 4;
 /**
@@ -222,7 +227,8 @@ function recordKernTrackedWords(acc: FontAccumulator, glyphs: readonly unknown[]
       adjustment !== undefined &&
       -adjustment >= MIN_KERN_TRACKING &&
       -adjustment <= MAX_KERN_TRACKING &&
-      (kern === undefined || Math.abs(adjustment - kern) <= Math.abs(kern) * KERN_TRACKING_TOLERANCE);
+      (kern === undefined ||
+        Math.abs(adjustment - kern) <= Math.max(Math.abs(kern) * KERN_TRACKING_TOLERANCE, KERN_PAIR_TOLERANCE));
     if (glyphCount > 0 && tracked) {
       kern ??= adjustment;
       run += unicode;

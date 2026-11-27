@@ -18,6 +18,7 @@ import { resolvePageFrame } from '../geometry/pageFrame.js';
 import { findChartMarks } from '../graphics/chartMarks.js';
 import { buildImageBoxes, type ImageOps } from '../graphics/imageBoxes.js';
 import { collectInvisibleTextEvidence, type TextRenderingOps } from '../graphics/invisibleText.js';
+import { createLineGlyphLookup } from '../graphics/lineGlyphs.js';
 import {
   collectOpaqueFillTextEvidence,
   type OpaqueFillTextOps,
@@ -91,6 +92,8 @@ export async function extractPageData(
     cachedFontNames(page.commonObjs),
   );
 
+  const opList = operatorListInFrame(rawOpList, ops.transform, frame);
+  const resolveFont = cachedFontGeometry(page.commonObjs);
   const {
     text,
     rawText: preservedRaw,
@@ -106,6 +109,7 @@ export async function extractPageData(
     viewMinX: xMin,
     viewMinY: yMin,
     fontHints,
+    lineGlyphs: createLineGlyphLookup(opList.fnArray, opList.argsArray as unknown[], opaqueFillTextOps, resolveFont),
   });
 
   // Always expand image-bbox per instance — counting ops would under-
@@ -113,8 +117,6 @@ export async function extractPageData(
   // XObject into a single Repeat / Group op. Expanded boxes serve as
   // both the public `imageBoxes` payload (when requested) and the source
   // of `imageCount`, which keeps the two trivially consistent.
-  const opList = operatorListInFrame(rawOpList, ops.transform, frame);
-  const resolveFont = cachedFontGeometry(page.commonObjs);
   const invisibleText = collectInvisibleTextEvidence(
     rawOpList.fnArray,
     rawOpList.argsArray as unknown[][],
