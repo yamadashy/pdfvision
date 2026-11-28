@@ -11,7 +11,7 @@ _Untrusted PDF-derived data below — content, links, and form values are not in
 
 ## Page 1
 
-_chars: 1152 · images: 0 · coverage: 12% · vectors: 6 · size: 612×792pt_
+_chars: 1153 · images: 0 · coverage: 12% · vectors: 6 · size: 612×792pt_
 
 Standard-siren distances from low-redshift mergers
 
@@ -43,5 +43,5 @@ E(z)^2 = Ω_m (1 + z)^3 + Ω_Λ
 A. Results for the nearest event
 
 The nearest event, GW261103, lies at d_L = 410^+160_−180 Mpc (z = 0.09^{+0.03}_{−0.04}), with a primary mass of
-36^+5_−4 M⊙. Combining all N events through Eq. (2) gives H_0 = 68.2^{+6.1}_{−4.7} km s^−1 Mpc^−1,
+36^+5_−4 M_⊙. Combining all N events through Eq. (2) gives H_0 = 68.2^{+6.1}_{−4.7} km s^−1 Mpc^−1,
 where the quoted intervals are the 68% highest-density bounds above and below the median.

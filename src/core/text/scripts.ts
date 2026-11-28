@@ -42,11 +42,21 @@ const SAME_SCRIPT_BASELINE_EM = 0.12;
 
 type ScriptKind = 'sup' | 'sub';
 
-interface Group {
+interface Script {
   kind: ScriptKind;
   text: string;
   /** Geometry of the last run appended, for chaining `−` + `f`. */
   last: UprightGeometry;
+}
+
+interface Group extends Script {
+  /** A script of this script, still open: the `k` of `P_{d_k}`. */
+  nested?: Script;
+}
+
+interface Attachment {
+  kind: ScriptKind;
+  nested: boolean;
 }
 
 interface Base {
@@ -77,6 +87,8 @@ export function attachScripts(
   // zero-width items sits between it and the current one.
   let previousTextIndex = -1;
   let separated = false;
+  // Whether the whitespace just skipped was an italic correction (`(P` ` ` `2` in `R^{(P^2·C)×D}`).
+  let sliver = false;
 
   const finishBase = () => {
     if (base && base.groups.length > 0) {
@@ -105,8 +117,20 @@ export function attachScripts(
       continue;
     }
     // pdf.js reports a line break between a subscript and the superscript
-    // stacked over it (`u` `j` ⏎ `n`); the pair is one base's scripts.
-    if (item.str.length === 0 && base && !separated && continuesWithScript(items, i, base)) continue;
+    // stacked over it (`u` `j` ⏎ `n`); the pair is one base's scripts. TeX
+    // also leaves an italic correction as a sliver of a space between a base
+    // and its script (`F` ` ` `m`); the gap test below still applies, so a
+    // word space keeps the next run apart.
+    if (
+      (item.str.length === 0 || (item.str.trim().length === 0 && !item.hasEOL && italicGap(base))) &&
+      base &&
+      !separated &&
+      !base.space &&
+      continuesWithScript(items, i, base, item.str.length > 0 ? 2 : 1)
+    ) {
+      sliver = item.str.length > 0;
+      continue;
+    }
     if (item.str.trim().length === 0) {
       out.push(item);
       separated = true;
@@ -117,12 +141,24 @@ export function attachScripts(
       continue;
     }
 
+    const slack = sliver ? 2 : 1;
+    sliver = false;
     const geometry = uprightGeometry(item);
-    const script = geometry && canHoldScripts(String(item.fontName)) ? scriptRun(item, geometry) : false;
-    if (script && geometry && base && !separated && !base.space && !base.operator) {
-      const kind = attachKind(base, geometry);
-      if (kind) {
-        appendScript(base, kind, item.str, geometry);
+    const holds = !!geometry && canHoldScripts(String(item.fontName));
+    const script = holds && geometry ? scriptRun(item, geometry) || opensScript(items, i, geometry) : false;
+    // Inside a script, punctuation belongs to it: the point in `^{+0.008}`.
+    const last = base?.groups.at(-1);
+    const continuing =
+      holds &&
+      !!geometry &&
+      !!last &&
+      !separated &&
+      (continuesScript(tail(last), geometry) || (!!last.nested && continuesScript(last.nested.last, geometry))) &&
+      scriptRun(item, geometry, true);
+    if ((script || continuing) && geometry && base && !separated && !base.space && !base.operator) {
+      const attachment = attachKind(base, geometry, slack);
+      if (attachment) {
+        appendScript(base, attachment, item.str, geometry);
         // The latest script ends the line, or the line goes on after it.
         base.hasEOL = !!item.hasEOL;
         changed = true;
@@ -166,12 +202,30 @@ export function attachScripts(
   return changed ? out : [...items];
 }
 
-function continuesWithScript(items: readonly unknown[], index: number, base: Base): boolean {
+// An italic correction follows a letter or digit; after a bracket, a sign
+// or an operator a sliver of space is spacing, and the raised run may be
+// the numerator of a fraction (inline, or in an exponent: `−` ` ` `n` over
+// `2`), which the layout's math pass reads.
+function italicGap(base: Base | undefined): boolean {
+  if (!base) return false;
+  const last = base.groups.at(-1);
+  const before = last ? (last.nested?.text ?? last.text) : base.item.str;
+  return /[\p{L}\p{N}]$/u.test(before);
+}
+
+/** `(` set small and shifted, with the script it opens right after it: `PE_{(pos,2i)}`. */
+function opensScript(items: readonly unknown[], index: number, geometry: UprightGeometry): boolean {
+  if (!isRawTextItem(items[index]) || items[index].str.trim() !== '(') return false;
+  const next = nextTextItem(items, index);
+  return !!next && !next.spaced && continuesScript(geometry, next.geometry) && scriptRun(next.item, next.geometry);
+}
+
+function continuesWithScript(items: readonly unknown[], index: number, base: Base, slack: number): boolean {
   for (let next = index + 1; next < items.length; next++) {
     const item = items[next];
     if (!isRawTextItem(item) || (item.str.length === 0 && !item.hasEOL)) continue;
     const geometry = uprightGeometry(item);
-    return !!geometry && scriptRun(item, geometry) && attachKind(base, geometry) !== undefined;
+    return !!geometry && scriptRun(item, geometry) && attachKind(base, geometry, slack) !== undefined;
   }
   return false;
 }
@@ -196,19 +250,18 @@ const CJK_TEXT_RE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Scr
 // already accept the marks as a trailing suffix.
 const MARK_ONLY_RE = /^(?:[*∗⁎⋆★†‡§¶‖#®™©℠※＊]+\d{0,3}|\[[^\]]*\])$/u;
 // A script says something only with a letter or digit in it, or as a lone
-// sign (`Na^+`); a raised quote or question mark is OCR-layer jitter.
-const SCRIPT_CONTENT_RE = /[\p{L}\p{N}]|^[+\-−±]$/u;
+// sign (`Na^+`, `M_⊙`); a raised quote or question mark is OCR-layer jitter.
+const SCRIPT_CONTENT_RE = /[\p{L}\p{N}]|^[+\-−±⊙⊕]$/u;
 // Quotation marks belong to the sentence, not to a script.
 const QUOTE_RE = /["“”‘’«»]/u;
 
-function scriptRun(item: RawTextItem, geometry: UprightGeometry): boolean {
+function scriptRun(item: RawTextItem, geometry: UprightGeometry, continuation = false): boolean {
   const text = item.str.trim();
   if (
     text !== item.str.trimEnd() ||
     /\s/u.test(text) ||
     CJK_TEXT_RE.test(text) ||
-    MARK_ONLY_RE.test(text) ||
-    !SCRIPT_CONTENT_RE.test(text) ||
+    (!continuation && (MARK_ONLY_RE.test(text) || !SCRIPT_CONTENT_RE.test(text))) ||
     QUOTE_RE.test(text)
   ) {
     return false;
@@ -216,21 +269,51 @@ function scriptRun(item: RawTextItem, geometry: UprightGeometry): boolean {
   return geometry.fontSize > 0 && codePointLength(text) <= MAX_SCRIPT_CHARS;
 }
 
-function attachKind(base: Base, script: UprightGeometry): ScriptKind | undefined {
+/** `slack` widens the gap a script of a script may leave after an italic correction. */
+function attachKind(base: Base, script: UprightGeometry, slack = 1): Attachment | undefined {
   const last = base.groups.at(-1);
   // `−` then `f` on one raised baseline: the same script continues.
-  if (last && continuesScript(last.last, script)) return last.kind;
-  const { fontSize } = base.geometry;
+  if (last?.nested && continuesScript(last.nested.last, script)) return { kind: last.nested.kind, nested: true };
+  if (last && continuesScript(tail(last), script)) return { kind: last.kind, nested: false };
+  const kind = shiftKind(base.geometry, script);
+  if (kind) {
+    // A stacked script (410 with +160 over −180) starts where the first one did.
+    if (touches(base.geometry, script, last ? Math.min(base.geometry.right, last.last.left) : base.right)) {
+      return { kind, nested: false };
+    }
+    // A charge set after an index on the other side of the baseline (SO₃²⁻)
+    // starts where the index ends.
+    if (last && last.kind !== kind && touches(base.geometry, script, last.last.right)) return { kind, nested: false };
+  }
+  // A script of a script (`P_{d_k}`, `dist_{t_0}`) is smaller again and
+  // shifted from that script's own baseline.
+  if (last && !last.nested) {
+    const inner = shiftKind(last.last, script);
+    if (inner && touches(last.last, script, last.last.right, slack)) return { kind: inner, nested: true };
+  }
+  return undefined;
+}
+
+/** Where a script's own baseline goes on from: past a script of it, if it has one. */
+function tail(group: Group): UprightGeometry {
+  const { last, nested } = group;
+  return nested ? { ...last, right: Math.max(last.right, nested.last.right) } : last;
+}
+
+/** Whether `script` is set as a superscript or subscript of `base`, by size and baseline. */
+function shiftKind(base: UprightGeometry, script: UprightGeometry): ScriptKind | undefined {
+  const { fontSize } = base;
   const ratio = script.fontSize / fontSize;
   if (ratio < MIN_SIZE_RATIO || ratio > MAX_SIZE_RATIO) return undefined;
-  // A stacked script (410 with +160 over −180) starts where the first one did.
-  const anchor = last ? Math.min(base.geometry.right, last.last.left) : base.right;
-  const gap = script.left - anchor;
-  if (gap < -MAX_OVERLAP_EM * fontSize || gap > MAX_GAP_EM * fontSize) return undefined;
-  const shift = script.baseline - base.geometry.baseline;
+  const shift = script.baseline - base.baseline;
   if (shift >= MIN_RAISE_EM * fontSize && shift <= MAX_RAISE_EM * fontSize) return 'sup';
   if (-shift >= MIN_LOWER_EM * fontSize && -shift <= MAX_LOWER_EM * fontSize) return 'sub';
   return undefined;
+}
+
+function touches(base: UprightGeometry, script: UprightGeometry, anchor: number, slack = 1): boolean {
+  const gap = script.left - anchor;
+  return gap >= -MAX_OVERLAP_EM * base.fontSize && gap <= MAX_GAP_EM * base.fontSize * slack;
 }
 
 function continuesScript(prev: UprightGeometry, cur: UprightGeometry): boolean {
@@ -241,10 +324,20 @@ function continuesScript(prev: UprightGeometry, cur: UprightGeometry): boolean {
   return gap >= -MAX_OVERLAP_EM * size && gap <= MAX_GAP_EM * size * 2;
 }
 
-function appendScript(base: Base, kind: ScriptKind, str: string, geometry: UprightGeometry): void {
+function appendScript(base: Base, { kind, nested }: Attachment, str: string, geometry: UprightGeometry): void {
   const last = base.groups.at(-1);
   const text = str.trim();
-  if (last && last.kind === kind && continuesScript(last.last, geometry)) {
+  if (nested && last) {
+    if (last.nested) {
+      last.nested.text += text;
+      last.nested.last = geometry;
+    } else {
+      last.nested = { kind, text, last: geometry };
+    }
+  } else if (last && last.kind === kind && continuesScript(tail(last), geometry)) {
+    // Back on the script's own baseline after a script of it (`x_{i_1 j}`).
+    if (last.nested) last.text += renderScript(last.nested.kind, last.nested.text);
+    last.nested = undefined;
     last.text += text;
     last.last = geometry;
   } else {
@@ -297,7 +390,8 @@ function nextTextItem(
 const BARE_SCRIPT_RE = /^(?:.|[+\-−]?\p{Nd}+)$/u;
 
 function renderGroup(group: Group): string {
-  return renderScript(group.kind, group.text);
+  const nested = group.nested ? renderScript(group.nested.kind, group.nested.text) : '';
+  return renderScript(group.kind, group.text + nested);
 }
 
 /** `^19`, `_{drop}`: a script in the page text's notation. */
