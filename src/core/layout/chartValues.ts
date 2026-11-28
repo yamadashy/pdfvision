@@ -247,20 +247,20 @@ function readLines(
   if (unnamed.length > 0) return undefined;
   // A series drawn so it is not read as a line (dashes as separate strokes) still has its
   // values in the plot: a coloured stroke there in no named series' colour is one.
-  const unread = (shapes?.shapes ?? []).some((shape) => {
-    const colour = shape.stroke ?? shape.fill;
-    if (colour === undefined || !isSaturated(colour) || named.some((item) => sameColour(item.line.colour, colour))) {
-      return false;
-    }
-    // A stroked dash is open and lies within the plot (a frame round it is closed).
-    if (shape.stroke !== undefined) {
-      return shape.subpaths.every((subpath) => !subpath.closed) && contains(plot, centreOf(shape));
-    }
-    // Dashes filled as one path of small quads run across the plot.
-    return (
-      shape.subpaths.length >= MIN_VALUES && overlapsBox(shape, plot) && shape.width >= plot.width * DASH_RUN_SHARE
-    );
-  });
+  const unnamedHue = (colour: string | undefined): boolean =>
+    colour !== undefined && isSaturated(colour) && !named.some((item) => sameColour(item.line.colour, colour));
+  const unread = (shapes?.shapes ?? []).some(
+    (shape) =>
+      // A stroked dash is open and lies within the plot (a frame round it is closed).
+      (unnamedHue(shape.stroke) &&
+        shape.subpaths.every((subpath) => !subpath.closed) &&
+        contains(plot, centreOf(shape))) ||
+      // Dashes filled as one path of small quads (outlined or not) run across the plot.
+      (unnamedHue(shape.fill) &&
+        shape.subpaths.length >= MIN_VALUES &&
+        overlapsBox(shape, plot) &&
+        shape.width >= plot.width * DASH_RUN_SHARE),
+  );
   if (unread) return undefined;
   const points = named.flatMap((item) =>
     item.line.points.map((point) => ({ point, series: item.series, line: item.line })),

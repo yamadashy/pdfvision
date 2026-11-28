@@ -480,6 +480,9 @@ describe('chart values (#302)', () => {
       { fill: '#f4b183' },
     );
     expect(layoutOf(spans, [...shapes, filledDashes]).charts?.some((c) => c.kind === 'line')).toBeFalsy();
+    // ... and with a black outline round each quad.
+    const outlined = { ...filledDashes, stroke: '#000000', lineWidth: 0.5 };
+    expect(layoutOf(spans, [...shapes, outlined]).charts?.some((c) => c.kind === 'line')).toBeFalsy();
   });
 
   it('drops a stacked bar legend row from a layout table instead of making it the header', () => {
