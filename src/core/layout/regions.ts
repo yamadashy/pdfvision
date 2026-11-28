@@ -47,6 +47,9 @@ export interface LayoutRegion extends BBox {
   /** At least three marks share a width (or a height) but differ in the
    *  other dimension: bars of a bar chart, not icons or callout circles. */
   bars: boolean;
+  /** The same test over the paths drawn inside a figure framed by one box
+   *  (a chart set in its own panel), whose own marks are only the frame. */
+  framedBars?: boolean;
 }
 
 /** Pages with more painted boxes than this are maps or dense diagrams;
@@ -215,6 +218,10 @@ function evaluateCandidate(
     orderMarks.filter((mark) => mark.height > mark.width).length >= orderMarks.length * VERTICAL_MARK_SHARE;
   region.bars =
     bars && (hasBars(marks, 'width', 'height', region.width) || hasBars(marks, 'height', 'width', region.height));
+  region.framedBars =
+    bars &&
+    orderMarks !== marks &&
+    (hasBars(orderMarks, 'width', 'height', region.width) || hasBars(orderMarks, 'height', 'width', region.height));
   return region;
 }
 

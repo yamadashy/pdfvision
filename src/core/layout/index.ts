@@ -1,4 +1,5 @@
 import type { LayoutBlock, LayoutLine, PageLayout, TextSpan } from '../../types/index.js';
+import { findPanels, splitTablesAtChartPanels } from './chartPanels.js';
 import { dropLegendRows, readChartValues } from './chartValues.js';
 import { choiceMarks } from './choiceMarks.js';
 import { extractCodeBlocks } from './codeBlocks.js';
@@ -108,11 +109,28 @@ function buildUprightLayout(
   const { lines, columnGutters } = buildLayoutLinesWithGutters(grid.remainingSpans, pageWidth, rules.vertical);
   // A "table" whose every column boundary is a detected prose gutter is the
   // page's text columns read across (#242), not a table.
-  const detectedTables = detectLayoutTables(lines, rules, graphics?.vectorBoxes)?.filter(
-    (table) => !isProseColumnTable(table, columnGutters),
-  );
+  const readTables = (tableLines: LayoutLine[], gutters: typeof columnGutters) =>
+    detectLayoutTables(tableLines, rules, graphics?.vectorBoxes)?.filter(
+      (table) => !isProseColumnTable(table, gutters),
+    );
   // A chart's legend row is not a table header; its values pair with their series by colour instead.
   const chartReading = readChartValues(spans, graphics?.chartMarks, graphics?.vectorShapes, graphics?.textColours);
+  // Labels of charts set side by side in their own panels are not one table's rows.
+  const panels = findPanels(
+    graphics?.vectorShapes,
+    graphics?.chartMarks,
+    chartReading.charts,
+    chartReading.legends.map((entry) => unionBox([entry.box, entry.swatch])),
+  );
+  const detectedTables = splitTablesAtChartPanels(
+    readTables(lines, columnGutters),
+    panels,
+    grid.remainingSpans,
+    (panelSpans) => {
+      const panelLines = buildLayoutLinesWithGutters(panelSpans, pageWidth, rules.vertical);
+      return readTables(panelLines.lines, panelLines.columnGutters);
+    },
+  );
   const keptTables = dropLegendRows(detectedTables, chartReading.legends, graphics?.vectorShapes);
   const tables = keptTables && keptTables.length > 0 ? keptTables : undefined;
   const charts = chartReading.charts.length > 0 ? chartReading.charts : undefined;
