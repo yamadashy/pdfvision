@@ -147,6 +147,27 @@ function helpers(doc, dir) {
       fn();
       doc.restore();
     },
+    /**
+     * Write text operators by hand, for a case about how text is drawn
+     * (character spacing, one glyph per `Tj`, `TJ` adjustments). `fn` gets
+     * `{ id, hex, width }` — the font's resource name, the hex string that
+     * draws a text in it, and a text's width at `size` — and returns
+     * content-stream lines, which run in PDF coordinates (origin bottom-left,
+     * y up) with nothing selected yet: each `BT` sets its own `Tf`.
+     */
+    textOperators(font, size, fn) {
+      doc.font(font).fontSize(size);
+      const current = doc._font;
+      doc.page.fonts[current.id] ??= current.ref();
+      const lines = fn({
+        id: current.id,
+        hex: (text) => `<${current.encode(text)[0].join('')}>`,
+        width: (text) => current.widthOfString(text, size),
+      });
+      doc.addContent(`q 1 0 0 -1 0 ${doc.page.height} cm`);
+      for (const line of lines) doc.addContent(line);
+      doc.addContent('Q');
+    },
     /** Bytes of a committed file under the case's `assets/` directory. */
     asset(name) {
       if (!dir) throw new Error('helpers.asset needs the case directory');

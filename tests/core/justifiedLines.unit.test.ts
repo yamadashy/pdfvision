@@ -73,6 +73,21 @@ describe('letter spacing set by TJ adjustments (#268)', () => {
     expect(hints.get('f1')?.trackedWords?.split('\u0000')).toEqual(['CLASS']);
   });
 
+  it('records tracking written together with pair kerning into each adjustment', () => {
+    const pushes = [-150, -180, -130, -150, -150, -190, -120, -150];
+    const glyphs = Array.from('CLASSROOM').flatMap((char, i) =>
+      i === 0 ? [glyph(char)] : [pushes[i - 1], glyph(char)],
+    );
+    const hints = collectFontTextHints([3, 5], [['f1', 8], [glyphs]], OPS, () => undefined);
+    expect(hints.get('f1')?.trackedWords?.split('\u0000')).toEqual(['CLASSROOM']);
+  });
+
+  it('does not take a word move between two short words for a pair kern', () => {
+    const words = [glyph('G'), -80, glyph('O'), -180, glyph('T'), -80, glyph('O')];
+    const hints = collectFontTextHints([3, 5], [['f1', 8], [words]], OPS, () => undefined);
+    expect(hints.get('f1')?.trackedWords).toBeUndefined();
+  });
+
   it('does not take justified word spaces for tracking', () => {
     // `as a b conference`: the same push between words, single-letter words in a row.
     const words = [glyph('a'), glyph('s'), -383, glyph('a'), -383, glyph('b'), -383, glyph('c'), glyph('o')];

@@ -1,6 +1,8 @@
+import type { LineGlyphLookup } from '../graphics/lineGlyphs.js';
 import { joinBaselineRuns } from './baselineRuns.js';
 import { mapSymbolFontText, type PageFontTextHints } from './fontTextHints.js';
-import { joinJustifiedGlyphRuns, removeTrackingSpaces } from './letterSpacing.js';
+import { joinJustifiedGlyphRuns } from './justifiedGlyphRuns.js';
+import { removeTrackingSpaces } from './letterSpacing.js';
 import { collapseOverdrawnText } from './overdraw.js';
 import { attachScripts } from './scripts.js';
 import { isRawTextItem } from './textItems.js';
@@ -12,11 +14,15 @@ import { isRawTextItem } from './textItems.js';
  * overdrawn copies are dropped before anything is merged, and scripts are
  * attached last, to bases that are already whole.
  */
-export function prepareTextItems(items: readonly unknown[], hints: PageFontTextHints = new Map()): unknown[] {
+export function prepareTextItems(
+  items: readonly unknown[],
+  hints: PageFontTextHints = new Map(),
+  lineGlyphs?: LineGlyphLookup,
+): unknown[] {
   let prepared = hints.size > 0 ? decodeSymbolFonts(items, hints) : [...items];
   prepared = collapseOverdrawnText(prepared);
   if (hints.size > 0) prepared = removeTrackingSpaces(prepared, hints);
-  prepared = joinJustifiedGlyphRuns(prepared);
+  prepared = joinJustifiedGlyphRuns(prepared, lineGlyphs);
   prepared = joinBaselineRuns(prepared);
   // An OCR layer's glyph boxes jitter in size and baseline; nothing in them is a script.
   return attachScripts(prepared, (fontName) => hints.get(fontName)?.invisible !== true);

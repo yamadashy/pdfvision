@@ -45,8 +45,15 @@ const MIN_TRACKING_EM = 0.05;
 /** TJ adjustments are in thousandths of an em; negative moves right. */
 const MIN_KERN_TRACKING = 60;
 const MAX_KERN_TRACKING = 600;
-/** Every adjustment of a tracked run is within this share of the first. */
+/**
+ * Every adjustment of a tracked run is within this share of the first, or
+ * within a pair kern of it (see kernTolerance): a typesetter that writes
+ * tracking and kerning into one adjustment per pair gives `AV` more push
+ * than `OU`.
+ */
 const KERN_TRACKING_TOLERANCE = 0.1;
+const KERN_PAIR_TOLERANCE = 100;
+const KERN_PAIR_SHARE = 0.5;
 /** Fewer glyphs than this between equal adjustments can be single-letter words (`a b c`). */
 const MIN_KERN_TRACKED_GLYPHS = 4;
 /**
@@ -54,8 +61,13 @@ const MIN_KERN_TRACKED_GLYPHS = 4;
  * Latin stop ends it. Math set with even spacing (`a + b`, `. . .`) and a
  * row of single digits keep their spaces.
  */
-const KERN_TRACKED_CHAR_RE = /^[\p{L}\p{N}\p{M}\u3000-\u303f\u30fb\u30fc\uff01-\uff0f\uff1a-\uff20]+$/u;
+export const KERN_TRACKED_CHAR_RE = /^[\p{L}\p{N}\p{M}\u3000-\u303f\u30fb\u30fc\uff01-\uff0f\uff1a-\uff20]+$/u;
 const MIN_TRACKED_WORD_CHARS = 2;
+/**
+ * In text tracked with `Tc`, a `TJ` adjustment is pair kerning; one larger
+ * than this moves to a new word (`[(1) -2000 (Scope)]`, a matrix's entries).
+ */
+const MAX_KERN_IN_TRACKED_WORD = 200;
 const MAX_TRACKED_WORDS_PER_FONT = 2000;
 
 interface GlyphLike {
@@ -170,6 +182,10 @@ function recordTrackedWords(acc: FontAccumulator, glyphs: readonly unknown[]): v
     word = '';
   };
   for (const glyph of glyphs) {
+    if (typeof glyph === 'number') {
+      if (Math.abs(glyph) > MAX_KERN_IN_TRACKED_WORD) flush();
+      continue;
+    }
     if (!glyph || typeof glyph !== 'object') continue;
     const { unicode, isSpace } = glyph as GlyphLike;
     if (typeof unicode !== 'string') continue;
@@ -222,7 +238,7 @@ function recordKernTrackedWords(acc: FontAccumulator, glyphs: readonly unknown[]
       adjustment !== undefined &&
       -adjustment >= MIN_KERN_TRACKING &&
       -adjustment <= MAX_KERN_TRACKING &&
-      (kern === undefined || Math.abs(adjustment - kern) <= Math.abs(kern) * KERN_TRACKING_TOLERANCE);
+      (kern === undefined || Math.abs(adjustment - kern) <= kernTolerance(kern));
     if (glyphCount > 0 && tracked) {
       kern ??= adjustment;
       run += unicode;
@@ -238,6 +254,16 @@ function recordKernTrackedWords(acc: FontAccumulator, glyphs: readonly unknown[]
     previousWasGlyph = true;
   }
   flush(false);
+}
+
+/**
+ * How far a tracked run's adjustments may stray from its first: a pair kern,
+ * but never half the tracking itself, so a word move between two short
+ * words (`[(G) -80 (O) -180 (T) -80 (O)]`) is not taken for one.
+ */
+function kernTolerance(kern: number): number {
+  const tracking = Math.abs(kern);
+  return Math.max(tracking * KERN_TRACKING_TOLERANCE, Math.min(KERN_PAIR_TOLERANCE, tracking * KERN_PAIR_SHARE));
 }
 
 function withoutConflicts(charMap: Map<string, string>, mappedChars: ReadonlySet<string>): Map<string, string> {
