@@ -76,7 +76,7 @@ All three document counts are omitted when zero. Per-page `formFieldCount`, `lin
 
 OCR 不会覆盖原生文本。使用方应比较 `page.text` 与 `page.ocr?.text` 后再选择。
 
-Superscripts and subscripts are written inline as `^…` / `_…` in `text`, layout text, and spans — `^x` for one character or a digit run, `^{…}` otherwise (`10^19`, `P_{drop}`, `^1` for a footnote marker) — so an exponent never reads as trailing digits. Before that, copies of a run overdrawn to fake bold are kept once, spaces pdf.js inserts into letter-spaced text are removed, and ZapfDingbats/Symbol glyphs that pdf.js returns as character codes are decoded (`3` → `✓`). See `pdfvision docs schema`. Letter spacing set with the same `TJ` adjustment between every glyph of a word (`C L A S S`, a tracked Japanese line) is removed like character spacing.
+Superscripts and subscripts are written inline as `^…` / `_…` in `text`, layout text, and spans — `^x` for one character or a digit run, `^{…}` otherwise (`10^19`, `P_{drop}`, `^1` for a footnote marker); a raised and a lowered script on one base stay two scripts (`Γ^k_{ij}`, `SO_3^{2−}`, `0.112^{+0.008}_{−0.009}`) and a script of a script is nested in it (`η_{t_0}`) — so an exponent never reads as trailing digits. Before that, copies of a run overdrawn to fake bold are kept once, spaces pdf.js inserts into letter-spaced text are removed, and ZapfDingbats/Symbol glyphs that pdf.js returns as character codes are decoded (`3` → `✓`). See `pdfvision docs schema`. Letter spacing set with the same `TJ` adjustment between every glyph of a word (`C L A S S`, a tracked Japanese line) is removed like character spacing.
 
 可选字段是有意 opt-in 的。`--layout --form-fields` 的 JSON 与没有请求这些 flags 的 JSON 不同。当请求了某个功能但没有找到元素时，pdfvision 会尽量使用空数组或 null-like 结构，帮助消费者区分“未请求”和“请求了但不存在”。
 
