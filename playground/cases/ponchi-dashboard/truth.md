@@ -2,7 +2,7 @@
 
 - **Stresses:** A4 landscape CJK slide; about twenty rounded boxes joined by arrows; four vector charts whose values are free data labels; 100% stacked bar and donut labels with no series link; rotated label on a vertical band
 - **Families:** vector-meaning, reading-order, vertical-rotated, scripts
-- **Status:** known-gap (#302)
+- **Status:** ok
 
 One A4 landscape slide from a fictional ministry (国土産業振興省 地域政策局), labelled `資料２`,
 dated 令和8年11月, page number `2` at the bottom right.
@@ -51,18 +51,21 @@ to its bar, point or segment; nothing in the text says which label belongs to wh
 4. 「地域で指導者・講師を確保できない」という課題に対応する施策は？ — ④ 講師育成・認定制度の創設
 5. 支援対象者の内訳で最も割合が大きいのは何で、何%か？ — 在職者、45%
 
-Partly fixed (#302, #265): `### Chart values` pairs three of the four charts with their series by
+Read (#302, #265): `### Chart values` pairs three of the four charts with their series by
 colour, each legend scoped to its own panel (取組済 and 在職者 share a colour across panels):
 - Line chart: `| 地方部 | 0.9 | 1.1 | 1.4 | 1.6 | 1.9 |` under the years — question 2.
 - Stacked bars: `| 未着手 | 10% | 26% | 48% | 70% |` under the company sizes — question 3. The
-  小規模事業者 row's `9%` and `21%` come out as one text item and are left blank.
+  小規模事業者 row's `9%` and `21%` come out as one text item; the chart says 2 labels could not be
+  paired and `vector_chart_labels` names its panel (`436,308,190,250`) to render.
 - Donut: `在職者 | 45%` — question 5.
 - Bar chart (one series, no legend): read bar by bar inside its frame, the title first: `(万人)` /
-  `8.2` / `2022` / … / `14.6` / `2026`, so question 1 (12.8 → 2025) is answered by adjacency.
+  `8.2` / `2022` / … / `14.6` / `2026`, so question 1 (12.8 → 2025) is answered by adjacency, and
+  `vector_chart_labels` names its own panel (`40,308,190,250`), not the row of charts.
 - Flow: `### Connections` lists the four 課題 → 施策 arrows, so question 4 is answered from the drawing;
   the block arrow into the 効果 column joins columns, not boxes, and is not listed.
 
-**Known gap (#302):** the layout table (`Table 1 (6 rows × 5 columns)`) still spans the bar, line and
-stacked charts and mixes `12.8 | 中堅企業 | 41% | 33% | 26%` into one row, and `vector_chart_labels`
-still names the whole chart row (the stacked chart has blanks). `①〜④` come back NFKC-normalised as
-`1〜4` (intended). The rotated band label `令和9年度 概算要求 重点施策` reads correctly.
+Each chart sits in its own drawn panel, so the chart labels are read panel by panel: no layout table
+takes labels from two charts (a 6 × 5 table used to mix `12.8 | 中堅企業 | 41% | 33% | 26%` into one
+row). The one table left is the stacked chart's own first two rows (`大企業 | 62% |  | 28% 10%`), inside
+the panel the warning names. `①〜④` come back NFKC-normalised as `1〜4` (intended). The rotated band
+label `令和9年度 概算要求 重点施策` reads correctly.

@@ -18,10 +18,18 @@ import { type BBox, round2 } from './geometry.js';
  */
 
 const NUMERIC = /^[-+−–]?\d[\d.,]*\s*[%‰]?$/u;
+/** Each value label in a text item (`9% 21%`, `9 % 21 %`). */
+const NUMERIC_LABELS = /[-+−–]?\d[\d.,]*(?:\s*[%‰])?/gu;
+/** Two value labels or more in one text item. */
+const NUMERIC_RUN = /^[-+−–]?\d[\d.,]*\s*[%‰]?(?:\s+[-+−–]?\d[\d.,]*\s*[%‰]?)+$/u;
 /** A legend name starts within this many ems right of its swatch. */
 const LEGEND_GAP_EM = 1.2;
 /** Colours this close per channel are one colour (anti-aliased exports round differently). */
 const SAME_COLOUR = 6;
+/** A run of filled dashes is a series when it spans this share of the plot's width. */
+const DASH_RUN_SHARE = 0.3;
+/** Channels this far apart make a colour a hue rather than a grey. */
+const SATURATED_SPREAD = 40;
 /** A point label stands within this many ems of its point. */
 const POINT_REACH_EM = 1.6;
 const AMBIGUITY = 1.5;
@@ -71,7 +79,7 @@ export function readChartValues(
     const chart = readPie(pie, values, key);
     if (chart) charts.push(chart);
   }
-  const lineChart = readLines(marks, values, spans, key, textColours ?? []);
+  const lineChart = readLines(marks, values, spans, key, textColours ?? [], shapes);
   if (lineChart) charts.push(lineChart);
   charts.push(...readBars(shapes, values, spans, key));
   return { charts, legends };
@@ -136,6 +144,12 @@ function cutAt(spans: readonly TextSpan[], stop: number): string {
   return text;
 }
 
+/** A hue, not black, white or a grey axis or gridline. */
+function isSaturated(colour: string): boolean {
+  const rgb = parseHexColor(colour);
+  return rgb !== undefined && Math.max(...rgb) - Math.min(...rgb) > SATURATED_SPREAD;
+}
+
 function sameColour(a: string | undefined, b: string | undefined): boolean {
   if (a === undefined || b === undefined) return false;
   if (a === b) return true;
@@ -167,18 +181,19 @@ function seriesOf(colour: string, key: Key, mark: BBox): string | undefined {
 function panelOf(mark: BBox, panels: readonly BBox[]): BBox | undefined {
   let best: BBox | undefined;
   for (const frame of panels) {
-    if (frame.width * frame.height < mark.width * mark.height * 2) continue;
-    if (
-      mark.x < frame.x - 1 ||
-      mark.y < frame.y - 1 ||
-      mark.x + mark.width > frame.x + frame.width + 1 ||
-      mark.y + mark.height > frame.y + frame.height + 1
-    ) {
-      continue;
-    }
+    if (frame.width * frame.height < mark.width * mark.height * 2 || !holdsBox(frame, mark)) continue;
     if (!best || frame.width * frame.height < best.width * best.height) best = frame;
   }
   return best;
+}
+
+function holdsBox(outer: BBox, inner: BBox): boolean {
+  return (
+    inner.x >= outer.x - 1 &&
+    inner.y >= outer.y - 1 &&
+    inner.x + inner.width <= outer.x + outer.width + 1 &&
+    inner.y + inner.height <= outer.y + outer.height + 1
+  );
 }
 
 function boxGap(a: BBox, b: BBox): number {
@@ -220,6 +235,7 @@ function readLines(
   spans: readonly TextSpan[],
   legends: Key,
   textColours: readonly TextColourRun[],
+  shapes: VectorShapeSet | undefined,
 ): LayoutChart | undefined {
   const named = marks.lines
     .map((line) => ({ line, series: seriesOf(line.colour, legends, line) }))
@@ -229,6 +245,23 @@ function readLines(
   const plot = unionOf(named.map((item) => item.line));
   const unnamed = marks.lines.filter((line) => !named.some((item) => item.line === line) && overlapsBox(line, plot));
   if (unnamed.length > 0) return undefined;
+  // A series drawn so it is not read as a line (dashes as separate strokes) still has its
+  // values in the plot: a coloured stroke there in no named series' colour is one.
+  const unnamedHue = (colour: string | undefined): boolean =>
+    colour !== undefined && isSaturated(colour) && !named.some((item) => sameColour(item.line.colour, colour));
+  const unread = (shapes?.shapes ?? []).some(
+    (shape) =>
+      // A stroked dash is open and lies within the plot (a frame round it is closed).
+      (unnamedHue(shape.stroke) &&
+        shape.subpaths.every((subpath) => !subpath.closed) &&
+        contains(plot, centreOf(shape))) ||
+      // Dashes filled as one path of small quads (outlined or not) run across the plot.
+      (unnamedHue(shape.fill) &&
+        shape.subpaths.length >= MIN_VALUES &&
+        overlapsBox(shape, plot) &&
+        shape.width >= plot.width * DASH_RUN_SHARE),
+  );
+  if (unread) return undefined;
   const points = named.flatMap((item) =>
     item.line.points.map((point) => ({ point, series: item.series, line: item.line })),
   );
@@ -331,31 +364,62 @@ function readBars(
       points.length === 4 && shape.width >= 3 && shape.height >= 3 && seriesOf(shape.fill, legends, shape) !== undefined
     );
   });
+  // Charts set side by side each in their own panel are read apart: one row of bars never crosses a frame.
+  const groups = new Map<BBox | undefined, VectorShape[]>();
+  for (const bar of bars) {
+    const frame = panelOf(bar, legends.panels);
+    groups.set(frame, [...(groups.get(frame) ?? []), bar]);
+  }
+  // A label inside another chart's panel is that chart's: neither a value nor a category of this one.
+  const frames = [...groups.keys()].filter((frame): frame is BBox => frame !== undefined);
+  return [...groups].flatMap(([frame, group]) => {
+    // A frame round this group's own frame (the poster column round a plot) is not another chart's.
+    const others = frames.filter((other) => other !== frame && !(frame && holdsBox(other, frame)));
+    const own = (span: TextSpan) => !others.some((other) => contains(other, centreOf(span)));
+    return readBarGroup(group, values.filter(own), spans.filter(own), legends);
+  });
+}
+
+function readBarGroup(
+  bars: readonly VectorShape[],
+  values: readonly TextSpan[],
+  spans: readonly TextSpan[],
+  legends: Key,
+): LayoutChart[] {
   if (bars.length < MIN_VALUES) return [];
   const out: LayoutChartValue[] = [];
   const used: BBox[] = [];
   let rows = 0;
   // Category labels stand outside the bars; a value inside a lower segment is not one.
   const outside = spans.filter((span) => !bars.some((bar) => contains(bar, centreOf(span))));
+  let unpaired = 0;
   for (const span of values) {
     const c = centreOf(span);
     const inside = bars.filter((bar) => contains(bar, c));
     const holders = inside.length > 0 ? inside : barsUnder(span, bars);
-    if (holders.length !== 1 || !holders[0].fill) continue;
-    const bar = holders[0];
-    const series = seriesOf(bar.fill as string, legends, bar);
-    if (series === undefined) continue;
+    const bar = holders.length === 1 ? holders[0] : undefined;
+    const series = bar?.fill !== undefined ? seriesOf(bar.fill, legends, bar) : undefined;
+    if (bar === undefined || series === undefined) {
+      // A label set inside a segment is one of the chart's values even when it cannot be paired.
+      if (inside.length > 0) unpaired++;
+      continue;
+    }
     const row = inside.length > 0 ? rowLabel(bar, bars, spans) : undefined;
     if (row !== undefined) rows++;
     const category = row ?? groupLabelBelow(stackBase(bar, bars), outside);
     out.push(chartValue(span, series, category));
     used.push(bar);
   }
-  if (out.length < MIN_VALUES) return [];
+  // Neighbouring segments' labels can come as one text item (`9% 21%`): each is a value left unpaired.
+  for (const span of spans) {
+    if (!NUMERIC_RUN.test(span.text.trim()) || !bars.some((bar) => contains(bar, centreOf(span)))) continue;
+    unpaired += span.text.match(NUMERIC_LABELS)?.length ?? 0;
+  }
+  if (out.length < MIN_VALUES || out.length < (out.length + unpaired) * MIN_PAIRED_SHARE) return [];
   // Only charts whose categories all resolved are worth a table; partial ones stay with the warning.
   if (out.some((value) => value.category === undefined)) return [];
   // Horizontal bars take their categories down the page, vertical bars across it.
-  return [chartOf('bar', unionOf(used), sortValues(out, legends.entries, rows === out.length ? 'y' : 'x'))];
+  return [chartOf('bar', unionOf(used), sortValues(out, legends.entries, rows === out.length ? 'y' : 'x'), unpaired)];
 }
 
 /**

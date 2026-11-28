@@ -39,7 +39,7 @@ $H_0 = 68.2^{+6.1}_{-4.7}$ km s⁻¹ Mpc⁻¹.
 5. What does Eq. (4) give for E(z)² at low redshift? — approximately 1 + 0.93 z (from 0.31(1+z)³ + 0.69)
 
 Inline scripts are marked and stay on their line (#241). The stacked uncertainties read
-`d_L = 410^+160_−180 Mpc (z = 0.09^{+0.03}_{−0.04})` (question 1), the mass `36^+5_−4 M⊙`
+`d_L = 410^+160_−180 Mpc (z = 0.09^{+0.03}_{−0.04})` (question 1), the mass `36^+5_−4 M_⊙`
 (question 2), and `H_0 = 68.2^{+6.1}_{−4.7} km s^−1 Mpc^−1`; inline symbols keep their subscripts
 (`σ_k`, `θ = (H_0, Ω_m)`).
 

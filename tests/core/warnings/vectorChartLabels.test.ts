@@ -136,4 +136,75 @@ describe('vector_chart_labels', () => {
     const kept = detectPageWarnings(result, { vectorBoxes: lineBoxes, vectorFigures: series });
     expect(kept.some((w) => w.code === 'vector_chart_labels')).toBe(true);
   });
+  /** A bar chart in its own frame: title, value labels over the bars, years under them. */
+  function framedBars(x: number, values: readonly number[]) {
+    const boxes: VectorBox[] = [{ x, y: 300, width: 190, height: 250 }];
+    const labels = [label('Shortfall (k)', x + 16, 308, 60)];
+    values.forEach((value, i) => {
+      const height = value * 10;
+      const bx = x + 20 + i * 34;
+      boxes.push({ x: bx, y: 520 - height, width: 18, height });
+      labels.push(label(String(value), bx + 2, 508 - height, 14), label(String(2022 + i), bx, 526, 16));
+    });
+    return { boxes, labels };
+  }
+
+  it('names each framed chart of a row on its own, not the row', () => {
+    const a = framedBars(40, [8.2, 9.5, 11.3, 12.8]);
+    const b = framedBars(238, [3.1, 3.8, 4.6, 5.2]);
+    const out = detectPageWarnings(page([...a.labels, ...b.labels]), { vectorBoxes: [...a.boxes, ...b.boxes] });
+    const regions = out
+      .filter((w) => w.code === 'vector_chart_labels')
+      .map((w) => w.message.match(/--render-region (\S+)\)/u)?.[1]);
+    expect(regions).toEqual(['40,300,190,250', '238,300,190,250']);
+  });
+
+  it('names the panel of a chart whose values were read only in part', () => {
+    const a = framedBars(40, [8.2, 9.5, 11.3, 12.8]);
+    // A stacked chart in the next frame: no bars a bounding box can tell, but read in part by colour.
+    const stack = [
+      label('Large', 250, 340, 22),
+      label('62%', 300, 340, 14),
+      label('28% 10%', 360, 340, 30),
+      label('Medium', 250, 376, 26),
+      label('41%', 300, 376, 14),
+      label('33%', 340, 376, 14),
+      label('26%', 380, 376, 14),
+    ];
+    const values = ['62%', '41%', '33%', '26%'].map((value, i) => ({
+      value,
+      series: ['Done', 'Done', 'Planned', 'None'][i],
+      category: i === 0 ? 'Large' : 'Medium',
+      x: 300 + i * 20,
+      y: i === 0 ? 340 : 376,
+      width: 14,
+      height: 8,
+    }));
+    const result = page([...a.labels, ...stack]);
+    result.layout = {
+      blocks: [...a.labels, ...stack],
+      charts: [{ kind: 'bar', unpaired: 2, x: 290, y: 336, width: 120, height: 50, values }],
+    };
+    const boxes = [...a.boxes, { x: 238, y: 300, width: 190, height: 250 }];
+    const out = detectPageWarnings(result, { vectorBoxes: boxes });
+    const regions = out
+      .filter((w) => w.code === 'vector_chart_labels')
+      .map((w) => w.message.match(/--render-region (\S+)\)/u)?.[1]);
+    expect(regions).toContain('238,300,190,250');
+    expect(regions).not.toContain('40,300,388,250');
+    // A chart read whole beside it in the same figure does not silence it.
+    const pie = {
+      kind: 'pie' as const,
+      x: 380,
+      y: 420,
+      width: 40,
+      height: 40,
+      values: [{ ...values[0], series: 'A' }],
+    };
+    result.layout.charts = [...(result.layout.charts ?? []), pie];
+    const beside = detectPageWarnings(result, { vectorBoxes: boxes })
+      .filter((w) => w.code === 'vector_chart_labels')
+      .map((w) => w.message.match(/--render-region (\S+)\)/u)?.[1]);
+    expect(beside).toContain('238,300,190,250');
+  });
 });
