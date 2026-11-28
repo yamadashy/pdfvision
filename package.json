@@ -93,6 +93,6 @@
     "vitepress": "^1.6.4",
     "vitepress-plugin-llms": "^1.15.0",
     "vitest": "^5.1.1",
-    "wrangler": "^4.165.0"
+    "wrangler": "^4.166.0"
   }
 }
